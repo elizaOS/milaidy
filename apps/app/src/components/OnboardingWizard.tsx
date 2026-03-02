@@ -864,10 +864,10 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                where should i live?
+                {t("onboarding.whereShouldILive")}
               </h2>
               <p className="text-[13px] text-txt mt-1 opacity-70">
-                pick how u want me to run bb
+                {t("onboarding.pickHowToRun")}
               </p>
             </div>
             <div className="flex flex-col gap-3 max-w-[460px] mx-auto">

@@ -78,6 +78,8 @@ function createContext(
     chatAgentVoiceMuted: false,
     selectedVrmIndex: 0,
     uiLanguage: "en",
+    chatPendingImages: [],
+    setChatPendingImages: vi.fn(),
     ...overrides,
   };
 }

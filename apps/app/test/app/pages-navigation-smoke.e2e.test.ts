@@ -259,6 +259,8 @@ describe("pages navigation smoke (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       plugins: [],
+      uiShellMode: "native",
+      uiLanguage: "en",
       setTab: (tab: Tab) => {
         state.tab = tab;
       },
@@ -485,6 +487,8 @@ describe("pages navigation smoke (e2e)", () => {
         tab: "chat",
         actionNotice: null,
         plugins: [],
+        uiShellMode: "native",
+        uiLanguage: "en",
         setTab: (tab: Tab) => {
           state.tab = tab;
         },

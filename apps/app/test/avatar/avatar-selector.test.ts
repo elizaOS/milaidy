@@ -57,7 +57,7 @@ describe("Avatar VRM Utilities", () => {
     });
 
     it("returns named VRM preview for named VRMs (33)", () => {
-      expect(getVrmPreviewUrl(33)).toBe("/vrms/shaw.jpg");
+      expect(getVrmPreviewUrl(33)).toBe("/vrms/previews/shaw.jpg");
     });
 
     it("clamps invalid preview indices to avatar 1", () => {

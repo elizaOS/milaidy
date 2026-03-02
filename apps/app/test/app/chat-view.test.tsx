@@ -28,6 +28,9 @@ interface ChatViewContextStub {
           prev: Array<{ data: string; mimeType: string; name: string }>,
         ) => Array<{ data: string; mimeType: string; name: string }>),
   ) => void;
+  uiLanguage: "en" | "zh-CN";
+  chatMode: "simple" | "power";
+  chatAgentVoiceMuted: boolean;
 }
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
@@ -80,6 +83,9 @@ function createContext(
     selectedVrmIndex: 0,
     chatPendingImages: [],
     setChatPendingImages: vi.fn(),
+    uiLanguage: "en",
+    chatMode: "simple",
+    chatAgentVoiceMuted: false,
     ...overrides,
   };
 }
@@ -506,7 +512,7 @@ describe("ChatView", () => {
     const micButton = tree?.root.find(
       (node) =>
         node.type === "button" &&
-        node.props["aria-label"] === "Start voice input",
+        node.props["aria-label"] === "Voice input",
     );
     expect(micButton.props["aria-pressed"]).toBe(false);
   });
@@ -520,9 +526,9 @@ describe("ChatView", () => {
     });
     await flush();
 
-    // Find send button by title since we now use an icon instead of text
+    // Find send button by aria-label since we now use an icon instead of text
     const sendButton = tree?.root.find(
-      (node) => node.type === "button" && node.props.title === "Send message",
+      (node) => node.type === "button" && node.props["aria-label"] === "Send",
     );
     expect(sendButton.props.disabled).toBe(true);
   });

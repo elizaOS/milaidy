@@ -171,6 +171,17 @@ export default defineConfig({
         find: "electron",
         replacement: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
       },
+      {
+        // @noble/curves@2.x exports require .js suffix; vitest resolves without it.
+        find: /^@noble\/curves\/(?!.*\.js$)(.*)/,
+        replacement: path.join(
+          repoRoot,
+          "node_modules",
+          "@noble",
+          "curves",
+          "$1.js",
+        ),
+      },
     ],
   },
   test: {

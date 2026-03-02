@@ -170,7 +170,7 @@ describe("Settings language switch", () => {
     });
 
     const zhButton = tree!.root.findAll(
-      (node) => node.type === "button" && nodeText(node).trim() === "简体中文",
+      (node) => node.type === "button" && nodeText(node).trim() === "中",
     )[0];
     expect(zhButton).toBeDefined();
 

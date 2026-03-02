@@ -25,6 +25,7 @@ import {
 } from "../hooks/useVoiceChat";
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { createTranslator } from "../i18n";
+import { MessageContent } from "./MessageContent";
 
 function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -37,7 +38,14 @@ function isMobileViewport(): boolean {
 const CHAT_INPUT_MIN_HEIGHT_PX = 38;
 const CHAT_INPUT_MAX_HEIGHT_PX = 200;
 
-export function ChatView() {
+export type ChatViewVariant = "default" | "game-modal";
+
+interface ChatViewProps {
+  variant?: ChatViewVariant;
+}
+
+export function ChatView({ variant = "default" }: ChatViewProps) {
+  const isGameModal = variant === "game-modal";
   const {
     agentStatus,
     chatInput,
@@ -50,6 +58,7 @@ export function ChatView() {
     droppedFiles,
     shareIngestNotice,
     chatAgentVoiceMuted: agentVoiceMuted,
+    chatMode,
     selectedVrmIndex,
     chatPendingImages,
     setChatPendingImages,
@@ -387,6 +396,30 @@ export function ChatView() {
       >
         {visibleMsgs.length === 0 && !chatSending ? (
           <ChatEmptyState agentName={agentName} />
+        ) : isGameModal ? (
+          <div className="chat-game-message-list">
+            {visibleMsgs.map((msg) => {
+              const isUser = msg.role === "user";
+              return (
+                <div key={msg.id} className="chat-game-message-row">
+                  <div
+                    className={`chat-game-bubble ${isUser ? "chat-game-bubble-user" : ""}`}
+                  >
+                    <div className="chat-game-message-body">
+                      <MessageContent message={msg} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {chatSending && !chatFirstTokenReceived && (
+              <div className="chat-game-message-row">
+                <div className="chat-game-bubble chat-game-bubble-typing">
+                  <span className="chat-game-typing-dots">...</span>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="w-full pr-2 sm:pr-3 space-y-1">
             {visibleMsgs.map((msg, i) => {
@@ -488,35 +521,13 @@ export function ChatView() {
         className="hidden"
         onChange={handleFileInputChange}
       />
-      <div
-        className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative"
-        style={{ zIndex: 1 }}
-      >
-        {/* Paperclip / image attach button */}
-        <button
-          type="button"
-          className={`h-[38px] w-[38px] shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all duration-200 hover:shadow-sm self-end ${
-            chatPendingImages.length > 0
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-card text-muted hover:border-accent hover:text-accent"
-          }`}
-          onClick={() => fileInputRef.current?.click()}
-          aria-label="Attach image"
-          title="Attach image"
-          disabled={isComposerLocked}
-        >
-          <Paperclip className="w-4 h-4" />
-        </button>
-
-        {/* Mic button — user voice input */}
-        {voice.supported && (
+      {isGameModal ? (
+        /* ── Game-modal composer ──────────────────────────────────────── */
+        <div className="chat-game-composer" style={{ zIndex: 1 }}>
+          {/* Mic button */}
           <button
             type="button"
-            className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
-              voice.isListening
-                ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
-                : "border-border bg-card text-muted hover:border-accent hover:text-accent"
-            }`}
+            className={`chat-game-mic-btn${voice.isListening ? " is-listening" : ""}`}
             onClick={voice.toggleListening}
             aria-label={
               isAgentStarting
@@ -525,84 +536,172 @@ export function ChatView() {
                   ? t("chat.stopListening")
                   : t("chat.voiceInput")
             }
-            aria-pressed={voice.isListening}
-            title={
-              isAgentStarting
-                ? t("chat.agentStarting")
-                : voice.isListening
-                  ? t("chat.stopListening")
-                  : t("chat.voiceInput")
-            }
             disabled={isComposerLocked}
           >
-            {voice.isListening ? (
-              <Mic className="w-4 h-4 fill-current" />
-            ) : (
-              <Mic className="w-4 h-4" />
-            )}
+            <Mic className="w-4 h-4" />
           </button>
-        )}
 
-        {/* Textarea / live transcript */}
-        {voice.isListening && voice.interimTranscript ? (
-          <div className="flex-1 min-w-0 px-3 py-2 border border-accent bg-card text-txt text-sm font-body leading-relaxed min-h-[38px] flex items-center">
-            <span className="text-muted italic">{voice.interimTranscript}</span>
-          </div>
-        ) : (
-          <textarea
-            ref={textareaRef}
-            className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
-            rows={1}
-            aria-label="Chat message"
-            placeholder={
-              isAgentStarting
-                ? t("chat.agentStarting")
-                : voice.isListening
-                  ? t("chat.listening")
+          {/* Input */}
+          {voice.isListening && voice.interimTranscript ? (
+            <div className="chat-game-live-transcript">
+              {voice.interimTranscript}
+            </div>
+          ) : (
+            <textarea
+              ref={textareaRef}
+              className="chat-game-input"
+              rows={1}
+              aria-label="Chat message"
+              placeholder={
+                isAgentStarting
+                  ? t("chat.agentStarting")
                   : t("chat.inputPlaceholder")
-            }
-            value={chatInput}
-            onChange={(e) => setState("chatInput", e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isComposerLocked}
-          />
-        )}
+              }
+              value={chatInput}
+              onChange={(e) => setState("chatInput", e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isComposerLocked}
+            />
+          )}
 
-        {/* Send / Stop */}
-        {chatSending ? (
+          {/* Send / Stop */}
+          {chatSending ? (
+            <button
+              type="button"
+              className="chat-game-send-btn chat-game-send-btn-danger"
+              onClick={handleChatStop}
+            >
+              {t("chat.stop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="chat-game-send-btn chat-game-send-btn-primary"
+              onClick={() => void handleChatSend(chatMode)}
+              disabled={isComposerLocked || !chatInput.trim()}
+            >
+              {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
+            </button>
+          )}
+        </div>
+      ) : (
+        /* ── Default composer ─────────────────────────────────────────── */
+        <div
+          className="flex gap-1.5 sm:gap-2 items-end border-t border-border pt-3 pb-3 sm:pb-4 relative"
+          style={{ zIndex: 1 }}
+        >
+          {/* Paperclip / image attach button */}
           <button
             type="button"
-            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
-            onClick={handleChatStop}
-            title={t("chat.stopGeneration")}
+            className={`h-[38px] w-[38px] shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all duration-200 hover:shadow-sm self-end ${
+              chatPendingImages.length > 0
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border bg-card text-muted hover:border-accent hover:text-accent"
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Attach image"
+            title="Attach image"
+            disabled={isComposerLocked}
           >
-            <Square className="w-3 h-3 fill-current" />
-            <span>{t("chat.stop")}</span>
+            <Paperclip className="w-4 h-4" />
           </button>
-        ) : voice.isSpeaking ? (
-          <button
-            type="button"
-            className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
-            onClick={stopSpeaking}
-            title={t("chat.stopSpeaking")}
-          >
-            <Square className="w-3 h-3 fill-current" />
-            <span>{t("chat.stopVoice")}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="h-[38px] shrink-0 px-4 sm:px-5 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
-            onClick={() => void handleChatSend()}
-            disabled={isComposerLocked || !chatInput.trim()}
-            aria-label={t("chat.send")}
-            title={isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
-          >
-            <Send className="w-4 h-4" />
-            <span>{isAgentStarting ? t("chat.agentStarting") : t("chat.send")}</span>
-          </button>
-        )}
-      </div>
+
+          {/* Mic button — user voice input */}
+          {voice.supported && (
+            <button
+              type="button"
+              className={`h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center border rounded cursor-pointer transition-all self-end ${
+                voice.isListening
+                  ? "bg-accent border-accent text-accent-fg shadow-[0_0_10px_rgba(124,58,237,0.4)] animate-pulse"
+                  : "border-border bg-card text-muted hover:border-accent hover:text-accent"
+              }`}
+              onClick={voice.toggleListening}
+              aria-label={
+                isAgentStarting
+                  ? t("chat.agentStarting")
+                  : voice.isListening
+                    ? t("chat.stopListening")
+                    : t("chat.voiceInput")
+              }
+              aria-pressed={voice.isListening}
+              title={
+                isAgentStarting
+                  ? t("chat.agentStarting")
+                  : voice.isListening
+                    ? t("chat.stopListening")
+                    : t("chat.voiceInput")
+              }
+              disabled={isComposerLocked}
+            >
+              {voice.isListening ? (
+                <Mic className="w-4 h-4 fill-current" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          {/* Textarea / live transcript */}
+          {voice.isListening && voice.interimTranscript ? (
+            <div className="flex-1 min-w-0 px-3 py-2 border border-accent bg-card text-txt text-sm font-body leading-relaxed min-h-[38px] flex items-center">
+              <span className="text-muted italic">{voice.interimTranscript}</span>
+            </div>
+          ) : (
+            <textarea
+              ref={textareaRef}
+              className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-txt text-sm font-body leading-relaxed resize-none overflow-y-hidden min-h-[38px] max-h-[200px] focus:border-accent focus:outline-none"
+              rows={1}
+              aria-label="Chat message"
+              placeholder={
+                isAgentStarting
+                  ? t("chat.agentStarting")
+                  : voice.isListening
+                    ? t("chat.listening")
+                    : t("chat.inputPlaceholder")
+              }
+              value={chatInput}
+              onChange={(e) => setState("chatInput", e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isComposerLocked}
+            />
+          )}
+
+          {/* Send / Stop */}
+          {chatSending ? (
+            <button
+              type="button"
+              className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
+              onClick={handleChatStop}
+              title={t("chat.stopGeneration")}
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>{t("chat.stop")}</span>
+            </button>
+          ) : voice.isSpeaking ? (
+            <button
+              type="button"
+              className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
+              onClick={stopSpeaking}
+              title={t("chat.stopSpeaking")}
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>{t("chat.stopVoice")}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="h-[38px] shrink-0 px-4 sm:px-5 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
+              onClick={() => void handleChatSend()}
+              disabled={isComposerLocked || !chatInput.trim()}
+              aria-label={t("chat.send")}
+              title={isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
+            >
+              <Send className="w-4 h-4" />
+              <span>{isAgentStarting ? t("chat.agentStarting") : t("chat.send")}</span>
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

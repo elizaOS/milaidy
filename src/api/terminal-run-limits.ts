@@ -9,18 +9,14 @@ export function resolveTerminalRunLimits(): {
   maxConcurrent: number;
   maxDurationMs: number;
 } {
-  const maxConcurrentRaw =
-    process.env.MILADY_TERMINAL_MAX_CONCURRENT ??
-    process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+  const maxConcurrentRaw = process.env.MILADY_TERMINAL_MAX_CONCURRENT;
   const maxConcurrent = parseClampedInteger(maxConcurrentRaw, {
     fallback: TERMINAL_RUN_MAX_CONCURRENT_DEFAULT,
     min: 1,
     max: TERMINAL_RUN_MAX_CONCURRENT_CAP,
   });
 
-  const maxDurationMsRaw =
-    process.env.MILADY_TERMINAL_MAX_DURATION_MS ??
-    process.env.MILADY_TERMINAL_MAX_DURATION_MS;
+  const maxDurationMsRaw = process.env.MILADY_TERMINAL_MAX_DURATION_MS;
   const maxDurationMs = parseClampedInteger(maxDurationMsRaw, {
     fallback: TERMINAL_RUN_MAX_DURATION_MS_DEFAULT,
     min: 1_000,

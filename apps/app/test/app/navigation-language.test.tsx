@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +13,12 @@ vi.mock("../../src/AppContext", () => ({
 
 import { Nav } from "../../src/components/Nav";
 
+function textOf(node: TestRenderer.ReactTestInstance): string {
+  return node.children
+    .map((child) => (typeof child === "string" ? child : textOf(child)))
+    .join("");
+}
+
 describe("Nav language switching", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
@@ -22,6 +29,7 @@ describe("Nav language switching", () => {
       tab: "chat",
       setTab: vi.fn(),
       uiLanguage: "en",
+      plugins: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -31,7 +39,7 @@ describe("Nav language switching", () => {
 
     const text = tree!.root
       .findAllByType("button")
-      .map((node) => node.children.join(""))
+      .map((node) => textOf(node))
       .join(" ");
     expect(text).toContain("Chat");
     expect(text).toContain("Wallets");
@@ -43,6 +51,7 @@ describe("Nav language switching", () => {
       tab: "chat",
       setTab: vi.fn(),
       uiLanguage: "zh-CN",
+      plugins: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -52,7 +61,7 @@ describe("Nav language switching", () => {
 
     const text = tree!.root
       .findAllByType("button")
-      .map((node) => node.children.join(""))
+      .map((node) => textOf(node))
       .join(" ");
     expect(text).toContain("聊天");
     expect(text).toContain("钱包");
@@ -65,6 +74,7 @@ describe("Nav language switching", () => {
       setTab: vi.fn(),
       uiLanguage: "en",
       uiShellMode: "native",
+      plugins: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -74,7 +84,7 @@ describe("Nav language switching", () => {
 
     const text = tree!.root
       .findAllByType("button")
-      .map((node) => node.children.join(""))
+      .map((node) => textOf(node))
       .join(" ");
     expect(text).not.toContain("Companion");
     expect(text).toContain("Chat");

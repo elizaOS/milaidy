@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +30,12 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
   getVrmPreviewUrl: (index: number) => `mock-vrm-${index}.png`,
   VRM_COUNT: 8,
+}));
+
+vi.mock("../../src/api-client", () => ({
+  client: {
+    getAgentSelfStatus: vi.fn(async () => null),
+  },
 }));
 
 import { ConversationsSidebar } from "../../src/components/ConversationsSidebar";
@@ -124,8 +131,14 @@ describe("ConversationsSidebar game-modal variant", () => {
       (node) => node.props["data-testid"] === "conv-item",
     );
     expect(convItems.length).toBe(2);
+    const selectBtn = convItems[1].findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("chat-game-conv-select-btn"),
+    )[0];
     await act(async () => {
-      convItems[1].props.onClick();
+      selectBtn.props.onClick();
     });
     expect(handleSelectConversation).toHaveBeenCalledWith("conv-1");
 

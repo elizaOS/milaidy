@@ -1868,6 +1868,15 @@ export class MiladyClient {
   >();
   private readonly maxReconnectAttempts = 15;
 
+  // UI language propagation — set by AppContext so the backend can
+  // localise responses when needed.
+  private _uiLanguage: string | null = null;
+
+  /** Store the current UI language so it can be sent as a header on every request. */
+  setUiLanguage(lang: string): void {
+    this._uiLanguage = lang || null;
+  }
+
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
@@ -1993,6 +2002,9 @@ export class MiladyClient {
           headers: {
             "X-Milady-Client-Id": this.clientId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(this._uiLanguage
+              ? { "X-Milady-UI-Language": this._uiLanguage }
+              : {}),
             ...init?.headers,
           },
         });
