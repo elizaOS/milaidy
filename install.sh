@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  milAIdy installer — macOS / Linux / WSL / Git Bash                      ║
+# ║  milady installer — macOS / Linux / WSL / Git Bash                      ║
 # ║                                                                          ║
 # ║  curl -fsSL https://milady-ai.github.io/milady/install.sh | bash               ║
 # ║                                                                          ║
@@ -520,11 +520,11 @@ check_package_manager() {
 install_milady() {
   local pm="$1"
   local version="${MILADY_VERSION:-latest}"
-  local pkg="miladyai"
+  local pkg="milady"
   local local_tarball="${MILADY_LOCAL_TARBALL:-}"
 
   if [[ "$version" != "latest" ]]; then
-    pkg="miladyai@${version}"
+    pkg="milady@${version}"
   fi
 
   step "Installing milady"
@@ -734,7 +734,7 @@ run_setup() {
 main() {
   printf "\n"
   printf "${BOLD}${CYAN}  +--------------------------------------+${RESET}\n"
-  printf "${BOLD}${CYAN}  |       ${RESET}${BOLD}milAIdy installer${RESET}${BOLD}${CYAN}              |${RESET}\n"
+  printf "${BOLD}${CYAN}  |       ${RESET}${BOLD}milady installer${RESET}${BOLD}${CYAN}              |${RESET}\n"
   printf "${BOLD}${CYAN}  |  ${RESET}cute agents for the acceleration${BOLD}${CYAN}   |${RESET}\n"
   printf "${BOLD}${CYAN}  +--------------------------------------+${RESET}\n"
   printf "\n"

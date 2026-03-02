@@ -2,9 +2,16 @@
   "name": "@milady/capacitor-gateway",
   "version": "1.0.0",
   "description": "Milady Gateway Plugin for Capacitor - WebSocket connection to Milady Gateway",
-  "main": "./dist/plugin.cjs.js",
+"main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js",
+      "require": "./dist/plugin.cjs.js"
+    }
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -64,10 +71,7 @@
     }
   },
   "milady": {
-    "platforms": [
-      "browser",
-      "node"
-    ],
+    "platforms": ["browser", "node"],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full WebSocket connectivity, RPC request/response, event streaming. No Bonjour/mDNS discovery on web.",

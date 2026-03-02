@@ -2,36 +2,12 @@
  * Navigation — tabs + onboarding.
  */
 
-import type { LucideIcon } from "lucide-react";
-import {
-  Bot,
-  Brain,
-  Gamepad2,
-  Heart,
-  MessageSquare,
-  Radio,
-  Settings,
-  Share2,
-  Sparkles,
-  Wallet,
-} from "lucide-react";
-
-/** Apps are only enabled in dev mode; production builds hide this feature. */
-export const APPS_ENABLED = import.meta.env.DEV;
-
-/** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
-export const STREAM_ENABLED = import.meta.env.DEV;
-/** Companion tab is feature-flagged and disabled by default. */
-export const COMPANION_ENABLED =
-  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "").toLowerCase() ===
-  "true";
-
 export type Tab =
   | "chat"
   | "companion"
-  | "stream"
   | "apps"
   | "character"
+  | "character-select"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -45,73 +21,18 @@ export type Tab =
   | "voice"
   | "runtime"
   | "database"
-  | "lifo"
   | "settings"
-  | "logs"
-  | "security";
+  | "logs";
 
-export interface TabGroup {
-  label: string;
-  tabs: Tab[];
-  icon: LucideIcon;
-  description?: string;
-}
-
-export const ALL_TAB_GROUPS: TabGroup[] = [
-  {
-    label: "Chat",
-    tabs: ["chat"],
-    icon: MessageSquare,
-    description: "Conversations and messaging",
-  },
-  {
-    label: "Companion",
-    tabs: ["companion"],
-    icon: Heart,
-    description: "Companion mode (feature flag)",
-  },
-  {
-    label: "Stream",
-    tabs: ["stream"],
-    icon: Radio,
-    description: "Live streaming controls",
-  },
-  {
-    label: "Character",
-    tabs: ["character"],
-    icon: Bot,
-    description: "AI personality and behavior",
-  },
-  {
-    label: "Wallets",
-    tabs: ["wallets"],
-    icon: Wallet,
-    description: "Crypto wallets and inventory",
-  },
-  {
-    label: "Knowledge",
-    tabs: ["knowledge"],
-    icon: Brain,
-    description: "Documents and memory",
-  },
-  {
-    label: "Social",
-    tabs: ["connectors"],
-    icon: Share2,
-    description: "Platform connections",
-  },
-  {
-    label: "Apps",
-    tabs: ["apps"],
-    icon: Gamepad2,
-    description: "Games and integrations",
-  },
-  {
-    label: "Settings",
-    tabs: ["settings"],
-    icon: Settings,
-    description: "Configuration and preferences",
-  },
+export const TAB_GROUPS = [
+  { label: "Chat", tabs: ["chat"] as Tab[] },
+  { label: "Companion", tabs: ["companion"] as Tab[] },
+  { label: "Character", tabs: ["character", "character-select"] as Tab[] },
+  { label: "Wallets", tabs: ["wallets"] as Tab[] },
+  { label: "Knowledge", tabs: ["knowledge"] as Tab[] },
+  { label: "Social", tabs: ["connectors"] as Tab[] },
+  { label: "Apps", tabs: ["apps"] as Tab[] },
+  { label: "Settings", tabs: ["settings"] as Tab[] },
   {
     label: "Advanced",
     tabs: [
@@ -124,31 +45,17 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
       "trajectories",
       "runtime",
       "database",
-      "lifo",
       "logs",
-      "security",
-    ],
-    icon: Sparkles,
-    description: "Developer and power user tools",
+    ] as Tab[],
   },
-];
-
-/** Compute visible tab groups. Pass streamEnabled explicitly for React reactivity. */
-export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
-  return ALL_TAB_GROUPS.filter(
-    (g) =>
-      (COMPANION_ENABLED || g.label !== "Companion") &&
-      (APPS_ENABLED || g.label !== "Apps") &&
-      (streamEnabled || g.label !== "Stream"),
-  );
-}
+] as const;
 
 const TAB_PATHS: Record<Tab, string> = {
   chat: "/chat",
   companion: "/companion",
-  stream: "/stream",
   apps: "/apps",
   character: "/character",
+  "character-select": "/character-select",
   triggers: "/triggers",
   wallets: "/wallets",
   knowledge: "/knowledge",
@@ -162,10 +69,8 @@ const TAB_PATHS: Record<Tab, string> = {
   voice: "/voice",
   runtime: "/runtime",
   database: "/database",
-  lifo: "/lifo",
   settings: "/settings",
   logs: "/logs",
-  security: "/security",
 };
 
 /** Legacy path redirects — old paths that now map to new tabs. */
@@ -198,20 +103,8 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   }
   let normalized = normalizePath(p).toLowerCase();
   if (normalized.endsWith("/index.html")) normalized = "/";
-  if (normalized === "/") return "chat";
+  if (normalized === "/") return "companion";
   if (normalized === "/voice") return "settings";
-  // Companion disabled unless explicitly feature-flagged
-  if (!COMPANION_ENABLED && normalized === "/companion") {
-    return "chat";
-  }
-  // Apps disabled in production builds — redirect to chat
-  if (!APPS_ENABLED && (normalized === "/apps" || normalized === "/game")) {
-    return "chat";
-  }
-  // Stream tab hidden — redirect to chat
-  if (!STREAM_ENABLED && normalized === "/stream") {
-    return "chat";
-  }
   // Check current paths first, then legacy redirects
   return PATH_TO_TAB.get(normalized) ?? LEGACY_PATHS[normalized] ?? null;
 }
@@ -229,58 +122,32 @@ function normalizePath(p: string): string {
   if (!p) return "/";
   let normalized = p.trim();
   if (!normalized.startsWith("/")) normalized = `/${normalized}`;
-  if (normalized.length > 1 && normalized.endsWith("/"))
-    normalized = normalized.slice(0, -1);
+  if (normalized.length > 1 && normalized.endsWith("/")) normalized = normalized.slice(0, -1);
   return normalized;
 }
 
 export function titleForTab(tab: Tab): string {
   switch (tab) {
-    case "chat":
-      return "Chat";
-    case "companion":
-      return "Companion";
-    case "apps":
-      return "Apps";
-    case "character":
-      return "Character";
-    case "triggers":
-      return "Triggers";
-    case "wallets":
-      return "Wallets";
-    case "knowledge":
-      return "Knowledge";
-    case "connectors":
-      return "Social";
-    case "plugins":
-      return "Plugins";
-    case "skills":
-      return "Skills";
-    case "actions":
-      return "Actions";
-    case "advanced":
-      return "Advanced";
-    case "fine-tuning":
-      return "Fine-Tuning";
-    case "trajectories":
-      return "Trajectories";
-    case "voice":
-      return "Voice";
-    case "runtime":
-      return "Runtime";
-    case "database":
-      return "Databases";
-    case "lifo":
-      return "Lifo";
-    case "settings":
-      return "Settings";
-    case "logs":
-      return "Logs";
-    case "stream":
-      return "Stream";
-    case "security":
-      return "Security";
-    default:
-      return "Milady";
+    case "chat": return "Chat";
+    case "companion": return "Companion";
+    case "apps": return "Apps";
+    case "character": return "Character";
+    case "character-select": return "Character Select";
+    case "triggers": return "Triggers";
+    case "wallets": return "Wallets";
+    case "knowledge": return "Knowledge";
+    case "connectors": return "Social";
+    case "plugins": return "Plugins";
+    case "skills": return "Skills";
+    case "actions": return "Actions";
+    case "advanced": return "Advanced";
+    case "fine-tuning": return "Fine-Tuning";
+    case "trajectories": return "Trajectories";
+    case "voice": return "Voice";
+    case "runtime": return "Runtime";
+    case "database": return "Databases";
+    case "settings": return "Settings";
+    case "logs": return "Logs";
+    default: return "Milady";
   }
 }

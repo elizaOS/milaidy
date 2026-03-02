@@ -35,7 +35,7 @@ import type {
   World,
 } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import { z } from "zod";
+import z from "zod";
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -1,8 +1,12 @@
-// tsdown config — no import needed, defineConfig is a type-only identity fn
+import { defineConfig } from "tsdown";
 
 const env = {
   NODE_ENV: "production",
 };
+
+// Pure-JS packages that must be inlined even in unbundle mode because
+// Electron's ESM resolver cannot find them in the packaged app.
+const forceInline = ["zod"];
 
 // Packages with native .node binaries must be externalized — rolldown cannot
 // bundle Mach-O/ELF shared libraries and will error trying to read them as
@@ -17,13 +21,7 @@ const nativeExternals = [
   "fsevents",
 ];
 
-// @elizaos/plugin-* are loaded at runtime via dynamic import(); every entry that
-// transitively includes eliza.ts needs the plugin regex so rolldown treats them
-// as external and doesn't emit UNRESOLVED_IMPORT warnings.
-const pluginExternal = /^@elizaos\/plugin-/;
-const allExternals = [...nativeExternals, pluginExternal];
-
-export default [
+export default defineConfig([
   {
     entry: "src/index.ts",
     env,
@@ -38,36 +36,46 @@ export default [
     platform: "node",
     unbundle: true,
     inlineOnly: false,
-    external: allExternals,
+    external: nativeExternals,
+    noExternal: forceInline,
   },
   {
     entry: "src/runtime/eliza.ts",
     env,
     fixedExtension: false,
     platform: "node",
-    external: allExternals,
-    outputOptions: { codeSplitting: false },
+    unbundle: true,
+    inlineOnly: false,
+    external: nativeExternals,
+    noExternal: forceInline,
   },
   {
     entry: "src/api/server.ts",
     env,
     fixedExtension: false,
     platform: "node",
-    external: allExternals,
-    // Disable code splitting to prevent circular chunk dependencies.
-    // Without this, rolldown places the __exportAll runtime helper in the
-    // entry chunk and shared chunks import it back, creating a circular
-    // import that fails when Electron loads server.js via dynamic import().
-    outputOptions: { codeSplitting: false },
+    unbundle: true,
+    inlineOnly: false,
+    external: nativeExternals,
+    noExternal: forceInline,
   },
   {
-    entry: "src/plugins/whatsapp/index.ts",
-    outDir: "dist/plugins/whatsapp",
+    entry: "src/plugins/telegram-enhanced/index.ts",
+    outDir: "dist/plugins/telegram-enhanced",
     env,
     fixedExtension: false,
     platform: "node",
     unbundle: true,
     inlineOnly: false,
     external: nativeExternals,
+    noExternal: forceInline,
   },
-];
+  {
+    entry: "src/plugins/opinion/index.ts",
+    outDir: "dist/plugins/opinion",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    external: nativeExternals,
+  },
+]);

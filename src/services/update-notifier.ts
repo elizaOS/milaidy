@@ -3,9 +3,9 @@
  * to stderr if a newer version is available (like npm's update-notifier).
  */
 
-import { loadMiladyConfig } from "../config/config";
-import { theme } from "../terminal/theme";
-import { checkForUpdate, resolveChannel } from "./update-checker";
+import { loadMiladyConfig } from "../config/config.js";
+import { theme } from "../terminal/theme.js";
+import { checkForUpdate, resolveChannel } from "./update-checker.js";
 
 let notified = false;
 

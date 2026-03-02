@@ -50,7 +50,7 @@ Issues = "https://github.com/milady-ai/milady/issues"
 
 [project.scripts]
 milady = "milady.cli:main"
-
+milady = "milady.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["milady"]

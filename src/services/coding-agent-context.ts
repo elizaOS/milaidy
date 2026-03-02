@@ -9,7 +9,7 @@
  * @module services/coding-agent-context
  */
 
-import { z } from "zod";
+import z from "zod";
 
 // ---------------------------------------------------------------------------
 // Zod Schemas

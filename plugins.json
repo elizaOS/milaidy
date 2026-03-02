@@ -1,7 +1,7 @@
 {
   "$schema": "plugin-index-v1",
   "generatedAt": "2026-02-09T20:23:38.561Z",
-  "count": 99,
+  "count": 98,
   "plugins": [
     {
       "id": "acp",
@@ -30,7 +30,9 @@
         "ACP_AGENT_ID"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "ACP_GATEWAY_URL": {
           "type": "string",
@@ -221,7 +223,9 @@
       "description": "Agent orchestration plugin for ElizaOS (task lifecycle + agent providers)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ORCHESTRATOR_ACTIVE_PROVIDER"],
+      "configKeys": [
+        "ORCHESTRATOR_ACTIVE_PROVIDER"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ORCHESTRATOR_ACTIVE_PROVIDER": {
@@ -429,7 +433,9 @@
         "ZEROEX_API_KEY"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["solana"],
+      "pluginDeps": [
+        "solana"
+      ],
       "pluginParameters": {
         "BIRDEYE_API_KEY": {
           "type": "string",
@@ -1360,7 +1366,9 @@
         "CAPSOLVER_API_KEY"
       ],
       "version": "2.0.0-alpha.6",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "BROWSERBASE_API_KEY": {
           "type": "string",
@@ -1434,7 +1442,10 @@
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CLI_NAME", "CLI_VERSION"],
+      "configKeys": [
+        "CLI_NAME",
+        "CLI_VERSION"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "CLI_NAME": {
@@ -1464,78 +1475,6 @@
       }
     },
     {
-      "id": "clawbal",
-      "dirName": "app-clawbal",
-      "name": "Clawbal Chat",
-      "npmName": "@iqlabs-official/plugin-clawbal",
-      "description": "On-chain AI chatrooms on Solana — agents chat, trade, launch tokens, and compete on PnL leaderboards",
-      "category": "app",
-      "envKey": "SOLANA_PRIVATE_KEY",
-      "configKeys": [
-        "SOLANA_PRIVATE_KEY",
-        "SOLANA_RPC_URL",
-        "CLAWBAL_CHATROOM",
-        "MOLTBOOK_TOKEN",
-        "BAGS_API_KEY",
-        "IMAGE_API_KEY",
-        "MILADY_ASSETS_PATH"
-      ],
-      "version": "1.0.0",
-      "gitUrl": "https://github.com/IQCoreTeam/milady-clawbal.git",
-      "pluginParameters": {
-        "SOLANA_PRIVATE_KEY": {
-          "type": "string",
-          "description": "Solana wallet private key (base58 or JSON array)",
-          "required": true,
-          "sensitive": true
-        },
-        "SOLANA_RPC_URL": {
-          "type": "string",
-          "description": "Solana RPC endpoint (default: mainnet)",
-          "required": false
-        },
-        "CLAWBAL_CHATROOM": {
-          "type": "string",
-          "description": "Default chatroom (default: Trenches)",
-          "required": false
-        },
-        "MOLTBOOK_TOKEN": {
-          "type": "string",
-          "description": "Moltbook API token for posting",
-          "required": false,
-          "sensitive": true
-        },
-        "BAGS_API_KEY": {
-          "type": "string",
-          "description": "bags.fm API key for token launches",
-          "required": false,
-          "sensitive": true
-        },
-        "IMAGE_API_KEY": {
-          "type": "string",
-          "description": "Image generation API key (auto-detects provider from prefix)",
-          "required": false,
-          "sensitive": true
-        },
-        "MILADY_ASSETS_PATH": {
-          "type": "string",
-          "description": "Path to milady-image-generator assets for unique PFP generation",
-          "required": false
-        }
-      }
-    },
-    {
-      "id": "coding-agent",
-      "dirName": "plugin-coding-agent",
-      "name": "Coding Agent Swarms",
-      "npmName": "@elizaos/plugin-coding-agent",
-      "description": "Orchestrate CLI coding agents (Claude Code, Gemini CLI, Codex, Aider) via PTY sessions with workspace and issue management",
-      "category": "feature",
-      "envKey": null,
-      "configKeys": [],
-      "version": "1.0.0"
-    },
-    {
       "id": "code",
       "dirName": "plugin-code",
       "name": "Code",
@@ -1550,7 +1489,9 @@
         "CODER_FORBIDDEN_COMMANDS"
       ],
       "version": "2.0.0-alpha.5",
-      "pluginDeps": ["shell"],
+      "pluginDeps": [
+        "shell"
+      ],
       "pluginParameters": {
         "CODER_ENABLED": {
           "type": "boolean",
@@ -1866,7 +1807,9 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"]
+      "pluginDeps": [
+        "cli"
+      ]
     },
     {
       "id": "directives",
@@ -1968,8 +1911,8 @@
         },
         "DISCORD_APPLICATION_ID": {
           "type": "string",
-          "description": "Discord application ID for the bot (auto-resolved from bot token if omitted)",
-          "required": false,
+          "description": "Discord application ID for the bot",
+          "required": true,
           "sensitive": false
         },
         "CHANNEL_IDS": {
@@ -2888,7 +2831,9 @@
       "description": "Experience learning plugin for ElizaOS - records and recalls transferable agent learnings",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["AUTO_RECORD_THRESHOLD"],
+      "configKeys": [
+        "AUTO_RECORD_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "AUTO_RECORD_THRESHOLD": {
@@ -3334,7 +3279,7 @@
       "dirName": "plugin-gmail-watch",
       "name": "Gmail Watch",
       "npmName": "@elizaos/plugin-gmail-watch",
-      "description": "Gmail Pub/Sub watcher – spawns gog gmail watch serve and auto-renews",
+      "description": "Gmail Pub/Sub watcher \u2013 spawns gog gmail watch serve and auto-renews",
       "category": "connector",
       "envKey": null,
       "configKeys": [],
@@ -4803,7 +4748,12 @@
         "LP_EVM_DEXES"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic", "discord", "telegram", "evm"],
+      "pluginDeps": [
+        "anthropic",
+        "discord",
+        "telegram",
+        "evm"
+      ],
       "pluginParameters": {
         "SOLANA_RPC_URL": {
           "type": "string",
@@ -5230,7 +5180,10 @@
       "description": "elizaOS plugin to integrate with MCP (Model Context Protocol) servers",
       "category": "connector",
       "envKey": null,
-      "configKeys": ["PATH", "mcp"],
+      "configKeys": [
+        "PATH",
+        "mcp"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "PATH": {
@@ -5601,7 +5554,7 @@
       "dirName": "plugin-mysticism",
       "name": "Mysticism",
       "npmName": "@elizaos/plugin-mysticism",
-      "description": "Mystical divination engines for ElizaOS — Tarot, I Ching, and Astrology readings",
+      "description": "Mystical divination engines for ElizaOS \u2014 Tarot, I Ching, and Astrology readings",
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -5610,7 +5563,9 @@
         "MYSTICISM_PRICE_ASTROLOGY"
       ],
       "version": "2.0.0-alpha.1",
-      "pluginDeps": ["form"],
+      "pluginDeps": [
+        "form"
+      ],
       "pluginParameters": {
         "MYSTICISM_PRICE_TAROT": {
           "type": "number",
@@ -6547,7 +6502,9 @@
       "description": "ElizaOS plugin for agent self-modification and character evolution",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ADMIN_USERS"],
+      "configKeys": [
+        "ADMIN_USERS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ADMIN_USERS": {
@@ -6593,7 +6550,9 @@
         "CLOB_API_PASSPHRASE"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["evm"],
+      "pluginDeps": [
+        "evm"
+      ],
       "pluginParameters": {
         "POLYMARKET_PRIVATE_KEY": {
           "type": "string",
@@ -7036,7 +6995,9 @@
       "description": "Scheduling and calendar coordination plugin for ElizaOS agents",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["DEFAULT_TIMEZONE"],
+      "configKeys": [
+        "DEFAULT_TIMEZONE"
+      ],
       "version": "2.0.0-alpha.6",
       "pluginParameters": {
         "DEFAULT_TIMEZONE": {
@@ -7062,7 +7023,10 @@
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
+      "configKeys": [
+        "SCRATCHPAD_BASE_PATH",
+        "SCRATCHPAD_MAX_FILE_SIZE"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "SCRATCHPAD_BASE_PATH": {
@@ -7437,7 +7401,7 @@
       "dirName": "plugin-social-alpha",
       "name": "Social Alpha",
       "npmName": "@elizaos/plugin-social-alpha",
-      "description": "Social Alpha Plugin — Tracks token recommendations (shills/FUD), builds trust scores based on P&L outcomes, and exposes a Social Alpha Provider with win rate, rank, and recommender analytics.",
+      "description": "Social Alpha Plugin \u2014 Tracks token recommendations (shills/FUD), builds trust scores based on P&L outcomes, and exposes a Social Alpha Provider with win rate, rank, and recommender analytics.",
       "category": "feature",
       "envKey": "BIRDEYE_API_KEY",
       "configKeys": [
@@ -7685,7 +7649,11 @@
       "description": "Trusted Execution Environment (TEE) integration plugin for elizaOS - Multi-language support (TypeScript, Python, Rust)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
+      "configKeys": [
+        "TEE_MODE",
+        "TEE_VENDOR",
+        "WALLET_SECRET_SALT"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "TEE_MODE": {
@@ -8084,7 +8052,10 @@
       "description": "Multi-language Todo list plugin for elizaOS with TypeScript, Python, and Rust implementations",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
+      "configKeys": [
+        "ENABLE_REMINDERS",
+        "REMINDER_INTERVAL_MS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ENABLE_REMINDERS": {
@@ -8134,9 +8105,14 @@
       "description": "Trust and permission management plugin for ElizaOS",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
+      "configKeys": [
+        "OWNER_ENTITY_ID",
+        "WORLD_ID"
+      ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic"],
+      "pluginDeps": [
+        "anthropic"
+      ],
       "pluginParameters": {
         "OWNER_ENTITY_ID": {
           "type": "string",
@@ -8597,179 +8573,27 @@
           "width": "full",
           "type": "multiselect",
           "options": [
-            { "value": "broadcaster", "label": "Broadcaster" },
-            { "value": "moderator", "label": "Moderator" },
-            { "value": "vip", "label": "VIP" },
-            { "value": "subscriber", "label": "Subscriber" },
-            { "value": "viewer", "label": "Viewer" }
+            {
+              "value": "broadcaster",
+              "label": "Broadcaster"
+            },
+            {
+              "value": "moderator",
+              "label": "Moderator"
+            },
+            {
+              "value": "vip",
+              "label": "VIP"
+            },
+            {
+              "value": "subscriber",
+              "label": "Subscriber"
+            },
+            {
+              "value": "viewer",
+              "label": "Viewer"
+            }
           ]
-        }
-      }
-    },
-    {
-      "id": "retake",
-      "dirName": "plugin-retake",
-      "name": "Retake.tv",
-      "npmName": "@milady/plugin-retake",
-      "description": "Live video streaming connector for retake.tv",
-      "category": "connector",
-      "envKey": "RETAKE_ACCESS_TOKEN",
-      "configKeys": [
-        "RETAKE_ACCESS_TOKEN",
-        "RETAKE_API_URL",
-        "RETAKE_CAPTURE_URL"
-      ],
-      "pluginParameters": {
-        "RETAKE_ACCESS_TOKEN": {
-          "type": "string",
-          "description": "Access token for retake.tv API",
-          "required": false,
-          "sensitive": true
-        },
-        "RETAKE_API_URL": {
-          "type": "string",
-          "description": "Retake.tv API base URL",
-          "required": false,
-          "sensitive": false
-        },
-        "RETAKE_CAPTURE_URL": {
-          "type": "string",
-          "description": "Capture URL for retake.tv stream",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "RETAKE_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "RETAKE_API_URL": {
-          "label": "API URL",
-          "group": "Connection",
-          "width": "half"
-        },
-        "RETAKE_CAPTURE_URL": {
-          "label": "Capture URL",
-          "group": "Connection",
-          "width": "half"
-        }
-      }
-    },
-    {
-      "id": "streaming-base",
-      "dirName": "plugin-streaming-base",
-      "name": "Streaming",
-      "npmName": "@milady/plugin-streaming-base",
-      "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
-      "category": "streaming",
-      "envKey": null,
-      "configKeys": [],
-      "pluginParameters": {}
-    },
-    {
-      "id": "twitch-streaming",
-      "dirName": "plugin-twitch",
-      "name": "Twitch Streaming",
-      "npmName": "@milady/plugin-twitch-streaming",
-      "description": "Twitch RTMP streaming destination for live broadcasts",
-      "category": "streaming",
-      "envKey": "TWITCH_STREAM_KEY",
-      "configKeys": [
-        "TWITCH_STREAM_KEY"
-      ],
-      "pluginParameters": {
-        "TWITCH_STREAM_KEY": {
-          "type": "string",
-          "description": "Twitch stream key for RTMP ingest",
-          "required": true,
-          "sensitive": true
-        }
-      },
-      "configUiHints": {
-        "TWITCH_STREAM_KEY": {
-          "label": "Stream Key",
-          "group": "Authentication",
-          "width": "full"
-        }
-      }
-    },
-    {
-      "id": "youtube-streaming",
-      "dirName": "plugin-youtube",
-      "name": "YouTube Streaming",
-      "npmName": "@milady/plugin-youtube-streaming",
-      "description": "YouTube RTMP streaming destination for live broadcasts",
-      "category": "streaming",
-      "envKey": "YOUTUBE_STREAM_KEY",
-      "configKeys": [
-        "YOUTUBE_STREAM_KEY",
-        "YOUTUBE_RTMP_URL"
-      ],
-      "pluginParameters": {
-        "YOUTUBE_STREAM_KEY": {
-          "type": "string",
-          "description": "YouTube stream key for RTMP ingest",
-          "required": true,
-          "sensitive": true
-        },
-        "YOUTUBE_RTMP_URL": {
-          "type": "string",
-          "description": "YouTube RTMP ingest URL (default: rtmp://a.rtmp.youtube.com/live2)",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "YOUTUBE_STREAM_KEY": {
-          "label": "Stream Key",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "YOUTUBE_RTMP_URL": {
-          "label": "RTMP URL",
-          "group": "Connection",
-          "width": "full"
-        }
-      }
-    },
-    {
-      "id": "custom-rtmp",
-      "dirName": "custom-rtmp",
-      "name": "Custom RTMP",
-      "npmName": null,
-      "description": "Stream to any RTMP destination with a custom URL and key",
-      "category": "streaming",
-      "envKey": "CUSTOM_RTMP_URL",
-      "configKeys": [
-        "CUSTOM_RTMP_URL",
-        "CUSTOM_RTMP_KEY"
-      ],
-      "pluginParameters": {
-        "CUSTOM_RTMP_URL": {
-          "type": "string",
-          "description": "RTMP ingest URL for your streaming platform",
-          "required": true,
-          "sensitive": false
-        },
-        "CUSTOM_RTMP_KEY": {
-          "type": "string",
-          "description": "RTMP stream key",
-          "required": true,
-          "sensitive": true
-        }
-      },
-      "configUiHints": {
-        "CUSTOM_RTMP_URL": {
-          "label": "RTMP URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "CUSTOM_RTMP_KEY": {
-          "label": "Stream Key",
-          "group": "Authentication",
-          "width": "full"
         }
       }
     },
@@ -8930,7 +8754,10 @@
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
+      "configKeys": [
+        "CAMERA_NAME",
+        "PIXEL_CHANGE_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.5",
       "pluginParameters": {
         "CAMERA_NAME": {
@@ -8971,12 +8798,11 @@
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
-      "npmName": "@milady/plugin-whatsapp",
-      "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
+      "npmName": "@elizaos/plugin-whatsapp",
+      "description": "WhatsApp Cloud API plugin for ElizaOS",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
       "configKeys": [
-        "WHATSAPP_AUTH_DIR",
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
         "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
@@ -8985,18 +8811,12 @@
         "WHATSAPP_DM_POLICY",
         "WHATSAPP_GROUP_POLICY"
       ],
-      "version": "2.0.0-alpha.6",
+      "version": "2.0.0-alpha.4",
       "pluginParameters": {
-        "WHATSAPP_AUTH_DIR": {
-          "type": "string",
-          "description": "Path to Baileys auth directory (QR code mode). Set this OR WHATSAPP_ACCESS_TOKEN.",
-          "required": false,
-          "sensitive": false
-        },
         "WHATSAPP_ACCESS_TOKEN": {
           "type": "string",
-          "description": "Access token for WhatsApp Cloud API. Set this OR WHATSAPP_AUTH_DIR.",
-          "required": false,
+          "description": "Access token for Whatsapp",
+          "required": true,
           "sensitive": true
         },
         "WHATSAPP_PHONE_NUMBER_ID": {
@@ -9071,11 +8891,6 @@
           "label": "Group Policy",
           "group": "Policies",
           "width": "half"
-        },
-        "WHATSAPP_AUTH_DIR": {
-          "label": "Auth Directory (Baileys)",
-          "group": "Baileys (QR code)",
-          "width": "full"
         }
       }
     },
@@ -9729,6 +9544,52 @@
           "label": "Group Policy",
           "group": "Policies",
           "width": "half"
+        }
+      }
+    },
+    {
+      "id": "opinion",
+      "dirName": "plugin-opinion",
+      "name": "Opinion Trade",
+      "npmName": "@milady/plugin-opinion",
+      "description": "Prediction market trading on Opinion.trade (BNB Chain)",
+      "category": "feature",
+      "envKey": "OPINION_API_KEY",
+      "configKeys": [
+        "OPINION_API_KEY",
+        "OPINION_PRIVATE_KEY",
+        "OPINION_MULTISIG_ADDRESS",
+        "OPINION_MAX_BET_USD",
+        "BSC_RPC_URL"
+      ],
+      "version": "1.0.0",
+      "pluginParameters": {
+        "OPINION_API_KEY": {
+          "label": "API Key",
+          "group": "Authentication",
+          "width": "full",
+          "encrypted": true
+        },
+        "OPINION_PRIVATE_KEY": {
+          "label": "Private Key (Trading)",
+          "group": "Authentication",
+          "width": "full",
+          "encrypted": true
+        },
+        "OPINION_MULTISIG_ADDRESS": {
+          "label": "Multisig Address",
+          "group": "Trading",
+          "width": "full"
+        },
+        "OPINION_MAX_BET_USD": {
+          "label": "Max Bet (USD)",
+          "group": "Trading",
+          "width": "half"
+        },
+        "BSC_RPC_URL": {
+          "label": "BSC RPC URL",
+          "group": "Network",
+          "width": "full"
         }
       }
     }

@@ -10,7 +10,7 @@ import {
   hasHelpOrVersion,
   shouldMigrateState,
   shouldMigrateStateFromPath,
-} from "./argv";
+} from "./argv.js";
 
 describe("argv helpers", () => {
   it("detects help/version flags", () => {
@@ -54,7 +54,10 @@ describe("argv helpers", () => {
       ),
     ).toBe("5000");
     expect(
-      getFlagValue(["node", "milady", "config", "--timeout=2500"], "--timeout"),
+      getFlagValue(
+        ["node", "milady", "config", "--timeout=2500"],
+        "--timeout",
+      ),
     ).toBe("2500");
     expect(
       getFlagValue(["node", "milady", "config", "--timeout"], "--timeout"),
@@ -74,7 +77,9 @@ describe("argv helpers", () => {
     expect(getVerboseFlag(["node", "milady", "config", "--verbose"])).toBe(
       true,
     );
-    expect(getVerboseFlag(["node", "milady", "config", "--debug"])).toBe(false);
+    expect(getVerboseFlag(["node", "milady", "config", "--debug"])).toBe(
+      false,
+    );
     expect(
       getVerboseFlag(["node", "milady", "config", "--debug"], {
         includeDebug: true,
@@ -183,12 +188,6 @@ describe("argv helpers", () => {
     });
     expect(directArgv).toEqual(["node", "milady", "config"]);
 
-    const directMiladyAiArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["miladyai", "config"],
-    });
-    expect(directMiladyAiArgv).toEqual(["node", "milady", "config"]);
-
     const bunArgv = buildParseArgv({
       programName: "milady",
       rawArgs: ["bun", "src/entry.ts", "config"],
@@ -211,7 +210,9 @@ describe("argv helpers", () => {
     expect(
       shouldMigrateState(["node", "milady", "agent", "--message", "hi"]),
     ).toBe(false);
-    expect(shouldMigrateState(["node", "milady", "agents", "list"])).toBe(true);
+    expect(shouldMigrateState(["node", "milady", "agents", "list"])).toBe(
+      true,
+    );
     expect(shouldMigrateState(["node", "milady", "message", "send"])).toBe(
       true,
     );

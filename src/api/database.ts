@@ -18,22 +18,17 @@ import type http from "node:http";
 import net from "node:net";
 import { promisify } from "node:util";
 import { type AgentRuntime, logger } from "@elizaos/core";
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
 import type {
   DatabaseConfig,
   DatabaseProviderType,
   PostgresCredentials,
-} from "../config/types.milady";
-import {
-  isLoopbackHost,
-  normalizeHostLike,
-  normalizeIpForPolicy,
-} from "../security/network-policy";
+} from "../config/types.milady.js";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
-} from "./http-helpers";
+} from "./http-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -179,36 +174,47 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
  * since only local processes can reach the API.
  */
 function isApiLoopbackOnly(): boolean {
-  let bind = (process.env.MILADY_API_BIND ?? "127.0.0.1").trim().toLowerCase();
-  if (!bind) bind = "127.0.0.1";
+  const bind =
+    (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
+  return (
+    bind === "127.0.0.1" || bind === "::1" || bind.toLowerCase() === "localhost"
+  );
+}
 
-  // Accept accidental URL-shaped bind values.
-  if (bind.startsWith("http://") || bind.startsWith("https://")) {
-    try {
-      const parsed = new URL(bind);
-      bind = parsed.hostname.toLowerCase();
-    } catch {
-      // Fall through and treat as raw host value.
-    }
-  }
+function normalizeHostLike(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+}
 
-  // [::1]:2138 -> ::1
-  const bracketedIpv6 = /^\[([^\]]+)\](?::\d+)?$/.exec(bind);
-  if (bracketedIpv6?.[1]) {
-    bind = bracketedIpv6[1];
-  } else {
-    // localhost:2138 -> localhost, 127.0.0.1:2138 -> 127.0.0.1
-    const singleColonHostPort = /^([^:]+):(\d+)$/.exec(bind);
-    if (singleColonHostPort?.[1]) {
-      bind = singleColonHostPort[1];
-    }
-  }
+/**
+ * Decode IPv6-mapped IPv4 hex notation (::ffff:7f00:1 → 127.0.0.1).
+ * Returns null if not a valid hex-encoded IPv4.
+ */
+function decodeIpv6MappedHex(mapped: string): string | null {
+  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(mapped);
+  if (!match) return null;
+  const hi = Number.parseInt(match[1], 16);
+  const lo = Number.parseInt(match[2], 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  const octets = [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff];
+  return octets.join(".");
+}
 
-  bind = bind.replace(/^\[|\]$/g, "");
+/**
+ * Normalize an IP for policy checks.
+ * Strips zone ID, handles IPv6-mapped IPv4 (both dotted and hex forms).
+ */
+function normalizeIpForPolicy(ip: string): string {
+  const base = normalizeHostLike(ip).split("%")[0];
+  if (!base.startsWith("::ffff:")) return base;
 
-  // Reuse the strict loopback classifier to avoid hostname prefix bypasses
-  // such as "127.evil.com" that are not literal 127.0.0.0/8 IPs.
-  return isLoopbackHost(bind);
+  const mapped = base.slice("::ffff:".length);
+  // Dotted form like ::ffff:127.0.0.1
+  if (net.isIP(mapped) === 4) return mapped;
+  // Hex form like ::ffff:7f00:1
+  return decodeIpv6MappedHex(mapped) ?? mapped;
 }
 
 /**
@@ -1075,56 +1081,32 @@ async function handleQuery(
       .replace(/--.*$/gm, "")
       .trim();
 
-    // Strip string literals so that mutation keywords/functions inside quoted
-    // strings are ignored. Handles single-quoted ('...'), dollar-quoted
-    // ($$...$$), and tagged dollar-quoted ($tag$...$tag$) strings.
-    const noLiterals = stripped
+    // Strip string literals so that keywords inside quoted strings are ignored.
+    // Handles single-quoted ('...'), dollar-quoted ($$...$$), and tagged
+    // dollar-quoted ($tag$...$tag$) strings, plus double-quoted identifiers.
+    const noStrings = stripped
       .replace(/\$([A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/g, " ")
-      .replace(/'(?:[^']|'')*'/g, " ");
-
-    // For keyword checks, also strip double-quoted identifiers to avoid
-    // matching words inside quoted table/column names.
-    const noStrings = noLiterals.replace(/"(?:[^"]|"")*"/g, " ");
+      .replace(/'(?:[^']|'')*'/g, " ")
+      .replace(/"(?:[^"]|"")*"/g, " ");
 
     const mutationKeywords = [
-      // ── DML ────────────────────────────────────────────────────────────
       "INSERT",
       "UPDATE",
       "DELETE",
       "INTO",
-      "COPY",
-      "MERGE",
-      // ── DDL ────────────────────────────────────────────────────────────
       "DROP",
       "ALTER",
       "TRUNCATE",
       "CREATE",
-      "COMMENT",
-      // ── Admin / privilege ──────────────────────────────────────────────
-      "GRANT",
-      "REVOKE",
-      "SET",
-      "RESET",
-      "LOAD",
-      // ── Maintenance ────────────────────────────────────────────────────
-      "VACUUM",
-      "REINDEX",
-      "CLUSTER",
-      "REFRESH",
-      "DISCARD",
-      // ── Procedural ─────────────────────────────────────────────────────
+      "COPY",
+      "MERGE",
       "CALL",
       "DO",
-      // ── Async notifications (side-effects) ─────────────────────────────
-      "LISTEN",
-      "UNLISTEN",
-      "NOTIFY",
-      // ── Prepared statements (can wrap mutations) ───────────────────────
-      "PREPARE",
-      "EXECUTE",
-      "DEALLOCATE",
-      // ── Locking ────────────────────────────────────────────────────────
-      "LOCK",
+      "REFRESH",
+      "REINDEX",
+      "VACUUM",
+      "GRANT",
+      "REVOKE",
     ];
     // Match mutation keywords as whole words (word boundary) anywhere in the
     // query, catching them inside CTEs, subqueries, etc.
@@ -1140,98 +1122,6 @@ async function handleQuery(
       );
       return;
     }
-
-    // PostgreSQL built-in functions that can read/write server files, mutate
-    // server state, or cause denial of service.  These appear inside otherwise
-    // valid SELECT expressions, so keyword checks alone won't catch them.
-    //
-    // ── File I/O (arbitrary file read/write on the DB server) ─────────
-    //   lo_import('/etc/passwd')        — load file into large object
-    //   lo_export(oid, '/tmp/evil')     — write large object to file
-    //   lo_unlink(oid)                  — delete large object
-    //   pg_read_file('/etc/passwd')     — read server file (superuser)
-    //   pg_read_binary_file(...)        — same, binary
-    //   pg_write_file(...)              — write to server files (ext. module)
-    //   pg_stat_file(...)               — stat a server file
-    //   pg_ls_dir(...)                  — list server directory
-    //
-    // ── Sequence / state mutation ────────────────────────────────────
-    //   nextval('seq'), setval('seq', n)
-    //
-    // ── Denial of service ────────────────────────────────────────────
-    //   pg_sleep(n)                     — block connection for n seconds
-    //   pg_sleep_for(interval)          — same, interval version
-    //   pg_sleep_until(timestamp)       — same, deadline version
-    //
-    // ── Session / backend control ────────────────────────────────────
-    //   pg_terminate_backend(pid)       — kill another connection
-    //   pg_cancel_backend(pid)          — cancel a running query
-    //   pg_reload_conf()                — reload server configuration
-    //   pg_rotate_logfile()             — rotate the server log
-    //   set_config(name, value, local)  — SET equivalent as function
-    //
-    // ── Advisory locks (can deadlock other connections) ───────────────
-    //   pg_advisory_lock(key)           — session-level advisory lock
-    //   pg_advisory_lock_shared(key)
-    //   pg_try_advisory_lock(key)
-    const dangerousFunctions = [
-      // File I/O
-      "lo_import",
-      "lo_export",
-      "lo_unlink",
-      "lo_put",
-      "lo_from_bytea",
-      "pg_read_file",
-      "pg_read_binary_file",
-      "pg_write_file",
-      "pg_stat_file",
-      "pg_ls_dir",
-      "pg_ls_logdir",
-      "pg_ls_waldir",
-      "pg_ls_tmpdir",
-      "pg_ls_archive_statusdir",
-      // Sequence / state mutation
-      "nextval",
-      "setval",
-      // Denial of service
-      "pg_sleep",
-      "pg_sleep_for",
-      "pg_sleep_until",
-      // Session / backend control
-      "pg_terminate_backend",
-      "pg_cancel_backend",
-      "pg_reload_conf",
-      "pg_rotate_logfile",
-      "set_config",
-      // Advisory locks
-      "pg_advisory_lock",
-      "pg_advisory_lock_shared",
-      "pg_try_advisory_lock",
-      "pg_try_advisory_lock_shared",
-      "pg_advisory_xact_lock",
-      "pg_advisory_xact_lock_shared",
-      "pg_advisory_unlock",
-      "pg_advisory_unlock_shared",
-      "pg_advisory_unlock_all",
-    ];
-    const dangerousFnPattern = new RegExp(
-      `(?:^|[^\\w$])"?(?:${dangerousFunctions.join("|")})"?\\s*\\(`,
-      "i",
-    );
-    const fnMatch = dangerousFnPattern.exec(noLiterals);
-    if (fnMatch) {
-      // Extract the function name from the match for the error message.
-      const fnNameMatch = fnMatch[0].match(
-        new RegExp(`(${dangerousFunctions.join("|")})`, "i"),
-      );
-      const fnName = fnNameMatch ? fnNameMatch[1].toUpperCase() : "UNKNOWN";
-      sendJsonError(
-        res,
-        `Query rejected: "${fnName}" is a dangerous function that can modify server state. Set readOnly: false to execute this query.`,
-      );
-      return;
-    }
-
     // Reject multi-statement queries (naive: any semicolon not at the very end)
     const trimmedForSemicolon = stripped.replace(/;\s*$/, "");
     if (trimmedForSemicolon.includes(";")) {

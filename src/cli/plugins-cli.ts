@@ -1,56 +1,16 @@
-import type { IAgentRuntime } from "@elizaos/core";
 import chalk from "chalk";
 import type { Command } from "commander";
-import type {
-  InstallProgressLike,
-  PluginManagerLike,
-} from "../services/plugin-manager-types";
-import { parseClampedInteger } from "../utils/number-parsing";
+import { parseClampedInteger } from "../utils/number-parsing.js";
 
 /**
  * Normalize a user-provided plugin name to its fully-qualified form.
  * Accepts `@scope/plugin-x`, `plugin-x`, or shorthand `x` (→ `@elizaos/plugin-x`).
  */
-export function normalizePluginName(name: string): string {
-  // Already fully qualified (starts with @) or plugin- prefix
+function normalizePluginName(name: string): string {
   if (name.startsWith("@") || name.startsWith("plugin-")) {
     return name;
   }
-  // Shorthand: add @elizaos/plugin- prefix
   return `@elizaos/plugin-${name}`;
-}
-
-/**
- * Parse plugin name and optional version from user input.
- * Examples:
- *   - "twitter" → { name: "@elizaos/plugin-twitter", version: undefined }
- *   - "twitter@1.2.3" → { name: "@elizaos/plugin-twitter", version: "1.2.3" }
- *   - "@custom/plugin-x@2.0.0" → { name: "@custom/plugin-x", version: "2.0.0" }
- */
-export function parsePluginSpec(input: string): {
-  name: string;
-  version?: string;
-} {
-  const trimmed = input.trim();
-  let namePart = trimmed;
-  let versionPart: string | undefined;
-
-  if (trimmed.startsWith("@")) {
-    const secondAt = trimmed.indexOf("@", 1);
-    if (secondAt !== -1) {
-      namePart = trimmed.slice(0, secondAt);
-      versionPart = trimmed.slice(secondAt + 1);
-    }
-  } else {
-    const atIndex = trimmed.indexOf("@");
-    if (atIndex !== -1) {
-      namePart = trimmed.slice(0, atIndex);
-      versionPart = trimmed.slice(atIndex + 1);
-    }
-  }
-
-  const version = versionPart?.trim() || undefined;
-  return { name: normalizePluginName(namePart), version };
 }
 
 /**
@@ -104,29 +64,6 @@ function displayPluginConfig(
   }
 }
 
-async function getPluginManager(): Promise<PluginManagerLike> {
-  const { PluginManagerService } = await import(
-    "@elizaos/plugin-plugin-manager"
-  );
-  const PluginManagerServiceCtor = PluginManagerService as unknown as new (
-    runtime: IAgentRuntime,
-  ) => PluginManagerLike;
-  const mockRuntime = {
-    plugins: [],
-    actions: [],
-    providers: [],
-    evaluators: [],
-    services: [],
-    getService: () => null,
-    registerService: () => {},
-    registerAction: () => {},
-    registerProvider: () => {},
-    registerEvaluator: () => {},
-    registerEvent: () => {},
-  } as unknown as IAgentRuntime;
-  return new PluginManagerServiceCtor(mockRuntime);
-}
-
 export function registerPluginsCli(program: Command): void {
   const pluginsCommand = program
     .command("plugins")
@@ -141,18 +78,23 @@ export function registerPluginsCli(program: Command): void {
     .option("-q, --query <query>", "Filter plugins by name or keyword")
     .option("-l, --limit <number>", "Max results to show", "30")
     .action(async (opts: { query?: string; limit: string }) => {
-      const pluginManager = await getPluginManager();
+      const { getRegistryPlugins, searchPlugins } = await import(
+        "../services/registry-client.js"
+      );
+      const { listInstalledPlugins } = await import(
+        "../services/plugin-installer.js"
+      );
 
       const limit = parseClampedInteger(opts.limit, {
         min: 1,
         max: 500,
         fallback: 30,
       });
-      const installed = await pluginManager.listInstalledPlugins();
+      const installed = await listInstalledPlugins();
       const installedNames = new Set(installed.map((p) => p.name));
 
       if (opts.query) {
-        const results = await pluginManager.searchRegistry(opts.query, limit);
+        const results = await searchPlugins(opts.query, limit);
 
         if (results.length === 0) {
           console.log(`\nNo plugins found matching "${opts.query}"\n`);
@@ -191,7 +133,7 @@ export function registerPluginsCli(program: Command): void {
           console.log();
         }
       } else {
-        const registry = await pluginManager.refreshRegistry();
+        const registry = await getRegistryPlugins();
         const all = Array.from(registry.values());
 
         const installedCount = all.filter((p) =>
@@ -224,7 +166,9 @@ export function registerPluginsCli(program: Command): void {
         console.log();
       }
 
-      console.log(chalk.dim("Install a plugin: milady plugins install <name>"));
+      console.log(
+        chalk.dim("Install a plugin: milady plugins install <name>"),
+      );
       console.log(
         chalk.dim("Search:           milady plugins list -q <keyword>"),
       );
@@ -237,14 +181,14 @@ export function registerPluginsCli(program: Command): void {
     .description("Search the plugin registry by keyword")
     .option("-l, --limit <number>", "Max results", "15")
     .action(async (query: string, opts: { limit: string }) => {
-      const pluginManager = await getPluginManager();
+      const { searchPlugins } = await import("../services/registry-client.js");
       const limit = parseClampedInteger(opts.limit, {
         min: 1,
         max: 50,
         fallback: 15,
       });
 
-      const results = await pluginManager.searchRegistry(query, limit);
+      const results = await searchPlugins(query, limit);
 
       if (results.length === 0) {
         console.log(`\nNo plugins found matching "${query}"\n`);
@@ -275,16 +219,18 @@ export function registerPluginsCli(program: Command): void {
     .command("info <name>")
     .description("Show detailed information about a plugin")
     .action(async (name: string) => {
-      const pluginManager = await getPluginManager();
+      const { getPluginInfo } = await import("../services/registry-client.js");
 
       const normalizedName = normalizePluginName(name);
 
-      const info = await pluginManager.getRegistryPlugin(normalizedName);
+      const info = await getPluginInfo(normalizedName);
 
       if (!info) {
         console.log(`\n${chalk.red("Not found:")} ${normalizedName}`);
         console.log(
-          chalk.dim("Run 'milady plugins search <keyword>' to find plugins.\n"),
+          chalk.dim(
+            "Run 'milady plugins search <keyword>' to find plugins.\n",
+          ),
         );
         return;
       }
@@ -334,28 +280,27 @@ export function registerPluginsCli(program: Command): void {
   // ── install ──────────────────────────────────────────────────────────
   pluginsCommand
     .command("install <name>")
-    .description(
-      "Install a plugin from the registry. Optionally pin to a specific version or dist-tag (e.g., twitter@1.2.3, twitter@next)",
-    )
+    .description("Install a plugin from the registry")
     .option("--no-restart", "Install without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
-      const { name: normalizedName, version } = parsePluginSpec(name);
+      const { installPlugin, installAndRestart } = await import(
+        "../services/plugin-installer.js"
+      );
 
-      const displayName = version
-        ? `${normalizedName}@${version}`
-        : normalizedName;
-      console.log(`\nInstalling ${chalk.cyan(displayName)}...\n`);
+      const normalizedName = normalizePluginName(name);
 
-      const progressHandler = (progress: InstallProgressLike) => {
+      console.log(`\nInstalling ${chalk.cyan(normalizedName)}...\n`);
+
+      const progressHandler = (progress: {
+        phase: string;
+        message: string;
+      }) => {
         console.log(`  [${progress.phase}] ${progress.message}`);
       };
 
-      const { installPlugin } = await import("../services/plugin-installer");
-      const result = await installPlugin(
-        normalizedName,
-        progressHandler,
-        version,
-      );
+      const result = opts.restart
+        ? await installAndRestart(normalizedName, progressHandler)
+        : await installPlugin(normalizedName, progressHandler);
 
       if (result.success) {
         console.log(
@@ -368,10 +313,6 @@ export function registerPluginsCli(program: Command): void {
         } else if (result.requiresRestart) {
           console.log(
             chalk.dim("Agent is restarting to load the new plugin..."),
-          );
-          const { requestRestart } = await import("../runtime/restart");
-          await Promise.resolve(
-            requestRestart(`Plugin ${result.pluginName} installed`),
           );
         }
       } else {
@@ -387,11 +328,15 @@ export function registerPluginsCli(program: Command): void {
     .description("Uninstall a user-installed plugin")
     .option("--no-restart", "Uninstall without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
-      const pluginManager = await getPluginManager();
+      const { uninstallPlugin, uninstallAndRestart } = await import(
+        "../services/plugin-installer.js"
+      );
 
       console.log(`\nUninstalling ${chalk.cyan(name)}...\n`);
 
-      const result = await pluginManager.uninstallPlugin(name);
+      const result = opts.restart
+        ? await uninstallAndRestart(name)
+        : await uninstallPlugin(name);
 
       if (result.success) {
         console.log(
@@ -412,8 +357,11 @@ export function registerPluginsCli(program: Command): void {
     .command("installed")
     .description("List plugins installed from the registry")
     .action(async () => {
-      const pluginManager = await getPluginManager();
-      const plugins = await pluginManager.listInstalledPlugins();
+      const { listInstalledPlugins } = await import(
+        "../services/plugin-installer.js"
+      );
+
+      const plugins = await listInstalledPlugins();
 
       if (plugins.length === 0) {
         console.log("\nNo plugins installed from the registry.\n");
@@ -426,6 +374,8 @@ export function registerPluginsCli(program: Command): void {
       );
       for (const p of plugins) {
         console.log(`  ${chalk.cyan(p.name)} ${chalk.dim(`v${p.version}`)}`);
+        console.log(`    ${chalk.dim(`installed: ${p.installedAt}`)}`);
+        console.log(`    ${chalk.dim(`path: ${p.installPath}`)}`);
         console.log();
       }
     });
@@ -435,27 +385,31 @@ export function registerPluginsCli(program: Command): void {
     .command("refresh")
     .description("Force-refresh the plugin registry cache")
     .action(async () => {
-      const pluginManager = await getPluginManager();
+      const { refreshRegistry } = await import(
+        "../services/registry-client.js"
+      );
 
       console.log("\nRefreshing registry cache...");
-      const registry = await pluginManager.refreshRegistry();
+      const registry = await refreshRegistry();
       console.log(`${chalk.green("Done!")} ${registry.size} plugins loaded.\n`);
     });
 
   // ── test ─────────────────────────────────────────────────────────────
   pluginsCommand
     .command("test")
-    .description("Validate custom drop-in plugins in ~/.milady/plugins/custom/")
+    .description(
+      "Validate custom drop-in plugins in ~/.milady/plugins/custom/",
+    )
     .action(async () => {
       const nodePath = await import("node:path");
       const { pathToFileURL } = await import("node:url");
       const fsPromises = await import("node:fs/promises");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths"
+        "../config/paths.js"
       );
-      const { loadMiladyConfig } = await import("../config/config");
+      const { loadMiladyConfig } = await import("../config/config.js");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins, resolvePackageEntry } =
-        await import("../runtime/eliza");
+        await import("../runtime/eliza.js");
 
       const customDir = nodePath.join(
         resolveStateDir(),
@@ -593,9 +547,9 @@ export function registerPluginsCli(program: Command): void {
     .action(async (rawPath: string) => {
       const _nodePath = await import("node:path");
       const nodeFs = await import("node:fs");
-      const { resolveUserPath } = await import("../config/paths");
+      const { resolveUserPath } = await import("../config/paths.js");
       const { loadMiladyConfig, saveMiladyConfig } = await import(
-        "../config/config"
+        "../config/config.js"
       );
 
       const resolved = resolveUserPath(rawPath);
@@ -644,11 +598,11 @@ export function registerPluginsCli(program: Command): void {
     .action(async () => {
       const nodePath = await import("node:path");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths"
+        "../config/paths.js"
       );
-      const { loadMiladyConfig } = await import("../config/config");
+      const { loadMiladyConfig } = await import("../config/config.js");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza"
+        "../runtime/eliza.js"
       );
 
       let config: ReturnType<typeof loadMiladyConfig> | null = null;
@@ -839,7 +793,7 @@ export function registerPluginsCli(program: Command): void {
 
       // Save to config and env
       const { loadMiladyConfig, saveMiladyConfig } = await import(
-        "../config/config"
+        "../config/config.js"
       );
 
       let config: ReturnType<typeof loadMiladyConfig>;
@@ -898,10 +852,10 @@ export function registerPluginsCli(program: Command): void {
       const nodeFs = await import("node:fs");
       const { spawnSync } = await import("node:child_process");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths"
+        "../config/paths.js"
       );
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza"
+        "../runtime/eliza.js"
       );
 
       const customDir = nodePath.join(

@@ -13,8 +13,8 @@ vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
 }));
 
-vi.mock("node:fs", async () => {
-  const actual = await import("node:fs");
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
   return {
     ...actual,
     default: {
@@ -31,13 +31,13 @@ vi.mock("node:fs", async () => {
 
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import { createMockChildProcess } from "../test-support/process-helpers";
-
+import { createMockChildProcess } from "../test-support/process-helpers.js";
+import type { InstallMethod } from "./self-updater.js";
 import {
   buildUpdateCommand,
   detectInstallMethod,
   performUpdate,
-} from "./self-updater";
+} from "./self-updater.js";
 
 // ============================================================================
 // 1. Installation method detection
@@ -48,6 +48,28 @@ describe("detectInstallMethod", () => {
     vi.mocked(execSync).mockReset();
     vi.mocked(fs.realpathSync).mockReset();
     vi.mocked(fs.readFileSync).mockReset();
+  });
+
+  it("detects npm global install", () => {
+    vi.mocked(execSync).mockReturnValueOnce(
+      Buffer.from("/usr/local/bin/milady"),
+    );
+    vi.mocked(fs.realpathSync).mockReturnValueOnce(
+      "/usr/local/lib/node_modules/milady/milady.mjs",
+    );
+
+    expect(detectInstallMethod()).toBe("npm-global");
+  });
+
+  it("detects bun global install", () => {
+    vi.mocked(execSync).mockReturnValueOnce(
+      Buffer.from("/home/user/.bun/bin/milady"),
+    );
+    vi.mocked(fs.realpathSync).mockReturnValueOnce(
+      "/home/user/.bun/install/global/node_modules/milady/milady.mjs",
+    );
+
+    expect(detectInstallMethod()).toBe("bun-global");
   });
 
   it("detects Homebrew install", () => {
@@ -88,6 +110,17 @@ describe("detectInstallMethod", () => {
     expect(detectInstallMethod()).toBe("flatpak");
   });
 
+  it("detects pnpm global install", () => {
+    vi.mocked(execSync).mockReturnValueOnce(
+      Buffer.from("/home/user/.local/share/pnpm/milady"),
+    );
+    vi.mocked(fs.realpathSync).mockReturnValueOnce(
+      "/home/user/.local/share/pnpm/global/5/node_modules/milady/milady.mjs",
+    );
+
+    expect(detectInstallMethod()).toBe("pnpm-global");
+  });
+
   it("returns local-dev when running from source with devDependencies", () => {
     // which returns nothing (no global binary)
     vi.mocked(execSync).mockImplementation(() => {
@@ -117,18 +150,39 @@ describe("detectInstallMethod", () => {
 // ============================================================================
 
 describe("buildUpdateCommand", () => {
-  it("npm-global + stable → npm install -g miladyai@latest", () => {
+  it("npm-global + stable → npm install -g milady@latest", () => {
     const result = buildUpdateCommand("npm-global", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("npm");
-    expect(result?.args).toEqual(["install", "-g", "miladyai@latest"]);
+    expect(result?.args).toEqual(["install", "-g", "milady@latest"]);
   });
 
-  it("bun-global + stable → bun install -g miladyai@latest", () => {
+  it("npm-global + beta → npm install -g milady@beta", () => {
+    const result = buildUpdateCommand("npm-global", "beta");
+    expect(result).not.toBeNull();
+    expect(result?.command).toBe("npm");
+    expect(result?.args).toEqual(["install", "-g", "milady@beta"]);
+  });
+
+  it("npm-global + nightly → npm install -g milady@nightly", () => {
+    const result = buildUpdateCommand("npm-global", "nightly");
+    expect(result).not.toBeNull();
+    expect(result?.command).toBe("npm");
+    expect(result?.args).toEqual(["install", "-g", "milady@nightly"]);
+  });
+
+  it("bun-global + stable → bun install -g milady@latest", () => {
     const result = buildUpdateCommand("bun-global", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("bun");
-    expect(result?.args).toEqual(["install", "-g", "miladyai@latest"]);
+    expect(result?.args).toEqual(["install", "-g", "milady@latest"]);
+  });
+
+  it("pnpm-global + beta → pnpm add -g milady@beta", () => {
+    const result = buildUpdateCommand("pnpm-global", "beta");
+    expect(result).not.toBeNull();
+    expect(result?.command).toBe("pnpm");
+    expect(result?.args).toEqual(["add", "-g", "milady@beta"]);
   });
 
   it("homebrew → brew upgrade milady (ignores channel)", () => {
@@ -194,7 +248,7 @@ describe("buildUpdateCommand", () => {
     const result = buildUpdateCommand("unknown", "stable");
     expect(result).not.toBeNull();
     expect(result?.command).toBe("npm");
-    expect(result?.args).toContain("miladyai@latest");
+    expect(result?.args).toContain("milady@latest");
   });
 });
 
@@ -266,7 +320,7 @@ describe("performUpdate", () => {
 
     expect(result.success).toBe(false);
     expect(result.method).toBe("npm-global");
-    expect(result.command).toContain("npm install -g miladyai@latest");
+    expect(result.command).toContain("npm install -g milady@latest");
     expect(result.error).toContain("E403");
   });
 
@@ -367,7 +421,7 @@ describe("performUpdate edge cases", () => {
 
     expect(result.success).toBe(true);
     expect(result.method).toBe("bun-global");
-    expect(result.command).toContain("bun install -g miladyai@beta");
+    expect(result.command).toContain("bun install -g milady@beta");
   });
 
   it("handles spawn error event (command not found)", async () => {
@@ -461,5 +515,41 @@ describe("performUpdate edge cases", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("127");
+  });
+});
+
+// ============================================================================
+// 5. Install method type exhaustiveness
+// ============================================================================
+
+describe("InstallMethod type", () => {
+  it("covers all known installation methods", () => {
+    const methods: InstallMethod[] = [
+      "npm-global",
+      "bun-global",
+      "pnpm-global",
+      "homebrew",
+      "snap",
+      "apt",
+      "flatpak",
+      "local-dev",
+      "unknown",
+    ];
+
+    // Verify all methods are distinct
+    const unique = new Set(methods);
+    expect(unique.size).toBe(methods.length);
+
+    // Verify each method generates a command (except local-dev)
+    for (const method of methods) {
+      const cmd = buildUpdateCommand(method, "stable");
+      if (method === "local-dev") {
+        expect(cmd).toBeNull();
+      } else {
+        expect(cmd).not.toBeNull();
+        expect(cmd?.command).toBeTruthy();
+        expect(cmd?.args.length).toBeGreaterThan(0);
+      }
+    }
   });
 });

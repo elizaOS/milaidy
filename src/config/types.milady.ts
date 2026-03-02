@@ -675,6 +675,10 @@ export type MiladyConfig = {
     seamColor?: string;
     /** User's preferred UI theme. Set during onboarding. */
     theme?: "milady" | "qt314" | "web2000" | "programmer" | "haxor" | "psycho";
+    /** User's preferred UI language. */
+    language?: "en" | "zh-CN";
+    /** What the agent should call the user. Set during onboarding. */
+    ownerName?: string;
     assistant?: {
       /** Assistant display name for UI surfaces. */
       name?: string;

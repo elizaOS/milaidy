@@ -6,11 +6,11 @@
  *   2. Secrets (modal)
  */
 
-import { useCallback, useState } from "react";
+import { useState, useCallback } from "react";
 import { useApp } from "../AppContext";
+import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
-import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { SecretsView } from "./SecretsView";
 
 type RpcProviderOption<T extends string> = {
@@ -28,11 +28,16 @@ type RpcFieldGroup = ReadonlyArray<RpcFieldDefinition>;
 
 type RpcSectionConfigMap = Record<string, RpcFieldGroup>;
 
+// Public RPC defaults for desktop builds (no Railway env). Keep these free, no API keys.
+const DEFAULT_PUBLIC_BSC_RPC_PRIMARY = "https://bsc-rpc.publicnode.com";
+const DEFAULT_PUBLIC_BSC_RPC_SECONDARY = "https://bsc.publicnode.com";
+
 const EVM_RPC_OPTIONS = [
   { id: "eliza-cloud", label: "Eliza Cloud" },
   { id: "alchemy", label: "Alchemy" },
   { id: "infura", label: "Infura" },
   { id: "ankr", label: "Ankr" },
+  { id: "bsc-rpc", label: "BSC RPC" },
 ] as const;
 
 const SOLANA_RPC_OPTIONS = [
@@ -66,28 +71,8 @@ function CloudRpcStatus({
         <span className="font-semibold">Connected to Eliza Cloud</span>
         {credits !== null && (
           <span className="text-[var(--muted)] ml-auto">
-            Credits:{" "}
-            <span
-              className={
-                creditsCritical
-                  ? "text-[var(--danger,#e74c3c)] font-bold"
-                  : creditsLow
-                    ? "text-[#b8860b] font-bold"
-                    : ""
-              }
-            >
-              ${credits.toFixed(2)}
-            </span>
-            {topUpUrl && (
-              <a
-                href={topUpUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] ml-1.5 text-[var(--accent)]"
-              >
-                Top up
-              </a>
-            )}
+            Credits: <span className={creditsCritical ? "text-[var(--danger,#e74c3c)] font-bold" : creditsLow ? "text-[#b8860b] font-bold" : ""}>${credits.toFixed(2)}</span>
+            {topUpUrl && <a href={topUpUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] ml-1.5 text-[var(--accent)]">Top up</a>}
           </span>
         )}
       </div>
@@ -98,12 +83,9 @@ function CloudRpcStatus({
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 text-xs">
         <span className="inline-block w-2 h-2 rounded-full bg-[var(--muted)]" />
-        <span className="text-[var(--muted)]">
-          Requires Eliza Cloud connection
-        </span>
+        <span className="text-[var(--muted)]">Requires Eliza Cloud connection</span>
       </div>
       <button
-        type="button"
         className="btn text-xs py-[3px] px-3 !mt-0 font-bold"
         onClick={() => void onLogin()}
         disabled={loginBusy}
@@ -148,7 +130,9 @@ function buildRpcRendererConfig(
       sensitive: true,
       placeholder: field.isSet
         ? "Already set — leave blank to keep"
-        : "Enter API key",
+        : field.configKey.includes("RPC_URL")
+          ? "Enter RPC URL (https://...)"
+          : "Enter API key",
       width: "full",
     };
     if (rpcFieldValues[field.configKey] !== undefined) {
@@ -189,11 +173,7 @@ function RpcConfigSection<T extends string>({
   cloud,
   containerClassName,
 }: RpcSectionProps<T>) {
-  const rpcConfig = buildRpcRendererConfig(
-    selectedProvider,
-    providerConfigs,
-    rpcFieldValues,
-  );
+  const rpcConfig = buildRpcRendererConfig(selectedProvider, providerConfigs, rpcFieldValues);
 
   return (
     <div>
@@ -208,6 +188,35 @@ function RpcConfigSection<T extends string>({
       )}
 
       <div className="mt-3">
+        {selectedProvider === "bsc-rpc" && (
+          <div className="mb-2 border border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-2 text-[11px] text-[var(--muted)]">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                Recommended free endpoints:
+                <code className="ml-1">{DEFAULT_PUBLIC_BSC_RPC_PRIMARY}</code>
+                <span className="mx-1">+</span>
+                <code>{DEFAULT_PUBLIC_BSC_RPC_SECONDARY}</code>
+              </div>
+              <button
+                className="btn text-[11px] py-[3px] px-3 !mt-0"
+                onClick={() => {
+                  onRpcFieldChange(
+                    "NODEREAL_BSC_RPC_URL",
+                    DEFAULT_PUBLIC_BSC_RPC_PRIMARY,
+                  );
+                  onRpcFieldChange(
+                    "QUICKNODE_BSC_RPC_URL",
+                    DEFAULT_PUBLIC_BSC_RPC_SECONDARY,
+                  );
+                  // Standard elizaOS env key used by EVM tooling/plugins.
+                  onRpcFieldChange("BSC_RPC_URL", DEFAULT_PUBLIC_BSC_RPC_PRIMARY);
+                }}
+              >
+                Use defaults
+              </button>
+            </div>
+          </div>
+        )}
         {selectedProvider === "eliza-cloud" ? (
           <CloudRpcStatus
             connected={cloud.connected}
@@ -245,7 +254,6 @@ function renderRpcProviderButtons<T extends string>(
         const active = selectedProvider === provider.id;
         return (
           <button
-            type="button"
             key={provider.id}
             className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
               active
@@ -254,9 +262,7 @@ function renderRpcProviderButtons<T extends string>(
             }`}
             onClick={() => onSelect(provider.id)}
           >
-            <div
-              className={`text-xs font-bold whitespace-nowrap ${active ? "" : "text-[var(--text)]"}`}
-            >
+            <div className={`text-xs font-bold whitespace-nowrap ${active ? "" : "text-[var(--text)]"}`}>
               {provider.label}
             </div>
           </button>
@@ -285,9 +291,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   const [secretsOpen, setSecretsOpen] = useState(false);
 
   /* ── RPC provider field values ─────────────────────────────────────── */
-  const [rpcFieldValues, setRpcFieldValues] = useState<Record<string, string>>(
-    {},
-  );
+  const [rpcFieldValues, setRpcFieldValues] = useState<Record<string, string>>({});
 
   const handleRpcFieldChange = useCallback((key: string, value: unknown) => {
     setRpcFieldValues((prev) => ({ ...prev, [key]: String(value ?? "") }));
@@ -302,12 +306,8 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   }, [handleWalletApiKeySave, rpcFieldValues]);
 
   /* ── RPC provider selection state ──────────────────────────────────── */
-  const [selectedEvmRpc, setSelectedEvmRpc] = useState<
-    "eliza-cloud" | "alchemy" | "infura" | "ankr"
-  >("eliza-cloud");
-  const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<
-    "eliza-cloud" | "helius-birdeye"
-  >("eliza-cloud");
+  const [selectedEvmRpc, setSelectedEvmRpc] = useState<"eliza-cloud" | "alchemy" | "infura" | "ankr" | "bsc-rpc">("eliza-cloud");
+  const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<"eliza-cloud" | "helius-birdeye">("eliza-cloud");
 
   const evmRpcConfigs: RpcSectionConfigMap = {
     alchemy: [
@@ -329,6 +329,18 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         configKey: "ANKR_API_KEY",
         label: "Ankr API Key",
         isSet: walletConfig?.ankrKeySet ?? false,
+      },
+    ],
+    "bsc-rpc": [
+      {
+        configKey: "NODEREAL_BSC_RPC_URL",
+        label: "BSC RPC URL (Primary)",
+        isSet: walletConfig?.nodeRealBscRpcSet ?? false,
+      },
+      {
+        configKey: "QUICKNODE_BSC_RPC_URL",
+        label: "BSC RPC URL (Secondary)",
+        isSet: walletConfig?.quickNodeBscRpcSet ?? false,
       },
     ],
   };
@@ -376,22 +388,11 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         <div className="flex items-center justify-between mb-4">
           <div className="font-bold text-sm">Wallet &amp; RPC</div>
           <button
-            type="button"
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border border-[var(--border)] rounded cursor-pointer transition-colors hover:border-[var(--accent)]"
             onClick={() => setSecretsOpen(true)}
             title="Secrets Vault"
           >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Secrets vault</title>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
@@ -403,7 +404,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           {/* EVM */}
           <RpcConfigSection
             title="EVM"
-            description="Ethereum, Base, Arbitrum, Optimism, Polygon"
+            description="Ethereum, Base, Arbitrum, Optimism, Polygon, BSC"
             options={EVM_RPC_OPTIONS}
             selectedProvider={selectedEvmRpc}
             onSelect={setSelectedEvmRpc}
@@ -431,7 +432,6 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
 
         <div className="flex justify-end mt-4">
           <button
-            type="button"
             className="btn text-[11px] py-1 px-3.5 !mt-0"
             onClick={handleWalletSaveAll}
             disabled={walletApiKeySaving}
@@ -445,40 +445,18 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
       {secretsOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSecretsOpen(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setSecretsOpen(false);
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
+          onClick={(e) => { if (e.target === e.currentTarget) setSecretsOpen(false); }}
         >
           <div className="w-full max-w-2xl max-h-[80vh] border border-[var(--border)] bg-[var(--card)] p-5 shadow-lg flex flex-col">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[var(--accent)]"
-                >
-                  <title>Secrets vault</title>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)]">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
                 <span className="font-bold text-sm">Secrets Vault</span>
               </div>
               <button
-                type="button"
                 className="text-[var(--muted)] hover:text-[var(--txt)] text-lg leading-none px-1 bg-transparent border-0 cursor-pointer"
                 onClick={() => setSecretsOpen(false)}
               >

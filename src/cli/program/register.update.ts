@@ -9,9 +9,9 @@
  */
 
 import type { Command } from "commander";
-import type { ReleaseChannel } from "../../config/types.milady";
-import { theme } from "../../terminal/theme";
-import { CLI_VERSION } from "../version";
+import type { ReleaseChannel } from "../../config/types.milady.js";
+import { theme } from "../../terminal/theme.js";
+import { CLI_VERSION } from "../version.js";
 
 const ALL_CHANNELS: readonly ReleaseChannel[] = ["stable", "beta", "nightly"];
 
@@ -49,13 +49,13 @@ async function updateAction(opts: {
   force?: boolean;
 }): Promise<void> {
   const { loadMiladyConfig, saveMiladyConfig } = await import(
-    "../../config/config"
+    "../../config/config.js"
   );
   const { checkForUpdate, resolveChannel } = await import(
-    "../../services/update-checker"
+    "../../services/update-checker.js"
   );
   const { detectInstallMethod, performUpdate } = await import(
-    "../../services/self-updater"
+    "../../services/self-updater.js"
   );
   const config = loadMiladyConfig();
   let newChannel: ReleaseChannel | undefined;
@@ -169,11 +169,13 @@ async function updateAction(opts: {
 }
 
 async function statusAction(): Promise<void> {
-  const { loadMiladyConfig } = await import("../../config/config");
+  const { loadMiladyConfig } = await import("../../config/config.js");
   const { resolveChannel, fetchAllChannelVersions } = await import(
-    "../../services/update-checker"
+    "../../services/update-checker.js"
   );
-  const { detectInstallMethod } = await import("../../services/self-updater");
+  const { detectInstallMethod } = await import(
+    "../../services/self-updater.js"
+  );
   console.log(`\n${theme.heading("Version Status")}\n`);
 
   const config = loadMiladyConfig();
@@ -204,9 +206,9 @@ async function statusAction(): Promise<void> {
 
 async function channelAction(channelArg: string | undefined): Promise<void> {
   const { loadMiladyConfig, saveMiladyConfig } = await import(
-    "../../config/config"
+    "../../config/config.js"
   );
-  const { resolveChannel } = await import("../../services/update-checker");
+  const { resolveChannel } = await import("../../services/update-checker.js");
   const config = loadMiladyConfig();
   const current = resolveChannel(config.update);
 

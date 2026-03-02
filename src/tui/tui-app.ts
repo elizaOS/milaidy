@@ -1,11 +1,4 @@
-import path from "node:path";
 import type { AgentRuntime } from "@elizaos/core";
-import {
-  type Api,
-  getModels,
-  getProviders,
-  type Model,
-} from "@mariozechner/pi-ai";
 import {
   type AutocompleteItem,
   CombinedAutocompleteProvider,
@@ -17,27 +10,23 @@ import {
   Spacer,
   Text,
   TUI,
-} from "@mariozechner/pi-tui";
+} from "@elizaos/tui";
+import {
+  type Api,
+  getModels,
+  getProviders,
+  type Model,
+} from "@mariozechner/pi-ai";
 import {
   ChatEditor,
-  EmbeddingsOverlayComponent,
   FooterComponent,
   ModelSelectorComponent,
-  PinnedChatLayout,
-  PluginsOverlayComponent,
-  SettingsOverlayComponent,
   StatusBar,
 } from "./components/index.js";
-import { MODAL_PRESETS } from "./modal-presets.js";
 import { tuiTheme } from "./theme.js";
-import { TitlebarSpinner } from "./titlebar-spinner.js";
-
-export type EmbeddingTier = "fallback" | "standard" | "performance";
 
 export interface MiladyTUIOptions {
   runtime: AgentRuntime;
-  modelRegistry?: unknown;
-  apiBaseUrl?: string;
 }
 
 export class MiladyTUI {
@@ -53,39 +42,17 @@ export class MiladyTUI {
   private editor!: ChatEditor;
 
   private modelOverlay: OverlayHandle | null = null;
-  private settingsOverlay: OverlayHandle | null = null;
-  private embeddingsOverlay: OverlayHandle | null = null;
-  private pluginsOverlay: OverlayHandle | null = null;
   private toolOutputExpanded = false;
-  private showThinking = process.env.MILADY_TUI_SHOW_THINKING === "1";
-
-  private titlebarSpinner = new TitlebarSpinner({
-    setTitle: (title) => this.terminal.setTitle(title),
-  });
 
   private onSubmit?: (text: string) => Promise<void>;
   private onCtrlC?: () => void;
   private onToggleToolExpand?: (expanded: boolean) => void;
-  private onToggleThinking?: (enabled: boolean) => void;
 
   private modelSelectorHandlers:
     | {
         getCurrentModel: () => Model<Api>;
         onSelectModel: (model: Model<Api>) => void;
         hasCredentials?: (provider: string) => boolean;
-      }
-    | undefined;
-
-  private embeddingHandlers:
-    | {
-        getOptions: () => Array<{
-          tier: EmbeddingTier;
-          label: string;
-          dimensions: number;
-          downloaded: boolean;
-          active: boolean;
-        }>;
-        onSelectTier: (tier: EmbeddingTier) => Promise<void>;
       }
     | undefined;
 
@@ -103,33 +70,12 @@ export class MiladyTUI {
     this.onToggleToolExpand = handler;
   }
 
-  setOnToggleThinking(handler: (enabled: boolean) => void): void {
-    this.onToggleThinking = handler;
-  }
-
-  getShowThinking(): boolean {
-    return this.showThinking;
-  }
-
   setModelSelectorHandlers(handlers: {
     getCurrentModel: () => Model<Api>;
     onSelectModel: (model: Model<Api>) => void;
     hasCredentials?: (provider: string) => boolean;
   }): void {
     this.modelSelectorHandlers = handlers;
-  }
-
-  setEmbeddingHandlers(handlers: {
-    getOptions: () => Array<{
-      tier: EmbeddingTier;
-      label: string;
-      dimensions: number;
-      downloaded: boolean;
-      active: boolean;
-    }>;
-    onSelectTier: (tier: EmbeddingTier) => Promise<void>;
-  }): void {
-    this.embeddingHandlers = handlers;
   }
 
   getToolOutputExpanded(): boolean {
@@ -142,18 +88,14 @@ export class MiladyTUI {
     this.chatContainer = new Container();
     this.ephemeralStatusContainer = new Container();
 
-    const agentName = this.options.runtime.character?.name ?? "milady";
+    this.statusBar.update({
+      agentName: this.options.runtime.character?.name ?? "milady",
+    });
 
-    this.statusBar.update({ agentName });
-    this.titlebarSpinner.setBaseTitle(this.getBaseTitle());
-
-    // ── Header: compact branding (hints live in footer) ─────────────
-    const logo =
-      tuiTheme.bold(tuiTheme.accent("Milady")) +
-      tuiTheme.dim(` — ${agentName}`);
-
-    this.chatContainer.addChild(new Spacer(1));
-    this.chatContainer.addChild(new Text(logo, 1, 0));
+    // Welcome
+    this.chatContainer.addChild(
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
+    );
     this.chatContainer.addChild(new Spacer(1));
 
     this.editor = new ChatEditor(this.ui, tuiTheme.editor, {
@@ -183,11 +125,7 @@ export class MiladyTUI {
       this.showModelSelector();
     };
 
-    this.editor.onCtrlG = () => {
-      this.showPlugins();
-    };
-
-    // ── Slash-command autocomplete ────────────────────────────────────
+    // Slash command autocomplete (pi-style "/...").
     const getModelCompletions = (
       argumentPrefix: string,
     ): AutocompleteItem[] => {
@@ -228,60 +166,40 @@ export class MiladyTUI {
           getModelCompletions(argumentPrefix),
       },
       {
-        name: "embeddings",
-        description:
-          "Open/switch embedding model (/embeddings [fallback|standard|performance])",
+        name: "clear",
+        description: "Clear chat",
       },
-      { name: "clear", description: "Clear chat" },
-      { name: "settings", description: "Open settings panel" },
-      { name: "plugins", description: "Open plugin manager" },
-      { name: "help", description: "Show help" },
-      { name: "exit", description: "Quit" },
-      { name: "quit", description: "Alias for /exit" },
+      {
+        name: "help",
+        description: "Show help",
+      },
+      {
+        name: "exit",
+        description: "Quit",
+      },
+      {
+        name: "quit",
+        description: "Alias for /exit",
+      },
     ];
 
     this.editor.setAutocompleteProvider(
       new CombinedAutocompleteProvider(slashCommands),
     );
 
-    // ── Root layout: single PinnedChatLayout child ─────────────────────
-    this.ui.addChild(
-      new PinnedChatLayout({
-        chat: this.chatContainer,
-        ephemeralStatus: this.ephemeralStatusContainer,
-        statusBar: this.statusBar,
-        editor: this.editor,
-        footer: this.footer,
-        getTerminalRows: () => this.terminal.rows,
-        spacerLines: 1,
-      }),
-    );
-
-    // ── Debug handler (Shift+Ctrl+D) ────────────────────────────────
-    this.ui.onDebug = () => {
-      const info = [
-        `chat children: ${this.chatContainer.children.length}`,
-        `overlays: model=${!!this.modelOverlay} embeddings=${!!this.embeddingsOverlay}`,
-        `tool expand: ${this.toolOutputExpanded}`,
-        `terminal: ${this.terminal.columns}×${this.terminal.rows}`,
-      ].join(" | ");
-      this.addToChatContainer(new Text(tuiTheme.dim(`[debug] ${info}`), 1, 0));
-    };
+    // Root layout: chat + ephemeral status + status bar + spacer + editor + footer
+    this.ui.addChild(this.chatContainer);
+    this.ui.addChild(this.ephemeralStatusContainer);
+    this.ui.addChild(this.statusBar);
+    this.ui.addChild(new Spacer(1));
+    this.ui.addChild(this.editor);
+    this.ui.addChild(this.footer);
 
     this.ui.setFocus(this.editor);
     this.ui.start();
   }
 
   async stop(): Promise<void> {
-    this.titlebarSpinner.dispose();
-    this.modelOverlay?.hide();
-    this.modelOverlay = null;
-    this.settingsOverlay?.hide();
-    this.settingsOverlay = null;
-    this.embeddingsOverlay?.hide();
-    this.embeddingsOverlay = null;
-    this.pluginsOverlay?.hide();
-    this.pluginsOverlay = null;
     this.ui.stop();
   }
 
@@ -317,111 +235,12 @@ export class MiladyTUI {
     this.showModelSelector();
   }
 
-  openSettings(): void {
-    this.showSettings();
-  }
-
-  openEmbeddings(): void {
-    this.showEmbeddings();
-  }
-
-  openPlugins(): void {
-    this.showPlugins();
-  }
-
-  setBusy(busy: boolean): void {
-    if (busy) {
-      this.titlebarSpinner.start();
-    } else {
-      this.titlebarSpinner.stop();
-    }
-  }
-
   clearChat(): void {
     this.chatContainer.clear();
-    this.ui.requestRender();
-  }
-
-  private getBaseTitle(): string {
-    const cwd = path.basename(process.cwd());
-    const agentName = this.options.runtime.character?.name ?? "milady";
-    return `${agentName} - ${cwd}`;
-  }
-
-  private showSettings(): void {
-    if (this.settingsOverlay) return;
-
-    const settings = new SettingsOverlayComponent({
-      showThinking: this.showThinking,
-      toolExpand: this.toolOutputExpanded,
-      onToggleThinking: (enabled) => {
-        this.showThinking = enabled;
-        this.onToggleThinking?.(enabled);
-      },
-      onToggleToolExpand: (expanded) => {
-        this.toolOutputExpanded = expanded;
-        this.onToggleToolExpand?.(expanded);
-      },
-      onClose: () => {
-        this.settingsOverlay?.hide();
-        this.settingsOverlay = null;
-        this.ui.setFocus(this.editor);
-        this.ui.requestRender();
-      },
-    });
-
-    this.settingsOverlay = this.ui.showOverlay(settings, MODAL_PRESETS.compact);
-
-    this.ui.requestRender();
-  }
-
-  private showEmbeddings(): void {
-    if (!this.embeddingHandlers) return;
-    if (this.embeddingsOverlay) return;
-
-    const embeddings = new EmbeddingsOverlayComponent({
-      options: this.embeddingHandlers.getOptions(),
-      onSelectTier: (tier) => {
-        this.embeddingsOverlay?.hide();
-        this.embeddingsOverlay = null;
-        this.ui.setFocus(this.editor);
-        this.ui.requestRender();
-
-        void this.embeddingHandlers?.onSelectTier(tier);
-      },
-      onCancel: () => {
-        this.embeddingsOverlay?.hide();
-        this.embeddingsOverlay = null;
-        this.ui.setFocus(this.editor);
-        this.ui.requestRender();
-      },
-    });
-
-    this.embeddingsOverlay = this.ui.showOverlay(
-      embeddings,
-      MODAL_PRESETS.standard,
+    this.chatContainer.addChild(
+      new Text(tuiTheme.accent("Welcome to Milady"), 1, 0),
     );
-
-    this.ui.requestRender();
-  }
-
-  private showPlugins(): void {
-    if (this.pluginsOverlay) return;
-
-    const plugins = new PluginsOverlayComponent({
-      runtime: this.options.runtime,
-      apiBaseUrl: this.options.apiBaseUrl,
-      onClose: () => {
-        this.pluginsOverlay?.hide();
-        this.pluginsOverlay = null;
-        this.ui.setFocus(this.editor);
-        this.ui.requestRender();
-      },
-      requestRender: () => this.ui.requestRender(),
-    });
-
-    this.pluginsOverlay = this.ui.showOverlay(plugins, MODAL_PRESETS.wide);
-
+    this.chatContainer.addChild(new Spacer(1));
     this.ui.requestRender();
   }
 
@@ -449,8 +268,13 @@ export class MiladyTUI {
       },
     });
 
-    this.modelOverlay = this.ui.showOverlay(selector, MODAL_PRESETS.standard);
+    this.modelOverlay = this.ui.showOverlay(selector, {
+      anchor: "center",
+      width: "60%",
+      maxHeight: "70%",
+    });
 
+    // Focus is handled by showOverlay(), but ensure render.
     this.ui.requestRender();
   }
 }

@@ -16,12 +16,12 @@
  *   MILADY_LIVE_TEST=1 OPENAI_API_KEY=sk-... pnpm test:e2e -- test/cloud-providers.e2e.test.ts
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../src/config/config";
+import type { MiladyConfig } from "../src/config/config.js";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza";
+} from "../src/runtime/eliza.js";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -98,12 +98,12 @@ describe("Provider plugin selection (auto-detect, no allowlist)", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("removes core cloud plugin when cloud is explicitly disabled", () => {
+  it("loads cloud plugin when only apiKey exists (enabled=false)", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
     } as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("loads multiple providers when multiple keys are set", () => {
@@ -114,7 +114,7 @@ describe("Provider plugin selection (auto-detect, no allowlist)", () => {
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
-  it("loads no direct AI provider when nothing is configured", () => {
+  it("loads no AI provider when nothing is configured", () => {
     const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
@@ -162,13 +162,13 @@ describe("Provider plugin selection (explicit allowlist)", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("removes core cloud plugin when cloud is explicitly disabled", () => {
+  it("injects cloud plugin when only apiKey exists (enabled=false)", () => {
     const config = makeConfig(["@elizaos/plugin-anthropic"], {
       enabled: false,
       apiKey: "ck-test",
     });
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("removes direct AI providers when cloud is active", () => {
@@ -235,12 +235,12 @@ describe("Cloud config → env var propagation", () => {
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
   });
 
-  it("keeps cloud disabled when enabled flag is explicitly false", () => {
+  it("treats apiKey alone as cloud-enabled (enabled flag was reset)", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-still-valid" },
     } as MiladyConfig;
     applyCloudConfigToEnv(config);
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-still-valid");
   });
 
@@ -334,7 +334,7 @@ describe("Provider switching simulation", () => {
     expect(cloudPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("switch cloud → local: Anthropic restored while cloud plugin is removed", () => {
+  it("switch cloud → local: cloud removed, Anthropic restored", () => {
     // Start with cloud
     const cloudConfig = {
       plugins: {
@@ -360,7 +360,7 @@ describe("Provider switching simulation", () => {
     expect(localPlugins.has("@elizaos/plugin-browser")).toBe(true);
   });
 
-  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud mode", () => {
+  it("full cycle: no config → cloud login → switch to OpenAI → back to cloud", () => {
     // Step 1: Fresh start, nothing configured
     let config = {} as MiladyConfig;
     let plugins = collectPluginNames(config);
@@ -427,7 +427,7 @@ describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
     const key = process.env.ELIZAOS_CLOUD_API_KEY;
     if (!key) {
       // Try loading from config
-      const { loadMiladyConfig } = await import("../src/config/config");
+      const { loadMiladyConfig } = await import("../src/config/config.js");
       const config = loadMiladyConfig();
       if (!config.cloud?.apiKey)
         throw new Error("No Eliza Cloud API key found");

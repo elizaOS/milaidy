@@ -1,9 +1,9 @@
 import http from "node:http";
 import type { AgentRuntime, Memory, MessagePayload } from "@elizaos/core";
 import { createUniqueUuid } from "@elizaos/core";
-import trajectoryLoggerPlugin from "@elizaos/plugin-trajectory-logger";
 import { describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "../src/api/server.js";
+import { createMiladyPlugin } from "../src/runtime/milady-plugin.js";
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
 
@@ -180,22 +180,7 @@ class InMemoryTrajectoryStore {
     trajectory.durationMs = Math.max(0, now - trajectory.startTime);
 
     this.activeByStepId.delete(stepId);
-    for (const [candidateStepId, candidateTrajectory] of this.activeByStepId) {
-      if (candidateTrajectory.id === trajectory.id) {
-        this.activeByStepId.delete(candidateStepId);
-      }
-    }
     this.persistedById.set(trajectory.id, trajectory);
-  }
-
-  bindStepToTrajectory(trajectoryId: string, stepId: string): boolean {
-    for (const trajectory of this.activeByStepId.values()) {
-      if (trajectory.id === trajectoryId) {
-        this.activeByStepId.set(stepId, trajectory);
-        return true;
-      }
-    }
-    return false;
   }
 
   listPersisted(): StoredTrajectory[] {
@@ -267,37 +252,16 @@ class FakeTrajectoryLoggerService {
   }
 
   async startTrajectory(
-    stepIdOrAgentId: string,
-    options?: {
-      agentId?: string;
+    stepId: string,
+    options: {
+      agentId: string;
       roomId?: string;
       entityId?: string;
       source?: string;
       metadata?: Record<string, unknown>;
     },
   ): Promise<string> {
-    const isLegacySignature = typeof options?.agentId === "string";
-    const stepId = isLegacySignature
-      ? stepIdOrAgentId
-      : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const agentId =
-      isLegacySignature && options?.agentId ? options.agentId : stepIdOrAgentId;
-
-    return this.store.start(stepId, {
-      agentId,
-      roomId: options?.roomId,
-      entityId: options?.entityId,
-      source: options?.source,
-      metadata: options?.metadata,
-    });
-  }
-
-  startStep(trajectoryId: string): string {
-    const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    if (!this.store.bindStepToTrajectory(trajectoryId, stepId)) {
-      return trajectoryId;
-    }
-    return stepId;
+    return this.store.start(stepId, options);
   }
 
   async endTrajectory(
@@ -692,7 +656,7 @@ describe("trajectory collection bridge e2e", () => {
     };
     const runtime = runtimeSubset as unknown as AgentRuntime;
 
-    const plugin = trajectoryLoggerPlugin;
+    const plugin = createMiladyPlugin({ agentId: runtime.agentId });
     const onMessageReceived = plugin.events?.MESSAGE_RECEIVED?.[0];
     const onMessageSent = plugin.events?.MESSAGE_SENT?.[0];
     expect(onMessageReceived).toBeTypeOf("function");
@@ -773,26 +737,24 @@ describe("trajectory collection bridge e2e", () => {
         "/api/training/trajectories?limit=20&offset=0",
       );
       expect(training.status).toBe(200);
-      // Training service may not be available in CI (plugin-training submodule)
-      if (training.data.available) {
-        const trainingRows = training.data.trajectories as Array<
-          Record<string, unknown>
-        >;
-        expect(Array.isArray(trainingRows)).toBe(true);
-        expect(trainingRows.length).toBeGreaterThan(0);
-        expect(trainingRows[0].llmCallCount).toBe(1);
-        expect(trainingRows[0].hasLlmCalls).toBe(true);
-        expect(trainingRows[0].trajectoryId).toBe(firstTrajectory.id);
+      expect(training.data.available).toBe(true);
+      const trainingRows = training.data.trajectories as Array<
+        Record<string, unknown>
+      >;
+      expect(Array.isArray(trainingRows)).toBe(true);
+      expect(trainingRows.length).toBeGreaterThan(0);
+      expect(trainingRows[0].llmCallCount).toBe(1);
+      expect(trainingRows[0].hasLlmCalls).toBe(true);
+      expect(trainingRows[0].trajectoryId).toBe(firstTrajectory.id);
 
-        const detail = await req(
-          server.port,
-          "GET",
-          `/api/training/trajectories/${encodeURIComponent(String(firstTrajectory.id))}`,
-        );
-        expect(detail.status).toBe(200);
-        const trajectory = detail.data.trajectory as Record<string, unknown>;
-        expect(String(trajectory.stepsJson)).toContain("hi there");
-      }
+      const detail = await req(
+        server.port,
+        "GET",
+        `/api/training/trajectories/${encodeURIComponent(String(firstTrajectory.id))}`,
+      );
+      expect(detail.status).toBe(200);
+      const trajectory = detail.data.trajectory as Record<string, unknown>;
+      expect(String(trajectory.stepsJson)).toContain("hi there");
     } finally {
       await server.close();
     }

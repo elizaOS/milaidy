@@ -7,32 +7,18 @@ const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      "milady/plugin-sdk": path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
+      "milady/plugin-sdk": path.join(
+        repoRoot,
+        "src",
+        "plugin-sdk",
+        "index.ts",
+      ),
       "@elizaos/skills": path.join(
         repoRoot,
         "test",
         "stubs",
         "empty-module.mjs",
       ),
-      "@elizaos/plugin-agent-orchestrator": path.join(
-        repoRoot,
-        "test",
-        "stubs",
-        "coding-agent-module.ts",
-      ),
-      "@elizaos/plugin-coding-agent": path.join(
-        repoRoot,
-        "test",
-        "stubs",
-        "coding-agent-module.ts",
-      ),
-      "@elizaos/plugin-pi-ai": path.join(
-        repoRoot,
-        "test",
-        "stubs",
-        "pi-ai-module.ts",
-      ),
-      electron: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
     },
   },
   test: {

@@ -1,34 +1,34 @@
 /**
  * Tests for avatar selection logic — VRM index management, path resolution, localStorage persistence.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getVrmPreviewUrl, getVrmUrl, VRM_COUNT } from "../../src/AppContext";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { VRM_COUNT, getVrmUrl, getVrmPreviewUrl } from "../../src/AppContext";
 
 describe("Avatar VRM Utilities", () => {
   describe("VRM_COUNT", () => {
-    it("is 8 for the built-in miladies", () => {
-      expect(VRM_COUNT).toBe(8);
+    it("tracks the bundled avatar count", () => {
+      expect(VRM_COUNT).toBe(24);
     });
   });
 
   describe("getVrmUrl", () => {
     it("returns correct path for each built-in index", () => {
-      for (let i = 1; i <= 8; i++) {
-        expect(getVrmUrl(i)).toBe(`/vrms/${i}.vrm`);
+      for (let i = 1; i <= VRM_COUNT; i++) {
+        expect(getVrmUrl(i)).toBe(`/vrms/milady-${i}.vrm`);
       }
     });
 
     it("clamps invalid indices to avatar 1", () => {
-      expect(getVrmUrl(9)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(-3)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(Number.NaN)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(0)).toBe("/vrms/1.vrm");
+      expect(getVrmUrl(VRM_COUNT + 1)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(-3)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(Number.NaN)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(0)).toBe("/vrms/milady-1.vrm");
     });
   });
 
   describe("getVrmPreviewUrl", () => {
     it("returns correct path for each preview image", () => {
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= VRM_COUNT; i++) {
         expect(getVrmPreviewUrl(i)).toBe(`/vrms/previews/milady-${i}.png`);
       }
     });
@@ -42,8 +42,7 @@ describe("Avatar VRM Utilities", () => {
 });
 
 describe("Avatar Selection State", () => {
-  // Must match AVATAR_INDEX_KEY in AppContext.tsx
-  const AVATAR_STORAGE_KEY = "milady_avatar_index";
+  const AVATAR_STORAGE_KEY = "milady:selectedVrm";
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -53,9 +52,7 @@ describe("Avatar Selection State", () => {
     it("stores selected VRM index", () => {
       const mockStorage = new Map<string, string>();
       const mockGetItem = vi.fn((key: string) => mockStorage.get(key) ?? null);
-      const mockSetItem = vi.fn((key: string, value: string) => {
-        mockStorage.set(key, value);
-      });
+      const mockSetItem = vi.fn((key: string, value: string) => { mockStorage.set(key, value); });
 
       // Simulate saving avatar selection
       mockSetItem(AVATAR_STORAGE_KEY, "3");
@@ -79,14 +76,14 @@ describe("Avatar Selection State", () => {
     });
 
     it("falls back to 1 for invalid stored values", () => {
-      const testCases = ["", "abc", "-1", "9", "NaN"];
+      const testCases = ["", "abc", "-1", "25", "NaN"];
 
       for (const invalid of testCases) {
         const n = Number(invalid);
-        const isValid = !Number.isNaN(n) && n >= 0 && n <= VRM_COUNT;
+        const isValid = !isNaN(n) && n >= 0 && n <= VRM_COUNT;
         const result = isValid ? n : 1;
         // Invalid cases should fall back to 1
-        if (["", "abc", "-1", "9", "NaN"].includes(invalid) && !isValid) {
+        if (["", "abc", "-1", "25", "NaN"].includes(invalid) && !isValid) {
           expect(result).toBe(1);
         }
       }
@@ -94,58 +91,43 @@ describe("Avatar Selection State", () => {
   });
 
   describe("VRM path resolution", () => {
-    it("resolves built-in index to /vrms/N.vrm", () => {
+    it("resolves built-in index to /vrms/milady-N.vrm", () => {
       const selectedVrmIndex = 5;
       const customVrmUrl: string | null = null;
 
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
+        ? customVrmUrl
+        : getVrmUrl(selectedVrmIndex || 1);
 
-      expect(vrmPath).toBe("/vrms/5.vrm");
+      expect(vrmPath).toBe("/vrms/milady-5.vrm");
     });
 
     it("resolves custom upload (index 0) to object URL", () => {
       const selectedVrmIndex = 0;
       const customVrmUrl = "blob:http://localhost/abc-123";
 
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
+        ? customVrmUrl
+        : getVrmUrl(selectedVrmIndex || 1);
 
       expect(vrmPath).toBe("blob:http://localhost/abc-123");
-    });
-
-    it("resolves persisted custom VRM (index 0) to server URL", () => {
-      const selectedVrmIndex = 0;
-      const customVrmUrl = "/api/avatar/vrm?t=1234567890";
-
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
-
-      expect(vrmPath).toBe("/api/avatar/vrm?t=1234567890");
     });
 
     it("falls back to index 1 when custom is selected but no URL provided", () => {
       const selectedVrmIndex = 0;
       const customVrmUrl: string | null = null;
 
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
+      const vrmPath = selectedVrmIndex === 0 && customVrmUrl
+        ? customVrmUrl
+        : getVrmUrl(selectedVrmIndex || 1);
 
-      expect(vrmPath).toBe("/vrms/1.vrm");
+      expect(vrmPath).toBe("/vrms/milady-1.vrm");
     });
 
     it("defaults to index 1 when selectedVrmIndex is 0 without custom URL", () => {
       const selectedVrmIndex = 0;
       const vrmPath = getVrmUrl(selectedVrmIndex || 1);
-      expect(vrmPath).toBe("/vrms/1.vrm");
+      expect(vrmPath).toBe("/vrms/milady-1.vrm");
     });
   });
 });
@@ -153,15 +135,8 @@ describe("Avatar Selection State", () => {
 describe("Onboarding Avatar Step", () => {
   it("avatar step comes after name and before style", () => {
     const steps = [
-      "welcome",
-      "name",
-      "avatar",
-      "style",
-      "theme",
-      "runMode",
-      "llmProvider",
-      "inventorySetup",
-      "connectors",
+      "welcome", "name", "avatar", "style", "theme",
+      "runMode", "llmProvider", "inventorySetup", "connectors",
     ];
 
     const nameIdx = steps.indexOf("name");

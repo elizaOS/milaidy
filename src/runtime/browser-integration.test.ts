@@ -12,13 +12,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../config/config";
-import { tryOptionalDynamicImport } from "../test-support/test-helpers";
+import type { MiladyConfig } from "../config/config.js";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
 import {
   CORE_PLUGINS,
   collectPluginNames,
   ensureBrowserServerLink,
-} from "./eliza";
+} from "./eliza.js";
 
 async function loadBrowserPluginModule(): Promise<Record<
   string,

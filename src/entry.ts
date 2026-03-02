@@ -7,7 +7,7 @@
  * and delegates to the Commander-based CLI.
  */
 import process from "node:process";
-import { applyCliProfileEnv, parseCliProfileArgs } from "./cli/profile";
+import { applyCliProfileEnv, parseCliProfileArgs } from "./cli/profile.js";
 
 process.title = "milady";
 
@@ -19,7 +19,7 @@ if (process.argv.includes("--no-color")) {
   process.env.FORCE_COLOR = "0";
 }
 
-// Keep `npx miladyai` startup readable by default.
+// Keep `npx milady` startup readable by default.
 // This runs before CLI/runtime imports so @elizaos/core logger picks it up.
 if (!process.env.LOG_LEVEL) {
   if (process.argv.includes("--debug")) {
@@ -53,7 +53,7 @@ if (parsed.profile) {
 
 // ── Delegate to the Commander-based CLI ──────────────────────────────────────
 
-import("./cli/run-main")
+import("./cli/run-main.js")
   .then(({ runCli }) => runCli(process.argv))
   .catch((error) => {
     console.error(

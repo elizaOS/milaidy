@@ -40,10 +40,7 @@
     "@capacitor/core": "^8.0.0"
   },
   "milady": {
-    "platforms": [
-      "browser",
-      "node"
-    ],
+    "platforms": ["browser", "node"],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via Geolocation API (current position, watch position, permissions)",

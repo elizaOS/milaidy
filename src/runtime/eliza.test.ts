@@ -9,33 +9,24 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findPluginExport } from "../cli/plugins-cli";
-import type { MiladyConfig } from "../config/config";
-import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
-import { CONNECTOR_IDS } from "../config/schema";
+import { findPluginExport } from "../cli/plugins-cli.js";
+import type { MiladyConfig } from "../config/config.js";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
-  applyX402ConfigToEnv,
-  autoResolveDiscordAppId,
   buildCharacterFromConfig,
-  CHANNEL_PLUGIN_MAP,
-  CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
   collectPluginNames,
-  deduplicatePluginActions,
   findRuntimePluginExport,
-  isEnvKeyAllowedForForwarding,
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
   resolvePackageEntry,
   resolvePrimaryModel,
   scanDropInPlugins,
-} from "./eliza";
+} from "./eliza.js";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -77,9 +68,6 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "MILAIDY_USE_PI_AI",
-    "OBSIDIAN_VAULT_PATH",
-    "OBSIDAN_VAULT_PATH",
   ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
@@ -88,16 +76,15 @@ describe("collectPluginNames", () => {
   });
 
   describe("remote provider precedence", () => {
-    const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_BASE_URL"];
-    const precSnap = envSnapshot(envKeys);
+    const originalEnv = process.env;
 
     beforeEach(() => {
-      precSnap.save();
-      for (const k of envKeys) delete process.env[k];
+      vi.resetModules();
+      process.env = { ...originalEnv };
     });
 
     afterEach(() => {
-      precSnap.restore();
+      process.env = originalEnv;
     });
 
     it("should keep @elizaos/plugin-local-embedding even when a remote provider env var is present", async () => {
@@ -126,33 +113,17 @@ describe("collectPluginNames", () => {
   afterEach(() => snap.restore());
 
   it("includes all core plugins for an empty config", () => {
-    // Guard against accidental removal from CORE_PLUGINS array
-    expect(CORE_PLUGINS).toHaveLength(18);
-
-    const expectedCorePlugins = [
-      "@elizaos/plugin-sql",
-      "@elizaos/plugin-local-embedding",
-      "@elizaos/plugin-form",
-      "@elizaos/plugin-knowledge",
-      "@elizaos/plugin-rolodex",
-      "@elizaos/plugin-trajectory-logger",
-      "@elizaos/plugin-agent-orchestrator",
-      "@elizaos/plugin-coding-agent",
-      "@elizaos/plugin-cron",
-      "@elizaos/plugin-shell",
-      "@elizaos/plugin-plugin-manager",
-      "@elizaos/plugin-agent-skills",
-      "@elizaos/plugin-pdf",
-      "@elizaos/plugin-secrets-manager",
-      "@elizaos/plugin-trust",
-      "@elizaos/plugin-todo",
-      "@elizaos/plugin-personality",
-      "@elizaos/plugin-experience",
-    ];
     const names = collectPluginNames({} as MiladyConfig);
-    for (const plugin of expectedCorePlugins) {
-      expect(names.has(plugin)).toBe(true);
-    }
+    expect(names.has("@elizaos/plugin-sql")).toBe(true);
+    expect(names.has("@elizaos/plugin-local-embedding")).toBe(true);
+    expect(names.has("@elizaos/plugin-trajectory-logger")).toBe(true);
+    expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
+    expect(names.has("@elizaos/plugin-agent-orchestrator")).toBe(true);
+    expect(names.has("@elizaos/plugin-cron")).toBe(true);
+    expect(names.has("@elizaos/plugin-rolodex")).toBe(true);
+    expect(names.has("@elizaos/plugin-trust")).toBe(true);
+    expect(names.has("@elizaos/plugin-shell")).toBe(true);
+    expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
 
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
@@ -183,79 +154,13 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
   });
 
-  it("adds pi-ai provider plugin when MILAIDY_USE_PI_AI is enabled", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
-    const names = collectPluginNames({} as MiladyConfig);
-
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
-    // pi-ai mode should suppress direct provider plugins.
-    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
-  });
-
-  it("cloud mode takes precedence over pi-ai mode", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
-    const config = {
-      cloud: { enabled: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
-  });
-
-  it("pi-ai mode overrides explicit direct-provider entries", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
-    const config = {
-      plugins: {
-        entries: {
-          openai: { enabled: true },
-        },
-      },
-    } as unknown as MiladyConfig;
-
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
-  });
-
-  it("does not auto-enable a provider from env when explicitly disabled in plugins.entries", () => {
-    process.env.OPENAI_API_KEY = "sk-test";
-    const config = {
-      plugins: {
-        entries: {
-          openai: { enabled: false },
-        },
-      },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
-  });
-
-  it("honors explicit provider enablement and ignores other env providers", () => {
-    process.env.OPENAI_API_KEY = "sk-test-openai";
-    process.env.GROQ_API_KEY = "gsk-test-groq";
-    const config = {
-      plugins: {
-        entries: {
-          groq: { enabled: true },
-        },
-      },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-groq")).toBe(true);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
-  });
-
   it("adds connector plugins when config.connectors is populated", () => {
     const config = {
       connectors: { telegram: { botToken: "tok" }, discord: { token: "tok" } },
     } as MiladyConfig;
     const names = collectPluginNames(config);
     // Telegram maps to the local enhanced plugin, not the upstream one
-    expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(false);
   });
@@ -270,93 +175,6 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
 
-  it("normalizes repoprompt short IDs in plugins.allow", () => {
-    const config = {
-      plugins: { allow: ["repoprompt", "repoPrompt"] },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
-  });
-
-  it("normalizes cua short IDs in plugins.allow", () => {
-    const config = {
-      plugins: { allow: ["cua"] },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-cua")).toBe(true);
-  });
-
-  it("loads CUA plugin when features.cua is enabled", () => {
-    const config = {
-      features: { cua: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-cua")).toBe(true);
-  });
-
-  it("does not load CUA plugin when features.cua.enabled is false", () => {
-    const config = {
-      features: { cua: { enabled: false } },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-cua")).toBe(false);
-  });
-
-  it("loads x402 plugin when config.x402.enabled is true", () => {
-    const config = {
-      x402: { enabled: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(true);
-  });
-
-  it("does not load x402 plugin when config.x402.enabled is false", () => {
-    const config = {
-      x402: { enabled: false },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(false);
-  });
-
-  it("normalizes x402 short IDs in plugins.allow", () => {
-    const config = {
-      plugins: { allow: ["x402"] },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(true);
-  });
-
-  it("loads x402 plugin via features.x402 flag", () => {
-    const config = {
-      features: { x402: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(true);
-  });
-
-  it("does not load x402 when features.x402.enabled is false", () => {
-    const config = {
-      features: { x402: { enabled: false } },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(false);
-  });
-
-  it("does not load x402 plugin when x402 config section is absent", () => {
-    const names = collectPluginNames({} as MiladyConfig);
-
-    expect(names.has("@elizaos/plugin-x402")).toBe(false);
-  });
-
   it("normalizes short plugin IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["discord"] },
@@ -365,19 +183,21 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
 
-  it("uses @elizaos/plugin-telegram when telegram is enabled via plugins.entries", () => {
+  it("uses enhanced Telegram plugin when telegram is enabled via plugins.entries", () => {
     const config = {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+    // Should load the enhanced telegram plugin, NOT the base @elizaos/plugin-telegram
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
-  it("uses @elizaos/plugin-telegram from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
-    // When both connectors AND plugins.entries set telegram, the plugin
-    // should load exactly once.
+  it("uses enhanced Telegram plugin from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
+    // When both connectors AND plugins.entries set telegram, the enhanced
+    // plugin should load (not both enhanced + base).
     const config = {
       connectors: { telegram: { botToken: "tok" } },
       plugins: {
@@ -385,7 +205,8 @@ describe("collectPluginNames", () => {
       },
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("does not load telegram plugin when plugins.entries.telegram.enabled is false", () => {
@@ -395,7 +216,7 @@ describe("collectPluginNames", () => {
       },
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(false);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
@@ -413,12 +234,6 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("removes ElizaCloud plugin when cloud is explicitly disabled", () => {
-    const config = { cloud: { enabled: false } } as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
-  });
-
   it("adds ElizaCloud plugin when env key is present", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
     const names = collectPluginNames({} as MiladyConfig);
@@ -426,28 +241,12 @@ describe("collectPluginNames", () => {
   });
 
   it("respects feature flags in config.features", () => {
+    // OPTIONAL_PLUGIN_MAP is empty, so features won't add anything currently.
+    // But the function should not crash on arbitrary features.
     const config = {
       features: { someFeature: true, another: { enabled: false } },
     } as unknown as MiladyConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
-  });
-
-  it("adds @elizaos/plugin-repoprompt when features.repoprompt = true", () => {
-    const config = {
-      features: { repoprompt: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
-  });
-
-  it("does not add @elizaos/plugin-repoprompt when features.repoprompt = false", () => {
-    const config = {
-      features: { repoprompt: false },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-repoprompt")).toBe(false);
   });
 
   // --- plugins.installs (user-installed from registry) ---
@@ -567,55 +366,6 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
-  });
-
-  it("adds @elizaos/plugin-obsidian when features.obsidian = true", () => {
-    const config = {
-      features: { obsidian: true },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
-  });
-
-  it("adds @elizaos/plugin-obsidian when plugins.allow includes obsidian", () => {
-    const config = {
-      plugins: { allow: ["obsidian"] },
-    } as unknown as MiladyConfig;
-    const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
-  });
-
-  it("preserves fully-qualified optional plugin package names from plugins.allow", () => {
-    const optionalPlugins = [
-      "@elizaos/plugin-cua",
-      "@elizaos/plugin-code",
-      "@elizaos/plugin-xai",
-      "@elizaos/plugin-deepseek",
-      "@elizaos/plugin-mistral",
-      "@elizaos/plugin-together",
-      "@elizaos/plugin-claude-code-workbench",
-    ];
-    const config = {
-      plugins: { allow: optionalPlugins },
-    } as unknown as MiladyConfig;
-
-    const names = collectPluginNames(config);
-
-    for (const pluginName of optionalPlugins) {
-      expect(names.has(pluginName)).toBe(true);
-    }
-  });
-
-  it("CHANNEL_PLUGIN_MAP keys match CONNECTOR_IDS from schema", () => {
-    expect([...Object.keys(CHANNEL_PLUGIN_MAP)].sort()).toEqual(
-      [...CONNECTOR_IDS].sort(),
-    );
-  });
-
-  it("CHANNEL_PLUGIN_MAP values match CONNECTOR_PLUGINS for every connector", () => {
-    for (const id of Object.keys(CHANNEL_PLUGIN_MAP)) {
-      expect(CHANNEL_PLUGIN_MAP[id]).toBe(CONNECTOR_PLUGINS[id]);
-    }
   });
 });
 
@@ -778,116 +528,6 @@ describe("applyConnectorSecretsToEnv", () => {
 });
 
 // ---------------------------------------------------------------------------
-// autoResolveDiscordAppId
-// ---------------------------------------------------------------------------
-
-describe("autoResolveDiscordAppId", () => {
-  const envKeys = [
-    "DISCORD_APPLICATION_ID",
-    "DISCORD_API_TOKEN",
-    "DISCORD_BOT_TOKEN",
-  ];
-  const snap = envSnapshot(envKeys);
-  const originalFetch = globalThis.fetch;
-
-  beforeEach(() => {
-    snap.save();
-    for (const k of envKeys) delete process.env[k];
-  });
-
-  afterEach(() => {
-    snap.restore();
-    vi.restoreAllMocks();
-    globalThis.fetch = originalFetch;
-  });
-
-  it("no-ops when DISCORD_APPLICATION_ID is already set", async () => {
-    process.env.DISCORD_APPLICATION_ID = "app-existing";
-    process.env.DISCORD_API_TOKEN = "tok";
-
-    const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    await autoResolveDiscordAppId();
-
-    expect(process.env.DISCORD_APPLICATION_ID).toBe("app-existing");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("no-ops when no Discord token exists", async () => {
-    const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    await autoResolveDiscordAppId();
-
-    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("resolves app id from Discord API when token is present", async () => {
-    process.env.DISCORD_API_TOKEN = "tok";
-    const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: "app-123" }),
-    }));
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    await autoResolveDiscordAppId();
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://discord.com/api/v10/oauth2/applications/@me",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bot tok",
-        }),
-      }),
-    );
-    expect(process.env.DISCORD_APPLICATION_ID).toBe("app-123");
-    expect(infoSpy).toHaveBeenCalledWith(
-      "[milady] Auto-resolved Discord Application ID: app-123",
-    );
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  it("logs a warning when Discord API responds with an error", async () => {
-    process.env.DISCORD_API_TOKEN = "tok";
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-
-    globalThis.fetch = vi.fn(async () => ({
-      ok: false,
-      status: 401,
-    })) as unknown as typeof fetch;
-
-    await autoResolveDiscordAppId();
-
-    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[milady] Failed to auto-resolve Discord Application ID: 401",
-    );
-  });
-
-  it("logs a warning when the Discord API request throws", async () => {
-    process.env.DISCORD_API_TOKEN = "tok";
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-
-    globalThis.fetch = vi.fn(async () => {
-      throw new Error("network down");
-    }) as unknown as typeof fetch;
-
-    await autoResolveDiscordAppId();
-
-    expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Could not auto-resolve Discord Application ID"),
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
 // applyCloudConfigToEnv
 // ---------------------------------------------------------------------------
 
@@ -923,115 +563,6 @@ describe("applyCloudConfigToEnv", () => {
 
   it("handles missing cloud config gracefully", () => {
     expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// applyX402ConfigToEnv
-// ---------------------------------------------------------------------------
-
-describe("applyX402ConfigToEnv", () => {
-  const envKeys = ["X402_ENABLED", "X402_API_KEY", "X402_BASE_URL"];
-  const snap = envSnapshot(envKeys);
-
-  beforeEach(() => {
-    snap.save();
-    for (const key of envKeys) delete process.env[key];
-  });
-
-  afterEach(() => snap.restore());
-
-  it("propagates x402 config to env when enabled", () => {
-    const config = {
-      x402: {
-        enabled: true,
-        apiKey: "x402-key",
-        baseUrl: "https://x402.example",
-      },
-    } as unknown as MiladyConfig;
-
-    applyX402ConfigToEnv(config);
-
-    expect(process.env.X402_ENABLED).toBe("true");
-    expect(process.env.X402_API_KEY).toBe("x402-key");
-    expect(process.env.X402_BASE_URL).toBe("https://x402.example");
-  });
-
-  it("does not override existing x402 env values", () => {
-    process.env.X402_ENABLED = "existing-enabled";
-    process.env.X402_API_KEY = "existing-key";
-    process.env.X402_BASE_URL = "https://existing.example";
-
-    const config = {
-      x402: {
-        enabled: true,
-        apiKey: "new-key",
-        baseUrl: "https://new.example",
-      },
-    } as unknown as MiladyConfig;
-
-    applyX402ConfigToEnv(config);
-
-    expect(process.env.X402_ENABLED).toBe("existing-enabled");
-    expect(process.env.X402_API_KEY).toBe("existing-key");
-    expect(process.env.X402_BASE_URL).toBe("https://existing.example");
-  });
-
-  it("does nothing when x402 is disabled", () => {
-    const config = {
-      x402: {
-        enabled: false,
-        apiKey: "x402-key",
-        baseUrl: "https://x402.example",
-      },
-    } as unknown as MiladyConfig;
-
-    applyX402ConfigToEnv(config);
-
-    expect(process.env.X402_ENABLED).toBeUndefined();
-    expect(process.env.X402_API_KEY).toBeUndefined();
-    expect(process.env.X402_BASE_URL).toBeUndefined();
-  });
-
-  it("does nothing when x402 config section is absent", () => {
-    applyX402ConfigToEnv({} as MiladyConfig);
-
-    expect(process.env.X402_ENABLED).toBeUndefined();
-    expect(process.env.X402_API_KEY).toBeUndefined();
-    expect(process.env.X402_BASE_URL).toBeUndefined();
-  });
-
-  it("sets only X402_ENABLED when apiKey and baseUrl are absent", () => {
-    const config = {
-      x402: { enabled: true },
-    } as unknown as MiladyConfig;
-
-    applyX402ConfigToEnv(config);
-
-    expect(process.env.X402_ENABLED).toBe("true");
-    expect(process.env.X402_API_KEY).toBeUndefined();
-    expect(process.env.X402_BASE_URL).toBeUndefined();
-  });
-
-  it("does not propagate privateKey to environment", () => {
-    const privateKeyValue = "0xdeadbeef1234567890abcdef";
-    const config = {
-      x402: {
-        enabled: true,
-        apiKey: "x402-key",
-        baseUrl: "https://x402.example",
-        privateKey: privateKeyValue,
-      },
-    } as unknown as MiladyConfig;
-
-    applyX402ConfigToEnv(config);
-
-    // Verify standard fields are set
-    expect(process.env.X402_ENABLED).toBe("true");
-    expect(process.env.X402_API_KEY).toBe("x402-key");
-    // Verify privateKey is NOT leaked into any env var
-    const envValues = Object.values(process.env);
-    expect(envValues).not.toContain(privateKeyValue);
   });
 });
 
@@ -1123,61 +654,6 @@ describe("applyDatabaseConfigToEnv", () => {
 // isRecoverablePgliteInitError
 // ---------------------------------------------------------------------------
 
-describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
-  const snap = envSnapshot(envKeys);
-
-  beforeEach(() => {
-    snap.save();
-    for (const key of envKeys) delete process.env[key];
-  });
-
-  afterEach(() => snap.restore());
-
-  it("creates the PGlite data directory when it does not exist", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-test-"));
-    const dataDir = path.join(tmpDir, "nested", "deep", ".elizadb");
-
-    const config = {
-      database: {
-        provider: "pglite",
-        pglite: { dataDir },
-      },
-    } as MiladyConfig;
-
-    applyDatabaseConfigToEnv(config);
-
-    // The directory should now exist
-    const stat = await fs.stat(dataDir);
-    expect(stat.isDirectory()).toBe(true);
-
-    // Cleanup
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
-
-  it("does not error when PGlite data directory already exists", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-test-"));
-    const dataDir = path.join(tmpDir, ".elizadb");
-    await fs.mkdir(dataDir, { recursive: true });
-
-    const config = {
-      database: {
-        provider: "pglite",
-        pglite: { dataDir },
-      },
-    } as MiladyConfig;
-
-    // Should not throw
-    applyDatabaseConfigToEnv(config);
-
-    const stat = await fs.stat(dataDir);
-    expect(stat.isDirectory()).toBe(true);
-
-    // Cleanup
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
-});
-
 describe("isRecoverablePgliteInitError", () => {
   it("returns true for the known PGLite abort + migrations signature", () => {
     const err = new Error(
@@ -1195,13 +671,6 @@ describe("isRecoverablePgliteInitError", () => {
     const err = new Error("PGlite adapter crashed", {
       cause: new Error("Aborted(). Build with -sASSERTIONS for more info."),
     });
-    expect(isRecoverablePgliteInitError(err)).toBe(true);
-  });
-
-  it("returns true for migrations schema failures even when abort text is absent", () => {
-    const err = new Error(
-      "Failed query: CREATE SCHEMA IF NOT EXISTS migrations",
-    );
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 
@@ -1378,62 +847,68 @@ describe("resolvePackageEntry", () => {
     const pkgRoot = path.join(tmpDir, "plugin-a");
     await fs.mkdir(path.join(pkgRoot, "dist"), { recursive: true });
     await fs.writeFile(
-      path.join(pkgRoot, "dist", "index"),
+      path.join(pkgRoot, "dist", "index.js"),
       "export default {}",
     );
     await fs.writeFile(
       path.join(pkgRoot, "package.json"),
-      JSON.stringify({ main: "./dist/index" }),
+      JSON.stringify({ main: "./dist/index.js" }),
     );
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.resolve(pkgRoot, "./dist/index"));
+    expect(entry).toBe(path.resolve(pkgRoot, "./dist/index.js"));
   });
 
   it("resolves entry from package.json exports string", async () => {
     const pkgRoot = path.join(tmpDir, "plugin-b");
     await fs.mkdir(path.join(pkgRoot, "lib"), { recursive: true });
-    await fs.writeFile(path.join(pkgRoot, "lib", "main"), "export default {}");
+    await fs.writeFile(
+      path.join(pkgRoot, "lib", "main.js"),
+      "export default {}",
+    );
     await fs.writeFile(
       path.join(pkgRoot, "package.json"),
-      JSON.stringify({ exports: "./lib/main" }),
+      JSON.stringify({ exports: "./lib/main.js" }),
     );
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.resolve(pkgRoot, "./lib/main"));
+    expect(entry).toBe(path.resolve(pkgRoot, "./lib/main.js"));
   });
 
   it("resolves entry from package.json exports map (dot entry)", async () => {
     const pkgRoot = path.join(tmpDir, "plugin-c");
     await fs.mkdir(path.join(pkgRoot, "dist"), { recursive: true });
     await fs.writeFile(
-      path.join(pkgRoot, "dist", "index"),
+      path.join(pkgRoot, "dist", "index.js"),
       "export default {}",
     );
     await fs.writeFile(
       path.join(pkgRoot, "package.json"),
       JSON.stringify({
         exports: {
-          ".": { import: "./dist/index", default: "./dist/index" },
+          ".": { import: "./dist/index.js", default: "./dist/index.js" },
         },
       }),
     );
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.resolve(pkgRoot, "./dist/index"));
+    expect(entry).toBe(path.resolve(pkgRoot, "./dist/index.js"));
   });
 
   it("resolves entry from exports dot-string shorthand", async () => {
     const pkgRoot = path.join(tmpDir, "plugin-d");
     await fs.mkdir(path.join(pkgRoot, "out"), { recursive: true });
-    await fs.writeFile(path.join(pkgRoot, "out", "mod"), "export default {}");
+    await fs.writeFile(
+      path.join(pkgRoot, "out", "mod.js"),
+      "export default {}",
+    );
     await fs.writeFile(
       path.join(pkgRoot, "package.json"),
-      JSON.stringify({ exports: { ".": "./out/mod" } }),
+      JSON.stringify({ exports: { ".": "./out/mod.js" } }),
     );
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.resolve(pkgRoot, "./out/mod"));
+    expect(entry).toBe(path.resolve(pkgRoot, "./out/mod.js"));
   });
 
   it("falls back to dist/index.js when package.json has no main or exports", async () => {
@@ -1445,7 +920,7 @@ describe("resolvePackageEntry", () => {
     );
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.join(pkgRoot, "dist", "index"));
+    expect(entry).toBe(path.join(pkgRoot, "dist", "index.js"));
   });
 
   it("falls back to dist/index.js when no package.json exists", async () => {
@@ -1453,7 +928,7 @@ describe("resolvePackageEntry", () => {
     await fs.mkdir(pkgRoot, { recursive: true });
 
     const entry = await resolvePackageEntry(pkgRoot);
-    expect(entry).toBe(path.join(pkgRoot, "dist", "index"));
+    expect(entry).toBe(path.join(pkgRoot, "dist", "index.js"));
   });
 });
 
@@ -1525,7 +1000,7 @@ describe("scanDropInPlugins", () => {
   });
 
   it("ignores plain files (only directories are plugins)", async () => {
-    await fs.writeFile(path.join(tmpDir, "stray"), "export default {}");
+    await fs.writeFile(path.join(tmpDir, "stray.js"), "export default {}");
     await fs.writeFile(path.join(tmpDir, "readme.md"), "# hi");
     const records = await scanDropInPlugins(tmpDir);
     expect(Object.keys(records)).toHaveLength(0);
@@ -1975,11 +1450,11 @@ describe("end-to-end import chain", () => {
   async function writePlugin(dir: string, code: string): Promise<string> {
     const distDir = path.join(dir, "dist");
     await fs.mkdir(distDir, { recursive: true });
-    const filePath = path.join(distDir, "index");
+    const filePath = path.join(distDir, "index.js");
     await fs.writeFile(filePath, code);
     await fs.writeFile(
       path.join(dir, "package.json"),
-      JSON.stringify({ name: "test-plugin", main: "dist/index" }),
+      JSON.stringify({ name: "test-plugin", main: "dist/index.js" }),
     );
     return filePath;
   }
@@ -1991,7 +1466,7 @@ describe("end-to-end import chain", () => {
       `export default { name: "hello", description: "world" };`,
     );
     const entry = await resolvePackageEntry(pluginDir);
-    expect(entry).toBe(path.join(pluginDir, "dist", "index"));
+    expect(entry).toBe(path.join(pluginDir, "dist", "index.js"));
 
     const { pathToFileURL } = await import("node:url");
     const mod = await import(pathToFileURL(entry).href);
@@ -2005,15 +1480,15 @@ describe("end-to-end import chain", () => {
     const distDir = path.join(pluginDir, "dist");
     await fs.mkdir(distDir, { recursive: true });
     await fs.writeFile(
-      path.join(distDir, "index"),
+      path.join(distDir, "index.js"),
       `export const plugin = { name: "named", description: "via exports map" };`,
     );
     await fs.writeFile(
       path.join(pluginDir, "package.json"),
-      JSON.stringify({ exports: { ".": "./dist/index" } }),
+      JSON.stringify({ exports: { ".": "./dist/index.js" } }),
     );
     const entry = await resolvePackageEntry(pluginDir);
-    expect(entry).toBe(path.resolve(pluginDir, "./dist/index"));
+    expect(entry).toBe(path.resolve(pluginDir, "./dist/index.js"));
 
     const { pathToFileURL } = await import("node:url");
     const mod = await import(pathToFileURL(entry).href);
@@ -2044,7 +1519,7 @@ describe("end-to-end import chain", () => {
     );
     const entry = await resolvePackageEntry(pluginDir);
     // Should fall back to dist/index.js (file may not exist, but path is correct)
-    expect(entry).toBe(path.join(pluginDir, "dist", "index"));
+    expect(entry).toBe(path.join(pluginDir, "dist", "index.js"));
   });
 
   it("rejects import when entry point file does not exist", async () => {
@@ -2052,277 +1527,12 @@ describe("end-to-end import chain", () => {
     await fs.mkdir(pluginDir, { recursive: true });
     await fs.writeFile(
       path.join(pluginDir, "package.json"),
-      JSON.stringify({ name: "ghost", main: "dist/index" }),
+      JSON.stringify({ name: "ghost", main: "dist/index.js" }),
     );
 
     const entry = await resolvePackageEntry(pluginDir);
     const { pathToFileURL } = await import("node:url");
 
     await expect(import(pathToFileURL(entry).href)).rejects.toThrow();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// isEnvKeyAllowedForForwarding — env var security denylist
-// ---------------------------------------------------------------------------
-
-describe("isEnvKeyAllowedForForwarding", () => {
-  // API keys should be allowed (plugins need them via runtime.getSetting)
-  it.each([
-    "OPENAI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "GEMINI_API_KEY",
-    "GOOGLE_GENERATIVE_AI_API_KEY",
-    "GROQ_API_KEY",
-    "MY_CUSTOM_API_KEY",
-    "MODEL_PROVIDER",
-    "GOOGLE_SMALL_MODEL",
-  ])("allows %s", (key) => {
-    expect(isEnvKeyAllowedForForwarding(key)).toBe(true);
-  });
-
-  // Blockchain private keys
-  it.each([
-    "EVM_PRIVATE_KEY",
-    "SOLANA_PRIVATE_KEY",
-    "X402_PRIVATE_KEY",
-    "MY_PRIVATE_KEY",
-    "EVM_WALLET_ADDRESS",
-    "SOLANA_RPC_URL",
-  ])("blocks %s", (key) => {
-    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
-  });
-
-  // Secrets and passwords
-  it.each([
-    "GITHUB_CLIENT_SECRET",
-    "API_SECRET_KEY",
-    "MY_SECRET",
-    "DB_PASSWORD",
-    "ADMIN_PASSWORD",
-    "OAUTH_CREDENTIAL",
-  ])("blocks %s (secret/password/credential)", (key) => {
-    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
-  });
-
-  // Token variants
-  it.each([
-    "AUTH_TOKEN",
-    "ACCESS_TOKEN",
-    "REFRESH_TOKEN",
-    "SESSION_TOKEN",
-    "GITHUB_AUTH_TOKEN",
-    "OAUTH_ACCESS_TOKEN",
-  ])("blocks %s (token)", (key) => {
-    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
-  });
-
-  // Mnemonics and seed phrases
-  it.each([
-    "WALLET_MNEMONIC",
-    "MY_MNEMONIC",
-    "SEED_PHRASE",
-    "HD_SEED_PHRASE",
-  ])("blocks %s (mnemonic/seed)", (key) => {
-    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
-  });
-
-  // SECRET mid-string (not just end-of-string)
-  it("blocks SECRET appearing anywhere in the key", () => {
-    expect(isEnvKeyAllowedForForwarding("API_SECRET_KEY")).toBe(false);
-    expect(isEnvKeyAllowedForForwarding("SECRET_VALUE")).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Gemini API key normalization
-// ---------------------------------------------------------------------------
-
-describe("Gemini API key normalization", () => {
-  const geminiEnvKeys = [
-    "GEMINI_API_KEY",
-    "GOOGLE_API_KEY",
-    "GOOGLE_GENERATIVE_AI_API_KEY",
-  ];
-  const snap = envSnapshot(geminiEnvKeys);
-
-  beforeEach(() => {
-    snap.save();
-    for (const k of geminiEnvKeys) delete process.env[k];
-  });
-  afterEach(() => snap.restore());
-
-  it("collectPluginNames detects Gemini via GEMINI_API_KEY alias", () => {
-    process.env.GEMINI_API_KEY = "test-key";
-    // Simulate what the runtime does: normalize before collectPluginNames
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
-        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-    }
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
-  });
-
-  it("collectPluginNames detects Gemini via GOOGLE_API_KEY alias", () => {
-    process.env.GOOGLE_API_KEY = "test-key";
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
-        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-    }
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
-  });
-
-  it("does not overwrite GOOGLE_GENERATIVE_AI_API_KEY if already set", () => {
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "canonical-key";
-    process.env.GEMINI_API_KEY = "alias-key";
-    // setEnvIfMissing logic: skip if already set
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
-        process.env.GEMINI_API_KEY || "";
-    }
-    expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("canonical-key");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getSetting null fallback — default model names
-// ---------------------------------------------------------------------------
-
-describe("getSetting null fallback — default Google model names", () => {
-  const modelKeys = ["GOOGLE_SMALL_MODEL", "GOOGLE_LARGE_MODEL"];
-  const snap = envSnapshot(modelKeys);
-
-  beforeEach(() => {
-    snap.save();
-    for (const k of modelKeys) delete process.env[k];
-  });
-  afterEach(() => snap.restore());
-
-  it("sets GOOGLE_SMALL_MODEL default when not present", () => {
-    // Simulate runtime normalization
-    if (!process.env.GOOGLE_SMALL_MODEL) {
-      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
-    }
-    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-3-flash-preview");
-    expect(process.env.GOOGLE_SMALL_MODEL).not.toBe("null");
-  });
-
-  it("sets GOOGLE_LARGE_MODEL default when not present", () => {
-    if (!process.env.GOOGLE_LARGE_MODEL) {
-      process.env.GOOGLE_LARGE_MODEL = "gemini-3.1-pro-preview";
-    }
-    expect(process.env.GOOGLE_LARGE_MODEL).toBe("gemini-3.1-pro-preview");
-    expect(process.env.GOOGLE_LARGE_MODEL).not.toBe("null");
-  });
-
-  it("does not overwrite user-configured model names", () => {
-    process.env.GOOGLE_SMALL_MODEL = "gemini-custom";
-    // setEnvIfMissing logic: skip if already set
-    if (!process.env.GOOGLE_SMALL_MODEL) {
-      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
-    }
-    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-custom");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// collectPluginNames — whitespace-only env keys
-// ---------------------------------------------------------------------------
-
-describe("collectPluginNames — whitespace env keys", () => {
-  const envKeys = ["GROQ_API_KEY", "ANTHROPIC_API_KEY"];
-  const snap = envSnapshot(envKeys);
-  beforeEach(() => {
-    snap.save();
-    for (const k of envKeys) delete process.env[k];
-  });
-  afterEach(() => snap.restore());
-
-  it("does not load a provider plugin when its env key is whitespace-only", () => {
-    process.env.GROQ_API_KEY = "   ";
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-groq")).toBe(false);
-  });
-
-  it("does not load a provider plugin when its env key is an empty string", () => {
-    process.env.GROQ_API_KEY = "";
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-groq")).toBe(false);
-  });
-
-  it("still loads a provider plugin when its env key has a real value", () => {
-    process.env.ANTHROPIC_API_KEY = "sk-real-key";
-    const names = collectPluginNames({} as MiladyConfig);
-    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// deduplicatePluginActions
-// ---------------------------------------------------------------------------
-
-describe("deduplicatePluginActions", () => {
-  function makePlugin(name: string, actionNames: string[]): Plugin {
-    return {
-      name,
-      description: `test plugin ${name}`,
-      actions: actionNames.map((n) => ({
-        name: n,
-        description: `action ${n}`,
-        similes: [],
-        handler: async () => {},
-        validate: async () => true,
-        examples: [],
-      })),
-    };
-  }
-
-  it("keeps first occurrence and removes duplicates from later plugins", () => {
-    const pluginA = makePlugin("plugin-a", ["SEND_MESSAGE", "GET_TRADES"]);
-    const pluginB = makePlugin("plugin-b", ["SEND_MESSAGE", "REGISTER_AGENT"]);
-
-    deduplicatePluginActions([pluginA, pluginB]);
-
-    expect(pluginA.actions?.map((a) => a.name)).toEqual([
-      "SEND_MESSAGE",
-      "GET_TRADES",
-    ]);
-    expect(pluginB.actions?.map((a) => a.name)).toEqual(["REGISTER_AGENT"]);
-  });
-
-  it("does not modify plugins with no overlapping actions", () => {
-    const pluginA = makePlugin("plugin-a", ["ACTION_A"]);
-    const pluginB = makePlugin("plugin-b", ["ACTION_B"]);
-
-    deduplicatePluginActions([pluginA, pluginB]);
-
-    expect(pluginA.actions).toHaveLength(1);
-    expect(pluginB.actions).toHaveLength(1);
-  });
-
-  it("handles plugins with no actions array", () => {
-    const pluginA = makePlugin("plugin-a", ["FOO"]);
-    const pluginB: Plugin = {
-      name: "plugin-b",
-      description: "no actions",
-    };
-
-    deduplicatePluginActions([pluginA, pluginB]);
-
-    expect(pluginA.actions?.map((a) => a.name)).toEqual(["FOO"]);
-    expect(pluginB.actions).toBeUndefined();
-  });
-
-  it("removes all duplicates when three plugins share the same action", () => {
-    const p1 = makePlugin("p1", ["SHARED"]);
-    const p2 = makePlugin("p2", ["SHARED", "UNIQUE_2"]);
-    const p3 = makePlugin("p3", ["SHARED", "UNIQUE_3"]);
-
-    deduplicatePluginActions([p1, p2, p3]);
-
-    expect(p1.actions?.map((a) => a.name)).toEqual(["SHARED"]);
-    expect(p2.actions?.map((a) => a.name)).toEqual(["UNIQUE_2"]);
-    expect(p3.actions?.map((a) => a.name)).toEqual(["UNIQUE_3"]);
   });
 });

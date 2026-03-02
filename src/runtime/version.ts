@@ -1,4 +1,4 @@
-import { resolveMiladyVersion } from "../version-resolver";
+import { resolveMiladyVersion } from "../version-resolver.js";
 
 // Single source of truth for the current Milady version.
 // - Embedded/bundled builds: injected define or env var.

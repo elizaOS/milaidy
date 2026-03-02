@@ -23,7 +23,7 @@ export const CONNECTOR_IDS = [
   "twitch",
 ] as const;
 
-import { MiladySchema } from "./zod-schema";
+import { MiladySchema } from "./zod-schema.js";
 
 export type ShowIfCondition = {
   field: string;
@@ -415,6 +415,7 @@ const FIELD_LABELS: Record<string, string> = {
   "commands.restart": "Allow Restart",
   "commands.useAccessGroups": "Use Access Groups",
   "ui.seamColor": "Accent Color",
+  "ui.language": "UI Language",
   "ui.assistant.name": "Assistant Name",
   "ui.assistant.avatar": "Assistant Avatar",
   "browser.evaluateEnabled": "Browser Evaluate Enabled",
@@ -545,6 +546,8 @@ const FIELD_HELP: Record<string, string> = {
     "Allow Control UI auth over insecure HTTP (token-only; not recommended).",
   "gateway.controlUi.dangerouslyDisableDeviceAuth":
     "DANGEROUS. Disable Control UI device identity checks (token/password only).",
+  "ui.language":
+    'Preferred Control UI language ("en" or "zh-CN").',
   "gateway.http.endpoints.chatCompletions.enabled":
     "Enable the OpenAI-compatible `POST /v1/chat/completions` endpoint (default: false).",
   "gateway.reload.mode":

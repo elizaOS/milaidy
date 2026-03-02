@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Must mock before importing CloudManager, and use factory functions
 // that return class-like constructors so `new` works.
-vi.mock("./bridge-client", () => {
+vi.mock("./bridge-client.js", () => {
   return {
     ElizaCloudClient: class MockElizaCloudClient {
       _baseUrl: string;
@@ -27,7 +27,7 @@ vi.mock("./bridge-client", () => {
   };
 });
 
-vi.mock("./cloud-proxy", () => {
+vi.mock("./cloud-proxy.js", () => {
   return {
     CloudRuntimeProxy: class MockProxy {
       agentName: string;
@@ -38,7 +38,7 @@ vi.mock("./cloud-proxy", () => {
   };
 });
 
-vi.mock("./backup", () => {
+vi.mock("./backup.js", () => {
   return {
     BackupScheduler: class MockBackup {
       start = vi.fn();
@@ -48,7 +48,7 @@ vi.mock("./backup", () => {
   };
 });
 
-vi.mock("./reconnect", () => {
+vi.mock("./reconnect.js", () => {
   return {
     ConnectionMonitor: class MockMonitor {
       start = vi.fn();
@@ -57,14 +57,14 @@ vi.mock("./reconnect", () => {
   };
 });
 
-vi.mock("./validate-url", () => {
+vi.mock("./validate-url.js", () => {
   return {
     validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
   };
 });
 
-import type { CloudConfig } from "../config/types.milady";
-import { CloudManager } from "./cloud-manager";
+import type { CloudConfig } from "../config/types.milady.js";
+import { CloudManager } from "./cloud-manager.js";
 
 afterEach(() => {
   vi.clearAllMocks();

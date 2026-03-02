@@ -2,8 +2,9 @@
  * Resolve app-shipped public assets (e.g. vrms/, animations/) to runtime-safe URLs.
  *
  * In packaged Electron, the renderer can run on file:// and later navigate to
- * absolute paths (e.g. /chat). Root-relative assets like /vrms/1.vrm then
- * resolve to file:///vrms/1.vrm and fail. We lock the asset base URL once from
+ * absolute paths (e.g. /chat). Root-relative assets like /vrms/milady-1.vrm
+ * then resolve to file:///vrms/milady-1.vrm and fail. We lock the asset base
+ * URL once from
  * initial startup and resolve assets against that stable base.
  */
 
@@ -13,12 +14,10 @@ type AssetUrlResolveOptions = {
 };
 
 let cachedRuntimeBaseHref: string | null = null;
+let cachedModuleBaseHref: string | null = null;
 
 function stripLeadingPathMarkers(assetPath: string): string {
-  return assetPath
-    .trim()
-    .replace(/^\.?\//, "")
-    .replace(/^\/+/, "");
+  return assetPath.trim().replace(/^\.?\//, "").replace(/^\/+/, "");
 }
 
 function isAlreadyAbsolute(assetPath: string): boolean {
@@ -50,15 +49,30 @@ function computeBaseHref(currentUrl: string, baseUrl?: string): string {
 
 function runtimeBaseHref(): string | null {
   if (cachedRuntimeBaseHref) return cachedRuntimeBaseHref;
+
+  // In packaged desktop builds we can reliably anchor assets from the module
+  // URL instead of window.location (which may be rewritten by SPA routing).
+  if (cachedModuleBaseHref) return cachedModuleBaseHref;
+  try {
+    const moduleUrl = new URL(import.meta.url);
+    if (moduleUrl.protocol === "file:") {
+      cachedModuleBaseHref = new URL("../", moduleUrl).href;
+      return cachedModuleBaseHref;
+    }
+  } catch {
+    // Fall through to window-based resolution.
+  }
+
   if (typeof window === "undefined") return null;
 
   const href = (window.location as { href?: unknown } | undefined)?.href;
   if (typeof href !== "string" || !href) return null;
 
   try {
-    const viteBaseUrl = (import.meta as { env?: { BASE_URL?: string } }).env
-      ?.BASE_URL;
-    cachedRuntimeBaseHref = computeBaseHref(href, viteBaseUrl);
+    const viteBaseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL;
+    const currentUrl = new URL(href);
+    const baseForProtocol = currentUrl.protocol === "file:" ? undefined : viteBaseUrl;
+    cachedRuntimeBaseHref = computeBaseHref(href, baseForProtocol);
     return cachedRuntimeBaseHref;
   } catch {
     return null;
@@ -92,20 +106,4 @@ export function resolveAppAssetUrl(
   if (!baseHref) return `/${normalized}`;
 
   return new URL(normalized, baseHref).toString();
-}
-
-/**
- * Resolve an API path (e.g. "/api/avatar/vrm") to a full URL reachable from
- * the renderer.  In Electron the page origin is capacitor-electron:// or
- * file://, so bare /api/... paths resolve to the SPA instead of the backend.
- * This helper prefixes with window.__MILADY_API_BASE__ when available.
- */
-export function resolveApiUrl(apiPath: string): string {
-  if (typeof window !== "undefined") {
-    const base = (window as unknown as Record<string, unknown>).__MILADY_API_BASE__ as
-      | string
-      | undefined;
-    if (base) return `${base}${apiPath}`;
-  }
-  return apiPath;
 }

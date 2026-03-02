@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ElizaCloudClient } from "./bridge-client";
+import { ElizaCloudClient } from "./bridge-client.js";
 
 // ---------------------------------------------------------------------------
 // fetch mock
@@ -88,7 +88,9 @@ describe("Agent CRUD", () => {
 
     // Verify correct URL and auth header
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(String(url)).toBe("https://test.elizacloud.ai/api/v1/milady/agents");
+    expect(String(url)).toBe(
+      "https://test.elizacloud.ai/api/v1/milady/agents",
+    );
     expect((opts?.headers as Record<string, string>)["X-Api-Key"]).toBe(
       "eliza_testkey",
     );
@@ -182,7 +184,7 @@ describe("sendMessage", () => {
     expect(body.method).toBe("message.send");
     expect(body.params.text).toBe("Hi");
     expect(body.params.roomId).toBe("room1");
-    expect(body.params.channelType).toBe("DM");
+    expect(body.params.mode).toBe("power");
   });
 
   it("uses default roomId when not specified", async () => {
@@ -197,7 +199,7 @@ describe("sendMessage", () => {
     const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
     const body = JSON.parse(lastCall[1]?.body as string);
     expect(body.params.roomId).toBe("web-chat");
-    expect(body.params.channelType).toBe("DM");
+    expect(body.params.mode).toBe("power");
   });
 
   it("returns '(no response)' when result has no text", async () => {

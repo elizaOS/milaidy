@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import JSON5 from "json5";
-import { collectConfigEnvVars } from "./env-vars";
-import { resolveConfigIncludes } from "./includes";
-import { resolveConfigPath, resolveUserPath } from "./paths";
-import type { MiladyConfig } from "./types";
+import { collectConfigEnvVars } from "./env-vars.js";
+import { resolveConfigIncludes } from "./includes.js";
+import { resolveConfigPath, resolveUserPath } from "./paths.js";
+import type { MiladyConfig } from "./types.js";
 
 export * from "./types";
 
@@ -118,6 +118,7 @@ function stripIncludeDirectives(value: unknown): unknown {
   }
   return result;
 }
+
 
 export function saveMiladyConfig(config: MiladyConfig): void {
   const configPath = resolveConfigPath();

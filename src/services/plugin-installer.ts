@@ -27,9 +27,9 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
-import { requestRestart } from "../runtime/restart";
-import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
+import { requestRestart } from "../runtime/restart.js";
+import { getPluginInfo, type RegistryPluginInfo } from "./registry-client.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,19 +38,18 @@ const execFileAsync = promisify(execFile);
 // ---------------------------------------------------------------------------
 
 /** npm package names: @scope/name or name. No shell metacharacters. */
-export const VALID_PACKAGE_NAME =
-  /^(@[a-zA-Z0-9][\w.-]*\/)?[a-zA-Z0-9][\w.-]*$/;
+const VALID_PACKAGE_NAME = /^(@[a-zA-Z0-9][\w.-]*\/)?[a-zA-Z0-9][\w.-]*$/;
 
 /** Version strings: semver, dist-tags, git refs. Conservative allowlist. */
 const VALID_VERSION = /^[a-zA-Z0-9][\w.+-]*$/;
 
 /** Git branch names: alphanumeric, hyphens, slashes, dots. No shell metacharacters. */
-export const VALID_BRANCH = /^[a-zA-Z0-9][\w./-]*$/;
+const VALID_BRANCH = /^[a-zA-Z0-9][\w./-]*$/;
 
 /** Git URLs: https:// only, no shell metacharacters. */
-export const VALID_GIT_URL = /^https:\/\/[a-zA-Z0-9][\w./-]*\.git$/;
+const VALID_GIT_URL = /^https:\/\/[a-zA-Z0-9][\w./-]*\.git$/;
 
-export function assertValidPackageName(name: string): void {
+function assertValidPackageName(name: string): void {
   if (!VALID_PACKAGE_NAME.test(name)) {
     throw new Error(`Invalid package name: "${name}"`);
   }
@@ -62,7 +61,7 @@ function assertValidVersion(version: string): void {
   }
 }
 
-export function assertValidGitUrl(url: string): void {
+function assertValidGitUrl(url: string): void {
   if (!VALID_GIT_URL.test(url)) {
     throw new Error(`Invalid git URL: "${url}"`);
   }
@@ -138,7 +137,7 @@ function isWithinPluginsDir(targetPath: string): boolean {
   return resolved.startsWith(`${base}${path.sep}`);
 }
 
-export function sanitisePackageName(name: string): string {
+function sanitisePackageName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
@@ -150,8 +149,8 @@ function pluginDir(pluginName: string): string {
 // Package manager detection
 // ---------------------------------------------------------------------------
 
-export async function detectPackageManager(): Promise<"bun" | "npm"> {
-  for (const cmd of ["bun", "npm"] as const) {
+async function detectPackageManager(): Promise<"bun" | "pnpm" | "npm"> {
+  for (const cmd of ["bun", "pnpm", "npm"] as const) {
     try {
       await execFileAsync(cmd, ["--version"]);
       return cmd;
@@ -175,25 +174,17 @@ export async function detectPackageManager(): Promise<"bun" | "npm"> {
  * 4. Writes an install record to milady.json.
  * 5. Returns metadata about the installation for the caller to
  *    decide whether to trigger a restart.
- *
- * @param pluginName - The plugin name (e.g., "@elizaos/plugin-twitter")
- * @param onProgress - Optional progress callback
- * @param requestedVersion - Optional specific version to install (e.g., "1.2.23-alpha.0")
  */
 export function installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
-  requestedVersion?: string,
 ): Promise<InstallResult> {
-  return serialise(() =>
-    _installPlugin(pluginName, onProgress, requestedVersion),
-  );
+  return serialise(() => _installPlugin(pluginName, onProgress));
 }
 
 async function _installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
-  requestedVersion?: string,
 ): Promise<InstallResult> {
   const emit = (phase: InstallPhase, message: string) =>
     onProgress?.({ phase, pluginName, message });
@@ -214,9 +205,7 @@ async function _installPlugin(
 
   // Determine the canonical package name and version to install
   const canonicalName = info.name;
-  // Use requested version if provided, otherwise use registry version
-  const npmVersion =
-    requestedVersion || info.npm.v2Version || info.npm.v1Version || "next";
+  const npmVersion = info.npm.v2Version || info.npm.v1Version || "next";
   const localPath = info.localPath;
   const targetDir = pluginDir(canonicalName);
 
@@ -355,9 +344,8 @@ async function _installPlugin(
 export async function installAndRestart(
   pluginName: string,
   onProgress?: ProgressCallback,
-  requestedVersion?: string,
 ): Promise<InstallResult> {
-  const result = await installPlugin(pluginName, onProgress, requestedVersion);
+  const result = await installPlugin(pluginName, onProgress);
 
   if (result.success && result.requiresRestart) {
     onProgress?.({
@@ -465,7 +453,7 @@ export async function uninstallAndRestart(
 // ---------------------------------------------------------------------------
 
 async function runPackageInstall(
-  pm: "bun" | "npm",
+  pm: "bun" | "pnpm" | "npm",
   packageName: string,
   version: string,
   targetDir: string,
@@ -477,7 +465,7 @@ async function runPackageInstall(
 }
 
 async function runLocalPathInstall(
-  pm: "bun" | "npm",
+  pm: "bun" | "pnpm" | "npm",
   packageName: string,
   sourcePath: string,
   targetDir: string,
@@ -491,7 +479,7 @@ async function runLocalPathInstall(
 }
 
 async function installSpecWithFallback(
-  pm: "bun" | "npm",
+  pm: "bun" | "pnpm" | "npm",
   spec: string,
   targetDir: string,
 ): Promise<void> {
@@ -507,29 +495,19 @@ async function installSpecWithFallback(
 }
 
 async function runInstallSpec(
-  pm: "bun" | "npm",
+  pm: "bun" | "pnpm" | "npm",
   spec: string,
   targetDir: string,
 ): Promise<void> {
-  // SECURITY: --ignore-scripts prevents npm postinstall/preinstall scripts
-  // from executing arbitrary code on the host. Without this flag, any
-  // package (including compromised registered plugins) can run shell
-  // commands as the current user — reading wallet keys, installing
-  // backdoors, or exfiltrating credentials.
   switch (pm) {
     case "bun":
-      await execFileAsync("bun", ["add", "--ignore-scripts", spec], {
-        cwd: targetDir,
-      });
+      await execFileAsync("bun", ["add", spec], { cwd: targetDir });
+      break;
+    case "pnpm":
+      await execFileAsync("pnpm", ["add", spec, "--dir", targetDir]);
       break;
     default:
-      await execFileAsync("npm", [
-        "install",
-        "--ignore-scripts",
-        spec,
-        "--prefix",
-        targetDir,
-      ]);
+      await execFileAsync("npm", ["install", spec, "--prefix", targetDir]);
   }
 }
 
@@ -599,9 +577,7 @@ async function listRemoteBranches(gitUrl: string): Promise<string[]> {
   }
 }
 
-export async function resolveGitBranch(
-  info: RegistryPluginInfo,
-): Promise<string> {
+async function resolveGitBranch(info: RegistryPluginInfo): Promise<string> {
   assertValidGitUrl(info.gitUrl);
   const rawCandidates = [
     info.git.v2Branch,
@@ -664,7 +640,7 @@ async function gitCloneInstall(
     });
 
     const pm = await detectPackageManager();
-    await execFileAsync(pm, ["install", "--ignore-scripts"], { cwd: tempDir });
+    await execFileAsync(pm, ["install"], { cwd: tempDir });
 
     // If there's a typescript/ subdirectory (monorepo plugin structure),
     // build it and use that as the install target.

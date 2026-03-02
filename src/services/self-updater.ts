@@ -7,14 +7,13 @@ import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ReleaseChannel } from "../config/types.milady";
-import { CHANNEL_DIST_TAGS } from "./update-checker";
-
-const NPM_PACKAGE_NAME = "miladyai";
+import type { ReleaseChannel } from "../config/types.milady.js";
+import { CHANNEL_DIST_TAGS } from "./update-checker.js";
 
 export type InstallMethod =
   | "npm-global"
   | "bun-global"
+  | "pnpm-global"
   | "homebrew"
   | "snap"
   | "apt"
@@ -81,6 +80,7 @@ export function detectInstallMethod(): InstallMethod {
   if (resolved.startsWith("/usr/") && !resolved.includes("node_modules"))
     return "apt";
   if (resolved.includes("/.bun/")) return "bun-global";
+  if (resolved.includes("/pnpm/")) return "pnpm-global";
   if (resolved.includes("node_modules")) return "npm-global";
 
   return "unknown";
@@ -90,13 +90,15 @@ export function buildUpdateCommand(
   method: InstallMethod,
   channel: ReleaseChannel,
 ): { command: string; args: string[] } | null {
-  const spec = `${NPM_PACKAGE_NAME}@${CHANNEL_DIST_TAGS[channel]}`;
+  const spec = `milady@${CHANNEL_DIST_TAGS[channel]}`;
 
   switch (method) {
     case "npm-global":
       return { command: "npm", args: ["install", "-g", spec] };
     case "bun-global":
       return { command: "bun", args: ["install", "-g", spec] };
+    case "pnpm-global":
+      return { command: "pnpm", args: ["add", "-g", spec] };
     case "homebrew":
       return { command: "brew", args: ["upgrade", "milady"] };
     case "snap": {

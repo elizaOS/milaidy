@@ -1,0 +1,479 @@
+Unused files (26)
+apps/app/electron/resources/electron-publisher-custom.js  apps/app/electron/resources/electron-publisher-custom.js
+apps/app/electron/src/permissions/registry.js             apps/app/electron/src/permissions/registry.js           
+apps/app/electron/src/permissions/registry.ts             apps/app/electron/src/permissions/registry.ts           
+apps/app/electron/src/permissions/types.js                apps/app/electron/src/permissions/types.js              
+apps/app/electron/src/permissions/types.ts                apps/app/electron/src/permissions/types.ts              
+apps/app/electron/src/preload.ts                          apps/app/electron/src/preload.ts                        
+apps/app/electron/src/rt/electron-plugins.js              apps/app/electron/src/rt/electron-plugins.js            
+apps/app/electron/src/rt/electron-rt.ts                   apps/app/electron/src/rt/electron-rt.ts                 
+apps/app/plugins/camera/electron/src/index.ts             apps/app/plugins/camera/electron/src/index.ts           
+apps/app/plugins/canvas/electron/src/index.ts             apps/app/plugins/canvas/electron/src/index.ts           
+apps/app/plugins/desktop/electron/src/index.ts            apps/app/plugins/desktop/electron/src/index.ts          
+apps/app/plugins/gateway/electron/src/index.js            apps/app/plugins/gateway/electron/src/index.js          
+apps/app/plugins/gateway/electron/src/index.ts            apps/app/plugins/gateway/electron/src/index.ts          
+apps/app/plugins/location/electron/src/index.ts           apps/app/plugins/location/electron/src/index.ts         
+apps/app/plugins/screencapture/electron/src/index.ts      apps/app/plugins/screencapture/electron/src/index.ts    
+apps/app/plugins/swabble/electron/src/index.ts            apps/app/plugins/swabble/electron/src/index.ts          
+apps/app/plugins/talkmode/electron/src/index.js           apps/app/plugins/talkmode/electron/src/index.js         
+apps/app/plugins/talkmode/electron/src/index.ts           apps/app/plugins/talkmode/electron/src/index.ts         
+src/cloud/index.ts                                        src/cloud/index.ts                                      
+src/contracts/permissions.ts                              src/contracts/permissions.ts                            
+src/permissions/index.ts                                  src/permissions/index.ts                                
+src/permissions/registry.ts                               src/permissions/registry.ts                             
+src/permissions/types.ts                                  src/permissions/types.ts                                
+src/plugins/telegram-enhanced/index.ts                    src/plugins/telegram-enhanced/index.ts                  
+src/plugins/telegram-enhanced/service.ts                  src/plugins/telegram-enhanced/service.ts                
+src/runtime/dev-server.ts                                 src/runtime/dev-server.ts                               
+Unused dependencies (26)
+whisper-node                        apps/app/electron/package.json:35:6
+@capacitor-community/electron       package.json:95:6                  
+@elizaos/plugin-agent-orchestrator  package.json:98:6                  
+@elizaos/plugin-agent-skills        package.json:99:6                  
+@elizaos/plugin-browser             package.json:100:6                 
+@elizaos/plugin-local-embedding     package.json:101:6                 
+@elizaos/plugin-discord             package.json:102:6                 
+@elizaos/plugin-elizacloud          package.json:103:6                 
+@elizaos/plugin-google-genai        package.json:104:6                 
+@elizaos/plugin-knowledge           package.json:105:6                 
+@elizaos/plugin-ollama              package.json:106:6                 
+@elizaos/plugin-openai              package.json:107:6                 
+@elizaos/plugin-openrouter          package.json:108:6                 
+@elizaos/plugin-plugin-manager      package.json:109:6                 
+@elizaos/plugin-shell               package.json:110:6                 
+@elizaos/plugin-sql                 package.json:111:6                 
+@elizaos/plugin-trajectory-logger   package.json:113:6                 
+bonjour-service                     package.json:117:6                 
+chokidar                            package.json:119:6                 
+electron-is-dev                     package.json:123:6                 
+electron-serve                      package.json:124:6                 
+electron-unhandled                  package.json:125:6                 
+electron-updater                    package.json:126:6                 
+electron-window-state               package.json:127:6                 
+node-llama-cpp                      package.json:130:6                 
+whisper-node                        package.json:133:6                 
+Unused devDependencies (20)
+react-test-renderer      apps/app/package.json:62:6                      
+tailwindcss              apps/app/package.json:63:6                      
+@capacitor/android       apps/app/plugins/camera/package.json:30:6       
+@capacitor/ios           apps/app/plugins/camera/package.json:32:6       
+@capacitor/android       apps/app/plugins/canvas/package.json:30:6       
+@capacitor/ios           apps/app/plugins/canvas/package.json:32:6       
+@capacitor/android       apps/app/plugins/gateway/package.json:48:6      
+@capacitor/cli           apps/app/plugins/gateway/package.json:49:6      
+@capacitor/ios           apps/app/plugins/gateway/package.json:52:6      
+@ionic/eslint-config     apps/app/plugins/gateway/package.json:53:6      
+@ionic/prettier-config   apps/app/plugins/gateway/package.json:54:6      
+@ionic/swiftlint-config  apps/app/plugins/gateway/package.json:55:6      
+@capacitor/cli           apps/app/plugins/location/package.json:32:6     
+@capacitor/android       apps/app/plugins/screencapture/package.json:30:6
+@capacitor/ios           apps/app/plugins/screencapture/package.json:32:6
+@capacitor/android       apps/app/plugins/swabble/package.json:30:6      
+@capacitor/ios           apps/app/plugins/swabble/package.json:32:6      
+@capacitor/cli           apps/app/plugins/talkmode/package.json:32:6     
+react-test-renderer      package.json:143:6                              
+rimraf                   package.json:144:6                              
+Unlisted dependencies (2)
+mdns                      apps/app/electron/src/native/gateway.ts:81:24        
+@elizaos/plugin-telegram  src/plugins/telegram-enhanced/message-manager.ts:3:32
+Unlisted binaries (5)
+pod             apps/app/plugins/gateway/package.json
+lint            apps/app/plugins/gateway/package.json
+node-swiftlint  apps/app/plugins/gateway/package.json
+scripts/rt.sh   package.json                         
+mint            package.json                         
+Unresolved imports (1)
+../src/cli/ports.js  test/scripts/test-force.ts:5:49
+Unused exports (210)
+checkAccessibility                    darwin  function  apps/app/electron/src/native/permissions-darwin.ts:34:23 
+checkScreenRecording                  darwin  function  apps/app/electron/src/native/permissions-darwin.ts:87:23 
+checkMicrophone                       darwin  function  apps/app/electron/src/native/permissions-darwin.ts:131:23
+checkCamera                           darwin  function  apps/app/electron/src/native/permissions-darwin.ts:154:23
+requestMicrophone                     darwin  function  apps/app/electron/src/native/permissions-darwin.ts:177:23
+requestCamera                         darwin  function  apps/app/electron/src/native/permissions-darwin.ts:191:23
+checkMicrophone                       linux   function  apps/app/electron/src/native/permissions-linux.ts:34:23  
+checkCamera                           linux   function  apps/app/electron/src/native/permissions-linux.ts:83:23  
+checkScreenRecording                  linux   function  apps/app/electron/src/native/permissions-linux.ts:122:23 
+checkMicrophone                       win32   function  apps/app/electron/src/native/permissions-win32.ts:33:23  
+checkCamera                           win32   function  apps/app/electron/src/native/permissions-win32.ts:75:23  
+getWhisperInstance                            function  apps/app/electron/src/native/whisper.ts:504:17           
+disposeWhisperInstance                        function  apps/app/electron/src/native/whisper.ts:511:17           
+MiladyClient                                 class     apps/app/src/api-client.ts:1426:14                       
+getCapabilities                               function  apps/app/src/bridge/capacitor-bridge.ts:62:17            
+haptics                                                 apps/app/src/bridge/capacitor-bridge.ts:81:14            
+registerPlugin                                function  apps/app/src/bridge/capacitor-bridge.ts:168:17           
+getPlugin                                     function  apps/app/src/bridge/capacitor-bridge.ts:176:17           
+hasPlugin                                     function  apps/app/src/bridge/capacitor-bridge.ts:183:17           
+waitForBridge                                 function  apps/app/src/bridge/capacitor-bridge.ts:270:17           
+platform                                                apps/app/src/bridge/plugin-bridge.ts:329:10              
+isNative                                                apps/app/src/bridge/plugin-bridge.ts:329:20              
+isIOS                                                   apps/app/src/bridge/plugin-bridge.ts:329:30              
+isAndroid                                               apps/app/src/bridge/plugin-bridge.ts:329:37              
+isElectron                                              apps/app/src/bridge/plugin-bridge.ts:329:48              
+isWeb                                                   apps/app/src/bridge/plugin-bridge.ts:329:60              
+isMacOS                                                 apps/app/src/bridge/plugin-bridge.ts:329:67              
+getStorageValue                               function  apps/app/src/bridge/storage-bridge.ts:115:23             
+setStorageValue                               function  apps/app/src/bridge/storage-bridge.ts:126:23             
+removeStorageValue                            function  apps/app/src/bridge/storage-bridge.ts:137:23             
+registerSyncedKey                             function  apps/app/src/bridge/storage-bridge.ts:148:17             
+isStorageBridgeInitialized                    function  apps/app/src/bridge/storage-bridge.ts:155:17             
+findFormValue                                 function  apps/app/src/components/config-catalog.ts:130:17         
+interpolateString                             function  apps/app/src/components/config-catalog.ts:166:17         
+evaluateLogicExpression                       function  apps/app/src/components/config-catalog.ts:181:17         
+visibility                                              apps/app/src/components/config-catalog.ts:256:14         
+builtInValidators                                       apps/app/src/components/config-catalog.ts:275:14         
+check                                                   apps/app/src/components/config-catalog.ts:333:14         
+defineCatalog                                 function  apps/app/src/components/config-catalog.ts:410:17         
+renderTextField                               function  apps/app/src/components/config-field.tsx:60:17           
+renderPasswordField                           function  apps/app/src/components/config-field.tsx:90:17           
+renderNumberField                             function  apps/app/src/components/config-field.tsx:164:17          
+renderBooleanField                            function  apps/app/src/components/config-field.tsx:258:17          
+renderUrlField                                function  apps/app/src/components/config-field.tsx:311:17          
+renderSelectField                             function  apps/app/src/components/config-field.tsx:341:17          
+renderTextareaField                           function  apps/app/src/components/config-field.tsx:534:17          
+renderEmailField                              function  apps/app/src/components/config-field.tsx:578:17          
+renderColorField                              function  apps/app/src/components/config-field.tsx:605:17          
+renderRadioField                              function  apps/app/src/components/config-field.tsx:651:17          
+renderMultiselectField                        function  apps/app/src/components/config-field.tsx:718:17          
+renderDateField                               function  apps/app/src/components/config-field.tsx:817:17          
+renderJsonField                               function  apps/app/src/components/config-field.tsx:843:17          
+renderCodeField                               function  apps/app/src/components/config-field.tsx:904:17          
+renderArrayField                              function  apps/app/src/components/config-field.tsx:935:17          
+renderKeyValueField                           function  apps/app/src/components/config-field.tsx:1087:17         
+renderDatetimeField                           function  apps/app/src/components/config-field.tsx:1191:17         
+renderFileField                               function  apps/app/src/components/config-field.tsx:1215:17         
+renderCustomField                             function  apps/app/src/components/config-field.tsx:1249:17         
+renderMarkdownField                                     apps/app/src/components/config-field.tsx:1457:14         
+renderCheckboxGroupField                                apps/app/src/components/config-field.tsx:1507:14         
+renderGroupField                                        apps/app/src/components/config-field.tsx:1512:14         
+renderTableField                                        apps/app/src/components/config-field.tsx:1629:14         
+useConfigValidation                           function  apps/app/src/components/config-renderer.tsx:619:17       
+isAdvancedParam                               function  apps/app/src/components/PluginsView.tsx:198:17           
+ENV_KEY_ACRONYMS                                        apps/app/src/components/shared/labels.ts:5:14            
+statusToneForBoolean                          function  apps/app/src/components/shared/ui-badges.tsx:33:17       
+evaluateUiVisibility                          function  apps/app/src/components/ui-renderer.tsx:110:17           
+runValidation                                 function  apps/app/src/components/ui-renderer.tsx:168:17           
+getSupportedComponents                        function  apps/app/src/components/ui-renderer.tsx:1338:17          
+loadCustomCommands                            function  apps/app/src/hooks/useContextMenu.ts:18:17               
+titleForTab                                   function  apps/app/src/navigation.ts:124:17                        
+generateImageAction                                     src/actions/media.ts:39:14                               
+generateVideoAction                                     src/actions/media.ts:163:14                              
+generateAudioAction                                     src/actions/media.ts:272:14                              
+analyzeImageAction                                      src/actions/media.ts:387:14                              
+DEFAULT_MAX_BODY_BYTES                                  src/api/http-helpers.ts:6:14                             
+isJsonObjectBody                              function  src/api/http-helpers.ts:147:17                           
+writeJsonResponse                             function  src/api/http-helpers.ts:153:23                           
+writeJsonError                                function  src/api/http-helpers.ts:163:23                           
+writeJsonErrorSafe                            function  src/api/http-helpers.ts:199:17                           
+readOGCode                                    function  src/api/og-tracker.ts:37:17                              
+generateValidCodes                            function  src/api/og-tracker.ts:47:17                              
+isValidOGCode                                 function  src/api/og-tracker.ts:65:17                              
+captureEarlyLogs                                        src/api/server.ts:12549:10                               
+loadWhitelist                                 function  src/api/twitter-verify.ts:158:17                         
+getVerifiedAddresses                          function  src/api/twitter-verify.ts:197:17                         
+applyClaudeCodeStealth                        function  src/auth/apply-stealth.ts:3:17                           
+loadCredentials                               function  src/auth/credentials.ts:62:17                            
+hasValidCredentials                           function  src/auth/credentials.ts:95:17                            
+getAccessToken                                function  src/auth/credentials.ts:105:23                           
+refreshAnthropicToken                                   src/auth/index.ts:10:10                                  
+applyClaudeCodeStealth                                  src/auth/index.ts:12:10                                  
+getAccessToken                                          src/auth/index.ts:17:3                                   
+hasValidCredentials                                     src/auth/index.ts:19:3                                   
+loadCredentials                                         src/auth/index.ts:20:3                                   
+refreshCodexToken                                       src/auth/index.ts:25:10                                  
+getBenchmarkContext                           function  src/benchmark/plugin.ts:38:17                            
+INCLUDE_KEY                                             src/config/includes.ts:15:14                             
+MAX_INCLUDE_DEPTH                                       src/config/includes.ts:16:14                             
+deepMerge                                     function  src/config/includes.ts:45:17                             
+TELEGRAM_COMMAND_NAME_PATTERN                           src/config/telegram-custom-commands.ts:1:14              
+HeartbeatSchema                                         src/config/zod-schema.agent-runtime.ts:14:14             
+SandboxDockerSchema                                     src/config/zod-schema.agent-runtime.ts:94:14             
+SandboxBrowserSchema                                    src/config/zod-schema.agent-runtime.ts:134:14            
+SandboxPruneSchema                                      src/config/zod-schema.agent-runtime.ts:151:14            
+ToolsWebSearchSchema                                    src/config/zod-schema.agent-runtime.ts:195:14            
+ToolsWebFetchSchema                                     src/config/zod-schema.agent-runtime.ts:215:14            
+ToolsWebSchema                                          src/config/zod-schema.agent-runtime.ts:228:14            
+ToolProfileSchema                                       src/config/zod-schema.agent-runtime.ts:236:14            
+ToolPolicyWithProfileSchema                             src/config/zod-schema.agent-runtime.ts:247:14            
+ElevatedAllowFromSchema                                 src/config/zod-schema.agent-runtime.ts:256:14            
+AgentSandboxSchema                                      src/config/zod-schema.agent-runtime.ts:260:14            
+AgentToolsSchema                                        src/config/zod-schema.agent-runtime.ts:283:14            
+MemorySearchSchema                                      src/config/zod-schema.agent-runtime.ts:333:14            
+AgentModelSchema                                        src/config/zod-schema.agent-runtime.ts:447:14            
+ModelApiSchema                                          src/config/zod-schema.core.ts:4:14                       
+ModelCompatSchema                                       src/config/zod-schema.core.ts:12:14                      
+ModelDefinitionSchema                                   src/config/zod-schema.core.ts:24:14                      
+ModelProviderSchema                                     src/config/zod-schema.core.ts:47:14                      
+BedrockDiscoverySchema                                  src/config/zod-schema.core.ts:66:14                      
+QueueModeSchema                                         src/config/zod-schema.core.ts:111:14                     
+QueueDropSchema                                         src/config/zod-schema.core.ts:120:14                     
+MarkdownTableModeSchema                                 src/config/zod-schema.core.ts:166:14                     
+TtsProviderSchema                                       src/config/zod-schema.core.ts:175:14                     
+TtsModeSchema                                           src/config/zod-schema.core.ts:176:14                     
+TtsAutoSchema                                           src/config/zod-schema.core.ts:177:14                     
+normalizeAllowFrom                                      src/config/zod-schema.core.ts:296:14                     
+QueueModeBySurfaceSchema                                src/config/zod-schema.core.ts:332:14                     
+DebounceMsBySurfaceSchema                               src/config/zod-schema.core.ts:347:14                     
+MediaUnderstandingScopeSchema                           src/config/zod-schema.core.ts:424:14                     
+MediaUnderstandingCapabilitiesSchema                    src/config/zod-schema.core.ts:427:14                     
+MediaUnderstandingAttachmentsSchema                     src/config/zod-schema.core.ts:431:14                     
+MediaUnderstandingModelSchema                           src/config/zod-schema.core.ts:465:14                     
+ToolsMediaUnderstandingSchema                           src/config/zod-schema.core.ts:488:14                     
+LinkModelSchema                                         src/config/zod-schema.core.ts:518:14                     
+MediaModeSchema                                         src/config/zod-schema.core.ts:564:14                     
+ImageProviderSchema                                     src/config/zod-schema.core.ts:568:14                     
+ImageFalConfigSchema                                    src/config/zod-schema.core.ts:576:14                     
+ImageOpenaiConfigSchema                                 src/config/zod-schema.core.ts:585:14                     
+ImageGoogleConfigSchema                                 src/config/zod-schema.core.ts:595:14                     
+ImageXaiConfigSchema                                    src/config/zod-schema.core.ts:604:14                     
+ImageConfigSchema                                       src/config/zod-schema.core.ts:612:14                     
+VideoProviderSchema                                     src/config/zod-schema.core.ts:628:14                     
+VideoFalConfigSchema                                    src/config/zod-schema.core.ts:630:14                     
+VideoOpenaiConfigSchema                                 src/config/zod-schema.core.ts:639:14                     
+VideoGoogleConfigSchema                                 src/config/zod-schema.core.ts:647:14                     
+VideoConfigSchema                                       src/config/zod-schema.core.ts:655:14                     
+AudioGenProviderSchema                                  src/config/zod-schema.core.ts:670:14                     
+AudioSunoConfigSchema                                   src/config/zod-schema.core.ts:672:14                     
+AudioElevenlabsSfxConfigSchema                          src/config/zod-schema.core.ts:681:14                     
+AudioGenConfigSchema                                    src/config/zod-schema.core.ts:689:14                     
+VisionProviderSchema                                    src/config/zod-schema.core.ts:702:14                     
+VisionOpenaiConfigSchema                                src/config/zod-schema.core.ts:711:14                     
+VisionGoogleConfigSchema                                src/config/zod-schema.core.ts:720:14                     
+VisionAnthropicConfigSchema                             src/config/zod-schema.core.ts:728:14                     
+VisionXaiConfigSchema                                   src/config/zod-schema.core.ts:736:14                     
+VisionOllamaConfigSchema                                src/config/zod-schema.core.ts:744:14                     
+VisionConfigSchema                                      src/config/zod-schema.core.ts:754:14                     
+MediaConfigSchema                                       src/config/zod-schema.core.ts:770:14                     
+InternalHookHandlerSchema                               src/config/zod-schema.hooks.ts:50:14                     
+TelegramTopicSchema                                     src/config/zod-schema.providers-core.ts:45:14            
+TelegramGroupSchema                                     src/config/zod-schema.providers-core.ts:55:14            
+TelegramAccountSchemaBase                               src/config/zod-schema.providers-core.ts:96:14            
+TelegramAccountSchema                                   src/config/zod-schema.providers-core.ts:154:14           
+DiscordDmSchema                                         src/config/zod-schema.providers-core.ts:223:14           
+DiscordGuildChannelSchema                               src/config/zod-schema.providers-core.ts:243:14           
+DiscordGuildSchema                                      src/config/zod-schema.providers-core.ts:257:14           
+DiscordAccountSchema                                    src/config/zod-schema.providers-core.ts:273:14           
+GoogleChatDmSchema                                      src/config/zod-schema.providers-core.ts:352:14           
+GoogleChatGroupSchema                                   src/config/zod-schema.providers-core.ts:370:14           
+GoogleChatAccountSchema                                 src/config/zod-schema.providers-core.ts:380:14           
+SlackDmSchema                                           src/config/zod-schema.providers-core.ts:425:14           
+SlackChannelSchema                                      src/config/zod-schema.providers-core.ts:446:14           
+SlackThreadSchema                                       src/config/zod-schema.providers-core.ts:460:14           
+SlackAccountSchema                                      src/config/zod-schema.providers-core.ts:475:14           
+SignalAccountSchemaBase                                 src/config/zod-schema.providers-core.ts:577:14           
+SignalAccountSchema                                     src/config/zod-schema.providers-core.ts:624:14           
+IMessageAccountSchemaBase                               src/config/zod-schema.providers-core.ts:650:14           
+IMessageAccountSchema                                   src/config/zod-schema.providers-core.ts:694:14           
+BlueBubblesAccountSchemaBase                            src/config/zod-schema.providers-core.ts:747:14           
+BlueBubblesAccountSchema                                src/config/zod-schema.providers-core.ts:777:14           
+MSTeamsChannelSchema                                    src/config/zod-schema.providers-core.ts:805:14           
+MSTeamsTeamSchema                                       src/config/zod-schema.providers-core.ts:814:14           
+WhatsAppAccountSchema                                   src/config/zod-schema.providers-core.ts:873:14           
+getEmote                                      function  src/emotes/catalog.ts:312:17                             
+getEmotesByCategory                           function  src/emotes/catalog.ts:319:17                             
+isValidEmote                                  function  src/emotes/catalog.ts:326:17                             
+BIO_POOL                                                src/onboarding-presets.ts:48:14                          
+SYSTEM_POOL                                             src/onboarding-presets.ts:116:14                         
+sampleFrom                                    function  src/onboarding-presets.ts:176:17                         
+composeCharacter                              function  src/onboarding-presets.ts:194:17                         
+getLocalModelManager                          function  src/providers/local-models.ts:457:17                     
+downloadRecommendedModel                      function  src/providers/local-models.ts:474:23                     
+ensureLocalModel                              function  src/providers/local-models.ts:496:23                     
+runCommandWithTimeout                         function  src/providers/workspace.ts:25:17                         
+coreExportExists                              function  src/services/version-compat.ts:169:23                    
+getInstalledVersion                           function  src/services/version-compat.ts:186:23                    
+validatePluginCompat                          function  src/services/version-compat.ts:220:23                    
+validateVersionCompat                         function  src/services/version-compat.ts:285:23                    
+colorize                                                src/terminal/theme.ts:34:14                              
+looksLikePlugin                               function  src/test-support/test-helpers.ts:68:17                   
+parseScheduledAtIso                           function  src/triggers/scheduling.ts:236:17                        
+registerPiAiModelHandler                                src/tui/index.ts:15:10                                   
+ElizaTUIBridge                                          src/tui/index.ts:16:10                                   
+MiladyTUI                                              src/tui/index.ts:17:10                                   
+miladySelectListTheme                                  src/tui/theme.ts:16:14                                   
+miladyEditorTheme                                      src/tui/theme.ts:24:14                                   
+shouldLogVerbose                              function  src/utils/globals.ts:38:17                               
+resolveMiladyPackageRoot                     function  src/utils/milady-root.ts:100:23                         
+formatModelSpec                               function  src/utils/pi-ai.ts:20:17                                 
+Unused exported types (180)
+CameraDeviceInfo                         interface  apps/app/electron/src/native/camera.ts:16:18            
+CameraPreviewResult                      interface  apps/app/electron/src/native/camera.ts:36:18            
+PhotoResult                              interface  apps/app/electron/src/native/camera.ts:49:18            
+VideoRecordingState                      interface  apps/app/electron/src/native/camera.ts:65:18            
+VideoResult                              interface  apps/app/electron/src/native/camera.ts:71:18            
+CanvasSnapshotResult                     interface  apps/app/electron/src/native/canvas.ts:34:18            
+CanvasWindowInfo                         interface  apps/app/electron/src/native/canvas.ts:41:18            
+GatewayEndpoint                          interface  apps/app/electron/src/native/gateway.ts:15:18           
+LocationCoordinates                      interface  apps/app/electron/src/native/location.ts:21:18          
+LocationResult                           interface  apps/app/electron/src/native/location.ts:32:18          
+SystemPermissionDefinition               interface  apps/app/electron/src/native/permissions-shared.ts:24:18
+ScreenSource                             interface  apps/app/electron/src/native/screencapture.ts:31:18     
+ScreenRecordingState                     interface  apps/app/electron/src/native/screencapture.ts:51:18     
+ScreenRecordingResult                    interface  apps/app/electron/src/native/screencapture.ts:58:18     
+SpeechSegment                            interface  apps/app/electron/src/native/swabble.ts:23:18           
+WakeWordEvent                            interface  apps/app/electron/src/native/swabble.ts:30:18           
+TranscriptEvent                          interface  apps/app/electron/src/native/swabble.ts:38:18           
+TTSDirective                             interface  apps/app/electron/src/native/talkmode.ts:37:18          
+SpeakResult                              interface  apps/app/electron/src/native/talkmode.ts:51:18          
+AudioGenConfig                           type       apps/app/src/api-client.ts:48:3                         
+ImageConfig                              type       apps/app/src/api-client.ts:53:3                         
+VideoConfig                              type       apps/app/src/api-client.ts:58:3                         
+VisionConfig                             type       apps/app/src/api-client.ts:60:3                         
+EvmNft                                   type       apps/app/src/api-client.ts:66:3                         
+EvmTokenBalance                          type       apps/app/src/api-client.ts:67:3                         
+SolanaNft                                type       apps/app/src/api-client.ts:68:3                         
+SolanaTokenBalance                       type       apps/app/src/api-client.ts:69:3                         
+VerificationResult                       type       apps/app/src/api-client.ts:76:15                        
+PermissionState                          type       apps/app/src/api-client.ts:79:3                         
+PermissionDefinition                     type       apps/app/src/api-client.ts:82:33                        
+DatabaseConfigResponse                   interface  apps/app/src/api-client.ts:98:18                        
+ConnectionTestResult                     interface  apps/app/src/api-client.ts:116:18                       
+MessageExample                           interface  apps/app/src/api-client.ts:292:18                       
+ConnectorConfig                          interface  apps/app/src/api-client.ts:359:18                       
+OnboardingData                           interface  apps/app/src/api-client.ts:367:18                       
+SandboxStartResponse                     interface  apps/app/src/api-client.ts:426:18                       
+CorePluginEntry                          interface  apps/app/src/api-client.ts:482:18                       
+CorePluginsResponse                      interface  apps/app/src/api-client.ts:491:18                       
+ChatMessage                              interface  apps/app/src/api-client.ts:496:18                       
+TextBlock                                interface  apps/app/src/api-client.ts:514:18                       
+ConfigFormBlock                          interface  apps/app/src/api-client.ts:520:18                       
+UiSpecBlock                              interface  apps/app/src/api-client.ts:530:18                       
+ConfigSchemaResponse                     interface  apps/app/src/api-client.ts:539:18                       
+CatalogSearchResult                      interface  apps/app/src/api-client.ts:605:18                       
+LogsResponse                             interface  apps/app/src/api-client.ts:624:18                       
+LogsFilter                               interface  apps/app/src/api-client.ts:630:18                       
+AgentEventsResponse                      interface  apps/app/src/api-client.ts:779:18                       
+RegistrySearchResult                     interface  apps/app/src/api-client.ts:821:18                       
+InstalledPlugin                          interface  apps/app/src/api-client.ts:832:18                       
+PluginInstallResult                      interface  apps/app/src/api-client.ts:839:18                       
+CloudStatus                              interface  apps/app/src/api-client.ts:863:18                       
+CloudCredits                             interface  apps/app/src/api-client.ts:864:18                       
+CloudLoginResponse                       interface  apps/app/src/api-client.ts:865:18                       
+CloudLoginPollResponse                   interface  apps/app/src/api-client.ts:866:18                       
+ShareIngestPayload                       interface  apps/app/src/api-client.ts:883:18                       
+ShareIngestItem                          interface  apps/app/src/api-client.ts:890:18                       
+RegistryPluginItem                       interface  apps/app/src/api-client.ts:1004:18                      
+InstalledAppInfo                         interface  apps/app/src/api-client.ts:1046:18                      
+AppLaunchResult                          interface  apps/app/src/api-client.ts:1047:18                      
+AppStopResult                            interface  apps/app/src/api-client.ts:1055:18                      
+HyperscapeEmbeddedAgentsResponse         interface  apps/app/src/api-client.ts:1110:18                      
+HyperscapeActionResponse                 interface  apps/app/src/api-client.ts:1117:18                      
+HyperscapeEmbeddedAgentMutationResponse  interface  apps/app/src/api-client.ts:1123:18                      
+TrajectoryListOptions                    interface  apps/app/src/api-client.ts:1245:18                      
+TrajectoryExportFormat                   type       apps/app/src/api-client.ts:1283:13                      
+TrajectoryExportOptions                  interface  apps/app/src/api-client.ts:1285:18                      
+KnowledgeDocumentDetail                  interface  apps/app/src/api-client.ts:1312:18                      
+KnowledgeDocumentsResponse               interface  apps/app/src/api-client.ts:1316:18                      
+KnowledgeFragmentsResponse               interface  apps/app/src/api-client.ts:1330:18                      
+KnowledgeSearchResponse                  interface  apps/app/src/api-client.ts:1345:18                      
+KnowledgeUploadResult                    interface  apps/app/src/api-client.ts:1352:18                      
+WsEventHandler                           type       apps/app/src/api-client.ts:1363:13                      
+RegistrationResult                       interface  apps/app/src/api-client.ts:1382:18                      
+RegistryConfig                           interface  apps/app/src/api-client.ts:1387:18                      
+VerificationMessageResponse              interface  apps/app/src/api-client.ts:1402:18                      
+AppActions                               interface  apps/app/src/AppContext.tsx:590:18                      
+CapacitorCapabilities                    interface  apps/app/src/bridge/capacitor-bridge.ts:34:18           
+MiladyBridge                            interface  apps/app/src/bridge/capacitor-bridge.ts:190:18          
+ActionBinding                            type       apps/app/src/components/config-catalog.ts:36:15         
+CatalogConfig                            interface  apps/app/src/components/config-catalog.ts:392:18        
+ConfigRendererProps                      interface  apps/app/src/components/config-renderer.tsx:35:18       
+ConfigRendererHandle                     interface  apps/app/src/components/config-renderer.tsx:61:18       
+TerminalPanelHandle                      interface  apps/app/src/components/TerminalPanel.tsx:11:18         
+DynamicProp                              type       apps/app/src/components/ui-spec.ts:17:13                
+VisibilityOperator                       type       apps/app/src/components/ui-spec.ts:38:13                
+BuiltinValidator                         type       apps/app/src/components/ui-spec.ts:73:13                
+PatchOp                                  type       apps/app/src/components/ui-spec.ts:235:13               
+UIStreamConfig                           interface  apps/app/src/components/ui-spec.ts:244:18               
+ChannelsStatusSnapshot                   type       apps/app/src/types.ts:1:13                              
+ChannelUiMetaEntry                       type       apps/app/src/types.ts:13:13                             
+ChannelAccountSnapshot                   type       apps/app/src/types.ts:20:13                             
+WhatsAppSelf                             type       apps/app/src/types.ts:57:13                             
+WhatsAppDisconnect                       type       apps/app/src/types.ts:62:13                             
+WhatsAppStatus                           type       apps/app/src/types.ts:69:13                             
+TelegramBot                              type       apps/app/src/types.ts:84:13                             
+TelegramWebhook                          type       apps/app/src/types.ts:89:13                             
+TelegramProbe                            type       apps/app/src/types.ts:94:13                             
+TelegramStatus                           type       apps/app/src/types.ts:103:13                            
+DiscordBot                               type       apps/app/src/types.ts:115:13                            
+DiscordProbe                             type       apps/app/src/types.ts:120:13                            
+DiscordStatus                            type       apps/app/src/types.ts:128:13                            
+GoogleChatProbe                          type       apps/app/src/types.ts:139:13                            
+GoogleChatStatus                         type       apps/app/src/types.ts:146:13                            
+SlackBot                                 type       apps/app/src/types.ts:161:13                            
+SlackTeam                                type       apps/app/src/types.ts:166:13                            
+SlackProbe                               type       apps/app/src/types.ts:171:13                            
+SlackStatus                              type       apps/app/src/types.ts:180:13                            
+SignalProbe                              type       apps/app/src/types.ts:192:13                            
+SignalStatus                             type       apps/app/src/types.ts:200:13                            
+IMessageProbe                            type       apps/app/src/types.ts:211:13                            
+IMessageStatus                           type       apps/app/src/types.ts:216:13                            
+NostrProfile                             type       apps/app/src/types.ts:228:13                            
+NostrStatus                              type       apps/app/src/types.ts:239:13                            
+MSTeamsProbe                             type       apps/app/src/types.ts:249:13                            
+MSTeamsStatus                            type       apps/app/src/types.ts:255:13                            
+ConfigSnapshotIssue                      type       apps/app/src/types.ts:266:13                            
+ConfigSnapshot                           type       apps/app/src/types.ts:271:13                            
+PluginUiTheme                            interface  apps/app/src/types.ts:425:18                            
+ConfigUiHints                            type       apps/app/src/types.ts:454:13                            
+ConfigSchemaResponse                     type       apps/app/src/types.ts:456:13                            
+PresenceEntry                            type       apps/app/src/types.ts:463:13                            
+GatewaySessionsDefaults                  type       apps/app/src/types.ts:480:13                            
+GatewayAgentRow                          type       apps/app/src/types.ts:485:13                            
+AgentsListResult                         type       apps/app/src/types.ts:497:13                            
+AgentIdentityResult                      type       apps/app/src/types.ts:504:13                            
+AgentFileEntry                           type       apps/app/src/types.ts:511:13                            
+AgentsFilesListResult                    type       apps/app/src/types.ts:520:13                            
+AgentsFilesGetResult                     type       apps/app/src/types.ts:526:13                            
+AgentsFilesSetResult                     type       apps/app/src/types.ts:532:13                            
+GatewaySessionRow                        type       apps/app/src/types.ts:539:13                            
+SessionsListResult                       type       apps/app/src/types.ts:564:13                            
+SessionsPatchResult                      type       apps/app/src/types.ts:572:13                            
+CronSchedule                             type       apps/app/src/types.ts:586:13                            
+CronSessionTarget                        type       apps/app/src/types.ts:591:13                            
+CronWakeMode                             type       apps/app/src/types.ts:592:13                            
+CronPayload                              type       apps/app/src/types.ts:594:13                            
+CronDelivery                             type       apps/app/src/types.ts:603:13                            
+CronJobState                             type       apps/app/src/types.ts:610:13                            
+CronJob                                  type       apps/app/src/types.ts:619:13                            
+CronStatus                               type       apps/app/src/types.ts:636:13                            
+CronRunLogEntry                          type       apps/app/src/types.ts:642:13                            
+SkillsStatusConfigCheck                  type       apps/app/src/types.ts:651:13                            
+SkillInstallOption                       type       apps/app/src/types.ts:657:13                            
+SkillStatusEntry                         type       apps/app/src/types.ts:664:13                            
+SkillStatusReport                        type       apps/app/src/types.ts:695:13                            
+StatusSummary                            type       apps/app/src/types.ts:701:13                            
+HealthSnapshot                           type       apps/app/src/types.ts:703:13                            
+LogLevel                                 type       apps/app/src/types.ts:705:13                            
+LogEntry                                 type       apps/app/src/types.ts:707:13                            
+OpenAiChatMessage                        interface  src/api/compat-utils.ts:44:18                           
+AnthropicMessage                         interface  src/api/compat-utils.ts:89:18                           
+KnowledgeRouteHelpers                    type       src/api/knowledge-routes.ts:8:13                        
+TrainingRouteHelpers                     type       src/api/training-routes.ts:6:13                         
+TriggerRouteHelpers                      type       src/api/trigger-routes.ts:34:13                         
+AnthropicFlow                            type       src/auth/index.ts:8:15                                  
+CodexFlow                                type       src/auth/index.ts:23:15                                 
+OAuthCredentials                         type       src/auth/index.ts:29:3                                  
+StoredCredentials                        type       src/auth/index.ts:30:3                                  
+SubscriptionProvider                     type       src/auth/index.ts:31:3                                  
+ShowIfCondition                          type       src/config/schema.ts:18:13                              
+ConfigUiHint                             type       src/config/schema.ts:24:13                              
+ConfigUiHints                            type       src/config/schema.ts:75:13                              
+ConfigSchema                             type       src/config/schema.ts:77:13                              
+TwitterConfig                            type       src/config/zod-schema.providers-core.ts:1057:13         
+EmoteCategory                            type       src/emotes/catalog.ts:8:13                              
+EmoteDef                                 interface  src/emotes/catalog.ts:17:18                             
+HookStatus                               interface  src/hooks/types.ts:112:18                               
+StylePreset                              type       src/onboarding-presets.ts:23:15                         
+VideoGenerationResult                    interface  src/providers/media-provider.ts:39:18                   
+AudioGenerationResult                    interface  src/providers/media-provider.ts:45:18                   
+InteractionMode                          type       src/providers/simple-mode.ts:9:13                       
+RunCommandResult                         interface  src/providers/workspace.ts:8:18                         
+RunCommandOptions                        interface  src/providers/workspace.ts:14:18                        
+StreamEventCallback                      type       src/runtime/pi-ai-model-handler.ts:13:3                 
+AppViewerAuthMessage                     type       src/services/app-manager.ts:35:3                        
+FileOperation                            type       src/services/coding-agent-context.ts:148:13             
+McpConfiguredServers                     interface  src/services/mcp-marketplace.ts:86:18                   
+TrainingTrajectorySummary                interface  src/services/training-service.ts:71:18                  
+PluginCompatResult                       interface  src/services/version-compat.ts:18:18                    
+VersionCompatReport                      interface  src/services/version-compat.ts:34:18                    
+Configuration hints (16)

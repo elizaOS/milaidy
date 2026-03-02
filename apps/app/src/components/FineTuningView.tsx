@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  parsePositiveFloat,
-  parsePositiveInteger,
-} from "../../../../src/utils/number-parsing";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import {
   client,
   type StartTrainingOptions,
@@ -16,6 +13,10 @@ import {
   type TrainingTrajectoryDetail,
   type TrainingTrajectoryList,
 } from "../api-client";
+import {
+  parsePositiveFloat,
+  parsePositiveInteger,
+} from "../../../../src/utils/number-parsing.js";
 import { formatTime } from "./shared/format";
 
 const TRAINING_EVENT_KINDS = new Set<TrainingStreamEvent["kind"]>([
@@ -69,17 +70,23 @@ function asTrainingEvent(
   };
 }
 
-function summarizeAvailability(reason?: string): string {
-  if (!reason) return "Unavailable";
-  if (reason === "runtime_not_started") return "Agent runtime is not started.";
+function summarizeAvailability(
+  reason: string | undefined,
+  t: ReturnType<typeof createTranslator>,
+): string {
+  if (!reason) return t("fineTuning.ui.unavailable");
+  if (reason === "runtime_not_started") {
+    return t("fineTuning.ui.runtimeNotStarted");
+  }
   if (reason === "trajectories_table_missing") {
-    return "No trajectories table found yet. Generate trajectories first.";
+    return t("fineTuning.ui.trajectoriesTableMissing");
   }
   return reason;
 }
 
 export function FineTuningView() {
-  const { handleRestart, setActionNotice } = useApp();
+  const { handleRestart, setActionNotice, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [pageLoading, setPageLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -118,9 +125,7 @@ export function FineTuningView() {
 
   const [importModelName, setImportModelName] = useState("");
   const [importBaseModel, setImportBaseModel] = useState("");
-  const [importOllamaUrl, setImportOllamaUrl] = useState(
-    "http://localhost:11434",
-  );
+  const [importOllamaUrl, setImportOllamaUrl] = useState("http://localhost:11434");
   const [activateProviderModel, setActivateProviderModel] = useState("");
   const [modelAction, setModelAction] = useState("");
   const [smokeResult, setSmokeResult] = useState<string | null>(null);
@@ -138,9 +143,7 @@ export function FineTuningView() {
     [models, selectedModelId],
   );
   const activeRunningJob = useMemo(
-    () =>
-      jobs.find((job) => job.status === "running" || job.status === "queued") ??
-      null,
+    () => jobs.find((job) => job.status === "running" || job.status === "queued") ?? null,
     [jobs],
   );
 
@@ -150,10 +153,7 @@ export function FineTuningView() {
   }, []);
 
   const loadTrajectories = useCallback(async () => {
-    const listed = await client.listTrainingTrajectories({
-      limit: 100,
-      offset: 0,
-    });
+    const listed = await client.listTrainingTrajectories({ limit: 100, offset: 0 });
     setTrajectoryList(listed);
   }, []);
 
@@ -199,14 +199,12 @@ export function FineTuningView() {
       ]);
     } catch (err) {
       setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : "Failed to refresh fine-tuning state.",
+        err instanceof Error ? err.message : t("fineTuning.error.refreshStateFailed"),
       );
     } finally {
       setPageLoading(false);
     }
-  }, [loadDatasets, loadJobs, loadModels, loadStatus, loadTrajectories]);
+  }, [loadDatasets, loadJobs, loadModels, loadStatus, loadTrajectories, t]);
 
   const loadTrajectoryDetail = useCallback(
     async (trajectoryId: string) => {
@@ -216,15 +214,13 @@ export function FineTuningView() {
         setSelectedTrajectory(result.trajectory);
       } catch (err) {
         const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to load trajectory detail.";
+          err instanceof Error ? err.message : t("fineTuning.error.loadTrajectoryDetailFailed");
         setActionNotice(message, "error", 4200);
       } finally {
         setTrajectoryLoading(false);
       }
     },
-    [setActionNotice],
+    [setActionNotice, t],
   );
 
   const handleBuildDataset = useCallback(async () => {
@@ -242,20 +238,23 @@ export function FineTuningView() {
       setSelectedDatasetId(result.dataset.id);
       await Promise.all([loadDatasets(), loadStatus()]);
       setActionNotice(
-        `Built dataset ${result.dataset.id} (${result.dataset.sampleCount} samples).`,
+        t("fineTuning.notice.datasetBuilt", {
+          id: result.dataset.id,
+          count: result.dataset.sampleCount,
+        }),
         "success",
         3800,
       );
     } catch (err) {
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to build dataset.",
+        err instanceof Error ? err.message : t("fineTuning.error.buildDatasetFailed"),
         "error",
         4200,
       );
     } finally {
       setDatasetBuilding(false);
     }
-  }, [buildLimit, buildMinCalls, loadDatasets, loadStatus, setActionNotice]);
+  }, [buildLimit, buildMinCalls, loadDatasets, loadStatus, setActionNotice, t]);
 
   const handleStartJob = useCallback(async () => {
     setStartingJob(true);
@@ -272,13 +271,13 @@ export function FineTuningView() {
       setSelectedJobId(result.job.id);
       await Promise.all([loadJobs(), loadStatus()]);
       setActionNotice(
-        `Started training job ${result.job.id}.`,
+        t("fineTuning.notice.startedTrainingJob", { id: result.job.id }),
         "success",
         3200,
       );
     } catch (err) {
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to start training job.",
+        err instanceof Error ? err.message : t("fineTuning.error.startTrainingJobFailed"),
         "error",
         4200,
       );
@@ -295,6 +294,7 @@ export function FineTuningView() {
     startIterations,
     startLearningRate,
     startModel,
+    t,
   ]);
 
   const handleCancelJob = useCallback(
@@ -303,10 +303,10 @@ export function FineTuningView() {
       try {
         await client.cancelTrainingJob(jobId);
         await Promise.all([loadJobs(), loadStatus()]);
-        setActionNotice(`Cancelled job ${jobId}.`, "success", 2600);
+        setActionNotice(t("fineTuning.notice.cancelledJob", { id: jobId }), "success", 2600);
       } catch (err) {
         setActionNotice(
-          err instanceof Error ? err.message : `Failed to cancel ${jobId}.`,
+          err instanceof Error ? err.message : t("fineTuning.error.cancelJobFailed", { id: jobId }),
           "error",
           4200,
         );
@@ -314,7 +314,7 @@ export function FineTuningView() {
         setCancellingJobId("");
       }
     },
-    [loadJobs, loadStatus, setActionNotice],
+    [loadJobs, loadStatus, setActionNotice, t],
   );
 
   const handleImportSelectedModel = useCallback(async () => {
@@ -322,28 +322,26 @@ export function FineTuningView() {
     const actionId = `import:${selectedModel.id}`;
     setModelAction(actionId);
     try {
-      const result = await client.importTrainingModelToOllama(
-        selectedModel.id,
-        {
-          modelName: importModelName.trim() || undefined,
-          baseModel: importBaseModel.trim() || undefined,
-          ollamaUrl: importOllamaUrl.trim() || undefined,
-        },
-      );
+      const result = await client.importTrainingModelToOllama(selectedModel.id, {
+        modelName: importModelName.trim() || undefined,
+        baseModel: importBaseModel.trim() || undefined,
+        ollamaUrl: importOllamaUrl.trim() || undefined,
+      });
       await loadModels();
       setActivateProviderModel(
         result.model.ollamaModel ? `ollama/${result.model.ollamaModel}` : "",
       );
       setActionNotice(
-        `Imported model ${result.model.id} to Ollama${result.model.ollamaModel ? ` as ${result.model.ollamaModel}` : ""}.`,
+        t("fineTuning.notice.importedModelToOllama", {
+          modelId: result.model.id,
+          alias: result.model.ollamaModel ? ` ${t("common.as")} ${result.model.ollamaModel}` : "",
+        }),
         "success",
         4200,
       );
     } catch (err) {
       setActionNotice(
-        err instanceof Error
-          ? err.message
-          : "Failed to import model to Ollama.",
+        err instanceof Error ? err.message : t("fineTuning.error.importModelToOllamaFailed"),
         "error",
         4200,
       );
@@ -357,6 +355,7 @@ export function FineTuningView() {
     loadModels,
     selectedModel,
     setActionNotice,
+    t,
   ]);
 
   const handleActivateSelectedModel = useCallback(async () => {
@@ -370,13 +369,16 @@ export function FineTuningView() {
       );
       await loadModels();
       setActionNotice(
-        `Activated model ${result.modelId} as ${result.providerModel}.`,
+        t("fineTuning.notice.activatedModel", {
+          modelId: result.modelId,
+          providerModel: result.providerModel,
+        }),
         "success",
         4200,
       );
       if (result.needsRestart) {
         const shouldRestart = window.confirm(
-          "Model activation was saved. Restart the agent now to load the new model?",
+          t("fineTuning.confirm.restartAfterActivation"),
         );
         if (shouldRestart) {
           await handleRestart();
@@ -384,7 +386,7 @@ export function FineTuningView() {
       }
     } catch (err) {
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to activate model.",
+        err instanceof Error ? err.message : t("fineTuning.error.activateModelFailed"),
         "error",
         4200,
       );
@@ -397,6 +399,7 @@ export function FineTuningView() {
     loadModels,
     selectedModel,
     setActionNotice,
+    t,
   ]);
 
   const handleBenchmarkSelectedModel = useCallback(async () => {
@@ -407,20 +410,23 @@ export function FineTuningView() {
       const result = await client.benchmarkTrainingModel(selectedModel.id);
       await loadModels();
       setActionNotice(
-        `Benchmark ${result.status} for ${selectedModel.id}.`,
+        t("fineTuning.notice.benchmarkResult", {
+          status: result.status,
+          modelId: selectedModel.id,
+        }),
         result.status === "passed" ? "success" : "error",
         4200,
       );
     } catch (err) {
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to benchmark model.",
+        err instanceof Error ? err.message : t("fineTuning.error.benchmarkModelFailed"),
         "error",
         4200,
       );
     } finally {
       setModelAction("");
     }
-  }, [loadModels, selectedModel, setActionNotice]);
+  }, [loadModels, selectedModel, setActionNotice, t]);
 
   const handleSmokeTestSelectedModel = useCallback(async () => {
     if (!selectedModel) return;
@@ -431,18 +437,18 @@ export function FineTuningView() {
         "Model smoke test. Reply with exactly: MODEL_OK",
       );
       setSmokeResult(result.text);
-      setActionNotice("Smoke test completed.", "success", 3200);
+      setActionNotice(t("fineTuning.notice.smokeTestCompleted"), "success", 3200);
     } catch (err) {
       setSmokeResult(null);
       setActionNotice(
-        err instanceof Error ? err.message : "Failed to run smoke test.",
+        err instanceof Error ? err.message : t("fineTuning.error.smokeTestFailed"),
         "error",
         4200,
       );
     } finally {
       setModelAction("");
     }
-  }, [selectedModel, setActionNotice]);
+  }, [selectedModel, setActionNotice, t]);
 
   useEffect(() => {
     void refreshAll();
@@ -461,9 +467,7 @@ export function FineTuningView() {
 
   useEffect(() => {
     const unbind = client.onWsEvent("training_event", (rawEnvelope) => {
-      const event = asTrainingEvent(
-        rawEnvelope as Partial<StreamEventEnvelope>,
-      );
+      const event = asTrainingEvent(rawEnvelope as Partial<StreamEventEnvelope>);
       if (!event) return;
       setTrainingEvents((prev) => {
         const merged = [event, ...prev];
@@ -484,9 +488,7 @@ export function FineTuningView() {
   }, [loadDatasets, loadJobs, loadModels, loadStatus]);
 
   if (pageLoading) {
-    return (
-      <div className="text-sm text-muted">Loading fine-tuning workspace...</div>
-    );
+    return <div className="text-sm text-muted">{t("fineTuning.ui.loadingWorkspace")}</div>;
   }
 
   return (
@@ -494,20 +496,18 @@ export function FineTuningView() {
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Fine-Tuning</h2>
+            <h2 className="text-lg font-semibold">{t("fineTuning.ui.title")}</h2>
             <p className="text-xs text-muted mt-1">
-              Build datasets from real trajectories, run training jobs, then
-              import and activate models.
+              {t("fineTuning.ui.subtitle")}
             </p>
           </div>
           <button
-            type="button"
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void refreshAll();
             }}
           >
-            Refresh All
+            {t("fineTuning.ui.refreshAll")}
           </button>
         </div>
         {errorMessage && (
@@ -518,65 +518,64 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Status</h3>
+        <h3 className="text-sm font-bold mb-3">{t("fineTuning.ui.status")}</h3>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
-          <div>Runtime: {status?.runtimeAvailable ? "ready" : "offline"}</div>
-          <div>Running Jobs: {status?.runningJobs ?? 0}</div>
-          <div>Queued Jobs: {status?.queuedJobs ?? 0}</div>
-          <div>Datasets: {status?.datasetCount ?? 0}</div>
-          <div>Models: {status?.modelCount ?? 0}</div>
-          <div>Failed Jobs: {status?.failedJobs ?? 0}</div>
+          <div>
+            {t("fineTuning.ui.runtimeLabel")}{" "}
+            {status?.runtimeAvailable ? t("fineTuning.ui.runtimeReady") : t("fineTuning.ui.runtimeOffline")}
+          </div>
+          <div>{t("fineTuning.ui.runningJobsLabel")} {status?.runningJobs ?? 0}</div>
+          <div>{t("fineTuning.ui.queuedJobsLabel")} {status?.queuedJobs ?? 0}</div>
+          <div>{t("fineTuning.ui.datasetsLabel")} {status?.datasetCount ?? 0}</div>
+          <div>{t("fineTuning.ui.modelsLabel")} {status?.modelCount ?? 0}</div>
+          <div>{t("fineTuning.ui.failedJobsLabel")} {status?.failedJobs ?? 0}</div>
         </div>
       </section>
 
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h3 className="text-sm font-bold">Trajectories</h3>
+          <h3 className="text-sm font-bold">{t("fineTuning.ui.trajectories")}</h3>
           <button
-            type="button"
-            className="px-2 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadTrajectories();
             }}
           >
-            Refresh
+            {t("fineTuning.ui.refresh")}
           </button>
         </div>
         {!trajectoryList.available ? (
           <div className="text-xs text-muted">
-            {summarizeAvailability(trajectoryList.reason)}
+            {summarizeAvailability(trajectoryList.reason, t)}
           </div>
         ) : (
           <div className="space-y-3">
             <div className="text-xs text-muted">
-              {trajectoryList.total} trajectory rows available.
+              {t("fineTuning.ui.trajectoryRowsAvailable", { count: trajectoryList.total })}
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="border border-border">
                 <div className="px-2 py-1 text-[11px] border-b border-border text-muted">
-                  Latest trajectories
+                  {t("fineTuning.ui.latestTrajectories")}
                 </div>
                 <div className="max-h-72 overflow-auto">
                   {trajectoryList.trajectories.length === 0 ? (
                     <div className="p-3 text-xs text-muted">
-                      No trajectories found yet.
+                      {t("fineTuning.ui.noTrajectoriesYet")}
                     </div>
                   ) : (
                     trajectoryList.trajectories.map((trajectory) => (
                       <button
-                        type="button"
                         key={trajectory.trajectoryId}
                         className="w-full text-left px-2 py-2 border-b border-border hover:bg-bg-hover text-xs"
                         onClick={() => {
                           void loadTrajectoryDetail(trajectory.trajectoryId);
                         }}
                       >
-                        <div className="font-mono">
-                          {trajectory.trajectoryId}
-                        </div>
+                        <div className="font-mono">{trajectory.trajectoryId}</div>
                         <div className="text-muted mt-1">
-                          Calls: {trajectory.llmCallCount} · Reward:{" "}
-                          {trajectory.totalReward ?? "n/a"} ·{" "}
+                          {t("fineTuning.ui.callsLabel")} {trajectory.llmCallCount} · {t("fineTuning.ui.rewardLabel")}{" "}
+                          {trajectory.totalReward ?? t("apps.ui.notAvailable")} ·{" "}
                           {formatDate(trajectory.createdAt)}
                         </div>
                       </button>
@@ -585,34 +584,24 @@ export function FineTuningView() {
                 </div>
               </div>
               <div className="border border-border p-2">
-                <div className="text-[11px] text-muted mb-2">
-                  Selected trajectory
-                </div>
+                <div className="text-[11px] text-muted mb-2">{t("fineTuning.ui.selectedTrajectory")}</div>
                 {trajectoryLoading ? (
-                  <div className="text-xs text-muted">
-                    Loading trajectory detail...
-                  </div>
+                  <div className="text-xs text-muted">{t("fineTuning.ui.loadingTrajectoryDetail")}</div>
                 ) : !selectedTrajectory ? (
-                  <div className="text-xs text-muted">
-                    Choose a trajectory to inspect.
-                  </div>
+                  <div className="text-xs text-muted">{t("fineTuning.ui.chooseTrajectoryToInspect")}</div>
                 ) : (
                   <div className="space-y-2">
                     <div className="text-xs">
-                      <span className="font-semibold">Trajectory:</span>{" "}
-                      <span className="font-mono">
-                        {selectedTrajectory.trajectoryId}
-                      </span>
+                      <span className="font-semibold">{t("fineTuning.ui.trajectoryLabel")}</span>{" "}
+                      <span className="font-mono">{selectedTrajectory.trajectoryId}</span>
                     </div>
                     <div className="text-xs">
-                      <span className="font-semibold">Agent:</span>{" "}
-                      <span className="font-mono">
-                        {selectedTrajectory.agentId}
-                      </span>
+                      <span className="font-semibold">{t("fineTuning.ui.agentLabel")}</span>{" "}
+                      <span className="font-mono">{selectedTrajectory.agentId}</span>
                     </div>
                     <div className="text-xs">
-                      <span className="font-semibold">Reward:</span>{" "}
-                      {selectedTrajectory.totalReward ?? "n/a"}
+                      <span className="font-semibold">{t("fineTuning.ui.rewardLabel")}</span>{" "}
+                      {selectedTrajectory.totalReward ?? t("apps.ui.notAvailable")}
                     </div>
                     <textarea
                       readOnly
@@ -628,43 +617,41 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Datasets</h3>
+        <h3 className="text-sm font-bold mb-3">{t("fineTuning.ui.datasets")}</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={buildLimit}
             onChange={(event) => setBuildLimit(event.target.value)}
-            placeholder="Limit trajectories (e.g. 250)"
+            placeholder={t("fineTuning.ui.limitTrajectoriesPlaceholder")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={buildMinCalls}
             onChange={(event) => setBuildMinCalls(event.target.value)}
-            placeholder="Min LLM calls per trajectory"
+            placeholder={t("fineTuning.ui.minLlmCallsPlaceholder")}
           />
           <button
-            type="button"
-            className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+            className="btn text-xs py-1"
             disabled={datasetBuilding}
             onClick={() => {
               void handleBuildDataset();
             }}
           >
-            {datasetBuilding ? "Building..." : "Build Dataset"}
+            {datasetBuilding ? t("fineTuning.ui.building") : t("fineTuning.ui.buildDataset")}
           </button>
           <button
-            type="button"
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadDatasets();
             }}
           >
-            Refresh Datasets
+            {t("fineTuning.ui.refreshDatasets")}
           </button>
         </div>
         <div className="space-y-2 max-h-52 overflow-auto">
           {datasets.length === 0 ? (
-            <div className="text-xs text-muted">No datasets yet.</div>
+            <div className="text-xs text-muted">{t("fineTuning.ui.noDatasetsYet")}</div>
           ) : (
             datasets.map((dataset) => (
               <label
@@ -679,8 +666,7 @@ export function FineTuningView() {
                 />
                 <span className="font-mono">{dataset.id}</span>
                 <span className="text-muted">
-                  {dataset.sampleCount} samples · {dataset.trajectoryCount}{" "}
-                  trajectories
+                  {t("fineTuning.ui.samplesCount", { count: dataset.sampleCount })} · {t("fineTuning.ui.trajectoriesCount", { count: dataset.trajectoryCount })}
                 </span>
               </label>
             ))
@@ -689,14 +675,14 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Training Jobs</h3>
+        <h3 className="text-sm font-bold mb-3">{t("fineTuning.ui.trainingJobs")}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
           <select
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={selectedDatasetId}
             onChange={(event) => setSelectedDatasetId(event.target.value)}
           >
-            <option value="">Auto-build dataset from trajectories</option>
+            <option value="">{t("fineTuning.ui.autoBuildDatasetOption")}</option>
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
                 {dataset.id}
@@ -718,59 +704,56 @@ export function FineTuningView() {
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startModel}
             onChange={(event) => setStartModel(event.target.value)}
-            placeholder="Base model (optional)"
+            placeholder={t("fineTuning.ui.baseModelOptionalPlaceholder")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startIterations}
             onChange={(event) => setStartIterations(event.target.value)}
-            placeholder="Iterations (optional)"
+            placeholder={t("fineTuning.ui.iterationsOptionalPlaceholder")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startBatchSize}
             onChange={(event) => setStartBatchSize(event.target.value)}
-            placeholder="Batch size (optional)"
+            placeholder={t("fineTuning.ui.batchSizeOptionalPlaceholder")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startLearningRate}
             onChange={(event) => setStartLearningRate(event.target.value)}
-            placeholder="Learning rate (optional)"
+            placeholder={t("fineTuning.ui.learningRateOptionalPlaceholder")}
           />
         </div>
         <div className="flex gap-2 mb-3">
           <button
-            type="button"
-            className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+            className="btn text-xs py-1"
             disabled={startingJob || Boolean(activeRunningJob)}
             onClick={() => {
               void handleStartJob();
             }}
           >
-            {startingJob ? "Starting..." : "Start Training Job"}
+            {startingJob ? t("fineTuning.ui.starting") : t("fineTuning.ui.startTrainingJob")}
           </button>
           <button
-            type="button"
-            className="px-3 py-1 text-xs border border-border hover:border-accent"
+            className="btn btn-ghost text-xs py-1"
             onClick={() => {
               void loadJobs();
               void loadStatus();
             }}
           >
-            Refresh Jobs
+            {t("fineTuning.ui.refreshJobs")}
           </button>
           {activeRunningJob && (
             <div className="text-xs text-warn flex items-center">
-              Active job:{" "}
-              <span className="font-mono ml-1">{activeRunningJob.id}</span>
+              {t("fineTuning.ui.activeJobLabel")} <span className="font-mono ml-1">{activeRunningJob.id}</span>
             </div>
           )}
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="border border-border max-h-72 overflow-auto">
             {jobs.length === 0 ? (
-              <div className="p-3 text-xs text-muted">No jobs yet.</div>
+              <div className="p-3 text-xs text-muted">{t("fineTuning.ui.noJobsYet")}</div>
             ) : (
               jobs.map((job) => (
                 <div
@@ -781,7 +764,6 @@ export function FineTuningView() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <button
-                      type="button"
                       className="font-mono text-left hover:text-accent"
                       onClick={() => setSelectedJobId(job.id)}
                     >
@@ -789,16 +771,13 @@ export function FineTuningView() {
                     </button>
                     {(job.status === "running" || job.status === "queued") && (
                       <button
-                        type="button"
-                        className="px-2 py-0.5 border border-border hover:border-danger text-[11px] disabled:opacity-50"
+                        className="btn btn-danger text-[11px] py-0.5"
                         disabled={cancellingJobId === job.id}
                         onClick={() => {
                           void handleCancelJob(job.id);
                         }}
                       >
-                        {cancellingJobId === job.id
-                          ? "Cancelling..."
-                          : "Cancel"}
+                        {cancellingJobId === job.id ? t("fineTuning.ui.cancelling") : t("fineTuning.ui.cancel")}
                       </button>
                     )}
                   </div>
@@ -811,20 +790,17 @@ export function FineTuningView() {
             )}
           </div>
           <div className="border border-border p-2">
-            <div className="text-[11px] text-muted mb-2">Selected job logs</div>
+            <div className="text-[11px] text-muted mb-2">{t("fineTuning.ui.selectedJobLogs")}</div>
             {!selectedJob ? (
-              <div className="text-xs text-muted">
-                Select a job to inspect logs.
-              </div>
+              <div className="text-xs text-muted">{t("fineTuning.ui.selectJobToInspectLogs")}</div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
-                  <span className="font-semibold">Status:</span>{" "}
-                  {selectedJob.status} · {formatProgress(selectedJob.progress)}{" "}
-                  · {selectedJob.phase}
+                  <span className="font-semibold">{t("fineTuning.ui.statusLabel")}</span> {selectedJob.status} ·{" "}
+                  {formatProgress(selectedJob.progress)} · {selectedJob.phase}
                 </div>
                 <div className="text-xs">
-                  <span className="font-semibold">Dataset:</span>{" "}
+                  <span className="font-semibold">{t("fineTuning.ui.datasetLabel")}</span>{" "}
                   <span className="font-mono">{selectedJob.datasetId}</span>
                 </div>
                 <textarea
@@ -839,34 +815,29 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Trained Models</h3>
+        <h3 className="text-sm font-bold mb-3">{t("fineTuning.ui.trainedModels")}</h3>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="border border-border max-h-72 overflow-auto">
             {models.length === 0 ? (
-              <div className="p-3 text-xs text-muted">
-                No trained models yet.
-              </div>
+              <div className="p-3 text-xs text-muted">{t("fineTuning.ui.noTrainedModelsYet")}</div>
             ) : (
               models.map((model) => (
                 <button
-                  type="button"
                   key={model.id}
                   className={`w-full text-left px-2 py-2 border-b border-border text-xs ${
-                    selectedModelId === model.id
-                      ? "bg-bg-hover"
-                      : "hover:bg-bg-hover"
+                    selectedModelId === model.id ? "bg-bg-hover" : "hover:bg-bg-hover"
                   }`}
                   onClick={() => setSelectedModelId(model.id)}
                 >
                   <div className="font-mono">
-                    {model.id} {model.active ? "· active" : ""}
+                    {model.id} {model.active ? `· ${t("fineTuning.ui.active")}` : ""}
                   </div>
                   <div className="text-muted mt-1">
-                    backend: {model.backend}
+                    {t("fineTuning.ui.backendLabel")} {model.backend}
                     {model.ollamaModel ? ` · ollama: ${model.ollamaModel}` : ""}
                   </div>
                   <div className="text-muted">
-                    benchmark: {model.benchmark.status}
+                    {t("fineTuning.ui.benchmarkLabel")} {model.benchmark.status}
                     {model.benchmark.lastRunAt
                       ? ` · ${formatDate(model.benchmark.lastRunAt)}`
                       : ""}
@@ -876,99 +847,89 @@ export function FineTuningView() {
             )}
           </div>
           <div className="border border-border p-2">
-            <div className="text-[11px] text-muted mb-2">Model actions</div>
+            <div className="text-[11px] text-muted mb-2">{t("fineTuning.ui.modelActions")}</div>
             {!selectedModel ? (
-              <div className="text-xs text-muted">
-                Select a model to import or activate.
-              </div>
+              <div className="text-xs text-muted">{t("fineTuning.ui.selectModelToImportOrActivate")}</div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
-                  <span className="font-semibold">Model:</span>{" "}
+                  <span className="font-semibold">{t("fineTuning.ui.modelLabel")}</span>{" "}
                   <span className="font-mono">{selectedModel.id}</span>
                 </div>
                 <div className="text-xs">
-                  <span className="font-semibold">Adapter path:</span>{" "}
-                  <span className="font-mono">
-                    {selectedModel.adapterPath ?? "n/a"}
-                  </span>
+                  <span className="font-semibold">{t("fineTuning.ui.adapterPathLabel")}</span>{" "}
+                  <span className="font-mono">{selectedModel.adapterPath ?? t("apps.ui.notAvailable")}</span>
                 </div>
 
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importModelName}
                   onChange={(event) => setImportModelName(event.target.value)}
-                  placeholder="Ollama model name (optional)"
+                  placeholder={t("fineTuning.ui.ollamaModelNameOptionalPlaceholder")}
                 />
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importBaseModel}
                   onChange={(event) => setImportBaseModel(event.target.value)}
-                  placeholder="Base model for Ollama (optional)"
+                  placeholder={t("fineTuning.ui.baseModelForOllamaOptionalPlaceholder")}
                 />
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importOllamaUrl}
                   onChange={(event) => setImportOllamaUrl(event.target.value)}
-                  placeholder="Ollama URL"
+                  placeholder={t("fineTuning.ui.ollamaUrlPlaceholder")}
                 />
                 <button
-                  type="button"
-                  className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                  className="btn text-xs py-1"
                   disabled={modelAction === `import:${selectedModel.id}`}
                   onClick={() => {
                     void handleImportSelectedModel();
                   }}
                 >
                   {modelAction === `import:${selectedModel.id}`
-                    ? "Importing..."
-                    : "Import To Ollama"}
+                    ? t("fineTuning.ui.importing")
+                    : t("fineTuning.ui.importToOllama")}
                 </button>
 
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={activateProviderModel}
-                  onChange={(event) =>
-                    setActivateProviderModel(event.target.value)
-                  }
-                  placeholder='Provider model (e.g. "ollama/my-model")'
+                  onChange={(event) => setActivateProviderModel(event.target.value)}
+                  placeholder={t("fineTuning.ui.providerModelPlaceholder")}
                 />
                 <div className="flex gap-2">
                   <button
-                    type="button"
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn text-xs py-1"
                     disabled={modelAction === `activate:${selectedModel.id}`}
                     onClick={() => {
                       void handleActivateSelectedModel();
                     }}
                   >
                     {modelAction === `activate:${selectedModel.id}`
-                      ? "Activating..."
-                      : "Activate Model"}
+                      ? t("fineTuning.ui.activating")
+                      : t("fineTuning.ui.activateModel")}
                   </button>
                   <button
-                    type="button"
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn btn-ghost text-xs py-1"
                     disabled={modelAction === `benchmark:${selectedModel.id}`}
                     onClick={() => {
                       void handleBenchmarkSelectedModel();
                     }}
                   >
                     {modelAction === `benchmark:${selectedModel.id}`
-                      ? "Benchmarking..."
-                      : "Benchmark"}
+                      ? t("fineTuning.ui.benchmarking")
+                      : t("fineTuning.ui.benchmark")}
                   </button>
                   <button
-                    type="button"
-                    className="px-3 py-1 text-xs border border-border hover:border-accent disabled:opacity-50"
+                    className="btn btn-ghost text-xs py-1"
                     disabled={modelAction === `smoke:${selectedModel.id}`}
                     onClick={() => {
                       void handleSmokeTestSelectedModel();
                     }}
                   >
                     {modelAction === `smoke:${selectedModel.id}`
-                      ? "Testing..."
-                      : "Run Smoke Prompt"}
+                      ? t("fineTuning.ui.testing")
+                      : t("fineTuning.ui.runSmokePrompt")}
                   </button>
                 </div>
                 {smokeResult && (
@@ -985,31 +946,23 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Live Training Events</h3>
+        <h3 className="text-sm font-bold mb-3">{t("fineTuning.ui.liveTrainingEvents")}</h3>
         <div className="max-h-56 overflow-auto border border-border">
           {trainingEvents.length === 0 ? (
             <div className="p-3 text-xs text-muted">
-              No live events yet. Start a job to stream progress here.
+              {t("fineTuning.ui.noLiveEventsYet")}
             </div>
           ) : (
             trainingEvents.map((event, index) => (
-              <div
-                key={`${event.ts}-${event.kind}-${index}`}
-                className="px-2 py-1.5 border-b border-border text-xs"
-              >
+              <div key={`${event.ts}-${event.kind}-${index}`} className="px-2 py-1.5 border-b border-border text-xs">
                 <span className="font-mono text-muted mr-2">
                   {formatTime(event.ts, { fallback: "—" })}
                 </span>
                 <span className="font-semibold">{event.kind}</span>
                 {typeof event.progress === "number" && (
-                  <span className="text-muted">
-                    {" "}
-                    · {formatProgress(event.progress)}
-                  </span>
+                  <span className="text-muted"> · {formatProgress(event.progress)}</span>
                 )}
-                {event.phase && (
-                  <span className="text-muted"> · {event.phase}</span>
-                )}
+                {event.phase && <span className="text-muted"> · {event.phase}</span>}
                 <div className="text-muted mt-0.5">{event.message}</div>
               </div>
             ))

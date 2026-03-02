@@ -1,84 +1,78 @@
 /* Milady — Theme System */
 
 /* ═══════════════════════════════════════════════════════════════════════
-   milady — miladymaker.net inspired: sage greens, warm cream, Y2K web
+   milady — light Binance-inspired: warm yellow gradient + clean light UI
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root,
 [data-theme="milady"] {
-  /* Backgrounds — white base so components stay clean;
-     the green-to-white gradient lives on #root (see below) */
+  /* Backgrounds — keep original light feel */
   --bg: #ffffff;
-  --bg-accent: #f0f4ee;
-  --bg-elevated: #fafcf9;
-  --bg-hover: #eaf0e8;
-  --bg-muted: #f4f7f3;
+  --bg-accent: #faf7ec;
+  --bg-elevated: #fffdf6;
+  --bg-hover: #f8f1d7;
+  --bg-muted: #fcf9ef;
 
-  --card: #fafcf9;
-  --card-foreground: #2d4a3e;
+  --card: #fffdf6;
+  --card-foreground: #1e2329;
   --surface: #ffffff;
 
-  /* Text — forest greens */
-  --text: #2d4a3e;
-  --text-strong: #1a332b;
-  --chat-text: #2d4a3e;
-  --muted: #6b8e7a;
-  --muted-strong: #4d7362;
+  /* Text — dark neutral for readability on light surface */
+  --text: #1e2329;
+  --text-strong: #11161c;
+  --chat-text: #1e2329;
+  --muted: #6d737a;
+  --muted-strong: #4d535a;
 
-  /* Borders — bold forest green, not pastel */
-  --border: #5b8350;
-  --border-strong: #3d6b3a;
-  --border-hover: #2d5228;
-  --input: #5b8350;
-  --ring: #2d5228;
+  /* Borders */
+  --border: #d6d3c6;
+  --border-strong: #b8b29f;
+  --border-hover: #f0b90b;
+  --input: #d6d3c6;
+  --ring: #f0b90b;
 
-  /* Accent — signature milady green */
-  --accent: #4a7c59;
-  --accent-hover: #3d6b4a;
-  --accent-muted: #6b9e7a;
-  --accent-subtle: rgba(74, 124, 89, 0.1);
-  --accent-foreground: #f5f2eb;
-  --primary: #4a7c59;
-  --primary-foreground: #f5f2eb;
+  /* Accent — Binance yellow on light mode */
+  --accent: #f0b90b;
+  --accent-hover: #d8a108;
+  --accent-muted: #d8a108;
+  --accent-subtle: rgba(240, 185, 11, 0.12);
+  --accent-foreground: #1a1f26;
+  --primary: #f0b90b;
+  --primary-foreground: #1a1f26;
 
-  /* Status — warm-shifted to harmonise with green palette */
-  --ok: #4a7c59;
-  --ok-muted: rgba(74, 124, 89, 0.7);
-  --ok-subtle: rgba(74, 124, 89, 0.08);
-  --destructive: #c44536;
-  --destructive-foreground: #f5f2eb;
-  --destructive-subtle: rgba(196, 69, 54, 0.08);
-  --warn: #c49536;
-  --warn-muted: rgba(196, 149, 54, 0.7);
-  --warn-subtle: rgba(196, 149, 54, 0.08);
-  --danger: #c44536;
-  --info: #4a7c59;
+  /* Status */
+  --ok: #02c076;
+  --ok-muted: rgba(2, 192, 118, 0.7);
+  --ok-subtle: rgba(2, 192, 118, 0.12);
+  --destructive: #f6465d;
+  --destructive-foreground: #ffffff;
+  --destructive-subtle: rgba(246, 70, 93, 0.12);
+  --warn: #f0b90b;
+  --warn-muted: rgba(240, 185, 11, 0.7);
+  --warn-subtle: rgba(240, 185, 11, 0.12);
+  --danger: #f6465d;
+  --info: #2ebd85;
 
-  --focus: rgba(74, 124, 89, 0.15);
-  --focus-ring: 0 0 0 2px #4a7c59;
+  --focus: rgba(240, 185, 11, 0.18);
+  --focus-ring: 0 0 0 2px #f0b90b;
 
-  /* Header — rich forest green bar */
-  --header-bar-bg: #3d5c42;
-  --header-bar-fg: #f2f7f0;
-  --section-bar-bg: #eef3ec;
-  --section-bar-fg: #2d4a3e;
-  --link-color: #3d6b4a;
-  --link-hover-color: #c44536;
+  /* Header */
+  --header-bar-bg: #fff8dc;
+  --header-bar-fg: #1e2329;
+  --section-bar-bg: #fff5cf;
+  --section-bar-fg: #1e2329;
+  --link-color: #c08d00;
+  --link-hover-color: #a97900;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
-  --font-display:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
+  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
 
-  /* No shadows — flat retro web aesthetic */
+  /* Preserve classic flat styling from original milady theme */
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
 
-  /* Sharp corners — early web retro feel */
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -166,12 +160,8 @@
   --link-hover-color: #f43f5e;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
-  --font-display:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
+  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(217, 70, 239, 0.06);
   --shadow-md: 0 2px 8px rgba(217, 70, 239, 0.08);
@@ -233,11 +223,11 @@
   --input: #2a3d1a;
   --ring: #3d6018;
 
-  --accent: #1a2a0e;
-  --accent-hover: #2a3d1a;
-  --accent-muted: #111a09;
+  --accent: #5a9a2a;
+  --accent-hover: #6aaa3a;
+  --accent-muted: #4a7a24;
   --accent-subtle: rgba(90, 154, 42, 0.12);
-  --accent-foreground: #d4e8c4;
+  --accent-foreground: #0a0a0a;
   --primary: #5a9a2a;
   --primary-foreground: #0a0a0a;
 
@@ -264,12 +254,8 @@
   --link-hover-color: #ef4444;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
-  --font-display:
-    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
-    clean, sans-serif;
+  --font-body: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
+  --font-display: "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica, clean, sans-serif;
 
   --shadow-sm: none;
   --shadow-md: none;
@@ -362,12 +348,8 @@
   --link-hover-color: #f44747;
 
   --mono: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
-  --font-body:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-display:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -429,11 +411,11 @@
   --input: #003b00;
   --ring: #00ff41;
 
-  --accent: #003300;
-  --accent-hover: #004400;
-  --accent-muted: #001a00;
+  --accent: #00ff41;
+  --accent-hover: #33ff66;
+  --accent-muted: #00aa2b;
   --accent-subtle: rgba(0, 255, 65, 0.08);
-  --accent-foreground: #00ff41;
+  --accent-foreground: #000000;
   --primary: #00ff41;
   --primary-foreground: #000000;
 
@@ -523,11 +505,11 @@
   --input: #ff00ff;
   --ring: #00ffff;
 
-  --accent: #330033;
-  --accent-hover: #4d004d;
-  --accent-muted: #1a001a;
+  --accent: #ff00ff;
+  --accent-hover: #ff33ff;
+  --accent-muted: #cc00cc;
   --accent-subtle: rgba(255, 0, 255, 0.12);
-  --accent-foreground: #ff00ff;
+  --accent-foreground: #000000;
   --primary: #00ffff;
   --primary-foreground: #000000;
 
@@ -554,8 +536,7 @@
   --link-hover-color: #ff073a;
 
   --mono: "Courier New", Courier, monospace;
-  --font-body:
-    "Comic Sans MS", "Chalkboard SE", "Hiragino Kaku Gothic Pro", sans-serif;
+  --font-body: "Comic Sans MS", "Chalkboard SE", "Hiragino Kaku Gothic Pro", sans-serif;
   --font-display: Impact, "Arial Black", "Hiragino Kaku Gothic Pro", sans-serif;
 
   --shadow-sm: 0 0 6px rgba(255, 0, 255, 0.3), 0 0 6px rgba(0, 255, 255, 0.2);
@@ -595,66 +576,60 @@
    Theme-specific overrides
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* Milady: green-to-white gradient behind all content.
+/* Milady: yellow-to-white gradient behind all content.
    Targets explicit milady theme + default (no data-theme attr). */
 [data-theme="milady"] #root,
 html:not([data-theme]) #root {
-  background: linear-gradient(
-    180deg,
-    #b6d4a8 0%,
-    #d4e8cc 25%,
-    #eaf3e6 55%,
-    #ffffff 100%
-  );
+  background: linear-gradient(180deg, #f6df9e 0%, #f9ecc0 25%, #fdf6de 55%, #ffffff 100%);
 }
 
 [data-theme="dark"] {
   /* Backgrounds - zinc-950/900 range */
-  --bg: hsl(240 10% 3.9%); /* #09090b main background */
-  --bg-accent: hsl(240 5.9% 10%); /* #18181b subtle elevation */
-  --bg-elevated: hsl(240 4.8% 7%); /* #121214 elevated surfaces */
-  --bg-hover: hsl(240 3.7% 15.9%); /* #27272a hover states */
-  --bg-muted: hsl(240 3.7% 15.9%); /* #27272a muted background */
+  --bg: hsl(240 10% 3.9%);           /* #09090b main background */
+  --bg-accent: hsl(240 5.9% 10%);    /* #18181b subtle elevation */
+  --bg-elevated: hsl(240 4.8% 7%);   /* #121214 elevated surfaces */
+  --bg-hover: hsl(240 3.7% 15.9%);   /* #27272a hover states */
+  --bg-muted: hsl(240 3.7% 15.9%);   /* #27272a muted background */
 
-  --card: hsl(240 4.8% 7%); /* #121214 card background */
+  --card: hsl(240 4.8% 7%);          /* #121214 card background */
   --card-foreground: hsl(240 5% 96%); /* #f4f4f5 card text */
-  --surface: hsl(240 4.8% 7%); /* #121214 */
+  --surface: hsl(240 4.8% 7%);       /* #121214 */
 
   /* Text - zinc-300/100 range */
-  --text: hsl(240 5% 84%); /* #d4d4d8 body text */
-  --text-strong: hsl(240 5% 96%); /* #f4f4f5 headings */
-  --chat-text: hsl(240 5% 84%); /* #d4d4d8 */
-  --muted: hsl(240 5% 64.9%); /* #a1a1aa muted text */
-  --muted-strong: hsl(240 4% 74%); /* #bdbdc0 */
+  --text: hsl(240 5% 84%);           /* #d4d4d8 body text */
+  --text-strong: hsl(240 5% 96%);    /* #f4f4f5 headings */
+  --chat-text: hsl(240 5% 84%);      /* #d4d4d8 */
+  --muted: hsl(240 5% 64.9%);        /* #a1a1aa muted text */
+  --muted-strong: hsl(240 4% 74%);   /* #bdbdc0 */
 
   /* Borders */
-  --border: hsl(240 3.7% 15.9%); /* #27272a */
-  --border-strong: hsl(240 5% 26%); /* #3f3f46 */
-  --border-hover: hsl(240 5% 34%); /* #52525b */
-  --input: hsl(240 3.7% 15.9%); /* #27272a */
-  --ring: hsl(217 91% 60%); /* #3b82f6 focus ring */
+  --border: hsl(240 3.7% 15.9%);     /* #27272a */
+  --border-strong: hsl(240 5% 26%);  /* #3f3f46 */
+  --border-hover: hsl(240 5% 34%);   /* #52525b */
+  --input: hsl(240 3.7% 15.9%);      /* #27272a */
+  --ring: hsl(217 91% 60%);          /* #3b82f6 focus ring */
 
   /* Accent - blue-500 */
-  --accent: hsl(217 91% 60%); /* #3b82f6 primary actions */
-  --accent-hover: hsl(217 91% 55%); /* slightly darker blue */
-  --accent-muted: hsl(217 91% 70%); /* lighter blue */
+  --accent: hsl(217 91% 60%);        /* #3b82f6 primary actions */
+  --accent-hover: hsl(217 91% 55%);  /* slightly darker blue */
+  --accent-muted: hsl(217 91% 70%);  /* lighter blue */
   --accent-subtle: hsla(217 91% 60% / 0.1); /* transparent blue */
   --accent-foreground: hsl(0 0% 100%); /* white text on blue */
-  --primary: hsl(217 91% 60%); /* #3b82f6 */
+  --primary: hsl(217 91% 60%);       /* #3b82f6 */
   --primary-foreground: hsl(0 0% 100%); /* white */
 
   /* Status colors */
-  --ok: hsl(142 76% 36%); /* #16a34a green */
+  --ok: hsl(142 76% 36%);            /* #16a34a green */
   --ok-muted: hsla(142 76% 36% / 0.7);
   --ok-subtle: hsla(142 76% 36% / 0.1);
   --destructive: hsl(0 84.2% 60.2%); /* #ef4444 red */
   --destructive-foreground: hsl(0 0% 100%);
   --destructive-subtle: hsla(0 84% 60% / 0.1);
-  --warn: hsl(38 92% 50%); /* #f59e0b orange */
+  --warn: hsl(38 92% 50%);           /* #f59e0b orange */
   --warn-muted: hsla(38 92% 50% / 0.7);
   --warn-subtle: hsla(38 92% 50% / 0.1);
-  --danger: hsl(0 84.2% 60.2%); /* #ef4444 */
-  --info: hsl(217 91% 60%); /* #3b82f6 */
+  --danger: hsl(0 84.2% 60.2%);      /* #ef4444 */
+  --info: hsl(217 91% 60%);          /* #3b82f6 */
 
   /* Focus */
   --focus: hsla(217 91% 60% / 0.2);
@@ -670,24 +645,21 @@ html:not([data-theme]) #root {
 
   /* Typography */
   --mono: "Courier New", Courier, monospace;
-  --font-body:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
-  --font-display:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
 
   /* Shadows - add depth */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg:
-    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   /* Radii - more rounded */
-  --radius-sm: 0.375rem; /* 6px */
-  --radius-md: 0.5rem; /* 8px */
-  --radius-lg: 0.75rem; /* 12px */
-  --radius-xl: 1rem; /* 16px */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
   --radius-full: 9999px;
-  --radius: 0.5rem; /* 8px default */
+  --radius: 0.5rem;        /* 8px default */
 
   /* Timing */
   --duration-fast: 150ms;
@@ -729,7 +701,7 @@ html:not([data-theme]) #root {
 
   body {
     margin: 0;
-    font: 400 14px / 1.65 var(--font-body);
+    font: 400 14px/1.65 var(--font-body);
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
@@ -805,10 +777,6 @@ html:not([data-theme]) #root {
 
 /* Simple animations (outside layer — keyframes don't participate in cascade layers) */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

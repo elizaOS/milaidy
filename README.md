@@ -1,12 +1,30 @@
-# Milady
+# Milady BSC
 
-> *your schizo AI waifu that actually respects your privacy*
+> *your schizo AI waifu that actually respects your privacy — now natively on BSC*
 
-**Milady** is a personal AI assistant that runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
+**Milady BSC** is a fork of [milady-ai/milaidy](https://github.com/milady-ai/milaidy) updated for Binance Smart Chain (BSC). It runs on YOUR machine. Not some glowie datacenter. Not the cloud. YOUR computer. Built on [elizaOS](https://github.com/elizaOS)
 
 manages your sessions, tools, and vibes through a Gateway control plane. Connects to Telegram, Discord, whatever normie platform you use. Has a cute WebChat UI too.
 
-tl;dr: local AI gf that's actually fast and doesn't phone home
+tl;dr: local AI gf that's actually fast, doesn't phone home, and runs natively on BSC
+
+---
+
+## About This Fork
+
+This is **[miladybsc/milady](https://github.com/miladybsc/milady)** — a BSC-native fork of the upstream [milady-ai/milaidy](https://github.com/milady-ai/milaidy) project.
+
+Key differences from upstream:
+
+- **BSC-native** — wallet and chain integrations default to Binance Smart Chain
+- **Expanded VRM model set** — 20+ additional cute anime waifu VRM models included out of the box
+- **UX improvements** — streamlined onboarding with Quick/Full setup paths, companion stat tooltips, settings section navigation, and more
+
+To sync with upstream changes:
+```bash
+git fetch upstream
+git merge upstream/main
+```
 
 ---
 
@@ -19,7 +37,7 @@ Grab from **[Releases](https://github.com/milady-ai/milady/releases/latest)**:
 | Platform | File | |
 |----------|------|---|
 | macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | for your overpriced rectangle |
-| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac (why separate arm64/x64: [Build & release](docs/build-and-release.md#macos-why-two-dmgs-arm64-and-x64)) |
+| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac |
 | Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | for the gamer anons |
 | Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | I use arch btw |
 
@@ -37,20 +55,13 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 
 ## Getting Started
 
-### New Environment Setup (recommended)
+### One command. That's it.
 
 ```bash
-curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-milady setup
+npx milady
 ```
 
-Then start Milady:
-
-```bash
-milady
-```
-
-First run walks you through onboarding:
+First run she walks you through setup:
 
 ```
 ┌  milady
@@ -81,17 +92,21 @@ First run walks you through onboarding:
    she's alive. go say hi.
 ```
 
-### Alternative install paths
+### Install globally (optional)
+
+macOS / Linux / WSL:
+```bash
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+```
 
 Windows:
 ```powershell
 irm https://milady-ai.github.io/milady/install.ps1 | iex
 ```
 
-NPM global:
+Or just:
 ```bash
-npm install -g miladyai
-milady setup
+npm install -g milady
 ```
 
 ### Security: API token
@@ -103,6 +118,40 @@ echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> .env
 ```
 
 Without a token on a public bind, anyone who can reach the server gets full access to the dashboard, agent, and wallet endpoints.
+
+### User-facing app mode (no pairing gate)
+
+If you already protect access with your own login layer (for example, Privy or another auth gateway), you can disable the local pairing/token gate:
+
+```bash
+MILADY_PUBLIC_APP_MODE=true
+```
+
+This makes `/api/auth/status` report `required=false`, disables pairing, and allows websocket/API access without `MILADY_API_TOKEN`.
+
+For browser deployments, also set CORS allowlist explicitly:
+
+```bash
+MILADY_ALLOWED_ORIGINS=https://milady-app.com,https://www.milady-app.com
+```
+
+### Railway persistence (required)
+
+If you deploy on Railway without a persistent volume, every redeploy can reset onboarding/config/database state.
+
+Use a Railway volume mounted at `/data`, then keep these env vars:
+
+```bash
+MILADY_STATE_DIR=/data/.milady
+MILADY_CONFIG_PATH=/data/.milady/milady.json
+PGLITE_DATA_DIR=/data/.milady/workspace/.eliza/.elizadb
+```
+
+If you already use your own login layer (Privy, etc.), keep:
+
+```bash
+MILADY_PUBLIC_APP_MODE=true
+```
 
 ---
 
@@ -270,44 +319,6 @@ Or use `~/.milady/.env` for secrets.
 | [xAI](https://x.ai) | `XAI_API_KEY` | grok, based |
 | [DeepSeek](https://deepseek.com) | `DEEPSEEK_API_KEY` | reasoning arc |
 
-### Using Ollama (local models)
-
-[Ollama](https://ollama.ai) lets you run models locally with zero API keys. Install it, pull a model, and configure Milady:
-
-```bash
-# install ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# pull a model
-ollama pull gemma3:4b
-```
-
-> **⚠️ Known issue:** The `@elizaos/plugin-ollama` has an SDK version incompatibility with the current AI SDK. Use Ollama's **OpenAI-compatible endpoint** as a workaround:
-
-Edit `~/.milady/milady.json`:
-
-```json5
-{
-  env: {
-    OPENAI_API_KEY: "ollama",           // any non-empty string works
-    OPENAI_BASE_URL: "http://localhost:11434/v1",  // ollama's openai-compat endpoint
-    SMALL_MODEL: "gemma3:4b",           // or any model you pulled
-    LARGE_MODEL: "gemma3:4b",
-  },
-}
-```
-
-This routes through the OpenAI plugin instead of the broken Ollama plugin. Works with any Ollama model — just make sure `ollama serve` is running.
-
-**Recommended models for local use:**
-
-| Model | Size | Vibe |
-|-------|------|------|
-| `gemma3:4b` | ~3GB | fast, good for chat |
-| `llama3.2` | ~2GB | lightweight, quick responses |
-| `mistral` | ~4GB | solid all-rounder |
-| `deepseek-r1:8b` | ~5GB | reasoning arc |
-
 ---
 
 ## Prerequisites
@@ -315,26 +326,25 @@ This routes through the OpenAI plugin instead of the broken Ollama plugin. Works
 | | Version | Notes |
 |---|---------|-------|
 | **Node.js** | >= 22 | `node --version` to check |
-| **bun** | latest | for building and running. `curl -fsSL https://bun.sh/install \| bash` |
+| **pnpm** | >= 10 | for building from source. `npm i -g pnpm` |
+| **bun** | latest | optional — `scripts/rt.sh` auto-falls back to npm |
 
 ## Build from Source
 
 ```bash
-git clone https://github.com/milady-ai/milady.git
+git clone https://github.com/miladybsc/milady.git
 cd milady
-bun install
-bun run build
-bun run milady start
+pnpm install        # or: bun install
+pnpm build          # or: bun run build (rt.sh picks bun if available)
+pnpm run milady start
 ```
 
-> `scripts/rt.sh` prefers bun but falls back to npm automatically. If you want to be explicit: `bun run build:node` uses only Node.
+> `scripts/rt.sh` prefers bun but falls back to npm automatically. You don't need bun installed. If you want to be explicit: `pnpm run build:node` uses only Node.
 
 Dev mode with hot reload:
 ```bash
-bun run dev
+bun run dev         # or: pnpm dev
 ```
-
-Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).
 
 ---
 

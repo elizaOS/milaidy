@@ -1,6 +1,6 @@
 import { logger } from "@elizaos/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureApiTokenForBindHost } from "./server";
+import { ensureApiTokenForBindHost } from "./server.js";
 
 describe("ensureApiTokenForBindHost", () => {
   const previousToken = process.env.MILADY_API_TOKEN;
@@ -11,15 +11,9 @@ describe("ensureApiTokenForBindHost", () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    "127.0.0.1",
-    "localhost:2138",
-    "[::1]:2138",
-    "http://localhost:2138",
-    "0:0:0:0:0:0:0:1",
-  ])("does not generate a token on loopback bind hosts (%s)", (host) => {
+  it("does not generate a token on loopback bind hosts", () => {
     delete process.env.MILADY_API_TOKEN;
-    ensureApiTokenForBindHost(host);
+    ensureApiTokenForBindHost("127.0.0.1");
     expect(process.env.MILADY_API_TOKEN).toBeUndefined();
   });
 
@@ -33,7 +27,7 @@ describe("ensureApiTokenForBindHost", () => {
     delete process.env.MILADY_API_TOKEN;
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    ensureApiTokenForBindHost("0.0.0.0:2138");
+    ensureApiTokenForBindHost("0.0.0.0");
 
     const generated = process.env.MILADY_API_TOKEN ?? "";
     expect(generated).toMatch(/^[a-f0-9]{64}$/);

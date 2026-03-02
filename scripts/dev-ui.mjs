@@ -13,47 +13,17 @@
  *   node scripts/dev-ui.mjs --ui-only  # starts only the Vite UI (API assumed running)
  */
 import { execSync, spawn } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { ethers } from "ethers";
 import JSON5 from "json5";
 
 const API_PORT = 31337;
 const UI_PORT = 2138;
 const cwd = process.cwd();
 const uiOnly = process.argv.includes("--ui-only");
-const devLogLevel =
-  (process.env.MILADY_DEV_LOG_LEVEL ?? process.env.LOG_LEVEL ?? "info")
-    .trim()
-    .toLowerCase() || "info";
-const quietApiLogs = process.env.MILADY_DEV_QUIET_LOGS === "1";
-const verboseApiLogs = process.env.MILADY_DEV_VERBOSE_LOGS === "1";
-const onchainEnabled =
-  !uiOnly && coerceBoolean(process.env.MILADY_DEV_ONCHAIN) !== false;
-const anchorRequested =
-  !uiOnly && coerceBoolean(process.env.MILADY_DEV_ANCHOR) !== false;
-const anchorRequired = process.env.MILADY_DEV_REQUIRE_ANCHOR === "1";
-const verboseChainLogs = process.env.MILADY_DEV_CHAIN_VERBOSE === "1";
-const ANVIL_PORT = Number(process.env.MILADY_DEV_ANVIL_PORT ?? 8545);
-const ANVIL_CHAIN_ID = Number(process.env.MILADY_DEV_CHAIN_ID ?? 31337);
-const ANVIL_RPC_URL = `http://127.0.0.1:${ANVIL_PORT}`;
-const ANCHOR_RPC_URL =
-  process.env.MILADY_DEV_ANCHOR_RPC_URL ?? "http://127.0.0.1:8899";
-const DEFAULT_EVM_DEV_PRIVATE_KEY =
-  process.env.MILADY_DEV_EVM_PRIVATE_KEY ??
-  "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-const ANVIL_DEPLOYER_PRIVATE_KEY =
-  process.env.MILADY_DEV_ANVIL_DEPLOYER_PRIVATE_KEY ??
-  "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6";
 
 // ---------------------------------------------------------------------------
 // ANSI colors — raw escape sequences so we don't need chalk in this .mjs file.
@@ -278,471 +248,18 @@ function resolveStealthImportFlags() {
     }
   }
 
-  // Auto-detect subscription credentials: if the user has logged in via
-  // a subscription provider, enable the corresponding stealth interceptor
-  // automatically (unless explicitly disabled above).
-  const stateDir =
-    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
-  if (openaiFlag === null) {
-    const codexAuthPath = path.join(stateDir, "auth", "openai-codex.json");
-    if (existsSync(codexAuthPath)) {
-      openaiFlag = true;
-    }
-  }
-  if (claudeFlag === null) {
-    const anthropicAuthPath = path.join(
-      stateDir,
-      "auth",
-      "anthropic-subscription.json",
-    );
-    if (existsSync(anthropicAuthPath)) {
-      claudeFlag = true;
-    }
-  }
-
   return {
     openai: openaiFlag === true,
     claude: claudeFlag === true,
   };
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-async function waitForJsonRpc(
-  rpcUrl,
-  method,
-  {
-    params = [],
-    timeoutMs = 30_000,
-    intervalMs = 250,
-    validate = (payload) => payload?.result !== undefined,
-  } = {},
-) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method,
-          params,
-        }),
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        if (validate(payload)) {
-          return payload;
-        }
-      }
-    } catch {
-      // Not ready yet.
-    }
-    await sleep(intervalMs);
-  }
-  throw new Error(
-    `Timed out waiting for JSON-RPC method "${method}" at ${rpcUrl}`,
-  );
-}
-
-function resolveAnchorWorkspace() {
-  const explicit = process.env.MILADY_ANCHOR_WORKSPACE?.trim();
-  if (explicit) {
-    const resolved = path.resolve(explicit);
-    return existsSync(path.join(resolved, "Anchor.toml")) ? resolved : null;
-  }
-
-  const candidates = [
-    cwd,
-    path.join(cwd, "anchor"),
-    path.join(cwd, "solana"),
-    path.join(cwd, "programs"),
-    path.join(cwd, "test", "anchor"),
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(path.join(candidate, "Anchor.toml"))) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function readJson(filePath) {
-  return JSON.parse(readFileSync(filePath, "utf-8"));
-}
-
-function resolveArtifactPath(candidates) {
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
-function createOnchainDevConfig({
-  rpcUrl,
-  registryAddress,
-  collectionAddress,
-  evmPrivateKey,
-  solanaRpcUrl,
-}) {
-  const base = loadMiladyConfigForDev();
-  const config =
-    base && typeof base === "object" && !Array.isArray(base) ? { ...base } : {};
-
-  const nextRegistry =
-    config.registry &&
-    typeof config.registry === "object" &&
-    !Array.isArray(config.registry)
-      ? { ...config.registry }
-      : {};
-  nextRegistry.mainnetRpc = rpcUrl;
-  nextRegistry.registryAddress = registryAddress;
-  nextRegistry.collectionAddress = collectionAddress;
-  config.registry = nextRegistry;
-
-  const nextFeatures =
-    config.features &&
-    typeof config.features === "object" &&
-    !Array.isArray(config.features)
-      ? { ...config.features }
-      : {};
-  nextFeatures.dropEnabled = true;
-  config.features = nextFeatures;
-
-  const nextEnv =
-    config.env && typeof config.env === "object" && !Array.isArray(config.env)
-      ? { ...config.env }
-      : {};
-  nextEnv.EVM_PRIVATE_KEY = evmPrivateKey;
-  if (solanaRpcUrl) {
-    nextEnv.SOLANA_RPC_URL = solanaRpcUrl;
-  }
-  config.env = nextEnv;
-
-  const tempDir = mkdtempSync(path.join(os.tmpdir(), "milady-dev-onchain-"));
-  const configPath = path.join(tempDir, "milady.json");
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
-  return { configPath, tempDir };
-}
-
-function spawnWithBufferedLogs(cmd, args, options = {}) {
-  const proc = spawn(cmd, args, {
-    stdio: ["ignore", "pipe", "pipe"],
-    ...options,
-  });
-
-  let stderrBuf = "";
-  if (proc.stderr) {
-    proc.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      stderrBuf = `${stderrBuf}${text}`;
-      if (stderrBuf.length > 4000) {
-        stderrBuf = stderrBuf.slice(-4000);
-      }
-      if (verboseChainLogs) {
-        process.stderr.write(text);
-      }
-    });
-  }
-
-  if (proc.stdout && verboseChainLogs) {
-    proc.stdout.on("data", (chunk) => {
-      process.stdout.write(chunk);
-    });
-  }
-
-  return { proc, getBufferedStderr: () => stderrBuf.trim() };
-}
-
-async function bootstrapOnchainDev() {
-  if (!onchainEnabled) {
-    return {
-      env: {},
-      anvil: null,
-      anchor: null,
-      tempDir: null,
-    };
-  }
-
-  if (!which("anvil")) {
-    throw new Error(
-      "Anvil binary not found. Install Foundry or set MILADY_DEV_ONCHAIN=0 to run without chain bootstrap.",
-    );
-  }
-
-  killPort(ANVIL_PORT);
-  const anvilArgs = [
-    "--host",
-    "127.0.0.1",
-    "--port",
-    String(ANVIL_PORT),
-    "--chain-id",
-    String(ANVIL_CHAIN_ID),
-    "--accounts",
-    "10",
-    "--balance",
-    "10000",
-  ];
-
-  const { proc: anvil, getBufferedStderr } = spawnWithBufferedLogs(
-    "anvil",
-    anvilArgs,
-    { cwd },
-  );
-
-  const anvilExit = new Promise((_, reject) => {
-    anvil.once("error", (err) => {
-      reject(err);
-    });
-    anvil.once("exit", (code, signal) => {
-      reject(
-        new Error(
-          `Anvil exited before becoming ready (code=${code ?? "null"}, signal=${signal ?? "null"})`,
-        ),
-      );
-    });
-  });
-
-  try {
-    await Promise.race([
-      waitForJsonRpc(ANVIL_RPC_URL, "eth_chainId", {
-        validate: (payload) =>
-          typeof payload?.result === "string" &&
-          Number.parseInt(payload.result, 16) === ANVIL_CHAIN_ID,
-      }),
-      anvilExit,
-    ]);
-  } catch (err) {
-    anvil.kill("SIGTERM");
-    const stderr = getBufferedStderr();
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `Failed to start Anvil on ${ANVIL_RPC_URL}: ${msg}${stderr ? `\n${stderr}` : ""}`,
-    );
-  }
-
-  const provider = new ethers.JsonRpcProvider(ANVIL_RPC_URL);
-  const network = await provider.getNetwork();
-  if (Number(network.chainId) !== ANVIL_CHAIN_ID) {
-    anvil.kill("SIGTERM");
-    throw new Error(
-      `Anvil chain id mismatch: expected ${ANVIL_CHAIN_ID}, got ${network.chainId}`,
-    );
-  }
-
-  const registryArtifactPath = resolveArtifactPath([
-    path.join(
-      cwd,
-      "test",
-      "contracts",
-      "out",
-      "MockMiladyAgentRegistry.sol",
-      "MockMiladyAgentRegistry.json",
-    ),
-    path.join(
-      cwd,
-      "test",
-      "contracts",
-      "out",
-      "MockMilaidyAgentRegistry.sol",
-      "MockMilaidyAgentRegistry.json",
-    ),
-  ]);
-  const collectionArtifactPath = resolveArtifactPath([
-    path.join(
-      cwd,
-      "test",
-      "contracts",
-      "out",
-      "MockMiladyCollection.sol",
-      "MockMiladyCollection.json",
-    ),
-    path.join(
-      cwd,
-      "test",
-      "contracts",
-      "out",
-      "MockMilaidyCollection.sol",
-      "MockMilaidyCollection.json",
-    ),
-  ]);
-
-  if (!registryArtifactPath || !collectionArtifactPath) {
-    anvil.kill("SIGTERM");
-    throw new Error(
-      "Missing contract artifacts under test/contracts/out. Run `cd test/contracts && forge build`.",
-    );
-  }
-
-  const registryArtifact = readJson(registryArtifactPath);
-  const collectionArtifact = readJson(collectionArtifactPath);
-  const deployer = new ethers.Wallet(ANVIL_DEPLOYER_PRIVATE_KEY, provider);
-
-  let nonce = await deployer.getNonce("pending");
-  const registryFactory = new ethers.ContractFactory(
-    registryArtifact.abi,
-    registryArtifact.bytecode.object,
-    deployer,
-  );
-  const registryContract = await registryFactory.deploy({ nonce });
-  await registryContract.waitForDeployment();
-  nonce += 1;
-
-  const collectionFactory = new ethers.ContractFactory(
-    collectionArtifact.abi,
-    collectionArtifact.bytecode.object,
-    deployer,
-  );
-  const collectionContract = await collectionFactory.deploy({ nonce });
-  await collectionContract.waitForDeployment();
-
-  const registryAddress = await registryContract.getAddress();
-  const collectionAddress = await collectionContract.getAddress();
-
-  const [totalAgents, collectionDetails] = await Promise.all([
-    registryContract.totalAgents(),
-    collectionContract.getCollectionDetails(),
-  ]);
-  if (Number(totalAgents) !== 0) {
-    anvil.kill("SIGTERM");
-    throw new Error(
-      `Registry verification failed: expected totalAgents=0, got ${totalAgents}`,
-    );
-  }
-  if (Number(collectionDetails[1]) !== 0) {
-    anvil.kill("SIGTERM");
-    throw new Error(
-      `Collection verification failed: expected currentSupply=0, got ${collectionDetails[1]}`,
-    );
-  }
-
-  const validationWallet = new ethers.Wallet(
-    DEFAULT_EVM_DEV_PRIVATE_KEY,
-    provider,
-  );
-  await registryContract
-    .connect(validationWallet)
-    .registerAgent.staticCall(
-      "MiladyDevValidation",
-      "http://localhost:31337/dev-validation",
-      ethers.id("milady-dev"),
-      "ipfs://milady-dev-validation",
-    );
-  await collectionContract
-    .connect(validationWallet)
-    .mint.staticCall(
-      "MiladyDevValidation",
-      "http://localhost:31337/dev-validation",
-      ethers.id("milady-dev"),
-    );
-
-  let anchor = null;
-  let anchorConfigured = false;
-  const anchorWorkspace = resolveAnchorWorkspace();
-  if (anchorRequested) {
-    if (!anchorWorkspace) {
-      const msg =
-        "Anchor workspace not found (no Anchor.toml). Skipping anchor localnet bootstrap.";
-      if (anchorRequired) {
-        anvil.kill("SIGTERM");
-        throw new Error(msg);
-      }
-      console.log(`  ${green("[milady]")} ${dim(msg)}`);
-    } else if (!which("anchor")) {
-      const msg =
-        "Anchor CLI not found in PATH. Skipping anchor localnet bootstrap.";
-      if (anchorRequired) {
-        anvil.kill("SIGTERM");
-        throw new Error(msg);
-      }
-      console.log(`  ${green("[milady]")} ${dim(msg)}`);
-    } else {
-      const { proc: anchorProc, getBufferedStderr: getAnchorStderr } =
-        spawnWithBufferedLogs("anchor", ["localnet", "--skip-build"], {
-          cwd: anchorWorkspace,
-          env: { ...process.env },
-        });
-
-      const anchorExit = new Promise((_, reject) => {
-        anchorProc.once("error", (err) => reject(err));
-        anchorProc.once("exit", (code, signal) => {
-          reject(
-            new Error(
-              `Anchor localnet exited before readiness (code=${code ?? "null"}, signal=${signal ?? "null"})`,
-            ),
-          );
-        });
-      });
-
-      try {
-        await Promise.race([
-          waitForJsonRpc(ANCHOR_RPC_URL, "getHealth", {
-            validate: (payload) => payload?.result === "ok",
-            timeoutMs: 60_000,
-          }),
-          anchorExit,
-        ]);
-        anchor = anchorProc;
-        anchorConfigured = true;
-      } catch (err) {
-        anchorProc.kill("SIGTERM");
-        const stderr = getAnchorStderr();
-        const msg = err instanceof Error ? err.message : String(err);
-        if (anchorRequired) {
-          anvil.kill("SIGTERM");
-          throw new Error(
-            `Failed to start anchor localnet: ${msg}${stderr ? `\n${stderr}` : ""}`,
-          );
-        }
-        console.log(
-          `  ${green("[milady]")} ${dim(`Anchor localnet unavailable: ${msg}`)}`,
-        );
-      }
-    }
-  }
-
-  const { configPath, tempDir } = createOnchainDevConfig({
-    rpcUrl: ANVIL_RPC_URL,
-    registryAddress,
-    collectionAddress,
-    evmPrivateKey: DEFAULT_EVM_DEV_PRIVATE_KEY,
-    solanaRpcUrl: anchorConfigured ? ANCHOR_RPC_URL : undefined,
-  });
-
-  return {
-    env: {
-      MILADY_CONFIG_PATH: configPath,
-      EVM_PRIVATE_KEY: DEFAULT_EVM_DEV_PRIVATE_KEY,
-      MILADY_DEV_CHAIN_ID: String(ANVIL_CHAIN_ID),
-      MILADY_DEV_CHAIN_RPC: ANVIL_RPC_URL,
-      MILADY_DEV_REGISTRY_ADDRESS: registryAddress,
-      MILADY_DEV_COLLECTION_ADDRESS: collectionAddress,
-      ...(anchorConfigured ? { SOLANA_RPC_URL: ANCHOR_RPC_URL } : {}),
-    },
-    anvil,
-    anchor,
-    tempDir,
-    registryAddress,
-    collectionAddress,
-    anchorConfigured,
-  };
-}
-
 // ---------------------------------------------------------------------------
-// Output filters for API server logs.
+// Output filter — only forward error-level lines from the API server.
 // ---------------------------------------------------------------------------
 
 const SUPPRESS_RE = /^\s*(Info|Warn|Debug|Trace)\s/;
 const SUPPRESS_UNSTRUCTURED_RE = /^\[dotenv[@\d]/;
-const STARTUP_RE =
-  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|runtime created|api server ready|plugin.*load|startup.*complete|\d+ms|\[PTYService/i;
 
 function createErrorFilter(dest) {
   let buf = "";
@@ -756,37 +273,6 @@ function createErrorFilter(dest) {
         !SUPPRESS_RE.test(line) &&
         !SUPPRESS_UNSTRUCTURED_RE.test(line)
       ) {
-        dest.write(`${line}\n`);
-      }
-    }
-  };
-}
-
-function createStartupFilter(dest) {
-  let buf = "";
-  let lastLine = "";
-  let repeatCount = 0;
-  return (chunk) => {
-    buf += chunk.toString();
-    const lines = buf.split("\n");
-    buf = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (SUPPRESS_UNSTRUCTURED_RE.test(trimmed)) continue;
-      if (/embedding dimensions mismatch/i.test(trimmed)) continue;
-
-      if (trimmed === lastLine) {
-        repeatCount += 1;
-        if (repeatCount > 2) continue;
-      } else {
-        lastLine = trimmed;
-        repeatCount = 0;
-      }
-
-      const isWarnOrError = /^\s*(Warn|Error)\s/.test(trimmed);
-      const isStartupLine = STARTUP_RE.test(trimmed);
-      if (isWarnOrError || isStartupLine) {
         dest.write(`${line}\n`);
       }
     }
@@ -866,51 +352,19 @@ function waitForPort(port, { timeout = 120_000, interval = 500 } = {}) {
 killPort(UI_PORT);
 if (!uiOnly) {
   killPort(API_PORT);
-  if (onchainEnabled) {
-    killPort(ANVIL_PORT);
-  }
 }
 
 let apiProcess = null;
 let viteProcess = null;
-let anvilProcess = null;
-let anchorProcess = null;
-let tempOnchainDir = null;
-let shuttingDown = false;
 
-function terminateChild(proc, signal = "SIGTERM") {
-  if (!proc || proc.killed) return;
-  try {
-    proc.kill(signal);
-  } catch {
-    // Best effort.
-  }
-}
+const cleanup = () => {
+  if (apiProcess) apiProcess.kill();
+  if (viteProcess) viteProcess.kill();
+  process.exit(0);
+};
 
-function cleanup(exitCode = 0) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-
-  terminateChild(viteProcess);
-  terminateChild(apiProcess);
-  terminateChild(anchorProcess);
-  terminateChild(anvilProcess);
-
-  if (tempOnchainDir) {
-    try {
-      rmSync(tempOnchainDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors.
-    }
-  }
-
-  setTimeout(() => {
-    process.exit(exitCode);
-  }, 400).unref();
-}
-
-process.on("SIGINT", () => cleanup(0));
-process.on("SIGTERM", () => cleanup(0));
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
 
 function startVite() {
   const viteCmd = hasBun ? "bunx" : "npx";
@@ -934,10 +388,10 @@ function startVite() {
   });
 
   viteProcess.on("exit", (code) => {
-    if (shuttingDown) return;
     if (code !== 0) {
       console.error(`${green("[milady]")} Vite exited with code ${code}`);
-      cleanup(code ?? 1);
+      if (apiProcess) apiProcess.kill();
+      process.exit(code ?? 1);
     }
   });
 }
@@ -948,55 +402,6 @@ if (uiOnly) {
   console.log(`${orange("\nmilady dev mode")}\n`);
   printBanner();
   console.log(`  ${green("[milady]")} ${green("Starting dev server...")}\n`);
-  console.log(
-    `  ${green("[milady]")} ${dim(
-      `API log level=${devLogLevel}${
-        quietApiLogs
-          ? " (errors only)"
-          : verboseApiLogs
-            ? " (verbose)"
-            : " (startup + warnings/errors)"
-      }`,
-    )}`,
-  );
-
-  let chainEnv = {};
-  if (onchainEnabled) {
-    console.log(
-      `  ${green("[milady]")} ${green("Bootstrapping local chain...")}`,
-    );
-    try {
-      const chain = await bootstrapOnchainDev();
-      chainEnv = chain.env;
-      anvilProcess = chain.anvil;
-      anchorProcess = chain.anchor;
-      tempOnchainDir = chain.tempDir;
-
-      console.log(
-        `  ${green("[milady]")} ${dim(`Anvil ready at ${ANVIL_RPC_URL} (chainId=${ANVIL_CHAIN_ID})`)}`,
-      );
-      console.log(
-        `  ${green("[milady]")} ${dim(`Registry deployed: ${chain.registryAddress}`)}`,
-      );
-      console.log(
-        `  ${green("[milady]")} ${dim(`Collection deployed: ${chain.collectionAddress}`)}`,
-      );
-      if (chain.anchorConfigured) {
-        console.log(
-          `  ${green("[milady]")} ${dim(`Anchor localnet ready at ${ANCHOR_RPC_URL}`)}`,
-        );
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  ${green("[milady]")} ${msg}`);
-      cleanup(1);
-      process.exit(1);
-    }
-  } else {
-    console.log(
-      `  ${green("[milady]")} ${dim("On-chain bootstrap disabled (MILADY_DEV_ONCHAIN=0)")}`,
-    );
-  }
 
   // Security default: stealth shims are disabled unless explicitly enabled
   // via env vars or plugin config in milady.json.
@@ -1015,15 +420,7 @@ if (uiOnly) {
   }
 
   const apiCmd = hasBun
-    ? [
-        "bun",
-        ...resolvedStealthImports.flatMap((filePath) => [
-          "--preload",
-          filePath,
-        ]),
-        "--watch",
-        "src/runtime/dev-server.ts",
-      ]
+    ? ["bun", "--watch", "src/runtime/dev-server.ts"]
     : [
         "node",
         ...resolvedStealthImports.flatMap((filePath) => ["--import", filePath]),
@@ -1036,34 +433,23 @@ if (uiOnly) {
     cwd,
     env: {
       ...process.env,
-      ...chainEnv,
       MILADY_PORT: String(API_PORT),
       MILADY_HEADLESS: "1",
-      LOG_LEVEL: devLogLevel,
+      LOG_LEVEL: "error",
     },
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  if (quietApiLogs) {
-    apiProcess.stderr.on("data", createErrorFilter(process.stderr));
-    apiProcess.stdout.on("data", () => {});
-  } else if (verboseApiLogs) {
-    apiProcess.stderr.on("data", (data) => {
-      process.stderr.write(data);
-    });
-    apiProcess.stdout.on("data", (data) => {
-      process.stdout.write(data);
-    });
-  } else {
-    apiProcess.stderr.on("data", createStartupFilter(process.stderr));
-    apiProcess.stdout.on("data", createStartupFilter(process.stdout));
-  }
+  apiProcess.stderr.on("data", createErrorFilter(process.stderr));
+  apiProcess.stdout.on("data", () => {});
 
   apiProcess.on("exit", (code) => {
-    if (shuttingDown) return;
     if (code !== 0) {
-      console.error(`\n  ${green("[milady]")} Server exited with code ${code}`);
-      cleanup(code ?? 1);
+      console.error(
+        `\n  ${green("[milady]")} Server exited with code ${code}`,
+      );
+      if (viteProcess) viteProcess.kill();
+      process.exit(code ?? 1);
     }
   });
 
@@ -1087,6 +473,7 @@ if (uiOnly) {
     .catch((err) => {
       clearInterval(dots);
       console.error(`\n  ${green("[milady]")} ${err.message}`);
-      cleanup(1);
+      if (apiProcess) apiProcess.kill();
+      process.exit(1);
     });
 }

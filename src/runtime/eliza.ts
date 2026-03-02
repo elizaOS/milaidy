@@ -90,16 +90,16 @@ import {
   loadMiladyConfig,
   type MiladyConfig,
   saveMiladyConfig,
-} from "../config/config";
-import { collectConfigEnvVars } from "../config/env-vars";
-import { resolveUserTier } from "../config/feature-manifest";
-import { resolveStateDir, resolveUserPath } from "../config/paths";
+} from "../config/config.js";
+import { collectConfigEnvVars } from "../config/env-vars.js";
+import { resolveUserTier } from "../config/feature-manifest.js";
+import { resolveStateDir, resolveUserPath } from "../config/paths.js";
 import {
   type ApplyPluginAutoEnableParams,
   applyPluginAutoEnable,
-} from "../config/plugin-auto-enable";
-import type { AgentConfig } from "../config/types.agents";
-import type { PluginInstallRecord } from "../config/types.milady";
+} from "../config/plugin-auto-enable.js";
+import type { AgentConfig } from "../config/types.agents.js";
+import type { PluginInstallRecord } from "../config/types.milady.js";
 import {
   createHookEvent,
   type LoadHooksOptions,
@@ -203,6 +203,11 @@ if (_rootModules) {
     createRequire(import.meta.url)("node:module").Module._initPaths();
   }
 }
+import {
+  createPhettaCompanionPlugin,
+  resolvePhettaCompanionOptionsFromEnv,
+} from "./phetta-companion-plugin.js";
+import { isPiAiEnabledFromEnv, registerPiAiRuntime } from "./pi-ai.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -584,10 +589,10 @@ const _OPTIONAL_NATIVE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-computeruse", // requires platform-specific binaries
 ];
 
-/** Maps Milady channel names to plugin package names. */
-export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
+/** Maps Milady channel names to ElizaOS plugin package names. */
+const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   discord: "@elizaos/plugin-discord",
-  telegram: "@elizaos/plugin-telegram",
+  telegram: "@milady/plugin-telegram-enhanced",
   slack: "@elizaos/plugin-slack",
   twitter: "@elizaos/plugin-twitter",
   // Internal connector built from src/plugins/whatsapp (not an npm package).
@@ -635,6 +640,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
+  OPINION_API_KEY: "@milady/plugin-opinion",
 };
 
 /**
@@ -1172,7 +1178,9 @@ export function ensureBrowserServerLink(): boolean {
     );
     return true;
   } catch (err) {
-    logger.debug(`[milady] Could not link browser server: ${formatError(err)}`);
+    logger.debug(
+      `[milady] Could not link browser server: ${formatError(err)}`,
+    );
     return false;
   }
 }
@@ -1360,9 +1368,10 @@ async function resolvePlugins(
         }
       } else if (pluginName.startsWith("@milady/plugin-")) {
         // Local Milady plugin — resolve from the compiled dist directory.
-        // Import the index.js directly (importFromPath's resolvePackageEntry
-        // fails because there's no package.json and the extensionless
-        // fallback doesn't match the .js file on disk).
+        // These are built by tsdown into dist/plugins/<name>/ and are not
+        // published to npm.  import.meta.url points to dist/runtime/eliza.js
+        // (unbundled) or dist/eliza.js (bundled), so we resolve relative to
+        // the dist root via the parent of the current file's directory.
         const shortName = pluginName.replace("@milady/plugin-", "");
         const thisDir = path.dirname(fileURLToPath(import.meta.url));
         const distRoot = thisDir.endsWith("runtime")
@@ -1722,43 +1731,6 @@ export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
 }
 
 /**
- * Auto-resolve Discord Application ID from the bot token via Discord API.
- * Called during async runtime init so that users only need a bot token.
- */
-/** @internal Exported for testing. */
-export async function autoResolveDiscordAppId(): Promise<void> {
-  if (process.env.DISCORD_APPLICATION_ID) return;
-
-  const discordToken =
-    process.env.DISCORD_API_TOKEN || process.env.DISCORD_BOT_TOKEN;
-  if (!discordToken) return;
-
-  try {
-    const res = await fetch(
-      "https://discord.com/api/v10/oauth2/applications/@me",
-      { headers: { Authorization: `Bot ${discordToken}` } },
-    );
-
-    if (!res.ok) {
-      logger.warn(
-        `[milady] Failed to auto-resolve Discord Application ID: ${res.status}`,
-      );
-      return;
-    }
-
-    const app = (await res.json()) as { id?: string };
-    if (!app.id) return;
-
-    process.env.DISCORD_APPLICATION_ID = app.id;
-    logger.info(`[milady] Auto-resolved Discord Application ID: ${app.id}`);
-  } catch (err) {
-    logger.warn(
-      `[milady] Could not auto-resolve Discord Application ID: ${err}`,
-    );
-  }
-}
-
-/**
  * Propagate cloud config from Milady config into process.env so the
  * ElizaCloud plugin can discover settings at startup.
  */
@@ -1766,23 +1738,27 @@ export async function autoResolveDiscordAppId(): Promise<void> {
 export function applyCloudConfigToEnv(config: MiladyConfig): void {
   const cloud = config.cloud;
   if (!cloud) return;
+  const piAiForced = isPiAiEnabledFromEnv(process.env);
 
-  const cloudMode = cloud.enabled;
-  const hasApiKey = Boolean(cloud.apiKey);
-  const cloudExplicitlyDisabled = cloudMode === false;
+  // Having an API key means the user logged in — treat as enabled even if
+  // the flag was accidentally reset (e.g. by a provider switch or merge).
+  // When pi-ai is explicitly forced, keep cloud disabled even if a cached
+  // cloud API key exists.
   const effectivelyEnabled =
-    cloudMode === true || (!cloudExplicitlyDisabled && hasApiKey);
+    !piAiForced && (cloud.enabled || Boolean(cloud.apiKey));
 
-  if (effectivelyEnabled) {
-    process.env.ELIZAOS_CLOUD_ENABLED = "true";
-    logger.info(
-      `[milady] Cloud config: enabled=${cloud.enabled}, hasApiKey=${Boolean(cloud.apiKey)}, baseUrl=${cloud.baseUrl ?? "(default)"}`,
-    );
-  } else {
+  if (!effectivelyEnabled) {
     delete process.env.ELIZAOS_CLOUD_ENABLED;
+    delete process.env.ELIZAOS_CLOUD_API_KEY;
     delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
     delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+    return;
   }
+
+  process.env.ELIZAOS_CLOUD_ENABLED = "true";
+  logger.info(
+    `[milady] Cloud config: enabled=${cloud.enabled}, hasApiKey=${Boolean(cloud.apiKey)}, baseUrl=${cloud.baseUrl ?? "(default)"}`,
+  );
   if (cloud.apiKey) {
     process.env.ELIZAOS_CLOUD_API_KEY = cloud.apiKey;
   } else {
@@ -2022,26 +1998,6 @@ async function initializeDatabaseAdapter(
     logger.info(
       "[milady] Database adapter recovered after resetting PGLite data",
     );
-  }
-
-  // Health check: verify PGlite data directory has files after init.
-  // Runs on BOTH the happy path and the recovery path.
-  await verifyPgliteDataDir(config);
-}
-
-/**
- * Verify PGlite data directory contains files after init.
- * Warns if the directory is empty (suggests ephemeral/in-memory fallback).
- */
-async function verifyPgliteDataDir(config: MiladyConfig): Promise<void> {
-  const pgliteDataDir = resolveActivePgliteDataDir(config);
-  if (!pgliteDataDir || !existsSync(pgliteDataDir)) return;
-
-  try {
-    const files = await fs.readdir(pgliteDataDir);
-    logger.info(
-      `[milady] PGlite health check: ${files.length} file(s) in ${pgliteDataDir}`,
-    );
     if (files.length === 0) {
       logger.warn(
         `[milady] PGlite data directory is empty after init — data may not persist across restarts`,
@@ -2074,54 +2030,6 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
   // Some plugin builds store this method and invoke it later without the
   // runtime receiver, which breaks private-field access in AgentRuntime.
   runtime.getConversationLength = runtime.getConversationLength.bind(runtime);
-
-  // Wrap getSetting() to fall back to process.env for known keys when the
-  // core returns null. ElizaOS core returns null for missing keys, but some
-  // plugins (e.g. @elizaos/plugin-google-genai) check `!== undefined` and
-  // convert null to the string "null", causing API calls like `models/null`.
-  // Scoped to an allowlist to avoid leaking arbitrary env vars to plugins.
-  const GETSETTING_ENV_ALLOWLIST = new Set([
-    // Model provider API keys
-    "ANTHROPIC_API_KEY",
-    "OPENAI_API_KEY",
-    "GOOGLE_GENERATIVE_AI_API_KEY",
-    "GOOGLE_API_KEY",
-    "GEMINI_API_KEY",
-    "GROQ_API_KEY",
-    "XAI_API_KEY",
-    "DEEPSEEK_API_KEY",
-    "OPENROUTER_API_KEY",
-    // Google model defaults
-    "GOOGLE_SMALL_MODEL",
-    "GOOGLE_LARGE_MODEL",
-    // GitHub
-    "GITHUB_TOKEN",
-    "GITHUB_OAUTH_CLIENT_ID",
-    // Coding agent model preferences
-    "PARALLAX_CLAUDE_MODEL_POWERFUL",
-    "PARALLAX_CLAUDE_MODEL_FAST",
-    "PARALLAX_GEMINI_MODEL_POWERFUL",
-    "PARALLAX_GEMINI_MODEL_FAST",
-    "PARALLAX_CODEX_MODEL_POWERFUL",
-    "PARALLAX_CODEX_MODEL_FAST",
-    "PARALLAX_AIDER_PROVIDER",
-    "PARALLAX_AIDER_MODEL_POWERFUL",
-    "PARALLAX_AIDER_MODEL_FAST",
-    // Custom credential forwarding — intentionally broad: users configure which env vars
-    // to forward to coding agents via this comma-separated key list (e.g. MCP server tokens).
-    "CUSTOM_CREDENTIAL_KEYS",
-  ]);
-  const originalGetSetting = runtime.getSetting.bind(runtime);
-  runtime.getSetting = (key: string) => {
-    const result = originalGetSetting(key);
-    if (result !== null && result !== undefined) return result;
-    if (GETSETTING_ENV_ALLOWLIST.has(key)) {
-      const envVal = process.env[key];
-      if (envVal !== undefined && envVal.trim() !== "") return envVal;
-    }
-    return result;
-  };
-
   runtimeWithBindings.__miladyMethodBindingsInstalled = true;
 }
 
@@ -2388,7 +2296,9 @@ import { STYLE_PRESETS } from "../onboarding-presets";
  *
  * Subsequent runs skip this entirely.
  */
-async function runFirstTimeSetup(config: MiladyConfig): Promise<MiladyConfig> {
+async function runFirstTimeSetup(
+  config: MiladyConfig,
+): Promise<MiladyConfig> {
   const agentEntry = config.agents?.list?.[0];
   const hasName = Boolean(agentEntry?.name || config.ui?.assistant?.name);
   if (hasName) return config;
@@ -3078,6 +2988,14 @@ export async function startEliza(
   const character = buildCharacterFromConfig(config);
 
   const primaryModel = resolvePrimaryModel(config);
+  const modelCfg = (config.models ?? {}) as unknown as Record<string, unknown>;
+  const piAiSmallModelSpecRaw =
+    typeof modelCfg.piAiSmall === "string" ? modelCfg.piAiSmall.trim() : "";
+  const piAiLargeModelSpecRaw =
+    typeof modelCfg.piAiLarge === "string" ? modelCfg.piAiLarge.trim() : "";
+  const runtimeModelProvider = isPiAiEnabledFromEnv(process.env)
+    ? (piAiLargeModelSpecRaw || primaryModel || "pi-ai")
+    : primaryModel;
 
   // 4. Ensure workspace exists with bootstrap files
   const workspaceDir =
@@ -3320,7 +3238,11 @@ export async function startEliza(
     // advancedCapabilities: true,
     actionPlanning: true,
     // advancedMemory: true, // Not supported in this version of AgentRuntime
-    plugins: [miladyPlugin, ...pluginsForRuntime],
+    plugins: [
+      miladyPlugin,
+      ...(phettaPlugin ? [phettaPlugin] : []),
+      ...otherPlugins.map((p) => p.plugin),
+    ],
     ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
     // Sandbox options — only active when mode != "off"
     ...(isSandboxActive
@@ -3381,6 +3303,31 @@ export async function startEliza(
   });
   installRuntimeMethodBindings(runtime);
 
+  // Optional: route all model calls through pi-ai using pi credentials
+  // (~/.pi/agent/auth.json) and Milady subscription credentials. This is useful for OAuth-backed providers
+  // (e.g. Claude Max / Codex Max) without putting API keys in Milady config.
+  if (isPiAiEnabledFromEnv()) {
+    try {
+      const piAiSmall = piAiSmallModelSpecRaw || undefined;
+      const piAiLarge = piAiLargeModelSpecRaw || undefined;
+
+      const reg = await registerPiAiRuntime(runtime, {
+        // Prefer pi-ai specific small/large overrides when set.
+        // Fall back to Milady's primary model spec; otherwise pi settings.json decides.
+        smallModelSpec: piAiSmall,
+        largeModelSpec: piAiLarge,
+        modelSpec: primaryModel,
+      });
+      logger.info(
+        `[milady] pi-ai enabled (large: ${reg.modelSpec}${piAiSmall ? ", small override set" : ""})`,
+      );
+    } catch (err) {
+      logger.warn(
+        `[milady] pi-ai enabled but failed to register model handler: ${formatError(err)}`,
+      );
+    }
+  }
+
   // 7b. Pre-register plugin-sql so the adapter is ready before other plugins init.
   //     This is OPTIONAL — without it, some features (memory, todos) won't work.
   //     runtime.db is a getter that returns this.adapter.db and throws when
@@ -3433,7 +3380,7 @@ export async function startEliza(
         setTimeout(() => {
           reject(
             new Error(
-              "AgentSkillsService warm-up timed out (10s) — non-blocking, agent will function without skills",
+              "[milady] AgentSkillsService timed out waiting to initialise (30 s)",
             ),
           );
         }, 10_000);
@@ -3626,11 +3573,11 @@ export async function startEliza(
   // ── Start API server for GUI access ──────────────────────────────────────
   // In CLI mode (non-headless), start the API server in the background so
   // the GUI can connect to the running agent.  This ensures full feature
-  // parity: whether started via `npx miladyai`, `bun run dev`, or the
+  // parity: whether started via `npx milady`, `bun run dev`, or the
   // desktop app, the API server is always available for the GUI admin
   // surface.
   try {
-    const { startApiServer } = await import("../api/server");
+    const { startApiServer } = await import("../api/server.js");
     const apiPort = Number(process.env.MILADY_PORT) || 2138;
     const { port: actualApiPort } = await startApiServer({
       port: apiPort,
@@ -3712,7 +3659,10 @@ export async function startEliza(
           }
           const newRuntime = new AgentRuntime({
             character: freshCharacter,
-            plugins: [freshMiladyPlugin, ...freshPluginsForRuntime],
+            plugins: [
+              freshMiladyPlugin,
+              ...freshOtherPlugins.map((p) => p.plugin),
+            ],
             ...(runtimeLogLevel ? { logLevel: runtimeLogLevel } : {}),
             settings: {
               ...(freshPrimaryModel
@@ -3725,6 +3675,37 @@ export async function startEliza(
             },
           });
           installRuntimeMethodBindings(newRuntime);
+
+          // Re-register pi-ai model handler on hot reload if enabled.
+          if (isPiAiEnabledFromEnv()) {
+            try {
+              const modelCfg = (freshConfig.models ?? {}) as unknown as Record<
+                string,
+                unknown
+              >;
+              const piAiSmall =
+                typeof modelCfg.piAiSmall === "string"
+                  ? modelCfg.piAiSmall
+                  : undefined;
+              const piAiLarge =
+                typeof modelCfg.piAiLarge === "string"
+                  ? modelCfg.piAiLarge
+                  : undefined;
+
+              const reg = await registerPiAiRuntime(newRuntime, {
+                smallModelSpec: piAiSmall,
+                largeModelSpec: piAiLarge,
+                modelSpec: freshPrimaryModel,
+              });
+              logger.info(
+                `[milady] Hot-reload: pi-ai enabled (large: ${reg.modelSpec}${piAiSmall ? ", small override set" : ""})`,
+              );
+            } catch (err) {
+              logger.warn(
+                `[milady] Hot-reload: pi-ai enabled but failed to register: ${formatError(err)}`,
+              );
+            }
+          }
 
           // Pre-register plugin-sql + local-embedding before initialize()
           // to avoid the same race condition as the initial startup.

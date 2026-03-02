@@ -1,8 +1,8 @@
 import type { Command } from "commander";
-import { formatDocsLink } from "../../terminal/links";
-import { isRich, theme } from "../../terminal/theme";
-import { formatCliBannerLine, hasEmittedCliBanner } from "../banner";
-import { replaceCliName, resolveCliName } from "../cli-name";
+import { formatDocsLink } from "../../terminal/links.js";
+import { isRich, theme } from "../../terminal/theme.js";
+import { formatCliBannerLine, hasEmittedCliBanner } from "../banner.js";
+import { replaceCliName, resolveCliName } from "../cli-name.js";
 
 const CLI_NAME = resolveCliName();
 
@@ -10,7 +10,10 @@ const EXAMPLES = [
   ["milady", "Start Milady in the interactive TUI."],
   ["milady start", "Start the classic runtime/chat loop."],
   ["milady dashboard", "Open the Control UI in your browser."],
-  ["milady setup", "Initialize ~/.milady/milady.json and the agent workspace."],
+  [
+    "milady setup",
+    "Initialize ~/.milady/milady.json and the agent workspace.",
+  ],
   ["milady config get agents.defaults.model.primary", "Read a config value."],
   ["milady models", "Show configured model providers."],
   ["milady plugins list", "List available plugins."],

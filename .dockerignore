@@ -1,0 +1,30 @@
+.DS_Store
+**/.DS_Store
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+.bun
+**/.bun
+coverage
+**/coverage
+*.log
+
+# Build artifacts
+dist
+**/dist
+**/*.trace
+
+# Large binary media files (not needed for build)
+*.mp4
+*.mov
+*.wav
+*.mp3
+
+# Temp
+tmp
+**/tmp
+.tmp
+**/.tmp
+.cache
+**/.cache

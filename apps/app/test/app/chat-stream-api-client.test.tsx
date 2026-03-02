@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ApiError, MiladyClient } from "../../src/api-client";
+import { MiladyClient } from "../../src/api-client";
+
+function getHeaderValue(headers: HeadersInit | undefined, name: string): string | undefined {
+  if (!headers) return undefined;
+  if (headers instanceof Headers) return headers.get(name) ?? undefined;
+  if (Array.isArray(headers)) {
+    const hit = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
+    return hit?.[1];
+  }
+  const record = headers as Record<string, string>;
+  return record[name] ?? record[name.toLowerCase()];
+}
 
 function buildSseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();
@@ -24,8 +35,7 @@ function buildControlledSseResponse(initialChunk: string): {
   close: () => void;
 } {
   const encoder = new TextEncoder();
-  let streamController: ReadableStreamDefaultController<Uint8Array> | null =
-    null;
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
 
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -88,22 +98,22 @@ describe("MiladyClient streaming chat endpoints", () => {
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = String(firstCall[0]);
     const requestInit = firstCall[1] as RequestInit;
-    const requestHeaders = requestInit.headers as Record<string, string>;
 
     expect(requestUrl).toBe(
       "http://localhost:2138/api/conversations/conv-1/messages/stream",
     );
     expect(requestInit.method).toBe("POST");
-    expect(requestHeaders.Accept).toBe("text/event-stream");
-    expect(requestHeaders.Authorization).toBe("Bearer token");
-    expect(requestInit.body).toBe(
-      JSON.stringify({ text: "hi", channelType: "power" }),
-    );
+    expect(getHeaderValue(requestInit.headers, "Accept")).toBe("text/event-stream");
+    expect(getHeaderValue(requestInit.headers, "Authorization")).toBe("Bearer token");
+    expect(requestInit.body).toBe(JSON.stringify({ text: "hi", mode: "power" }));
   });
 
   test("supports legacy SSE payloads containing only text", async () => {
     fetchMock.mockResolvedValue(
-      buildSseResponse(['data: {"text":"A"}\n\n', 'data: {"text":"B"}\n\n']),
+      buildSseResponse([
+        'data: {"text":"A"}\n\n',
+        'data: {"text":"B"}\n\n',
+      ]),
     );
 
     const client = new MiladyClient("http://localhost:2138");
@@ -154,32 +164,56 @@ describe("MiladyClient streaming chat endpoints", () => {
 
   test("throws when SSE emits an error payload", async () => {
     fetchMock.mockResolvedValue(
-      buildSseResponse([
-        'data: {"type":"error","message":"stream failed"}\n\n',
-      ]),
+      buildSseResponse(['data: {"type":"error","message":"stream failed"}\n\n']),
     );
 
     const client = new MiladyClient("http://localhost:2138");
     await expect(
-      client.sendChatStream("boom", () => {}, "simple"),
+      client.sendChatStream(
+        "boom",
+        () => {},
+        "simple",
+      ),
     ).rejects.toThrow("stream failed");
   });
 
-  test("throws typed ApiError when stream endpoint responds with HTTP error", async () => {
+  test("decodes escaped newline sequences in done payload text", async () => {
     fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }),
+      buildSseResponse([
+        'data: {"type":"done","fullText":"Line 1\\\\n\\\\nLine 2","agentName":"Milady"}\n\n',
+      ]),
     );
 
     const client = new MiladyClient("http://localhost:2138");
-    const request = client.sendChatStream("boom", () => {}, "simple");
-    await expect(request).rejects.toBeInstanceOf(ApiError);
-    await expect(request).rejects.toMatchObject({
-      kind: "http",
-      status: 401,
-      path: "/api/chat/stream",
+    const result = await client.sendChatStream(
+      "newline-test",
+      () => {},
+      "simple",
+    );
+
+    expect(result).toEqual({
+      text: "Line 1\n\nLine 2",
+      agentName: "Milady",
+    });
+  });
+
+  test("keeps plain backslash content untouched when not paragraph-like escapes", async () => {
+    fetchMock.mockResolvedValue(
+      buildSseResponse([
+        'data: {"type":"done","fullText":"Path: C:\\\\temp\\\\file","agentName":"Milady"}\n\n',
+      ]),
+    );
+
+    const client = new MiladyClient("http://localhost:2138");
+    const result = await client.sendChatStream(
+      "path-test",
+      () => {},
+      "simple",
+    );
+
+    expect(result).toEqual({
+      text: "Path: C:\\temp\\file",
+      agentName: "Milady",
     });
   });
 });

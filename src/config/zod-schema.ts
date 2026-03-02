@@ -1,4 +1,4 @@
-import { z } from "zod";
+import z from "zod";
 import {
   AgentDefaultsSchema,
   AgentEntrySchema,
@@ -447,6 +447,7 @@ export const MiladySchema = z
     ui: z
       .object({
         seamColor: HexColorSchema.optional(),
+        language: z.union([z.literal("en"), z.literal("zh-CN")]).optional(),
         assistant: z
           .object({
             name: z.string().max(50).optional(),

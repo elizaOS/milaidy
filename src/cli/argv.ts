@@ -1,4 +1,4 @@
-import { parsePositiveInteger } from "../utils/number-parsing";
+import { parsePositiveInteger } from "../utils/number-parsing.js";
 
 const HELP_FLAGS = new Set(["-h", "--help"]);
 const VERSION_FLAGS = new Set(["-v", "-V", "--version"]);
@@ -122,7 +122,7 @@ export function buildParseArgv(params: {
   const normalizedArgv =
     programName && baseArgv[0] === programName
       ? baseArgv.slice(1)
-      : baseArgv[0]?.endsWith("milady") || baseArgv[0]?.endsWith("miladyai")
+      : baseArgv[0]?.endsWith("milady")
         ? baseArgv.slice(1)
         : baseArgv;
   const executable = (

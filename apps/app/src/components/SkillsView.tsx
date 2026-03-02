@@ -8,26 +8,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import type {
-  SkillInfo,
-  SkillMarketplaceResult,
-  SkillScanReportSummary,
-} from "../api-client";
 import { client } from "../api-client";
+import type { SkillInfo, SkillMarketplaceResult, SkillScanReportSummary } from "../api-client";
 import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
 import { StatusBadge } from "./shared/ui-badges";
 import { Switch } from "./shared/ui-switch";
 
 /* ── Shared style constants ─────────────────────────────────────────── */
 
-const inputCls =
-  "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs focus:border-[var(--accent)] focus:outline-none";
 const btnPrimary =
-  "px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default";
+  "anime-tech-btn anime-tech-btn-primary";
 const btnGhost =
-  "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default";
+  "anime-tech-btn";
 const btnDanger =
-  "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors";
+  "anime-tech-btn !text-[#e74c3c] !border-[#e74c3c]/30 hover:!bg-[#e74c3c]/10";
 
 /* ── Skill Card ─────────────────────────────────────────────────────── */
 
@@ -56,18 +50,14 @@ function SkillCard({
   onAcknowledge: (id: string) => void;
   onDismissReview: () => void;
 }) {
-  const isQuarantined =
-    skill.scanStatus === "warning" || skill.scanStatus === "critical";
+  const isQuarantined = skill.scanStatus === "warning" || skill.scanStatus === "critical";
   const isBlocked = skill.scanStatus === "blocked";
   const isReviewing = skillReviewId === skill.id;
 
   return (
     <div
-      className={`flex flex-col border bg-[var(--card)] transition-colors ${
-        isQuarantined || isBlocked
-          ? "border-[#e74c3c]/40"
-          : "border-[var(--border)] hover:border-[var(--accent)]/50"
-      }`}
+      className={`anime-skill-card ${skill.enabled ? "is-active" : ""} ${isQuarantined || isBlocked ? "!border-l-[#e74c3c] !shadow-[inset_2px_0_15px_rgba(231,76,60,0.1)]" : ""
+        }`}
       data-skill-id={skill.id}
     >
       {/* Main content area */}
@@ -85,9 +75,7 @@ function SkillCard({
                     : "Inactive"
             }
             tone={
-              skill.scanStatus === "blocked" ||
-              skill.scanStatus === "critical" ||
-              skill.scanStatus === "warning"
+              skill.scanStatus === "blocked" || skill.scanStatus === "critical" || skill.scanStatus === "warning"
                 ? skill.scanStatus === "warning"
                   ? "warning"
                   : "danger"
@@ -110,7 +98,6 @@ function SkillCard({
           )}
           {isQuarantined && !isReviewing && (
             <button
-              type="button"
               className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
               onClick={() => onReview(skill.id)}
             >
@@ -120,10 +107,7 @@ function SkillCard({
         </div>
 
         {/* Name + description */}
-        <div
-          className="font-semibold text-sm text-[var(--txt)] mb-1 truncate"
-          title={skill.name}
-        >
+        <div className="font-semibold text-sm text-[var(--txt)] mb-1 truncate" title={skill.name}>
           {skill.name}
         </div>
         <div className="text-[11px] text-[var(--muted)] line-clamp-2 min-h-[2em]">
@@ -133,11 +117,7 @@ function SkillCard({
 
       {/* Footer actions */}
       <div className="flex items-center gap-1.5 px-4 py-2.5 border-t border-[var(--border)] bg-[var(--bg)]">
-        <button
-          type="button"
-          className={btnGhost}
-          onClick={() => onEdit(skill)}
-        >
+        <button className={btnGhost} onClick={() => onEdit(skill)}>
           Edit
         </button>
         <ConfirmDeleteControl
@@ -149,10 +129,7 @@ function SkillCard({
           onConfirm={() => onDelete(skill.id, skill.name)}
         />
         <span className="flex-1" />
-        <span
-          className="text-[10px] text-[var(--muted)] font-mono truncate max-w-[120px]"
-          title={skill.id}
-        >
+        <span className="text-[10px] text-[var(--muted)] font-mono truncate max-w-[120px]" title={skill.id}>
           {skill.id.length > 16 ? `${skill.id.slice(0, 16)}...` : skill.id}
         </span>
       </div>
@@ -161,9 +138,7 @@ function SkillCard({
       {isReviewing && skillReviewReport ? (
         <div className="border-t border-[var(--border)] p-4 bg-[var(--bg)]">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-semibold text-[var(--txt)]">
-              Scan Report
-            </span>
+            <span className="text-xs font-semibold text-[var(--txt)]">Scan Report</span>
             <span className="text-[11px] text-[#e74c3c] font-mono">
               {skillReviewReport.summary.critical} critical
             </span>
@@ -173,50 +148,33 @@ function SkillCard({
           </div>
           {skillReviewReport.findings.length > 0 && (
             <div className="max-h-40 overflow-y-auto mb-3 border border-[var(--border)] bg-[var(--card)]">
-              {skillReviewReport.findings.map(
-                (
-                  f: SkillScanReportSummary["findings"][number],
-                  idx: number,
-                ) => (
-                  <div
-                    key={`${f.file}:${f.line}:${f.message}`}
-                    className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
-                      idx > 0 ? "border-t border-[var(--border)]" : ""
+              {skillReviewReport.findings.map((f: SkillScanReportSummary["findings"][number], idx: number) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${idx > 0 ? "border-t border-[var(--border)]" : ""
                     }`}
-                  >
-                    <span
-                      className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
-                        f.severity === "critical"
-                          ? "bg-[#e74c3c]/15 text-[#e74c3c]"
-                          : "bg-[#f39c12]/15 text-[#f39c12]"
+                >
+                  <span
+                    className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${f.severity === "critical"
+                      ? "bg-[#e74c3c]/15 text-[#e74c3c]"
+                      : "bg-[#f39c12]/15 text-[#f39c12]"
                       }`}
-                    >
-                      {f.severity}
-                    </span>
-                    <span className="text-[var(--txt)] flex-1 min-w-0">
-                      {f.message}
-                    </span>
-                    <span className="text-[var(--muted)] shrink-0">
-                      {f.file}:{f.line}
-                    </span>
-                  </div>
-                ),
-              )}
+                  >
+                    {f.severity}
+                  </span>
+                  <span className="text-[var(--txt)] flex-1 min-w-0">{f.message}</span>
+                  <span className="text-[var(--muted)] shrink-0">
+                    {f.file}:{f.line}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={() => onAcknowledge(skill.id)}
-            >
+            <button className={btnPrimary} onClick={() => onAcknowledge(skill.id)}>
               Acknowledge &amp; Enable
             </button>
-            <button
-              type="button"
-              className={btnGhost}
-              onClick={onDismissReview}
-            >
+            <button className={btnGhost} onClick={onDismissReview}>
               Dismiss
             </button>
           </div>
@@ -250,15 +208,13 @@ function MarketplaceCard({
   const sourceLabel = item.repository || item.slug || item.id;
 
   return (
-    <div className="flex items-start gap-4 p-4 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 transition-colors">
+    <div className="anime-skill-card flex-row items-start gap-4 p-4 !clip-path-none rounded-sm">
       {/* Icon placeholder */}
       <div className="w-10 h-10 shrink-0 flex items-center justify-center bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-bold rounded">
         {item.name.charAt(0).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm text-[var(--txt)]">
-          {item.name}
-        </div>
+        <div className="font-semibold text-sm text-[var(--txt)]">{item.name}</div>
         <div className="text-[11px] text-[var(--muted)] mt-0.5 line-clamp-2">
           {item.description || "No description."}
         </div>
@@ -274,10 +230,7 @@ function MarketplaceCard({
             <>
               <span className="text-[var(--border)]">/</span>
               {item.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className="px-1.5 py-px bg-[var(--accent)]/10 text-[var(--accent)]"
-                >
+                <span key={tag} className="px-1.5 py-px bg-[var(--accent)]/10 text-[var(--accent)]">
                   {tag}
                 </span>
               ))}
@@ -287,7 +240,6 @@ function MarketplaceCard({
       </div>
       {isInstalled ? (
         <button
-          type="button"
           className={btnDanger}
           onClick={() => onUninstall(item.id, item.name)}
           disabled={isUninstalling}
@@ -296,7 +248,6 @@ function MarketplaceCard({
         </button>
       ) : (
         <button
-          type="button"
           className={btnPrimary}
           onClick={() => onInstall(item)}
           disabled={isInstalling}
@@ -345,32 +296,21 @@ function InstallModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
     >
-      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
+      <div className="relative w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--ac-accent)]/40 bg-[#0a0c12] shadow-[0_0_50px_rgba(0,0,0,0.8)] mx-4 overflow-hidden" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%)" }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div>
-            <div className="text-sm font-semibold text-[var(--txt)]">
-              Install Skill
-            </div>
+            <div className="text-sm font-semibold text-[var(--txt)]">Install Skill</div>
             <div className="text-[11px] text-[var(--muted)] mt-0.5">
               Add skills from the marketplace or a GitHub repository.
             </div>
           </div>
           <button
-            type="button"
             className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2 transition-colors"
             onClick={onClose}
           >
@@ -387,13 +327,11 @@ function InstallModal({
             ] as const
           ).map((t) => (
             <button
-              type="button"
               key={t.id}
-              className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
-                tab === t.id
-                  ? "text-[var(--accent)] border-b-[var(--accent)]"
-                  : "text-[var(--muted)] border-b-transparent hover:text-[var(--txt)]"
-              }`}
+              className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${tab === t.id
+                ? "text-[var(--accent)] border-b-[var(--accent)]"
+                : "text-[var(--muted)] border-b-transparent hover:text-[var(--txt)]"
+                }`}
               onClick={() => setTab(t.id)}
             >
               {t.label}
@@ -406,19 +344,17 @@ function InstallModal({
           {tab === "search" && (
             <>
               <div className="flex gap-2 items-center mb-4">
-                <input
-                  className={`${inputCls} flex-1 min-w-[200px]`}
-                  placeholder="Search skills by keyword..."
-                  value={skillsMarketplaceQuery}
-                  onChange={(e) =>
-                    setState("skillsMarketplaceQuery", e.target.value)
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void searchSkillsMarketplace();
-                  }}
-                />
+                <div className="anime-tech-input-wrap flex-1 min-w-[200px]">
+                  <input
+                    placeholder="Search skills by keyword..."
+                    value={skillsMarketplaceQuery}
+                    onChange={(e) => setState("skillsMarketplaceQuery", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void searchSkillsMarketplace();
+                    }}
+                  />
+                </div>
                 <button
-                  type="button"
                   className={btnPrimary}
                   onClick={() => searchSkillsMarketplace()}
                   disabled={skillsMarketplaceLoading}
@@ -435,9 +371,7 @@ function InstallModal({
 
               {skillsMarketplaceResults.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-[var(--muted)] text-sm mb-1">
-                    No results
-                  </div>
+                  <div className="text-[var(--muted)] text-sm mb-1">No results</div>
                   <div className="text-[var(--muted)] text-[11px]">
                     Search above to discover skills from the marketplace.
                   </div>
@@ -445,8 +379,7 @@ function InstallModal({
               ) : (
                 <div className="flex flex-col gap-2">
                   <div className="text-[11px] text-[var(--muted)] mb-1">
-                    {skillsMarketplaceResults.length} result
-                    {skillsMarketplaceResults.length !== 1 ? "s" : ""}
+                    {skillsMarketplaceResults.length} result{skillsMarketplaceResults.length !== 1 ? "s" : ""}
                   </div>
                   {skillsMarketplaceResults.map((item) => (
                     <MarketplaceCard
@@ -465,27 +398,22 @@ function InstallModal({
 
           {tab === "url" && (
             <div>
-              <div className="text-xs text-[var(--txt)] mb-1 font-medium">
-                GitHub Repository URL
-              </div>
+              <div className="text-xs text-[var(--txt)] mb-1 font-medium">GitHub Repository URL</div>
               <div className="text-[11px] text-[var(--muted)] mb-3">
-                Paste a full GitHub URL or a /tree/... path to install a skill
-                directly.
+                Paste a full GitHub URL or a /tree/... path to install a skill directly.
               </div>
               <div className="flex gap-2 items-center">
-                <input
-                  className={`${inputCls} flex-1`}
-                  placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
-                  value={skillsMarketplaceManualGithubUrl}
-                  onChange={(e) =>
-                    setState("skillsMarketplaceManualGithubUrl", e.target.value)
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void installSkillFromGithubUrl();
-                  }}
-                />
+                <div className="anime-tech-input-wrap flex-1">
+                  <input
+                    placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
+                    value={skillsMarketplaceManualGithubUrl}
+                    onChange={(e) => setState("skillsMarketplaceManualGithubUrl", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void installSkillFromGithubUrl();
+                    }}
+                  />
+                </div>
                 <button
-                  type="button"
                   className={btnPrimary}
                   onClick={() => installSkillFromGithubUrl()}
                   disabled={
@@ -493,9 +421,7 @@ function InstallModal({
                     !skillsMarketplaceManualGithubUrl.trim()
                   }
                 >
-                  {skillsMarketplaceAction === "install:manual"
-                    ? "Installing..."
-                    : "Install"}
+                  {skillsMarketplaceAction === "install:manual" ? "Installing..." : "Install"}
                 </button>
               </div>
 
@@ -532,45 +458,45 @@ function CreateSkillForm({
   return (
     <div className="border border-[var(--accent)]/40 bg-[var(--card)] mb-4">
       <div className="px-4 py-3 border-b border-[var(--border)]">
-        <div className="text-xs font-semibold text-[var(--txt)]">
-          Create New Skill
-        </div>
+        <div className="text-xs font-semibold text-[var(--txt)]">Create New Skill</div>
       </div>
       <div className="p-4 flex flex-col gap-3">
         <div>
-          <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
+          <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Skill Name <span className="text-[#e74c3c]">*</span>
-          </span>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="e.g. my-awesome-skill"
-            value={skillCreateName}
-            onChange={(e) => setState("skillCreateName", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && skillCreateName.trim()) onCreate();
-            }}
-          />
+          </label>
+          <div className="anime-tech-input-wrap w-full mt-1">
+            <input
+              placeholder="e.g. my-awesome-skill"
+              value={skillCreateName}
+              onChange={(e) => setState("skillCreateName", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && skillCreateName.trim()) onCreate();
+              }}
+              autoFocus
+            />
+          </div>
         </div>
         <div>
-          <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
+          <label className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
             Description
-          </span>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="Brief description of what this skill does (optional)"
-            value={skillCreateDescription}
-            onChange={(e) => setState("skillCreateDescription", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && skillCreateName.trim()) onCreate();
-            }}
-          />
+          </label>
+          <div className="anime-tech-input-wrap w-full mt-1">
+            <input
+              placeholder="Brief description of what this skill does (optional)"
+              value={skillCreateDescription}
+              onChange={(e) => setState("skillCreateDescription", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && skillCreateName.trim()) onCreate();
+              }}
+            />
+          </div>
         </div>
         <div className="flex gap-2 justify-end pt-1">
-          <button type="button" className={btnGhost} onClick={onCancel}>
+          <button className={btnGhost} onClick={onCancel}>
             Cancel
           </button>
           <button
-            type="button"
             className={btnPrimary}
             onClick={onCreate}
             disabled={skillCreating || !skillCreateName.trim()}
@@ -611,9 +537,7 @@ function EditSkillModal({
       setContent(res.content);
       setOriginalContent(res.content);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load skill source",
-      );
+      setError(err instanceof Error ? err.message : "Failed to load skill source");
     }
     setLoading(false);
   }, [skillId]);
@@ -652,7 +576,7 @@ function EditSkillModal({
       const start = target.selectionStart;
       const end = target.selectionEnd;
       const val = target.value;
-      setContent(`${val.substring(0, start)}  ${val.substring(end)}`);
+      setContent(val.substring(0, start) + "  " + val.substring(end));
       requestAnimationFrame(() => {
         target.selectionStart = target.selectionEnd = start + 2;
       });
@@ -661,33 +585,21 @@ function EditSkillModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
     >
-      <div className="w-full max-w-4xl h-[85vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
+      <div className="relative w-full max-w-4xl h-[85vh] flex flex-col border border-[var(--ac-accent)]/40 bg-[#0a0c12] shadow-[0_0_50px_rgba(0,0,0,0.8)] mx-4 overflow-hidden" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%)" }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="font-semibold text-sm text-[var(--txt)] truncate">
-              {skillName}
-            </div>
+            <div className="font-semibold text-sm text-[var(--txt)] truncate">{skillName}</div>
             <span className="text-[10px] font-mono text-[var(--muted)] px-1.5 py-0.5 bg-[var(--card)] border border-[var(--border)]">
               SKILL.md
             </span>
             {hasChanges && (
-              <span className="text-[10px] text-[var(--accent)] font-medium">
-                unsaved
-              </span>
+              <span className="text-[10px] text-[var(--accent)] font-medium">unsaved</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -695,7 +607,6 @@ function EditSkillModal({
               {navigator.platform.includes("Mac") ? "⌘S" : "Ctrl+S"} to save
             </span>
             <button
-              type="button"
               className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2 transition-colors"
               onClick={onClose}
             >
@@ -713,11 +624,7 @@ function EditSkillModal({
           ) : error && !content ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <div className="text-[#e74c3c] text-sm">{error}</div>
-              <button
-                type="button"
-                className={btnGhost}
-                onClick={() => loadSource()}
-              >
+              <button className={btnGhost} onClick={() => loadSource()}>
                 Retry
               </button>
             </div>
@@ -741,11 +648,10 @@ function EditSkillModal({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" className={btnGhost} onClick={onClose}>
+            <button className={btnGhost} onClick={onClose}>
               {hasChanges ? "Discard" : "Close"}
             </button>
             <button
-              type="button"
               className={`${btnPrimary} ${saveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
               onClick={() => handleSave()}
               disabled={saving || !hasChanges}
@@ -801,47 +707,36 @@ export function SkillsView() {
   }, [loadSkills]);
 
   // Group into: needs attention, active, inactive — with text filter
-  const { attention, active, inactive, activeCount, totalCount } =
-    useMemo(() => {
-      const attention: SkillInfo[] = [];
-      const active: SkillInfo[] = [];
-      const inactive: SkillInfo[] = [];
-      let activeCount = 0;
+  const { attention, active, inactive, activeCount, totalCount } = useMemo(() => {
+    const attention: SkillInfo[] = [];
+    const active: SkillInfo[] = [];
+    const inactive: SkillInfo[] = [];
+    let activeCount = 0;
 
-      const query = filterText.toLowerCase();
+    const query = filterText.toLowerCase();
 
-      for (const skill of skills) {
-        if (
-          query &&
-          !skill.name.toLowerCase().includes(query) &&
-          !skill.description?.toLowerCase().includes(query)
-        ) {
-          continue;
-        }
-
-        if (skill.enabled) activeCount++;
-
-        if (
-          skill.scanStatus === "warning" ||
-          skill.scanStatus === "critical" ||
-          skill.scanStatus === "blocked"
-        ) {
-          attention.push(skill);
-        } else if (skill.enabled) {
-          active.push(skill);
-        } else {
-          inactive.push(skill);
-        }
+    for (const skill of skills) {
+      if (query && !skill.name.toLowerCase().includes(query) && !skill.description?.toLowerCase().includes(query)) {
+        continue;
       }
 
-      return {
-        attention,
-        active,
-        inactive,
-        activeCount,
-        totalCount: skills.length,
-      };
-    }, [skills, filterText]);
+      if (skill.enabled) activeCount++;
+
+      if (
+        skill.scanStatus === "warning" ||
+        skill.scanStatus === "critical" ||
+        skill.scanStatus === "blocked"
+      ) {
+        attention.push(skill);
+      } else if (skill.enabled) {
+        active.push(skill);
+      } else {
+        inactive.push(skill);
+      }
+    }
+
+    return { attention, active, inactive, activeCount, totalCount: skills.length };
+  }, [skills, filterText]);
 
   const handleDismissReview = () => {
     setState("skillReviewId", "");
@@ -861,14 +756,9 @@ export function SkillsView() {
     if (items.length === 0) return null;
     return (
       <div className="mb-6">
-        <div
-          className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-2"
-          style={accent ? { color: accent } : { color: "var(--muted)" }}
-        >
+        <div className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-2" style={accent ? { color: accent } : { color: "var(--muted)" }}>
           {label}
-          <span className="text-[10px] font-mono opacity-60">
-            ({items.length})
-          </span>
+          <span className="text-[10px] font-mono opacity-60">({items.length})</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {items.map((skill) => (
@@ -896,9 +786,7 @@ export function SkillsView() {
     <div>
       {/* Stats bar */}
       <div className="flex items-center gap-4 mb-4 text-[11px] text-[var(--muted)]">
-        <span>
-          {totalCount} skill{totalCount !== 1 ? "s" : ""}
-        </span>
+        <span>{totalCount} skill{totalCount !== 1 ? "s" : ""}</span>
         <span>{activeCount} active</span>
         <span>{inactive.length} inactive</span>
         {attention.length > 0 && (
@@ -910,32 +798,27 @@ export function SkillsView() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Filter skills..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          className={`${inputCls} w-[200px]`}
-        />
+        <div className="anime-tech-input-wrap w-[200px]">
+          <input
+            type="text"
+            placeholder="FILTER_SKILLS..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
 
         <span className="flex-1" />
 
         <button
-          type="button"
           className={skillCreateFormOpen ? btnGhost : btnPrimary}
           onClick={() => setState("skillCreateFormOpen", !skillCreateFormOpen)}
         >
           {skillCreateFormOpen ? "Cancel" : "+ New Skill"}
         </button>
-        <button
-          type="button"
-          className={btnPrimary}
-          onClick={() => setInstallModalOpen(true)}
-        >
+        <button className={btnPrimary} onClick={() => setInstallModalOpen(true)}>
           Install
         </button>
         <button
-          type="button"
           className={btnGhost}
           onClick={() => refreshSkills()}
           title="Refresh skills list"
@@ -958,27 +841,33 @@ export function SkillsView() {
 
       {/* Skill grid — grouped by status */}
       {skills.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-[var(--muted)] text-sm mb-2">
-            No skills installed
+        <div className="flex flex-col items-center justify-center py-20 relative">
+          {/* Animated Tech Node Warning Graphic */}
+          <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
+            <svg className="absolute inset-0 w-full h-full animate-[spin_10s_linear_infinite]" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(0,225,255,0.2)" strokeWidth="1" strokeDasharray="4 6" />
+              <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,225,255,0.4)" strokeWidth="2" strokeDasharray="20 10 10 5" />
+              <polygon points="50,15 80,80 20,80" fill="none" stroke="var(--ac-accent)" strokeWidth="1" opacity="0.5" />
+            </svg>
+            <div className="w-16 h-16 rounded-full bg-[var(--ac-accent)]/10 border border-[var(--ac-accent)] flex items-center justify-center shadow-[0_0_20px_rgba(0,225,255,0.2)]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ac-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+            </div>
           </div>
-          <div className="text-[var(--muted)] text-[11px] mb-4">
-            Install skills from the marketplace or create a new one.
+          <div className="text-[var(--ac-accent)] font-bold text-lg mb-2 tracking-[0.2em] uppercase" style={{ textShadow: "0 0 10px rgba(0,225,255,0.5)" }}>
+            [ SYS.NEURAL_NET: NO NODES ]
           </div>
-          <div className="flex justify-center gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={() => setInstallModalOpen(true)}
-            >
-              Browse Marketplace
+          <div className="text-[var(--muted)] text-[11px] mb-8 max-w-sm text-center tracking-wide font-mono">
+            WARNING: Core skill matrix is currently unpopulated.
+            <br />Please install modules to restore uplink functionality.
+          </div>
+          <div className="flex justify-center gap-4">
+            <button className={`${btnPrimary} py-2 px-6`} onClick={() => setInstallModalOpen(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              MARKETPLACE UPLINK
             </button>
-            <button
-              type="button"
-              className={btnGhost}
-              onClick={() => setState("skillCreateFormOpen", true)}
-            >
-              Create Skill
+            <button className={`${btnGhost} py-2 px-6`} onClick={() => setState("skillCreateFormOpen", true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              INIT LOCAL NODE
             </button>
           </div>
         </div>

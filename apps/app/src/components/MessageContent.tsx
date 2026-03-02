@@ -10,19 +10,36 @@
  *   3. Everything else → plain text
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApp } from "../AppContext";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { ConversationMessage, PluginInfo } from "../api-client";
 import { client } from "../api-client";
-import type { ConfigUiHint } from "../types";
-import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { paramsToSchema } from "./PluginsView";
+import type { ConfigUiHint } from "../types";
+import type { JsonSchemaObject } from "./config-catalog";
+
+import { useApp } from "../AppContext";
 import { UiRenderer } from "./ui-renderer";
 import type { UiSpec } from "./ui-spec";
 
 /** Reject prototype-pollution plugin IDs that could slip through the regex. */
 const BLOCKED_IDS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Normalize text content: decode common HTML entities that may appear in
+ * LLM output (e.g. `&#10;` for newline) so they render correctly as plain text.
+ */
+function normalizeText(text: string): string {
+  return text
+    .replace(/&#10;/g, "\n")
+    .replace(/&#13;/g, "\r")
+    .replace(/&#9;/g, "\t")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
 
 export interface MessageContentProps {
   message: ConversationMessage;
@@ -41,21 +58,13 @@ const CONFIG_RE = /\[CONFIG:(\w[\w-]*)\]/g;
 const FENCED_JSON_RE = /```(?:json)?\s*\n([\s\S]*?)```/g;
 
 function tryParse(s: string): unknown {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(s); } catch { return null; }
 }
 
 function isUiSpec(obj: unknown): obj is UiSpec {
   if (!obj || typeof obj !== "object") return false;
   const c = obj as Record<string, unknown>;
-  return (
-    typeof c.root === "string" &&
-    typeof c.elements === "object" &&
-    c.elements !== null
-  );
+  return typeof c.root === "string" && typeof c.elements === "object" && c.elements !== null;
 }
 
 /**
@@ -68,20 +77,18 @@ function parseSegments(text: string): Segment[] {
 
   // 1. Find [CONFIG:pluginId] markers
   CONFIG_RE.lastIndex = 0;
-  let m: RegExpExecArray | null = CONFIG_RE.exec(text);
-  while (m !== null) {
+  let m: RegExpExecArray | null;
+  while ((m = CONFIG_RE.exec(text)) !== null) {
     regions.push({
       start: m.index,
       end: m.index + m[0].length,
       segment: { kind: "config", pluginId: m[1] },
     });
-    m = CONFIG_RE.exec(text);
   }
 
   // 2. Find fenced JSON that is a UiSpec
   FENCED_JSON_RE.lastIndex = 0;
-  m = FENCED_JSON_RE.exec(text);
-  while (m !== null) {
+  while ((m = FENCED_JSON_RE.exec(text)) !== null) {
     const json = m[1].trim();
     const parsed = tryParse(json);
     if (parsed && isUiSpec(parsed)) {
@@ -91,7 +98,6 @@ function parseSegments(text: string): Segment[] {
         segment: { kind: "ui-spec", spec: parsed, raw: json },
       });
     }
-    m = FENCED_JSON_RE.exec(text);
   }
 
   // No special content found — return plain text
@@ -165,9 +171,7 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
     }
   }, [pluginId]);
 
-  useEffect(() => {
-    void fetchPlugin();
-  }, [fetchPlugin]);
+  useEffect(() => { void fetchPlugin(); }, [fetchPlugin]);
 
   // Build schema + hints — keyed on plugin.id to avoid recomputing on
   // every fetch (the PluginInfo object is a new reference each time).
@@ -199,10 +203,7 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
     return v;
   }, [pluginParams]);
 
-  const mergedValues = useMemo(
-    () => ({ ...initialValues, ...values }),
-    [initialValues, values],
-  );
+  const mergedValues = useMemo(() => ({ ...initialValues, ...values }), [initialValues, values]);
 
   const setKeys = useMemo(() => {
     const s = new Set<string>();
@@ -235,62 +236,48 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
       if (mountedRef.current) setSaved(true);
       await fetchPlugin();
     } catch (e) {
-      if (mountedRef.current)
-        setError(e instanceof Error ? e.message : "Failed to save.");
+      if (mountedRef.current) setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
       if (mountedRef.current) setSaving(false);
     }
   }, [pluginId, values, fetchPlugin]);
 
-  const handleToggle = useCallback(
-    async (enable: boolean) => {
-      setEnabling(true);
-      setError(null);
-      try {
-        // Save pending config first, then toggle — same as the Plugins page
-        if (enable) {
-          const patch: Record<string, string> = {};
-          for (const [k, v] of Object.entries(values)) {
-            if (v != null && v !== "") patch[k] = String(v);
-          }
-          if (Object.keys(patch).length > 0) {
-            await client.updatePlugin(pluginId, { config: patch });
-          }
+  const handleToggle = useCallback(async (enable: boolean) => {
+    setEnabling(true);
+    setError(null);
+    try {
+      // Save pending config first, then toggle — same as the Plugins page
+      if (enable) {
+        const patch: Record<string, string> = {};
+        for (const [k, v] of Object.entries(values)) {
+          if (v != null && v !== "") patch[k] = String(v);
         }
-        // Exact same call as the ON button in PluginsView
-        await client.updatePlugin(pluginId, { enabled: enable });
-        // Refresh shared plugin state so Plugins page shows updated status
-        await loadPlugins();
-        if (enable && mountedRef.current) {
-          const tabLabel =
-            plugin?.category === "feature"
-              ? "Plugins > Features"
-              : plugin?.category === "connector"
-                ? "Plugins > Connectors"
-                : "Plugins > System";
-          setActionNotice(
-            `${plugin?.name ?? pluginId} enabled! Find it in ${tabLabel}.`,
-            "success",
-            4000,
-          );
-          setDismissed(true);
+        if (Object.keys(patch).length > 0) {
+          await client.updatePlugin(pluginId, { config: patch });
         }
-        // Wait for agent restart then refresh (with cleanup on unmount)
-        refreshTimerRef.current = setTimeout(() => void fetchPlugin(), 3000);
-      } catch (e) {
-        if (mountedRef.current) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : `Failed to ${enable ? "enable" : "disable"} plugin.`,
-          );
-        }
-      } finally {
-        if (mountedRef.current) setEnabling(false);
       }
-    },
-    [pluginId, plugin, values, fetchPlugin, loadPlugins, setActionNotice],
-  );
+      // Exact same call as the ON button in PluginsView
+      await client.updatePlugin(pluginId, { enabled: enable });
+      // Refresh shared plugin state so Plugins page shows updated status
+      await loadPlugins();
+      if (enable && mountedRef.current) {
+        const tabLabel =
+          plugin?.category === "feature" ? "Plugins > Features"
+          : plugin?.category === "connector" ? "Plugins > Connectors"
+          : "Plugins > System";
+        setActionNotice(`${plugin?.name ?? pluginId} enabled! Find it in ${tabLabel}.`, "success", 4000);
+        setDismissed(true);
+      }
+      // Wait for agent restart then refresh (with cleanup on unmount)
+      refreshTimerRef.current = setTimeout(() => void fetchPlugin(), 3000);
+    } catch (e) {
+      if (mountedRef.current) {
+        setError(e instanceof Error ? e.message : `Failed to ${enable ? "enable" : "disable"} plugin.`);
+      }
+    } finally {
+      if (mountedRef.current) setEnabling(false);
+    }
+  }, [pluginId, plugin, values, fetchPlugin, loadPlugins, setActionNotice]);
 
   if (dismissed) {
     return (
@@ -334,9 +321,7 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
           {plugin.configured && (
             <span className="text-[10px] text-ok font-medium">Configured</span>
           )}
-          <span
-            className={`text-[10px] font-medium ${isEnabled ? "text-ok" : "text-muted"}`}
-          >
+          <span className={`text-[10px] font-medium ${isEnabled ? "text-ok" : "text-muted"}`}>
             {isEnabled ? "Active" : "Inactive"}
           </span>
         </div>
@@ -365,7 +350,6 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border flex-wrap">
         {schema && plugin.parameters.length > 0 && (
           <button
-            type="button"
             className="px-4 py-1.5 text-xs border border-accent bg-accent text-accent-fg cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={handleSave}
             disabled={saving || enabling || Object.keys(values).length === 0}
@@ -376,7 +360,6 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
 
         {!isEnabled ? (
           <button
-            type="button"
             className="px-4 py-1.5 text-xs border border-ok bg-ok/10 text-ok cursor-pointer hover:bg-ok/20 disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={() => void handleToggle(true)}
             disabled={enabling || saving}
@@ -385,7 +368,6 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
           </button>
         ) : (
           <button
-            type="button"
             className="px-4 py-1.5 text-xs border border-border text-muted cursor-pointer hover:border-danger hover:text-danger disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={() => void handleToggle(false)}
             disabled={enabling || saving}
@@ -405,14 +387,12 @@ function InlinePluginConfig({ pluginId }: { pluginId: string }) {
 
 function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
   const [showRaw, setShowRaw] = useState(false);
-  const { sendActionMessage } = useApp();
 
+  // Actions from UiSpec elements — currently a no-op.
+  // TODO(#35): Wire to chat API for server-round-trip actions.
   const handleAction = useCallback(
-    (action: string, params?: Record<string, unknown>) => {
-      const paramsStr = params ? ` ${JSON.stringify(params)}` : "";
-      void sendActionMessage(`[action:${action}]${paramsStr}`);
-    },
-    [sendActionMessage],
+    (_action: string, _params?: Record<string, unknown>) => {},
+    [],
   );
 
   return (
@@ -458,49 +438,28 @@ export function MessageContent({ message }: MessageContentProps) {
 
   // Fast path: single plain-text segment (most messages)
   if (segments.length === 1 && segments[0].kind === "text") {
-    return <div className="whitespace-pre-wrap">{message.text}</div>;
+    return <div className="text-txt whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{normalizeText(message.text)}</div>;
   }
 
   return (
     <div>
-      {(() => {
-        const keyCounts = new Map<string, number>();
-        const nextKey = (base: string) => {
-          const nextCount = (keyCounts.get(base) ?? 0) + 1;
-          keyCounts.set(base, nextCount);
-          return `${base}:${nextCount}`;
-        };
-
-        return segments.map((seg) => {
-          const baseKey =
-            seg.kind === "text"
-              ? `text:${seg.text.slice(0, 80)}`
-              : seg.kind === "config"
-                ? `config:${seg.pluginId}`
-                : `ui:${seg.raw.slice(0, 80)}`;
-          const segmentKey = nextKey(baseKey);
-
-          switch (seg.kind) {
-            case "text":
-              return (
-                <div key={segmentKey} className="whitespace-pre-wrap">
-                  {seg.text}
-                </div>
-              );
-            case "config":
-              if (BLOCKED_IDS.has(seg.pluginId)) return null;
-              return (
-                <InlinePluginConfig key={segmentKey} pluginId={seg.pluginId} />
-              );
-            case "ui-spec":
-              return (
-                <UiSpecBlock key={segmentKey} spec={seg.spec} raw={seg.raw} />
-              );
-            default:
-              return null;
-          }
-        });
-      })()}
+      {segments.map((seg, i) => {
+        switch (seg.kind) {
+          case "text":
+            return (
+              <div key={i} className="text-txt whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>
+                {normalizeText(seg.text)}
+              </div>
+            );
+          case "config":
+            if (BLOCKED_IDS.has(seg.pluginId)) return null;
+            return <InlinePluginConfig key={i} pluginId={seg.pluginId} />;
+          case "ui-spec":
+            return <UiSpecBlock key={i} spec={seg.spec} raw={seg.raw} />;
+          default:
+            return null;
+        }
+      })}
     </div>
   );
 }

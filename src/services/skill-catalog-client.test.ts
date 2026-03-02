@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 async function loadModule() {
-  return await import("./skill-catalog-client");
+  return await import("./skill-catalog-client.js");
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +142,10 @@ describe("skill-catalog-client", () => {
     it("returns empty array when no catalog file exists", async () => {
       // Point env at a non-existent file — since MILADY_SKILLS_CATALOG is
       // set, the client won't fall back to other paths.
-      process.env.MILADY_SKILLS_CATALOG = path.join(tmpDir, "nonexistent.json");
+      process.env.MILADY_SKILLS_CATALOG = path.join(
+        tmpDir,
+        "nonexistent.json",
+      );
 
       const { getCatalogSkills } = await loadModule();
       const skills = await getCatalogSkills();

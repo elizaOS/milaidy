@@ -1,173 +1,129 @@
-// @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tab } from "../../src/navigation";
-import { getTabGroups } from "../../src/navigation";
+import { TAB_GROUPS } from "../../src/navigation";
 
 const { mockUseApp, noop } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   noop: vi.fn(),
-}));
-const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
-  mockUseLifoAutoPopout: vi.fn(),
 }));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
-vi.mock("../../src/components/Header", () => ({
+vi.mock("../../src/components/Header.js", () => ({
   Header: () => React.createElement("header", null, "Header"),
 }));
 
-vi.mock("../../src/components/CommandPalette", () => ({
+vi.mock("../../src/components/Nav.js", () => ({
+  Nav: () => React.createElement("nav", null, "Nav"),
+}));
+
+vi.mock("../../src/components/CommandPalette.js", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
 
-vi.mock("../../src/components/EmotePicker", () => ({
+vi.mock("../../src/components/EmotePicker.js", () => ({
   EmotePicker: () => React.createElement("div", null, "EmotePicker"),
 }));
 
-vi.mock("../../src/components/SaveCommandModal", () => ({
+vi.mock("../../src/components/SaveCommandModal.js", () => ({
   SaveCommandModal: () => React.createElement("div", null, "SaveCommandModal"),
 }));
 
-vi.mock("../../src/components/PairingView", () => ({
+vi.mock("../../src/components/PairingView.js", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
 
-vi.mock("../../src/components/OnboardingWizard", () => ({
+vi.mock("../../src/components/OnboardingWizard.js", () => ({
   OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
 }));
 
-vi.mock("../../src/components/ChatView", () => ({
+vi.mock("../../src/components/ChatView.js", () => ({
   ChatView: () => React.createElement("section", null, "ChatView Ready"),
 }));
 
-vi.mock("../../src/components/StreamView", () => ({
-  StreamView: () => React.createElement("section", null, "StreamView Ready"),
-}));
-
-vi.mock("../../src/components/ConversationsSidebar", () => ({
+vi.mock("../../src/components/ConversationsSidebar.js", () => ({
   ConversationsSidebar: () =>
     React.createElement("aside", null, "ConversationsSidebar"),
 }));
 
-vi.mock("../../src/components/AutonomousPanel", () => ({
+vi.mock("../../src/components/AutonomousPanel.js", () => ({
   AutonomousPanel: () => React.createElement("aside", null, "AutonomousPanel"),
 }));
 
-vi.mock("../../src/components/CustomActionsPanel", () => ({
+vi.mock("../../src/components/CustomActionsPanel.js", () => ({
   CustomActionsPanel: () =>
     React.createElement("aside", null, "CustomActionsPanel"),
 }));
 
-vi.mock("../../src/components/CustomActionEditor", () => ({
+vi.mock("../../src/components/CustomActionEditor.js", () => ({
   CustomActionEditor: () =>
     React.createElement("aside", null, "CustomActionEditor"),
 }));
 
-vi.mock("../../src/components/AppsPageView", () => ({
-  AppsPageView: () =>
-    React.createElement("section", null, "AppsPageView Ready"),
+vi.mock("../../src/components/AppsPageView.js", () => ({
+  AppsPageView: () => React.createElement("section", null, "AppsPageView Ready"),
 }));
 
-vi.mock("../../src/components/CharacterView", () => ({
+vi.mock("../../src/components/AdvancedPageView.js", () => ({
+  AdvancedPageView: () =>
+    React.createElement("section", null, "AdvancedPageView Ready"),
+}));
+
+vi.mock("../../src/components/CharacterView.js", () => ({
   CharacterView: () =>
     React.createElement("section", null, "CharacterView Ready"),
 }));
 
-vi.mock("../../src/components/CompanionView", () => ({
-  CompanionView: () =>
-    React.createElement("section", null, "CompanionView Ready"),
-}));
-
-vi.mock("../../src/components/TriggersView", () => ({
-  TriggersView: () =>
-    React.createElement("section", null, "TriggersView Ready"),
-}));
-
-vi.mock("../../src/components/ConnectorsPageView", () => ({
+vi.mock("../../src/components/ConnectorsPageView.js", () => ({
   ConnectorsPageView: () =>
     React.createElement("section", null, "ConnectorsPageView Ready"),
 }));
 
-vi.mock("../../src/components/InventoryView", () => ({
+vi.mock("../../src/components/InventoryView.js", () => ({
   InventoryView: () =>
     React.createElement("section", null, "InventoryView Ready"),
 }));
 
-vi.mock("../../src/components/KnowledgeView", () => ({
+vi.mock("../../src/components/KnowledgeView.js", () => ({
   KnowledgeView: () =>
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
-vi.mock("../../src/components/SettingsView", () => ({
-  SettingsView: () =>
-    React.createElement("section", null, "SettingsView Ready"),
+vi.mock("../../src/components/CompanionView.js", () => ({
+  CompanionView: () =>
+    React.createElement("section", null, "CompanionView Ready"),
 }));
 
-vi.mock("../../src/components/LoadingScreen", () => ({
-  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
+vi.mock("../../src/components/ChatModalView.js", () => ({
+  ChatModalView: () =>
+    React.createElement("section", null, "ChatModalView Ready"),
 }));
 
-vi.mock("../../src/components/TerminalPanel", () => ({
-  TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
-}));
-vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
-  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
+vi.mock("../../src/components/SettingsView.js", () => ({
+  SettingsView: () => React.createElement("section", null, "SettingsView Ready"),
 }));
 
-vi.mock("../../src/components/PluginsPageView", () => ({
-  PluginsPageView: () =>
-    React.createElement("section", null, "PluginsPageView Ready"),
+vi.mock("../../src/components/PluginsView.js", () => ({
+  PluginsView: () => React.createElement("section", null, "PluginsView Ready"),
 }));
 
-vi.mock("../../src/components/SkillsView", () => ({
+vi.mock("../../src/components/SkillsView.js", () => ({
   SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
 }));
 
-vi.mock("../../src/components/CustomActionsView", () => ({
-  CustomActionsView: () =>
-    React.createElement("section", null, "CustomActionsView Ready"),
+vi.mock("../../src/components/LoadingScreen.js", () => ({
+  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
 
-vi.mock("../../src/components/FineTuningView", () => ({
-  FineTuningView: () =>
-    React.createElement("section", null, "FineTuningView Ready"),
+vi.mock("../../src/components/TerminalPanel.js", () => ({
+  TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
 }));
 
-vi.mock("../../src/components/TrajectoriesView", () => ({
-  TrajectoriesView: () =>
-    React.createElement("section", null, "TrajectoriesView Ready"),
-}));
-
-vi.mock("../../src/components/TrajectoryDetailView", () => ({
-  TrajectoryDetailView: () =>
-    React.createElement("section", null, "TrajectoryDetailView Ready"),
-}));
-
-vi.mock("../../src/components/RuntimeView", () => ({
-  RuntimeView: () => React.createElement("section", null, "RuntimeView Ready"),
-}));
-
-vi.mock("../../src/components/DatabasePageView", () => ({
-  DatabasePageView: () =>
-    React.createElement("section", null, "DatabasePageView Ready"),
-}));
-
-vi.mock("../../src/components/LogsPageView", () => ({
-  LogsPageView: () =>
-    React.createElement("section", null, "LogsPageView Ready"),
-}));
-
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () =>
-    React.createElement("section", null, "LifoSandboxView Ready"),
-}));
-
-vi.mock("../../src/hooks/useContextMenu", () => ({
+vi.mock("../../src/hooks/useContextMenu.js", () => ({
   useContextMenu: () => ({
     saveCommandModalOpen: false,
     saveCommandText: "",
@@ -183,28 +139,16 @@ type HarnessState = {
   authRequired: boolean;
   onboardingComplete: boolean;
   tab: Tab;
+  uiShellMode: "companion" | "native";
   actionNotice: null;
   setTab: (tab: Tab) => void;
+  setUiShellMode: (mode: "companion" | "native") => void;
 };
 
 function textOf(node: TestRenderer.ReactTestInstance): string {
   return node.children
     .map((child) => (typeof child === "string" ? child : textOf(child)))
     .join("");
-}
-
-function getButtonByLabel(
-  tree: TestRenderer.ReactTestRenderer,
-  label: string,
-): TestRenderer.ReactTestInstance {
-  const buttons = tree.root.findAll(
-    (node) =>
-      node.type === "button" &&
-      typeof node.props.onClick === "function" &&
-      textOf(node).trim() === label,
-  );
-  expect(buttons.length).toBeGreaterThan(0);
-  return buttons[0];
 }
 
 function expectValidContent(content: string): void {
@@ -224,28 +168,21 @@ function expectValidContent(content: string): void {
 
 function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   const mains = tree.root.findAll((node) => node.type === "main");
-  expect(mains.length).toBeGreaterThan(0);
-  return textOf(mains[0]);
-}
+  if (mains.length > 0) {
+    return textOf(mains[0]);
+  }
 
-function requireTree(
-  tree: TestRenderer.ReactTestRenderer | null,
-): TestRenderer.ReactTestRenderer {
-  if (!tree) throw new Error("failed to render App");
-  return tree;
-}
+  const companionDivs = tree.root.findAll(
+    (node) =>
+      node.type === "div" &&
+      typeof node.props.className === "string" &&
+      node.props.className.includes("relative w-full h-[100vh]"),
+  );
+  if (companionDivs.length > 0) {
+    return textOf(companionDivs[0]);
+  }
 
-async function clickAndRerender(
-  tree: TestRenderer.ReactTestRenderer,
-  label: string,
-): Promise<void> {
-  const button = getButtonByLabel(tree, label);
-  await act(async () => {
-    button.props.onClick();
-  });
-  await act(async () => {
-    tree.update(React.createElement(App));
-  });
+  throw new Error("Could not find main content container");
 }
 
 describe("pages navigation smoke (e2e)", () => {
@@ -257,55 +194,57 @@ describe("pages navigation smoke (e2e)", () => {
       authRequired: false,
       onboardingComplete: true,
       tab: "chat",
+      uiShellMode: "native",
       actionNotice: null,
-      plugins: [],
       setTab: (tab: Tab) => {
         state.tab = tab;
       },
+      setUiShellMode: (mode: "companion" | "native") => {
+        state.uiShellMode = mode;
+      },
     };
     mockUseApp.mockReset();
-    mockUseLifoAutoPopout.mockReset();
     mockUseApp.mockImplementation(() => state);
   });
 
-  it("clicks every top-level nav page and renders non-empty valid content", async () => {
+  it("renders every top-level tab group with non-empty valid content", async () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(App));
-    });
-    const renderedTree = requireTree(tree);
-
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
-      companion: "ChatView Ready", // falls back to ChatView when feature flag is off
-      stream: "StreamView Ready",
+      companion: "ChatView Ready",
       character: "CharacterView Ready",
       wallets: "InventoryView Ready",
       knowledge: "KnowledgeView Ready",
       connectors: "ConnectorsPageView Ready",
-      triggers: "TriggersView Ready",
+      triggers: "AdvancedPageView Ready",
       apps: "AppsPageView Ready",
       settings: "SettingsView Ready",
-      advanced: "PluginsPageView Ready",
-      plugins: "PluginsPageView Ready",
-      skills: "SkillsView Ready",
-      actions: "CustomActionsView Ready",
-      "fine-tuning": "FineTuningView Ready",
-      trajectories: "TrajectoriesView Ready",
-      runtime: "RuntimeView Ready",
-      database: "DatabasePageView Ready",
-      logs: "LogsPageView Ready",
+      advanced: "AdvancedPageView Ready",
+      plugins: "AdvancedPageView Ready",
+      skills: "AdvancedPageView Ready",
+      actions: "AdvancedPageView Ready",
+      "fine-tuning": "AdvancedPageView Ready",
+      trajectories: "AdvancedPageView Ready",
+      runtime: "AdvancedPageView Ready",
+      database: "AdvancedPageView Ready",
+      logs: "AdvancedPageView Ready",
       voice: "SettingsView Ready",
     };
 
-    for (const group of getTabGroups(false)) {
-      await clickAndRerender(renderedTree, group.label);
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(App));
+    });
+
+    for (const group of TAB_GROUPS) {
       const nextTab = group.tabs[0];
-      const content = mainContent(renderedTree);
-      expect(state.tab).toBe(nextTab);
+      state.tab = nextTab;
+      await act(async () => {
+        tree!.update(React.createElement(App));
+      });
+      const content = mainContent(tree!);
       expect(content).toContain(expectedByPrimaryTab[nextTab]);
       expectValidContent(content);
     }
@@ -326,44 +265,33 @@ describe("pages navigation smoke (e2e)", () => {
     warnSpy.mockRestore();
   });
 
-  it("clicks every Advanced sub-page and renders non-empty valid content", async () => {
+  it("renders every Advanced sub-tab with non-empty valid content", async () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    const subPages: Array<{ tab: Tab; token: string }> = [
+      { tab: "plugins", token: "AdvancedPageView Ready" },
+      { tab: "skills", token: "AdvancedPageView Ready" },
+      { tab: "actions", token: "AdvancedPageView Ready" },
+      { tab: "triggers", token: "AdvancedPageView Ready" },
+      { tab: "fine-tuning", token: "AdvancedPageView Ready" },
+      { tab: "trajectories", token: "AdvancedPageView Ready" },
+      { tab: "runtime", token: "AdvancedPageView Ready" },
+      { tab: "database", token: "AdvancedPageView Ready" },
+      { tab: "logs", token: "AdvancedPageView Ready" },
+    ];
+
+    let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    const renderedTree = requireTree(tree);
-
-    await clickAndRerender(renderedTree, "Advanced");
-    expect(state.tab).toBe("advanced");
-
-    const subPages: Array<{ label: string; tab: Tab; token: string }> = [
-      { label: "Plugins", tab: "plugins", token: "PluginsPageView Ready" },
-      { label: "Skills", tab: "skills", token: "SkillsView Ready" },
-      { label: "Actions", tab: "actions", token: "CustomActionsView Ready" },
-      { label: "Triggers", tab: "triggers", token: "TriggersView Ready" },
-      {
-        label: "Fine-Tuning",
-        tab: "fine-tuning",
-        token: "FineTuningView Ready",
-      },
-      {
-        label: "Trajectories",
-        tab: "trajectories",
-        token: "TrajectoriesView Ready",
-      },
-      { label: "Runtime", tab: "runtime", token: "RuntimeView Ready" },
-      { label: "Databases", tab: "database", token: "DatabasePageView Ready" },
-      { label: "Lifo", tab: "lifo", token: "LifoSandboxView Ready" },
-      { label: "Logs", tab: "logs", token: "LogsPageView Ready" },
-    ];
 
     for (const subPage of subPages) {
-      await clickAndRerender(renderedTree, subPage.label);
-      const content = mainContent(renderedTree);
-      expect(state.tab).toBe(subPage.tab);
+      state.tab = subPage.tab;
+      await act(async () => {
+        tree!.update(React.createElement(App));
+      });
+      const content = mainContent(tree!);
       expect(content).toContain(subPage.token);
       expectValidContent(content);
     }
@@ -390,39 +318,37 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByTab: Array<{ tab: Tab; token: string }> = [
       { tab: "chat", token: "ChatView Ready" },
-      { tab: "companion", token: "ChatView Ready" }, // falls back to ChatView when feature flag is off
+      { tab: "companion", token: "ChatView Ready" },
       { tab: "apps", token: "AppsPageView Ready" },
       { tab: "character", token: "CharacterView Ready" },
       { tab: "wallets", token: "InventoryView Ready" },
       { tab: "knowledge", token: "KnowledgeView Ready" },
       { tab: "connectors", token: "ConnectorsPageView Ready" },
-      { tab: "triggers", token: "TriggersView Ready" },
-      { tab: "plugins", token: "PluginsPageView Ready" },
-      { tab: "skills", token: "SkillsView Ready" },
-      { tab: "actions", token: "CustomActionsView Ready" },
-      { tab: "advanced", token: "PluginsPageView Ready" },
-      { tab: "fine-tuning", token: "FineTuningView Ready" },
-      { tab: "trajectories", token: "TrajectoriesView Ready" },
+      { tab: "triggers", token: "AdvancedPageView Ready" },
+      { tab: "plugins", token: "AdvancedPageView Ready" },
+      { tab: "skills", token: "AdvancedPageView Ready" },
+      { tab: "actions", token: "AdvancedPageView Ready" },
+      { tab: "advanced", token: "AdvancedPageView Ready" },
+      { tab: "fine-tuning", token: "AdvancedPageView Ready" },
+      { tab: "trajectories", token: "AdvancedPageView Ready" },
       { tab: "voice", token: "SettingsView Ready" },
-      { tab: "runtime", token: "RuntimeView Ready" },
-      { tab: "database", token: "DatabasePageView Ready" },
-      { tab: "lifo", token: "LifoSandboxView Ready" },
+      { tab: "runtime", token: "AdvancedPageView Ready" },
+      { tab: "database", token: "AdvancedPageView Ready" },
       { tab: "settings", token: "SettingsView Ready" },
-      { tab: "logs", token: "LogsPageView Ready" },
+      { tab: "logs", token: "AdvancedPageView Ready" },
     ];
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    const renderedTree = requireTree(tree);
 
     for (const entry of expectedByTab) {
       state.tab = entry.tab;
       await act(async () => {
-        renderedTree.update(React.createElement(App));
+        tree!.update(React.createElement(App));
       });
-      const content = mainContent(renderedTree);
+      const content = mainContent(tree!);
       expect(content).toContain(entry.token);
       expectValidContent(content);
     }
@@ -448,17 +374,14 @@ describe("pages navigation smoke (e2e)", () => {
     const warnSpy = vi.spyOn(console, "warn");
 
     const cases: Array<{
-      name: string;
       patch: Partial<HarnessState>;
       token: string;
     }> = [
       {
-        name: "loading",
         patch: { onboardingLoading: true, onboardingComplete: false },
         token: "LoadingScreen",
       },
       {
-        name: "pairing",
         patch: {
           onboardingLoading: false,
           onboardingComplete: true,
@@ -467,7 +390,6 @@ describe("pages navigation smoke (e2e)", () => {
         token: "PairingView",
       },
       {
-        name: "onboarding",
         patch: {
           onboardingLoading: false,
           authRequired: false,
@@ -483,10 +405,13 @@ describe("pages navigation smoke (e2e)", () => {
         authRequired: false,
         onboardingComplete: true,
         tab: "chat",
+        uiShellMode: "native",
         actionNotice: null,
-        plugins: [],
         setTab: (tab: Tab) => {
           state.tab = tab;
+        },
+        setUiShellMode: (mode: "companion" | "native") => {
+          state.uiShellMode = mode;
         },
       };
       Object.assign(state, entry.patch);
@@ -496,7 +421,7 @@ describe("pages navigation smoke (e2e)", () => {
       await act(async () => {
         tree = TestRenderer.create(React.createElement(App));
       });
-      const appText = textOf(tree?.root);
+      const appText = textOf(tree!.root);
       expect(appText).toContain(entry.token);
       expectValidContent(appText);
     }

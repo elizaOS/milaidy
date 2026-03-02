@@ -123,7 +123,7 @@ describe.skipIf(!canRun)(
       process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
       delete process.env.MILADY_PAIRING_DISABLED;
 
-      const { startApiServer } = await import("../src/api/server");
+      const { startApiServer } = await import("../src/api/server.js");
       const server = await startApiServer({ port: 0 });
       port = server.port;
       close = server.close;
@@ -366,7 +366,7 @@ describe.skipIf(!canRun)("Live: Token header variants with LLM", () => {
 
   beforeAll(async () => {
     process.env.MILADY_API_TOKEN = API_TOKEN;
-    const { startApiServer } = await import("../src/api/server");
+    const { startApiServer } = await import("../src/api/server.js");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -438,7 +438,7 @@ describe.skipIf(!canRun)("Live: Auth + CORS + wallet combined", () => {
     savedExportToken = process.env.MILADY_WALLET_EXPORT_TOKEN;
     process.env.MILADY_API_TOKEN = API_TOKEN;
     process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
-    const { startApiServer } = await import("../src/api/server");
+    const { startApiServer } = await import("../src/api/server.js");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;

@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MiladyClient } from "../../src/api-client";
 
@@ -7,14 +6,7 @@ describe("MiladyClient Electron API fallback", () => {
   const originalFetch = globalThis.fetch;
   const originalBase = (window as { __MILADY_API_BASE__?: string })
     .__MILADY_API_BASE__;
-  const originalProtocol = window.location.protocol;
-
-  beforeEach(() => {
-    // Aggressively clear global state that might leak from other tests
-    delete (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__;
-    delete (window as { __MILADY_API_TOKEN__?: string }).__MILADY_API_TOKEN__;
-    window.sessionStorage.clear();
-  });
+  const originalProtocol = (window.location as { protocol?: string }).protocol;
 
   afterEach(() => {
     Object.defineProperty(globalThis, "fetch", {
@@ -22,29 +14,15 @@ describe("MiladyClient Electron API fallback", () => {
       writable: true,
       configurable: true,
     });
-    if (originalBase !== undefined) {
-      (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ =
-        originalBase;
-    } else {
-      delete (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__;
-    }
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, protocol: originalProtocol },
-      writable: true,
-    });
+    (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ =
+      originalBase;
+    (window.location as { protocol?: string }).protocol = originalProtocol;
   });
-
-  function setProtocol(proto: string) {
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, protocol: proto },
-      writable: true,
-    });
-  }
 
   it("does not probe localhost on capacitor-electron protocol before API base is injected", async () => {
     (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ =
       undefined;
-    setProtocol("capacitor-electron:");
+    (window.location as { protocol?: string }).protocol = "capacitor-electron:";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -74,7 +52,7 @@ describe("MiladyClient Electron API fallback", () => {
   it("prefers injected API base over fallback", async () => {
     (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ =
       "http://localhost:9999";
-    setProtocol("capacitor-electron:");
+    (window.location as { protocol?: string }).protocol = "capacitor-electron:";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -104,7 +82,7 @@ describe("MiladyClient Electron API fallback", () => {
   it("starts unavailable on capacitor-electron and switches to injected API base when injected later", async () => {
     (window as { __MILADY_API_BASE__?: string }).__MILADY_API_BASE__ =
       undefined;
-    setProtocol("capacitor-electron:");
+    (window.location as { protocol?: string }).protocol = "capacitor-electron:";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,

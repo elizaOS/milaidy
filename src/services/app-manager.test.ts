@@ -1,823 +1,733 @@
-// biome-ignore-all lint/suspicious/noExplicitAny: extensive fake runtime stubs require broad casts.
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import {
-  type Action,
-  type Character,
-  type Evaluator,
-  elizaLogger,
-  type IAgentRuntime,
-  type IMessageService,
-  type Memory,
-  type Plugin,
-  type Provider,
-  type Route,
-  type RuntimeEventStorage,
-  type Service,
-  type ServiceClass,
-  type ServiceTypeName,
-  type State,
-} from "@elizaos/core";
-import {
-  PluginManagerService,
-  pluginRegistry,
-} from "@elizaos/plugin-plugin-manager";
+/**
+ * Tests for the Milady AppManager.
+ *
+ * The new AppManager is simple: it lists apps from the registry, installs
+ * plugins via plugin-installer, and returns viewer URLs. No dynamic import,
+ * no port allocation, no server management.
+ */
+
+import { logger } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppManager } from "./app-manager";
-import type {
-  PluginManagerLike,
-  RegistryPluginInfo,
-} from "./plugin-manager-types";
-import * as registryClient from "./registry-client";
 
-// Fake Runtime implementation
-class FakeAgentRuntime implements IAgentRuntime {
-  agentId =
-    "fake-agent-id" as `${string}-${string}-${string}-${string}-${string}`;
-  serverUrl = "http://localhost:3000";
-  token = "fake-token";
-  character = {} as Character;
-  databaseAdapter = {} as any;
-  memoryRoots = {} as any;
-  cacheManager = {} as any;
-  providers: Provider[] = [];
-  actions: Action[] = [];
-  evaluators: Evaluator[] = [];
-  plugins: Plugin[] = [];
-  services: Map<ServiceTypeName, Service[]> = new Map();
-  initPromise = Promise.resolve();
-  enableAutonomy = false;
-  messageService = {} as IMessageService;
-  routes: Route[] = [];
-  stateCache = new Map<string, State>();
-  logLevelOverrides = new Map<string, string>();
-  logger = elizaLogger;
-  events: RuntimeEventStorage = {};
+vi.mock("./registry-client.js", () => ({
+  listApps: vi.fn().mockResolvedValue([]),
+  getAppInfo: vi.fn().mockResolvedValue(null),
+  searchApps: vi.fn().mockResolvedValue([]),
+}));
 
-  // IDatabaseAdapter methods (stubbed)
-  db = {};
-  async registerMemory(_memory: Memory): Promise<void> {}
-  async getMemory(_messageId: string): Promise<Memory | null> {
-    return null;
-  }
-  async getMemories() {
-    return [];
-  }
-  async getMemoriesByRoomIds() {
-    return [];
-  }
-  async getMemoryByContent() {
-    return null;
-  }
-  async getMemoriesCount() {
-    return 0;
-  }
-  async createLog() {}
-  async getLogs() {
-    return [];
-  }
-  async searchMemories() {
-    return [];
-  }
-  async searchMemoriesByEmbedding() {
-    return [];
-  }
-  async removeMemory() {}
-  async removeAllMemories() {}
-  async countMemories() {
-    return 0;
-  }
-  async getGoals() {
-    return [];
-  } // If getGoals exists in IDatabaseAdapter? Wait, I didn't see it in database.ts!
-  // It was removed or I missed it. IDatabaseAdapter does NOT have getGoals in the file I read.
-  // So I will remove getGoals stub.
+vi.mock("./plugin-installer.js", () => ({
+  installPlugin: vi.fn().mockResolvedValue({
+    success: true,
+    pluginName: APP_2004SCAPE,
+    version: "1.0.0",
+    installPath: "/tmp/test",
+    requiresRestart: true,
+  }),
+  listInstalledPlugins: vi.fn().mockReturnValue([]),
+  uninstallPlugin: vi.fn().mockResolvedValue({
+    success: true,
+    pluginName: APP_2004SCAPE,
+    requiresRestart: true,
+  }),
+}));
 
-  async getRoom() {
-    return null;
-  }
-  async createRoom() {
-    return "fake-room-id" as any;
-  }
-  async removeRoom() {}
-  async getRoomsForParticipant() {
-    return [];
-  }
-  async getRoomsForParticipants() {
-    return [];
-  }
-  async addParticipant() {
-    return true;
-  }
-  async removeParticipant() {
-    return true;
-  }
-  async getParticipantsForRoom() {
-    return [];
-  }
-  async getParticipantsForAccount() {
-    return [];
-  }
-  async getParticipantUserState() {
-    return null;
-  }
-  async setParticipantUserState() {}
-  async createRelationship() {
-    return true;
-  }
-  async getRelationship() {
-    return null;
-  }
-  async getRelationships() {
-    return [];
-  }
-  async getAccountById() {
-    return null;
-  }
-  async createAccount() {
-    return true;
-  }
-  async getActorDetails() {
-    return [];
-  }
-  // Cache methods matching declarations
-  async getCache<T>(_key: string): Promise<T | undefined> {
-    return undefined;
-  }
-  async setCache<T>(_key: string, _value: T): Promise<boolean> {
-    return true;
-  }
-  async deleteCache(_key: string): Promise<boolean> {
-    return true;
-  }
+vi.mock("../config/config.js", () => ({
+  loadMiladyConfig: vi.fn().mockReturnValue({ plugins: { installs: {} } }),
+}));
 
-  // Runtime methods
-  initialize = async () => {};
-  stop = async () => {};
-  processActions = async () => {};
-  evaluate = async () => null;
-  evaluatePre = async () => ({ blocked: false, redacted: false });
-  ensureConnection = async () => {};
-  ensureConnections = async () => {};
-  ensureParticipantInRoom = async () => {};
-  ensureWorldExists = async () => {};
-  ensureRoomExists = async () => {};
-  composeState = async () => ({}) as State;
-  useModel = async () => "fake-response";
-  generateText = async () => ({}) as any;
-  registerModel = () => {};
-  getModel = () => undefined;
-  getModelConfiguration = () => undefined;
-  registerEvent = () => {};
-  getEvent = () => undefined;
-  emitEvent = async () => {};
-  registerTaskWorker = () => {};
-  getTaskWorker = () => undefined;
-  dynamicPromptExecFromState = async () => null;
-  addEmbeddingToMemory = async (m: Memory) => m;
-  queueEmbeddingGeneration = async () => {};
-  getAllMemories = async () => [];
-  clearAllAgentMemories = async () => {};
-  updateMemory = async () => true;
-  createRunId = () => "fake-run-id" as any;
-  startRun = () => "fake-run-id" as any;
-  endRun = () => {};
-  getCurrentRunId = () => "fake-run-id" as any;
-  getEntityById = async () => null;
-  createEntity = async () => true;
-  getRooms = async () => [];
-  registerSendHandler = () => {};
-  sendMessageToTarget = async () => {};
-  updateWorld = async () => {};
-  redactSecrets = (t: string) => t;
-  getConnection = async () => ({});
-  getServiceLoadPromise = async () => ({}) as Service;
-  getRegisteredServiceTypes = () => [];
-  hasService = () => false;
-  registerDatabaseAdapter = () => {};
-  setSetting = () => {};
-  getSetting = () => null;
-  getConversationLength = () => 0;
-  isActionPlanningEnabled = () => true;
-  getLLMMode = () => "DEFAULT" as any;
-  isCheckShouldRespondEnabled = () => true;
-  getActionResults = () => [];
-  getAllActions = () => [];
-  getFilteredActions = () => [];
-  isActionAllowed = () => ({ allowed: true, reason: "" });
-  registerPlugin = async () => {};
+type RegistryAppInfoFixture = {
+  name: string;
+  displayName: string;
+  description: string;
+  category?: string;
+  launchType?: string;
+  launchUrl?: string | null;
+  capabilities?: string[];
+  stars?: number;
+  repository?: string;
+  latestVersion?: string | null;
+  supports?: { v0: boolean; v1: boolean; v2: boolean };
+  npm?: {
+    package?: string;
+    v0Version?: string | null;
+    v1Version?: string | null;
+    v2Version?: string | null;
+  };
+  viewer?: {
+    url: string;
+    embedParams?: Record<string, string>;
+    postMessageAuth?: boolean;
+    sandbox?: string;
+  };
+};
 
-  // Synchronous registration methods to match interface
-  registerProvider(provider: Provider): void {
-    this.providers.push(provider);
-  }
-  registerAction(action: Action): void {
-    this.actions.push(action);
-  }
-  registerEvaluator(evaluator: Evaluator): void {
-    this.evaluators.push(evaluator);
-  }
-
-  // Service methods matched
-  getService<T extends Service>(service: ServiceTypeName | string): T | null {
-    const type = service as ServiceTypeName;
-    const services = this.services.get(type);
-    if (services && services.length > 0) {
-      return services[0] as T;
-    }
-    return null;
-  }
-
-  getServicesByType<T extends Service>(service: ServiceTypeName | string): T[] {
-    return (this.services.get(service as ServiceTypeName) || []) as T[];
-  }
-
-  getAllServices() {
-    return this.services;
-  }
-
-  async registerService(serviceClass: ServiceClass): Promise<void> {
-    // Instantiate the service
-    const service = new serviceClass(this);
-    // Initialize if needed (though runtime usually calls initialize later)
-    await service.initialize(this);
-
-    // Add to map
-    const type = service.serviceType;
-    if (!this.services.has(type)) {
-      this.services.set(type, []);
-    }
-    this.services.get(type)?.push(service);
-  }
-
-  // Missing DB methods from IDatabaseAdapter coverage (since 'any' cast on databaseAdapter property isn't enough?)
-  // NO, IAgentRuntime extends IDatabaseAdapter, so FakeAgentRuntime MUST implement them.
-  // I need to be careful. I added most of them.
-  // getGoals was removed.
-  // createGoal, removeGoal, removeAllGoals, updateGoal - are those in IDatabaseAdapter?
-  // Checking database.ts again... I did NOT see 'Goal' related methods in IDatabaseAdapter interface.
-  // So I should remove them.
-  // Same for getActorDetails, getAccountById, createAccount ?
-  // In database.ts: getAgent, getAgents, createAgent, updateAgent, deleteAgent.
-  // NO getAccountById, createAccount.
-  // NO getActorDetails.
-
-  getAgent = async () => null;
-  getAgents = async () => [];
-  createAgent = async () => true;
-  updateAgent = async () => true;
-  deleteAgent = async () => true;
-  ensureEmbeddingDimension = async () => {};
-  getEntitiesByIds = async () => null;
-  getEntitiesForRoom = async () => [];
-  createEntities = async () => true;
-  updateEntity = async () => {};
-  getComponent = async () => null;
-  getComponents = async () => [];
-  createComponent = async () => true;
-  updateComponent = async () => {};
-  deleteComponent = async () => {};
-  deleteManyMemories = async () => {};
-  deleteAllMemories = async () => {};
-  createWorld = async () => "fake-world-id" as any;
-  getWorld = async () => null;
-  removeWorld = async () => {};
-  getAllWorlds = async () => [];
-  getRoomsByIds = async () => null;
-  createRooms = async () => [];
-  deleteRoom = async () => {};
-  deleteRoomsByWorldId = async () => {};
-  updateRoom = async () => {};
-  addParticipantsRoom = async () => true;
-  updateRelationship = async () => {};
-  getTasks = async () => [];
-  getTask = async () => null;
-  getTasksByName = async () => [];
-  createTask = async () => "fake-task-id" as any;
-  updateTask = async () => {};
-  deleteTask = async () => {};
-  getMemoriesByWorldId = async () => [];
-  getPairingRequests = async () => [];
-  createPairingRequest = async () => "fake-req-id" as any;
-  updatePairingRequest = async () => {};
-  deletePairingRequest = async () => {};
-  getPairingAllowlist = async () => [];
-  createPairingAllowlistEntry = async () => "fake-entry-id" as any;
-  deletePairingAllowlistEntry = async () => {};
-  isReady = async () => true;
-  close = async () => {};
-  getCachedEmbeddings = async () => [];
-  log = async () => {};
-  deleteLog = async () => {};
-  isRoomParticipant = async () => false;
-  getParticipantsForEntity = async () => [];
+function makeRegistryAppInfo(fixture: RegistryAppInfoFixture) {
+  return {
+    icon: null,
+    capabilities: fixture.capabilities ?? [],
+    stars: fixture.stars ?? 0,
+    repository: fixture.repository ?? "",
+    latestVersion: fixture.latestVersion ?? "1.0.0",
+    supports: fixture.supports ?? { v0: false, v1: false, v2: true },
+    name: fixture.name,
+    displayName: fixture.displayName,
+    description: fixture.description,
+    category: fixture.category ?? "game",
+    launchType: fixture.launchType ?? "connect",
+    launchUrl: fixture.launchUrl ?? null,
+    npm: {
+      package: fixture.npm?.package ?? fixture.name,
+      v0Version: fixture.npm?.v0Version ?? null,
+      v1Version: fixture.npm?.v1Version ?? null,
+      v2Version: fixture.npm?.v2Version ?? "1.0.0",
+    },
+    viewer: fixture.viewer,
+  };
 }
 
-describe("AppManager Integration", () => {
-  let appManager: AppManager;
-  let pluginManager: PluginManagerService;
-  let runtime: FakeAgentRuntime;
-  let tempDir: string;
+function mockInstalledPlugin(
+  name: string,
+  installPath: string,
+  installedAt = "2026-01-01",
+) {
+  return {
+    name,
+    version: "1.0.0",
+    installPath,
+    installedAt,
+  };
+}
 
-  const APP_NAME = "@elizaos/app-example";
-  const APP_PLUGIN_NAME = "@elizaos/plugin-example";
+const APP_SCOPE = "@elizaos/app-";
+const APP_BABYLON = `${APP_SCOPE}babylon`;
+const APP_HYPERSCAPE = `${APP_SCOPE}hyperscape`;
+const APP_2004SCAPE = `${APP_SCOPE}2004scape`;
+const APP_TEST = `${APP_SCOPE}test`;
+const APP_DISCORD = "@elizaos/plugin-discord";
 
-  beforeEach(async () => {
-    // Setup temp directory for plugins
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-test-"));
-    const pluginsDir = path.join(tempDir, "plugins");
-    fs.mkdirSync(pluginsDir);
+const APP_INFO_2004SCAPE: RegistryAppInfoFixture = {
+  name: APP_2004SCAPE,
+  displayName: "2004scape",
+  description: "RuneScape",
+};
 
-    // Mock registry response
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        registry: {
-          [APP_NAME]: {
-            git: { repo: "elizaos/app-example", v0: {}, v1: {}, v2: {} },
-            npm: { repo: APP_PLUGIN_NAME, v0: null, v1: null, v2: "1.0.0" },
-            supports: { v0: true, v1: false, v2: false },
-            description: "An example app",
-            topics: ["app"],
-            stargazers_count: 10,
-            language: "TypeScript",
-          },
-          // Add the plugin entry so uninstallPlugin can find it
-          [APP_PLUGIN_NAME]: {
-            git: { repo: "elizaos/plugin-example", v0: {}, v1: {}, v2: {} },
-            npm: { repo: APP_PLUGIN_NAME, v0: null, v1: null, v2: "1.0.0" },
-            supports: { v0: true, v1: false, v2: false },
-            description: "An example plugin",
-            topics: ["plugin"],
-          },
-        },
-      }),
-    });
+const APP_INFO_2004SCAPE_WEBCLIENT: RegistryAppInfoFixture = {
+  name: APP_2004SCAPE,
+  displayName: "2004scape",
+  description: "2004scape",
+  launchType: "connect",
+  launchUrl: "http://localhost:8880/webclient",
+  viewer: {
+    url: "http://localhost:8880/webclient",
+    embedParams: { bot: "{RS_SDK_BOT_NAME}" },
+  },
+};
 
-    runtime = new FakeAgentRuntime();
-    // Initialize PluginManager with real file system path
-    pluginManager = new PluginManagerService(runtime, {
-      pluginDirectory: pluginsDir,
-    });
+const APP_INFO_2004SCAPE_AUTH: RegistryAppInfoFixture = {
+  name: APP_2004SCAPE,
+  displayName: "2004scape",
+  description: "2004scape",
+  launchType: "connect",
+  launchUrl: "http://localhost:8880",
+  viewer: {
+    url: "http://localhost:8880",
+    postMessageAuth: true,
+  },
+};
 
-    process.env.MILADY_STATE_DIR = tempDir;
+const APP_INFO_BABYLON: RegistryAppInfoFixture = {
+  name: APP_BABYLON,
+  displayName: "Babylon",
+  description: "Trading",
+  category: "platform",
+  launchType: "url",
+  launchUrl: "https://babylon.social",
+};
 
-    appManager = new AppManager();
-  });
+const APP_INFO_HYPERSCAPE: RegistryAppInfoFixture = {
+  name: APP_HYPERSCAPE,
+  displayName: "Hyperscape",
+  description: "Hyperscape",
+  launchUrl: "http://localhost:3333",
+  viewer: {
+    url: "http://localhost:3333",
+    postMessageAuth: true,
+  },
+};
 
-  afterEach(() => {
-    // Cleanup
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
-  });
+const APP_INFO_TEST_FAIL: RegistryAppInfoFixture = {
+  name: APP_TEST,
+  displayName: "Test",
+  description: "",
+  latestVersion: null,
+  supports: { v0: false, v1: false, v2: false },
+  launchType: "url",
+  launchUrl: null,
+};
 
-  it("launches an app directly if plugin is already installed", async () => {
-    // Setup: Simulate installed plugin
-    // Use hyphen in sanitized name as verified
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-example",
-    );
-    fs.mkdirSync(installedDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(installedDir, "package.json"),
-      JSON.stringify({ name: APP_PLUGIN_NAME, version: "1.0.0" }),
-    );
+const APP_INFO_TEST_VIEWER: RegistryAppInfoFixture = {
+  name: APP_TEST,
+  displayName: "Test App",
+  description: "Test",
+  launchType: "connect",
+  launchUrl: "http://localhost:9999?bot={TEST_VIEWER_BOT}",
+  viewer: {
+    url: "http://localhost:9999",
+    embedParams: { bot: "{TEST_VIEWER_BOT}" },
+  },
+};
 
-    // Act
-    const result = await appManager.launch(pluginManager, APP_NAME);
-
-    // Assert
-    expect(result.pluginInstalled).toBe(true);
-    expect(result.needsRestart).toBe(false);
-  });
-
-  it("installs plugin if not installed (integration - skipping actual install via mock if possible, or failing)", async () => {
-    // We spy on installPlugin to verify it is called
-    const installSpy = vi.spyOn(pluginManager, "installPlugin");
-    installSpy.mockResolvedValue({
-      success: true,
-      pluginName: APP_PLUGIN_NAME,
-      version: "1.0.0",
-      requiresRestart: true,
-      installPath: "/tmp",
-    });
-
-    const result = await appManager.launch(pluginManager, APP_NAME);
-
-    expect(installSpy).toHaveBeenCalled();
-    expect(result.pluginInstalled).toBe(true);
-    expect(result.needsRestart).toBe(true);
-  });
-
-  it("stops an app by uninstalling its plugin", async () => {
-    // Setup: Simulate installed plugin
-    // Use hyphen in sanitized name as verified
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-example",
-    );
-    fs.mkdirSync(installedDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(installedDir, "package.json"),
-      JSON.stringify({ name: APP_PLUGIN_NAME, version: "1.0.0" }),
-    );
-
-    // Act
-    const result = await appManager.stop(pluginManager, APP_NAME);
-
-    // Assert
-    expect(result.success).toBe(true);
-    expect(result.pluginUninstalled).toBe(true);
-
-    // Verify file system
-    expect(fs.existsSync(installedDir)).toBe(false);
-  });
+beforeEach(() => {
+  vi.resetModules();
 });
 
-describe("Hyperscape Auto-Provisioning", () => {
-  let appManager: AppManager;
-  let pluginManager: PluginManagerService;
-  let runtime: FakeAgentRuntime;
-  let tempDir: string;
-  let originalEnv: Record<string, string | undefined>;
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
-  const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
-  const HYPERSCAPE_PLUGIN_NAME = "@elizaos/plugin-hyperscape";
+describe("AppManager", () => {
+  describe("listAvailable", () => {
+    it("delegates to registry listApps", async () => {
+      const { listApps } = await import("./registry-client.js");
+      vi.mocked(listApps).mockResolvedValue([
+        makeRegistryAppInfo({
+          ...APP_INFO_2004SCAPE,
+          capabilities: ["combat"],
+          stars: 42,
+          repository: "https://github.com/elizaOS/eliza-2004scape",
+        }),
+      ]);
 
-  beforeEach(async () => {
-    // Flush any cached registry from prior test suites so fresh fetch mocks
-    // installed in individual tests are honoured.
-    pluginRegistry.resetRegistryCache();
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const apps = await mgr.listAvailable();
+      expect(apps.length).toBe(1);
+      expect(apps[0].displayName).toBe("2004scape");
+    });
+  });
 
-    // Save original env vars
-    originalEnv = {
-      HYPERSCAPE_CHARACTER_ID: process.env.HYPERSCAPE_CHARACTER_ID,
-      HYPERSCAPE_AUTH_TOKEN: process.env.HYPERSCAPE_AUTH_TOKEN,
-      HYPERSCAPE_SERVER_URL: process.env.HYPERSCAPE_SERVER_URL,
-      SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY,
-      EVM_PRIVATE_KEY: process.env.EVM_PRIVATE_KEY,
-    };
+  describe("launch", () => {
+    it("throws when app not found in registry", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(null);
 
-    // Clear hyperscape env vars
-    delete process.env.HYPERSCAPE_CHARACTER_ID;
-    delete process.env.HYPERSCAPE_AUTH_TOKEN;
-    delete process.env.SOLANA_PRIVATE_KEY;
-    delete process.env.EVM_PRIVATE_KEY;
-
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-hyperscape-test-"));
-    const pluginsDir = path.join(tempDir, "plugins");
-    fs.mkdirSync(pluginsDir);
-
-    runtime = new FakeAgentRuntime();
-    pluginManager = new PluginManagerService(runtime, {
-      pluginDirectory: pluginsDir,
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.launch("@elizaos/app-nonexistent")).rejects.toThrow(
+        "not found",
+      );
     });
 
-    process.env.MILADY_STATE_DIR = tempDir;
-    appManager = new AppManager();
-  });
-
-  afterEach(() => {
-    // Restore original env vars
-    for (const [key, value] of Object.entries(originalEnv)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
-  });
-
-  it("throws error when hyperscape auto-provisioning fails and no credentials exist", async () => {
-    // Mock registry to return hyperscape app
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes("wallet-auth")) {
-        // Simulate server not responding
-        return Promise.reject(new Error("ECONNREFUSED"));
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          registry: {
-            [HYPERSCAPE_APP_NAME]: {
-              git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-              npm: {
-                repo: HYPERSCAPE_PLUGIN_NAME,
-                v0: null,
-                v1: null,
-                v2: "1.0.0",
-              },
-              supports: { v0: true, v1: false, v2: false },
-              description: "Hyperscape 3D world",
-              topics: ["app"],
-            },
-            [HYPERSCAPE_PLUGIN_NAME]: {
-              git: {
-                repo: "elizaos/plugin-hyperscape",
-                v0: {},
-                v1: {},
-                v2: {},
-              },
-              npm: {
-                repo: HYPERSCAPE_PLUGIN_NAME,
-                v0: null,
-                v1: null,
-                v2: "1.0.0",
-              },
-              supports: { v0: true, v1: false, v2: false },
-              description: "Hyperscape plugin",
-              topics: ["plugin"],
-            },
+    it("installs plugin and returns viewer config when app found", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_2004SCAPE,
+          capabilities: ["combat"],
+          stars: 42,
+          repository: "https://github.com/elizaOS/eliza-2004scape",
+          viewer: {
+            url: "https://2004scape.org/webclient",
+            embedParams: { bot: "testbot" },
+            sandbox: "allow-scripts allow-same-origin",
           },
         }),
+      );
+
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([]);
+      vi.mocked(installPlugin).mockResolvedValue({
+        success: true,
+        pluginName: APP_2004SCAPE,
+        version: "1.0.0",
+        installPath: "/tmp/test",
+        requiresRestart: true,
+      });
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.pluginInstalled).toBe(true);
+      expect(result.needsRestart).toBe(true);
+      expect(result.displayName).toBe("2004scape");
+      expect(result.launchType).toBe("connect");
+      expect(result.launchUrl).toBeNull();
+      expect(result.viewer).not.toBeNull();
+      expect(result.viewer?.url).toBe(
+        "https://2004scape.org/webclient?bot=testbot",
+      );
+      expect(result.viewer?.embedParams).toEqual({ bot: "testbot" });
+      expect(vi.mocked(installPlugin)).toHaveBeenCalledWith(
+        "@elizaos/app-2004scape",
+        undefined,
+      );
+    });
+
+    it("skips install when plugin already installed", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          name: APP_2004SCAPE,
+          displayName: "2004scape",
+          description: "RuneScape",
+        }),
+      );
+
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
+      const mockInstall = vi.mocked(installPlugin);
+      mockInstall.mockClear();
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.pluginInstalled).toBe(true);
+      expect(result.needsRestart).toBe(false);
+      expect(result.launchType).toBe("connect");
+      expect(mockInstall).not.toHaveBeenCalled();
+    });
+
+    it("throws when plugin install fails", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_TEST_FAIL,
+          supports: { v0: false, v1: false, v2: true },
+        }),
+      );
+
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([]);
+      vi.mocked(installPlugin).mockResolvedValue({
+        success: false,
+        pluginName: "@elizaos/app-test",
+        version: "",
+        installPath: "",
+        requiresRestart: false,
+        error: "Package not found",
+      });
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.launch("@elizaos/app-test")).rejects.toThrow(
+        "Package not found",
+      );
+    });
+
+    it("skips install when app is not installable from registry metadata", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_TEST_FAIL),
+      );
+
+      const { installPlugin, listInstalledPlugins } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([]);
+      const mockInstall = vi.mocked(installPlugin);
+      mockInstall.mockClear();
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-test");
+
+      expect(result.pluginInstalled).toBe(false);
+      expect(result.needsRestart).toBe(false);
+      expect(mockInstall).not.toHaveBeenCalled();
+    });
+
+    it("returns null viewer when app has no viewer config", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_BABYLON),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_BABYLON, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-babylon");
+
+      expect(result.viewer).toBeNull();
+      expect(result.launchType).toBe("url");
+      expect(result.launchUrl).toBe("https://babylon.social");
+    });
+
+    it("rejects unsafe launch URL protocols", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_BABYLON,
+          launchUrl: "javascript:alert(1)",
+        }),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_BABYLON, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+
+      await expect(mgr.launch("@elizaos/app-babylon")).rejects.toThrow(
+        "unsafe launch URL",
+      );
+    });
+
+    it("rejects unsafe viewer URL protocols", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo({
+          ...APP_INFO_TEST_VIEWER,
+          launchUrl: "https://example.com/viewer",
+          viewer: {
+            url: "data:text/html,owned",
+            embedParams: { bot: "{TEST_VIEWER_BOT}" },
+          },
+        }),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_TEST, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+
+      await expect(mgr.launch("@elizaos/app-test")).rejects.toThrow(
+        "unsafe viewer URL",
+      );
+    });
+
+    it("substitutes environment placeholders in launch and viewer URLs", async () => {
+      process.env.TEST_VIEWER_BOT = "agent77";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_TEST_VIEWER),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_TEST, "/tmp/x"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-test");
+
+      expect(result.launchUrl).toBe("http://localhost:9999?bot=agent77");
+      expect(result.viewer?.url).toBe("http://localhost:9999?bot=agent77");
+
+      delete process.env.TEST_VIEWER_BOT;
+    });
+
+    it("falls back to testbot for 2004scape bot placeholder", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.BOT_NAME;
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_2004SCAPE_WEBCLIENT),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/rs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.url).toBe(
+        "http://localhost:8880/webclient?bot=testbot",
+      );
+    });
+
+    it("includes hyperscape postMessage auth payload when token is configured", async () => {
+      process.env.HYPERSCAPE_AUTH_TOKEN = "hs-token-123";
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_HYPERSCAPE),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_HYPERSCAPE, "/tmp/hs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-hyperscape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "HYPERSCAPE_AUTH",
+        authToken: "hs-token-123",
+        sessionToken: undefined,
+        agentId: undefined,
+      });
+
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+    });
+
+    it("disables postMessage auth when hyperscape token is missing", async () => {
+      delete process.env.HYPERSCAPE_AUTH_TOKEN;
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_HYPERSCAPE),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_HYPERSCAPE, "/tmp/hs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-hyperscape");
+
+      expect(result.viewer?.postMessageAuth).toBe(false);
+      expect(result.viewer?.authMessage).toBeUndefined();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining("auth token not configured"),
+      );
+    });
+
+    it("includes 2004scape postMessage auth payload with configured credentials", async () => {
+      process.env.RS_SDK_BOT_NAME = "myagent";
+      process.env.RS_SDK_BOT_PASSWORD = "secretpass";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_2004SCAPE_AUTH),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/rs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "myagent",
+        sessionToken: "secretpass",
+      });
+
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+    });
+
+    it("uses fallback credentials for 2004scape postMessage auth", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+      process.env.BOT_NAME = "fallbackbot";
+      process.env.BOT_PASSWORD = "fallbackpass";
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_2004SCAPE_AUTH),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/rs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "fallbackbot",
+        sessionToken: "fallbackpass",
+      });
+
+      delete process.env.BOT_NAME;
+      delete process.env.BOT_PASSWORD;
+    });
+
+    it("uses testbot default for 2004scape when no credentials configured", async () => {
+      delete process.env.RS_SDK_BOT_NAME;
+      delete process.env.RS_SDK_BOT_PASSWORD;
+      delete process.env.BOT_NAME;
+      delete process.env.BOT_PASSWORD;
+
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_2004SCAPE_AUTH),
+      );
+
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/rs"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.launch("@elizaos/app-2004scape");
+
+      expect(result.viewer?.postMessageAuth).toBe(true);
+      expect(result.viewer?.authMessage).toEqual({
+        type: "RS_2004SCAPE_AUTH",
+        authToken: "testbot",
+        sessionToken: "",
       });
     });
-
-    // Simulate plugin already installed
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-hyperscape",
-    );
-    fs.mkdirSync(installedDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(installedDir, "package.json"),
-      JSON.stringify({ name: HYPERSCAPE_PLUGIN_NAME, version: "1.0.0" }),
-    );
-
-    // No wallet keys set, auto-provisioning will fail
-    await expect(
-      appManager.launch(pluginManager, HYPERSCAPE_APP_NAME),
-    ).rejects.toThrow(/Hyperscape authentication required/);
   });
 
-  it("succeeds when hyperscape credentials are pre-configured", async () => {
-    // Pre-set credentials
-    process.env.HYPERSCAPE_CHARACTER_ID = "test-char-id";
-    process.env.HYPERSCAPE_AUTH_TOKEN = "test-auth-token";
+  describe("search", () => {
+    it("delegates to registry searchApps", async () => {
+      const { searchApps } = await import("./registry-client.js");
+      vi.mocked(searchApps).mockResolvedValue([]);
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        registry: {
-          [HYPERSCAPE_APP_NAME]: {
-            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape 3D world",
-            topics: ["app"],
-          },
-          [HYPERSCAPE_PLUGIN_NAME]: {
-            git: { repo: "elizaos/plugin-hyperscape", v0: {}, v1: {}, v2: {} },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape plugin",
-            topics: ["plugin"],
-          },
-        },
-      }),
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await mgr.search("test", 5);
+      expect(vi.mocked(searchApps)).toHaveBeenCalledWith("test", 5);
+    });
+  });
+
+  describe("getInfo", () => {
+    it("delegates to registry getAppInfo", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(null);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.getInfo("@elizaos/app-nonexistent");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("listInstalled", () => {
+    it("returns installed plugins with humanized names", async () => {
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_2004SCAPE, "/tmp/a"),
+        mockInstalledPlugin(APP_DISCORD, "/tmp/b", "2026-01-01"),
+      ]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const installed = mgr.listInstalled();
+
+      expect(installed.length).toBe(2);
+      expect(installed[0].displayName).toBe("2004scape");
+      expect(installed[1].displayName).toBe("Discord");
+    });
+  });
+
+  describe("stop", () => {
+    it("returns no-op payload when app is known but not active/installed", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_BABYLON),
+      );
+      const { listInstalledPlugins } = await import("./plugin-installer.js");
+      vi.mocked(listInstalledPlugins).mockReturnValue([]);
+
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.stop("@elizaos/app-babylon");
+
+      expect(result.success).toBe(false);
+      expect(result.appName).toBe("@elizaos/app-babylon");
+      expect(typeof result.stoppedAt).toBe("string");
+      expect(result.stopScope).toBe("no-op");
+      expect(result.pluginUninstalled).toBe(false);
+      expect(result.needsRestart).toBe(false);
     });
 
-    // Simulate plugin already installed
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-hyperscape",
-    );
-    fs.mkdirSync(installedDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(installedDir, "package.json"),
-      JSON.stringify({ name: HYPERSCAPE_PLUGIN_NAME, version: "1.0.0" }),
-    );
-
-    const result = await appManager.launch(pluginManager, HYPERSCAPE_APP_NAME);
-    expect(result.pluginInstalled).toBe(true);
-  });
-
-  it("skips auto-provisioning when credentials already exist", async () => {
-    // Pre-set credentials - auto-provisioning should be skipped
-    process.env.HYPERSCAPE_CHARACTER_ID = "existing-char-id";
-    process.env.HYPERSCAPE_AUTH_TOKEN = "existing-auth-token";
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        registry: {
-          [HYPERSCAPE_APP_NAME]: {
-            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape 3D world",
-            topics: ["app"],
-          },
-          [HYPERSCAPE_PLUGIN_NAME]: {
-            git: {
-              repo: "elizaos/plugin-hyperscape",
-              v0: {},
-              v1: {},
-              v2: {},
-            },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape plugin",
-            topics: ["plugin"],
-          },
-        },
-      }),
-    });
-
-    // Simulate plugin already installed
-    const installedDir = path.join(
-      tempDir,
-      "plugins",
-      "installed",
-      "_elizaos_plugin-hyperscape",
-    );
-    fs.mkdirSync(installedDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(installedDir, "package.json"),
-      JSON.stringify({ name: HYPERSCAPE_PLUGIN_NAME, version: "1.0.0" }),
-    );
-
-    const result = await appManager.launch(pluginManager, HYPERSCAPE_APP_NAME);
-    expect(result.pluginInstalled).toBe(true);
-    // Credentials should remain unchanged (auto-provisioning skipped)
-    expect(process.env.HYPERSCAPE_CHARACTER_ID).toBe("existing-char-id");
-    expect(process.env.HYPERSCAPE_AUTH_TOKEN).toBe("existing-auth-token");
-  });
-});
-
-describe("App URL template security", () => {
-  let originalEnv: Record<string, string | undefined>;
-
-  function createRegistryApp(
-    overrides: Partial<RegistryPluginInfo> = {},
-  ): RegistryPluginInfo {
-    return {
-      name: "@elizaos/app-security-test",
-      gitRepo: "elizaos/app-security-test",
-      gitUrl: "https://github.com/elizaos/app-security-test",
-      description: "security test app",
-      topics: ["app"],
-      stars: 0,
-      language: "TypeScript",
-      launchType: "connect",
-      launchUrl: null,
-      kind: "app",
-      npm: {
-        package: "@elizaos/plugin-security-test",
-        v0Version: "1.0.0",
-        v1Version: null,
-        v2Version: null,
-      },
-      supports: { v0: true, v1: false, v2: false },
-      ...overrides,
-    };
-  }
-
-  function createPluginManagerStub(
-    appInfo: RegistryPluginInfo,
-  ): PluginManagerLike {
-    const pluginName = appInfo.npm.package;
-    return {
-      refreshRegistry: vi
-        .fn()
-        .mockResolvedValue(new Map<string, RegistryPluginInfo>()),
-      listInstalledPlugins: vi
-        .fn()
-        .mockResolvedValue([{ name: pluginName, version: "1.0.0" }]),
-      getRegistryPlugin: vi.fn().mockResolvedValue(appInfo),
-      searchRegistry: vi.fn().mockResolvedValue([]),
-      installPlugin: vi.fn().mockResolvedValue({
+    it("uninstalls installed plugin when stopping an app", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_BABYLON),
+      );
+      const { listInstalledPlugins, uninstallPlugin } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_BABYLON, "/tmp/x"),
+      ]);
+      vi.mocked(uninstallPlugin).mockResolvedValue({
         success: true,
-        pluginName,
-        version: "1.0.0",
-        installPath: "/tmp",
+        pluginName: "@elizaos/app-babylon",
         requiresRestart: true,
-      }),
-      uninstallPlugin: vi.fn().mockResolvedValue({
-        success: true,
-        pluginName,
-        requiresRestart: true,
-      }),
-      listEjectedPlugins: vi.fn().mockResolvedValue([]),
-      ejectPlugin: vi.fn().mockResolvedValue({
-        success: true,
-        pluginName,
-        ejectedPath: "/tmp",
-        requiresRestart: false,
-      }),
-      syncPlugin: vi.fn().mockResolvedValue({
-        success: true,
-        pluginName,
-        ejectedPath: "/tmp",
-        requiresRestart: false,
-      }),
-      reinjectPlugin: vi.fn().mockResolvedValue({
-        success: true,
-        pluginName,
-        removedPath: "/tmp",
-        requiresRestart: false,
-      }),
-    };
-  }
+      });
 
-  beforeEach(() => {
-    originalEnv = {
-      BOT_NAME: process.env.BOT_NAME,
-      MILADY_API_TOKEN: process.env.MILADY_API_TOKEN,
-    };
-    vi.spyOn(registryClient, "getPluginInfo").mockResolvedValue(null);
-  });
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      const result = await mgr.stop("@elizaos/app-babylon");
 
-  afterEach(() => {
-    for (const [key, value] of Object.entries(originalEnv)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-    vi.restoreAllMocks();
-  });
-
-  it("does not interpolate non-allowlisted env vars into app URLs", async () => {
-    process.env.BOT_NAME = "allowlisted-bot";
-    process.env.MILADY_API_TOKEN = "super-secret-token";
-    const appInfo = createRegistryApp({
-      launchUrl:
-        "https://launch.example/?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
-      viewer: {
-        url: "https://viewer.example/play?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
-        embedParams: { session: "{MILADY_API_TOKEN}" },
-      },
+      expect(result.success).toBe(true);
+      expect(result.stopScope).toBe("plugin-uninstalled");
+      expect(result.pluginUninstalled).toBe(true);
+      expect(result.needsRestart).toBe(true);
+      expect(vi.mocked(uninstallPlugin)).toHaveBeenCalledWith(
+        "@elizaos/app-babylon",
+      );
     });
 
-    const appManager = new AppManager();
-    const result = await appManager.launch(
-      createPluginManagerStub(appInfo),
-      appInfo.name,
-    );
+    it("throws when installed plugin cannot be uninstalled", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(
+        makeRegistryAppInfo(APP_INFO_BABYLON),
+      );
+      const { listInstalledPlugins, uninstallPlugin } = await import(
+        "./plugin-installer.js"
+      );
+      vi.mocked(listInstalledPlugins).mockReturnValue([
+        mockInstalledPlugin(APP_BABYLON, "/tmp/x"),
+      ]);
+      vi.mocked(uninstallPlugin).mockResolvedValue({
+        success: false,
+        pluginName: "@elizaos/app-babylon",
+        requiresRestart: false,
+        error: "permission denied",
+      });
 
-    expect(result.launchUrl).toBe(
-      "https://launch.example/?bot=allowlisted-bot&token=",
-    );
-    expect(result.viewer?.url).toBeDefined();
-    expect(result.viewer?.url).not.toContain("super-secret-token");
-
-    const viewerUrl = new URL(result.viewer?.url ?? "https://viewer.example");
-    expect(viewerUrl.searchParams.get("bot")).toBe("allowlisted-bot");
-    expect(viewerUrl.searchParams.get("token")).toBe("");
-    expect(viewerUrl.searchParams.get("session")).toBe("");
-  });
-
-  it("still interpolates allowlisted env vars", async () => {
-    process.env.BOT_NAME = "test-agent";
-    const appInfo = createRegistryApp({
-      launchUrl: "https://launch.example/?bot={BOT_NAME}",
-      viewer: {
-        url: "https://viewer.example/play?bot={BOT_NAME}",
-      },
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.stop("@elizaos/app-babylon")).rejects.toThrow(
+        "permission denied",
+      );
     });
 
-    const appManager = new AppManager();
-    const result = await appManager.launch(
-      createPluginManagerStub(appInfo),
-      appInfo.name,
-    );
+    it("throws for unknown app", async () => {
+      const { getAppInfo } = await import("./registry-client.js");
+      vi.mocked(getAppInfo).mockResolvedValue(null);
 
-    expect(result.launchUrl).toBe("https://launch.example/?bot=test-agent");
-    const viewerUrl = new URL(result.viewer?.url ?? "https://viewer.example");
-    expect(viewerUrl.searchParams.get("bot")).toBe("test-agent");
+      const { AppManager } = await import("./app-manager.js");
+      const mgr = new AppManager();
+      await expect(mgr.stop("@elizaos/app-missing")).rejects.toThrow(
+        "not found",
+      );
+    });
   });
 });

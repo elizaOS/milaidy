@@ -13,13 +13,13 @@ import { Capacitor } from "@capacitor/core";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 
 // Import the plugin bridge
-import {
-  getPluginCapabilities,
-  getPlugins,
+import { 
+  getPlugins, 
+  getPluginCapabilities, 
   isFeatureAvailable,
   type MiladyPlugins,
-  type PluginCapabilities,
-} from "./plugin-bridge";
+  type PluginCapabilities 
+} from "./plugin-bridge.js";
 
 // Platform detection
 const platform = Capacitor.getPlatform();
@@ -173,9 +173,7 @@ export function registerPlugin(name: string, plugin: PluginInstance): void {
 /**
  * Get a registered plugin
  */
-export function getPlugin<T extends PluginInstance>(
-  name: string,
-): T | undefined {
+export function getPlugin<T extends PluginInstance>(name: string): T | undefined {
   return pluginRegistry.get(name) as T | undefined;
 }
 
@@ -259,11 +257,9 @@ export function initializeCapacitorBridge(): void {
   window.Milady = createBridge();
 
   // Dispatch an event to notify that the bridge is ready
-  document.dispatchEvent(
-    new CustomEvent("milady:bridge-ready", {
-      detail: window.Milady,
-    }),
-  );
+  document.dispatchEvent(new CustomEvent("milady:bridge-ready", {
+    detail: window.Milady,
+  }));
 }
 
 /**
@@ -277,12 +273,8 @@ export function waitForBridge(): Promise<MiladyBridge> {
   }
 
   return new Promise((resolve) => {
-    document.addEventListener(
-      "milady:bridge-ready",
-      (event) => {
-        resolve((event as CustomEvent<MiladyBridge>).detail);
-      },
-      { once: true },
-    );
+    document.addEventListener("milady:bridge-ready", (event) => {
+      resolve((event as CustomEvent<MiladyBridge>).detail);
+    }, { once: true });
   });
 }

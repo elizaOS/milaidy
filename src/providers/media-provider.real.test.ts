@@ -13,13 +13,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ImageConfig, VisionConfig } from "../config/types.milady";
+import type { ImageConfig, VisionConfig } from "../config/types.milady.js";
 import {
   createImageProvider,
   createVisionProvider,
   type ImageGenerationProvider,
   type VisionAnalysisProvider,
-} from "./media-provider";
+} from "./media-provider.js";
 
 // Skip if not in real API test mode
 const REAL_API_MODE = process.env.REAL_API_TEST === "1";

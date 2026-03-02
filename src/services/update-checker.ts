@@ -1,16 +1,15 @@
 /**
- * Queries the npm registry for new miladyai versions on the user's
+ * Queries the npm registry for new milady versions on the user's
  * configured release channel (stable/beta/nightly).
  */
 
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
-import type { ReleaseChannel, UpdateConfig } from "../config/types.milady";
-import { VERSION } from "../runtime/version";
-import { compareSemver } from "./version-compat";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
+import type { ReleaseChannel, UpdateConfig } from "../config/types.milady.js";
+import { VERSION } from "../runtime/version.js";
+import { compareSemver } from "./version-compat.js";
 
 const CHECK_INTERVAL_SECONDS = 14_400; // 4 hours
 const REGISTRY_TIMEOUT_MS = 8_000;
-const NPM_REGISTRY_PACKUMENT_URL = "https://registry.npmjs.org/miladyai";
 
 /** npm dist-tag corresponding to each release channel. */
 export const CHANNEL_DIST_TAGS: Readonly<Record<ReleaseChannel, string>> = {
@@ -36,7 +35,7 @@ async function fetchDistTags(): Promise<Record<string, string> | null> {
   const timer = setTimeout(() => controller.abort(), REGISTRY_TIMEOUT_MS);
 
   try {
-    const res = await fetch(NPM_REGISTRY_PACKUMENT_URL, {
+    const res = await fetch("https://registry.npmjs.org/milady", {
       headers: { Accept: "application/vnd.npm.install-v1+json" },
       signal: controller.signal,
     });

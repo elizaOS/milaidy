@@ -6,8 +6,9 @@
  * resolves into the logo and dissolves again.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { StartupPhase } from "../AppContext";
+import { createTranslator, type UiLanguage } from "../i18n";
 
 /* ── ASCII source ──────────────────────────────────────────────────── */
 
@@ -42,38 +43,21 @@ interface CharCell {
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
-const PHASE_LABELS: Record<StartupPhase, string> = {
-  "starting-backend": "starting backend",
-  "initializing-agent": "initializing agent",
+const PHASE_LABEL_KEYS: Record<StartupPhase, string> = {
+  "starting-backend": "loading.startingBackend",
+  "initializing-agent": "loading.initializingAgent",
 };
 
 interface LoadingScreenProps {
   phase?: StartupPhase;
-  elapsedSeconds?: number;
+  lang?: UiLanguage | string | null;
 }
 
 export function LoadingScreen({
   phase = "starting-backend",
-  elapsedSeconds,
+  lang = "en",
 }: LoadingScreenProps) {
-  const [runtimeElapsedSeconds, setRuntimeElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    if (typeof elapsedSeconds === "number") return;
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      setRuntimeElapsedSeconds(
-        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [elapsedSeconds]);
-
-  const displayedElapsedSeconds =
-    typeof elapsedSeconds === "number"
-      ? Math.max(0, Math.floor(elapsedSeconds))
-      : runtimeElapsedSeconds;
-
+  const t = createTranslator(lang);
   /* Build the character grid once — each non-space character gets its
      own random timing so the dither pattern is never uniform. */
   const grid = useMemo<CharCell[][]>(
@@ -92,7 +76,8 @@ export function LoadingScreen({
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-bg gap-8">
       <div
-        aria-live="polite"
+        role="status"
+        aria-label="Loading"
         style={{
           fontFamily: "var(--mono)",
           fontSize: "clamp(7px, 1.4vw, 14px)",
@@ -101,15 +86,12 @@ export function LoadingScreen({
           userSelect: "none",
         }}
       >
-        {grid.map((line) => (
-          <div
-            key={line.map((c) => c.char).join("")}
-            style={{ whiteSpace: "pre" }}
-          >
-            {line.map((c) =>
+        {grid.map((line, y) => (
+          <div key={y} style={{ whiteSpace: "pre" }}>
+            {line.map((c, x) =>
               c.isLetter ? (
                 <span
-                  key={`${c.char}-${c.delay.toFixed(3)}-${c.duration.toFixed(3)}`}
+                  key={x}
                   className="dither-char"
                   style={{
                     animationDelay: `${c.delay.toFixed(2)}s`,
@@ -119,11 +101,7 @@ export function LoadingScreen({
                   {c.char}
                 </span>
               ) : (
-                <span
-                  key={`${c.char}-${c.delay.toFixed(3)}-${c.duration.toFixed(3)}`}
-                >
-                  {c.char}
-                </span>
+                <span key={x}>{c.char}</span>
               ),
             )}
           </div>
@@ -133,7 +111,7 @@ export function LoadingScreen({
         className="text-muted text-xs tracking-widest uppercase"
         style={{ fontFamily: "var(--mono)" }}
       >
-        {PHASE_LABELS[phase]} ({displayedElapsedSeconds}s)
+        {t(PHASE_LABEL_KEYS[phase])}
       </div>
     </div>
   );

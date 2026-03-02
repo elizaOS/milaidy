@@ -86,20 +86,7 @@ jobs:
           echo "Dist-tag: $DIST_TAG"
 
       - name: Install dependencies
-        run: |
-          # Use --ignore-scripts to skip postinstall (submodule init) since we don't need plugins for npm publish
-          # Retry up to 3 times to handle flaky network issues
-          for attempt in 1 2 3; do
-            echo "Attempt $attempt of 3..."
-            if bun install --frozen-lockfile --ignore-scripts; then
-              echo "Dependencies installed successfully"
-              exit 0
-            fi
-            echo "Attempt $attempt failed, waiting 10s before retry..."
-            sleep 10
-          done
-          echo "All attempts failed"
-          exit 1
+        run: bun install --frozen-lockfile
 
       - name: Set version in package.json
         run: |
@@ -140,11 +127,11 @@ jobs:
       - name: Verify publish
         run: |
           sleep 5  # Give the registry a moment to propagate
-          PUBLISHED=$(npm view miladyai@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
+          PUBLISHED=$(npm view milady@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
           EXPECTED="${{ steps.meta.outputs.version }}"
 
           if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
-            echo "Verified: miladyai@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
+            echo "Verified: milady@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
           else
             echo "::warning::Published version ($PUBLISHED) does not match expected ($EXPECTED). Registry may still be propagating."
           fi
@@ -161,5 +148,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g miladyai@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g milady@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

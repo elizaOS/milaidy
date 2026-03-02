@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,9 +36,7 @@ type AppHarnessState = {
       adjectives: string[];
       topics: string[];
       postExamples: string[];
-      messageExamples: Array<
-        Array<{ name: string; content: { text: string } }>
-      >;
+      messageExamples: Array<Array<{ name: string; content: { text: string } }>>;
     }>;
     providers: Array<{
       id: string;
@@ -51,18 +48,8 @@ type AppHarnessState = {
     }>;
     cloudProviders: Array<{ id: string; name: string; description: string }>;
     models: {
-      small: Array<{
-        id: string;
-        name: string;
-        provider: string;
-        description: string;
-      }>;
-      large: Array<{
-        id: string;
-        name: string;
-        provider: string;
-        description: string;
-      }>;
+      small: Array<{ id: string; name: string; provider: string; description: string }>;
+      large: Array<{ id: string; name: string; provider: string; description: string }>;
     };
     inventoryProviders: Array<{
       id: string;
@@ -112,9 +99,6 @@ type AppHarnessState = {
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
-const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
-  mockUseLifoAutoPopout: vi.fn(),
-}));
 
 vi.mock("../../src/AppContext", async () => {
   const actual = await vi.importActual("../../src/AppContext");
@@ -124,93 +108,85 @@ vi.mock("../../src/AppContext", async () => {
   };
 });
 
-vi.mock("../../src/components/Header", () => ({
+vi.mock("../../src/components/Header.js", () => ({
   Header: () => React.createElement("div", null, "Header"),
 }));
-vi.mock("../../src/components/Nav", () => ({
+vi.mock("../../src/components/Nav.js", () => ({
   Nav: () => React.createElement("div", null, "Nav"),
 }));
-vi.mock("../../src/components/CommandPalette", () => ({
+vi.mock("../../src/components/CommandPalette.js", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
-vi.mock("../../src/components/EmotePicker", () => ({
+vi.mock("../../src/components/EmotePicker.js", () => ({
   EmotePicker: () => React.createElement("div", null, "EmotePicker"),
 }));
-vi.mock("../../src/components/SaveCommandModal", () => ({
+vi.mock("../../src/components/SaveCommandModal.js", () => ({
   SaveCommandModal: () => React.createElement("div", null, "SaveCommandModal"),
 }));
-vi.mock("../../src/components/ConversationsSidebar", () => ({
-  ConversationsSidebar: () =>
-    React.createElement("div", null, "ConversationsSidebar"),
+vi.mock("../../src/components/ConversationsSidebar.js", () => ({
+  ConversationsSidebar: () => React.createElement("div", null, "ConversationsSidebar"),
 }));
-vi.mock("../../src/components/AutonomousPanel", () => ({
+vi.mock("../../src/components/AutonomousPanel.js", () => ({
   AutonomousPanel: () => React.createElement("div", null, "AutonomousPanel"),
 }));
-vi.mock("../../src/components/CustomActionsPanel", () => ({
-  CustomActionsPanel: () =>
-    React.createElement("div", null, "CustomActionsPanel"),
+vi.mock("../../src/components/CustomActionsPanel.js", () => ({
+  CustomActionsPanel: () => React.createElement("div", null, "CustomActionsPanel"),
 }));
-vi.mock("../../src/components/CustomActionEditor", () => ({
-  CustomActionEditor: () =>
-    React.createElement("div", null, "CustomActionEditor"),
+vi.mock("../../src/components/CustomActionEditor.js", () => ({
+  CustomActionEditor: () => React.createElement("div", null, "CustomActionEditor"),
 }));
-vi.mock("../../src/components/AppsPageView", () => ({
+vi.mock("../../src/components/AppsPageView.js", () => ({
   AppsPageView: () => React.createElement("div", null, "AppsPageView"),
 }));
-vi.mock("../../src/components/AdvancedPageView", () => ({
+vi.mock("../../src/components/AdvancedPageView.js", () => ({
   AdvancedPageView: () => React.createElement("div", null, "AdvancedPageView"),
 }));
-vi.mock("../../src/components/CharacterView", () => ({
+vi.mock("../../src/components/CharacterView.js", () => ({
   CharacterView: () => React.createElement("div", null, "CharacterView"),
 }));
-vi.mock("../../src/components/TriggersView", () => ({
+vi.mock("../../src/components/TriggersView.js", () => ({
   TriggersView: () => React.createElement("div", null, "TriggersView"),
 }));
-vi.mock("../../src/components/ConnectorsPageView", () => ({
-  ConnectorsPageView: () =>
-    React.createElement("div", null, "ConnectorsPageView"),
+vi.mock("../../src/components/ConnectorsPageView.js", () => ({
+  ConnectorsPageView: () => React.createElement("div", null, "ConnectorsPageView"),
 }));
-vi.mock("../../src/components/InventoryView", () => ({
+vi.mock("../../src/components/InventoryView.js", () => ({
   InventoryView: () => React.createElement("div", null, "InventoryView"),
 }));
-vi.mock("../../src/components/KnowledgeView", () => ({
+vi.mock("../../src/components/KnowledgeView.js", () => ({
   KnowledgeView: () => React.createElement("div", null, "KnowledgeView"),
 }));
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () => React.createElement("div", null, "LifoSandboxView"),
-}));
-vi.mock("../../src/components/SettingsView", () => ({
+vi.mock("../../src/components/SettingsView.js", () => ({
   SettingsView: () => React.createElement("div", null, "SettingsView"),
 }));
-vi.mock("../../src/components/PairingView", () => ({
+vi.mock("../../src/components/PairingView.js", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
-vi.mock("../../src/components/ChatView", () => ({
+vi.mock("../../src/components/ChatView.js", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
-vi.mock("../../src/components/LoadingScreen", () => ({
+vi.mock("../../src/components/CompanionView.js", () => ({
+  CompanionView: () => React.createElement("div", null, "CompanionView"),
+}));
+vi.mock("../../src/components/LoadingScreen.js", () => ({
   LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
 }));
-vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
-  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
-}));
-vi.mock("../../src/components/TerminalPanel", () => ({
+vi.mock("../../src/components/TerminalPanel.js", () => ({
   TerminalPanel: () => React.createElement("div", null, "TerminalPanel"),
 }));
-vi.mock("../../src/components/AvatarSelector", () => ({
+vi.mock("../../src/components/AvatarSelector.js", () => ({
   AvatarSelector: () => React.createElement("div", null, "AvatarSelector"),
 }));
-vi.mock("../../src/components/PermissionsSection", () => ({
+vi.mock("../../src/components/PermissionsSection.js", () => ({
   PermissionsOnboardingSection: ({
     onContinue,
   }: {
     onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
-  }) =>
-    React.createElement(
-      "button",
-      { onClick: () => onContinue(), type: "button" },
-      "permissions-continue",
-    ),
+  }) => React.createElement(
+    "button",
+    { onClick: () => onContinue() },
+    "permissions-continue",
+  ),
 }));
 
 import { App } from "../../src/App";
@@ -241,26 +217,10 @@ function onboardingOptions() {
         description: "Use local Ollama",
       },
     ],
-    cloudProviders: [
-      { id: "openrouter", name: "OpenRouter", description: "Cloud provider" },
-    ],
+    cloudProviders: [{ id: "openrouter", name: "OpenRouter", description: "Cloud provider" }],
     models: {
-      small: [
-        {
-          id: "small-model",
-          name: "Small",
-          provider: "openrouter",
-          description: "small",
-        },
-      ],
-      large: [
-        {
-          id: "large-model",
-          name: "Large",
-          provider: "openrouter",
-          description: "large",
-        },
-      ],
+      small: [{ id: "small-model", name: "Small", provider: "openrouter", description: "small" }],
+      large: [{ id: "large-model", name: "Large", provider: "openrouter", description: "large" }],
     },
     inventoryProviders: [
       {
@@ -328,17 +288,11 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
-function hasText(
-  node: TestRenderer.ReactTestInstance,
-  target: string,
-): boolean {
+function hasText(node: TestRenderer.ReactTestInstance, target: string): boolean {
   return textOf(node).includes(target);
 }
 
-function clickButton(
-  tree: TestRenderer.ReactTestRenderer,
-  labelFragment: string,
-): void {
+function clickButton(tree: TestRenderer.ReactTestRenderer, labelFragment: string): void {
   const button = tree.root.findAll(
     (node) => node.type === "button" && hasText(node, labelFragment),
   )[0];
@@ -378,10 +332,7 @@ describe("app startup onboarding flow (e2e)", () => {
           state.onboardingStep = "runMode";
           break;
         case "runMode":
-          state.onboardingStep =
-            state.onboardingRunMode === "local-sandbox"
-              ? "dockerSetup"
-              : "llmProvider";
+          state.onboardingStep = state.onboardingRunMode === "local-sandbox" ? "dockerSetup" : "llmProvider";
           break;
         case "dockerSetup":
           state.onboardingStep = "llmProvider";
@@ -439,7 +390,6 @@ describe("app startup onboarding flow (e2e)", () => {
     };
 
     mockUseApp.mockReset();
-    mockUseLifoAutoPopout.mockReset();
     mockUseApp.mockImplementation(() => ({
       ...state,
       setState: (key: string, value: unknown) => {
@@ -457,56 +407,51 @@ describe("app startup onboarding flow (e2e)", () => {
     }));
   });
 
-  it.skip("progresses through onboarding and lands in chat", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+  it("progresses through onboarding and lands in chat", async () => {
+    let tree: TestRenderer.ReactTestRenderer;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-    const renderedTree = tree;
 
     for (let i = 0; i < 20 && !state.onboardingComplete; i += 1) {
       if (state.onboardingStep === "name") {
-        const nameInput = renderedTree.root.findAll(
-          (node) =>
-            node.type === "input" &&
-            node.props.placeholder === "enter custom name...",
+        const nameInput = tree!.root.findAll(
+          (node) => node.type === "input" && node.props.placeholder === "enter custom name...",
         )[0];
         expect(nameInput).toBeDefined();
         await act(async () => {
           nameInput.props.onChange({ target: { value: "Onboarding Smoke" } });
         });
-        await rerender(renderedTree);
+        await rerender(tree!);
       }
 
       if (state.onboardingStep === "style" && !state.onboardingStyle) {
-        clickButton(renderedTree, "chaotic");
-        await rerender(renderedTree);
+        clickButton(tree!, "chaotic");
+        await rerender(tree!);
       }
 
       if (state.onboardingStep === "runMode") {
         state.onboardingRunMode = "local-rawdog";
-        await rerender(renderedTree);
+        await rerender(tree!);
       }
 
       if (state.onboardingStep === "llmProvider") {
         state.onboardingProvider = "ollama";
-        await rerender(renderedTree);
+        await rerender(tree!);
       }
 
       if (state.onboardingStep === "permissions") {
-        clickButton(renderedTree, "permissions-continue");
+        clickButton(tree!, "permissions-continue");
       } else {
-        clickButton(renderedTree, "next");
+        clickButton(tree!, "next");
       }
-      await rerender(renderedTree);
+      await rerender(tree!);
     }
 
     expect(state.onboardingComplete).toBe(true);
 
-    const renderedText = renderedTree.root
-      .findAllByType("div")
+    const renderedText = tree!.root.findAllByType("div")
       .map((node) => node.children.join(""))
       .join("\n");
 

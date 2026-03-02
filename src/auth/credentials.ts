@@ -2,20 +2,20 @@
  * Credential storage and token refresh for subscription providers.
  *
  * Stores OAuth credentials in ~/.milady/auth/ as JSON files.
+ * Uses @mariozechner/pi-ai for token refresh.
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { logger } from "@elizaos/core";
-import { refreshAnthropicToken } from "./anthropic";
-import { refreshCodexToken } from "./openai-codex";
-import {
-  type OAuthCredentials,
-  type StoredCredentials,
-  SUBSCRIPTION_PROVIDER_MAP,
-  type SubscriptionProvider,
-} from "./types";
+import { refreshAnthropicToken } from "./anthropic.js";
+import { refreshCodexToken } from "./openai-codex.js";
+import type {
+  OAuthCredentials,
+  StoredCredentials,
+  SubscriptionProvider,
+} from "./types.js";
 
 const AUTH_DIR = path.join(
   process.env.MILADY_HOME || path.join(os.homedir(), ".milady"),
@@ -164,72 +164,29 @@ export function getSubscriptionStatus(): Array<{
 /**
  * Apply subscription credentials to the environment.
  * Called at startup to make credentials available to ElizaOS plugins.
- *
- * When a `config` is provided and the active subscription provider has
- * credentials, `model.primary` is auto-set so the user doesn't need to
- * configure it manually.
  */
-export async function applySubscriptionCredentials(config?: {
-  agents?: {
-    defaults?: { subscriptionProvider?: string; model?: { primary?: string } };
-  };
-}): Promise<void> {
+export async function applySubscriptionCredentials(): Promise<void> {
   // Anthropic subscription → set ANTHROPIC_API_KEY
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
-    process.env.ANTHROPIC_API_KEY = anthropicToken;
+    // Never override a user-supplied key.
+    if (!process.env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = anthropicToken;
+    }
     logger.info(
       "[auth] Applied Anthropic subscription credentials to environment",
     );
-    // Install Claude stealth interceptor (non-fatal)
-    try {
-      const { applyClaudeCodeStealth } = await import("./apply-stealth");
-      applyClaudeCodeStealth();
-    } catch (err) {
-      logger.warn(
-        `[auth] Failed to apply Claude stealth: ${err instanceof Error ? err.message : err}`,
-      );
-    }
   }
 
   // OpenAI Codex subscription → set OPENAI_API_KEY
   const codexToken = await getAccessToken("openai-codex");
   if (codexToken) {
-    process.env.OPENAI_API_KEY = codexToken;
+    // Never override a user-supplied key.
+    if (!process.env.OPENAI_API_KEY) {
+      process.env.OPENAI_API_KEY = codexToken;
+    }
     logger.info(
       "[auth] Applied OpenAI Codex subscription credentials to environment",
     );
-    // Install OpenAI Codex stealth interceptor (non-fatal)
-    try {
-      const { applyOpenAICodexStealth } = await import("./apply-stealth");
-      await applyOpenAICodexStealth();
-    } catch (err) {
-      logger.warn(
-        `[auth] Failed to apply OpenAI Codex stealth: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-  }
-
-  // Auto-set model.primary from subscription provider when not explicitly
-  // configured, so users who connect a subscription don't need to manually
-  // choose a model provider.
-  if (config?.agents?.defaults) {
-    const defaults = config.agents.defaults;
-    const provider =
-      defaults.subscriptionProvider as keyof typeof SUBSCRIPTION_PROVIDER_MAP;
-    const modelId = provider ? SUBSCRIPTION_PROVIDER_MAP[provider] : undefined;
-    if (modelId) {
-      if (!defaults.model) {
-        defaults.model = { primary: modelId };
-        logger.info(
-          `[auth] Auto-set model.primary to "${modelId}" from subscription provider`,
-        );
-      } else if (!defaults.model.primary) {
-        defaults.model.primary = modelId;
-        logger.info(
-          `[auth] Auto-set model.primary to "${modelId}" from subscription provider`,
-        );
-      }
-    }
   }
 }

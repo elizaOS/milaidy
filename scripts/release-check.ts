@@ -5,7 +5,11 @@ import { execSync } from "node:child_process";
 type PackFile = { path: string };
 type PackResult = { files?: PackFile[] };
 
-const requiredPaths = ["dist/index", "dist/entry", "dist/build-info.json"];
+const requiredPaths = [
+  "dist/index.js",
+  "dist/entry.js",
+  "dist/build-info.json",
+];
 const forbiddenPrefixes = ["dist/Milady.app/"];
 
 function runPackDry(): PackResult[] {

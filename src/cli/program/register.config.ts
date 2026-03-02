@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import type { MiladyConfig } from "../../config/types.milady";
-import { theme } from "../../terminal/theme";
+import type { MiladyConfig } from "../../config/types.milady.js";
+import { theme } from "../../terminal/theme.js";
 
 export function registerConfigCli(program: Command) {
   const config = program
@@ -11,7 +11,7 @@ export function registerConfigCli(program: Command) {
     .command("get <key>")
     .description("Get a config value")
     .action(async (key: string) => {
-      const { loadMiladyConfig } = await import("../../config/config");
+      const { loadMiladyConfig } = await import("../../config/config.js");
       let miladyConfig: ReturnType<typeof loadMiladyConfig> | undefined;
       try {
         miladyConfig = loadMiladyConfig();
@@ -45,7 +45,7 @@ export function registerConfigCli(program: Command) {
     .command("path")
     .description("Print the resolved config file path")
     .action(async () => {
-      const { resolveConfigPath } = await import("../../config/paths");
+      const { resolveConfigPath } = await import("../../config/paths.js");
       console.log(resolveConfigPath());
     });
 
@@ -55,8 +55,8 @@ export function registerConfigCli(program: Command) {
     .option("-a, --all", "Include advanced/hidden fields")
     .option("--json", "Output as raw JSON")
     .action(async (opts: { all?: boolean; json?: boolean }) => {
-      const { loadMiladyConfig } = await import("../../config/config");
-      const { buildConfigSchema } = await import("../../config/schema");
+      const { loadMiladyConfig } = await import("../../config/config.js");
+      const { buildConfigSchema } = await import("../../config/schema.js");
 
       let config: MiladyConfig | undefined;
       try {

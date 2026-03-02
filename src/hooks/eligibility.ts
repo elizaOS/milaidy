@@ -5,8 +5,8 @@
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
 import { delimiter } from "node:path";
-import type { HookConfig, InternalHooksConfig } from "../config/types.hooks";
-import type { MiladyHookMetadata } from "./types";
+import type { HookConfig, InternalHooksConfig } from "../config/types.hooks.js";
+import type { MiladyHookMetadata } from "./types.js";
 
 function binaryExists(name: string): boolean {
   const pathDirs = (process.env.PATH ?? "").split(delimiter);

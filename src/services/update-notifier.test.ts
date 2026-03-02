@@ -9,14 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMockUpdateCheckResult,
   waitMs,
-} from "../test-support/test-helpers";
+} from "../test-support/test-helpers.js";
 
 // Mock dependencies before importing the module under test
-vi.mock("../config/config", () => ({
+vi.mock("../config/config.js", () => ({
   loadMiladyConfig: vi.fn(() => ({})),
 }));
 
-vi.mock("./update-checker", () => ({
+vi.mock("./update-checker.js", () => ({
   checkForUpdate: vi.fn(),
   resolveChannel: vi.fn(() => "stable"),
 }));
@@ -32,7 +32,7 @@ function mockTerminalTheme() {
   };
 }
 
-vi.mock("../terminal/theme", mockTerminalTheme);
+vi.mock("../terminal/theme.js", mockTerminalTheme);
 
 // ============================================================================
 // Helpers
@@ -47,18 +47,18 @@ async function importFreshNotifier() {
   vi.resetModules();
 
   // Re-mock after reset
-  vi.doMock("../config/config", () => ({
+  vi.doMock("../config/config.js", () => ({
     loadMiladyConfig: vi.fn(() => ({})),
   }));
-  vi.doMock("./update-checker", () => ({
+  vi.doMock("./update-checker.js", () => ({
     checkForUpdate: vi.fn(),
     resolveChannel: vi.fn(() => "stable"),
   }));
-  vi.doMock("../terminal/theme", mockTerminalTheme);
+  vi.doMock("../terminal/theme.js", mockTerminalTheme);
 
-  const mod = await import("./update-notifier");
-  const config = await import("../config/config");
-  const checker = await import("./update-checker");
+  const mod = await import("./update-notifier.js");
+  const config = await import("../config/config.js");
+  const checker = await import("./update-checker.js");
   return {
     scheduleUpdateNotification: mod.scheduleUpdateNotification,
     config,

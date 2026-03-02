@@ -35,6 +35,10 @@ describe("navigation", () => {
     expect(pathForTab("triggers")).toBe("/triggers");
     expect(tabFromPath("/triggers")).toBe("triggers");
     expect(titleForTab("triggers")).toBe("Triggers");
+
+    expect(pathForTab("companion")).toBe("/companion");
+    expect(tabFromPath("/companion")).toBe("companion");
+    expect(titleForTab("companion")).toBe("Companion");
   });
 
   test("includes advanced tabs in Advanced group", () => {
@@ -77,6 +81,11 @@ describe("navigation", () => {
     expect(tabFromPath("/wallets")).toBe("wallets");
     expect(tabFromPath("/inventory")).toBe("wallets");
     expect(titleForTab("wallets")).toBe("Wallets");
+  });
+
+  test("maps root path to companion tab", () => {
+    expect(tabFromPath("/")).toBe("companion");
+    expect(tabFromPath("/index.html")).toBe("companion");
   });
 
   test("does not expose game as a top-level apps tab", () => {

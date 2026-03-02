@@ -27,10 +27,9 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import type {
-  PTYService,
-  SwarmEvent,
-} from "@elizaos/plugin-agent-orchestrator";
+import { ethers } from "ethers";
+import * as piAi from "@mariozechner/pi-ai";
+import type { PTYService, SwarmEvent } from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { type WebSocket, WebSocketServer } from "ws";
 import type { CloudManager } from "../cloud/cloud-manager";
@@ -52,6 +51,7 @@ import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
 import { activeDevMode } from "../runtime/eliza";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
+import { CharacterSchema } from "../config/zod-schema.js";
 import {
   buildTestHandler,
   registerCustomActionLive,
@@ -74,6 +74,11 @@ import {
   type PluginManagerLike,
 } from "../services/plugin-manager-types";
 import type { SandboxManager } from "../services/sandbox-manager";
+import {
+  ensurePrivyWalletsForCustomUser,
+  isPrivyWalletProvisioningEnabled,
+  type PrivyWalletChain,
+} from "../services/privy-wallets.js";
 import {
   installMarketplaceSkill,
   listInstalledMarketplaceSkills,
@@ -160,6 +165,20 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+import {
+  buildBscApproveUnsignedTx,
+  buildBscBuyUnsignedTx,
+  buildBscSellUnsignedTx,
+  buildBscTradePreflight,
+  buildBscTradeQuote,
+} from "./bsc-trade.js";
+import {
+  fetchEvmBalances,
+  fetchEvmNfts,
+  fetchSolanaBalances,
+  fetchSolanaNativeBalanceViaRpc,
+  fetchSolanaNfts,
+} from "./wallet.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -203,6 +222,14 @@ function isUuidLike(value: string): value is UUID {
 }
 
 const OG_FILENAME = ".og";
+const DELETED_CONVERSATIONS_FILENAME = "deleted-conversations.v1.json";
+const MAX_DELETED_CONVERSATION_IDS = 5000;
+
+interface DeletedConversationsStateFile {
+  version: 1;
+  updatedAt: string;
+  ids: string[];
+}
 
 function readOGCodeFromState(): string | null {
   const filePath = path.join(resolveStateDir(), OG_FILENAME);
@@ -222,6 +249,52 @@ function initializeOGCodeInState(): void {
     encoding: "utf-8",
     mode: 0o600,
   });
+}
+
+function readDeletedConversationIdsFromState(): Set<string> {
+  const filePath = path.join(resolveStateDir(), DELETED_CONVERSATIONS_FILENAME);
+  if (!fs.existsSync(filePath)) return new Set();
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<DeletedConversationsStateFile>;
+    const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+    return new Set(
+      ids
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter((id) => id.length > 0),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to read deleted conversations state: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return new Set();
+  }
+}
+
+function persistDeletedConversationIdsToState(ids: Set<string>): void {
+  const dir = resolveStateDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+
+  const normalized = Array.from(ids)
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0)
+    .slice(-MAX_DELETED_CONVERSATION_IDS);
+
+  const filePath = path.join(dir, DELETED_CONVERSATIONS_FILENAME);
+  const tmpFilePath = `${filePath}.${process.pid}.tmp`;
+  const payload: DeletedConversationsStateFile = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ids: normalized,
+  };
+
+  fs.writeFileSync(tmpFilePath, `${JSON.stringify(payload, null, 2)}\n`, {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  fs.renameSync(tmpFilePath, filePath);
 }
 
 /** Metadata for a web-chat conversation. */
@@ -268,6 +341,8 @@ interface ServerState {
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
+  /** Tombstones for conversation IDs explicitly deleted by the user. */
+  deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
@@ -316,6 +391,8 @@ interface ServerState {
     string,
     import("../services/whatsapp-pairing").WhatsAppPairingSession
   >;
+  agentAutomationMode?: AgentAutomationMode;
+  tradePermissionMode?: TradePermissionMode;
 }
 
 interface ShareIngestItem {
@@ -366,6 +443,8 @@ interface PluginEntry {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, Record<string, unknown>>;
+  /** True when this entry represents an external integration, not a runtime-loadable npm plugin. */
+  managedExternally?: boolean;
 }
 
 interface SkillEntry {
@@ -629,6 +708,7 @@ interface PluginIndexEntry {
   version?: string;
   pluginDeps?: string[];
   configUiHints?: Record<string, Record<string, unknown>>;
+  managedExternally?: boolean;
 }
 
 interface PluginIndex {
@@ -636,6 +716,99 @@ interface PluginIndex {
   generatedAt: string;
   count: number;
   plugins: PluginIndexEntry[];
+}
+
+const CHROME_EXTENSION_PLUGIN_ID = "chrome-extension";
+const CHROME_EXTENSION_RELAY_PORT = 18792;
+const AGENT_SKILLS_PLUGIN_ID = "agent-skills";
+
+interface ExtensionStatusSnapshot {
+  relayReachable: boolean;
+  relayPort: number;
+  extensionPath: string | null;
+}
+
+async function resolveExtensionStatusSnapshot(): Promise<ExtensionStatusSnapshot> {
+  let relayReachable = false;
+  try {
+    const resp = await fetch(
+      `http://127.0.0.1:${CHROME_EXTENSION_RELAY_PORT}/`,
+      {
+        method: "HEAD",
+        signal: AbortSignal.timeout(2000),
+      },
+    );
+    relayReachable = resp.ok || resp.status < 500;
+  } catch {
+    relayReachable = false;
+  }
+
+  let extensionPath: string | null = null;
+  try {
+    const serverDir = path.dirname(fileURLToPath(import.meta.url));
+    extensionPath = path.resolve(
+      serverDir,
+      "..",
+      "..",
+      "apps",
+      "chrome-extension",
+    );
+    if (!fs.existsSync(extensionPath)) extensionPath = null;
+  } catch {
+    // ignore
+  }
+
+  return {
+    relayReachable,
+    relayPort: CHROME_EXTENSION_RELAY_PORT,
+    extensionPath,
+  };
+}
+
+function ensureBuiltInPluginEntries(entries: PluginEntry[]): PluginEntry[] {
+  const ensured = [...entries];
+  const byId = new Set(ensured.map((entry) => entry.id));
+
+  if (!byId.has(AGENT_SKILLS_PLUGIN_ID)) {
+    ensured.push({
+      id: AGENT_SKILLS_PLUGIN_ID,
+      name: "Agent Skills",
+      description:
+        "Agent Skills plugin for ElizaOS - progressive-disclosure skills execution.",
+      enabled: false,
+      configured: true,
+      envKey: null,
+      category: "feature",
+      source: "bundled",
+      configKeys: [],
+      parameters: [],
+      validationErrors: [],
+      validationWarnings: [],
+      npmName: "@elizaos/plugin-agent-skills",
+    });
+  }
+
+  if (!byId.has(CHROME_EXTENSION_PLUGIN_ID)) {
+    ensured.push({
+      id: CHROME_EXTENSION_PLUGIN_ID,
+      name: "Chrome Extension",
+      description:
+        "Companion browser extension integration (relay + options panel). Managed outside runtime plugin loading.",
+      enabled: false,
+      configured: false,
+      envKey: null,
+      category: "feature",
+      source: "bundled",
+      configKeys: [],
+      parameters: [],
+      validationErrors: [],
+      validationWarnings: [],
+      npmName: "apps/chrome-extension",
+      managedExternally: true,
+    });
+  }
+
+  return ensured;
 }
 
 function maskValue(value: string): string {
@@ -863,6 +1036,8 @@ const BLOCKED_ENV_KEYS = new Set([
   // Database connection strings
   "DATABASE_URL",
   "POSTGRES_URL",
+  "OPINION_PRIVATE_KEY",
+  "OPINION_API_KEY",
 ]);
 
 /**
@@ -1167,9 +1342,22 @@ function discoverPluginsFromManifest(): PluginEntry[] {
   const thisDir =
     import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = findOwnPackageRoot(thisDir);
-  const manifestPath = path.join(packageRoot, "plugins.json");
+  const candidateSet = new Set<string>([
+    path.join(packageRoot, "plugins.json"),
+    path.join(thisDir, "plugins.json"),
+    path.join(thisDir, "..", "plugins.json"),
+    path.join(process.cwd(), "plugins.json"),
+  ]);
+  const resourcesPath =
+    (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  if (typeof resourcesPath === "string" && resourcesPath.trim()) {
+    candidateSet.add(path.join(resourcesPath, "plugins.json"));
+    candidateSet.add(path.join(resourcesPath, "app", "plugins.json"));
+  }
 
-  if (fs.existsSync(manifestPath)) {
+  const manifestCandidates = Array.from(candidateSet);
+  for (const manifestPath of manifestCandidates) {
+    if (!fs.existsSync(manifestPath)) continue;
     try {
       const index = JSON.parse(
         fs.readFileSync(manifestPath, "utf-8"),
@@ -1250,7 +1438,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
   logger.debug(
     "[milady-api] plugins.json not found — run `npm run generate:plugins`",
   );
-  return [];
+  return ensureBuiltInPluginEntries([]);
 }
 
 function categorizePlugin(
@@ -2015,6 +2203,41 @@ const STATIC_MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
+const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
+const DEFAULT_LFS_REPO_URL = "https://github.com/miladybsc/milady.git";
+const DEFAULT_LFS_MEDIA_REF = "main";
+
+function resolveMediaRepoPath(repoUrlRaw: string | undefined): string {
+  const source = (repoUrlRaw ?? "").trim() || DEFAULT_LFS_REPO_URL;
+  const httpsMatch = source.match(
+    /^https:\/\/(?:[^@/]+@)?github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
+  );
+  if (httpsMatch?.[1]) return httpsMatch[1];
+
+  const sshMatch = source.match(/^git@github\.com:([^/]+\/[^/.]+)(?:\.git)?$/i);
+  if (sshMatch?.[1]) return sshMatch[1];
+
+  const sshUrlMatch = source.match(
+    /^ssh:\/\/git@github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/i,
+  );
+  if (sshUrlMatch?.[1]) return sshUrlMatch[1];
+
+  return "miladybsc/milady";
+}
+
+function resolveMediaRef(): string {
+  const configuredRef = process.env.MILADY_LFS_REF?.trim();
+  if (configuredRef) return configuredRef;
+  const railwayRef = process.env.RAILWAY_GIT_BRANCH?.trim();
+  if (railwayRef) return railwayRef;
+  return DEFAULT_LFS_MEDIA_REF;
+}
+
+function isLikelyLfsPointer(body: Buffer): boolean {
+  const head = body.subarray(0, Math.min(body.length, 80)).toString("utf8");
+  return head.startsWith(LFS_POINTER_PREFIX);
+}
+
 /** Resolved UI directory. Lazily computed once on first request. */
 let uiDir: string | null | undefined;
 let uiIndexHtml: Buffer | null = null;
@@ -2160,6 +2383,7 @@ function serveStaticUi(
 interface ChatGenerationResult {
   text: string;
   agentName: string;
+  usage?: ChatTokenUsageSummary;
 }
 
 interface ChatGenerateOptions {
@@ -2168,8 +2392,106 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
-const INSUFFICIENT_CREDITS_RE =
-  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
+interface ChatTokenUsageSummary {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls: number;
+  model?: string;
+}
+
+interface TrajectoryLoggerForChat {
+  isEnabled?: () => boolean;
+  setEnabled?: (enabled: boolean) => void;
+  startTrajectory?: (
+    stepIdOrAgentId: string,
+    options?: Record<string, unknown>,
+  ) => Promise<string> | string;
+  startStep?: (
+    trajectoryId: string,
+    envState: {
+      timestamp: number;
+      agentBalance: number;
+      agentPoints: number;
+      agentPnL: number;
+      openPositions: number;
+    },
+  ) => string;
+  endTrajectory?: (
+    stepIdOrTrajectoryId: string,
+    status?: string,
+  ) => Promise<void> | void;
+  logLlmCall?: (params: Record<string, unknown>) => void;
+  logProviderAccess?: (params: Record<string, unknown>) => void;
+  getProviderAccessLogs?: () => readonly unknown[];
+  getLlmCallLogs?: () => readonly unknown[];
+}
+
+interface TrajectorySpanContext {
+  runtime: AgentRuntime | null;
+  source: string;
+  roomId?: string;
+  entityId?: string;
+  conversationId?: string;
+  messageId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface TrajectorySpanHandle {
+  stepId: string;
+  logger: TrajectoryLoggerForChat;
+}
+
+function scoreTrajectoryLoggerCandidate(
+  candidate: TrajectoryLoggerForChat | null,
+): number {
+  if (!candidate) return -1;
+  const candidateWithRuntime = candidate as TrajectoryLoggerForChat & {
+    runtime?: { adapter?: unknown };
+    initialized?: boolean;
+    listTrajectories?: unknown;
+  };
+  let score = 0;
+  if (typeof candidate.startTrajectory === "function") score += 3;
+  if (typeof candidate.endTrajectory === "function") score += 3;
+  if (typeof candidate.logLlmCall === "function") score += 2;
+  if (typeof candidateWithRuntime.listTrajectories === "function") score += 1;
+  if (candidateWithRuntime.initialized === true) score += 3;
+  if (candidateWithRuntime.runtime?.adapter) score += 3;
+  const enabled =
+    typeof candidate.isEnabled === "function" ? candidate.isEnabled() : true;
+  if (enabled) score += 1;
+  return score;
+}
+
+function getTrajectoryLoggerForRuntime(
+  runtime: AgentRuntime | null,
+): TrajectoryLoggerForChat | null {
+  if (!runtime) return null;
+  const runtimeLike = runtime as unknown as {
+    getServicesByType?: (serviceType: string) => unknown;
+    getService?: (serviceType: string) => unknown;
+  };
+
+  const candidates: TrajectoryLoggerForChat[] = [];
+  const seen = new Set<unknown>();
+  const pushCandidate = (candidate: unknown): void => {
+    if (!candidate || seen.has(candidate)) return;
+    seen.add(candidate);
+    candidates.push(candidate as TrajectoryLoggerForChat);
+  };
+
+  if (typeof runtimeLike.getServicesByType === "function") {
+    const byType = runtimeLike.getServicesByType("trajectory_logger");
+    if (Array.isArray(byType) && byType.length > 0) {
+      for (const service of byType) {
+        pushCandidate(service);
+      }
+    }
+    if (byType && !Array.isArray(byType)) {
+      pushCandidate(byType);
+    }
+  }
 
 const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
   "Sorry, we're out of credits right now. Please top up your credits and try again.",
@@ -2239,6 +2561,358 @@ function normalizeChatResponseText(
 ): string {
   if (!isNoResponsePlaceholder(text)) return text;
   return resolveNoResponseFallback(logBuffer);
+}
+
+function initSse(res: http.ServerResponse): void {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+}
+
+function writeSse(
+  res: http.ServerResponse,
+  payload: Record<string, string | number | boolean | null | undefined>,
+): void {
+  if (res.writableEnded || res.destroyed) return;
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function writeSseData(
+  res: http.ServerResponse,
+  data: string,
+  event?: string,
+): void {
+  if (res.writableEnded || res.destroyed) return;
+  if (event) res.write(`event: ${event}\n`);
+  res.write(`data: ${data}\n\n`);
+}
+
+function carryOverTrajectoryLogsBetweenRuntimes(
+  previousRuntime: AgentRuntime | null,
+  nextRuntime: AgentRuntime | null,
+): { llmCalls: number; providerAccesses: number } {
+  const previousLogger = getTrajectoryLoggerForRuntime(previousRuntime);
+  const nextLogger = getTrajectoryLoggerForRuntime(nextRuntime);
+  return copyTrajectoryLogsToLogger(previousLogger, nextLogger);
+}
+
+function createRuntimeWithTrajectoryLogger(
+  runtime: AgentRuntime,
+  trajectoryLogger: TrajectoryLoggerForChat | null,
+): AgentRuntime {
+  if (!trajectoryLogger) return runtime;
+
+  const runtimeLike = runtime as AgentRuntime & {
+    getServicesByType?: (serviceType: string) => unknown;
+  };
+
+  return new Proxy(runtime, {
+    get(target, prop, receiver) {
+      if (prop === "getService") {
+        return (serviceName: string) => {
+          if (serviceName === "trajectory_logger") return trajectoryLogger;
+          return target.getService(serviceName);
+        };
+      }
+      if (prop === "getServicesByType") {
+        return (serviceName: string) => {
+          if (serviceName === "trajectory_logger") return [trajectoryLogger];
+          return typeof runtimeLike.getServicesByType === "function"
+            ? runtimeLike.getServicesByType.call(target, serviceName)
+            : [];
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as AgentRuntime;
+}
+
+function isTrajectoryLoggerEnabled(
+  logger: TrajectoryLoggerForChat | null,
+): boolean {
+  if (!logger) return false;
+  if (typeof logger.isEnabled !== "function") return true;
+  if (logger.isEnabled()) return true;
+  if (typeof logger.setEnabled === "function") {
+    try {
+      logger.setEnabled(true);
+      return logger.isEnabled();
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function startApiMessageTrajectory(params: {
+  logger: TrajectoryLoggerForChat;
+  runtime: AgentRuntime;
+  stepId: string;
+  source: string;
+  roomId?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ stepId: string; endTargetId: string | null }> {
+  const { logger, runtime, stepId, source, roomId, entityId, metadata } =
+    params;
+
+  if (typeof logger.startTrajectory !== "function") {
+    return { stepId, endTargetId: null };
+  }
+
+  if (typeof logger.startStep === "function") {
+    const trajectoryId = await logger.startTrajectory(runtime.agentId, {
+      source,
+      metadata: {
+        ...(metadata ?? {}),
+        roomId,
+        entityId,
+      },
+    });
+    const normalizedTrajectoryId =
+      typeof trajectoryId === "string" && trajectoryId.trim().length > 0
+        ? trajectoryId
+        : null;
+    if (!normalizedTrajectoryId) {
+      return { stepId, endTargetId: null };
+    }
+    const runtimeStepId = logger.startStep(normalizedTrajectoryId, {
+      timestamp: Date.now(),
+      agentBalance: 0,
+      agentPoints: 0,
+      agentPnL: 0,
+      openPositions: 0,
+    });
+    const normalizedStepId =
+      typeof runtimeStepId === "string" && runtimeStepId.trim().length > 0
+        ? runtimeStepId
+        : stepId;
+    return {
+      stepId: normalizedStepId,
+      endTargetId: normalizedTrajectoryId,
+    };
+  }
+
+  const startedId = await logger.startTrajectory(stepId, {
+    agentId: runtime.agentId,
+    roomId,
+    entityId,
+    source,
+    metadata,
+  });
+  const normalizedStartedId =
+    typeof startedId === "string" && startedId.trim().length > 0
+      ? startedId
+      : stepId;
+  return {
+    stepId,
+    endTargetId: normalizedStartedId,
+  };
+}
+
+function buildTrajectoryMetadata(
+  context: TrajectorySpanContext,
+): Record<string, unknown> | undefined {
+  const metadata: Record<string, unknown> = {
+    ...(context.metadata ?? {}),
+  };
+  if (context.messageId) metadata.messageId = context.messageId;
+  if (context.conversationId) metadata.conversationId = context.conversationId;
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+async function startTrajectorySpan(
+  context: TrajectorySpanContext,
+): Promise<TrajectorySpanHandle | null> {
+  const { runtime } = context;
+  const logger = getTrajectoryLoggerForRuntime(runtime);
+  if (!runtime || !isTrajectoryLoggerEnabled(logger)) return null;
+
+  const stepId = crypto.randomUUID();
+  try {
+    await logger?.startTrajectory?.(stepId, {
+      agentId: runtime.agentId,
+      roomId: context.roomId,
+      entityId: context.entityId,
+      source: context.source,
+      metadata: buildTrajectoryMetadata(context),
+    });
+    return { stepId, logger: logger as TrajectoryLoggerForChat };
+  } catch (err) {
+    runtime.logger?.warn(
+      {
+        err,
+        src: "milady-api",
+        stepId,
+        source: context.source,
+        roomId: context.roomId,
+      },
+      "Failed to start proxy trajectory logging",
+    );
+    return null;
+  }
+}
+
+async function endTrajectorySpan(
+  runtime: AgentRuntime | null,
+  span: TrajectorySpanHandle | null,
+  status: "completed" | "error",
+): Promise<void> {
+  if (!span || typeof span.logger.endTrajectory !== "function") return;
+  try {
+    await span.logger.endTrajectory(span.stepId, status);
+  } catch (err) {
+    runtime?.logger?.warn(
+      {
+        err,
+        src: "milady-api",
+        stepId: span.stepId,
+        status,
+      },
+      "Failed to end proxy trajectory logging",
+    );
+  }
+}
+
+async function _withTrajectorySpan<T>(
+  context: TrajectorySpanContext,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const span = await startTrajectorySpan(context);
+  let operationError: unknown = null;
+  try {
+    return await operation();
+  } catch (err) {
+    operationError = err;
+    throw err;
+  } finally {
+    await endTrajectorySpan(
+      context.runtime,
+      span,
+      operationError ? "error" : "completed",
+    );
+  }
+}
+
+const INSUFFICIENT_CREDITS_RE =
+  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
+
+const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
+  "Sorry, we're out of credits right now. Please top up your credits and try again.",
+  "No model credits left in the tank. Time to top up your credits.",
+  "I can't answer on zero credits. Top up your credits and ping me again.",
+  "Credit meter is empty. Please top up your credits so I can keep going.",
+  "Out of credits, boss. Top up your credits and I am back online.",
+] as const;
+
+const GENERIC_NO_RESPONSE_CHAT_REPLY =
+  "Sorry, I couldn't generate a response right now. Please try again.";
+
+const DEFAULT_CLOUD_API_BASE_URL = "https://www.elizacloud.ai/api/v1";
+
+function getErrorMessage(err: unknown, fallback = "generation failed"): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return fallback;
+}
+
+function isInsufficientCreditsMessage(message: string): boolean {
+  return INSUFFICIENT_CREDITS_RE.test(message);
+}
+
+function pickInsufficientCreditsChatReply(): string {
+  const idx = Math.floor(
+    Math.random() * INSUFFICIENT_CREDITS_CHAT_REPLIES.length,
+  );
+  return INSUFFICIENT_CREDITS_CHAT_REPLIES[idx];
+}
+
+function findRecentInsufficientCreditsLog(
+  logBuffer: LogEntry[],
+  lookbackMs = 60_000,
+): LogEntry | null {
+  const now = Date.now();
+  for (let i = logBuffer.length - 1; i >= 0; i--) {
+    const entry = logBuffer[i];
+    if (now - entry.timestamp > lookbackMs) break;
+    if (isInsufficientCreditsMessage(entry.message)) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
+  if (findRecentInsufficientCreditsLog(logBuffer)) {
+    return pickInsufficientCreditsChatReply();
+  }
+  return GENERIC_NO_RESPONSE_CHAT_REPLY;
+}
+
+function getInsufficientCreditsReplyFromError(err: unknown): string | null {
+  const msg = getErrorMessage(err, "");
+  return isInsufficientCreditsMessage(msg)
+    ? pickInsufficientCreditsChatReply()
+    : null;
+}
+
+function isNoResponsePlaceholder(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed);
+}
+
+function normalizeChatResponseText(
+  text: string,
+  logBuffer: LogEntry[],
+): string {
+  if (!isNoResponsePlaceholder(text)) return text;
+  return resolveNoResponseFallback(logBuffer);
+}
+
+function resolveCloudApiBaseUrl(rawBaseUrl?: string): string {
+  const base = (rawBaseUrl ?? DEFAULT_CLOUD_API_BASE_URL)
+    .trim()
+    .replace(/\/+$/, "");
+  if (base.endsWith("/api/v1")) return base;
+  return `${base}/api/v1`;
+}
+
+async function fetchCloudCreditsByApiKey(
+  baseUrl: string,
+  apiKey: string,
+): Promise<number | null> {
+  const response = await fetch(`${baseUrl}/credits/balance`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  const creditResponse = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+
+  if (!response.ok) {
+    const message =
+      typeof creditResponse.error === "string" && creditResponse.error.trim()
+        ? creditResponse.error
+        : `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  const rawBalance =
+    typeof creditResponse.balance === "number"
+      ? creditResponse.balance
+      : typeof (creditResponse.data as Record<string, unknown>)?.balance ===
+          "number"
+        ? ((creditResponse.data as Record<string, unknown>).balance as number)
+        : undefined;
+  return typeof rawBalance === "number" ? rawBalance : null;
 }
 
 function initSse(res: http.ServerResponse): void {
@@ -2354,6 +3028,61 @@ async function generateChatResponse(
 
   // Fallback when MESSAGE_RECEIVED hooks are unavailable: start a trajectory
   // directly so /api/chat still produces rows for the Trajectories view.
+  const meta =
+    message.metadata && typeof message.metadata === "object"
+      ? (message.metadata as Record<string, unknown>)
+      : null;
+  const eventTrajectoryStepId =
+    typeof meta?.trajectoryStepId === "string" && meta.trajectoryStepId.trim()
+      ? meta.trajectoryStepId
+      : null;
+  if (
+    !eventTrajectoryStepId &&
+    trajectoryLogger &&
+    isTrajectoryLoggerEnabled(trajectoryLogger)
+  ) {
+    const stepId = crypto.randomUUID();
+    if (!message.metadata || typeof message.metadata !== "object") {
+      message.metadata = {
+        type: "message",
+      } as unknown as typeof message.metadata;
+    }
+    const mutableMeta = message.metadata as Record<string, unknown>;
+    mutableMeta.trajectoryStepId = stepId;
+
+    fallbackTrajectoryStepId = stepId;
+
+    try {
+      const startResult = await startApiMessageTrajectory({
+        logger: trajectoryLogger,
+        runtime,
+        stepId,
+        source: messageSource,
+        roomId: message.roomId,
+        entityId: message.entityId,
+        metadata: {
+          messageId: message.id,
+          conversationId:
+            typeof mutableMeta.sessionKey === "string"
+              ? mutableMeta.sessionKey
+              : undefined,
+        },
+      });
+      mutableMeta.trajectoryStepId = startResult.stepId;
+      fallbackTrajectoryStepId = startResult.stepId;
+      fallbackTrajectoryEndTargetId = startResult.endTargetId;
+    } catch (err) {
+      runtime.logger?.warn(
+        {
+          err,
+          src: "milady-api",
+          messageId: message.id,
+          roomId: message.roomId,
+        },
+        "Failed to start fallback trajectory logging",
+      );
+    }
+  }
 
   let result:
     | Awaited<
@@ -2480,10 +3209,15 @@ async function generateChatResponse(
   const finalText = isNoResponsePlaceholder(responseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
+  detachTokenAccumulator();
+  const usage =
+    tokenAccumulator.summarize() ??
+    summarizeChatTokenUsageFromTrajectory(trajectoryLogger, usageStepId);
 
   return {
     text: finalText,
     agentName,
+    ...(usage ? { usage } : {}),
   };
 }
 
@@ -3390,7 +4124,7 @@ function getProviderOptions(): Array<{
       pluginName: "@elizaos/plugin-pi-ai",
       keyPrefix: null,
       description:
-        "Use credentials from ~/.pi/agent/auth.json (API keys or OAuth).",
+        "Use pi auth (~/.pi/agent/auth.json) for API keys / OAuth (no Milady API key required).",
     },
     {
       id: "anthropic",
@@ -4056,6 +4790,45 @@ async function getOrFetchAllProviders(
   return result;
 }
 
+function getPiModelOptions(): Array<{
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+}> {
+  const options: Array<{
+    id: string;
+    name: string;
+    provider: string;
+    description: string;
+  }> = [];
+
+  try {
+    for (const providerId of piAi.getProviders()) {
+      for (const model of piAi.getModels(providerId)) {
+        const id = `${model.provider}/${model.id}`;
+        options.push({
+          id,
+          name: model.id,
+          provider: model.provider,
+          description: model.api,
+        });
+
+        // Safety cap in case a provider returns an unexpectedly huge list.
+        if (options.length >= 2000) {
+          return options;
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to enumerate pi-ai models: ${String(err)}`,
+    );
+  }
+
+  return options;
+}
+
 function getInventoryProviderOptions(): Array<{
   id: string;
   name: string;
@@ -4072,8 +4845,22 @@ function getInventoryProviderOptions(): Array<{
     {
       id: "evm",
       name: "EVM",
-      description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
+      description: "Ethereum, Base, Arbitrum, Optimism, Polygon, BSC.",
       rpcProviders: [
+        {
+          id: "nodereal",
+          name: "NodeReal",
+          description: "Managed by Milady (primary BSC RPC).",
+          envKey: null,
+          requiresKey: false,
+        },
+        {
+          id: "quicknode",
+          name: "QuickNode",
+          description: "Managed by Milady (BSC failover RPC).",
+          envKey: null,
+          requiresKey: false,
+        },
         {
           id: "elizacloud",
           name: "Eliza Cloud",
@@ -4176,12 +4963,22 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
+function resolveConfiguredEnvValue(
+  state: ServerState,
+  key: string,
+): string | null {
+  const envValue = process.env[key]?.trim();
+  if (envValue) return envValue;
+  const configEnv =
+    state.config.env && typeof state.config.env === "object"
+      ? (state.config.env as Record<string, string>)
+      : null;
+  const configValue = configEnv?.[key]?.trim();
+  return configValue || null;
+}
 
-interface RequestContext {
-  onRestart: (() => Promise<AgentRuntime | null>) | null;
+function resolvePrivyCustomUserId(state: ServerState): string | null {
+  return resolveConfiguredEnvValue(state, PRIVY_CUSTOM_USER_ID_ENV_KEY);
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -4307,6 +5104,204 @@ function resolveCorsOrigin(origin?: string): string | null {
   return null;
 }
 
+function persistManagedWalletAddresses(
+  state: ServerState,
+  addresses: WalletAddresses,
+): boolean {
+  let envConfig: Record<string, string>;
+  if (
+    state.config.env &&
+    typeof state.config.env === "object" &&
+    !Array.isArray(state.config.env)
+  ) {
+    envConfig = state.config.env as Record<string, string>;
+  } else {
+    state.config.env = {};
+    envConfig = state.config.env as Record<string, string>;
+  }
+
+  let changed = false;
+  const updates: Array<[string, string | null]> = [
+    [MANAGED_EVM_ADDRESS_ENV_KEY, addresses.evmAddress],
+    [MANAGED_SOLANA_ADDRESS_ENV_KEY, addresses.solanaAddress],
+  ];
+
+  for (const [envKey, value] of updates) {
+    if (!value || !value.trim()) continue;
+    const next = value.trim();
+    if (process.env[envKey] !== next) {
+      process.env[envKey] = next;
+      changed = true;
+    }
+    if (envConfig[envKey] !== next) {
+      envConfig[envKey] = next;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function mergeWalletAddresses(
+  primary: WalletAddresses,
+  fallback: WalletAddresses | null,
+): WalletAddresses {
+  return {
+    evmAddress: primary.evmAddress ?? fallback?.evmAddress ?? null,
+    solanaAddress: primary.solanaAddress ?? fallback?.solanaAddress ?? null,
+  };
+}
+
+async function ensurePrivyManagedWalletAddresses(
+  state: ServerState,
+  chains: WalletChain[],
+): Promise<WalletAddresses | null> {
+  if (!isPrivyWalletProvisioningEnabled()) return null;
+
+  const customUserId = resolvePrivyCustomUserId(state);
+  if (!customUserId) return null;
+
+  const targetChains: PrivyWalletChain[] = [];
+  if (chains.includes("evm")) targetChains.push("ethereum");
+  if (chains.includes("solana")) targetChains.push("solana");
+  if (targetChains.length === 0) return null;
+
+  const ensured = await ensurePrivyWalletsForCustomUser(
+    customUserId,
+    targetChains,
+  );
+  const addresses: WalletAddresses = {
+    evmAddress: ensured.evmAddress,
+    solanaAddress: ensured.solanaAddress,
+  };
+
+  const changed = persistManagedWalletAddresses(state, addresses);
+  if (changed) {
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[wallet] Failed to persist managed wallet addresses: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  return addresses;
+}
+
+async function resolveWalletAddressesForRequest(
+  state: ServerState,
+  requestedChains: WalletChain[] = ["evm", "solana"],
+): Promise<WalletAddresses> {
+  const current = getWalletAddresses();
+  const targetChains = Array.from(new Set(requestedChains));
+  const fallbackCurrent: WalletAddresses = {
+    evmAddress: targetChains.includes("evm") ? current.evmAddress : null,
+    solanaAddress: targetChains.includes("solana") ? current.solanaAddress : null,
+  };
+
+  if (isPurePrivyWalletMode(state.config)) {
+    const customUserId = resolvePrivyCustomUserId(state);
+    if (!customUserId) {
+      return { evmAddress: null, solanaAddress: null };
+    }
+    try {
+      const managed = await ensurePrivyManagedWalletAddresses(
+        state,
+        targetChains,
+      );
+      return managed ? mergeWalletAddresses(managed, fallbackCurrent) : fallbackCurrent;
+    } catch (err) {
+      logger.warn(
+        `[wallet] Pure Privy address resolve failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return fallbackCurrent;
+    }
+  }
+
+  const missingChains: WalletChain[] = [];
+  if (targetChains.includes("evm") && !current.evmAddress) {
+    missingChains.push("evm");
+  }
+  if (targetChains.includes("solana") && !current.solanaAddress) {
+    missingChains.push("solana");
+  }
+  if (missingChains.length === 0) {
+    return current;
+  }
+
+  try {
+    const managed = await ensurePrivyManagedWalletAddresses(
+      state,
+      missingChains,
+    );
+    return mergeWalletAddresses(current, managed);
+  } catch (err) {
+    logger.warn(
+      `[wallet] Privy address sync failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return current;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Route handler
+// ---------------------------------------------------------------------------
+
+interface RequestContext {
+  onRestart: (() => Promise<AgentRuntime | null>) | null;
+}
+
+type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
+type ProductionWalletProfile = "pure-privy-safe";
+
+const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
+const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
+  "user-sign-only",
+  "manual-local-key",
+  "agent-auto",
+]);
+const PRODUCTION_WALLET_ENV_SET = {
+  MILADY_WALLET_MODE: "privy",
+  MILADY_TRADE_PERMISSION_MODE: "user-sign-only",
+  MILADY_BSC_EXECUTION_ENABLED: "false",
+} as const;
+const PRODUCTION_WALLET_ENV_CLEAR = ["EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY"] as const;
+const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
+  "connectors-only",
+  "full",
+]);
+
+const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const APP_ORIGIN_RE =
+  /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
+
+function resolveCorsOrigin(origin?: string): string | null {
+  if (!origin) return null;
+  const trimmed = origin.trim();
+  if (!trimmed) return null;
+
+  // Explicit allowlist via env (comma-separated)
+  const extra = process.env.MILADY_ALLOWED_ORIGINS;
+  if (extra) {
+    const allow = extra
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    if (allow.includes(trimmed)) return trimmed;
+  }
+
+  if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
+  if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
+  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
+    return "null";
+  return null;
+}
+
 function applyCors(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -4327,6 +5322,7 @@ function applyCors(
     res.setHeader(
       "Access-Control-Allow-Headers",
       "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-UI-Language, X-Milady-Agent-Action",
     );
   }
 
@@ -4337,6 +5333,27 @@ function applyCors(
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
   return true;
+}
+
+function applySecurityHeaders(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): void {
+  const forwardedProtoHeader = req.headers["x-forwarded-proto"];
+  const forwardedProto =
+    typeof forwardedProtoHeader === "string"
+      ? forwardedProtoHeader.split(",")[0]?.trim().toLowerCase()
+      : "";
+
+  // Only set HSTS when the original request reached edge over HTTPS.
+  if (forwardedProto === "https") {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload",
+    );
+  }
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 }
 
 const PAIRING_TTL_MS = 10 * 60 * 1000;
@@ -4350,7 +5367,15 @@ let providerSwitchInProgress = false;
 let pairingExpiresAt = 0;
 const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
 
+function isPublicAppModeEnabled(): boolean {
+  const flag = process.env.MILADY_PUBLIC_APP_MODE?.trim() ?? "";
+  if (/^(1|true|yes)$/i.test(flag)) return true;
+  const authMode = process.env.MILADY_AUTH_MODE?.trim().toLowerCase() ?? "";
+  return authMode === "user" || authMode === "public";
+}
+
 function pairingEnabled(): boolean {
+  if (isPublicAppModeEnabled()) return false;
   return (
     Boolean(process.env.MILADY_API_TOKEN?.trim()) &&
     process.env.MILADY_PAIRING_DISABLED !== "1"
@@ -4520,9 +5545,24 @@ function isLoopbackBindHost(host: string): boolean {
 }
 
 export function ensureApiTokenForBindHost(host: string): void {
+  if (isPublicAppModeEnabled()) {
+    logger.warn(
+      `[milady-api] Public app mode is enabled. API token enforcement is disabled for bind host ${host}.`,
+    );
+    return;
+  }
   const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
+  const allowInsecurePublicApi = /^(1|true|yes)$/i.test(
+    process.env.MILADY_ALLOW_INSECURE_PUBLIC_API?.trim() ?? "",
+  );
+  if (allowInsecurePublicApi) {
+    logger.warn(
+      `[milady-api] MILADY_ALLOW_INSECURE_PUBLIC_API is enabled. Public bind ${host} is running without MILADY_API_TOKEN.`,
+    );
+    return;
+  }
 
   const generated = crypto.randomBytes(32).toString("hex");
   process.env.MILADY_API_TOKEN = generated;
@@ -4542,6 +5582,689 @@ export function isAuthorized(req: http.IncomingMessage): boolean {
   const provided = extractAuthToken(req);
   if (!provided) return false;
   return tokenMatches(expected, provided);
+}
+
+function parseAgentAutomationMode(value: unknown): AgentAutomationMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!AGENT_AUTOMATION_MODES.has(normalized as AgentAutomationMode)) {
+    return null;
+  }
+  return normalized as AgentAutomationMode;
+}
+
+function resolveAgentAutomationModeFromConfig(
+  config: MiladyConfig,
+): AgentAutomationMode {
+  const features =
+    config.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const agentAutomation =
+    features?.agentAutomation &&
+    typeof features.agentAutomation === "object" &&
+    !Array.isArray(features.agentAutomation)
+      ? (features.agentAutomation as Record<string, unknown>)
+      : null;
+  return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
+}
+
+function parseTradePermissionMode(value: unknown): TradePermissionMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
+    return null;
+  }
+  return normalized as TradePermissionMode;
+}
+
+export function resolveTradePermissionMode(
+  config?: MiladyConfig,
+): TradePermissionMode {
+  const configMode =
+    config?.env && typeof config.env === "object" && !Array.isArray(config.env)
+      ? (config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE
+      : undefined;
+  const envMode = process.env.MILADY_TRADE_PERMISSION_MODE ?? configMode;
+  const parsedEnvMode = parseTradePermissionMode(envMode);
+  if (parsedEnvMode) return parsedEnvMode;
+
+  const features =
+    config?.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const tradeExecution =
+    features?.tradeExecution &&
+    typeof features.tradeExecution === "object" &&
+    !Array.isArray(features.tradeExecution)
+      ? (features.tradeExecution as Record<string, unknown>)
+      : null;
+  return parseTradePermissionMode(tradeExecution?.mode) ?? "user-sign-only";
+}
+
+export function canUseLocalTradeExecution(
+  mode: TradePermissionMode,
+  isAgentRequest: boolean,
+): boolean {
+  if (mode === "user-sign-only") return false;
+  if (!isAgentRequest) return true;
+  return mode === "agent-auto";
+}
+
+const BSC_TRANSFER_ERC20_IFACE = new ethers.Interface([
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+]);
+
+  const expected = process.env.MILADY_WALLET_EXPORT_TOKEN?.trim();
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Wallet export is disabled. Set MILADY_WALLET_EXPORT_TOKEN to enable secure exports.",
+    };
+  }
+  return BSC_TRANSFER_TOKEN_BY_SYMBOL[assetSymbol] ?? null;
+}
+
+  const headerToken =
+    typeof req.headers["x-milady-export-token"] === "string"
+      ? req.headers["x-milady-export-token"].trim()
+      : "";
+  const bodyToken =
+    typeof body.exportToken === "string" ? body.exportToken.trim() : "";
+  const provided = headerToken || bodyToken;
+
+  if (!provided) {
+    return {
+      status: 401,
+      reason:
+        "Missing export token. Provide X-Milady-Export-Token header or exportToken in request body.",
+    };
+  }
+  const envConfig = config.env as Record<string, unknown>;
+  for (const [key, value] of Object.entries(PRODUCTION_WALLET_ENV_SET)) {
+    env[key] = value;
+    envConfig[key] = value;
+  }
+
+  return null;
+}
+
+interface TerminalRunRequestBody {
+  terminalToken?: string;
+}
+
+export interface TerminalRunRejection {
+  status: 401 | 403;
+  reason: string;
+}
+
+export function resolveTerminalRunRejection(
+  req: http.IncomingMessage,
+  body: TerminalRunRequestBody,
+): TerminalRunRejection | null {
+  const expected = process.env.MILADY_TERMINAL_RUN_TOKEN?.trim();
+  const apiTokenEnabled = Boolean(process.env.MILADY_API_TOKEN?.trim());
+
+  // Compatibility mode: local loopback sessions without API token keep
+  // existing behavior unless an explicit terminal token is configured.
+  if (!expected && !apiTokenEnabled) {
+    return null;
+  }
+
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Terminal run is disabled for token-authenticated API sessions. Set MILADY_TERMINAL_RUN_TOKEN to enable command execution.",
+    };
+  }
+
+  const headerToken =
+    typeof req.headers["x-milady-terminal-token"] === "string"
+      ? req.headers["x-milady-terminal-token"].trim()
+      : "";
+  const bodyToken =
+    typeof body.terminalToken === "string" ? body.terminalToken.trim() : "";
+  const provided = headerToken || bodyToken;
+
+  if (!provided) {
+    return {
+      status: 401,
+      reason:
+        "Missing terminal token. Provide X-Milady-Terminal-Token header or terminalToken in request body.",
+    };
+  }
+
+  if (!tokenMatches(expected, provided)) {
+    return {
+      status: 401,
+      reason: "Invalid terminal token.",
+    };
+  }
+
+  return null;
+}
+
+function extractWsQueryToken(url: URL): string | null {
+  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
+  if (!allowQueryToken) return null;
+
+  const token =
+    url.searchParams.get("token") ??
+    url.searchParams.get("apiKey") ??
+    url.searchParams.get("api_key");
+  return token?.trim() || null;
+}
+
+function isWebSocketAuthorized(
+  request: http.IncomingMessage,
+  url: URL,
+): boolean {
+  const expected = process.env.MILADY_API_TOKEN?.trim();
+  if (!expected) return true;
+
+  return {
+    profile: "pure-privy-safe",
+    walletMode: "privy",
+    tradePermissionMode: "user-sign-only",
+    bscExecutionEnabled: false,
+    clearedSecrets,
+  };
+}
+
+function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
+  const raw = req.headers[AGENT_AUTOMATION_HEADER];
+  if (typeof raw !== "string") return false;
+  return /^(1|true|yes|agent)$/i.test(raw.trim());
+}
+
+function toPluginShortId(pluginNameOrId: string): string {
+  return pluginNameOrId
+    .trim()
+    .replace(/^@[^/]+\/plugin-/, "")
+    .replace(/^@[^/]+\//, "")
+    .replace(/^plugin-/, "");
+}
+
+const AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID: Readonly<Record<string, string>> = {
+  anthropic: "anthropic",
+  openai: "openai",
+  openrouter: "openrouter",
+  "google-genai": "gemini",
+  xai: "grok",
+  groq: "groq",
+  deepseek: "deepseek",
+  mistral: "mistral",
+  together: "together",
+  ollama: "ollama",
+  "pi-ai": "pi-ai",
+  zai: "zai",
+  elizacloud: "elizacloud",
+};
+
+const BROWSER_CAPABILITY_PLUGIN_IDS = new Set([
+  "browser",
+  "browserbase",
+  "chrome-extension",
+]);
+
+const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set([
+  "computeruse",
+  "computer-use",
+]);
+
+export type AgentSelfStatusLifecycleState =
+  | "not_started"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
+
+type AgentSelfStatusPluginCategory =
+  | "ai-provider"
+  | "connector"
+  | "database"
+  | "feature";
+
+interface AgentSelfStatusPluginSummary {
+  id: string;
+  category?: AgentSelfStatusPluginCategory;
+  enabled?: boolean;
+}
+
+export interface AgentSelfStatusInput {
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null;
+  config: MiladyConfig;
+  state: AgentSelfStatusLifecycleState;
+  agentName: string;
+  model: string | undefined;
+  shellEnabled?: boolean;
+  agentAutomationMode?: AgentAutomationMode;
+  tradePermissionMode?: TradePermissionMode;
+  walletAddresses?: WalletAddresses;
+  plugins: AgentSelfStatusPluginSummary[];
+}
+
+export interface AgentSelfStatus {
+  generatedAt: string;
+  state: AgentSelfStatusLifecycleState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: WalletMode;
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
+}
+
+function readEnabledPluginIdsFromConfig(config: MiladyConfig): Set<string> {
+  const entries =
+    config.plugins &&
+    typeof config.plugins === "object" &&
+    !Array.isArray(config.plugins)
+      ? (config.plugins as Record<string, unknown>).entries
+      : null;
+  const records =
+    entries && typeof entries === "object" && !Array.isArray(entries)
+      ? (entries as Record<string, unknown>)
+      : {};
+
+  const enabled = new Set<string>();
+  for (const [id, value] of Object.entries(records)) {
+    if (!id.trim()) continue;
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { enabled?: unknown }).enabled === true
+    ) {
+      enabled.add(toPluginShortId(id).toLowerCase());
+    }
+  }
+  return enabled;
+}
+
+function resolveRuntimePluginShortIds(
+  runtime: Pick<AgentRuntime, "plugins"> | null,
+): string[] {
+  if (!runtime) return [];
+  const ids = new Set<string>();
+  for (const plugin of runtime.plugins) {
+    const pluginName = typeof plugin?.name === "string" ? plugin.name : "";
+    if (!pluginName.trim()) continue;
+    ids.add(toPluginShortId(pluginName).toLowerCase());
+  }
+  return Array.from(ids).sort((a, b) => a.localeCompare(b));
+}
+
+function shortenWalletAddress(address: string | null): string | null {
+  if (!address) return null;
+  if (address.startsWith("0x") && address.length >= 12) {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
+
+function resolveSelfStatusProviderLabel(
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null,
+  _config: MiladyConfig,
+  modelLabel: string | null,
+): string | null {
+  if (modelLabel?.includes("/")) {
+    const provider = modelLabel.split("/")[0]?.trim().toLowerCase();
+    if (provider) return provider;
+  }
+
+  // Runtime plugin order is not guaranteed to reflect the active model, but
+  // this is still better than surfacing a stale configured provider.
+  const runtimeProvider = resolveRuntimePluginProviderLabel(runtime);
+  if (runtimeProvider) return runtimeProvider;
+
+  return null;
+}
+
+export function buildAgentSelfStatus(input: AgentSelfStatusInput): AgentSelfStatus {
+  const runtimePluginIds = resolveRuntimePluginShortIds(input.runtime);
+  const enabledPluginIds = readEnabledPluginIdsFromConfig(input.config);
+  const pluginCategoryById = new Map<string, AgentSelfStatusPluginCategory>();
+  const activePluginIds = new Set<string>(
+    runtimePluginIds.length > 0 ? runtimePluginIds : Array.from(enabledPluginIds),
+  );
+
+  for (const plugin of input.plugins) {
+    const shortId = toPluginShortId(plugin.id).toLowerCase();
+    if (!shortId) continue;
+    if (plugin.category) {
+      pluginCategoryById.set(shortId, plugin.category);
+    }
+    if (plugin.enabled) {
+      activePluginIds.add(shortId);
+    }
+  }
+
+  const normalizedActivePlugins = Array.from(activePluginIds).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const activeSet = new Set(normalizedActivePlugins);
+
+  const aiProviders = Array.from(
+    new Set(
+      normalizedActivePlugins
+        .map((id) => {
+          const mapped = AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID[id];
+          if (mapped) return mapped;
+          const category = pluginCategoryById.get(id) ?? categorizePlugin(id);
+          return category === "ai-provider" ? id : null;
+        })
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const connectors = normalizedActivePlugins.filter((id) => {
+    const category = pluginCategoryById.get(id) ?? categorizePlugin(id);
+    return category === "connector";
+  });
+
+  const walletAddresses = input.walletAddresses ?? getWalletAddresses();
+  const walletMode = resolveWalletMode(input.config);
+  const hasEvm = Boolean(walletAddresses.evmAddress);
+  const hasSolana = Boolean(walletAddresses.solanaAddress);
+  const hasWallet = hasEvm || hasSolana;
+  const localSignerAvailable = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+
+  const automationMode = input.agentAutomationMode ?? "full";
+  const tradePermissionMode = input.tradePermissionMode ?? "user-sign-only";
+  const shellEnabled = input.shellEnabled !== false;
+
+  const resolvedModel =
+    sanitizeAgentModelLabel(input.model) ??
+    resolveRuntimeSettingModelLabel(input.runtime) ??
+    null;
+  const provider = resolveSelfStatusProviderLabel(
+    input.runtime,
+    input.config,
+    resolvedModel,
+  );
+
+  const canTrade = hasEvm;
+  const canLocalTrade =
+    hasEvm &&
+    localSignerAvailable &&
+    canUseLocalTradeExecution(tradePermissionMode, false);
+  const canAutoTrade =
+    hasEvm &&
+    localSignerAvailable &&
+    canUseLocalTradeExecution(tradePermissionMode, true);
+  const canUseBrowser = normalizedActivePlugins.some((id) =>
+    BROWSER_CAPABILITY_PLUGIN_IDS.has(id),
+  );
+  const canUseComputer = normalizedActivePlugins.some((id) =>
+    COMPUTER_CAPABILITY_PLUGIN_IDS.has(id),
+  );
+  const canRunTerminal = shellEnabled && automationMode === "full";
+  const canInstallPlugins = automationMode === "full";
+  const canConfigurePlugins = automationMode === "full";
+  const canConfigureConnectors = true;
+  const managedBscRpcReady = Boolean(
+    process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+      process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    state: input.state,
+    agentName: input.agentName,
+    model: resolvedModel,
+    provider,
+    automationMode,
+    tradePermissionMode,
+    shellEnabled,
+    wallet: {
+      mode: walletMode,
+      evmAddress: walletAddresses.evmAddress ?? null,
+      evmAddressShort: shortenWalletAddress(walletAddresses.evmAddress ?? null),
+      solanaAddress: walletAddresses.solanaAddress ?? null,
+      solanaAddressShort: shortenWalletAddress(walletAddresses.solanaAddress ?? null),
+      hasWallet,
+      hasEvm,
+      hasSolana,
+      localSignerAvailable,
+      managedBscRpcReady,
+    },
+    plugins: {
+      totalActive: activeSet.size,
+      active: normalizedActivePlugins,
+      aiProviders,
+      connectors,
+    },
+    capabilities: {
+      canTrade,
+      canLocalTrade,
+      canAutoTrade,
+      canUseBrowser,
+      canUseComputer,
+      canRunTerminal,
+      canInstallPlugins,
+      canConfigurePlugins,
+      canConfigureConnectors,
+    },
+  };
+}
+
+function sanitizeAgentModelLabel(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const lower = trimmed.toLowerCase();
+  if (
+    lower === "unknown" ||
+    lower === "provided" ||
+    lower === "n/a" ||
+    lower === "na" ||
+    lower === "none"
+  ) {
+    return undefined;
+  }
+  if (isInternalModelTypeAlias(trimmed)) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function resolveModelFromAgentModelConfig(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return sanitizeAgentModelLabel(value);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const modelRecord = value as { primary?: unknown };
+  return sanitizeAgentModelLabel(modelRecord.primary);
+}
+
+function resolveConfigModelLabel(config: MiladyConfig): string | undefined {
+  const defaultModel = resolveModelFromAgentModelConfig(
+    config.agents?.defaults?.model,
+  );
+  if (defaultModel) return defaultModel;
+
+  const activeAgent =
+    config.agents?.list?.find((agent) => agent.default) ?? config.agents?.list?.[0];
+  const activeAgentModel = resolveModelFromAgentModelConfig(activeAgent?.model);
+  if (activeAgentModel) return activeAgentModel;
+
+  const largeModel = sanitizeAgentModelLabel(config.models?.large);
+  if (largeModel) return largeModel;
+
+  const smallModel = sanitizeAgentModelLabel(config.models?.small);
+  if (smallModel) return smallModel;
+
+  return sanitizeAgentModelLabel(config.cloud?.provider);
+}
+
+function resolveRuntimeSettingModelLabel(
+  runtime: Pick<AgentRuntime, "getSetting"> | null,
+): string | undefined {
+  if (!runtime) return undefined;
+  return sanitizeAgentModelLabel(runtime.getSetting("MODEL_PROVIDER"));
+}
+
+function resolveRuntimePluginProviderLabel(
+  runtime: Pick<AgentRuntime, "plugins"> | null,
+): string | undefined {
+  if (!runtime) return undefined;
+  for (const plugin of runtime.plugins) {
+    const pluginName = typeof plugin?.name === "string" ? plugin.name : "";
+    if (!pluginName) continue;
+    const shortId = toPluginShortId(pluginName).toLowerCase();
+    const providerId = AI_PROVIDER_ID_BY_PLUGIN_SHORT_ID[shortId];
+    if (providerId) return providerId;
+  }
+  return undefined;
+}
+
+export function resolveAgentModelLabel(
+  runtime: Pick<AgentRuntime, "plugins" | "getSetting"> | null,
+  config: MiladyConfig,
+): string | undefined {
+  const runtimeModel = resolveRuntimeSettingModelLabel(runtime);
+  if (runtimeModel) return runtimeModel;
+
+  const configModel = resolveConfigModelLabel(config);
+  if (configModel) return configModel;
+
+  return resolveRuntimePluginProviderLabel(runtime);
+}
+
+function resolvePluginCategoryForMutation(
+  state: ServerState,
+  pluginNameOrId: string,
+): PluginEntry["category"] {
+  const shortId = toPluginShortId(pluginNameOrId);
+  const known = state.plugins.find((entry) => entry.id === shortId);
+  if (known) return known.category;
+  return categorizePlugin(shortId);
+}
+
+function rejectAgentMutation(
+  req: http.IncomingMessage,
+  state: ServerState,
+  target:
+    | { kind: "connectors" }
+    | { kind: "plugins"; pluginNameOrId: string }
+    | { kind: "config" },
+): string | null {
+  if (!isAgentAutomationRequest(req)) return null;
+  const mode = state.agentAutomationMode ?? "full";
+  if (mode === "full") return null;
+
+  if (target.kind === "connectors") return null;
+
+  if (target.kind === "plugins") {
+    const category = resolvePluginCategoryForMutation(
+      state,
+      target.pluginNameOrId,
+    );
+    if (category === "connector") return null;
+    return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+  }
+
+  return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+}
+
+function persistAgentAutomationMode(
+  state: ServerState,
+  mode: AgentAutomationMode,
+): void {
+  state.agentAutomationMode = mode;
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.agentAutomation;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  features.agentAutomation = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+}
+
+function persistTradePermissionMode(
+  state: ServerState,
+  mode: TradePermissionMode,
+): void {
+  state.tradePermissionMode = mode;
+  process.env.MILADY_TRADE_PERMISSION_MODE = mode;
+
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.tradeExecution;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  features.tradeExecution = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+
+  if (!state.config.env || typeof state.config.env !== "object") {
+    state.config.env = {};
+  }
+  (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
+    mode;
+
+  const bscEnabled = mode === "agent-auto" ? "true" : "false";
+  process.env.MILADY_BSC_EXECUTION_ENABLED = bscEnabled;
+  (state.config.env as Record<string, string>).MILADY_BSC_EXECUTION_ENABLED =
+    bscEnabled;
 }
 
 export interface PluginConfigMutationRejection {
@@ -4634,66 +6357,7 @@ export function resolveWalletExportRejection(
   return null;
 }
 
-interface TerminalRunRequestBody {
-  terminalToken?: string;
-}
-
-export interface TerminalRunRejection {
-  status: 401 | 403;
-  reason: string;
-}
-
-export function resolveTerminalRunRejection(
-  req: http.IncomingMessage,
-  body: TerminalRunRequestBody,
-): TerminalRunRejection | null {
-  const expected = process.env.MILADY_TERMINAL_RUN_TOKEN?.trim();
-  const apiTokenEnabled = Boolean(process.env.MILADY_API_TOKEN?.trim());
-
-  // Compatibility mode: local loopback sessions without API token keep
-  // existing behavior unless an explicit terminal token is configured.
-  if (!expected && !apiTokenEnabled) {
-    return null;
-  }
-
-  if (!expected) {
-    return {
-      status: 403,
-      reason:
-        "Terminal run is disabled for token-authenticated API sessions. Set MILADY_TERMINAL_RUN_TOKEN to enable command execution.",
-    };
-  }
-
-  const headerToken =
-    typeof req.headers["x-milady-terminal-token"] === "string"
-      ? req.headers["x-milady-terminal-token"].trim()
-      : "";
-  const bodyToken =
-    typeof body.terminalToken === "string" ? body.terminalToken.trim() : "";
-  const provided = headerToken || bodyToken;
-
-  if (!provided) {
-    return {
-      status: 401,
-      reason:
-        "Missing terminal token. Provide X-Milady-Terminal-Token header or terminalToken in request body.",
-    };
-  }
-
-  if (!tokenMatches(expected, provided)) {
-    return {
-      status: 401,
-      reason: "Invalid terminal token.",
-    };
-  }
-
-  return null;
-}
-
 function extractWsQueryToken(url: URL): string | null {
-  const allowQueryToken = process.env.MILADY_ALLOW_WS_QUERY_TOKEN === "1";
-  if (!allowQueryToken) return null;
-
   const token =
     url.searchParams.get("token") ??
     url.searchParams.get("apiKey") ??
@@ -4705,6 +6369,7 @@ function isWebSocketAuthorized(
   request: http.IncomingMessage,
   url: URL,
 ): boolean {
+  if (isPublicAppModeEnabled()) return true;
   const expected = process.env.MILADY_API_TOKEN?.trim();
   if (!expected) return true;
 
@@ -4937,8 +6602,18 @@ function isWorkbenchTodoTask(task: Task): boolean {
   );
 }
 
+function isMiladyInternalTask(task: Task): boolean {
+  const tags = normalizeStringArray(task.tags).map((tag) => tag.toLowerCase());
+  return tags.includes("milady-internal");
+}
+
 function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
-  if (readTriggerConfig(task) || isWorkbenchTodoTask(task)) return null;
+  if (
+    readTriggerConfig(task) ||
+    isWorkbenchTodoTask(task) ||
+    isMiladyInternalTask(task)
+  )
+    return null;
   const id = normalizeTaskId(task);
   if (!id) return null;
   const metadata = readTaskMetadata(task);
@@ -4960,7 +6635,7 @@ function toWorkbenchTask(task: Task): WorkbenchTaskView | null {
 }
 
 function toWorkbenchTodo(task: Task): WorkbenchTodoView | null {
-  if (!isWorkbenchTodoTask(task)) return null;
+  if (!isWorkbenchTodoTask(task) || isMiladyInternalTask(task)) return null;
   const id = normalizeTaskId(task);
   if (!id) return null;
   const metadata = readTaskMetadata(task);
@@ -5355,8 +7030,94 @@ function serializeForRuntimeDebug(
 
 // ── Autonomy → User message routing ──────────────────────────────────
 
+type UiLanguageForPrompt = "en" | "zh-CN";
+type LanguagePromptPolicy = "follow-ui-with-input-override";
+
+function normalizeUiLanguageForPrompt(input: unknown): UiLanguageForPrompt {
+  if (typeof input !== "string") return "en";
+  const trimmed = input.trim();
+  if (!trimmed) return "en";
+  if (trimmed === "en" || trimmed.toLowerCase().startsWith("en-")) return "en";
+  const lower = trimmed.toLowerCase();
+  if (lower === "zh" || lower === "zh-cn" || lower.startsWith("zh-hans")) {
+    return "zh-CN";
+  }
+  return "en";
+}
+
+function detectMessageLanguage(text: string): UiLanguageForPrompt | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  // CJK characters strongly indicate Simplified Chinese for this release.
+  if (/[\u3400-\u9FFF\uF900-\uFAFF]/u.test(trimmed)) return "zh-CN";
+
+  const latinCount = (trimmed.match(/[A-Za-z]/g) ?? []).length;
+  const visibleChars = (trimmed.match(/[^\s]/g) ?? []).length;
+  if (latinCount >= 3 && latinCount / Math.max(1, visibleChars) >= 0.2) {
+    return "en";
+  }
+
+  return null;
+}
+
+export function resolveUiLanguageFromRequest(
+  req: Pick<http.IncomingMessage, "headers">,
+  state: Pick<ServerState, "config">,
+): UiLanguageForPrompt {
+  const headerValue = req.headers["x-milady-ui-language"];
+  const headerLanguage = Array.isArray(headerValue)
+    ? headerValue[0]
+    : headerValue;
+  if (typeof headerLanguage === "string" && headerLanguage.trim()) {
+    return normalizeUiLanguageForPrompt(headerLanguage);
+  }
+  return normalizeUiLanguageForPrompt(state.config.ui?.language);
+}
+
+export function buildLanguageInstruction(
+  lang: UiLanguageForPrompt,
+  messageText: string,
+  policy: LanguagePromptPolicy = "follow-ui-with-input-override",
+): string {
+  const detectedLanguage =
+    policy === "follow-ui-with-input-override"
+      ? detectMessageLanguage(messageText)
+      : null;
+  const effectiveLanguage = detectedLanguage ?? lang;
+
+  if (effectiveLanguage === "zh-CN") {
+    return [
+      "[Response Language Policy]",
+      "- Reply in Simplified Chinese (zh-CN) for this turn.",
+      "- Keep code, URLs, contract addresses, commands, and quoted identifiers unchanged.",
+      "- If the user switches language later, follow the user's language in that turn.",
+    ].join("\n");
+  }
+
+  return [
+    "[Response Language Policy]",
+    "- Reply in English for this turn.",
+    "- Keep code, URLs, contract addresses, commands, and quoted identifiers unchanged.",
+    "- If the user switches language later, follow the user's language in that turn.",
+  ].join("\n");
+}
+
+export function injectLanguageContext(
+  messageText: string | undefined,
+  lang: UiLanguageForPrompt,
+  policy: LanguagePromptPolicy = "follow-ui-with-input-override",
+): string {
+  const sourceText = typeof messageText === "string" ? messageText : "";
+  const trimmed = sourceText.trim();
+  if (!trimmed) return sourceText;
+  const instruction = buildLanguageInstruction(lang, trimmed, policy).trim();
+  if (!instruction) return trimmed;
+  return `${instruction}\n\n${trimmed}`;
+}
+
 /**
- * Route non-conversation text output to the user's active conversation.
+ * Route non-conversation output to the user's active conversation.
  * Stores the message as a Memory in the conversation room and broadcasts
  * a `proactive-message` WS event to the frontend.
  */
@@ -5791,6 +7552,7 @@ async function handleRequest(
     json(res, { error: "Origin not allowed" }, 403);
     return;
   }
+  applySecurityHeaders(req, res);
 
   // Serve dashboard static assets before the auth gate.  serveStaticUi
   // already refuses /api/, /v1/, and /ws paths, so API endpoints remain
@@ -6153,6 +7915,31 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/agent/self-status ────────────────────────────────────────
+  // Compact runtime + permission + wallet snapshot for self-awareness.
+  if (method === "GET" && pathname === "/api/agent/self-status") {
+    json(
+      res,
+      buildAgentSelfStatus({
+        runtime: state.runtime,
+        config: state.config,
+        state: state.agentState,
+        agentName: state.agentName,
+        model: state.model,
+        shellEnabled: state.shellEnabled,
+        agentAutomationMode: state.agentAutomationMode,
+        tradePermissionMode: state.tradePermissionMode,
+        walletAddresses: getWalletAddresses(),
+        plugins: state.plugins.map((plugin) => ({
+          id: plugin.id,
+          category: plugin.category,
+          enabled: plugin.enabled,
+        })),
+      }),
+    );
+    return;
+  }
+
   // ── GET /api/runtime ───────────────────────────────────────────────────
   // Deep runtime introspection endpoint for advanced debugging UI.
   if (method === "GET" && pathname === "/api/runtime") {
@@ -6294,8 +8081,143 @@ async function handleRequest(
 
   // ── GET /api/onboarding/status ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/status") {
-    const complete = configFileExists() && Boolean(state.config.agents);
-    json(res, { complete });
+    const baseComplete = configFileExists() && Boolean(state.config.agents);
+    const requiresPrivyIdentity = resolveWalletMode(state.config) === "privy";
+    const hasPrivyIdentity = Boolean(resolvePrivyCustomUserId(state));
+    const complete = baseComplete && (!requiresPrivyIdentity || hasPrivyIdentity);
+    json(res, {
+      complete,
+      baseComplete,
+      requiresPrivyIdentity,
+      privyConnected: hasPrivyIdentity,
+    });
+    return;
+  }
+
+  // ── GET /api/privy/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/privy/status") {
+    const configured = isPrivyWalletProvisioningEnabled();
+    const customUserId = resolvePrivyCustomUserId(state);
+    const userId = resolvePrivyUserId(state);
+    const connected = Boolean(customUserId);
+    const wallets = await resolveWalletAddressesForRequest(state, [
+      "evm",
+      "solana",
+    ]);
+    json(res, {
+      configured,
+      connected,
+      customUserId: customUserId ?? undefined,
+      userId: userId ?? undefined,
+      wallets,
+    });
+    return;
+  }
+
+  // ── POST /api/privy/login ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/login") {
+    if (!isPrivyWalletProvisioningEnabled()) {
+      error(
+        res,
+        "Privy is not configured. Set PRIVY_APP_ID and PRIVY_APP_SECRET first.",
+        503,
+      );
+      return;
+    }
+
+    const body = await readJsonBody<{ customUserId?: string }>(req, res);
+    if (!body) return;
+
+    const requestedCustomUserId = body.customUserId?.trim() || null;
+    const existingCustomUserId = resolvePrivyCustomUserId(state);
+    const customUserId =
+      requestedCustomUserId ??
+      existingCustomUserId ??
+      `milady-user:${crypto.randomUUID()}`;
+
+    let changed = persistPrivyIdentity(state, customUserId, null);
+
+    let ensured:
+      | Awaited<ReturnType<typeof ensurePrivyWalletsForCustomUser>>
+      | null = null;
+    try {
+      ensured = await ensurePrivyWalletsForCustomUser(customUserId, [
+        "ethereum",
+        "solana",
+      ]);
+    } catch (err) {
+      error(
+        res,
+        `Privy login failed: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      );
+      return;
+    }
+
+    changed =
+      persistPrivyIdentity(state, customUserId, ensured.userId) || changed;
+    changed =
+      persistManagedWalletAddresses(state, {
+        evmAddress: ensured.evmAddress,
+        solanaAddress: ensured.solanaAddress,
+      }) || changed;
+
+    if (changed) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[privy] Failed to persist privy login state: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    json(res, {
+      ok: true,
+      configured: true,
+      connected: true,
+      customUserId,
+      userId: ensured.userId,
+      wallets: {
+        evmAddress: ensured.evmAddress,
+        solanaAddress: ensured.solanaAddress,
+      },
+    });
+    return;
+  }
+
+  // ── POST /api/privy/logout ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/logout") {
+    let changed = persistPrivyIdentity(state, null, null);
+    const envConfig =
+      state.config.env && typeof state.config.env === "object"
+        ? (state.config.env as Record<string, string>)
+        : null;
+    for (const key of [
+      MANAGED_EVM_ADDRESS_ENV_KEY,
+      MANAGED_SOLANA_ADDRESS_ENV_KEY,
+    ]) {
+      if (process.env[key] != null) {
+        delete process.env[key];
+        changed = true;
+      }
+      if (envConfig && envConfig[key] != null) {
+        delete envConfig[key];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[privy] Failed to persist privy logout state: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    json(res, { ok: true });
     return;
   }
 
@@ -6475,6 +8397,18 @@ async function handleRequest(
         | "psycho";
     }
 
+    // ── UI language preference (en / zh-CN) ───────────────────────────────
+    if (typeof body.language === "string" && body.language.trim()) {
+      if (!config.ui) config.ui = {};
+      config.ui.language = normalizeUiLanguageForPrompt(body.language);
+    }
+
+    // ── Owner name (what the agent calls the user) ─────────────────────────
+    if (body.ownerName && typeof body.ownerName === "string" && body.ownerName.trim()) {
+      if (!config.ui) config.ui = {};
+      config.ui.ownerName = body.ownerName.trim();
+    }
+
     // ── Run mode & cloud configuration ────────────────────────────────────
     const runMode = (body.runMode as string) || "local";
     if (!config.cloud) config.cloud = {};
@@ -6515,6 +8449,7 @@ async function handleRequest(
     }
 
     // ── Local LLM provider ────────────────────────────────────────────────
+    // Also supports pi-ai (reads ~/.pi/agent/auth.json and Milady subscription creds).
     {
       if (!config.env) config.env = {};
       const envCfg = config.env as Record<string, unknown>;
@@ -6939,6 +8874,7 @@ async function handleRequest(
     const bundledIds = new Set(state.plugins.map((p) => p.id));
     const installedEntries = discoverInstalledPlugins(freshConfig, bundledIds);
     const allPlugins: PluginEntry[] = [...state.plugins, ...installedEntries];
+    const extensionStatus = await resolveExtensionStatusSnapshot();
 
     // Resolve enabled state from config and loaded state from runtime.
     // "enabled" = user wants it active (config). "isActive" = actually loaded.
@@ -6949,6 +8885,26 @@ async function handleRequest(
       ? state.runtime.plugins.map((p) => p.name)
       : [];
     for (const plugin of allPlugins) {
+      if (
+        plugin.managedExternally &&
+        plugin.id === CHROME_EXTENSION_PLUGIN_ID
+      ) {
+        plugin.isActive = extensionStatus.relayReachable;
+        plugin.enabled = extensionStatus.relayReachable;
+        plugin.configured = Boolean(extensionStatus.extensionPath);
+        plugin.loadError = undefined;
+        plugin.validationErrors = [];
+        plugin.validationWarnings = extensionStatus.relayReachable
+          ? []
+          : [
+              {
+                field: "relay",
+                message: `Relay not reachable at http://127.0.0.1:${extensionStatus.relayPort}. Open ${extensionStatus.extensionPath ?? "apps/chrome-extension"} and start the relay.`,
+              },
+            ];
+        continue;
+      }
+
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
       const isLoaded =
@@ -6988,6 +8944,7 @@ async function handleRequest(
 
     // Always refresh current env values and re-validate
     for (const plugin of allPlugins) {
+      if (plugin.managedExternally) continue;
       for (const param of plugin.parameters) {
         const envValue = process.env[param.key];
         param.isSet = Boolean(envValue?.trim());
@@ -7054,6 +9011,15 @@ async function handleRequest(
   // ── PUT /api/plugins/:id ────────────────────────────────────────────────
   if (method === "PUT" && pathname.startsWith("/api/plugins/")) {
     const pluginId = pathname.slice("/api/plugins/".length);
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginId,
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     const body = await readJsonBody<{
       enabled?: boolean;
       config?: Record<string, string>;
@@ -7063,6 +9029,14 @@ async function handleRequest(
     const plugin = state.plugins.find((p) => p.id === pluginId);
     if (!plugin) {
       error(res, `Plugin "${pluginId}" not found`, 404);
+      return;
+    }
+    if (plugin.managedExternally) {
+      error(
+        res,
+        `Plugin "${pluginId}" is managed externally and cannot be toggled from this panel.`,
+        400,
+      );
       return;
     }
 
@@ -7213,6 +9187,7 @@ async function handleRequest(
       scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`);
     }
 
+    getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
     json(res, { ok: true, plugin });
     return;
   }
@@ -7528,6 +9503,32 @@ async function handleRequest(
     const pluginName = decodeURIComponent(
       pathname.slice("/api/plugins/".length, pathname.length - "/sync".length),
     );
+    if (!body) return;
+    const pluginName = body.name?.trim();
+
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginName ?? "",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
+    if (!pluginName) {
+      error(res, "Request body must include 'name' (plugin package name)", 400);
+      return;
+    }
+
+    const npmNamePattern =
+      /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+    if (!npmNamePattern.test(pluginName)) {
+      error(res, "Invalid plugin name format", 400);
+      return;
+    }
+
+    const { installPlugin } = await import("../services/plugin-installer.js");
+
     try {
       const pluginManager = requirePluginManager(state.runtime);
       if (typeof pluginManager.syncPlugin !== "function") {
@@ -7541,6 +9542,9 @@ async function handleRequest(
       if (result.requiresRestart) {
         scheduleRuntimeRestart(`Plugin ${pluginName} synced`);
       }
+
+      getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
+
       json(res, {
         ok: true,
         pluginName: result.pluginName,
@@ -7568,6 +9572,25 @@ async function handleRequest(
         pathname.length - "/reinject".length,
       ),
     );
+    if (!body) return;
+    const pluginName = body.name?.trim();
+
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "plugins",
+      pluginNameOrId: pluginName ?? "",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
+    if (!pluginName) {
+      error(res, "Request body must include 'name' (plugin package name)", 400);
+      return;
+    }
+
+    const { uninstallPlugin } = await import("../services/plugin-installer.js");
+
     try {
       const pluginManager = requirePluginManager(state.runtime);
       if (typeof pluginManager.reinjectPlugin !== "function") {
@@ -7581,6 +9604,9 @@ async function handleRequest(
       if (result.requiresRestart) {
         scheduleRuntimeRestart(`Plugin ${pluginName} reinjected`);
       }
+
+      getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
+
       json(res, {
         ok: true,
         pluginName: result.pluginName,
@@ -7759,6 +9785,8 @@ async function handleRequest(
     scheduleRuntimeRestart(
       `Plugin ${shortId} ${body.enabled ? "enabled" : "disabled"}`,
     );
+
+    getGlobalAwarenessRegistry()?.invalidate("plugin-changed");
 
     json(res, {
       ok: true,
@@ -9143,7 +11171,7 @@ async function handleRequest(
   // ═══════════════════════════════════════════════════════════════════════
 
   if (method === "GET" && pathname === "/api/whitelist/status") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     const twitterVerified = walletAddress
       ? isAddressWhitelisted(walletAddress)
@@ -9172,7 +11200,7 @@ async function handleRequest(
   }
 
   if (method === "POST" && pathname === "/api/whitelist/twitter/message") {
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     if (!walletAddress) {
       error(res, "EVM wallet not configured. Complete onboarding first.");
@@ -9191,7 +11219,7 @@ async function handleRequest(
       return;
     }
 
-    const addrs = getWalletAddresses();
+    const addrs = await resolveWalletAddressesForRequest(state, ["evm"]);
     const walletAddress = addrs.evmAddress ?? "";
     if (!walletAddress) {
       error(res, "EVM wallet not configured.");
@@ -9344,6 +11372,14 @@ async function handleRequest(
 
   // ── POST /api/connectors ─────────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/connectors") {
+    const modeRejection = rejectAgentMutation(req, state, {
+      kind: "connectors",
+    });
+    if (modeRejection) {
+      error(res, modeRejection, 403);
+      return;
+    }
+
     const body = await readJsonBody(req, res);
     if (!body) return;
     const name = body.name;
@@ -9752,6 +11788,19 @@ async function handleRequest(
       }
     }
 
+    const modeRejection = rejectAgentMutation(req, state, { kind: "config" });
+    if (modeRejection) {
+      const allowedTopKeys = new Set(["connectors", "channels"]);
+      const requestedKeys = Object.keys(filtered);
+      const hasNonConnectorKey = requestedKeys.some(
+        (key) => !allowedTopKeys.has(key),
+      );
+      if (hasNonConnectorKey) {
+        error(res, modeRejection, 403);
+        return;
+      }
+    }
+
     // Security: keep auth/step-up secrets out of API-driven config writes so
     // secret rotation remains an out-of-band operation.
     if (
@@ -9850,6 +11899,9 @@ async function handleRequest(
     }
 
     safeMerge(state.config as Record<string, unknown>, filtered);
+    state.agentAutomationMode = resolveAgentAutomationModeFromConfig(
+      state.config,
+    );
 
     // If the client updated env vars, synchronise them into process.env so
     // subsequent hot-restarts see the latest values (loadMiladyConfig()
@@ -9912,6 +11964,179 @@ async function handleRequest(
     return;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Permission routes (/api/permissions/*)
+  // System permissions for computer use, microphone, camera, etc.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/permissions ───────────────────────────────────────────────
+  // Returns all system permission states
+  if (method === "GET" && pathname === "/api/permissions") {
+    const permStates = state.permissionStates ?? {};
+    json(res, {
+      permissions: permStates,
+      platform: process.platform,
+      shellEnabled: state.shellEnabled ?? true,
+      agentAutomationMode: state.agentAutomationMode ?? "full",
+      tradePermissionMode: state.tradePermissionMode ?? "user-sign-only",
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/shell ─────────────────────────────────────────
+  // Return shell toggle status in a stable shape for UI clients.
+  if (method === "GET" && pathname === "/api/permissions/shell") {
+    const enabled = state.shellEnabled ?? true;
+    if (!state.permissionStates) {
+      state.permissionStates = {};
+    }
+    const shellState = state.permissionStates.shell;
+    const permission = {
+      id: "shell",
+      status: enabled ? "granted" : "denied",
+      lastChecked: shellState?.lastChecked ?? Date.now(),
+      canRequest: false,
+    };
+    state.permissionStates.shell = permission;
+
+    // Keep the legacy top-level permission fields for compatibility with
+    // callers that previously treated /api/permissions/shell as a generic
+    // /api/permissions/:id response.
+    json(res, {
+      enabled,
+      ...permission,
+      permission,
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/automation-mode ──────────────────────────────
+  // Return agent automation permission mode for self-directed config actions.
+  if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+    const mode = state.agentAutomationMode ?? "full";
+    json(res, {
+      mode,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/automation-mode ──────────────────────────────
+  // Update agent automation permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseAgentAutomationMode(body.mode);
+    if (!parsed) {
+      error(res, 'Invalid mode. Expected "connectors-only" or "full".', 400);
+      return;
+    }
+
+    persistAgentAutomationMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/trade-mode ───────────────────────────────────
+  // Return wallet trade execution permission mode.
+  if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+    const mode = state.tradePermissionMode ?? "user-sign-only";
+    json(res, {
+      mode,
+      options: [
+        "user-sign-only",
+        "manual-local-key",
+        "agent-auto",
+      ] as TradePermissionMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/trade-mode ───────────────────────────────────
+  // Update wallet trade execution permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseTradePermissionMode(body.mode);
+    if (!parsed) {
+      error(
+        res,
+        'Invalid mode. Expected "user-sign-only", "manual-local-key", or "agent-auto".',
+        400,
+      );
+      return;
+    }
+
+    persistTradePermissionMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: [
+        "user-sign-only",
+        "manual-local-key",
+        "agent-auto",
+      ] as TradePermissionMode[],
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/:id ───────────────────────────────────────────
+  // Returns a single permission state
+  if (method === "GET" && pathname.startsWith("/api/permissions/")) {
+    const permId = pathname.slice("/api/permissions/".length);
+    if (!permId || permId.includes("/")) {
+      error(res, "Invalid permission ID", 400);
+      return;
+    }
+    const permStates = state.permissionStates ?? {};
+    const permState = permStates[permId];
+    if (!permState) {
+      json(res, {
+        id: permId,
+        status: "not-applicable",
+        lastChecked: Date.now(),
+        canRequest: false,
+      });
+      return;
+    }
+    json(res, permState);
+    return;
+  }
+
+  // ── POST /api/permissions/refresh ──────────────────────────────────────
+  // Force refresh all permission states (clears cache)
+  if (method === "POST" && pathname === "/api/permissions/refresh") {
+    // Signal to the client that they should refresh permissions via IPC
+    // The actual permission checking happens in the Electron main process
+    json(res, {
+      message: "Permission refresh requested",
+      action: "ipc:permissions:refresh",
+    });
+    return;
+  }
+
+  // ── POST /api/permissions/:id/request ──────────────────────────────────
+  // Request a specific permission (triggers system prompt or opens settings)
+  if (
+    method === "POST" &&
+    pathname.match(/^\/api\/permissions\/[^/]+\/request$/)
+  ) {
+    const permId = pathname.split("/")[3];
+    json(res, {
+      message: `Permission request for ${permId}`,
+      action: `ipc:permissions:request:${permId}`,
+    });
+    return;
+  }
+
+  // ── POST /api/permissions/:id/open-settings ────────────────────────────
+  // Open system settings for a specific permission
   if (
     await handlePermissionRoutes({
       req,
@@ -9926,6 +12151,74 @@ async function handleRequest(
       scheduleRuntimeRestart,
     })
   ) {
+    const permId = pathname.split("/")[3];
+    json(res, {
+      message: `Opening settings for ${permId}`,
+      action: `ipc:permissions:openSettings:${permId}`,
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/shell ─────────────────────────────────────────
+  // Toggle shell access enabled/disabled
+  if (method === "PUT" && pathname === "/api/permissions/shell") {
+    const body = await readJsonBody(req, res);
+    if (!body) return;
+    const enabled = body.enabled === true;
+    state.shellEnabled = enabled;
+
+    // Update permission state
+    if (!state.permissionStates) {
+      state.permissionStates = {};
+    }
+    state.permissionStates.shell = {
+      id: "shell",
+      status: enabled ? "granted" : "denied",
+      lastChecked: Date.now(),
+      canRequest: false,
+    };
+
+    // Save to config
+    if (!state.config.features) {
+      state.config.features = {};
+    }
+    state.config.features.shellEnabled = enabled;
+    saveMiladyConfig(state.config);
+
+    // If a runtime is active, restart so plugin loading honors the new
+    // shellEnabled flag and shell tools are loaded/unloaded consistently.
+    if (state.runtime && ctx?.onRestart) {
+      scheduleRuntimeRestart(
+        `Shell access ${enabled ? "enabled" : "disabled"}`,
+      );
+    }
+
+    getGlobalAwarenessRegistry()?.invalidate("permission-changed");
+
+    json(res, {
+      shellEnabled: enabled,
+      permission: state.permissionStates.shell,
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/state ─────────────────────────────────────────
+  // Update permission states from Electron (called by renderer after IPC)
+  if (method === "PUT" && pathname === "/api/permissions/state") {
+    const body = await readJsonBody(req, res);
+    if (!body) return;
+    if (body.permissions && typeof body.permissions === "object") {
+      state.permissionStates = body.permissions as Record<
+        string,
+        {
+          id: string;
+          status: string;
+          lastChecked: number;
+          canRequest: boolean;
+        }
+      >;
+    }
+    json(res, { updated: true, permissions: state.permissionStates });
     return;
   }
 
@@ -10028,6 +12321,51 @@ async function handleRequest(
     }
   };
 
+  const markConversationDeleted = (conversationId: string): void => {
+    const normalizedId = conversationId.trim();
+    if (!normalizedId) return;
+    if (state.deletedConversationIds.has(normalizedId)) return;
+
+    state.deletedConversationIds.add(normalizedId);
+    while (state.deletedConversationIds.size > MAX_DELETED_CONVERSATION_IDS) {
+      const oldest = state.deletedConversationIds.values().next().value;
+      if (!oldest) break;
+      state.deletedConversationIds.delete(oldest);
+    }
+
+    try {
+      persistDeletedConversationIdsToState(state.deletedConversationIds);
+    } catch (err) {
+      logger.warn(
+        `[conversations] Failed to persist deleted conversation tombstones: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const deleteConversationRoomData = async (
+    runtime: AgentRuntime,
+    roomId: UUID,
+  ): Promise<void> => {
+    const runtimeWithDelete = runtime as AgentRuntime & {
+      deleteRoom?: (id: UUID) => Promise<unknown>;
+      adapter?: {
+        db?: {
+          deleteRoom?: (id: UUID) => Promise<unknown>;
+        };
+      };
+    };
+
+    if (typeof runtimeWithDelete.deleteRoom === "function") {
+      await runtimeWithDelete.deleteRoom(roomId);
+      return;
+    }
+
+    const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
+    if (typeof dbDeleteRoom === "function") {
+      await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
+    }
+  };
+
   // Helper: ensure the room for a conversation is set up.
   // Also ensures the world has ownership metadata so the settings provider
   // can find it via findWorldsForOwner during onboarding.
@@ -10044,7 +12382,7 @@ async function handleRequest(
       entityId: userId,
       roomId: conv.roomId,
       worldId,
-      userName: "User",
+      userName: state.config.ui?.ownerName ?? "User",
       source: "client_chat",
       channelId: `web-conv-${conv.id}`,
       type: ChannelType.DM,
@@ -10098,7 +12436,7 @@ async function handleRequest(
             entityId: target.userId,
             roomId: target.roomId,
             worldId: target.worldId,
-            userName: "User",
+            userName: state.config.ui?.ownerName ?? "User",
             source: "client_chat",
             channelId: `${agentName}-web-chat`,
             type: ChannelType.DM,
@@ -10137,7 +12475,7 @@ async function handleRequest(
       entityId: userId,
       roomId,
       worldId,
-      userName: "User",
+      userName: state.config.ui?.ownerName ?? "User",
       source: "client_chat",
       channelId: `${channelIdPrefix}-${roomKey}`,
       type: ChannelType.DM,
@@ -10866,7 +13204,7 @@ async function handleRequest(
     try {
       const result = await generateChatResponse(
         runtime,
-        userMessage,
+        messageForGenerationStream,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -10891,6 +13229,11 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          promptTokens: result.usage?.promptTokens,
+          completionTokens: result.usage?.completionTokens,
+          totalTokens: result.usage?.totalTokens,
+          llmCalls: result.usage?.llmCalls,
+          model: result.usage?.model,
         });
 
         // Background chat renaming
@@ -10970,6 +13313,8 @@ async function handleRequest(
       error(res, "Agent is not running", 503);
       return;
     }
+    const prompt = body.text.trim();
+    const uiLanguage = resolveUiLanguageFromRequest(req, state);
     const userId = ensureAdminEntityId();
     const turnStartedAt = Date.now();
 
@@ -11000,10 +13345,18 @@ async function handleRequest(
       return;
     }
 
+    const messageForGeneration = {
+      ...userMessage,
+      content: {
+        ...userMessage.content,
+        text: injectLanguageContext(userMessage.content.text, uiLanguage),
+      },
+    };
+
     try {
       const result = await generateChatResponse(
         runtime,
-        userMessage,
+        messageForGeneration,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -11022,6 +13375,11 @@ async function handleRequest(
       json(res, {
         text: result.text,
         agentName: result.agentName,
+        promptTokens: result.usage?.promptTokens,
+        completionTokens: result.usage?.completionTokens,
+        totalTokens: result.usage?.totalTokens,
+        llmCalls: result.usage?.llmCalls,
+        model: result.usage?.model,
       });
     } catch (err) {
       logger.warn(
@@ -11160,7 +13518,18 @@ async function handleRequest(
     !pathname.endsWith("/messages")
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
+    const conv = state.conversations.get(convId);
+    if (conv?.roomId && state.runtime) {
+      try {
+        await deleteConversationRoomData(state.runtime, conv.roomId);
+      } catch (err) {
+        logger.debug(
+          `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
     state.conversations.delete(convId);
+    markConversationDeleted(convId);
     json(res, { ok: true });
     return;
   }
@@ -11213,9 +13582,17 @@ async function handleRequest(
         },
       });
 
+      const messageWithCtxLegacyStream = {
+        ...message,
+        content: {
+          ...message.content,
+          text: injectLanguageContext(message.content.text, uiLanguage),
+        },
+      };
+
       const result = await generateChatResponse(
         runtime,
-        message,
+        messageWithCtxLegacyStream,
         state.agentName,
         {
           isAborted: () => aborted,
@@ -11232,6 +13609,11 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          promptTokens: result.usage?.promptTokens,
+          completionTokens: result.usage?.completionTokens,
+          totalTokens: result.usage?.totalTokens,
+          llmCalls: result.usage?.llmCalls,
+          model: result.usage?.model,
         });
       }
     } catch (err) {
@@ -11303,9 +13685,17 @@ async function handleRequest(
         },
       });
 
+      const messageWithCtxLegacy = {
+        ...message,
+        content: {
+          ...message.content,
+          text: injectLanguageContext(message.content.text, uiLanguage),
+        },
+      };
+
       const result = await generateChatResponse(
         runtime,
-        message,
+        messageWithCtxLegacy,
         state.agentName,
         {
           resolveNoResponseText: () =>
@@ -11316,6 +13706,11 @@ async function handleRequest(
       json(res, {
         text: result.text,
         agentName: result.agentName,
+        promptTokens: result.usage?.promptTokens,
+        completionTokens: result.usage?.completionTokens,
+        totalTokens: result.usage?.totalTokens,
+        llmCalls: result.usage?.llmCalls,
+        model: result.usage?.model,
       });
     } catch (err) {
       const creditReply = getInsufficientCreditsReplyFromError(err);
@@ -12479,6 +14874,18 @@ async function handleRequest(
   // ── POST /api/terminal/run ──────────────────────────────────────────────
   // Execute a shell command server-side and stream output via WebSocket.
   if (method === "POST" && pathname === "/api/terminal/run") {
+    if (
+      isAgentAutomationRequest(req) &&
+      (state.agentAutomationMode ?? "full") === "connectors-only"
+    ) {
+      error(
+        res,
+        'Blocked by automation mode "connectors-only". Shell automation is disabled for agent-originated requests.',
+        403,
+      );
+      return;
+    }
+
     if (state.shellEnabled === false) {
       error(res, "Shell access is disabled", 403);
       return;
@@ -13020,6 +15427,109 @@ async function handleRequest(
   for (const handler of state.connectorRouteHandlers) {
     const handled = await handler(req, res, pathname, method);
     if (handled) return;
+
+  // ── VRM media fallback (production) ─────────────────────────────────────
+  // When cloud builds receive unresolved Git LFS pointer files, the frontend
+  // cannot load VRM models. This fallback proxies the real binary from
+  // media.githubusercontent.com for /vrms/*.vrm requests.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname.startsWith("/vrms/") &&
+    pathname.toLowerCase().endsWith(".vrm")
+  ) {
+    const root = resolveUiDir();
+    if (root) {
+      let decodedPath: string;
+      try {
+        decodedPath = decodeURIComponent(pathname);
+      } catch {
+        error(res, "Invalid URL path encoding", 400);
+        return;
+      }
+
+      const relativePath = decodedPath.replace(/^\/+/, "");
+      const localPath = path.resolve(root, relativePath);
+      if (localPath !== root && !localPath.startsWith(`${root}${path.sep}`)) {
+        error(res, "Forbidden", 403);
+        return;
+      }
+
+      try {
+        const localStat = fs.statSync(localPath);
+        if (localStat.isFile()) {
+          const localBody = fs.readFileSync(localPath);
+          if (!isLikelyLfsPointer(localBody)) {
+            sendStaticResponse(
+              req,
+              res,
+              200,
+              {
+                "Cache-Control": "public, max-age=0, must-revalidate",
+                "Content-Type": "application/octet-stream",
+                "Content-Length": localBody.byteLength,
+              },
+              localBody,
+            );
+            return;
+          }
+        }
+      } catch {
+        // Fall through to remote media fallback.
+      }
+
+      const repoPath = resolveMediaRepoPath(process.env.MILADY_LFS_REPO_URL);
+      const mediaRef = resolveMediaRef();
+      const encodedRelativePath = relativePath
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/");
+      const mediaUrl = `https://media.githubusercontent.com/media/${repoPath}/${encodeURIComponent(mediaRef)}/${encodedRelativePath}`;
+
+      try {
+        const upstream = await fetch(mediaUrl, {
+          method: "GET",
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!upstream.ok) {
+          error(
+            res,
+            `VRM upstream fetch failed (${upstream.status}).`,
+            upstream.status === 404 ? 404 : 502,
+          );
+          return;
+        }
+        const upstreamBody = Buffer.from(await upstream.arrayBuffer());
+        if (!upstreamBody.length || isLikelyLfsPointer(upstreamBody)) {
+          error(res, "VRM upstream returned an unresolved LFS pointer.", 502);
+          return;
+        }
+
+        sendStaticResponse(
+          req,
+          res,
+          200,
+          {
+            "Cache-Control": "public, max-age=300",
+            "Content-Type": "application/octet-stream",
+            "Content-Length": upstreamBody.byteLength,
+          },
+          upstreamBody,
+        );
+        return;
+      } catch (err) {
+        error(
+          res,
+          `VRM upstream fetch error: ${err instanceof Error ? err.message : String(err)}`,
+          502,
+        );
+        return;
+      }
+    }
+  }
+
+  // ── Static UI serving (production) ──────────────────────────────────────
+  if (method === "GET" || method === "HEAD") {
+    if (serveStaticUi(req, res, pathname)) return;
   }
 
   // ── Fallback ────────────────────────────────────────────────────────────
@@ -13072,6 +15582,15 @@ export async function startApiServer(opts?: {
   ensureApiTokenForBindHost(host);
   console.log(`[milady-api] Token check done (${Date.now() - apiStartTime}ms)`);
 
+  // Default public RPC endpoints for local desktop builds (no Railway env).
+  // These are intentionally NOT persisted to disk; they can be overridden by
+  // env vars or via PUT /api/wallet/config.
+  const PUBLICNODE_BSC_RPC_PRIMARY = "https://bsc-rpc.publicnode.com";
+  const PUBLICNODE_BSC_RPC_SECONDARY = "https://bsc.publicnode.com";
+  const PUBLICNODE_ETHEREUM_RPC_PRIMARY = "https://ethereum-rpc.publicnode.com";
+  const PUBLICNODE_BASE_RPC_PRIMARY = "https://base-rpc.publicnode.com";
+  const PUBLICNODE_SOLANA_RPC_PRIMARY = "https://solana-rpc.publicnode.com";
+
   let config: MiladyConfig;
   try {
     config = loadMiladyConfig();
@@ -13087,11 +15606,28 @@ export async function startApiServer(opts?: {
   // Hydrate persisted config.env values so addresses remain visible after restarts.
   const persistedEnv = config.env as Record<string, string> | undefined;
   const envKeysToHydrate = [
+    "MILADY_WALLET_MODE",
+    "MILADY_TRADE_PERMISSION_MODE",
+    "MILADY_BSC_EXECUTION_ENABLED",
+    "PRIVY_APP_ID",
+    "PRIVY_APP_SECRET",
+    "PRIVY_API_BASE_URL",
+    "BABYLON_PRIVY_APP_ID",
+    "BABYLON_PRIVY_APP_SECRET",
+    PRIVY_CUSTOM_USER_ID_ENV_KEY,
+    PRIVY_USER_ID_ENV_KEY,
+    MANAGED_EVM_ADDRESS_ENV_KEY,
+    MANAGED_SOLANA_ADDRESS_ENV_KEY,
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
     "ALCHEMY_API_KEY",
     "INFURA_API_KEY",
     "ANKR_API_KEY",
+    "NODEREAL_BSC_RPC_URL",
+    "QUICKNODE_BSC_RPC_URL",
+    "BSC_RPC_URL",
+    "ETHEREUM_RPC_URL",
+    "BASE_RPC_URL",
     "HELIUS_API_KEY",
     "BIRDEYE_API_KEY",
     "SOLANA_RPC_URL",
@@ -13101,6 +15637,27 @@ export async function startApiServer(opts?: {
     if (typeof value === "string" && value.trim() && !process.env[key]) {
       process.env[key] = value.trim();
     }
+  }
+
+  // Apply safe public defaults if no RPC is configured (keeps DMG usable out-of-box).
+  if (!process.env.NODEREAL_BSC_RPC_URL?.trim()) {
+    process.env.NODEREAL_BSC_RPC_URL = PUBLICNODE_BSC_RPC_PRIMARY;
+  }
+  if (!process.env.QUICKNODE_BSC_RPC_URL?.trim()) {
+    process.env.QUICKNODE_BSC_RPC_URL = PUBLICNODE_BSC_RPC_SECONDARY;
+  }
+  if (!process.env.BSC_RPC_URL?.trim()) {
+    // Prefer the primary wallet RPC to keep behavior consistent across plugins.
+    process.env.BSC_RPC_URL = process.env.NODEREAL_BSC_RPC_URL;
+  }
+  if (!process.env.ETHEREUM_RPC_URL?.trim()) {
+    process.env.ETHEREUM_RPC_URL = PUBLICNODE_ETHEREUM_RPC_PRIMARY;
+  }
+  if (!process.env.BASE_RPC_URL?.trim()) {
+    process.env.BASE_RPC_URL = PUBLICNODE_BASE_RPC_PRIMARY;
+  }
+  if (!process.env.SOLANA_RPC_URL?.trim()) {
+    process.env.SOLANA_RPC_URL = PUBLICNODE_SOLANA_RPC_PRIMARY;
   }
 
   // Self-heal older configs where wallet keys were never provisioned
@@ -13137,6 +15694,7 @@ export async function startApiServer(opts?: {
     : (config.agents?.list?.[0]?.name ??
       config.ui?.assistant?.name ??
       "Milady");
+  const deletedConversationIds = readDeletedConversationIdsFromState();
 
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
@@ -13159,6 +15717,7 @@ export async function startApiServer(opts?: {
     chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
+    deletedConversationIds,
     cloudManager: null,
     sandboxManager: null,
     appManager: new AppManager(),
@@ -14077,6 +16636,7 @@ export async function startApiServer(opts?: {
         if (!channelId.startsWith("web-conv-")) continue;
         const convId = channelId.replace("web-conv-", "");
         if (!convId || state.conversations.has(convId)) continue;
+        if (state.deletedConversationIds.has(convId)) continue;
 
         // Peek at the latest message to get a timestamp
         let updatedAt = new Date().toISOString();

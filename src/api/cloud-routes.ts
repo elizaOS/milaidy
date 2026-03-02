@@ -5,16 +5,15 @@
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import type { CloudManager } from "../cloud/cloud-manager";
-import { validateCloudBaseUrl } from "../cloud/validate-url";
-import type { MiladyConfig } from "../config/config";
-import { saveMiladyConfig } from "../config/config";
-import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
+import type { CloudManager } from "../cloud/cloud-manager.js";
+import { validateCloudBaseUrl } from "../cloud/validate-url.js";
+import type { MiladyConfig } from "../config/config.js";
+import { saveMiladyConfig } from "../config/config.js";
 import {
   readJsonBody as parseJsonBody,
   sendJson,
   sendJsonError,
-} from "./http-helpers";
+} from "./http-helpers.js";
 
 export interface CloudRouteState {
   config: MiladyConfig;
@@ -91,11 +90,6 @@ export async function handleCloudRoute(
       return true;
     }
     const sessionId = crypto.randomUUID();
-    const loginCreateSpan = createIntegrationTelemetrySpan({
-      boundary: "cloud",
-      operation: "login_create_session",
-      timeoutMs: CLOUD_LOGIN_CREATE_TIMEOUT_MS,
-    });
 
     let createRes: Response;
     try {
@@ -110,20 +104,14 @@ export async function handleCloudRoute(
       );
     } catch (fetchErr) {
       if (isTimeoutError(fetchErr)) {
-        loginCreateSpan.failure({ error: fetchErr, statusCode: 504 });
         sendJsonError(res, "Eliza Cloud login request timed out", 504);
         return true;
       }
-      loginCreateSpan.failure({ error: fetchErr, statusCode: 502 });
       sendJsonError(res, "Failed to reach Eliza Cloud", 502);
       return true;
     }
 
     if (isRedirectResponse(createRes)) {
-      loginCreateSpan.failure({
-        statusCode: createRes.status,
-        errorKind: "redirect_response",
-      });
       sendJsonError(
         res,
         "Eliza Cloud login request was redirected; redirects are not allowed",
@@ -133,15 +121,10 @@ export async function handleCloudRoute(
     }
 
     if (!createRes.ok) {
-      loginCreateSpan.failure({
-        statusCode: createRes.status,
-        errorKind: "http_error",
-      });
       sendJsonError(res, "Failed to create auth session with Eliza Cloud", 502);
       return true;
     }
 
-    loginCreateSpan.success({ statusCode: createRes.status });
     sendJson(res, {
       ok: true,
       sessionId,
@@ -168,11 +151,6 @@ export async function handleCloudRoute(
       sendJsonError(res, urlError);
       return true;
     }
-    const loginPollSpan = createIntegrationTelemetrySpan({
-      boundary: "cloud",
-      operation: "login_poll_status",
-      timeoutMs: CLOUD_LOGIN_POLL_TIMEOUT_MS,
-    });
     let pollRes: Response;
     try {
       pollRes = await fetchWithTimeout(
@@ -182,7 +160,6 @@ export async function handleCloudRoute(
       );
     } catch (fetchErr) {
       if (isTimeoutError(fetchErr)) {
-        loginPollSpan.failure({ error: fetchErr, statusCode: 504 });
         sendJson(
           res,
           {
@@ -193,7 +170,6 @@ export async function handleCloudRoute(
         );
         return true;
       }
-      loginPollSpan.failure({ error: fetchErr, statusCode: 502 });
       sendJson(
         res,
         {
@@ -206,10 +182,6 @@ export async function handleCloudRoute(
     }
 
     if (isRedirectResponse(pollRes)) {
-      loginPollSpan.failure({
-        statusCode: pollRes.status,
-        errorKind: "redirect_response",
-      });
       sendJson(
         res,
         {
@@ -223,10 +195,6 @@ export async function handleCloudRoute(
     }
 
     if (!pollRes.ok) {
-      loginPollSpan.failure({
-        statusCode: pollRes.status,
-        errorKind: "http_error",
-      });
       sendJson(
         res,
         pollRes.status === 404
@@ -239,22 +207,11 @@ export async function handleCloudRoute(
       return true;
     }
 
-    let data: {
+    const data = (await pollRes.json()) as {
       status: string;
       apiKey?: string;
       keyPrefix?: string;
     };
-    try {
-      data = (await pollRes.json()) as {
-        status: string;
-        apiKey?: string;
-        keyPrefix?: string;
-      };
-    } catch (parseErr) {
-      loginPollSpan.failure({ error: parseErr, statusCode: pollRes.status });
-      throw parseErr;
-    }
-    loginPollSpan.success({ statusCode: pollRes.status });
 
     if (data.status === "authenticated" && data.apiKey) {
       // ── 1. Save to config file (on-disk persistence) ────────────────
@@ -432,19 +389,65 @@ export async function handleCloudRoute(
     delete cloud.apiKey;
     (state.config as Record<string, unknown>).cloud = cloud;
 
-    try {
-      saveMiladyConfig(state.config);
-    } catch (saveErr) {
-      logger.warn(
-        `[cloud-login] Failed to save cloud disconnect state: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
-      );
-    }
-
     delete process.env.ELIZAOS_CLOUD_API_KEY;
     delete process.env.ELIZAOS_CLOUD_ENABLED;
+    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+
+    if (
+      state.config.env &&
+      typeof state.config.env === "object" &&
+      !Array.isArray(state.config.env)
+    ) {
+      const envCfg = state.config.env as Record<string, unknown>;
+      delete envCfg.ELIZAOS_CLOUD_API_KEY;
+      delete envCfg.ELIZAOS_CLOUD_ENABLED;
+      delete envCfg.ELIZAOS_CLOUD_SMALL_MODEL;
+      delete envCfg.ELIZAOS_CLOUD_LARGE_MODEL;
+      if (
+        envCfg.vars &&
+        typeof envCfg.vars === "object" &&
+        !Array.isArray(envCfg.vars)
+      ) {
+        const vars = envCfg.vars as Record<string, unknown>;
+        delete vars.ELIZAOS_CLOUD_API_KEY;
+        delete vars.ELIZAOS_CLOUD_ENABLED;
+        delete vars.ELIZAOS_CLOUD_SMALL_MODEL;
+        delete vars.ELIZAOS_CLOUD_LARGE_MODEL;
+      }
+    }
 
     if (state.runtime) {
       try {
+        const runtimeAny = state.runtime as unknown as {
+          getService?: (name: string) => unknown;
+        };
+        const cloudAuth =
+          typeof runtimeAny.getService === "function"
+            ? (runtimeAny.getService.call(state.runtime, "CLOUD_AUTH") as
+                | Record<string, unknown>
+                | null)
+            : null;
+        if (cloudAuth) {
+          const clearMethods = [
+            "logout",
+            "disconnect",
+            "signOut",
+            "clearSession",
+            "clearCredentials",
+            "reset",
+          ] as const;
+          for (const methodName of clearMethods) {
+            const method = cloudAuth[methodName];
+            if (typeof method !== "function") continue;
+            try {
+              await (method as () => Promise<unknown> | unknown).call(cloudAuth);
+            } catch {
+              // Best-effort only.
+            }
+          }
+        }
+
         if (!state.runtime.character.secrets) {
           state.runtime.character.secrets = {};
         }
@@ -462,6 +465,14 @@ export async function handleCloudRoute(
           `[cloud-login] Failed to clear cloud secrets from agent DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`,
         );
       }
+    }
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (saveErr) {
+      logger.warn(
+        `[cloud-login] Failed to save cloud env cleanup: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
+      );
     }
 
     sendJson(res, { ok: true, status: "disconnected" });

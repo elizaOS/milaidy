@@ -11,7 +11,7 @@ import {
   LOCAL_MODEL_REGISTRY,
   LocalModelManager,
   type ModelType,
-} from "./local-models";
+} from "./local-models.js";
 
 // ============================================================================
 // UNIT TESTS
@@ -23,10 +23,7 @@ describe("LocalModelManager", () => {
 
   beforeEach(() => {
     // Use a unique temp directory for each test
-    testCacheDir = join(
-      tmpdir(),
-      `milady-test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-    );
+    testCacheDir = join(tmpdir(), `milady-test-${Date.now()}`);
     mkdirSync(testCacheDir, { recursive: true });
     manager = new LocalModelManager({ cacheDir: testCacheDir });
   });

@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
 
 export interface MockApiServerOptions {
@@ -15,9 +15,7 @@ export interface MockApiServerOptions {
   permissions?: Partial<
     Record<
       PermissionId,
-      Partial<
-        Pick<PermissionStateRecord, "status" | "canRequest" | "lastChecked">
-      >
+      Partial<Pick<PermissionStateRecord, "status" | "canRequest" | "lastChecked">>
     >
   >;
 }
@@ -30,14 +28,7 @@ export interface MockApiServer {
 
 type JsonObject = Record<string, unknown>;
 
-type AgentState =
-  | "not_started"
-  | "starting"
-  | "running"
-  | "paused"
-  | "stopped"
-  | "restarting"
-  | "error";
+type AgentState = "not_started" | "starting" | "running" | "paused" | "stopped" | "restarting" | "error";
 type PermissionStatus =
   | "granted"
   | "denied"
@@ -57,6 +48,11 @@ type PermissionStateRecord = {
   canRequest: boolean;
 };
 type PermissionsStateRecord = Record<PermissionId, PermissionStateRecord>;
+type AgentAutomationMode = "connectors-only" | "full";
+type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
 
 interface ConversationRecord {
   id: string;
@@ -128,30 +124,10 @@ const onboardingOptions = {
       description: "OpenAI API",
     },
   ],
-  cloudProviders: [
-    {
-      id: "elizacloud",
-      name: "Eliza Cloud",
-      description: "Managed cloud runtime",
-    },
-  ],
+  cloudProviders: [{ id: "elizacloud", name: "Eliza Cloud", description: "Managed cloud runtime" }],
   models: {
-    small: [
-      {
-        id: "small-model",
-        name: "Small Model",
-        provider: "elizacloud",
-        description: "Fast",
-      },
-    ],
-    large: [
-      {
-        id: "large-model",
-        name: "Large Model",
-        provider: "elizacloud",
-        description: "High quality",
-      },
-    ],
+    small: [{ id: "small-model", name: "Small Model", provider: "elizacloud", description: "Fast" }],
+    large: [{ id: "large-model", name: "Large Model", provider: "elizacloud", description: "High quality" }],
   },
   inventoryProviders: [
     {
@@ -219,36 +195,11 @@ function nowIso(): string {
 function createDefaultPermissionsState(): PermissionsStateRecord {
   const now = Date.now();
   return {
-    accessibility: {
-      id: "accessibility",
-      status: "granted",
-      lastChecked: now,
-      canRequest: false,
-    },
-    "screen-recording": {
-      id: "screen-recording",
-      status: "granted",
-      lastChecked: now,
-      canRequest: false,
-    },
-    microphone: {
-      id: "microphone",
-      status: "granted",
-      lastChecked: now,
-      canRequest: false,
-    },
-    camera: {
-      id: "camera",
-      status: "granted",
-      lastChecked: now,
-      canRequest: false,
-    },
-    shell: {
-      id: "shell",
-      status: "granted",
-      lastChecked: now,
-      canRequest: false,
-    },
+    accessibility: { id: "accessibility", status: "granted", lastChecked: now, canRequest: false },
+    "screen-recording": { id: "screen-recording", status: "granted", lastChecked: now, canRequest: false },
+    microphone: { id: "microphone", status: "granted", lastChecked: now, canRequest: false },
+    camera: { id: "camera", status: "granted", lastChecked: now, canRequest: false },
+    shell: { id: "shell", status: "granted", lastChecked: now, canRequest: false },
   };
 }
 
@@ -258,9 +209,7 @@ function mergePermissionsState(
 ): PermissionsStateRecord {
   if (!patch) return base;
   const next = { ...base };
-  for (const [id, partialState] of Object.entries(patch) as Array<
-    [PermissionId, MockApiServerOptions["permissions"][PermissionId]]
-  >) {
+  for (const [id, partialState] of Object.entries(patch) as Array<[PermissionId, MockApiServerOptions["permissions"][PermissionId]]>) {
     if (!partialState) continue;
     next[id] = {
       ...next[id],
@@ -272,23 +221,18 @@ function mergePermissionsState(
   return next;
 }
 
-export async function startMockApiServer(
-  options: MockApiServerOptions = {},
-): Promise<MockApiServer> {
+export async function startMockApiServer(options: MockApiServerOptions = {}): Promise<MockApiServer> {
   const requests: string[] = [];
   let onboardingComplete = Boolean(options.onboardingComplete);
   let agentState: AgentState = onboardingComplete ? "running" : "not_started";
-  let permissionStates = mergePermissionsState(
-    createDefaultPermissionsState(),
-    options.permissions,
-  );
+  let permissionStates = mergePermissionsState(createDefaultPermissionsState(), options.permissions);
+  let agentAutomationMode: AgentAutomationMode = "full";
+  let tradePermissionMode: TradePermissionMode = "user-sign-only";
   const requiredAuthToken = options.auth?.token?.trim() || null;
   const pairingCode = options.auth?.pairingCode ?? "1234-5678";
-  const pairingEnabled =
-    options.auth?.pairingEnabled ?? Boolean(requiredAuthToken);
+  const pairingEnabled = options.auth?.pairingEnabled ?? Boolean(requiredAuthToken);
   const pairingExpiresAt =
-    options.auth?.expiresAt ??
-    (pairingEnabled ? Date.now() + 10 * 60 * 1000 : null);
+    options.auth?.expiresAt ?? (pairingEnabled ? Date.now() + 10 * 60 * 1000 : null);
   const agentName = "Milady";
 
   const conversations: ConversationRecord[] = [
@@ -480,6 +424,52 @@ export async function startMockApiServer(
       json(res, 200, { enabled: permissionStates.shell.status === "granted" });
       return;
     }
+    if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+      json(res, 200, {
+        mode: agentAutomationMode,
+        options: ["connectors-only", "full"],
+      });
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+      const body = await readJson(req);
+      const mode = body.mode;
+      if (mode === "connectors-only" || mode === "full") {
+        agentAutomationMode = mode;
+        json(res, 200, {
+          mode: agentAutomationMode,
+          options: ["connectors-only", "full"],
+        });
+        return;
+      }
+      json(res, 400, { error: "Invalid mode" });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+      json(res, 200, {
+        mode: tradePermissionMode,
+        options: ["user-sign-only", "manual-local-key", "agent-auto"],
+      });
+      return;
+    }
+    if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+      const body = await readJson(req);
+      const mode = body.mode;
+      if (
+        mode === "user-sign-only" ||
+        mode === "manual-local-key" ||
+        mode === "agent-auto"
+      ) {
+        tradePermissionMode = mode;
+        json(res, 200, {
+          mode: tradePermissionMode,
+          options: ["user-sign-only", "manual-local-key", "agent-auto"],
+        });
+        return;
+      }
+      json(res, 400, { error: "Invalid mode" });
+      return;
+    }
     if (method === "PUT" && pathname === "/api/permissions/shell") {
       const body = await readJson(req);
       const enabled = body.enabled === true;
@@ -497,16 +487,12 @@ export async function startMockApiServer(
     }
     if (method === "PUT" && pathname === "/api/permissions/state") {
       const body = await readJson(req);
-      const incoming = body.permissions as
-        | Record<string, PermissionStateRecord>
-        | undefined;
+      const incoming = body.permissions as Record<string, PermissionStateRecord> | undefined;
       if (!incoming || typeof incoming !== "object") {
         json(res, 400, { error: "Invalid permissions payload" });
         return;
       }
-      for (const [id, state] of Object.entries(incoming) as Array<
-        [PermissionId, PermissionStateRecord]
-      >) {
+      for (const [id, state] of Object.entries(incoming) as Array<[PermissionId, PermissionStateRecord]>) {
         if (!permissionStates[id] || !state) continue;
         permissionStates[id] = {
           ...permissionStates[id],
@@ -523,10 +509,7 @@ export async function startMockApiServer(
       pathname.startsWith("/api/permissions/") &&
       pathname.endsWith("/request")
     ) {
-      const id = pathname.slice(
-        "/api/permissions/".length,
-        -"/request".length,
-      ) as PermissionId;
+      const id = pathname.slice("/api/permissions/".length, -"/request".length) as PermissionId;
       if (!permissionStates[id]) {
         json(res, 400, { error: "Unknown permission" });
         return;
@@ -642,30 +625,21 @@ export async function startMockApiServer(
       return;
     }
 
-    const conversationMessagesMatch = pathname.match(
-      /^\/api\/conversations\/([^/]+)\/messages$/,
-    );
+    const conversationMessagesMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/messages$/);
     if (method === "GET" && conversationMessagesMatch) {
       const id = decodeURIComponent(conversationMessagesMatch[1]);
       json(res, 200, { messages: messagesByConversation.get(id) ?? [] });
       return;
     }
 
-    const greetingMatch = pathname.match(
-      /^\/api\/conversations\/([^/]+)\/greeting$/,
-    );
+    const greetingMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/greeting$/);
     if (method === "POST" && greetingMatch) {
       json(res, 200, { text: "hello from milady" });
       return;
     }
 
     if (method === "GET" && pathname === "/api/agent/events") {
-      json(res, 200, {
-        events: [],
-        latestEventId: null,
-        totalBuffered: 0,
-        replayed: true,
-      });
+      json(res, 200, { events: [], latestEventId: null, totalBuffered: 0, replayed: true });
       return;
     }
 
@@ -694,11 +668,29 @@ export async function startMockApiServer(
         alchemyKeySet: true,
         infuraKeySet: false,
         ankrKeySet: false,
+        managedBscRpcReady: true,
+        nodeRealBscRpcSet: true,
+        quickNodeBscRpcSet: false,
+        tradePermissionMode,
+        tradeUserCanLocalExecute: tradePermissionMode !== "user-sign-only",
+        tradeAgentCanLocalExecute: tradePermissionMode === "agent-auto",
         heliusKeySet: true,
         birdeyeKeySet: false,
-        evmChains: ["ethereum", "base"],
+        evmChains: ["ethereum", "base", "bsc"],
         evmAddress: "0x1234567890abcdef1234567890abcdef12345678",
         solanaAddress: "7YfA9q2w8GJTkf3k4sydp6q9Q8h5k2m1u8r7t6v5w4x3",
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/wallet/production-defaults") {
+      tradePermissionMode = "user-sign-only";
+      json(res, 200, {
+        ok: true,
+        profile: "pure-privy-safe",
+        walletMode: "privy",
+        tradePermissionMode,
+        bscExecutionEnabled: false,
+        clearedSecrets: ["EVM_PRIVATE_KEY", "SOLANA_PRIVATE_KEY"],
       });
       return;
     }
@@ -831,15 +823,10 @@ export async function startMockApiServer(
       const action: CustomActionRecord = {
         id: randomUUID(),
         name: String(body.name ?? "Mock Action"),
-        description:
-          typeof body.description === "string" ? body.description : undefined,
+        description: typeof body.description === "string" ? body.description : undefined,
         enabled: body.enabled !== false,
-        handler: (body.handler as CustomActionRecord["handler"]) ?? {
-          type: "code",
-        },
-        parameters: Array.isArray(body.parameters)
-          ? (body.parameters as CustomActionRecord["parameters"])
-          : [],
+        handler: (body.handler as CustomActionRecord["handler"]) ?? { type: "code" },
+        parameters: Array.isArray(body.parameters) ? body.parameters as CustomActionRecord["parameters"] : [],
         createdAt: now,
         updatedAt: now,
       };
@@ -847,9 +834,7 @@ export async function startMockApiServer(
       json(res, 200, { ok: true, action });
       return;
     }
-    const customActionMatch = pathname.match(
-      /^\/api\/custom-actions\/([^/]+)$/,
-    );
+    const customActionMatch = pathname.match(/^\/api\/custom-actions\/([^/]+)$/);
     if (method === "PUT" && customActionMatch) {
       const id = decodeURIComponent(customActionMatch[1]);
       const body = await readJson(req);
@@ -875,9 +860,7 @@ export async function startMockApiServer(
       json(res, 200, { ok: true });
       return;
     }
-    const customActionTestMatch = pathname.match(
-      /^\/api\/custom-actions\/([^/]+)\/test$/,
-    );
+    const customActionTestMatch = pathname.match(/^\/api\/custom-actions\/([^/]+)\/test$/);
     if (method === "POST" && customActionTestMatch) {
       json(res, 200, { ok: true, output: "Mock action output", durationMs: 1 });
       return;
@@ -946,10 +929,7 @@ export async function startMockApiServer(
       });
       return;
     }
-    if (
-      method === "GET" &&
-      pathname === "/api/apps/hyperscape/embedded-agents"
-    ) {
+    if (method === "GET" && pathname === "/api/apps/hyperscape/embedded-agents") {
       json(res, 200, { success: true, agents: [], count: 0 });
       return;
     }
@@ -1064,10 +1044,7 @@ export async function startMockApiServer(
       json(res, 200, { enabled: true });
       return;
     }
-    if (
-      (method === "PUT" || method === "POST") &&
-      pathname === "/api/trajectories/config"
-    ) {
+    if ((method === "PUT" || method === "POST") && pathname === "/api/trajectories/config") {
       await readJson(req);
       json(res, 200, { enabled: true });
       return;
@@ -1164,11 +1141,7 @@ export async function startMockApiServer(
     }
 
     if (method === "GET" && pathname === "/api/knowledge/stats") {
-      json(res, 200, {
-        documentCount: 0,
-        fragmentCount: 0,
-        agentId: "agent-1",
-      });
+      json(res, 200, { documentCount: 0, fragmentCount: 0, agentId: "agent-1" });
       return;
     }
     if (method === "GET" && pathname === "/api/knowledge/documents") {

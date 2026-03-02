@@ -64,6 +64,12 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # macos-14 (ARM64) cross-compiles x64 via Rosetta
+          - name: macOS (Intel)
+            os: macos
+            runner: macos-14
+            electron-args: --mac --x64
+            artifact-name: macos-x64
           - name: macOS (Apple Silicon)
             os: macos
             runner: macos-14
@@ -84,14 +90,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python (for node-gyp native modules)
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install setuptools for distutils (Python 3.12+)
-        run: pip install setuptools
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -103,14 +101,7 @@ jobs:
           bun-version: latest
 
       - name: Install root dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install --frozen-lockfile && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
-        env:
-          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+        run: bun install --frozen-lockfile
 
       - name: Align package versions with release tag
         run: |
@@ -129,42 +120,29 @@ jobs:
       - name: Build core
         run: |
           bunx tsdown
-          bunx tsx scripts/write-build-info.ts
+          node --import tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 
       - name: Install Capacitor app dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
+        run: bun install
         working-directory: apps/app
 
       - name: Build Capacitor plugins
         run: |
           for d in gateway swabble camera screencapture canvas desktop location talkmode agent; do
             echo "[plugin:$d] building..."
-            (cd plugins/$d && bun run build)
+            (cd plugins/$d && npm run build)
           done
         working-directory: apps/app
         shell: bash
 
       - name: Refresh Capacitor app dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
+        run: bun install
         working-directory: apps/app
 
       - name: Build Capacitor app
         if: matrix.platform.os != 'windows'
-        run: |
-          # Run vite build directly instead of the build script
-          # (the build script's rt.sh install is handled by previous steps)
-          npx vite build
+        run: bun run build
         working-directory: apps/app
 
       - name: Build Capacitor app (Windows)
@@ -177,59 +155,12 @@ jobs:
         working-directory: apps/app
 
       - name: Install Electron dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install --no-save && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
+        run: npm install --no-audit --no-fund
         working-directory: apps/app/electron
 
       - name: Build Electron app
         run: bun run build
         working-directory: apps/app/electron
-
-      - name: Build Whisper universal binary (macOS)
-        if: matrix.platform.os == 'macos'
-        run: bun run build:whisper
-        working-directory: apps/app/electron
-
-      # Transform dynamic plugin imports to static imports for Electron bundling.
-      # Dynamic imports like `import("@elizaos/plugin-sql")` cannot be bundled
-      # by tsdown/rolldown. This script transforms eliza.ts to use static imports.
-      - name: Transform plugins for Electron bundling
-        run: bun run scripts/transform-plugins-for-electron.ts
-        working-directory: .
-
-      # Build a custom dist specifically for the Electron app where all third-party
-      # npm dependencies are bundled inline (noExternal: true behavior via rolldown).
-      # This prevents the packaged app from failing to resolve external imports
-      # like "json5" from within the app.asar.unpacked directory.
-      # The config disables code splitting for server.ts and eliza.ts to prevent
-      # circular chunk dependencies that cause __exportAll runtime errors.
-      - name: Bundle dist for Electron
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Building standalone Electron dist with all node_modules inlined..."
-
-          bunx tsdown --config tsdown.electron.config.ts --no-clean
-
-          # Copy to milady-dist so electron-builder can pack it.
-          rm -rf apps/app/electron/milady-dist
-          mkdir -p apps/app/electron/milady-dist
-
-          find dist-electron -name '*.js' | while read f; do
-            rel="${f#dist-electron/}"
-            mkdir -p "apps/app/electron/milady-dist/$(dirname "$rel")"
-            cp "$f" "apps/app/electron/milady-dist/$rel"
-          done
-
-          echo '{"type":"module"}' > apps/app/electron/milady-dist/package.json
-          echo "Copied $(find apps/app/electron/milady-dist -name '*.js' | wc -l | tr -d ' ') JS files to milady-dist/"
-
-          node scripts/copy-electron-plugins-and-deps.mjs
-        working-directory: .
 
       - name: Prepare platform electron-builder config
         run: |
@@ -301,9 +232,7 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
       - name: Preflight Azure Trusted Signing access
-        id: trusted_signing_preflight
         if: matrix.platform.os == 'windows'
-        continue-on-error: true
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -374,40 +303,10 @@ jobs:
           if [ "${MATRIX_OS:-}" = "windows" ] && [ "${TRUSTED_SIGNING_PREFLIGHT:-success}" != "success" ]; then
             echo "Trusted Signing preflight failed; building Windows artifact without Azure signing."
             unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
-            # Remove azureSignOptions from config so electron-builder doesn't attempt signing
-            node -e "
-              const fs = require('fs');
-              const c = JSON.parse(fs.readFileSync('./electron-builder.ci.json', 'utf8'));
-              if (c.win) delete c.win.azureSignOptions;
-              fs.writeFileSync('./electron-builder.ci.json', JSON.stringify(c, null, 2));
-            "
-            echo "Removed azureSignOptions from config"
           fi
-          
-          # HACK: electron-builder traverses up and reads the root .gitignore and .npmignore which ignore apps/
-          # Remove root ignore files so electron-builder only uses the local config (do not remove .git).
-          rm -f ../../../.gitignore ../../../.npmignore .gitignore .npmignore 2>/dev/null || true
-
-          # @capacitor-community/electron hardcodes path.join(app.getAppPath(), "build", "src", "rt", "electron-plugins.js")
-          # Copy tsc-out → build so the capacitor package can find its expected files
-          rm -rf build
-          cp -r tsc-out build
-          echo "Copied tsc-out to build for @capacitor-community/electron compatibility"
-          
-          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never || {
-            echo "ELECTRON BUILDER CRASHED. DUMPING ASAR CONTENTS:"
-            if [ "${MATRIX_OS:-}" = "linux" ]; then
-              npx asar list dist/linux-unpacked/resources/app.asar || echo "NO ASAR"
-            elif [ "${MATRIX_OS:-}" = "macos" ]; then
-              npx asar list dist/mac*/Milady.app/Contents/Resources/app.asar || echo "NO ASAR"
-            else
-              npx asar list dist/win-unpacked/resources/app.asar || echo "NO ASAR"
-            fi
-            exit 1
-          }
+          npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never
         working-directory: apps/app/electron
         env:
-          DEBUG: electron-builder,electron-builder:*
           MATRIX_OS: ${{ matrix.platform.os }}
           TRUSTED_SIGNING_PREFLIGHT: ${{ steps.trusted_signing_preflight.outcome || 'success' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -421,17 +320,17 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
       - name: Install Playwright browser runtime
-        if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-arm64'
+        if: matrix.platform.os == 'macos'
         run: bunx playwright install chromium
         working-directory: apps/app
 
-      # E2E test only runs on arm64 (native) - x64 runs under Rosetta which has timing issues
-      # Note: continue-on-error allows flaky CDP connection timeouts to not block releases
       - name: Verify packaged DMG boots to chat
-        if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-arm64'
-        continue-on-error: true
+        if: matrix.platform.os == 'macos'
         run: |
           set -euo pipefail
+          if [ "${{ matrix.platform.electron-args }}" = "--mac --x64" ]; then
+            /usr/sbin/softwareupdate --install-rosetta --agree-to-license || true
+          fi
 
           dmg_path=$(ls -t dist/*.dmg | head -n 1)
           if [ -z "${dmg_path:-}" ]; then
@@ -530,12 +429,17 @@ jobs:
       - name: Validate required macOS release artifacts
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
+          X64_DMG="release-files/Milady-${VERSION}.dmg"
           ARM64_DMG="release-files/Milady-${VERSION}-arm64.dmg"
+          if [ ! -f "${X64_DMG}" ]; then
+            echo "::error::Missing required macOS x64 DMG: ${X64_DMG}"
+            exit 1
+          fi
           if [ ! -f "${ARM64_DMG}" ]; then
             echo "::error::Missing required macOS arm64 DMG: ${ARM64_DMG}"
             exit 1
           fi
-          echo "Found required macOS arm64 DMG for ${VERSION}"
+          echo "Found required macOS release DMGs for ${VERSION}"
 
       - name: Check for releasable files
         id: check

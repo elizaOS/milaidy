@@ -1,116 +1,40 @@
 #!/usr/bin/env node
 /**
- * Post-install patches for various @elizaos and dependency packages.
+ * Post-install patches for @elizaos/plugin-sql.
  *
- * 1) @elizaos/plugin-sql: Adds .onConflictDoNothing() to createWorld(), guards
- *    ensureEmbeddingDimension(), removes pgcrypto from extension list.
- *    Remove once plugin-sql publishes fixes.
+ * 1) Adds .onConflictDoNothing() to createWorld() to prevent duplicate world
+ *    insert errors on repeated ensureWorldExists() calls.
+ * 2) Guards ensureEmbeddingDimension() so unsupported dimensions don't set the
+ *    embedding column to undefined (which crashes drizzle query planning).
  *
- * 2) Bun exports: Some published @elizaos packages set exports["."].bun =
- *    "./src/index.ts", which only exists in their dev workspace, not in the
- *    npm tarball. Bun picks "bun" first and fails. We remove the dead "bun"/
- *    "default" conditions so Bun resolves via "import" → dist/. WHY: See
- *    docs/plugin-resolution-and-node-path.md "Bun and published package exports".
+ * Remove these once plugin-sql publishes fixes for both paths.
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { patchBunExports } from "./lib/patch-bun-exports.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
-/**
- * Find ALL plugin-sql dist files - handles both npm and bun cache structures.
- * Returns array of all found paths including BOTH node and browser builds
- * (bun can have multiple copies with different hashes and might use either).
- * Also searches the eliza submodule's node_modules.
- */
-function findAllPluginSqlDists() {
-  const targets = [];
-  const distPaths = [
-    "dist/node/index.node.js",
-    "dist/browser/index.browser.js",
-  ];
+const target = resolve(
+  root,
+  "node_modules/@elizaos/plugin-sql/dist/node/index.node.js",
+);
 
-  // Search roots: main project, eliza submodule, plugin submodules, and global node_modules
-  const searchRoots = [root];
-  const elizaRoot = resolve(root, "eliza");
-  if (existsSync(resolve(elizaRoot, "node_modules"))) {
-    searchRoots.push(elizaRoot);
-  }
-
-  // Also check global node_modules in home directory (bun may resolve from there)
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const homeNodeModules = resolve(homeDir, "node_modules");
-  if (existsSync(homeNodeModules)) {
-    searchRoots.push(resolve(homeNodeModules, ".."));
-  }
-
-  // Also check for plugin-sql as a local plugin submodule
-  const pluginSqlRoot = resolve(root, "plugins/plugin-sql/typescript");
-  if (existsSync(pluginSqlRoot)) {
-    for (const distPath of distPaths) {
-      const pluginTarget = resolve(pluginSqlRoot, distPath);
-      if (existsSync(pluginTarget) && !targets.includes(pluginTarget)) {
-        targets.push(pluginTarget);
-      }
-    }
-  }
-
-  for (const searchRoot of searchRoots) {
-    // Standard npm location
-    for (const distPath of distPaths) {
-      const npmTarget = resolve(
-        searchRoot,
-        `node_modules/@elizaos/plugin-sql/${distPath}`,
-      );
-      if (existsSync(npmTarget) && !targets.includes(npmTarget)) {
-        targets.push(npmTarget);
-      }
-    }
-
-    // Bun cache location (node_modules/.bun/@elizaos+plugin-sql@*/...)
-    // Bun can have multiple copies with different content hashes
-    const bunCacheDir = resolve(searchRoot, "node_modules/.bun");
-    if (existsSync(bunCacheDir)) {
-      try {
-        const entries = readdirSync(bunCacheDir);
-        for (const entry of entries) {
-          if (entry.startsWith("@elizaos+plugin-sql@")) {
-            for (const distPath of distPaths) {
-              const bunTarget = resolve(
-                bunCacheDir,
-                entry,
-                `node_modules/@elizaos/plugin-sql/${distPath}`,
-              );
-              if (existsSync(bunTarget) && !targets.includes(bunTarget)) {
-                targets.push(bunTarget);
-              }
-            }
-          }
-        }
-      } catch {
-        // Ignore errors reading bun cache
-      }
-    }
-  }
-
-  return targets;
-}
-
-const targets = findAllPluginSqlDists();
-
-if (targets.length === 0) {
+if (!existsSync(target)) {
   console.log("[patch-deps] plugin-sql dist not found, skipping patch.");
   process.exit(0);
 }
 
-console.log(
-  `[patch-deps] Found ${targets.length} plugin-sql dist file(s) to patch.`,
-);
+let src = readFileSync(target, "utf8");
+let patched = 0;
 
-// Patch definitions
 const createWorldBuggy = `await this.db.insert(worldTable).values({
         ...world,
         id: newWorldId,
@@ -122,6 +46,18 @@ const createWorldFixed = `await this.db.insert(worldTable).values({
         id: newWorldId,
         name: world.name || ""
       }).onConflictDoNothing();`;
+
+if (src.includes(createWorldFixed)) {
+  console.log("[patch-deps] createWorld conflict patch already present.");
+} else if (src.includes(createWorldBuggy)) {
+  src = src.replace(createWorldBuggy, createWorldFixed);
+  patched += 1;
+  console.log("[patch-deps] Applied createWorld onConflictDoNothing() patch.");
+} else {
+  console.log(
+    "[patch-deps] createWorld() signature changed — world patch may no longer be needed.",
+  );
+}
 
 const embeddingBuggy = `this.embeddingDimension = DIMENSION_MAP[dimension];`;
 const embeddingFixed = `const resolvedDimension = DIMENSION_MAP[dimension];
@@ -140,106 +76,25 @@ const embeddingFixed = `const resolvedDimension = DIMENSION_MAP[dimension];
 				}
 				this.embeddingDimension = resolvedDimension;`;
 
-// Patch: Remove pgcrypto from extension list entirely
-// pgcrypto is not used in the codebase and PGlite doesn't support it
-// We check for multiple patterns since we may have already partially patched
-const extensionsPatterns = [
-  // Original unpatched code (newer format)
-  `const extensions = isRealPostgres ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`,
-  // Previously patched with isPglite check
-  `const isPglite = !!process.env.PGLITE_DATA_DIR;
-      const extensions = isRealPostgres && !isPglite ? ["vector", "fuzzystrmatch", "pgcrypto"] : ["vector", "fuzzystrmatch"];`,
-];
-// Fixed: just never include pgcrypto - it's not used and causes PGlite warnings
-const extensionsNoPgcrypto = `const extensions = ["vector", "fuzzystrmatch"];`;
+if (src.includes(embeddingFixed)) {
+  console.log(
+    "[patch-deps] ensureEmbeddingDimension guard patch already present.",
+  );
+} else if (src.includes(embeddingBuggy)) {
+  src = src.replace(embeddingBuggy, embeddingFixed);
+  patched += 1;
+  console.log("[patch-deps] Applied ensureEmbeddingDimension guard patch.");
+} else {
+  console.log(
+    "[patch-deps] ensureEmbeddingDimension signature changed — embedding patch may no longer be needed.",
+  );
+}
 
-// Older format: extensions passed directly to installRequiredExtensions
-const extensionsInlinePatterns = [
-  // Hardcoded array with pgcrypto
-  `await this.extensionManager.installRequiredExtensions([
-        "vector",
-        "fuzzystrmatch",
-        "pgcrypto"
-      ]);`,
-  // Single-line variant
-  `await this.extensionManager.installRequiredExtensions(["vector", "fuzzystrmatch", "pgcrypto"]);`,
-];
-const extensionsInlineFixed = `await this.extensionManager.installRequiredExtensions([
-        "vector",
-        "fuzzystrmatch"
-      ]);`;
-
-// Apply patches to each found plugin-sql dist file
-for (const target of targets) {
-  console.log(`[patch-deps] Patching: ${target}`);
-  let src = readFileSync(target, "utf8");
-  let patched = 0;
-
-  if (src.includes(createWorldFixed)) {
-    console.log("  - createWorld conflict patch already present.");
-  } else if (src.includes(createWorldBuggy)) {
-    src = src.replace(createWorldBuggy, createWorldFixed);
-    patched += 1;
-    console.log("  - Applied createWorld onConflictDoNothing() patch.");
-  } else {
-    console.log(
-      "  - createWorld() signature changed — world patch may no longer be needed.",
-    );
-  }
-
-  if (src.includes(embeddingFixed)) {
-    console.log("  - ensureEmbeddingDimension guard patch already present.");
-  } else if (src.includes(embeddingBuggy)) {
-    src = src.replace(embeddingBuggy, embeddingFixed);
-    patched += 1;
-    console.log("  - Applied ensureEmbeddingDimension guard patch.");
-  } else {
-    console.log(
-      "  - ensureEmbeddingDimension signature changed — embedding patch may no longer be needed.",
-    );
-  }
-
-  // Check for pgcrypto removal (const extensions = ... pattern)
-  if (src.includes(extensionsNoPgcrypto)) {
-    console.log("  - pgcrypto removal patch already present.");
-  } else {
-    let pgcryptoPatched = false;
-    for (const pattern of extensionsPatterns) {
-      if (src.includes(pattern)) {
-        src = src.replace(pattern, extensionsNoPgcrypto);
-        patched += 1;
-        pgcryptoPatched = true;
-        console.log("  - Removed pgcrypto from extensions list.");
-        break;
-      }
-    }
-    if (!pgcryptoPatched) {
-      // Check for inline pattern (older code format)
-      for (const pattern of extensionsInlinePatterns) {
-        if (src.includes(pattern)) {
-          src = src.replace(pattern, extensionsInlineFixed);
-          patched += 1;
-          pgcryptoPatched = true;
-          console.log("  - Removed pgcrypto from inline extensions call.");
-          break;
-        }
-      }
-    }
-    if (!pgcryptoPatched && !src.includes(extensionsInlineFixed)) {
-      console.log(
-        "  - Extension installation code changed — pgcrypto patch may no longer be needed.",
-      );
-    } else if (!pgcryptoPatched && src.includes(extensionsInlineFixed)) {
-      console.log("  - pgcrypto inline removal patch already present.");
-    }
-  }
-
-  if (patched > 0) {
-    writeFileSync(target, src, "utf8");
-    console.log(`  - Wrote ${patched} patch(es) to this file.`);
-  } else {
-    console.log("  - No patches needed for this file.");
-  }
+if (patched > 0) {
+  writeFileSync(target, src, "utf8");
+  console.log(`[patch-deps] Wrote ${patched} plugin-sql patch(es).`);
+} else {
+  console.log("[patch-deps] No plugin-sql patches needed.");
 }
 
 /**
@@ -417,233 +272,243 @@ if (!existsSync(openrouterTarget)) {
 }
 
 /**
- * Patch @elizaos/plugin-twitter POST_TWEET action to upload image attachments.
+ * Fix @elizaos plugin package metadata that pins @elizaos/core to a specific
+ * alpha version (or uses workspace/next tags). Electron-builder's dependency
+ * traversal is strict and will fail if these don't match the installed core.
  *
- * The action handler only passes text to sendTweet(), ignoring any
- * message.content.attachments (e.g. images sent from the chat UI).
- * This patch reads image data from the non-standard `_data`/`_mimeType` fields
- * that Milady sets on attachments (keeping the `url` field compact to avoid
- * bloating the LLM context window with base64 strings).
- *
- * Remove once plugin-twitter ships native attachment support.
+ * This is a metadata-only patch; runtime will still use the installed core.
  */
-const twitterTarget = resolve(
-  root,
-  "node_modules/@elizaos/plugin-twitter/dist/index.js",
-);
-
-if (!existsSync(twitterTarget)) {
-  console.log("[patch-deps] plugin-twitter dist not found, skipping patch.");
+const corePkgJson = resolve(root, "node_modules/@elizaos/core/package.json");
+if (!existsSync(corePkgJson)) {
+  console.log("[patch-deps] @elizaos/core not found; skipping metadata patch.");
 } else {
-  let twitterSrc = readFileSync(twitterTarget, "utf8");
+  let coreVersion = "0.0.0";
+  try {
+    coreVersion = JSON.parse(readFileSync(corePkgJson, "utf8")).version;
+  } catch {
+    console.log(
+      "[patch-deps] Failed to read @elizaos/core version; skipping metadata patch.",
+    );
+    coreVersion = "";
+  }
 
-  // Original unpatched code.
-  const twitterBuggy = `      const result = await client.twitterClient.sendTweet(finalTweetText);`;
+  if (coreVersion) {
+    const packageRoots = [
+      resolve(root, "node_modules/@elizaos"),
+      resolve(root, "apps/app/electron/node_modules/@elizaos"),
+    ];
 
-  // v1 patch (url-based — reads base64 from att.url, may already be applied).
-  const twitterV1Fixed = `      // Upload any image attachments from the user's chat message
-      const imageAttachments = message.content?.attachments?.filter(
-        (att) => att.contentType === "image" || (att.url && att.url.startsWith("data:image/"))
-      ) ?? [];
-      const tweetMediaIds = [];
-      for (const att of imageAttachments) {
-        try {
-          const dataUrl = att.url ?? "";
-          const commaIdx = dataUrl.indexOf(",");
-          if (commaIdx === -1) continue;
-          const base64Data = dataUrl.slice(commaIdx + 1);
-          const mimeMatch = dataUrl.match(/^data:([^;]+);/);
-          const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
-          const buffer = Buffer.from(base64Data, "base64");
-          const mediaId = await client.twitterClient.uploadMedia(buffer, { mimeType });
-          tweetMediaIds.push(mediaId);
-        } catch (mediaErr) {
-          logger14.warn("Failed to upload tweet media attachment:", mediaErr);
-        }
+    // Bun stores transitive deps under node_modules/.bun/* and may not hoist
+    // them into node_modules/@elizaos. Electron-builder will still traverse
+    // the bun store, so patch those copies too.
+    const bunStore = resolve(root, "node_modules/.bun");
+    if (existsSync(bunStore)) {
+      for (const entry of readdirSync(bunStore)) {
+        if (!entry.startsWith("@elizaos+")) continue;
+        const candidate = resolve(bunStore, entry, "node_modules/@elizaos");
+        if (existsSync(candidate)) packageRoots.push(candidate);
       }
-      const result = await client.twitterClient.sendTweet(
-        finalTweetText,
-        void 0,
-        void 0,
-        void 0,
-        tweetMediaIds.length > 0 ? tweetMediaIds : void 0
-      );`;
+    }
+    const visited = new Set();
+    let metaPatched = 0;
 
-  // v2 patch — reads base64 from att._data/_mimeType so the url field stays
-  // compact (attachment:img-0) and doesn't consume LLM context tokens.
-  const twitterFixed = `      // Upload any image attachments from the user's chat message
-      const imageAttachments = message.content?.attachments?.filter(
-        (att) => att.contentType === "image" && (att._data || (att.url && att.url.startsWith("data:image/")))
-      ) ?? [];
-      const tweetMediaIds = [];
-      for (const att of imageAttachments) {
+    for (const packageRoot of packageRoots) {
+      if (!existsSync(packageRoot)) continue;
+      for (const entry of readdirSync(packageRoot)) {
+        const pkgJsonPath = resolve(packageRoot, entry, "package.json");
+        if (!existsSync(pkgJsonPath)) continue;
+
+        let realPath = pkgJsonPath;
         try {
-          let base64Data, mimeType;
-          if (att._data) {
-            base64Data = att._data;
-            mimeType = att._mimeType || "image/jpeg";
-          } else {
-            const dataUrl = att.url ?? "";
-            const commaIdx = dataUrl.indexOf(",");
-            if (commaIdx === -1) continue;
-            base64Data = dataUrl.slice(commaIdx + 1);
-            const mimeMatch = dataUrl.match(/^data:([^;]+);/);
-            mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+          realPath = realpathSync(pkgJsonPath);
+        } catch {
+          // ignore
+        }
+        if (visited.has(realPath)) continue;
+        visited.add(realPath);
+
+        try {
+          const raw = readFileSync(pkgJsonPath, "utf8");
+          const json = JSON.parse(raw);
+          let changed = false;
+
+          for (const field of [
+            "dependencies",
+            "peerDependencies",
+            "optionalDependencies",
+          ]) {
+            if (
+              json?.[field] &&
+              typeof json[field] === "object" &&
+              json[field]["@elizaos/core"] &&
+              json[field]["@elizaos/core"] !== coreVersion
+            ) {
+              json[field]["@elizaos/core"] = coreVersion;
+              changed = true;
+            }
           }
-          const buffer = Buffer.from(base64Data, "base64");
-          const mediaId = await client.twitterClient.uploadMedia(buffer, { mimeType });
-          tweetMediaIds.push(mediaId);
-        } catch (mediaErr) {
-          logger14.warn("Failed to upload tweet media attachment:", mediaErr);
+
+          if (changed) {
+            writeFileSync(pkgJsonPath, `${JSON.stringify(json, null, 2)}\n`, "utf8");
+            metaPatched += 1;
+            console.log(
+              `[patch-deps] Patched ${json?.name ?? entry} @elizaos/core -> ${coreVersion}`,
+            );
+          }
+        } catch {
+          // Ignore parse errors in node_modules metadata.
         }
       }
-      const result = await client.twitterClient.sendTweet(
-        finalTweetText,
-        void 0,
-        void 0,
-        void 0,
-        tweetMediaIds.length > 0 ? tweetMediaIds : void 0
-      );`;
+    }
 
-  // v2 is uniquely identified by reading from att._data (not att.url)
-  const twitterV2Marker = `if (att._data) {`;
-  if (twitterSrc.includes(twitterV2Marker)) {
-    console.log(
-      "[patch-deps] twitter POST_TWEET media patch (v2) already present.",
-    );
-  } else if (twitterSrc.includes(twitterV1Fixed.slice(0, 80))) {
-    twitterSrc = twitterSrc.replace(twitterV1Fixed, twitterFixed);
-    writeFileSync(twitterTarget, twitterSrc, "utf8");
-    console.log("[patch-deps] Upgraded twitter POST_TWEET media patch to v2.");
-  } else if (twitterSrc.includes(twitterBuggy)) {
-    twitterSrc = twitterSrc.replace(twitterBuggy, twitterFixed);
-    writeFileSync(twitterTarget, twitterSrc, "utf8");
-    console.log(
-      "[patch-deps] Applied twitter POST_TWEET media upload patch (v2).",
-    );
-  } else {
-    console.log(
-      "[patch-deps] twitter POST_TWEET sendTweet call changed — media patch may no longer be needed.",
-    );
+    if (metaPatched === 0) {
+      console.log("[patch-deps] No @elizaos metadata patches needed.");
+    } else {
+      console.log(`[patch-deps] Wrote ${metaPatched} metadata patch(es).`);
+    }
   }
 }
 
 /**
- * Patch @elizaos/plugin-pdf to fix ESM compatibility with pdfjs-dist.
- *
- * pdfjs-dist doesn't provide a default export in ESM mode, so
- * `import pkg from "pdfjs-dist"` fails. We patch it to use namespace import.
- *
- * Remove once plugin-pdf publishes a fix for ESM compatibility.
+ * Electron-builder validates dependency ranges strictly when traversing
+ * node_modules. Bun's installer can occasionally resolve to newer major
+ * versions (e.g. tar@7) even when a package requests an older range
+ * (e.g. ^6.x). Patch bun store package metadata to accept the installed tar.
  */
-function findAllPluginPdfDists() {
-  const targets = [];
-  const distPaths = [
-    "dist/node/index.node.js",
-    "dist/browser/index.browser.js",
-  ];
-
-  const searchRoots = [root];
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const homeNodeModules = resolve(homeDir, "node_modules");
-  if (existsSync(homeNodeModules)) {
-    searchRoots.push(resolve(homeNodeModules, ".."));
-  }
-
-  for (const searchRoot of searchRoots) {
-    for (const distPath of distPaths) {
-      const npmTarget = resolve(
-        searchRoot,
-        `node_modules/@elizaos/plugin-pdf/${distPath}`,
-      );
-      if (existsSync(npmTarget) && !targets.includes(npmTarget)) {
-        targets.push(npmTarget);
-      }
-    }
-
-    const bunCacheDir = resolve(searchRoot, "node_modules/.bun");
-    if (existsSync(bunCacheDir)) {
-      try {
-        const entries = readdirSync(bunCacheDir);
-        for (const entry of entries) {
-          if (entry.startsWith("@elizaos+plugin-pdf@")) {
-            for (const distPath of distPaths) {
-              const bunTarget = resolve(
-                bunCacheDir,
-                entry,
-                `node_modules/@elizaos/plugin-pdf/${distPath}`,
-              );
-              if (existsSync(bunTarget) && !targets.includes(bunTarget)) {
-                targets.push(bunTarget);
-              }
-            }
-          }
-        }
-      } catch {
-        // Ignore errors reading bun cache
-      }
-    }
-  }
-
-  return targets;
-}
-
-const pdfTargets = findAllPluginPdfDists();
-
-if (pdfTargets.length === 0) {
-  console.log("[patch-deps] plugin-pdf dist not found, skipping patch.");
+const bunNodeModules = resolve(root, "node_modules/.bun/node_modules");
+const installedTarPkgJson = resolve(bunNodeModules, "tar/package.json");
+if (!existsSync(installedTarPkgJson)) {
+  console.log("[patch-deps] tar not found in bun store; skipping tar range patch.");
 } else {
-  console.log(
-    `[patch-deps] Found ${pdfTargets.length} plugin-pdf dist file(s) to patch.`,
-  );
+  let tarVersion = "";
+  try {
+    tarVersion = JSON.parse(readFileSync(installedTarPkgJson, "utf8")).version;
+  } catch {
+    tarVersion = "";
+  }
 
-  // Use regex to match various minified patterns of the default import
-  // Pattern: import <var> from "pdfjs-dist" or import <var> from"pdfjs-dist"
-  const pdfBuggyImportRegex = /import\s+(\w+)\s+from\s*"pdfjs-dist"/g;
+  if (!tarVersion) {
+    console.log(
+      "[patch-deps] Failed to read tar version from bun store; skipping tar range patch.",
+    );
+  } else {
+    const bunStore = resolve(root, "node_modules/.bun");
+    let patched = 0;
 
-  for (const target of pdfTargets) {
-    console.log(`[patch-deps] Patching plugin-pdf: ${target}`);
-    let src = readFileSync(target, "utf8");
-    let patched = false;
+    if (existsSync(bunStore)) {
+      for (const entry of readdirSync(bunStore)) {
+        let pkgJsonPath = "";
 
-    if (src.includes("import * as") && src.includes("pdfjs-dist")) {
-      console.log("  - pdfjs-dist ESM import patch already present.");
-    } else {
-      // Find all default imports from pdfjs-dist and replace with namespace imports
-      const matches = [...src.matchAll(pdfBuggyImportRegex)];
-      if (matches.length > 0) {
-        for (const match of matches) {
-          const varName = match[1];
-          const originalImport = match[0];
-          const fixedImport = `import * as ${varName} from "pdfjs-dist"`;
-          src = src.replace(originalImport, fixedImport);
-          patched = true;
+        if (entry.startsWith("@")) {
+          const secondAt = entry.indexOf("@", 1);
+          const namePart = secondAt === -1 ? entry : entry.slice(0, secondAt);
+          const [scope, pkg] = namePart.split("+");
+          if (!scope || !pkg) continue;
+          pkgJsonPath = resolve(bunStore, entry, "node_modules", scope, pkg, "package.json");
+        } else {
+          const at = entry.indexOf("@");
+          const pkg = at === -1 ? entry : entry.slice(0, at);
+          if (!pkg) continue;
+          pkgJsonPath = resolve(bunStore, entry, "node_modules", pkg, "package.json");
         }
-        if (patched) {
+
+        if (!existsSync(pkgJsonPath)) continue;
+
+        try {
+          const json = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
+          const dep = json?.dependencies?.tar;
+          if (!dep) continue;
+          const desired = `^${tarVersion}`;
+          if (dep === desired) continue;
+          // Only patch the legacy tar@6 range that electron-builder won't accept with tar@7 installed.
+          if (
+            typeof dep === "string" &&
+            !dep.startsWith("^6") &&
+            !dep.startsWith("~6") &&
+            !dep.startsWith("6.")
+          ) {
+            continue;
+          }
+          json.dependencies.tar = desired;
+          writeFileSync(pkgJsonPath, `${JSON.stringify(json, null, 2)}\n`, "utf8");
+          patched += 1;
           console.log(
-            `  - Applied pdfjs-dist ESM namespace import patch (${matches.length} occurrence(s)).`,
+            `[patch-deps] Patched ${json?.name ?? entry} tar -> ${desired}`,
           );
+        } catch {
+          // ignore
         }
-      } else if (src.includes("pdfjs-dist")) {
-        console.log(
-          "  - pdfjs-dist import pattern changed — patch may need updating.",
-        );
-      } else {
-        console.log(
-          "  - pdfjs-dist import not found — patch may no longer be needed.",
-        );
       }
     }
 
-    if (patched) {
-      writeFileSync(target, src, "utf8");
-      console.log("  - Wrote pdfjs-dist ESM patch.");
+    if (patched === 0) {
+      console.log("[patch-deps] No tar range patches needed.");
+    } else {
+      console.log(`[patch-deps] Wrote ${patched} tar range patch(es).`);
     }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Patch @elizaos packages whose exports["."].bun points to ./src/index.ts.
-// Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
-// ---------------------------------------------------------------------------
-patchBunExports(root, "@elizaos/plugin-coding-agent");
+/**
+ * Similar to tar: some plugins pin drizzle-orm to an older 0.x minor range,
+ * but our app uses a newer drizzle-orm. Bun may resolve a newer version; patch
+ * plugin metadata so electron-builder's semver checks don't fail packaging.
+ */
+const installedDrizzlePkgJson = resolve(bunNodeModules, "drizzle-orm/package.json");
+if (!existsSync(installedDrizzlePkgJson)) {
+  console.log(
+    "[patch-deps] drizzle-orm not found in bun store; skipping drizzle range patch.",
+  );
+} else {
+  let drizzleVersion = "";
+  try {
+    drizzleVersion = JSON.parse(readFileSync(installedDrizzlePkgJson, "utf8")).version;
+  } catch {
+    drizzleVersion = "";
+  }
+
+  if (!drizzleVersion) {
+    console.log(
+      "[patch-deps] Failed to read drizzle-orm version from bun store; skipping drizzle range patch.",
+    );
+  } else {
+    const bunStore = resolve(root, "node_modules/.bun");
+    const desired = `^${drizzleVersion}`;
+    let patched = 0;
+
+    if (existsSync(bunStore)) {
+      for (const entry of readdirSync(bunStore)) {
+        // Scope to @elizaos packages only.
+        if (!entry.startsWith("@elizaos+")) continue;
+
+        const secondAt = entry.indexOf("@", 1);
+        const namePart = secondAt === -1 ? entry : entry.slice(0, secondAt);
+        const [scope, pkg] = namePart.split("+");
+        if (!scope || !pkg) continue;
+
+        const pkgJsonPath = resolve(bunStore, entry, "node_modules", scope, pkg, "package.json");
+        if (!existsSync(pkgJsonPath)) continue;
+
+        try {
+          const json = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
+          const dep = json?.dependencies?.["drizzle-orm"];
+          if (!dep || dep === desired) continue;
+          json.dependencies["drizzle-orm"] = desired;
+          writeFileSync(pkgJsonPath, `${JSON.stringify(json, null, 2)}\n`, "utf8");
+          patched += 1;
+          console.log(
+            `[patch-deps] Patched ${json?.name ?? namePart} drizzle-orm -> ${desired}`,
+          );
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (patched === 0) {
+      console.log("[patch-deps] No drizzle range patches needed.");
+    } else {
+      console.log(`[patch-deps] Wrote ${patched} drizzle range patch(es).`);
+    }
+  }
+}

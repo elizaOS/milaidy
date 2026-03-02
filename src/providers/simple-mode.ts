@@ -1,36 +1,33 @@
-import {
-  ChannelType,
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type ProviderResult,
-  type State,
+import type {
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
 } from "@elizaos/core";
 
-export type ChannelExecutionProfile =
-  | "voice_fast"
-  | "group_compact"
-  | "default_full";
+export type InteractionMode = "simple" | "power";
 
-function resolveChannelProfile(message: Memory): ChannelExecutionProfile {
-  const channelType = message.content?.channelType;
-  if (
-    channelType === ChannelType.VOICE_DM ||
-    channelType === ChannelType.VOICE_GROUP
-  ) {
-    return "voice_fast";
+export function resolveInteractionMode(message: Memory): InteractionMode {
+  const simpleFlag = message.content?.simple;
+  if (typeof simpleFlag === "boolean") {
+    return simpleFlag ? "simple" : "power";
   }
-  if (channelType === ChannelType.GROUP) {
-    return "group_compact";
-  }
-  return "default_full";
+
+  const modeValue = message.content?.mode;
+  if (modeValue === "simple") return "simple";
+  if (modeValue === "power") return "power";
+
+  return "power";
 }
 
-export function createChannelProfileProvider(): Provider {
+export function createSimpleModeProvider(): Provider {
   return {
-    name: "miladyChannelProfile",
+    name: "miladySimpleMode",
     description:
-      "Injects channel-derived execution profile guidance (voice/group/default).",
+      "Guides response behavior in simple mode; tools require power mode.",
+    // Keep this always available so mode guidance is present even when
+    // composeState is called with strict provider lists.
     alwaysRun: true,
     position: -50,
     async get(
@@ -38,48 +35,29 @@ export function createChannelProfileProvider(): Provider {
       message: Memory,
       _state: State,
     ): Promise<ProviderResult> {
-      const profile = resolveChannelProfile(message);
-
-      if (profile === "voice_fast") {
+      const mode = resolveInteractionMode(message);
+      if (mode === "simple") {
+        const text =
+          "Interaction mode: SIMPLE. You can reply normally, but do not use tools/actions in SIMPLE mode. If a tool/action is needed, ask the user to switch to POWER mode.";
         return {
-          text: [
-            "Execution profile: VOICE_FAST.",
-            "Prioritize low latency and conversational flow.",
-            "Keep tool/provider usage minimal and avoid unnecessary context expansion.",
-          ].join(" "),
+          text,
           values: {
-            executionProfile: "voice_fast",
-            compactContext: true,
+            interactionMode: "simple",
+            toolsAllowed: false,
           },
           data: {
-            profile: "voice_fast",
-          },
-        };
-      }
-
-      if (profile === "group_compact") {
-        return {
-          text: [
-            "Execution profile: GROUP_COMPACT.",
-            "Keep responses concise and context usage focused on the active group thread.",
-          ].join(" "),
-          values: {
-            executionProfile: "group_compact",
-            compactContext: true,
-          },
-          data: {
-            profile: "group_compact",
+            mode: "simple",
           },
         };
       }
 
       return {
         values: {
-          executionProfile: "default_full",
-          compactContext: false,
+          interactionMode: "power",
+          toolsAllowed: true,
         },
         data: {
-          profile: "default_full",
+          mode: "power",
         },
       };
     },

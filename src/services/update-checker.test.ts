@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReleaseChannel } from "../config/types.milady";
-import { CHANNEL_DIST_TAGS } from "./update-checker";
+import type { ReleaseChannel } from "../config/types.milady.js";
+import { CHANNEL_DIST_TAGS } from "./update-checker.js";
 
 // ---------------------------------------------------------------------------
 // We test the pure logic functions by importing them directly.
@@ -15,22 +15,22 @@ import { CHANNEL_DIST_TAGS } from "./update-checker";
 // ---------------------------------------------------------------------------
 
 // Mock config module before imports
-vi.mock("../config/config", () => ({
+vi.mock("../config/config.js", () => ({
   loadMiladyConfig: vi.fn(() => ({})),
   saveMiladyConfig: vi.fn(),
 }));
 
 // Mock version module
-vi.mock("../runtime/version", () => ({
+vi.mock("../runtime/version.js", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
 import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "./update-checker";
+} from "./update-checker.js";
 
 // ============================================================================
 // 1. Channel resolution
@@ -362,7 +362,7 @@ describe("checkForUpdate", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe("https://registry.npmjs.org/miladyai");
+    expect(url).toBe("https://registry.npmjs.org/milady");
     expect(options.headers.Accept).toBe("application/vnd.npm.install-v1+json");
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
@@ -631,7 +631,7 @@ describe("npm registry integration", () => {
     }
 
     // Fetch the abbreviated packument directly (same way update-checker does)
-    const res = await globalThis.fetch("https://registry.npmjs.org/miladyai", {
+    const res = await globalThis.fetch("https://registry.npmjs.org/milady", {
       headers: {
         Accept: "application/vnd.npm.install-v1+json",
       },
@@ -645,7 +645,7 @@ describe("npm registry integration", () => {
     };
 
     // Verify the response has the expected shape
-    expect(data.name).toBe("miladyai");
+    expect(data.name).toBe("milady");
     expect(data["dist-tags"]).toBeDefined();
     expect(typeof data["dist-tags"]).toBe("object");
 

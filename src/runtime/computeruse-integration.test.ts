@@ -11,9 +11,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../config/config";
-import { tryOptionalDynamicImport } from "../test-support/test-helpers";
-import { CORE_PLUGINS, collectPluginNames } from "./eliza";
+import type { MiladyConfig } from "../config/config.js";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers.js";
+import { CORE_PLUGINS, collectPluginNames } from "./eliza.js";
 
 async function loadComputerUsePluginModule(): Promise<Record<
   string,

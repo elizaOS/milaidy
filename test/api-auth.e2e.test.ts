@@ -16,7 +16,7 @@
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "../src/api/server.js";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — supports custom headers and origin injection
@@ -170,6 +170,70 @@ describe("Auth bypass (no MILADY_API_TOKEN)", () => {
   });
 });
 
+describe("Public app mode bypass (MILADY_PUBLIC_APP_MODE=1)", () => {
+  const TEST_TOKEN = "public-mode-token";
+  let port: number;
+  let close: () => Promise<void>;
+  let envBackup: { restore: () => void };
+
+  beforeAll(async () => {
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_PUBLIC_APP_MODE",
+      "MILADY_AUTH_MODE",
+    );
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_PUBLIC_APP_MODE = "1";
+    delete process.env.MILADY_AUTH_MODE;
+
+    const server = await startApiServer({ port: 0 });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+    envBackup.restore();
+  });
+
+  it("allows unauthenticated API requests even when API token is configured", async () => {
+    const { status } = await req(port, "GET", "/api/status");
+    expect(status).toBe(200);
+  });
+
+  it("/api/auth/status reports auth not required and pairing disabled", async () => {
+    const { status, data } = await req(port, "GET", "/api/auth/status");
+    expect(status).toBe(200);
+    expect(data.required).toBe(false);
+    expect(data.pairingEnabled).toBe(false);
+    expect(data.expiresAt).toBeNull();
+  });
+
+  it("allows websocket connections without token", async () => {
+    const result = await connectWs(`ws://127.0.0.1:${port}/ws`);
+    expect(result.kind).toBe("open");
+  });
+
+  it("supports MILADY_AUTH_MODE=public alias", async () => {
+    delete process.env.MILADY_PUBLIC_APP_MODE;
+    process.env.MILADY_AUTH_MODE = "public";
+
+    try {
+      const statusResp = await req(port, "GET", "/api/status");
+      expect(statusResp.status).toBe(200);
+
+      const authResp = await req(port, "GET", "/api/auth/status");
+      expect(authResp.status).toBe(200);
+      expect(authResp.data.required).toBe(false);
+      expect(authResp.data.pairingEnabled).toBe(false);
+    } finally {
+      process.env.MILADY_PUBLIC_APP_MODE = "1";
+      delete process.env.MILADY_AUTH_MODE;
+    }
+  });
+});
+
 describe("Non-loopback binding enforces auth without explicit token", () => {
   let port: number;
   let close: () => Promise<void>;
@@ -207,6 +271,11 @@ describe("Non-loopback binding enforces auth without explicit token", () => {
     expect(data.error).toBe("Unauthorized");
   });
 
+  it("allows unauthenticated UI routes", async () => {
+    const { status } = await req(port, "GET", "/");
+    expect([200, 404]).toContain(status);
+  });
+
   it("/api/auth/status reports auth required", async () => {
     const { status, data } = await req(port, "GET", "/api/auth/status");
     expect(status).toBe(200);
@@ -231,12 +300,9 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
-  const TERMINAL_TOKEN = "test-terminal-token-def456";
-
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED", "MILADY_TERMINAL_RUN_TOKEN");
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
-    process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
@@ -255,6 +321,11 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
     const { status, data } = await req(port, "GET", "/api/status");
     expect(status).toBe(401);
     expect(data.error).toBe("Unauthorized");
+  });
+
+  it("allows UI routes without auth token", async () => {
+    const { status } = await req(port, "GET", "/");
+    expect([200, 404]).toContain(status);
   });
 
   it("rejects requests with wrong token (401)", async () => {
@@ -310,26 +381,11 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
     }
   });
 
-  it("rejects WebSocket query-token auth by default", async () => {
+  it("accepts WebSocket upgrade with query token", async () => {
     const result = await connectWs(
       `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
     );
-    expect(result.kind).toBe("rejected");
-    if (result.kind === "rejected") {
-      expect(result.status).toBe(401);
-    }
-  });
-
-  it("accepts WebSocket upgrade with query token when enabled", async () => {
-    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
-    try {
-      const result = await connectWs(
-        `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
-      );
-      expect(result.kind).toBe("open");
-    } finally {
-      delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
-    }
+    expect(result.kind).toBe("open");
   });
 
   // ── Auth endpoints exempt from token ───────────────────────────────────
@@ -360,7 +416,6 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       ["GET", "/api/wallet/addresses"],
       ["GET", "/api/wallet/config"],
       ["GET", "/api/onboarding/status"],
-      ["POST", "/api/terminal/run"],
     ];
 
     for (const [method, path] of endpoints) {
@@ -384,75 +439,6 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
     for (const [method, path] of endpoints) {
       const { status } = await req(port, method, path, undefined, auth);
       expect(status).toBe(200);
-    }
-  });
-
-  it("terminal run auth gate accepts valid token", async () => {
-    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
-    const { status } = await req(
-      port,
-      "POST",
-      "/api/terminal/run",
-      { command: "echo auth-gate", terminalToken: TERMINAL_TOKEN },
-      auth,
-    );
-    // shell policy may still deny execution, but auth gate must pass
-    expect(status).not.toBe(401);
-  });
-
-  it("protects sensitive config mutation surfaces with token auth", async () => {
-    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
-
-    const mutationRequests: Array<{
-      method: string;
-      path: string;
-      body?: Record<string, unknown>;
-      expectedWithAuth: number;
-    }> = [
-      {
-        method: "PUT",
-        path: "/api/config",
-        body: { features: { browser: true } },
-        expectedWithAuth: 200,
-      },
-      {
-        method: "PUT",
-        path: "/api/secrets",
-        body: { secrets: {} },
-        expectedWithAuth: 200,
-      },
-      {
-        method: "POST",
-        path: "/api/connectors",
-        body: { name: "auth-gate-test", config: { enabled: true } },
-        expectedWithAuth: 200,
-      },
-      {
-        method: "DELETE",
-        path: "/api/connectors/auth-gate-test",
-        expectedWithAuth: 200,
-      },
-      // Note: MCP config endpoints have additional security gates (terminal auth, URL validation)
-      // that are tested separately in server.mcp-config-validation.test.ts
-    ];
-
-    for (const testCase of mutationRequests) {
-      const { status: noAuthStatus } = await req(
-        port,
-        testCase.method,
-        testCase.path,
-        testCase.body,
-      );
-      expect(noAuthStatus).toBe(401);
-
-      const { status: withAuthStatus } = await req(
-        port,
-        testCase.method,
-        testCase.path,
-        testCase.body,
-        auth,
-      );
-      expect(withAuthStatus).toBe(testCase.expectedWithAuth);
     }
   });
 });
@@ -910,12 +896,12 @@ describe("Auth + agent lifecycle", () => {
 
 describe("maskSecret utility", () => {
   it("exports maskSecret from wallet module", async () => {
-    const { maskSecret } = await import("../src/api/wallet");
+    const { maskSecret } = await import("../src/api/wallet.js");
     expect(typeof maskSecret).toBe("function");
   });
 
   it("masks long secrets showing first/last 4 chars", async () => {
-    const { maskSecret } = await import("../src/api/wallet");
+    const { maskSecret } = await import("../src/api/wallet.js");
     expect(
       maskSecret(
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -924,18 +910,18 @@ describe("maskSecret utility", () => {
   });
 
   it("masks short secrets as ****", async () => {
-    const { maskSecret } = await import("../src/api/wallet");
+    const { maskSecret } = await import("../src/api/wallet.js");
     expect(maskSecret("short")).toBe("****");
     expect(maskSecret("12345678")).toBe("****");
   });
 
   it("handles empty and null-like input", async () => {
-    const { maskSecret } = await import("../src/api/wallet");
+    const { maskSecret } = await import("../src/api/wallet.js");
     expect(maskSecret("")).toBe("****");
   });
 
   it("masks 9-char string with prefix/suffix", async () => {
-    const { maskSecret } = await import("../src/api/wallet");
+    const { maskSecret } = await import("../src/api/wallet.js");
     expect(maskSecret("123456789")).toBe("1234...6789");
   });
 });

@@ -12,18 +12,16 @@
  */
 
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { ethers } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DropService } from "../src/api/drop-service";
-import { RegistryService } from "../src/api/registry-service";
-import { TxService } from "../src/api/tx-service";
-import { type AnvilInstance, startAnvil } from "./anvil-helper";
-import { type DeployedContracts, deployContracts } from "./contract-deployer";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { DropService } from "../src/api/drop-service.js";
+import { RegistryService } from "../src/api/registry-service.js";
+import { TxService } from "../src/api/tx-service.js";
+import { type AnvilInstance, startAnvil } from "./anvil-helper.js";
+import {
+  type DeployedContracts,
+  deployContracts,
+} from "./contract-deployer.js";
 
 function hasAnvilBinary(): boolean {
   try {
@@ -34,49 +32,7 @@ function hasAnvilBinary(): boolean {
   }
 }
 
-function hasContractArtifacts(): boolean {
-  const artifactVariants = [
-    [
-      path.join(
-        __dirname,
-        "contracts",
-        "out",
-        "MockMiladyAgentRegistry.sol",
-        "MockMiladyAgentRegistry.json",
-      ),
-      path.join(
-        __dirname,
-        "contracts",
-        "out",
-        "MockMilaidyAgentRegistry.sol",
-        "MockMilaidyAgentRegistry.json",
-      ),
-    ],
-    [
-      path.join(
-        __dirname,
-        "contracts",
-        "out",
-        "MockMiladyCollection.sol",
-        "MockMiladyCollection.json",
-      ),
-      path.join(
-        __dirname,
-        "contracts",
-        "out",
-        "MockMilaidyCollection.sol",
-        "MockMilaidyCollection.json",
-      ),
-    ],
-  ];
-
-  return artifactVariants.every((candidates) =>
-    candidates.some((filePath) => fs.existsSync(filePath)),
-  );
-}
-
-const describeAnvil =
-  hasAnvilBinary() && hasContractArtifacts() ? describe : describe.skip;
+const describeAnvil = hasAnvilBinary() ? describe : describe.skip;
 
 // ---------------------------------------------------------------------------
 // Test Suite
@@ -316,9 +272,7 @@ describeAnvil("Anvil Contract E2E Tests", () => {
       expect(owner.toLowerCase()).toBe(TEST_ADDRESS.toLowerCase());
 
       const uri = await collectionContract.tokenURI(1);
-      expect(["ipfs://QmMiladyMetadata", "ipfs://QmMilaidyMetadata"]).toContain(
-        uri,
-      );
+      expect(uri).toBe("ipfs://QmMiladyMetadata");
     });
   });
 
@@ -373,10 +327,7 @@ describeAnvil("Anvil Contract E2E Tests", () => {
       );
 
       const uri = await collectionContract.tokenURI(2);
-      expect([
-        "ipfs://QmShinyMiladyMetadata",
-        "ipfs://QmShinyMilaidyMetadata",
-      ]).toContain(uri);
+      expect(uri).toBe("ipfs://QmShinyMiladyMetadata");
     });
   });
 

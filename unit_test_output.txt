@@ -1,0 +1,184 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+ [31m❯[39m src/services/version-compat.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/runtime/embedding-presets.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32m✓[39m src/services/update-checker.test.ts [2m([22m[2m37 tests[22m[2m)[22m[33m 372[2mms[22m[39m
+     [33m[2m✓[22m[39m fetches real dist-tags from npm and gets a valid response shape [33m 344[2mms[22m[39m
+ [32m✓[39m src/services/skill-catalog-client.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 424[2mms[22m[39m
+       [33m[2m✓[22m[39m loads skills from catalog file [33m 325[2mms[22m[39m
+ [31m❯[39m src/runtime/__tests__/log-chat-listener.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32m✓[39m src/connectors/discord-connector.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 597[2mms[22m[39m
+     [33m[2m✓[22m[39m can import the Discord plugin package [33m 591[2mms[22m[39m
+ [32m✓[39m src/cloud/auth.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 235[2mms[22m[39m
+ [32m✓[39m src/services/update-notifier.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 677[2mms[22m[39m
+ [32m✓[39m src/services/registry-client.test.ts [2m([22m[2m41 tests[22m[2m)[22m[33m 828[2mms[22m[39m
+       [33m[2m✓[22m[39m fetches and parses generated-registry.json from network [33m 403[2mms[22m[39m
+ [32m✓[39m src/api/wallet.test.ts [2m([22m[2m65 tests[22m[2m)[22m[33m 513[2mms[22m[39m
+     [33m[2m✓[22m[39m wallet secrets are included in the Character secrets list [33m 421[2mms[22m[39m
+ [32m✓[39m src/cli-runtime-parity.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 504[2mms[22m[39m
+     [33m[2m✓[22m[39m startApiServer is importable from api/server [33m 494[2mms[22m[39m
+ [32m✓[39m src/services/plugin-stability.test.ts [2m([22m[2m56 tests[22m[2m)[22m[33m 716[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/sandbox-manager.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 2944[2mms[22m[39m
+       [33m[2m✓[22m[39m should go to degraded if Docker is not available [33m 2402[2mms[22m[39m
+[90mstdout[2m | src/providers/local-models.test.ts[2m > [22m[2mLocalModelManager Error Handling[2m > [22m[2mshould handle non-existent model gracefully
+[22m[39m[local-models] Downloading nonexistent/model...
+
+ [32m✓[39m src/providers/local-models.test.ts [2m([22m[2m24 tests[22m[2m | [22m[33m3 skipped[39m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/sandbox-e2e.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m src/cli/git-commit.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 206[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/chat-stream-api-client.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32m✓[39m src/services/skill-marketplace.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 195[2mms[22m[39m
+ [32m✓[39m src/services/coding-agent.test.ts [2m([22m[2m85 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/services/app-manager.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/plugins/telegram-enhanced/message-manager.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 216[2mms[22m[39m
+ [32m✓[39m src/runtime/eliza.test.ts [2m([22m[2m117 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m src/runtime/browser-integration.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+ [32m✓[39m src/cloud/bridge-client.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/security/__tests__/audit-log.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/sandbox-engine-exec.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/services/agent-export.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 4193[2mms[22m[39m
+ [32m✓[39m src/cli/argv.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/providers/media-provider.test.ts [2m([22m[2m41 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/services/coding-agent-context.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/autonomous-panel.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m src/api/__tests__/sandbox-onboarding.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 4784[2mms[22m[39m
+       [33m[2m✓[22m[39m should return platform info without requiring sandbox manager [33m 4291[2mms[22m[39m
+ [32m✓[39m src/config/includes.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/cloud/validate-url.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/runtime/restart.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/api/training-routes.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/api/database.security.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/config/schema.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/services/self-updater.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/cloud/reconnect.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/cloud/backup.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/api/cloud-routes.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m src/cloud/cloud-manager.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/triggers/runtime.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/runtime/code-writing-integration.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/config/paths.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/config/runtime-overrides.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/cloud/cloud-proxy.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/permissions/permissions.test.ts [2m([22m[2m55 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/signing-policy.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/config/plugin-auto-enable.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/shared/ui-catalog-prompt.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/utils/exec-safety.test.ts [2m([22m[2m44 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/api/compat-utils.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/triggers/action.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/config/zod-schema.character.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/api/trigger-routes.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/actions/restart.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/runtime/shell-integration.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/runtime/computeruse-integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/api/server.reset-state-dir-safety.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/sandbox-engine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/providers/autonomous-state.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/api/plugin-validation.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/sandbox-engine.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 7546[2mms[22m[39m
+       [33m[2m✓[22m[39m should return valid engine info [33m 4237[2mms[22m[39m
+       [33m[2m✓[22m[39m should return info for all engines [33m 1636[2mms[22m[39m
+       [33m[2m✓[22m[39m should include platform info for each engine [33m 856[2mms[22m[39m
+ [32m✓[39m src/services/mcp-marketplace.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/terminal/links.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/hooks/registry.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/cli/profile.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/globals.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/plugins/telegram-enhanced/chunking.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/api/server.wallet-export-auth.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/plugins/telegram-enhanced/draft-stream.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/runtime/pi-ai.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/actions/__tests__/log-level.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [2m[90m↓[39m[22m src/providers/media-provider.real.test.ts [2m([22m[2m11 tests[22m[2m | [22m[33m11 skipped[39m[2m)[22m
+ [32m✓[39m src/utils/number-parsing.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/providers/admin-trust.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/config/config-paths.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/triggers/scheduling.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/cli/parse-duration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/runtime/phetta-companion-plugin.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/api/server.package-root.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/runtime/pi-ai-model-handler.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/api/server.websocket-auth.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/api/server.conversation-title.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/api/server.config-allowlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/api/server.plugin-config-guard.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/api/__tests__/sandbox-routes.test.ts [2m([22m[2m40 tests[22m[2m)[22m[33m 51086[2mms[22m[39m
+       [33m[2m✓[22m[39m should return platform info without requiring manager [33m 4209[2mms[22m[39m
+       [33m[2m✓[22m[39m GET /api/sandbox/screen/windows should list windows [33m 6950[2mms[22m[39m
+       [33m[2m✓[22m[39m POST /api/sandbox/audio/record should handle request [33m 1123[2mms[22m[39m
+       [33m[2m✓[22m[39m POST /api/sandbox/audio/record should accept minimum duration boundary [33m 1134[2mms[22m[39m
+       [33m[2m✓[22m[39m POST /api/sandbox/audio/record should accept maximum duration boundary [33m 30179[2mms[22m[39m
+       [33m[2m✓[22m[39m POST /api/sandbox/computer/click should handle request [33m 5011[2mms[22m[39m
+       [33m[2m✓[22m[39m POST /api/sandbox/computer/type should handle request [33m 1881[2mms[22m[39m
+ [32m✓[39m src/services/plugin-installer.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 62607[2mms[22m[39m
+       [33m[2m✓[22m[39m returns error when plugin is not found in registry [33m 521[2mms[22m[39m
+       [33m[2m✓[22m[39m reports progress phases during install (real npm failure path) [33m 53568[2mms[22m[39m
+       [33m[2m✓[22m[39m does NOT call requestRestart when install fails [33m 4655[2mms[22m[39m
+       [33m[2m✓[22m[39m sanitises package names for directory paths [33m 3780[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/runtime/embedding-presets.test.ts[2m [ src/runtime/embedding-presets.test.ts ][22m
+[31m[1mError[22m: Cannot find module './embedding-presets.js' imported from '/Users/shawwalters/eliza-workspace/milady/src/runtime/embedding-presets.test.ts'[39m
+[36m [2m❯[22m src/runtime/embedding-presets.test.ts:[2m3:1[22m[39m
+    [90m  1| [39m[35mimport[39m os [35mfrom[39m [32m"node:os"[39m[33m;[39m
+    [90m  2| [39m[35mimport[39m { afterEach[33m,[39m describe[33m,[39m expect[33m,[39m it[33m,[39m vi } [35mfrom[39m [32m"vitest"[39m[33m;[39m
+    [90m  3| [39m[35mimport[39m { detectEmbeddingPreset } [35mfrom[39m [32m"./embedding-presets.js"[39m[33m;[39m
+    [90m   | [39m[31m^[39m
+    [90m  4| [39m
+    [90m  5| [39m[35mconst[39m [33mORIGINAL_PLATFORM[39m [33m=[39m process[33m.[39mplatform[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/version-compat.test.ts[2m [ src/services/version-compat.test.ts ][22m
+[31m[1mError[22m: Transform failed with 1 error:
+/Users/shawwalters/eliza-workspace/milady/src/services/version-compat.test.ts:421:0: ERROR: Unexpected "<<"[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36m/Users/shawwalters/eliza-workspace/milady/src/services/version-compat.test.ts[39m:421:0
+[33m  
+  Unexpected "<<"
+  419 |      const coreVersion = pkg.dependencies["@elizaos/core"];
+  420 |      if (coreVersion === "next") {
+  421 |  <<<<<<< HEAD
+      |  ^
+  422 |        const corePin = getCorePin(pkg);
+  423 |        expect(corePin).toBeDefined();
+  [39m
+[90m [2m❯[22m failureErrorWithLog node_modules/.bun/esbuild@0.27.3/node_modules/esbuild/lib/main.js:[2m1467:15[22m[39m
+[90m [2m❯[22m node_modules/.bun/esbuild@0.27.3/node_modules/esbuild/lib/main.js:[2m736:50[22m[39m
+[90m [2m❯[22m responseCallbacks.<computed> node_modules/.bun/esbuild@0.27.3/node_modules/esbuild/lib/main.js:[2m603:9[22m[39m
+[90m [2m❯[22m handleIncomingPacket node_modules/.bun/esbuild@0.27.3/node_modules/esbuild/lib/main.js:[2m658:12[22m[39m
+[90m [2m❯[22m Socket.readFromStdout node_modules/.bun/esbuild@0.27.3/node_modules/esbuild/lib/main.js:[2m581:7[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/runtime/__tests__/log-chat-listener.test.ts[2m [ src/runtime/__tests__/log-chat-listener.test.ts ][22m
+[31m[1mError[22m: [vitest] No "ChannelType" export is defined on the "@elizaos/core" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("@elizaos/core"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[36m [2m❯[22m src/providers/session-bridge.ts:[2m36:40[22m[39m
+    [90m 34| [39m
+    [90m 35| [39m[35mconst[39m coreSessionHelpers [33m=[39m elizaCore [35mas[39m [33mElizaCoreSessionHelpers[39m[33m;[39m
+    [90m 36| [39m[35mconst[39m channelType [33m=[39m coreSessionHelpers[33m.[39m[33mChannelType[39m [33m??[39m {
+    [90m   | [39m                                       [31m^[39m
+    [90m 37| [39m  [33mDM[39m[33m:[39m [32m"DM"[39m[33m,[39m
+    [90m 38| [39m  [33mSELF[39m[33m:[39m [32m"SELF"[39m[33m,[39m
+[90m [2m❯[22m src/runtime/milady-plugin.ts:[2m42:1[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m86 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (90)[39m
+[2m      Tests [22m [1m[32m1584 passed[39m[22m[2m | [22m[33m14 skipped[39m[90m (1598)[39m
+[2m   Start at [22m 17:38:26
+[2m   Duration [22m 62.99s[2m (transform 5.65s, setup 1.85s, import 23.27s, tests 139.84s, environment 8ms)[22m
+

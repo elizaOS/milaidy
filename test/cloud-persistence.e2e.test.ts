@@ -11,12 +11,12 @@
  * Pure-function tests — no live server needed.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../src/config/config";
+import type { MiladyConfig } from "../src/config/config.js";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza";
+} from "../src/runtime/eliza.js";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -105,13 +105,14 @@ describe("applyCloudConfigToEnv — cloud credential persistence", () => {
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 
-  it("keeps cloud disabled when enabled flag is explicitly false", () => {
+  it("treats cloud as enabled when apiKey exists even if enabled=false", () => {
     const config = {
       cloud: { enabled: false, apiKey: "ck-test" },
     } as MiladyConfig;
     applyCloudConfigToEnv(config);
+    // Having an API key means the user logged in — treat as enabled
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
   });
 });
 
@@ -139,7 +140,7 @@ describe("collectPluginNames — cloud plugin inclusion", () => {
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
-  it("does not include cloud plugin without cloud config or cloud key", () => {
+  it("does NOT include cloud plugin when neither config nor env is set", () => {
     const names = collectPluginNames({} as MiladyConfig);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
   });

@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>milAIdy — An Autonomous Agent</title>
+  <title>milady — An Autonomous Agent</title>
   <meta name="color-scheme" content="light">
-  <meta name="description" content="milAIdy is an autonomous agent that you run on your own devices. Local, fast, and always-on.">
+  <meta name="description" content="milady is an autonomous agent that you run on your own devices. Local, fast, and always-on.">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -252,7 +252,7 @@
   <div class="box">
     <div class="box-body hero">
       <img src="pfp.jpg" alt="Milady" class="hero-avatar">
-      <h1>milAIdy &mdash; An Autonomous Agent</h1>
+      <h1>milady &mdash; An Autonomous Agent</h1>
       <p class="hero-tagline">
         The cutest autonomous agent.
       </p>
@@ -260,7 +260,7 @@
       <div class="hero-secondary">
         <a href="https://github.com/milady-ai/milady/releases/latest">Windows</a> &middot;
         <a href="https://github.com/milady-ai/milady/releases/latest">Linux</a> &middot;
-        <code>milady setup</code>
+        <code>npx milady</code>
       </div>
     </div>
   </div>
@@ -272,7 +272,7 @@
       <ul>
         <li><strong>Personal AI assistant</strong> that runs locally on your own devices</li>
         <li>Built on <a href="https://github.com/elizaos">ElizaOS</a> &mdash; the open-source agent framework</li>
-        <li><strong>Zero config</strong> &mdash; initialize a fresh environment with <code>milady setup</code></li>
+        <li><strong>Zero config</strong> &mdash; get an agent running in seconds with <code>npx milady</code></li>
         <li>Gateway manages sessions, tools, and events &mdash; connects to messaging platforms, companion apps, and WebChat UI</li>
         <li>Supports Anthropic, OpenAI, Google, Ollama, and more &mdash; pick any provider during onboarding</li>
         <li>First-class EVM and Solana wallet support</li>
@@ -284,14 +284,12 @@
   <div class="box">
     <div class="box-header">Quick Start</div>
     <div class="box-body">
-      <p>Set up a fresh environment and launch your agent.</p>
-      <pre><code>curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
-milady setup
-milady</code></pre>
+      <p>Get an agent running in seconds. No config files needed.</p>
+      <pre><code>npx milady</code></pre>
       <p>On first run, Milady walks you through:</p>
       <ol>
         <li><strong>Pick a name</strong> for your agent (or use a random one)</li>
-        <li><strong>Choose a personality tone</strong></li>
+        <li><strong>Choose a personality</strong> style</li>
         <li><strong>Connect a model</strong> provider (or skip to configure later)</li>
       </ol>
       <p>The agent starts immediately after onboarding. The web dashboard opens at <code>http://localhost:18789</code>.</p>
@@ -335,7 +333,7 @@ shasum -a 256 --check --ignore-missing SHA256SUMS.txt</code></pre>
       <pre><code>irm https://milady-ai.github.io/milady/install.ps1 | iex</code></pre>
 
       <p style="margin-top: 0.8em; font-weight: 700; font-size: 13px;">Manual install</p>
-      <pre><code>npm install -g miladyai
+      <pre><code>npm install -g milady
 milady start</code></pre>
     </div>
   </div>
@@ -363,13 +361,13 @@ milady start</code></pre>
 </div>
 
 <script>
-  (() => {
+  (function () {
     var popup = document.getElementById("comingSoonPopup");
     var closeButton = document.getElementById("comingSoonClose");
     if (!popup || !closeButton) {
       return;
     }
-    closeButton.addEventListener("click", () => {
+    closeButton.addEventListener("click", function () {
       popup.style.display = "none";
     });
   })();

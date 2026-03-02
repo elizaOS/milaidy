@@ -1,6 +1,4 @@
-import type { CapacitorConfig } from "@capacitor/cli";
-
-export const sharedCapacitorConfig: CapacitorConfig = {
+export const sharedCapacitorConfig = {
   appId: "com.miladyai.milady",
   appName: "Milady",
   webDir: "dist",
@@ -33,3 +31,5 @@ export const sharedCapacitorConfig: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
 };
+
+export default sharedCapacitorConfig;

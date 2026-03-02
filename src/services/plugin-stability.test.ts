@@ -14,11 +14,10 @@
 
 import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { validateRuntimeContext } from "../api/plugin-validation";
-import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
-import type { MiladyConfig } from "../config/types.milady";
-import { createSessionKeyProvider } from "../providers/session-bridge";
-import { createWorkspaceProvider } from "../providers/workspace-provider";
+import { validateRuntimeContext } from "../api/plugin-validation.js";
+import type { MiladyConfig } from "../config/types.milady.js";
+import { createSessionKeyProvider } from "../providers/session-bridge.js";
+import { createWorkspaceProvider } from "../providers/workspace-provider.js";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
@@ -27,30 +26,47 @@ import {
   collectPluginNames,
   OPTIONAL_CORE_PLUGINS,
   resolvePrimaryModel,
-} from "../runtime/eliza";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
+} from "../runtime/eliza.js";
+import { createMiladyPlugin } from "../runtime/milady-plugin.js";
 import {
   createEnvSandbox,
   extractPlugin,
   isOptionalImportError,
-  isWorkspaceDependency,
   tryOptionalDynamicImport,
-} from "../test-support/test-helpers";
+} from "../test-support/test-helpers.js";
 
 type RootPackageJson = {
   dependencies: Record<string, string>;
   overrides?: Record<string, string>;
+  pnpm?: {
+    overrides?: Record<string, string>;
+  };
 };
 
 function _getCoreOverride(pkg: RootPackageJson): string | undefined {
-  return pkg.overrides?.["@elizaos/core"];
+  return (
+    pkg.overrides?.["@elizaos/core"] ?? pkg.pnpm?.overrides?.["@elizaos/core"]
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Constants — Full plugin enumeration
 // ---------------------------------------------------------------------------
 // CORE_PLUGINS and OPTIONAL_CORE_PLUGINS are imported from eliza.ts
-// CONNECTOR_PLUGINS is imported from ../config/plugin-auto-enable (canonical source)
+
+/** Connector plugins (loaded when connector config is present). */
+const CONNECTOR_PLUGINS: Record<string, string> = {
+  discord: "@elizaos/plugin-discord",
+  telegram: "@elizaos/plugin-telegram",
+  slack: "@elizaos/plugin-slack",
+  whatsapp: "@elizaos/plugin-whatsapp",
+  signal: "@elizaos/plugin-signal",
+  imessage: "@elizaos/plugin-imessage",
+  bluebubbles: "@elizaos/plugin-bluebubbles",
+  msteams: "@elizaos/plugin-msteams",
+  mattermost: "@elizaos/plugin-mattermost",
+  googlechat: "@elizaos/plugin-google-chat",
+};
 
 /** Model-provider plugins (loaded when env key is set). */
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -108,7 +124,6 @@ const envKeysToClean = [
   "OLLAMA_BASE_URL",
   "ELIZAOS_CLOUD_API_KEY",
   "ELIZAOS_CLOUD_ENABLED",
-  "MILAIDY_USE_PI_AI",
   "DISCORD_BOT_TOKEN",
   "TELEGRAM_BOT_TOKEN",
   "SLACK_BOT_TOKEN",
@@ -130,25 +145,11 @@ describe("Plugin Enumeration", () => {
     }
   });
 
-  it("declares every core plugin in root package dependencies", async () => {
-    const { readFile } = await import("node:fs/promises");
-    const { resolve } = await import("node:path");
-    const pkgPath = resolve(process.cwd(), "package.json");
-    const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as RootPackageJson;
-
-    for (const pluginName of CORE_PLUGINS) {
-      expect(
-        pkg.dependencies[pluginName],
-        `${pluginName} is missing from package.json dependencies`,
-      ).toBeDefined();
-    }
-  });
-
   it("lists all connector plugins", () => {
-    expect(Object.keys(CONNECTOR_PLUGINS).length).toBeGreaterThanOrEqual(17);
+    expect(Object.keys(CONNECTOR_PLUGINS).length).toBe(10);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
       expect(typeof connector).toBe("string");
-      expect(pluginName).toMatch(/^@(elizaos|milady)\/plugin-/);
+      expect(pluginName).toMatch(/^@elizaos\/plugin-/);
     }
   });
 
@@ -174,12 +175,9 @@ describe("Plugin Enumeration", () => {
       "@elizaos/skills",
       "@elizaos/tui",
     ]);
-    // All enumerated plugins should be valid scoped package names
+    // All enumerated plugins should be valid package names
     for (const name of ALL_KNOWN_PLUGINS) {
-      expect(
-        name.startsWith("@elizaos/plugin-") ||
-          name.startsWith("@milady/plugin-"),
-      ).toBe(true);
+      expect(name.startsWith("@elizaos/plugin-")).toBe(true);
     }
     expect(knownPackages.size).toBeGreaterThan(0);
   });
@@ -290,13 +288,6 @@ describe("Plugin Loading — Isolation", () => {
    * This tests that each plugin module is importable and exports a valid Plugin.
    */
   for (const pluginName of CORE_PLUGINS) {
-    if (
-      pluginName.includes("plugin-rolodex") ||
-      pluginName.includes("plugin-secrets-manager") ||
-      pluginName.includes("plugin-shell")
-    ) {
-      continue;
-    }
     it(`loads ${pluginName} in isolation without crashing`, async () => {
       const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
         pluginName,
@@ -334,13 +325,6 @@ describe("Plugin Loading — All Together", () => {
     }> = [];
 
     for (const pluginName of CORE_PLUGINS) {
-      if (
-        pluginName.includes("plugin-rolodex") ||
-        pluginName.includes("plugin-secrets-manager") ||
-        pluginName.includes("plugin-shell")
-      ) {
-        continue;
-      }
       try {
         const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
           pluginName,
@@ -399,13 +383,6 @@ describe("Plugin Loading — All Together", () => {
 
   it("loaded plugins have non-empty name and description", async () => {
     for (const pluginName of CORE_PLUGINS) {
-      if (
-        pluginName.includes("plugin-rolodex") ||
-        pluginName.includes("plugin-secrets-manager") ||
-        pluginName.includes("plugin-shell")
-      ) {
-        continue;
-      }
       const mod = await tryOptionalDynamicImport<Record<string, unknown>>(
         pluginName,
         OPTIONAL_PLUGIN_LOAD_MARKERS,
@@ -885,7 +862,9 @@ describe("Context Serialization", () => {
 
 describe("Version Skew Detection (issue #10)", () => {
   type PackageManifest = {
+    dependencies: Record<string, string>;
     overrides?: Record<string, string>;
+    pnpm?: { overrides?: Record<string, string> };
   };
 
   async function readPackageManifest(): Promise<PackageManifest> {
@@ -898,7 +877,10 @@ describe("Version Skew Detection (issue #10)", () => {
   function getDependencyOverride(
     manifest: PackageManifest,
   ): string | undefined {
-    return manifest.overrides?.["@elizaos/core"];
+    return (
+      manifest.overrides?.["@elizaos/core"] ??
+      manifest.pnpm?.overrides?.["@elizaos/core"]
+    );
   }
 
   it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
@@ -910,17 +892,11 @@ describe("Version Skew Detection (issue #10)", () => {
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if overrides pin the actual version.
+    // Core can use "next" dist-tag if overrides pin the actual version
     const coreOverride = getDependencyOverride(pkg);
     if (coreVersion === "next") {
       expect(coreOverride).toBeDefined();
-      if (coreOverride !== "next") {
-        expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
-      }
-    } else if (isWorkspaceDependency(coreVersion)) {
-      if (coreOverride !== undefined) {
-        expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
-      }
+      expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
     } else {
       expect(coreVersion).toMatch(/^\d+\.\d+\.\d+/);
     }
@@ -937,11 +913,10 @@ describe("Version Skew Detection (issue #10)", () => {
     for (const name of affectedPlugins) {
       const ver = pkg.dependencies[name];
       expect(ver).toBeDefined();
-      // Plugins can use "next" dist-tag when core is pinned via overrides,
+      // Plugins can use "next" dist-tag when core is pinned via pnpm overrides,
       // or they can be pinned to a specific alpha version.
-      // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
-      if (ver !== "next" && !isWorkspaceDependency(ver)) {
+      if (ver !== "next") {
         expect(ver).toMatch(/^\d+\.\d+\.\d+/);
       }
     }
@@ -971,20 +946,6 @@ describe("Version Skew Detection (issue #10)", () => {
     expect(OPTIONAL_CORE_PLUGINS).not.toContain(
       "@elizaos/plugin-trajectory-logger",
     );
-  });
-
-  it("plugin-trajectory-logger exports a runtime service", async () => {
-    const mod = (await import("@elizaos/plugin-trajectory-logger")) as {
-      default?: Plugin;
-      TrajectoryLoggerService?: unknown;
-    };
-    const plugin = mod.default;
-    expect(plugin).toBeDefined();
-    expect(Array.isArray(plugin?.services)).toBe(true);
-    expect(plugin?.services?.length ?? 0).toBeGreaterThan(0);
-    if (mod.TrajectoryLoggerService) {
-      expect(plugin?.services).toContain(mod.TrajectoryLoggerService);
-    }
   });
 });
 

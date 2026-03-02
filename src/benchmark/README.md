@@ -1,31 +1,31 @@
 # Milady Benchmark Server
 
-HTTP bridge exposing the Milady runtime to Python benchmark runners.
+HTTP server and plugin that expose the milady agent runtime to Python benchmark runners.
 
 ## Architecture
 
 ```
 Python Benchmark Runner
     |  (imports milady-adapter)
-milady-adapter (Python client)
+milady-adapter  (Python client)
     |  (HTTP requests)
-server.ts (this directory)
-    |  (canonical message pipeline)
+server.ts  (this directory)         <-- you are here
+    |  (injects context via plugin)
+plugin.ts  (benchmark provider + action)
+    |
 ElizaOS AgentRuntime
 ```
 
-This directory contains:
+This directory contains the **server side** of the benchmark bridge:
 
 | File | Purpose |
 |---|---|
-| `server.ts` | HTTP server for benchmark traffic. Initializes `AgentRuntime`, handles benchmark sessions, and routes each message through `runtime.messageService.handleMessage(...)`. |
-| `mock-plugin-base.ts` | Tracked deterministic mock plugin used by benchmark unit tests and CI smoke checks. |
-| `mock-plugin.ts` | Optional local override (gitignored) loaded first when `MILADY_BENCH_MOCK=true`. |
-| `TESTING_PROTOCOL.md` | Benchmark action/testing protocol (required checks + CUA-bench compatibility commands). |
+| `server.ts` | HTTP server on port 3939 (configurable). Wraps a full `AgentRuntime` and exposes it over three endpoints. |
+| `plugin.ts` | `milady-benchmark` plugin providing the `MILADY_BENCHMARK` context provider and `BENCHMARK_ACTION` action handler. |
 
-The Python client side can live in a local adapter directory such as `benchmarks/milaidy-adapter/`.
+The **client side** (Python HTTP client + benchmark-specific adapters) lives at [`benchmarks/milady-adapter/`](../../../benchmarks/milady-adapter/).
 
-## Start the server
+## Starting the server
 
 ```bash
 # from the milady package root
@@ -35,39 +35,21 @@ npm run benchmark:server
 node --import tsx src/benchmark/server.ts
 ```
 
-The server prints `MILADY_BENCH_READY port=<port>` when ready.
-
-## Testing
-
-```bash
-# benchmark-focused unit tests
-bunx vitest run src/benchmark/*.test.ts
-
-# watch a live benchmark smoke run end-to-end
-bun run benchmark:watch
-
-# watch live CUA execution in LUME VM (requires CUA_HOST + model credentials)
-CUA_HOST=localhost:8000 OPENAI_API_KEY=sk-... CUA_COMPUTER_USE_MODEL=computer-use-preview bun run benchmark:cua:watch
-
-# see the full benchmark testing/checklist protocol
-cat src/benchmark/TESTING_PROTOCOL.md
-```
+The server prints `MILADY_BENCH_READY port=3939` to stdout once it is accepting connections. The Python `MiladyServerManager` watches for this sentinel.
 
 ## HTTP API
 
 ### `GET /api/benchmark/health`
 
-Returns readiness + runtime metadata.
+Returns server status.
 
 ```json
-{ "status": "ready", "agent_name": "Kira", "plugins": 3 }
+{ "status": "ready", "agent_name": "Milady", "plugins": 4 }
 ```
 
 ### `POST /api/benchmark/reset`
 
-Starts a fresh benchmark session (new room/user context).
-
-Request:
+Start a fresh session for a new task.
 
 ```json
 { "task_id": "webshop-42", "benchmark": "agentbench" }
@@ -76,35 +58,12 @@ Request:
 Response:
 
 ```json
-{ "status": "ok", "room_id": "<uuid>", "task_id": "webshop-42", "benchmark": "agentbench" }
+{ "status": "ok", "room_id": "<uuid>" }
 ```
-
-### `GET /api/benchmark/cua/status`
-
-Returns CUA service status when CUA benchmark mode is enabled (`MILADY_ENABLE_CUA=1`).
-
-### `POST /api/benchmark/cua/run`
-
-Runs a live CUA task in the configured LUME/cloud sandbox.
-
-Request:
-
-```json
-{
-  "goal": "Open ChatGPT and close extra tabs",
-  "room_id": "optional-room-id",
-  "auto_approve": true,
-  "include_screenshots": false
-}
-```
-
-### `GET /api/benchmark/cua/screenshot`
-
-Captures the current sandbox screenshot (`base64 png`) via the CUA service.
 
 ### `POST /api/benchmark/message`
 
-Sends benchmark input through the canonical message pipeline.
+Send a message (with optional task context) and receive the agent's response.
 
 Request:
 
@@ -113,10 +72,10 @@ Request:
   "text": "Find a laptop under $500",
   "context": {
     "benchmark": "agentbench",
-    "task_id": "webshop-42",
+    "taskId": "webshop-42",
     "goal": "Buy a laptop under $500",
-    "observation": { "page": "search results" },
-    "action_space": ["search[query]", "click[id]", "buy[id]"]
+    "observation": { "page": "search results..." },
+    "actionSpace": ["search[query]", "click[id]", "buy[id]"]
   }
 }
 ```
@@ -125,27 +84,48 @@ Response:
 
 ```json
 {
-  "text": "Searching for options under $500...",
-  "thought": "I should issue a search action first",
+  "text": "Searching for laptops...",
+  "thought": "I should search for laptops under $500",
   "actions": ["BENCHMARK_ACTION"],
   "params": { "command": "search[laptop under $500]" }
 }
 ```
+
+## Plugin details
+
+### `MILADY_BENCHMARK` provider
+
+Injects benchmark task context (goal, observation, action space, tools, HTML elements, passages) into the agent's state so the LLM can reason about the task.
+
+### `BENCHMARK_ACTION` action
+
+Captures the agent's chosen action and its parameters. Supports three benchmark formats:
+
+| Benchmark | Params |
+|---|---|
+| AgentBench | `command` |
+| tau-bench | `tool_name` + `arguments` |
+| Mind2Web | `operation` + `element_id` + `value` |
+
+### Message template
+
+A custom `messageHandlerTemplate` is injected that instructs the LLM to read the benchmark context, choose one action, and respond in structured XML format.
 
 ## Configuration
 
 | Environment variable | Default | Description |
 |---|---|---|
 | `MILADY_BENCH_PORT` | `3939` | Port to listen on |
-| `MILADY_ENABLE_COMPUTERUSE` | unset | If set, loads local computeruse plugin |
-| `MILADY_ENABLE_CUA` | unset | If set (or CUA env is configured), loads `@elizaos/plugin-cua` |
-| `CUA_HOST` | unset | Local CUA/LUME host (e.g. `localhost:8000`) |
-| `CUA_API_KEY` + `CUA_SANDBOX_NAME` | unset | Cloud CUA mode alternative to `CUA_HOST` |
-| `CUA_COMPUTER_USE_MODEL` | `auto` | Set `computer-use-preview` to force OpenAI computer-use runner |
-| `MILADY_BENCH_MOCK` | unset | Enables inline mock benchmark plugin |
 
-## Notes
+Model provider plugins are auto-detected from API key env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_BASE_URL`).
 
-- `context` is attached to the prompt context for each benchmark step.
-- Session reset creates isolated room/user context so task runs do not leak history.
-- Responses include `actions` and `params` extracted from `responseContent` for runner-side evaluation.
+## Python adapter reference
+
+The Python client and benchmark-specific adapters are maintained separately:
+
+- **Package:** [`benchmarks/milady-adapter/`](../../../benchmarks/milady-adapter/)
+- **Client:** `MiladyClient` -- HTTP client wrapping the endpoints above
+- **Server Manager:** `MiladyServerManager` -- spawns this server as a subprocess
+- **Adapters:** AgentBench, context-bench, Mind2Web, tau-bench
+
+See the [milady-adapter README](../../../benchmarks/milady-adapter/README.md) for usage examples and the full module listing.

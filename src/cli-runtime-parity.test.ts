@@ -1,7 +1,7 @@
 /**
  * CLI & Runtime Parity Tests (GitHub Issue #2)
  *
- * Validates that all entry points — GUI app, `npx miladyai`, `bun run dev` —
+ * Validates that all entry points — GUI app, `npx milady`, `bun run dev` —
  * produce consistent behaviour:
  *   - Same plugin set loads in all modes
  *   - Same config paths are used
@@ -10,16 +10,16 @@
  *   - Config env vars are applied identically
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MiladyConfig } from "./config/config";
+import type { MiladyConfig } from "./config/config.js";
 // Shared presets used by both CLI and API server
-import { SHARED_STYLE_RULES, STYLE_PRESETS } from "./onboarding-presets";
+import { SHARED_STYLE_RULES, STYLE_PRESETS } from "./onboarding-presets.js";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
   resolvePrimaryModel,
-} from "./runtime/eliza";
+} from "./runtime/eliza.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -125,7 +125,6 @@ describe("plugin loading parity across modes", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "MILAIDY_USE_PI_AI",
   ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
@@ -183,11 +182,11 @@ describe("plugin loading parity across modes", () => {
 
     const names = collectPluginNames(config);
     // Telegram maps to the local enhanced plugin, not the upstream one
-    expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+    expect(names.has("@milady/plugin-telegram-enhanced")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(true);
     // Unconfigured channels should NOT be loaded
-    expect(names.has("@milady/plugin-whatsapp")).toBe(false);
+    expect(names.has("@elizaos/plugin-whatsapp")).toBe(false);
     expect(names.has("@elizaos/plugin-signal")).toBe(false);
   });
 
@@ -383,7 +382,7 @@ describe("model resolution parity", () => {
 
 describe("API server module availability", () => {
   it("startApiServer is importable from api/server", async () => {
-    const mod = await import("./api/server");
+    const mod = await import("./api/server.js");
     expect(typeof mod.startApiServer).toBe("function");
   });
 });
@@ -394,12 +393,12 @@ describe("API server module availability", () => {
 
 describe("startEliza module availability", () => {
   it("startEliza is importable from eliza module", async () => {
-    const mod = await import("./runtime/eliza");
+    const mod = await import("./runtime/eliza.js");
     expect(typeof mod.startEliza).toBe("function");
   });
 
   it("startEliza accepts headless option", async () => {
-    const mod = await import("./runtime/eliza");
+    const mod = await import("./runtime/eliza.js");
     // Verify the function signature accepts the headless option
     // (we can't actually run it without a full runtime, but we can check the export)
     expect(mod.startEliza.length).toBeLessThanOrEqual(1); // 0 or 1 param
@@ -413,7 +412,7 @@ describe("startEliza module availability", () => {
 describe("config path consistency across modes", () => {
   it("resolveConfigPath uses same default path in all modes", async () => {
     const { resolveConfigPath, resolveStateDir } = await import(
-      "./config/paths"
+      "./config/paths.js"
     );
 
     // With no env overrides, all modes resolve the same path
@@ -430,7 +429,7 @@ describe("config path consistency across modes", () => {
 
   it("MILADY_STATE_DIR override is respected consistently", async () => {
     const { resolveConfigPath, resolveStateDir } = await import(
-      "./config/paths"
+      "./config/paths.js"
     );
 
     const env = { MILADY_STATE_DIR: "/custom/state" } as NodeJS.ProcessEnv;
@@ -451,13 +450,13 @@ describe("config path consistency across modes", () => {
 
 describe("restart mechanism parity", () => {
   it("RESTART_EXIT_CODE is consistent", async () => {
-    const { RESTART_EXIT_CODE } = await import("./runtime/restart");
+    const { RESTART_EXIT_CODE } = await import("./runtime/restart.js");
     expect(RESTART_EXIT_CODE).toBe(75);
   });
 
   it("setRestartHandler replaces the default handler", async () => {
     const { setRestartHandler, requestRestart } = await import(
-      "./runtime/restart"
+      "./runtime/restart.js"
     );
 
     let called = false;

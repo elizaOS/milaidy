@@ -5,6 +5,12 @@
  * Replaces the gateway WebSocket protocol entirely.
  */
 
+import type { ConfigUiHint } from "./types";
+import {
+  DEFAULT_UI_LANGUAGE,
+  normalizeLanguage,
+  type UiLanguage,
+} from "./i18n";
 import type {
   AudioGenConfig,
   AudioGenProvider,
@@ -20,11 +26,20 @@ import type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-} from "../../../src/config/types.milady";
-import type { DropStatus, MintResult } from "../../../src/contracts/drop";
-import type { StylePreset } from "../../../src/contracts/onboarding";
-import type { VerificationResult } from "../../../src/contracts/verification";
+} from "../../../src/config/types.milady.js";
+import type { StylePreset } from "../../../src/contracts/onboarding.js";
 import type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -34,15 +49,17 @@ import type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
-} from "../../../src/contracts/wallet";
+  TradePermissionMode as WalletTradePermissionMode,
+} from "../../../src/contracts/wallet.js";
+import type { DropStatus, MintResult } from "../../../src/contracts/drop.js";
+import type { VerificationResult } from "../../../src/contracts/verification.js";
 import type {
   AllPermissionsState,
   PermissionState,
   PermissionStatus,
   SystemPermissionDefinition,
   SystemPermissionId,
-} from "../../../src/permissions/types";
-import type { ConfigUiHint } from "./types";
+} from "../../../src/contracts/permissions.js";
 
 export type {
   AudioGenConfig,
@@ -62,6 +79,17 @@ export type {
 };
 export type { StylePreset };
 export type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -81,6 +109,28 @@ export type {
   SystemPermissionId,
   SystemPermissionDefinition as PermissionDefinition,
 };
+
+export type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode = WalletTradePermissionMode;
+
+export interface AgentAutomationModeResponse {
+  mode: AgentAutomationMode;
+  options: AgentAutomationMode[];
+}
+
+export interface TradePermissionModeResponse {
+  mode: TradePermissionMode;
+  options: TradePermissionMode[];
+}
+
+export interface ApplyProductionWalletDefaultsResponse {
+  ok: boolean;
+  profile: "pure-privy-safe";
+  walletMode: "privy";
+  tradePermissionMode: "user-sign-only";
+  bscExecutionEnabled: false;
+  clearedSecrets: string[];
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,22 +201,7 @@ export interface QueryResult {
   durationMs: number;
 }
 
-export type AgentState =
-  | "not_started"
-  | "starting"
-  | "running"
-  | "paused"
-  | "stopped"
-  | "restarting"
-  | "error";
-
-export interface AgentStartupDiagnostics {
-  phase: string;
-  attempt: number;
-  lastError?: string;
-  lastErrorAt?: number;
-  nextRetryAt?: number;
-}
+export type AgentState = "not_started" | "starting" | "running" | "paused" | "stopped" | "restarting" | "error";
 
 export interface AgentStatus {
   state: AgentState;
@@ -174,56 +209,46 @@ export interface AgentStatus {
   model: string | undefined;
   uptime: number | undefined;
   startedAt: number | undefined;
-  pendingRestart?: boolean;
-  pendingRestartReasons?: string[];
-  startup?: AgentStartupDiagnostics;
 }
 
-// WebSocket connection state tracking
-export type WebSocketConnectionState =
-  | "connected"
-  | "disconnected"
-  | "reconnecting"
-  | "failed";
-
-export interface ConnectionStateInfo {
-  state: WebSocketConnectionState;
-  reconnectAttempt: number;
-  maxReconnectAttempts: number;
-  disconnectedAt: number | null;
-}
-
-export type ApiErrorKind = "timeout" | "network" | "http";
-
-export class ApiError extends Error {
-  readonly kind: ApiErrorKind;
-  readonly status?: number;
-  readonly path: string;
-
-  constructor(options: {
-    kind: ApiErrorKind;
-    path: string;
-    message: string;
-    status?: number;
-    cause?: unknown;
-  }) {
-    super(options.message);
-    this.name = "ApiError";
-    this.kind = options.kind;
-    this.path = options.path;
-    this.status = options.status;
-    if (options.cause !== undefined) {
-      (
-        this as Error & {
-          cause?: unknown;
-        }
-      ).cause = options.cause;
-    }
-  }
-}
-
-export function isApiError(value: unknown): value is ApiError {
-  return value instanceof ApiError;
+export interface AgentSelfStatusSnapshot {
+  generatedAt: string;
+  state: AgentState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: "privy" | "hybrid";
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
 }
 
 export interface RuntimeOrderItem {
@@ -402,27 +427,6 @@ export interface OpenRouterModelOption {
   description: string;
 }
 
-export interface PiAiModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  isDefault: boolean;
-}
-
-export interface DatabaseOption {
-  id: string;
-  label: string;
-  description: string;
-}
-
-export interface DetectedEnvironment {
-  dockerAvailable: boolean;
-  platform: string;
-  arch: string;
-  hasAffiliateRef: boolean;
-  devMode: "all" | "paygate" | false;
-}
-
 export interface OnboardingOptions {
   names: string[];
   styles: StylePreset[];
@@ -432,14 +436,13 @@ export interface OnboardingOptions {
     small: ModelOption[];
     large: ModelOption[];
   };
+  /** Optional: model catalog from pi-ai (used when selecting provider "pi-ai"). */
+  piModels?: ModelOption[];
+  /** Default provider/model from pi settings.json, if available. */
+  piDefaultModel?: string;
   openrouterModels?: OpenRouterModelOption[];
-  piAiModels?: PiAiModelOption[];
-  piAiDefaultModel?: string | null;
   inventoryProviders: InventoryProviderOption[];
   sharedStyleRules: string;
-  githubOAuthAvailable?: boolean;
-  databaseOptions?: DatabaseOption[];
-  detectedEnvironment?: DetectedEnvironment;
 }
 
 /** Configuration for a single messaging connector. */
@@ -448,19 +451,15 @@ export interface ConnectorConfig {
   botToken?: string;
   token?: string;
   apiKey?: string;
-  [key: string]:
-    | string
-    | boolean
-    | number
-    | string[]
-    | Record<string, unknown>
-    | undefined;
+  [key: string]: string | boolean | number | string[] | Record<string, unknown> | undefined;
 }
 
 export interface OnboardingData {
   name: string;
-  hostingChoice?: "local" | "elizaos";
+  /** What the agent should call the user. Optional — defaults to "User" if not set. */
+  ownerName?: string;
   theme: string;
+  language?: UiLanguage;
   runMode: "local" | "cloud";
   /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
   sandboxMode?: "off" | "light" | "standard" | "max";
@@ -482,14 +481,10 @@ export interface OnboardingData {
   // Local-specific
   provider?: string;
   providerApiKey?: string;
-  /** Optional primary model override (provider/model), used by pi-ai mode. */
-  primaryModel?: string;
   openrouterModel?: string;
+  /** Optional primary model spec (provider/model) for local providers (currently used by pi-ai). */
+  primaryModel?: string;
   subscriptionProvider?: string;
-  // Messaging channel setup
-  // Database configuration
-  databaseProvider?: "pglite" | "postgres" | "docker-postgres";
-  databaseConnectionString?: string;
   // Messaging channel setup
   channels?: Record<string, unknown>;
   // Inventory / wallet setup
@@ -508,7 +503,17 @@ export interface OnboardingData {
   twilioPhoneNumber?: string;
   blooioApiKey?: string;
   blooioPhoneNumber?: string;
-  githubToken?: string;
+}
+
+export interface SubscriptionProviderStatus {
+  provider: string;
+  configured: boolean;
+  valid: boolean;
+  expiresAt: number | null;
+}
+
+export interface SubscriptionStatusResponse {
+  providers: SubscriptionProviderStatus[];
 }
 
 export interface SandboxPlatformStatus {
@@ -527,33 +532,6 @@ export interface SandboxStartResponse {
   message: string;
   waitMs?: number;
   error?: string;
-}
-
-export interface SandboxBrowserEndpoints {
-  cdpEndpoint?: string | null;
-  wsEndpoint?: string | null;
-  noVncEndpoint?: string | null;
-}
-
-export interface SandboxScreenshotRegion {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface SandboxScreenshotPayload {
-  format: string;
-  encoding: string;
-  width: number | null;
-  height: number | null;
-  data: string;
-}
-
-export interface SandboxWindowInfo {
-  id: string;
-  title: string;
-  app: string;
 }
 
 export interface SecretInfo {
@@ -587,13 +565,7 @@ export interface PluginInfo {
   enabled: boolean;
   configured: boolean;
   envKey: string | null;
-  category:
-    | "ai-provider"
-    | "connector"
-    | "streaming"
-    | "database"
-    | "app"
-    | "feature";
+  category: "ai-provider" | "connector" | "database" | "app" | "feature";
   source: "bundled" | "store";
   parameters: PluginParamDef[];
   validationErrors: Array<{ field: string; message: string }>;
@@ -607,6 +579,8 @@ export interface PluginInfo {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, ConfigUiHint>;
+  /** True when this entry is an external integration (status-only, non-toggleable). */
+  managedExternally?: boolean;
   /** Optional icon URL or emoji for the plugin card header. */
   icon?: string | null;
 }
@@ -668,14 +642,6 @@ export interface UiSpecBlock {
 /** Union of all content block types. */
 export type ContentBlock = TextBlock | ConfigFormBlock | UiSpecBlock;
 
-/** An image attachment to send with a chat message. */
-export interface ImageAttachment {
-  /** Base64-encoded image data (no data URL prefix). */
-  data: string;
-  mimeType: string;
-  name: string;
-}
-
 export interface ConfigSchemaResponse {
   schema: unknown;
   uiHints: Record<string, unknown>;
@@ -692,16 +658,17 @@ export interface ConversationMessage {
   blocks?: ContentBlock[];
   /** Source channel when forwarded from another channel (e.g. "autonomy"). */
   source?: string;
-  /** Username of the sender (e.g. retake viewer username, discord username). */
-  from?: string;
 }
 
-export type ConversationChannelType =
-  | "DM"
-  | "GROUP"
-  | "VOICE_DM"
-  | "VOICE_GROUP"
-  | "API";
+export interface ChatTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls?: number;
+  model?: string;
+}
+
+export type ConversationMode = "simple" | "power";
 
 export interface SkillInfo {
   id: string;
@@ -714,26 +681,9 @@ export interface SkillInfo {
 export interface SkillScanReportSummary {
   scannedAt: string;
   status: "clean" | "warning" | "critical" | "blocked";
-  summary: {
-    scannedFiles: number;
-    critical: number;
-    warn: number;
-    info: number;
-  };
-  findings: Array<{
-    ruleId: string;
-    severity: string;
-    file: string;
-    line: number;
-    message: string;
-    evidence: string;
-  }>;
-  manifestFindings: Array<{
-    ruleId: string;
-    severity: string;
-    file: string;
-    message: string;
-  }>;
+  summary: { scannedFiles: number; critical: number; warn: number; info: number };
+  findings: Array<{ ruleId: string; severity: string; file: string; line: number; message: string; evidence: string }>;
+  manifestFindings: Array<{ ruleId: string; severity: string; file: string; message: string }>;
   skillPath: string;
 }
 
@@ -798,58 +748,7 @@ export interface LogsFilter {
   since?: number;
 }
 
-export type SecurityAuditSeverity = "info" | "warn" | "error" | "critical";
-export type SecurityAuditEventType =
-  | "sandbox_mode_transition"
-  | "secret_token_replacement_outbound"
-  | "secret_sanitization_inbound"
-  | "privileged_capability_invocation"
-  | "policy_decision"
-  | "signing_request_submitted"
-  | "signing_request_rejected"
-  | "signing_request_approved"
-  | "plugin_fallback_attempt"
-  | "security_kill_switch"
-  | "sandbox_lifecycle"
-  | "fetch_proxy_error";
-
-export interface SecurityAuditEntry {
-  timestamp: string;
-  type: SecurityAuditEventType;
-  summary: string;
-  metadata?: Record<string, string | number | boolean | null>;
-  severity: SecurityAuditSeverity;
-  traceId?: string;
-}
-
-export interface SecurityAuditFilter {
-  type?: SecurityAuditEventType;
-  severity?: SecurityAuditSeverity;
-  since?: number | string | Date;
-  limit?: number;
-}
-
-export interface SecurityAuditResponse {
-  entries: SecurityAuditEntry[];
-  totalBuffered: number;
-  replayed: true;
-}
-
-export type SecurityAuditStreamEvent =
-  | {
-      type: "snapshot";
-      entries: SecurityAuditEntry[];
-      totalBuffered: number;
-    }
-  | {
-      type: "entry";
-      entry: SecurityAuditEntry;
-    };
-
-export type StreamEventType =
-  | "agent_event"
-  | "heartbeat_event"
-  | "training_event";
+export type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
 
 export interface StreamEventEnvelope {
   type: StreamEventType;
@@ -1059,10 +958,7 @@ export interface PluginInstallResult {
   error?: string;
 }
 
-export interface WalletExportResult {
-  evm: { privateKey: string; address: string | null } | null;
-  solana: { privateKey: string; address: string | null } | null;
-}
+export interface WalletExportResult { evm: { privateKey: string; address: string | null } | null; solana: { privateKey: string; address: string | null } | null }
 
 // Software Updates
 export interface UpdateStatus {
@@ -1078,31 +974,19 @@ export interface UpdateStatus {
 }
 
 // Cloud
-export interface CloudStatus {
+export interface CloudStatus { connected: boolean; enabled?: boolean; hasApiKey?: boolean; userId?: string; organizationId?: string; topUpUrl?: string; reason?: string }
+export interface CloudCredits { connected: boolean; balance: number | null; low?: boolean; critical?: boolean; topUpUrl?: string }
+export interface CloudLoginResponse { ok: boolean; sessionId: string; browserUrl: string }
+export interface CloudLoginPollResponse { status: "pending" | "authenticated" | "expired" | "error"; keyPrefix?: string; error?: string }
+export interface PrivyStatus {
+  configured: boolean;
   connected: boolean;
-  enabled?: boolean;
-  hasApiKey?: boolean;
+  customUserId?: string;
   userId?: string;
-  organizationId?: string;
-  topUpUrl?: string;
-  reason?: string;
+  wallets?: WalletAddresses;
 }
-export interface CloudCredits {
-  connected: boolean;
-  balance: number | null;
-  low?: boolean;
-  critical?: boolean;
-  topUpUrl?: string;
-}
-export interface CloudLoginResponse {
+export interface PrivyLoginResponse extends PrivyStatus {
   ok: boolean;
-  sessionId: string;
-  browserUrl: string;
-}
-export interface CloudLoginPollResponse {
-  status: "pending" | "authenticated" | "expired" | "error";
-  keyPrefix?: string;
-  error?: string;
 }
 
 // Skills Marketplace
@@ -1163,33 +1047,6 @@ export interface WorkbenchOverview {
   };
 }
 
-// Coding Agent Sessions
-export interface CodingAgentSession {
-  sessionId: string;
-  agentType: string;
-  label: string;
-  originalTask: string;
-  workdir: string;
-  status:
-    | "active"
-    | "blocked"
-    | "completed"
-    | "stopped"
-    | "error"
-    | "tool_running";
-  decisionCount: number;
-  autoResolvedCount: number;
-  /** Description of the active tool when status is "tool_running". */
-  toolDescription?: string;
-}
-
-export interface CodingAgentStatus {
-  supervisionLevel: string;
-  taskCount: number;
-  tasks: CodingAgentSession[];
-  pendingConfirmations: number;
-}
-
 // MCP
 export interface McpServerConfig {
   type: "stdio" | "streamable-http" | "sse";
@@ -1210,11 +1067,7 @@ export interface McpMarketplaceResult {
 
 export interface McpRegistryServerDetail {
   packages?: Array<{
-    environmentVariables: Array<{
-      name: string;
-      default?: string;
-      isRequired?: boolean;
-    }>;
+    environmentVariables: Array<{ name: string; default?: string; isRequired?: boolean }>;
     packageArguments?: Array<{ default?: string }>;
   }>;
   remotes?: Array<{
@@ -1267,9 +1120,7 @@ export interface CharacterData {
     chat?: string[];
     post?: string[];
   };
-  messageExamples?: Array<{
-    examples: Array<{ name: string; content: { text: string } }>;
-  }>;
+  messageExamples?: Array<{ examples: Array<{ name: string; content: { text: string } }> }>;
   postExamples?: string[];
 }
 
@@ -1282,12 +1133,7 @@ export interface RegistryPluginItem {
   topics: string[];
   latestVersion: string | null;
   supports: { v0: boolean; v1: boolean; v2: boolean };
-  npm: {
-    package: string;
-    v0Version: string | null;
-    v1Version: string | null;
-    v2Version: string | null;
-  };
+  npm: { package: string; v0Version: string | null; v1Version: string | null; v2Version: string | null };
 }
 
 // App types
@@ -1318,22 +1164,10 @@ export interface RegistryAppInfo {
   repository: string;
   latestVersion: string | null;
   supports: { v0: boolean; v1: boolean; v2: boolean };
-  npm: {
-    package: string;
-    v0Version: string | null;
-    v1Version: string | null;
-    v2Version: string | null;
-  };
+  npm: { package: string; v0Version: string | null; v1Version: string | null; v2Version: string | null };
   viewer?: AppViewerConfig;
 }
-export interface InstalledAppInfo {
-  name: string;
-  displayName: string;
-  version: string;
-  installPath: string;
-  installedAt: string;
-  isRunning: boolean;
-}
+export interface InstalledAppInfo { name: string; displayName: string; version: string; installPath: string; installedAt: string; isRunning: boolean }
 export interface AppLaunchResult {
   pluginInstalled: boolean;
   needsRestart: boolean;
@@ -1646,54 +1480,6 @@ export interface KnowledgeUploadResult {
   filename?: string;
   contentType?: string;
   isYouTubeTranscript?: boolean;
-  warnings?: string[];
-}
-
-export interface KnowledgeBulkUploadItemResult {
-  index: number;
-  ok: boolean;
-  filename: string;
-  documentId?: string;
-  fragmentCount?: number;
-  error?: string;
-  warnings?: string[];
-}
-
-export interface KnowledgeBulkUploadResult {
-  ok: boolean;
-  total: number;
-  successCount: number;
-  failureCount: number;
-  results: KnowledgeBulkUploadItemResult[];
-}
-
-// Memory / context command types
-export interface MemorySearchResult {
-  id: string;
-  text: string;
-  createdAt: number;
-  score: number;
-}
-
-export interface MemorySearchResponse {
-  query: string;
-  results: MemorySearchResult[];
-  count: number;
-  limit: number;
-}
-
-export interface MemoryRememberResponse {
-  ok: boolean;
-  id: string;
-  text: string;
-  createdAt: number;
-}
-
-export interface QuickContextResponse {
-  query: string;
-  answer: string;
-  memories: MemorySearchResult[];
-  knowledge: KnowledgeSearchResult[];
 }
 
 // WebSocket
@@ -1760,28 +1546,18 @@ declare global {
 const GENERIC_NO_RESPONSE_TEXT =
   "Sorry, I couldn't generate a response right now. Please try again.";
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
-const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
 export class MiladyClient {
   private _baseUrl: string;
   private _explicitBase: boolean;
   private _token: string | null;
-  private readonly clientId: string;
+  private _uiLanguage: UiLanguage = DEFAULT_UI_LANGUAGE;
   private ws: WebSocket | null = null;
   private wsHandlers = new Map<string, Set<WsEventHandler>>();
   private wsSendQueue: string[] = [];
   private readonly wsSendQueueLimit = 32;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 500;
-
-  // Connection state tracking for backend crash handling
-  private connectionState: WebSocketConnectionState = "disconnected";
-  private reconnectAttempt = 0;
-  private disconnectedAt: number | null = null;
-  private connectionStateListeners = new Set<
-    (state: ConnectionStateInfo) => void
-  >();
-  private readonly maxReconnectAttempts = 15;
 
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
@@ -1797,17 +1573,8 @@ export class MiladyClient {
     return "";
   }
 
-  private static generateClientId(): string {
-    const random =
-      typeof globalThis.crypto?.randomUUID === "function"
-        ? globalThis.crypto.randomUUID()
-        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-    return `ui-${random.replace(/[^a-zA-Z0-9._-]/g, "")}`;
-  }
-
   constructor(baseUrl?: string, token?: string) {
     this._explicitBase = baseUrl != null;
-    this.clientId = MiladyClient.generateClientId();
     const stored =
       typeof window !== "undefined"
         ? window.sessionStorage.getItem("milady_api_token")
@@ -1818,8 +1585,7 @@ export class MiladyClient {
       typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
       baseUrl ??
-      injectedBase ??
-      MiladyClient.resolveElectronLocalFallbackBase();
+      (injectedBase ?? MiladyClient.resolveElectronLocalFallbackBase());
   }
 
   /**
@@ -1867,6 +1633,31 @@ export class MiladyClient {
     }
   }
 
+  setUiLanguage = (language: UiLanguage | string): void => {
+    this._uiLanguage = normalizeLanguage(language);
+  };
+
+  private buildRequestHeaders(
+    headers: HeadersInit | undefined,
+    token: string | null,
+    opts?: { stream?: boolean },
+  ): Headers {
+    const merged = new Headers(headers ?? undefined);
+    if (!merged.has("Content-Type")) {
+      merged.set("Content-Type", "application/json");
+    }
+    if (opts?.stream && !merged.has("Accept")) {
+      merged.set("Accept", "text/event-stream");
+    }
+    if (!merged.has("X-Milady-UI-Language")) {
+      merged.set("X-Milady-UI-Language", this._uiLanguage);
+    }
+    if (token && !merged.has("Authorization")) {
+      merged.set("Authorization", `Bearer ${token}`);
+    }
+    return merged;
+  }
+
   /** True when we have a usable HTTP(S) API endpoint. */
   get apiAvailable(): boolean {
     if (this.baseUrl) return true;
@@ -1879,60 +1670,15 @@ export class MiladyClient {
 
   // --- REST API ---
 
-  private async rawRequest(
-    path: string,
-    init?: RequestInit,
-    options?: { allowNonOk?: boolean },
-  ): Promise<Response> {
+  private async fetch<T>(path: string, init?: RequestInit): Promise<T> {
     if (!this.apiAvailable) {
-      throw new ApiError({
-        kind: "network",
-        path,
-        message: "API not available (no HTTP origin)",
-      });
+      throw new Error("API not available (no HTTP origin)");
     }
-    const makeRequest = async (token: string | null): Promise<Response> => {
-      const timeoutController = new AbortController();
-      const timeoutId = setTimeout(() => {
-        timeoutController.abort();
-      }, DEFAULT_FETCH_TIMEOUT_MS);
-      const signal =
-        init?.signal && typeof AbortSignal.any === "function"
-          ? AbortSignal.any([init.signal, timeoutController.signal])
-          : (init?.signal ?? timeoutController.signal);
-
-      try {
-        return await fetch(`${this.baseUrl}${path}`, {
-          ...init,
-          signal,
-          headers: {
-            "X-Milady-Client-Id": this.clientId,
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...init?.headers,
-          },
-        });
-      } catch (err) {
-        if (timeoutController.signal.aborted) {
-          throw new ApiError({
-            kind: "timeout",
-            path,
-            message: `Request timed out after ${DEFAULT_FETCH_TIMEOUT_MS}ms`,
-            cause: err,
-          });
-        }
-        throw new ApiError({
-          kind: "network",
-          path,
-          message:
-            err instanceof Error && err.message
-              ? err.message
-              : "Network request failed",
-          cause: err,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
+    const makeRequest = (token: string | null) =>
+      fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: this.buildRequestHeaders(init?.headers, token),
+      });
 
     const token = this.apiToken;
     let res = await makeRequest(token);
@@ -1942,33 +1688,21 @@ export class MiladyClient {
         res = await makeRequest(retryToken);
       }
     }
-    if (!res.ok && !options?.allowNonOk) {
-      const body = (await res
-        .json()
-        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
-      throw new ApiError({
-        kind: "http",
-        path,
-        status: res.status,
-        message: body.error ?? `HTTP ${res.status}`,
-      });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const err = new Error(body.error ?? `HTTP ${res.status}`);
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
     }
-    return res;
-  }
-
-  private async fetch<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await this.rawRequest(path, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...init?.headers,
-      },
-    });
     return res.json() as Promise<T>;
   }
 
   async getStatus(): Promise<AgentStatus> {
     return this.fetch("/api/status");
+  }
+
+  async getAgentSelfStatus(): Promise<AgentSelfStatusSnapshot> {
+    return this.fetch("/api/agent/self-status");
   }
 
   async getRuntimeSnapshot(opts?: {
@@ -1978,8 +1712,7 @@ export class MiladyClient {
     maxStringLength?: number;
   }): Promise<RuntimeDebugSnapshot> {
     const params = new URLSearchParams();
-    if (typeof opts?.depth === "number")
-      params.set("depth", String(opts.depth));
+    if (typeof opts?.depth === "number") params.set("depth", String(opts.depth));
     if (typeof opts?.maxArrayLength === "number") {
       params.set("maxArrayLength", String(opts.maxArrayLength));
     }
@@ -2007,15 +1740,16 @@ export class MiladyClient {
     });
   }
 
-  async getOnboardingStatus(): Promise<{ complete: boolean }> {
+  async getOnboardingStatus(): Promise<{
+    complete: boolean;
+    baseComplete?: boolean;
+    requiresPrivyIdentity?: boolean;
+    privyConnected?: boolean;
+  }> {
     return this.fetch("/api/onboarding/status");
   }
 
-  async getAuthStatus(): Promise<{
-    required: boolean;
-    pairingEnabled: boolean;
-    expiresAt: number | null;
-  }> {
+  async getAuthStatus(): Promise<{ required: boolean; pairingEnabled: boolean; expiresAt: number | null }> {
     try {
       return await this.fetch("/api/auth/status");
     } catch (err: unknown) {
@@ -2052,21 +1786,6 @@ export class MiladyClient {
     });
   }
 
-  async setupDockerDb(): Promise<{
-    ok: boolean;
-    error?: string;
-    credentials?: {
-      connectionString: string;
-      host: string;
-      port: number;
-      database: string;
-      user: string;
-      password: string;
-    };
-  }> {
-    return this.fetch("/api/onboarding/setup-docker-db", { method: "POST" });
-  }
-
   async startAnthropicLogin(): Promise<{ authUrl: string }> {
     return this.fetch("/api/subscription/anthropic/start", { method: "POST" });
   }
@@ -2083,9 +1802,7 @@ export class MiladyClient {
     });
   }
 
-  async submitAnthropicSetupToken(
-    token: string,
-  ): Promise<{ success: boolean }> {
+  async submitAnthropicSetupToken(token: string): Promise<{ success: boolean }> {
     return this.fetch("/api/subscription/anthropic/setup-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2093,43 +1810,14 @@ export class MiladyClient {
     });
   }
 
-  async getSubscriptionStatus(): Promise<{
-    providers: Array<{
-      provider: string;
-      configured: boolean;
-      valid: boolean;
-      expiresAt: number | null;
-    }>;
-  }> {
-    return this.fetch("/api/subscription/status");
-  }
-
-  async deleteSubscription(provider: string): Promise<{ success: boolean }> {
-    return this.fetch(`/api/subscription/${encodeURIComponent(provider)}`, {
-      method: "DELETE",
-    });
-  }
-
-  async switchProvider(
-    provider: string,
-    apiKey?: string,
-  ): Promise<{ success: boolean; provider: string; restarting: boolean }> {
-    return this.fetch("/api/provider/switch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, ...(apiKey ? { apiKey } : {}) }),
-    });
-  }
-
-  async startOpenAILogin(): Promise<{
-    authUrl: string;
-    state: string;
-    instructions: string;
-  }> {
+  async startOpenAILogin(): Promise<{ authUrl: string; state: string; instructions: string }> {
     return this.fetch("/api/subscription/openai/start", { method: "POST" });
   }
 
-  async exchangeOpenAICode(code: string): Promise<{
+  async exchangeOpenAICode(
+    code?: string,
+    waitForCallback = false,
+  ): Promise<{
     success: boolean;
     expiresAt?: string;
     accountId?: string;
@@ -2138,7 +1826,17 @@ export class MiladyClient {
     return this.fetch("/api/subscription/openai/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(
+        code?.trim()
+          ? { code: code.trim() }
+          : { waitForCallback },
+      ),
+    });
+  }
+
+  async disconnectOpenAICredentials(): Promise<{ success: boolean }> {
+    return this.fetch<{ success: boolean }>("/api/subscription/openai-codex", {
+      method: "DELETE",
     });
   }
 
@@ -2146,70 +1844,32 @@ export class MiladyClient {
     return this.fetch("/api/sandbox/platform");
   }
 
-  async getSandboxBrowser(): Promise<SandboxBrowserEndpoints> {
-    return this.fetch("/api/sandbox/browser");
-  }
-
-  async getSandboxScreenshot(
-    region?: SandboxScreenshotRegion,
-  ): Promise<SandboxScreenshotPayload> {
-    if (!region) {
-      return this.fetch("/api/sandbox/screen/screenshot", {
-        method: "POST",
-      });
-    }
-
-    return this.fetch("/api/sandbox/screen/screenshot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(region),
-    });
-  }
-
-  async getSandboxWindows(): Promise<{
-    windows: SandboxWindowInfo[];
-    error?: string;
-  }> {
-    return this.fetch("/api/sandbox/screen/windows");
-  }
-
   async startDocker(): Promise<SandboxStartResponse> {
     return this.fetch("/api/sandbox/docker/start", { method: "POST" });
   }
 
   async startAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", {
-      method: "POST",
-    });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", { method: "POST" });
     return res.status;
   }
 
   async stopAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", {
-      method: "POST",
-    });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", { method: "POST" });
     return res.status;
   }
 
   async pauseAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", {
-      method: "POST",
-    });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", { method: "POST" });
     return res.status;
   }
 
   async resumeAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", {
-      method: "POST",
-    });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", { method: "POST" });
     return res.status;
   }
 
   async restartAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>(
-      "/api/agent/restart",
-      { method: "POST" },
-    );
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/restart", { method: "POST" });
     return res.status;
   }
 
@@ -2252,9 +1912,7 @@ export class MiladyClient {
     return this.fetch("/api/config/schema");
   }
 
-  async updateConfig(
-    patch: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
+  async updateConfig(patch: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.fetch("/api/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -2262,52 +1920,20 @@ export class MiladyClient {
     });
   }
 
-  // ── Custom VRM avatar ────────────────────────────────────────────────
-
-  async uploadCustomVrm(file: File): Promise<void> {
-    const buf = await file.arrayBuffer();
-    await this.fetch("/api/avatar/vrm", {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: buf,
-    });
-  }
-
-  /** Uses raw fetch instead of this.fetch() because HEAD returns no JSON body. */
-  async hasCustomVrm(): Promise<boolean> {
-    try {
-      const res = await this.rawRequest(
-        "/api/avatar/vrm",
-        { method: "HEAD" },
-        { allowNonOk: true },
-      );
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-
   // ── Connectors ──────────────────────────────────────────────────────
 
-  async getConnectors(): Promise<{
-    connectors: Record<string, ConnectorConfig>;
-  }> {
+  async getConnectors(): Promise<{ connectors: Record<string, ConnectorConfig> }> {
     return this.fetch("/api/connectors");
   }
 
-  async saveConnector(
-    name: string,
-    config: ConnectorConfig,
-  ): Promise<{ connectors: Record<string, ConnectorConfig> }> {
+  async saveConnector(name: string, config: ConnectorConfig): Promise<{ connectors: Record<string, ConnectorConfig> }> {
     return this.fetch("/api/connectors", {
       method: "POST",
       body: JSON.stringify({ name, config }),
     });
   }
 
-  async deleteConnector(
-    name: string,
-  ): Promise<{ connectors: Record<string, ConnectorConfig> }> {
+  async deleteConnector(name: string): Promise<{ connectors: Record<string, ConnectorConfig> }> {
     return this.fetch(`/api/connectors/${encodeURIComponent(name)}`, {
       method: "DELETE",
     });
@@ -2346,7 +1972,9 @@ export class MiladyClient {
     });
   }
 
-  async runTriggerNow(id: string): Promise<{
+  async runTriggerNow(
+    id: string,
+  ): Promise<{
     ok: boolean;
     result: {
       status: TriggerLastStatus;
@@ -2378,8 +2006,7 @@ export class MiladyClient {
     offset?: number;
   }): Promise<TrainingTrajectoryList> {
     const params = new URLSearchParams();
-    if (typeof opts?.limit === "number")
-      params.set("limit", String(opts.limit));
+    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
     if (typeof opts?.offset === "number")
       params.set("offset", String(opts.offset));
     const qs = params.toString();
@@ -2426,12 +2053,9 @@ export class MiladyClient {
   }
 
   async cancelTrainingJob(jobId: string): Promise<{ job: TrainingJobRecord }> {
-    return this.fetch(
-      `/api/training/jobs/${encodeURIComponent(jobId)}/cancel`,
-      {
-        method: "POST",
-      },
-    );
+    return this.fetch(`/api/training/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: "POST",
+    });
   }
 
   async listTrainingModels(): Promise<{ models: TrainingModelRecord[] }> {
@@ -2463,13 +2087,10 @@ export class MiladyClient {
     providerModel: string;
     needsRestart: boolean;
   }> {
-    return this.fetch(
-      `/api/training/models/${encodeURIComponent(modelId)}/activate`,
-      {
-        method: "POST",
-        body: JSON.stringify({ providerModel }),
-      },
-    );
+    return this.fetch(`/api/training/models/${encodeURIComponent(modelId)}/activate`, {
+      method: "POST",
+      body: JSON.stringify({ providerModel }),
+    });
   }
 
   async benchmarkTrainingModel(modelId: string): Promise<{
@@ -2488,10 +2109,7 @@ export class MiladyClient {
     return this.fetch("/api/plugins");
   }
 
-  async fetchModels(
-    provider: string,
-    refresh = true,
-  ): Promise<{ provider: string; models: unknown[] }> {
+  async fetchModels(provider: string, refresh = true): Promise<{ provider: string; models: unknown[] }> {
     const params = new URLSearchParams({ provider });
     if (refresh) params.set("refresh", "true");
     return this.fetch(`/api/models?${params.toString()}`);
@@ -2501,20 +2119,14 @@ export class MiladyClient {
     return this.fetch("/api/plugins/core");
   }
 
-  async toggleCorePlugin(
-    npmName: string,
-    enabled: boolean,
-  ): Promise<{ ok: boolean; restarting?: boolean; message?: string }> {
+  async toggleCorePlugin(npmName: string, enabled: boolean): Promise<{ ok: boolean; restarting?: boolean; message?: string }> {
     return this.fetch("/api/plugins/core/toggle", {
       method: "POST",
       body: JSON.stringify({ npmName, enabled }),
     });
   }
 
-  async updatePlugin(
-    id: string,
-    config: Record<string, unknown>,
-  ): Promise<{ ok: boolean; restarting?: boolean }> {
+  async updatePlugin(id: string, config: Record<string, unknown>): Promise<{ ok: boolean; restarting?: boolean }> {
     return this.fetch(`/api/plugins/${id}`, {
       method: "PUT",
       body: JSON.stringify(config),
@@ -2525,22 +2137,14 @@ export class MiladyClient {
     return this.fetch("/api/secrets");
   }
 
-  async updateSecrets(
-    secrets: Record<string, string>,
-  ): Promise<{ ok: boolean; updated: string[] }> {
+  async updateSecrets(secrets: Record<string, string>): Promise<{ ok: boolean; updated: string[] }> {
     return this.fetch("/api/secrets", {
       method: "PUT",
       body: JSON.stringify({ secrets }),
     });
   }
 
-  async testPluginConnection(id: string): Promise<{
-    success: boolean;
-    pluginId: string;
-    message?: string;
-    error?: string;
-    durationMs: number;
-  }> {
+  async testPluginConnection(id: string): Promise<{ success: boolean; pluginId: string; message?: string; error?: string; durationMs: number }> {
     return this.fetch(`/api/plugins/${encodeURIComponent(id)}/test`, {
       method: "POST",
     });
@@ -2568,135 +2172,13 @@ export class MiladyClient {
     return this.fetch(`/api/logs${qs ? `?${qs}` : ""}`);
   }
 
-  private buildSecurityAuditParams(
-    filter?: SecurityAuditFilter,
-    includeStream = false,
-  ): URLSearchParams {
-    const params = new URLSearchParams();
-    if (filter?.type) params.set("type", filter.type);
-    if (filter?.severity) params.set("severity", filter.severity);
-    if (filter?.since !== undefined) {
-      const sinceValue =
-        filter.since instanceof Date
-          ? filter.since.toISOString()
-          : String(filter.since);
-      params.set("since", sinceValue);
-    }
-    if (filter?.limit !== undefined) params.set("limit", String(filter.limit));
-    if (includeStream) params.set("stream", "1");
-    return params;
-  }
-
-  async getSecurityAudit(
-    filter?: SecurityAuditFilter,
-  ): Promise<SecurityAuditResponse> {
-    const qs = this.buildSecurityAuditParams(filter).toString();
-    return this.fetch(`/api/security/audit${qs ? `?${qs}` : ""}`);
-  }
-
-  async streamSecurityAudit(
-    onEvent: (event: SecurityAuditStreamEvent) => void,
-    filter?: SecurityAuditFilter,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    if (!this.apiAvailable) {
-      throw new Error("API not available (no HTTP origin)");
-    }
-
-    const token = this.apiToken;
-    const qs = this.buildSecurityAuditParams(filter, true).toString();
-    const res = await fetch(
-      `${this.baseUrl}/api/security/audit${qs ? `?${qs}` : ""}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "text/event-stream",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        signal,
-      },
-    );
-
-    if (!res.ok) {
-      const body = (await res
-        .json()
-        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
-      const err = new Error(body.error ?? `HTTP ${res.status}`);
-      (err as Error & { status?: number }).status = res.status;
-      throw err;
-    }
-
-    if (!res.body) {
-      throw new Error("Streaming not supported by this browser");
-    }
-
-    const parsePayload = (payload: string) => {
-      if (!payload) return;
-      try {
-        const parsed = JSON.parse(payload) as SecurityAuditStreamEvent;
-        if (parsed.type === "snapshot" || parsed.type === "entry") {
-          onEvent(parsed);
-        }
-      } catch {
-        // Ignore malformed payloads to keep stream consumption resilient.
-      }
-    };
-
-    const decoder = new TextDecoder();
-    const reader = res.body.getReader();
-    let buffer = "";
-
-    const findSseEventBreak = (
-      chunkBuffer: string,
-    ): { index: number; length: number } | null => {
-      const lfBreak = chunkBuffer.indexOf("\n\n");
-      const crlfBreak = chunkBuffer.indexOf("\r\n\r\n");
-      if (lfBreak === -1 && crlfBreak === -1) return null;
-      if (lfBreak === -1) return { index: crlfBreak, length: 4 };
-      if (crlfBreak === -1) return { index: lfBreak, length: 2 };
-      return lfBreak < crlfBreak
-        ? { index: lfBreak, length: 2 }
-        : { index: crlfBreak, length: 4 };
-    };
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      let eventBreak = findSseEventBreak(buffer);
-      while (eventBreak) {
-        const rawEvent = buffer.slice(0, eventBreak.index);
-        buffer = buffer.slice(eventBreak.index + eventBreak.length);
-        for (const line of rawEvent.split(/\r?\n/)) {
-          if (!line.startsWith("data:")) continue;
-          parsePayload(line.slice(5).trim());
-        }
-        eventBreak = findSseEventBreak(buffer);
-      }
-    }
-
-    if (buffer.trim()) {
-      for (const line of buffer.split(/\r?\n/)) {
-        if (!line.startsWith("data:")) continue;
-        parsePayload(line.slice(5).trim());
-      }
-    }
-  }
-
   async getAgentEvents(opts?: {
     afterEventId?: string;
     limit?: number;
-    runId?: string;
-    fromSeq?: number;
   }): Promise<AgentEventsResponse> {
     const params = new URLSearchParams();
     if (opts?.afterEventId) params.set("after", opts.afterEventId);
-    if (typeof opts?.limit === "number")
-      params.set("limit", String(opts.limit));
-    if (opts?.runId) params.set("runId", opts.runId);
-    if (typeof opts?.fromSeq === "number")
-      params.set("fromSeq", String(Math.trunc(opts.fromSeq)));
+    if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
     const qs = params.toString();
     return this.fetch(`/api/agent/events${qs ? `?${qs}` : ""}`);
   }
@@ -2707,11 +2189,7 @@ export class MiladyClient {
 
   // Skill Catalog
 
-  async getSkillCatalog(opts?: {
-    page?: number;
-    perPage?: number;
-    sort?: string;
-  }): Promise<{
+  async getSkillCatalog(opts?: { page?: number; perPage?: number; sort?: string }): Promise<{
     total: number;
     page: number;
     perPage: number;
@@ -2726,17 +2204,12 @@ export class MiladyClient {
     return this.fetch(`/api/skills/catalog${qs ? `?${qs}` : ""}`);
   }
 
-  async searchSkillCatalog(
-    query: string,
-    limit = 30,
-  ): Promise<{
+  async searchSkillCatalog(query: string, limit = 30): Promise<{
     query: string;
     count: number;
     results: CatalogSearchResult[];
   }> {
-    return this.fetch(
-      `/api/skills/catalog/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-    );
+    return this.fetch(`/api/skills/catalog/search?q=${encodeURIComponent(query)}&limit=${limit}`);
   }
 
   async getSkillCatalogDetail(slug: string): Promise<{ skill: CatalogSkill }> {
@@ -2747,10 +2220,7 @@ export class MiladyClient {
     return this.fetch("/api/skills/catalog/refresh", { method: "POST" });
   }
 
-  async installCatalogSkill(
-    slug: string,
-    version?: string,
-  ): Promise<{
+  async installCatalogSkill(slug: string, version?: string): Promise<{
     ok: boolean;
     slug: string;
     message: string;
@@ -2775,45 +2245,26 @@ export class MiladyClient {
 
   // Registry / Plugin Store
 
-  async getRegistryPlugins(): Promise<{
-    count: number;
-    plugins: RegistryPlugin[];
-  }> {
+  async getRegistryPlugins(): Promise<{ count: number; plugins: RegistryPlugin[] }> {
     return this.fetch("/api/registry/plugins");
   }
 
-  async getRegistryPluginInfo(
-    name: string,
-  ): Promise<{ plugin: RegistryPlugin }> {
+  async getRegistryPluginInfo(name: string): Promise<{ plugin: RegistryPlugin }> {
     return this.fetch(`/api/registry/plugins/${encodeURIComponent(name)}`);
   }
 
-  async getInstalledPlugins(): Promise<{
-    count: number;
-    plugins: InstalledPlugin[];
-  }> {
+  async getInstalledPlugins(): Promise<{ count: number; plugins: InstalledPlugin[] }> {
     return this.fetch("/api/plugins/installed");
   }
 
-  async installRegistryPlugin(
-    name: string,
-    autoRestart = true,
-  ): Promise<PluginInstallResult> {
+  async installRegistryPlugin(name: string, autoRestart = true): Promise<PluginInstallResult> {
     return this.fetch("/api/plugins/install", {
       method: "POST",
       body: JSON.stringify({ name, autoRestart }),
     });
   }
 
-  async uninstallRegistryPlugin(
-    name: string,
-    autoRestart = true,
-  ): Promise<{
-    ok: boolean;
-    pluginName: string;
-    message: string;
-    error?: string;
-  }> {
+  async uninstallRegistryPlugin(name: string, autoRestart = true): Promise<{ ok: boolean; pluginName: string; message: string; error?: string }> {
     return this.fetch("/api/plugins/uninstall", {
       method: "POST",
       body: JSON.stringify({ name, autoRestart }),
@@ -2832,13 +2283,25 @@ export class MiladyClient {
         `Password must be at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters.`,
       );
     }
-    return this.rawRequest("/api/agent/export", {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+    const token = this.apiToken;
+    const res = await fetch(`${this.baseUrl}/api/agent/export`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ password, includeLogs }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const err = new Error(body.error ?? `HTTP ${res.status}`);
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
+    }
+    return res;
   }
 
   /** Get an estimate of the export size. */
@@ -2871,31 +2334,34 @@ export class MiladyClient {
         `Password must be at least ${AGENT_TRANSFER_MIN_PASSWORD_LENGTH} characters.`,
       );
     }
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
     const passwordBytes = new TextEncoder().encode(password);
-    const envelope = new Uint8Array(
-      4 + passwordBytes.length + fileBuffer.byteLength,
-    );
+    const envelope = new Uint8Array(4 + passwordBytes.length + fileBuffer.byteLength);
     const view = new DataView(envelope.buffer);
     view.setUint32(0, passwordBytes.length, false);
     envelope.set(passwordBytes, 4);
     envelope.set(new Uint8Array(fileBuffer), 4 + passwordBytes.length);
 
-    const res = await this.rawRequest("/api/agent/import", {
+    const token = this.apiToken;
+    const res = await fetch(`${this.baseUrl}/api/agent/import`, {
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: envelope,
     });
 
-    const data = (await res.json()) as {
+    const data = await res.json() as {
       error?: string;
       success?: boolean;
       agentId?: string;
       agentName?: string;
       counts?: Record<string, number>;
     };
-    if (!data.success) {
+    if (!res.ok || !data.success) {
       throw new Error(data.error ?? `Import failed (${res.status})`);
     }
     return data as {
@@ -2908,10 +2374,7 @@ export class MiladyClient {
 
   // Character
 
-  async getCharacter(): Promise<{
-    character: CharacterData;
-    agentName: string;
-  }> {
+  async getCharacter(): Promise<{ character: CharacterData; agentName: string }> {
     return this.fetch("/api/character");
   }
 
@@ -2921,13 +2384,7 @@ export class MiladyClient {
 
   async generateCharacterField(
     field: string,
-    context: {
-      name?: string;
-      system?: string;
-      bio?: string;
-      style?: { all?: string[]; chat?: string[]; post?: string[] };
-      postExamples?: string[];
-    },
+    context: { name?: string; system?: string; bio?: string; style?: { all?: string[]; chat?: string[]; post?: string[] }; postExamples?: string[] },
     mode?: "append" | "replace",
   ): Promise<{ generated: string }> {
     return this.fetch("/api/character/generate", {
@@ -2936,9 +2393,7 @@ export class MiladyClient {
     });
   }
 
-  async updateCharacter(
-    character: CharacterData,
-  ): Promise<{ ok: boolean; character: CharacterData; agentName: string }> {
+  async updateCharacter(character: CharacterData): Promise<{ ok: boolean; character: CharacterData; agentName: string }> {
     return this.fetch("/api/character", {
       method: "PUT",
       body: JSON.stringify(character),
@@ -2947,24 +2402,52 @@ export class MiladyClient {
 
   // Wallet
 
-  async getWalletAddresses(): Promise<WalletAddresses> {
-    return this.fetch("/api/wallet/addresses");
+  async getWalletAddresses(): Promise<WalletAddresses> { return this.fetch("/api/wallet/addresses"); }
+  async getWalletBalances(): Promise<WalletBalancesResponse> { return this.fetch("/api/wallet/balances"); }
+  async getWalletNfts(): Promise<WalletNftsResponse> { return this.fetch("/api/wallet/nfts"); }
+  async getBscTradePreflight(tokenAddress?: string): Promise<BscTradePreflightResponse> {
+    return this.fetch("/api/wallet/trade/preflight", {
+      method: "POST",
+      body: JSON.stringify(tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {}),
+    });
   }
-  async getWalletBalances(): Promise<WalletBalancesResponse> {
-    return this.fetch("/api/wallet/balances");
+  async getBscTradeQuote(request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> {
+    return this.fetch("/api/wallet/trade/quote", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
   }
-  async getWalletNfts(): Promise<WalletNftsResponse> {
-    return this.fetch("/api/wallet/nfts");
+  async executeBscTrade(request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> {
+    return this.fetch("/api/wallet/trade/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
   }
-  async getWalletConfig(): Promise<WalletConfigStatus> {
-    return this.fetch("/api/wallet/config");
+  async executeBscTransfer(request: BscTransferExecuteRequest): Promise<BscTransferExecuteResponse> {
+    return this.fetch("/api/wallet/transfer/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
   }
-  async updateWalletConfig(
-    config: Record<string, string>,
-  ): Promise<{ ok: boolean }> {
-    return this.fetch("/api/wallet/config", {
-      method: "PUT",
-      body: JSON.stringify(config),
+  async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
+    return this.fetch(`/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`);
+  }
+  async getWalletTradingProfile(
+    window: WalletTradingProfileWindow = "30d",
+    source: WalletTradingProfileSourceFilter = "all",
+  ): Promise<WalletTradingProfileResponse> {
+    const params = new URLSearchParams({
+      window,
+      source,
+    });
+    return this.fetch(`/api/wallet/trading/profile?${params.toString()}`);
+  }
+  async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
+  async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
+  async generateWallets(chain: "evm" | "solana" | "both" = "both"): Promise<{ ok: boolean; wallets: Array<{ chain: "evm" | "solana"; address: string }> }> {
+    return this.fetch("/api/wallet/generate", {
+      method: "POST",
+      body: JSON.stringify({ chain }),
     });
   }
   async exportWalletKeys(exportToken: string): Promise<WalletExportResult> {
@@ -2973,73 +2456,56 @@ export class MiladyClient {
       body: JSON.stringify({ confirm: true, exportToken }),
     });
   }
+  async applyProductionWalletDefaults(): Promise<ApplyProductionWalletDefaultsResponse> {
+    return this.fetch("/api/wallet/production-defaults", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
+  }
 
   // Software Updates
   async getUpdateStatus(force = false): Promise<UpdateStatus> {
     return this.fetch(`/api/update/status${force ? "?force=true" : ""}`);
   }
-  async setUpdateChannel(
-    channel: "stable" | "beta" | "nightly",
-  ): Promise<{ channel: string }> {
-    return this.fetch("/api/update/channel", {
-      method: "PUT",
-      body: JSON.stringify({ channel }),
-    });
+  async setUpdateChannel(channel: "stable" | "beta" | "nightly"): Promise<{ channel: string }> {
+    return this.fetch("/api/update/channel", { method: "PUT", body: JSON.stringify({ channel }) });
   }
 
   // Cloud
-  async getCloudStatus(): Promise<CloudStatus> {
-    return this.fetch("/api/cloud/status");
+  async getCloudStatus(): Promise<CloudStatus> { return this.fetch("/api/cloud/status"); }
+  async getCloudCredits(): Promise<CloudCredits> { return this.fetch("/api/cloud/credits"); }
+  async cloudLogin(): Promise<CloudLoginResponse> { return this.fetch("/api/cloud/login", { method: "POST" }); }
+  async cloudLoginPoll(sessionId: string): Promise<CloudLoginPollResponse> { return this.fetch(`/api/cloud/login/status?sessionId=${encodeURIComponent(sessionId)}`); }
+  async cloudDisconnect(): Promise<{ ok: boolean }> { return this.fetch("/api/cloud/disconnect", { method: "POST" }); }
+  async getPrivyStatus(): Promise<PrivyStatus> { return this.fetch("/api/privy/status"); }
+  async privyLogin(customUserId?: string): Promise<PrivyLoginResponse> {
+    return this.fetch("/api/privy/login", {
+      method: "POST",
+      body: JSON.stringify(
+        customUserId?.trim()
+          ? { customUserId: customUserId.trim() }
+          : {},
+      ),
+    });
   }
-  async getCloudCredits(): Promise<CloudCredits> {
-    return this.fetch("/api/cloud/credits");
-  }
-  async cloudLogin(): Promise<CloudLoginResponse> {
-    return this.fetch("/api/cloud/login", { method: "POST" });
-  }
-  async cloudLoginPoll(sessionId: string): Promise<CloudLoginPollResponse> {
-    return this.fetch(
-      `/api/cloud/login/status?sessionId=${encodeURIComponent(sessionId)}`,
-    );
-  }
-  async cloudDisconnect(): Promise<{ ok: boolean }> {
-    return this.fetch("/api/cloud/disconnect", { method: "POST" });
+  async privyLogout(): Promise<{ ok: boolean }> {
+    return this.fetch("/api/privy/logout", { method: "POST" });
   }
 
   // Apps & Registry
-  async listApps(): Promise<RegistryAppInfo[]> {
-    return this.fetch("/api/apps");
-  }
-  async searchApps(query: string): Promise<RegistryAppInfo[]> {
-    return this.fetch(`/api/apps/search?q=${encodeURIComponent(query)}`);
-  }
-  async listInstalledApps(): Promise<InstalledAppInfo[]> {
-    return this.fetch("/api/apps/installed");
-  }
+  async listApps(): Promise<RegistryAppInfo[]> { return this.fetch("/api/apps"); }
+  async searchApps(query: string): Promise<RegistryAppInfo[]> { return this.fetch(`/api/apps/search?q=${encodeURIComponent(query)}`); }
+  async listInstalledApps(): Promise<InstalledAppInfo[]> { return this.fetch("/api/apps/installed"); }
   async stopApp(name: string): Promise<AppStopResult> {
-    return this.fetch("/api/apps/stop", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
+    return this.fetch("/api/apps/stop", { method: "POST", body: JSON.stringify({ name }) });
   }
-  async getAppInfo(name: string): Promise<RegistryAppInfo> {
-    return this.fetch(`/api/apps/info/${encodeURIComponent(name)}`);
-  }
+  async getAppInfo(name: string): Promise<RegistryAppInfo> { return this.fetch(`/api/apps/info/${encodeURIComponent(name)}`); }
   /** Launch an app: installs its plugin (if needed), returns viewer config for iframe. */
   async launchApp(name: string): Promise<AppLaunchResult> {
-    return this.fetch("/api/apps/launch", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
+    return this.fetch("/api/apps/launch", { method: "POST", body: JSON.stringify({ name }) });
   }
-  async listRegistryPlugins(): Promise<RegistryPluginItem[]> {
-    return this.fetch("/api/apps/plugins");
-  }
-  async searchRegistryPlugins(query: string): Promise<RegistryPluginItem[]> {
-    return this.fetch(
-      `/api/apps/plugins/search?q=${encodeURIComponent(query)}`,
-    );
-  }
+  async listRegistryPlugins(): Promise<RegistryPluginItem[]> { return this.fetch("/api/apps/plugins"); }
+  async searchRegistryPlugins(query: string): Promise<RegistryPluginItem[]> { return this.fetch(`/api/apps/plugins/search?q=${encodeURIComponent(query)}`); }
   async listHyperscapeEmbeddedAgents(): Promise<HyperscapeEmbeddedAgentsResponse> {
     return this.fetch("/api/apps/hyperscape/embedded-agents");
   }
@@ -3104,16 +2570,8 @@ export class MiladyClient {
 
   // Skills Marketplace
 
-  async searchSkillsMarketplace(
-    query: string,
-    installed: boolean,
-    limit: number,
-  ): Promise<{ results: SkillMarketplaceResult[] }> {
-    const params = new URLSearchParams({
-      q: query,
-      installed: String(installed),
-      limit: String(limit),
-    });
+  async searchSkillsMarketplace(query: string, installed: boolean, limit: number): Promise<{ results: SkillMarketplaceResult[] }> {
+    const params = new URLSearchParams({ q: query, installed: String(installed), limit: String(limit) });
     return this.fetch(`/api/skills/marketplace/search?${params}`);
   }
 
@@ -3121,13 +2579,8 @@ export class MiladyClient {
     return this.fetch("/api/skills/marketplace/config");
   }
 
-  async updateSkillsMarketplaceConfig(
-    apiKey: string,
-  ): Promise<{ keySet: boolean }> {
-    return this.fetch("/api/skills/marketplace/config", {
-      method: "PUT",
-      body: JSON.stringify({ apiKey }),
-    });
+  async updateSkillsMarketplaceConfig(apiKey: string): Promise<{ keySet: boolean }> {
+    return this.fetch("/api/skills/marketplace/config", { method: "PUT", body: JSON.stringify({ apiKey }) });
   }
 
   async installMarketplaceSkill(data: {
@@ -3140,26 +2593,17 @@ export class MiladyClient {
     source: string;
     autoRefresh?: boolean;
   }): Promise<void> {
-    await this.fetch("/api/skills/marketplace/install", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    await this.fetch("/api/skills/marketplace/install", { method: "POST", body: JSON.stringify(data) });
   }
 
-  async uninstallMarketplaceSkill(
-    skillId: string,
-    autoRefresh: boolean,
-  ): Promise<void> {
+  async uninstallMarketplaceSkill(skillId: string, autoRefresh: boolean): Promise<void> {
     await this.fetch("/api/skills/marketplace/uninstall", {
       method: "POST",
       body: JSON.stringify({ id: skillId, autoRefresh }),
     });
   }
 
-  async updateSkill(
-    skillId: string,
-    enabled: boolean,
-  ): Promise<{ skill: SkillInfo }> {
+  async updateSkill(skillId: string, enabled: boolean): Promise<{ skill: SkillInfo }> {
     return this.fetch(`/api/skills/${encodeURIComponent(skillId)}`, {
       method: "PUT",
       body: JSON.stringify({ enabled }),
@@ -3168,44 +2612,27 @@ export class MiladyClient {
 
   // ── Skill CRUD & Security ────────────────────────────────────────────────
 
-  async createSkill(
-    name: string,
-    description: string,
-  ): Promise<{ ok: boolean; skill: SkillInfo; path: string }> {
-    return this.fetch("/api/skills/create", {
-      method: "POST",
-      body: JSON.stringify({ name, description }),
-    });
+  async createSkill(name: string, description: string): Promise<{ ok: boolean; skill: SkillInfo; path: string }> {
+    return this.fetch("/api/skills/create", { method: "POST", body: JSON.stringify({ name, description }) });
   }
 
   async openSkill(id: string): Promise<{ ok: boolean; path: string }> {
-    return this.fetch(`/api/skills/${encodeURIComponent(id)}/open`, {
-      method: "POST",
-    });
+    return this.fetch(`/api/skills/${encodeURIComponent(id)}/open`, { method: "POST" });
   }
 
-  async getSkillSource(
-    id: string,
-  ): Promise<{ ok: boolean; skillId: string; content: string; path: string }> {
+  async getSkillSource(id: string): Promise<{ ok: boolean; skillId: string; content: string; path: string }> {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/source`);
   }
 
-  async saveSkillSource(
-    id: string,
-    content: string,
-  ): Promise<{ ok: boolean; skillId: string; skill: SkillInfo }> {
+  async saveSkillSource(id: string, content: string): Promise<{ ok: boolean; skillId: string; skill: SkillInfo }> {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/source`, {
       method: "PUT",
       body: JSON.stringify({ content }),
     });
   }
 
-  async deleteSkill(
-    id: string,
-  ): Promise<{ ok: boolean; skillId: string; source: string }> {
-    return this.fetch(`/api/skills/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
+  async deleteSkill(id: string): Promise<{ ok: boolean; skillId: string; source: string }> {
+    return this.fetch(`/api/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
   async getSkillScanReport(id: string): Promise<{
@@ -3217,10 +2644,7 @@ export class MiladyClient {
     return this.fetch(`/api/skills/${encodeURIComponent(id)}/scan`);
   }
 
-  async acknowledgeSkill(
-    id: string,
-    enable: boolean,
-  ): Promise<{
+  async acknowledgeSkill(id: string, enable: boolean): Promise<{
     ok: boolean;
     skillId: string;
     acknowledged: boolean;
@@ -3325,17 +2749,11 @@ export class MiladyClient {
     });
   }
 
-  async setWorkbenchTodoCompleted(
-    todoId: string,
-    isCompleted: boolean,
-  ): Promise<void> {
-    await this.fetch(
-      `/api/workbench/todos/${encodeURIComponent(todoId)}/complete`,
-      {
-        method: "POST",
-        body: JSON.stringify({ isCompleted }),
-      },
-    );
+  async setWorkbenchTodoCompleted(todoId: string, isCompleted: boolean): Promise<void> {
+    await this.fetch(`/api/workbench/todos/${encodeURIComponent(todoId)}/complete`, {
+      method: "POST",
+      body: JSON.stringify({ isCompleted }),
+    });
   }
 
   async deleteWorkbenchTodo(todoId: string): Promise<{ ok: boolean }> {
@@ -3367,23 +2785,14 @@ export class MiladyClient {
     return this.fetch(`/api/knowledge/documents${query ? `?${query}` : ""}`);
   }
 
-  async getKnowledgeDocument(
-    documentId: string,
-  ): Promise<{ document: KnowledgeDocumentDetail }> {
-    return this.fetch(
-      `/api/knowledge/documents/${encodeURIComponent(documentId)}`,
-    );
+  async getKnowledgeDocument(documentId: string): Promise<{ document: KnowledgeDocumentDetail }> {
+    return this.fetch(`/api/knowledge/documents/${encodeURIComponent(documentId)}`);
   }
 
-  async deleteKnowledgeDocument(
-    documentId: string,
-  ): Promise<{ ok: boolean; deletedFragments: number }> {
-    return this.fetch(
-      `/api/knowledge/documents/${encodeURIComponent(documentId)}`,
-      {
-        method: "DELETE",
-      },
-    );
+  async deleteKnowledgeDocument(documentId: string): Promise<{ ok: boolean; deletedFragments: number }> {
+    return this.fetch(`/api/knowledge/documents/${encodeURIComponent(documentId)}`, {
+      method: "DELETE",
+    });
   }
 
   async uploadKnowledgeDocument(data: {
@@ -3398,24 +2807,7 @@ export class MiladyClient {
     });
   }
 
-  async uploadKnowledgeDocumentsBulk(data: {
-    documents: Array<{
-      content: string;
-      filename: string;
-      contentType?: string;
-      metadata?: Record<string, unknown>;
-    }>;
-  }): Promise<KnowledgeBulkUploadResult> {
-    return this.fetch("/api/knowledge/documents/bulk", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async uploadKnowledgeFromUrl(
-    url: string,
-    metadata?: Record<string, unknown>,
-  ): Promise<KnowledgeUploadResult> {
+  async uploadKnowledgeFromUrl(url: string, metadata?: Record<string, unknown>): Promise<KnowledgeUploadResult> {
     return this.fetch("/api/knowledge/documents/url", {
       method: "POST",
       body: JSON.stringify({ url, metadata }),
@@ -3427,48 +2819,13 @@ export class MiladyClient {
     options?: { threshold?: number; limit?: number },
   ): Promise<KnowledgeSearchResponse> {
     const params = new URLSearchParams({ q: query });
-    if (options?.threshold !== undefined)
-      params.set("threshold", String(options.threshold));
-    if (options?.limit !== undefined)
-      params.set("limit", String(options.limit));
+    if (options?.threshold !== undefined) params.set("threshold", String(options.threshold));
+    if (options?.limit !== undefined) params.set("limit", String(options.limit));
     return this.fetch(`/api/knowledge/search?${params}`);
   }
 
-  async getKnowledgeFragments(
-    documentId: string,
-  ): Promise<KnowledgeFragmentsResponse> {
-    return this.fetch(
-      `/api/knowledge/fragments/${encodeURIComponent(documentId)}`,
-    );
-  }
-
-  // Memory commands
-
-  async rememberMemory(text: string): Promise<MemoryRememberResponse> {
-    return this.fetch("/api/memory/remember", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-  }
-
-  async searchMemory(
-    query: string,
-    options?: { limit?: number },
-  ): Promise<MemorySearchResponse> {
-    const params = new URLSearchParams({ q: query });
-    if (options?.limit !== undefined)
-      params.set("limit", String(options.limit));
-    return this.fetch(`/api/memory/search?${params}`);
-  }
-
-  async quickContext(
-    query: string,
-    options?: { limit?: number },
-  ): Promise<QuickContextResponse> {
-    const params = new URLSearchParams({ q: query });
-    if (options?.limit !== undefined)
-      params.set("limit", String(options.limit));
-    return this.fetch(`/api/context/quick?${params}`);
+  async getKnowledgeFragments(documentId: string): Promise<KnowledgeFragmentsResponse> {
+    return this.fetch(`/api/knowledge/fragments/${encodeURIComponent(documentId)}`);
   }
 
   // MCP
@@ -3481,42 +2838,27 @@ export class MiladyClient {
     return this.fetch("/api/mcp/status");
   }
 
-  async searchMcpMarketplace(
-    query: string,
-    limit: number,
-  ): Promise<{ results: McpMarketplaceResult[] }> {
+  async searchMcpMarketplace(query: string, limit: number): Promise<{ results: McpMarketplaceResult[] }> {
     const params = new URLSearchParams({ q: query, limit: String(limit) });
     return this.fetch(`/api/mcp/marketplace/search?${params}`);
   }
 
-  async getMcpServerDetails(
-    name: string,
-  ): Promise<{ server: McpRegistryServerDetail }> {
+  async getMcpServerDetails(name: string): Promise<{ server: McpRegistryServerDetail }> {
     return this.fetch(`/api/mcp/marketplace/${encodeURIComponent(name)}`);
   }
 
   async addMcpServer(name: string, config: McpServerConfig): Promise<void> {
-    await this.fetch("/api/mcp/servers", {
-      method: "POST",
-      body: JSON.stringify({ name, config }),
-    });
+    await this.fetch("/api/mcp/servers", { method: "POST", body: JSON.stringify({ name, config }) });
   }
 
   async removeMcpServer(name: string): Promise<void> {
-    await this.fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, {
-      method: "DELETE",
-    });
+    await this.fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
   }
 
   // Share Ingest
 
-  async ingestShare(
-    payload: ShareIngestPayload,
-  ): Promise<{ item: ShareIngestItem }> {
-    return this.fetch("/api/ingest/share", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+  async ingestShare(payload: ShareIngestPayload): Promise<{ item: ShareIngestItem }> {
+    return this.fetch("/api/ingest/share", { method: "POST", body: JSON.stringify(payload) });
   }
 
   async consumeShareIngest(): Promise<{ items: ShareIngestItem[] }> {
@@ -3543,25 +2885,16 @@ export class MiladyClient {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     let url = `${protocol}//${host}/ws`;
-    const params = new URLSearchParams({ clientId: this.clientId });
     const token = this.apiToken;
-    if (token) params.set("token", token);
-    url += `?${params.toString()}`;
+    if (token) {
+      url += `?token=${encodeURIComponent(token)}`;
+    }
 
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
       this.backoffMs = 500;
-      // Reset connection state on successful connection
-      this.reconnectAttempt = 0;
-      this.disconnectedAt = null;
-      this.connectionState = "connected";
-      this.emitConnectionStateChange();
-
-      if (
-        this.wsSendQueue.length > 0 &&
-        this.ws?.readyState === WebSocket.OPEN
-      ) {
+      if (this.wsSendQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
         const pending = this.wsSendQueue;
         this.wsSendQueue = [];
         for (let i = 0; i < pending.length; i++) {
@@ -3581,10 +2914,7 @@ export class MiladyClient {
 
     this.ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string) as Record<
-          string,
-          unknown
-        >;
+        const data = JSON.parse(event.data as string) as Record<string, unknown>;
         const type = data.type as string;
         const handlers = this.wsHandlers.get(type);
         if (handlers) {
@@ -3606,18 +2936,6 @@ export class MiladyClient {
 
     this.ws.onclose = () => {
       this.ws = null;
-      // Track disconnection time if not already set
-      if (this.disconnectedAt === null) {
-        this.disconnectedAt = Date.now();
-      }
-      this.reconnectAttempt++;
-      // Update state based on attempt count
-      if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-        this.connectionState = "failed";
-      } else {
-        this.connectionState = "reconnecting";
-      }
-      this.emitConnectionStateChange();
       this.scheduleReconnect();
     };
 
@@ -3628,60 +2946,11 @@ export class MiladyClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
-    // Stop reconnecting if we've hit max attempts
-    if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-      return;
-    }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connectWs();
     }, this.backoffMs);
     this.backoffMs = Math.min(this.backoffMs * 1.5, 10000);
-  }
-
-  private emitConnectionStateChange(): void {
-    const state = this.getConnectionState();
-    for (const listener of this.connectionStateListeners) {
-      try {
-        listener(state);
-      } catch {
-        // ignore listener errors
-      }
-    }
-  }
-
-  /** Get the current WebSocket connection state. */
-  getConnectionState(): ConnectionStateInfo {
-    return {
-      state: this.connectionState,
-      reconnectAttempt: this.reconnectAttempt,
-      maxReconnectAttempts: this.maxReconnectAttempts,
-      disconnectedAt: this.disconnectedAt,
-    };
-  }
-
-  /** Subscribe to connection state changes. Returns an unsubscribe function. */
-  onConnectionStateChange(
-    listener: (state: ConnectionStateInfo) => void,
-  ): () => void {
-    this.connectionStateListeners.add(listener);
-    return () => {
-      this.connectionStateListeners.delete(listener);
-    };
-  }
-
-  /** Reset connection state and restart reconnection attempts. */
-  resetConnection(): void {
-    this.reconnectAttempt = 0;
-    this.disconnectedAt = null;
-    this.connectionState = "disconnected";
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.backoffMs = 500;
-    this.emitConnectionStateChange();
-    this.connectWs();
   }
 
   /** Send an arbitrary JSON message over the WebSocket connection. */
@@ -3718,41 +2987,62 @@ export class MiladyClient {
     if (!this.wsHandlers.has(type)) {
       this.wsHandlers.set(type, new Set());
     }
-    this.wsHandlers.get(type)?.add(handler);
+    this.wsHandlers.get(type)!.add(handler);
     return () => {
       this.wsHandlers.get(type)?.delete(handler);
     };
   }
 
   private normalizeAssistantText(text: string): string {
-    const trimmed = text.trim();
+    const maybeDecodeEscapedNewlines = (raw: string): string => {
+      if (/[\r\n]/.test(raw)) return raw;
+      if (!raw.includes("\\n") && !raw.includes("\\r\\n")) return raw;
+      // Only decode when the text looks like serialized paragraphs/lists.
+      if (!/\\n\\n|\\r\\n|\\n[-*0-9]/.test(raw)) return raw;
+      try {
+        const decoded = JSON.parse(`"${raw.replace(/"/g, '\\"')}"`);
+        if (typeof decoded === "string") return decoded;
+      } catch {
+        // Fallback to targeted newline decoding.
+      }
+      return raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+    };
+
+    const normalized = maybeDecodeEscapedNewlines(text);
+    const trimmed = normalized.trim();
     if (trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed)) {
       return GENERIC_NO_RESPONSE_TEXT;
     }
-    return text;
+    return normalized;
   }
 
   private async streamChatEndpoint(
     path: string,
     text: string,
     onToken: (token: string) => void,
-    channelType: ConversationChannelType = "DM",
+    mode: ConversationMode = "simple",
     signal?: AbortSignal,
-    images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
-    const res = await this.rawRequest(path, {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+
+    const token = this.apiToken;
+    const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      },
-      body: JSON.stringify({
-        text,
-        channelType,
-        ...(images?.length ? { images } : {}),
-      }),
+      headers: this.buildRequestHeaders(undefined, token, { stream: true }),
+      body: JSON.stringify({ text, mode }),
       signal,
     });
+
+    if (!res.ok) {
+      const body = await res
+        .json()
+        .catch(() => ({ error: res.statusText })) as Record<string, string>;
+      const err = new Error(body.error ?? `HTTP ${res.status}`);
+      (err as Error & { status?: number }).status = res.status;
+      throw err;
+    }
 
     if (!res.body) {
       throw new Error("Streaming not supported by this browser");
@@ -3764,6 +3054,18 @@ export class MiladyClient {
     let fullText = "";
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
+    let doneUsage: ChatTokenUsage | undefined;
+
+    const toFiniteTokenCount = (value: unknown): number | null => {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.max(0, Math.round(value));
+      }
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+      }
+      return null;
+    };
 
     const findSseEventBreak = (
       chunkBuffer: string,
@@ -3789,6 +3091,11 @@ export class MiladyClient {
         fullText?: string;
         agentName?: string;
         message?: string;
+        promptTokens?: number | string;
+        completionTokens?: number | string;
+        totalTokens?: number | string;
+        llmCalls?: number | string;
+        model?: string;
       };
       try {
         parsed = JSON.parse(payload) as {
@@ -3797,6 +3104,11 @@ export class MiladyClient {
           fullText?: string;
           agentName?: string;
           message?: string;
+          promptTokens?: number | string;
+          completionTokens?: number | string;
+          totalTokens?: number | string;
+          llmCalls?: number | string;
+          model?: string;
         };
       } catch {
         return;
@@ -3815,6 +3127,23 @@ export class MiladyClient {
         if (typeof parsed.fullText === "string") doneText = parsed.fullText;
         if (typeof parsed.agentName === "string" && parsed.agentName.trim()) {
           doneAgentName = parsed.agentName;
+        }
+        const promptTokens = toFiniteTokenCount(parsed.promptTokens);
+        const completionTokens = toFiniteTokenCount(parsed.completionTokens);
+        const totalTokensRaw = toFiniteTokenCount(parsed.totalTokens);
+        const llmCalls = toFiniteTokenCount(parsed.llmCalls);
+        if (promptTokens !== null || completionTokens !== null || totalTokensRaw !== null) {
+          const safePrompt = promptTokens ?? 0;
+          const safeCompletion = completionTokens ?? 0;
+          doneUsage = {
+            promptTokens: safePrompt,
+            completionTokens: safeCompletion,
+            totalTokens: totalTokensRaw ?? safePrompt + safeCompletion,
+            ...(llmCalls !== null ? { llmCalls } : {}),
+            ...(typeof parsed.model === "string" && parsed.model.trim().length > 0
+              ? { model: parsed.model.trim() }
+              : {}),
+          };
         }
         return;
       }
@@ -3857,6 +3186,7 @@ export class MiladyClient {
     return {
       text: resolvedText,
       agentName: doneAgentName ?? "Milady",
+      ...(doneUsage ? { usage: doneUsage } : {}),
     };
   }
 
@@ -3866,32 +3196,58 @@ export class MiladyClient {
    */
   async sendChatRest(
     text: string,
-    channelType: ConversationChannelType = "DM",
-  ): Promise<{ text: string; agentName: string }> {
-    const response = await this.fetch<{ text: string; agentName: string }>(
+    mode: ConversationMode = "simple",
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+    const response = await this.fetch<{
+      text: string;
+      agentName: string;
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      llmCalls?: number;
+      model?: string;
+    }>(
       "/api/chat",
       {
         method: "POST",
-        body: JSON.stringify({ text, channelType }),
+        body: JSON.stringify({ text, mode }),
       },
     );
+    const hasUsage =
+      typeof response.promptTokens === "number" ||
+      typeof response.completionTokens === "number" ||
+      typeof response.totalTokens === "number";
+    const usage = hasUsage
+      ? {
+        promptTokens: response.promptTokens ?? 0,
+        completionTokens: response.completionTokens ?? 0,
+        totalTokens:
+          response.totalTokens ??
+          ((response.promptTokens ?? 0) + (response.completionTokens ?? 0)),
+        ...(typeof response.llmCalls === "number" ? { llmCalls: response.llmCalls } : {}),
+        ...(typeof response.model === "string" && response.model.trim().length > 0
+          ? { model: response.model.trim() }
+          : {}),
+      }
+      : undefined;
     return {
-      ...response,
       text: this.normalizeAssistantText(response.text),
+      agentName: response.agentName,
+      ...(usage ? { usage } : {}),
     };
   }
 
   async sendChatStream(
     text: string,
     onToken: (token: string) => void,
-    channelType: ConversationChannelType = "DM",
+    mode: ConversationMode = "simple",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
       onToken,
-      channelType,
+      mode,
       signal,
     );
   }
@@ -3902,42 +3258,62 @@ export class MiladyClient {
     return this.fetch("/api/conversations");
   }
 
-  async createConversation(
-    title?: string,
-  ): Promise<{ conversation: Conversation }> {
+  async createConversation(title?: string): Promise<{ conversation: Conversation }> {
     return this.fetch("/api/conversations", {
       method: "POST",
       body: JSON.stringify({ title }),
     });
   }
 
-  async getConversationMessages(
-    id: string,
-  ): Promise<{ messages: ConversationMessage[] }> {
+  async getConversationMessages(id: string): Promise<{ messages: ConversationMessage[] }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/messages`);
   }
 
   async sendConversationMessage(
     id: string,
     text: string,
-    channelType: ConversationChannelType = "DM",
-    images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string; blocks?: ContentBlock[] }> {
+    mode: ConversationMode = "simple",
+  ): Promise<{
+    text: string;
+    agentName: string;
+    blocks?: ContentBlock[];
+    usage?: ChatTokenUsage;
+  }> {
     const response = await this.fetch<{
       text: string;
       agentName: string;
       blocks?: ContentBlock[];
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      llmCalls?: number;
+      model?: string;
     }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({
-        text,
-        channelType,
-        ...(images?.length ? { images } : {}),
-      }),
+      body: JSON.stringify({ text, mode }),
     });
+    const hasUsage =
+      typeof response.promptTokens === "number" ||
+      typeof response.completionTokens === "number" ||
+      typeof response.totalTokens === "number";
+    const usage = hasUsage
+      ? {
+        promptTokens: response.promptTokens ?? 0,
+        completionTokens: response.completionTokens ?? 0,
+        totalTokens:
+          response.totalTokens ??
+          ((response.promptTokens ?? 0) + (response.completionTokens ?? 0)),
+        ...(typeof response.llmCalls === "number" ? { llmCalls: response.llmCalls } : {}),
+        ...(typeof response.model === "string" && response.model.trim().length > 0
+          ? { model: response.model.trim() }
+          : {}),
+      }
+      : undefined;
     return {
-      ...response,
       text: this.normalizeAssistantText(response.text),
+      agentName: response.agentName,
+      ...(response.blocks ? { blocks: response.blocks } : {}),
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -3945,32 +3321,25 @@ export class MiladyClient {
     id: string,
     text: string,
     onToken: (token: string) => void,
-    channelType: ConversationChannelType = "DM",
+    mode: ConversationMode = "simple",
     signal?: AbortSignal,
-    images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,
       onToken,
-      channelType,
+      mode,
       signal,
-      images,
     );
   }
 
-  async requestGreeting(
-    id: string,
-  ): Promise<{ text: string; agentName: string; generated: boolean }> {
+  async requestGreeting(id: string): Promise<{ text: string; agentName: string; generated: boolean }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}/greeting`, {
       method: "POST",
     });
   }
 
-  async renameConversation(
-    id: string,
-    title: string,
-  ): Promise<{ conversation: Conversation }> {
+  async renameConversation(id: string, title: string): Promise<{ conversation: Conversation }> {
     return this.fetch(`/api/conversations/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ title }),
@@ -4040,13 +3409,7 @@ export class MiladyClient {
 
   async getDatabaseRows(
     table: string,
-    opts?: {
-      offset?: number;
-      limit?: number;
-      sort?: string;
-      order?: "asc" | "desc";
-      search?: string;
-    },
+    opts?: { offset?: number; limit?: number; sort?: string; order?: "asc" | "desc"; search?: string },
   ): Promise<TableRowsResponse> {
     const params = new URLSearchParams();
     if (opts?.offset != null) params.set("offset", String(opts.offset));
@@ -4055,22 +3418,17 @@ export class MiladyClient {
     if (opts?.order) params.set("order", opts.order);
     if (opts?.search) params.set("search", opts.search);
     const qs = params.toString();
-    return this.fetch(
-      `/api/database/tables/${encodeURIComponent(table)}/rows${qs ? `?${qs}` : ""}`,
-    );
+    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows${qs ? `?${qs}` : ""}`);
   }
 
   async insertDatabaseRow(
     table: string,
     data: Record<string, unknown>,
   ): Promise<{ inserted: boolean; row: Record<string, unknown> | null }> {
-    return this.fetch(
-      `/api/database/tables/${encodeURIComponent(table)}/rows`,
-      {
-        method: "POST",
-        body: JSON.stringify({ data }),
-      },
-    );
+    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
+      method: "POST",
+      body: JSON.stringify({ data }),
+    });
   }
 
   async updateDatabaseRow(
@@ -4078,26 +3436,20 @@ export class MiladyClient {
     where: Record<string, unknown>,
     data: Record<string, unknown>,
   ): Promise<{ updated: boolean; row: Record<string, unknown> }> {
-    return this.fetch(
-      `/api/database/tables/${encodeURIComponent(table)}/rows`,
-      {
-        method: "PUT",
-        body: JSON.stringify({ where, data }),
-      },
-    );
+    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
+      method: "PUT",
+      body: JSON.stringify({ where, data }),
+    });
   }
 
   async deleteDatabaseRow(
     table: string,
     where: Record<string, unknown>,
   ): Promise<{ deleted: boolean; row: Record<string, unknown> }> {
-    return this.fetch(
-      `/api/database/tables/${encodeURIComponent(table)}/rows`,
-      {
-        method: "DELETE",
-        body: JSON.stringify({ where }),
-      },
-    );
+    return this.fetch(`/api/database/tables/${encodeURIComponent(table)}/rows`, {
+      method: "DELETE",
+      body: JSON.stringify({ where }),
+    });
   }
 
   async executeDatabaseQuery(
@@ -4112,9 +3464,7 @@ export class MiladyClient {
 
   // ── Trajectories ─────────────────────────────────────────────────────
 
-  async getTrajectories(
-    options?: TrajectoryListOptions,
-  ): Promise<TrajectoryListResult> {
+  async getTrajectories(options?: TrajectoryListOptions): Promise<TrajectoryListResult> {
     const params = new URLSearchParams();
     if (options?.limit) params.set("limit", String(options.limit));
     if (options?.offset) params.set("offset", String(options.offset));
@@ -4127,9 +3477,7 @@ export class MiladyClient {
     return this.fetch(`/api/trajectories${query ? `?${query}` : ""}`);
   }
 
-  async getTrajectoryDetail(
-    trajectoryId: string,
-  ): Promise<TrajectoryDetailResult> {
+  async getTrajectoryDetail(trajectoryId: string): Promise<TrajectoryDetailResult> {
     return this.fetch(`/api/trajectories/${encodeURIComponent(trajectoryId)}`);
   }
 
@@ -4141,9 +3489,7 @@ export class MiladyClient {
     return this.fetch("/api/trajectories/config");
   }
 
-  async updateTrajectoryConfig(
-    config: Partial<TrajectoryConfig>,
-  ): Promise<TrajectoryConfig> {
+  async updateTrajectoryConfig(config: Partial<TrajectoryConfig>): Promise<TrajectoryConfig> {
     return this.fetch("/api/trajectories/config", {
       method: "PUT",
       body: JSON.stringify(config),
@@ -4151,19 +3497,26 @@ export class MiladyClient {
   }
 
   async exportTrajectories(options: TrajectoryExportOptions): Promise<Blob> {
-    const res = await this.rawRequest("/api/trajectories/export", {
+    if (!this.apiAvailable) {
+      throw new Error("API not available (no HTTP origin)");
+    }
+    const token = this.apiToken;
+    const res = await fetch(`${this.baseUrl}/api/trajectories/export`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(options),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, string>;
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
     return res.blob();
   }
 
-  async deleteTrajectories(
-    trajectoryIds: string[],
-  ): Promise<{ deleted: number }> {
+  async deleteTrajectories(trajectoryIds: string[]): Promise<{ deleted: number }> {
     return this.fetch("/api/trajectories", {
       method: "DELETE",
       body: JSON.stringify({ trajectoryIds }),
@@ -4177,6 +3530,56 @@ export class MiladyClient {
     });
   }
 
+  private static defaultPermissionsState(): AllPermissionsState {
+    const now = Date.now();
+    return {
+      accessibility: {
+        id: "accessibility",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      "screen-recording": {
+        id: "screen-recording",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      microphone: {
+        id: "microphone",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      camera: {
+        id: "camera",
+        status: "not-determined",
+        lastChecked: now,
+        canRequest: false,
+      },
+      shell: {
+        id: "shell",
+        status: "granted",
+        lastChecked: now,
+        canRequest: false,
+      },
+    };
+  }
+
+  private static extractPermissionsState(
+    payload: unknown,
+  ): AllPermissionsState | null {
+    if (!payload || typeof payload !== "object") return null;
+    if ("permissions" in payload) {
+      const wrapped = payload as { permissions?: AllPermissionsState };
+      return wrapped.permissions ?? MiladyClient.defaultPermissionsState();
+    }
+    if ("accessibility" in payload && "microphone" in payload) {
+      return payload as AllPermissionsState;
+    }
+    return null;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   //  System Permissions
   // ═══════════════════════════════════════════════════════════════════════
@@ -4185,7 +3588,11 @@ export class MiladyClient {
    * Get all system permission states.
    */
   async getPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions");
+    const result = await this.fetch<unknown>("/api/permissions");
+    return (
+      MiladyClient.extractPermissionsState(result) ??
+      MiladyClient.defaultPermissionsState()
+    );
   }
 
   /**
@@ -4199,23 +3606,36 @@ export class MiladyClient {
    * Request a specific permission (triggers OS prompt if applicable).
    */
   async requestPermission(id: SystemPermissionId): Promise<PermissionState> {
-    return this.fetch(`/api/permissions/${id}/request`, { method: "POST" });
+    const response = await this.fetch<Record<string, unknown>>(
+      `/api/permissions/${id}/request`,
+      { method: "POST" },
+    );
+    if (
+      typeof response.id === "string" &&
+      typeof response.status === "string" &&
+      typeof response.lastChecked === "number" &&
+      typeof response.canRequest === "boolean"
+    ) {
+      return response as unknown as PermissionState;
+    }
+    return this.getPermission(id);
   }
 
   /**
    * Open system settings for a specific permission.
    */
   async openPermissionSettings(id: SystemPermissionId): Promise<void> {
-    await this.fetch(`/api/permissions/${id}/open-settings`, {
-      method: "POST",
-    });
+    await this.fetch(`/api/permissions/${id}/open-settings`, { method: "POST" });
   }
 
   /**
    * Refresh all permission states from the OS.
    */
   async refreshPermissions(): Promise<AllPermissionsState> {
-    return this.fetch("/api/permissions/refresh", { method: "POST" });
+    const result = await this.fetch<unknown>("/api/permissions/refresh", {
+      method: "POST",
+    });
+    return MiladyClient.extractPermissionsState(result) ?? this.getPermissions();
   }
 
   /**
@@ -4232,10 +3652,46 @@ export class MiladyClient {
    * Get shell enabled status.
    */
   async isShellEnabled(): Promise<boolean> {
-    const result = await this.fetch<{ enabled: boolean }>(
-      "/api/permissions/shell",
-    );
+    const result = await this.fetch<{ enabled: boolean }>("/api/permissions/shell");
     return result.enabled;
+  }
+
+  /**
+   * Get agent automation permission mode.
+   */
+  async getAgentAutomationMode(): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode");
+  }
+
+  /**
+   * Set agent automation permission mode.
+   */
+  async setAgentAutomationMode(
+    mode: AgentAutomationMode,
+  ): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  /**
+   * Get wallet trade execution permission mode.
+   */
+  async getTradePermissionMode(): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode");
+  }
+
+  /**
+   * Set wallet trade execution permission mode.
+   */
+  async setTradePermissionMode(
+    mode: TradePermissionMode,
+  ): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   disconnectWs(): void {
@@ -4246,11 +3702,6 @@ export class MiladyClient {
     this.ws?.close();
     this.ws = null;
     this.wsSendQueue = [];
-    // Reset connection state on intentional disconnect
-    this.reconnectAttempt = 0;
-    this.disconnectedAt = null;
-    this.connectionState = "disconnected";
-    this.emitConnectionStateChange();
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4272,9 +3723,7 @@ export class MiladyClient {
     });
   }
 
-  async updateRegistryTokenURI(
-    tokenURI: string,
-  ): Promise<{ ok: boolean; txHash: string }> {
+  async updateRegistryTokenURI(tokenURI: string): Promise<{ ok: boolean; txHash: string }> {
     return this.fetch("/api/registry/update-uri", {
       method: "POST",
       body: JSON.stringify({ tokenURI }),
@@ -4348,9 +3797,7 @@ export class MiladyClient {
   // ── Custom Actions ─────────────────────────────────────────────────────
 
   async listCustomActions(): Promise<CustomActionDef[]> {
-    const data = await this.fetch<{ actions: CustomActionDef[] }>(
-      "/api/custom-actions",
-    );
+    const data = await this.fetch<{ actions: CustomActionDef[] }>("/api/custom-actions");
     return data.actions;
   }
 
@@ -4384,16 +3831,11 @@ export class MiladyClient {
   async testCustomAction(
     id: string,
     params: Record<string, string>,
-  ): Promise<{
-    ok: boolean;
-    output: string;
-    error?: string;
-    durationMs: number;
-  }> {
-    return this.fetch(`/api/custom-actions/${encodeURIComponent(id)}/test`, {
-      method: "POST",
-      body: JSON.stringify({ params }),
-    });
+  ): Promise<{ ok: boolean; output: string; error?: string; durationMs: number }> {
+    return this.fetch(
+      `/api/custom-actions/${encodeURIComponent(id)}/test`,
+      { method: "POST", body: JSON.stringify({ params }) },
+    );
   }
 
   async generateCustomAction(
@@ -4405,288 +3847,8 @@ export class MiladyClient {
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  //  WhatsApp Pairing
-  // ═══════════════════════════════════════════════════════════════════════
-
-  async getWhatsAppStatus(accountId = "default"): Promise<{
-    accountId: string;
-    status: string;
-    authExists: boolean;
-    serviceConnected: boolean;
-    servicePhone: string | null;
-  }> {
-    return this.fetch(
-      `/api/whatsapp/status?accountId=${encodeURIComponent(accountId)}`,
-    );
-  }
-
-  async startWhatsAppPairing(accountId = "default"): Promise<{
-    ok: boolean;
-    accountId: string;
-    status: string;
-    error?: string;
-  }> {
-    return this.fetch("/api/whatsapp/pair", {
-      method: "POST",
-      body: JSON.stringify({ accountId }),
-    });
-  }
-
-  async stopWhatsAppPairing(accountId = "default"): Promise<{
-    ok: boolean;
-    accountId: string;
-    status: string;
-  }> {
-    return this.fetch("/api/whatsapp/pair/stop", {
-      method: "POST",
-      body: JSON.stringify({ accountId }),
-    });
-  }
-
-  async disconnectWhatsApp(accountId = "default"): Promise<{
-    ok: boolean;
-    accountId: string;
-  }> {
-    return this.fetch("/api/whatsapp/disconnect", {
-      method: "POST",
-      body: JSON.stringify({ accountId }),
-    });
-  }
-
-  // --- Bug Report ---
-
-  async checkBugReportInfo(): Promise<{
-    nodeVersion?: string;
-    platform?: string;
-  }> {
-    return this.fetch("/api/bug-report/info");
-  }
-
-  async submitBugReport(report: {
-    description: string;
-    stepsToReproduce: string;
-    expectedBehavior?: string;
-    actualBehavior?: string;
-    environment?: string;
-    nodeVersion?: string;
-    modelProvider?: string;
-    logs?: string;
-  }): Promise<{ url?: string; fallback?: string }> {
-    return this.fetch("/api/bug-report", {
-      method: "POST",
-      body: JSON.stringify(report),
-    });
-  }
-
-  // ── Coding Agents ───────────────────────────────────────────────────
-
-  async getCodingAgentStatus(): Promise<CodingAgentStatus | null> {
-    try {
-      return await this.fetch<CodingAgentStatus>(
-        "/api/coding-agents/coordinator/status",
-      );
-    } catch {
-      return null;
-    }
-  }
-
-  async stopCodingAgent(sessionId: string): Promise<boolean> {
-    try {
-      await this.fetch(
-        `/api/coding-agents/${encodeURIComponent(sessionId)}/stop`,
-        { method: "POST" },
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  // ── PTY Terminal (xterm.js bridge) ─────────────────────────────────────
-
-  /** Subscribe to live PTY output for a session over WebSocket. */
-  subscribePtyOutput(sessionId: string): void {
-    this.sendWsMessage({ type: "pty-subscribe", sessionId });
-  }
-
-  /** Unsubscribe from live PTY output for a session. */
-  unsubscribePtyOutput(sessionId: string): void {
-    this.sendWsMessage({ type: "pty-unsubscribe", sessionId });
-  }
-
-  /** Send raw keyboard input to a PTY session. */
-  sendPtyInput(sessionId: string, data: string): void {
-    this.sendWsMessage({ type: "pty-input", sessionId, data });
-  }
-
-  /** Resize a PTY session's terminal dimensions. */
-  resizePty(sessionId: string, cols: number, rows: number): void {
-    this.sendWsMessage({ type: "pty-resize", sessionId, cols, rows });
-  }
-
-  /** Fetch buffered terminal output (raw ANSI) for xterm.js hydration. */
-  async getPtyBufferedOutput(sessionId: string): Promise<string> {
-    try {
-      const res = await this.fetch<{ output: string }>(
-        `/api/coding-agents/${encodeURIComponent(sessionId)}/buffered-output`,
-      );
-      return res.output ?? "";
-    } catch {
-      return "";
-    }
-  }
-
-  // ── Stream controls ─────────────────────────────────────────────────────
-
-  async streamGoLive(): Promise<{
-    ok: boolean;
-    live: boolean;
-    rtmpUrl?: string;
-    inputMode?: string;
-    audioSource?: string;
-    message?: string;
-    destination?: string;
-  }> {
-    return this.fetch("/api/stream/live", { method: "POST" });
-  }
-
-  async streamGoOffline(): Promise<{ ok: boolean; live: boolean }> {
-    return this.fetch("/api/stream/offline", { method: "POST" });
-  }
-
-  async streamStatus(): Promise<{
-    ok: boolean;
-    running: boolean;
-    ffmpegAlive: boolean;
-    uptime: number;
-    frameCount: number;
-    volume: number;
-    muted: boolean;
-    audioSource: string;
-    inputMode: string | null;
-    destination?: { id: string; name: string } | null;
-  }> {
-    return this.fetch("/api/stream/status");
-  }
-
-  async getStreamingDestinations(): Promise<{
-    ok: boolean;
-    destinations: Array<{ id: string; name: string }>;
-  }> {
-    return this.fetch("/api/streaming/destinations");
-  }
-
-  async setActiveDestination(destinationId: string): Promise<{
-    ok: boolean;
-    destination?: { id: string; name: string };
-  }> {
-    return this.fetch("/api/streaming/destination", {
-      method: "POST",
-      body: JSON.stringify({ destinationId }),
-    });
-  }
-
-  async setStreamVolume(
-    volume: number,
-  ): Promise<{ ok: boolean; volume: number; muted: boolean }> {
-    return this.fetch("/api/stream/volume", {
-      method: "POST",
-      body: JSON.stringify({ volume }),
-    });
-  }
-
-  async muteStream(): Promise<{ ok: boolean; muted: boolean; volume: number }> {
-    return this.fetch("/api/stream/mute", { method: "POST" });
-  }
-
-  async unmuteStream(): Promise<{
-    ok: boolean;
-    muted: boolean;
-    volume: number;
-  }> {
-    return this.fetch("/api/stream/unmute", { method: "POST" });
-  }
-
-  // ── Stream voice (TTS) ───────────────────────────────────────────────
-
-  async getStreamVoice(): Promise<{
-    ok: boolean;
-    enabled: boolean;
-    autoSpeak: boolean;
-    provider: string | null;
-    configuredProvider: string | null;
-    hasApiKey: boolean;
-    isSpeaking: boolean;
-    isAttached: boolean;
-  }> {
-    return this.fetch("/api/stream/voice");
-  }
-
-  async saveStreamVoice(settings: {
-    enabled?: boolean;
-    autoSpeak?: boolean;
-    provider?: string;
-  }): Promise<{
-    ok: boolean;
-    voice: { enabled: boolean; autoSpeak: boolean };
-  }> {
-    return this.fetch("/api/stream/voice", {
-      method: "POST",
-      body: JSON.stringify(settings),
-    });
-  }
-
-  async streamVoiceSpeak(
-    text: string,
-  ): Promise<{ ok: boolean; speaking: boolean }> {
-    return this.fetch("/api/stream/voice/speak", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-  }
-
-  // ── Overlay layout ────────────────────────────────────────────────────
-
-  async getOverlayLayout(
-    destinationId?: string | null,
-  ): Promise<{ ok: boolean; layout: unknown; destinationId?: string }> {
-    const qs = destinationId
-      ? `?destination=${encodeURIComponent(destinationId)}`
-      : "";
-    return this.fetch(`/api/stream/overlay-layout${qs}`);
-  }
-
-  async saveOverlayLayout(
-    layout: unknown,
-    destinationId?: string | null,
-  ): Promise<{ ok: boolean; layout: unknown; destinationId?: string }> {
-    const qs = destinationId
-      ? `?destination=${encodeURIComponent(destinationId)}`
-      : "";
-    return this.fetch(`/api/stream/overlay-layout${qs}`, {
-      method: "POST",
-      body: JSON.stringify({ layout }),
-    });
-  }
-
-  // ── Stream visual settings (theme, avatar for headless parity) ────────
-
-  async getStreamSettings(): Promise<{
-    ok: boolean;
-    settings: { theme?: string; avatarIndex?: number };
-  }> {
-    return this.fetch("/api/stream/settings");
-  }
-
-  async saveStreamSettings(settings: {
-    theme?: string;
-    avatarIndex?: number;
-  }): Promise<{ ok: boolean; settings: unknown }> {
-    return this.fetch("/api/stream/settings", {
-      method: "POST",
-      body: JSON.stringify({ settings }),
-    });
+  async getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
+    return this.fetch<SubscriptionStatusResponse>("/api/subscription/status");
   }
 }
 

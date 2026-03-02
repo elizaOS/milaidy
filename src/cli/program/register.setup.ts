@@ -1,7 +1,7 @@
 import type { Command } from "commander";
-import { formatDocsLink } from "../../terminal/links";
-import { theme } from "../../terminal/theme";
-import { runCommandWithRuntime } from "../cli-utils";
+import { formatDocsLink } from "../../terminal/links.js";
+import { theme } from "../../terminal/theme.js";
+import { runCommandWithRuntime } from "../cli-utils.js";
 
 const defaultRuntime = { error: console.error, exit: process.exit };
 
@@ -17,9 +17,9 @@ export function registerSetupCommand(program: Command) {
     .option("--workspace <dir>", "Agent workspace directory")
     .action(async (opts: { workspace?: string }) => {
       await runCommandWithRuntime(defaultRuntime, async () => {
-        const { loadMiladyConfig } = await import("../../config/config");
+        const { loadMiladyConfig } = await import("../../config/config.js");
         const { ensureAgentWorkspace, resolveDefaultAgentWorkspaceDir } =
-          await import("../../providers/workspace");
+          await import("../../providers/workspace.js");
 
         let config: Record<string, unknown> = {};
         try {

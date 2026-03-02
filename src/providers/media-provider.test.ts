@@ -73,7 +73,7 @@ import type {
   MediaConfig,
   VideoConfig,
   VisionConfig,
-} from "../config/types.milady";
+} from "../config/types.milady.js";
 import {
   type AudioGenerationOptions,
   createAudioProvider,
@@ -85,7 +85,7 @@ import {
   type MediaProviderFactoryOptions,
   type VideoGenerationOptions,
   type VisionAnalysisOptions,
-} from "./media-provider";
+} from "./media-provider.js";
 
 // ===========================================================================
 // VISION PROVIDER TESTS
