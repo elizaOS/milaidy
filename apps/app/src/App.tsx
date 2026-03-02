@@ -118,7 +118,10 @@ export function App() {
   } = useApp();
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
-  const effectiveTab: Tab = shellMode === "native" && tab === "companion" ? "chat" : tab;
+  const effectiveTab: Tab =
+    shellMode === "native" && tab === "companion" ? "chat"
+    : shellMode === "companion" && tab === "chat" ? "companion"
+    : tab;
   const contextMenu = useContextMenu();
 
   // When the stream is popped out, navigate away; when closed, navigate back.

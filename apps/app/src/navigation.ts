@@ -21,10 +21,10 @@ export const APPS_ENABLED = import.meta.env.DEV;
 
 /** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
 export const STREAM_ENABLED = import.meta.env.DEV;
-/** Companion tab is feature-flagged and disabled by default. */
+/** Companion tab — enabled by default, can be disabled with VITE_ENABLE_COMPANION_MODE=false. */
 export const COMPANION_ENABLED =
-  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "").toLowerCase() ===
-  "true";
+  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "true").toLowerCase() !==
+  "false";
 
 export type Tab =
   | "chat"
