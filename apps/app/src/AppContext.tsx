@@ -877,6 +877,7 @@ export interface AppState {
   onboardingBlooioPhoneNumber: string;
   onboardingGithubToken: string;
   onboardingSubscriptionTab: "token" | "oauth";
+  onboardingElizaCloudTab: "login" | "apikey";
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
@@ -1468,6 +1469,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<
     "token" | "oauth"
   >("token");
+  const [onboardingElizaCloudTab, setOnboardingElizaCloudTab] = useState<
+    "login" | "apikey"
+  >("login");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<
     Set<string>
   >(new Set(["evm", "solana"]));
@@ -4488,6 +4492,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber,
         onboardingGithubToken: setOnboardingGithubToken,
         onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
         onboardingRpcKeys: setOnboardingRpcKeys,
         onboardingAvatar: setOnboardingAvatar,
         onboardingRestarting: setOnboardingRestarting,
@@ -5534,6 +5539,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingBlooioPhoneNumber,
     onboardingGithubToken,
     onboardingSubscriptionTab,
+    onboardingElizaCloudTab,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
