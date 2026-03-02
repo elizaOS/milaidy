@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
@@ -177,6 +178,9 @@ function SettingsSidebar({
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
+
   const filteredSections = SETTINGS_SECTIONS.filter(
     (section) =>
       section.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -191,9 +195,9 @@ function SettingsSidebar({
             <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-txt-strong">Settings</h2>
+            <h2 className="font-bold text-lg text-txt-strong">{t("nav.settings")}</h2>
             <p className="text-xs text-muted hidden lg:block">
-              Customize your experience
+              {t("settings.customizeExperience")}
             </p>
           </div>
         </div>
@@ -203,7 +207,7 @@ function SettingsSidebar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Search settings..."
+            placeholder={t("settings.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-10 pr-3 py-2.5 text-sm border border-border bg-bg rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-muted transition-all"
@@ -256,7 +260,8 @@ function SettingsSidebar({
 /* ── Updates Section ─────────────────────────────────────────────────── */
 
 function UpdatesSection() {
-  const { updateStatus, updateLoading, loadUpdateStatus } = useApp();
+  const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
 
   useEffect(() => {
     void loadUpdateStatus();
@@ -266,9 +271,9 @@ function UpdatesSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between p-4 bg-bg-accent rounded-lg">
         <div>
-          <div className="font-medium text-sm">Current Version</div>
+          <div className="font-medium text-sm">{t("settings.versionPrefix")}</div>
           <div className="text-2xl font-bold text-txt-strong mt-1">
-            {updateStatus?.currentVersion || "Loading..."}
+            {updateStatus?.currentVersion || `${t("common.loading")}...`}
           </div>
         </div>
         <button
@@ -278,16 +283,22 @@ function UpdatesSection() {
           className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Check for Updates
+          {updateLoading ? t("settings.checking") : t("settings.checkNow")}
         </button>
       </div>
 
       {updateStatus?.updateAvailable && (
         <div className="p-4 bg-ok/10 border border-ok/30 rounded-lg">
-          <div className="font-medium text-ok mb-1">Update Available!</div>
+          <div className="font-medium text-ok mb-1">{t("settings.updateAvailable")}</div>
           <p className="text-sm text-muted">
-            Version {updateStatus.latestVersion} is ready to install.
+            {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
           </p>
+        </div>
+      )}
+
+      {updateStatus?.lastCheckAt && (
+        <div className="text-[11px] text-muted">
+          {t("settings.lastChecked")} {new Date(updateStatus.lastCheckAt).toLocaleString()}
         </div>
       )}
     </div>
@@ -297,7 +308,8 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
-  const { handleReset } = useApp();
+  const { handleReset, uiLanguage } = useApp();
+  const t = createTranslator(uiLanguage);
 
   return (
     <div className="space-y-6">
@@ -311,8 +323,8 @@ function AdvancedSection() {
             <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">Export Agent</div>
-            <div className="text-xs text-muted">Backup all data</div>
+            <div className="font-medium text-sm">{t("settings.exportAgent")}</div>
+            <div className="text-xs text-muted">{t("settings.exportAgentShort")}</div>
           </div>
         </button>
 
@@ -324,8 +336,8 @@ function AdvancedSection() {
             <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">Import Agent</div>
-            <div className="text-xs text-muted">Restore from backup</div>
+            <div className="font-medium text-sm">{t("settings.importAgent")}</div>
+            <div className="text-xs text-muted">{t("settings.importAgentShort")}</div>
           </div>
         </button>
       </div>
@@ -334,22 +346,25 @@ function AdvancedSection() {
       <div className="border border-danger/30 rounded-lg overflow-hidden">
         <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-danger" />
-          <span className="font-medium text-sm text-danger">Danger Zone</span>
+          <span className="font-medium text-sm text-danger">{t("settings.dangerZone")}</span>
         </div>
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium text-sm">Reset Agent</div>
+              <div className="font-medium text-sm">{t("settings.resetAgent")}</div>
               <div className="text-xs text-muted">
-                Wipe all data and return to onboarding
+                {t("settings.resetAgentHint")}
               </div>
             </div>
             <button
               type="button"
-              onClick={handleReset}
+              onClick={() => {
+                const confirmed = window.confirm(t("settings.resetConfirmMessage"));
+                if (confirmed) void handleReset();
+              }}
               className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
             >
-              Reset
+              {t("settings.resetEverything")}
             </button>
           </div>
         </div>
@@ -360,7 +375,7 @@ function AdvancedSection() {
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
+export function SettingsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -383,17 +398,21 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     pluginSaveSuccess,
     // Theme
     currentTheme,
+    uiLanguage,
     // Actions
     loadPlugins,
     handlePluginToggle,
     setTheme,
+    setUiLanguage,
     setTab,
     loadUpdateStatus: _loadUpdateStatus,
     handlePluginConfigSave,
     handleCloudLogin,
     handleCloudDisconnect,
     setState,
+    setActionNotice,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   useEffect(() => {
     void loadPlugins();
@@ -471,25 +490,66 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* APPEARANCE SECTION */}
           <SectionCard
             id="appearance"
-            title="Appearance"
-            description="Choose a theme that matches your style. Themes affect colors, fonts, and overall appearance."
+            title={t("settings.appearance")}
+            description={t("settings.languageHint")}
           >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {THEMES.map((t) => (
+            {/* Language selector */}
+            <div className="mb-5">
+              <div className="text-xs font-semibold text-txt-strong mb-2">
+                {t("settings.language")}
+              </div>
+              <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
                 <button
-                  key={t.id}
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                    uiLanguage === "en"
+                      ? "bg-accent text-accent-fg shadow-sm"
+                      : "text-txt hover:bg-bg-hover"
+                  }`}
+                  onClick={() => {
+                    setUiLanguage("en");
+                    setActionNotice(t("settings.languageSaved"), "success", 2200);
+                  }}
+                >
+                  {t("settings.languageEnglish")}
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                    uiLanguage === "zh-CN"
+                      ? "bg-accent text-accent-fg shadow-sm"
+                      : "text-txt hover:bg-bg-hover"
+                  }`}
+                  onClick={() => {
+                    setUiLanguage("zh-CN");
+                    setActionNotice(t("settings.languageSaved"), "success", 2200);
+                  }}
+                >
+                  {t("settings.languageChineseSimplified")}
+                </button>
+              </div>
+            </div>
+
+            {/* Theme selector */}
+            <div className="text-xs font-semibold text-txt-strong mb-2">
+              {t("settings.themeStyle")}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {THEMES.map((th) => (
+                <button
+                  key={th.id}
                   type="button"
                   className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                    currentTheme === t.id
+                    currentTheme === th.id
                       ? "border-accent bg-accent-subtle shadow-md"
                       : "border-border bg-bg hover:bg-bg-hover"
                   }`}
-                  onClick={() => setTheme(t.id)}
+                  onClick={() => setTheme(th.id)}
                 >
                   <div className="text-sm font-semibold text-txt-strong mb-1">
-                    {t.label}
+                    {th.label}
                   </div>
-                  <div className="text-[11px] text-muted">{t.hint}</div>
+                  <div className="text-[11px] text-muted">{th.hint}</div>
                 </button>
               ))}
             </div>
@@ -498,8 +558,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* AI MODEL SECTION */}
           <SectionCard
             id="ai-model"
-            title="AI Model"
-            description="Configure your AI provider and model settings."
+            title={t("settings.aiModel")}
+            description={t("settings.aiModelDescription")}
           >
             <ProviderSwitcher
               cloudEnabled={cloudEnabled}
@@ -528,8 +588,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* MEDIA SECTION */}
           <SectionCard
             id="media"
-            title="Media Generation"
-            description="Configure providers for image, video, and vision capabilities."
+            title={t("settings.mediaGeneration")}
+            description={t("settings.mediaDescription")}
           >
             <MediaSettingsSection />
           </SectionCard>
@@ -537,8 +597,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* VOICE SECTION */}
           <SectionCard
             id="voice"
-            title="Voice Configuration"
-            description="Text-to-speech and speech-to-text settings."
+            title={t("settings.speechInterface")}
+            description={t("settings.speechDescription")}
           >
             <VoiceConfigView />
           </SectionCard>
@@ -546,8 +606,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* PERMISSIONS SECTION */}
           <SectionCard
             id="permissions"
-            title="Permissions & Capabilities"
-            description="Control what your agent can do and access."
+            title={t("settings.permissionsCapabilities")}
+            description={t("settings.permissionsDescription")}
           >
             <PermissionsSection />
           </SectionCard>
@@ -555,8 +615,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* UPDATES SECTION */}
           <SectionCard
             id="updates"
-            title="Software Updates"
-            description="Keep your agent up to date with the latest features and improvements."
+            title={t("settings.softwareUpdates")}
+            description={t("settings.updatesDescription")}
           >
             <UpdatesSection />
           </SectionCard>
@@ -564,8 +624,8 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           {/* ADVANCED SECTION */}
           <SectionCard
             id="advanced"
-            title="Advanced Settings"
-            description="Power user tools and system configuration."
+            title={t("settings.advancedSettings")}
+            description={t("settings.advancedDescription")}
           >
             <AdvancedSection />
           </SectionCard>

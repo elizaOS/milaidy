@@ -360,9 +360,11 @@ function saveChatMode(value: ConversationMode): void {
 export type OnboardingStep =
   | "welcome"
   | "name"
+  | "ownerName"
   | "avatar"
   | "style"
   | "theme"
+  | "setupMode"
   | "mint"
   | "runMode"
   | "dockerSetup"
@@ -1006,6 +1008,8 @@ export interface AppState {
   onboardingStep: OnboardingStep;
   onboardingOptions: OnboardingOptions | null;
   onboardingName: string;
+  onboardingOwnerName: string;
+  onboardingSetupMode: "" | "quick" | "advanced";
   onboardingStyle: string;
   onboardingTheme: ThemeName;
   onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
@@ -1603,6 +1607,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("");
+  const [onboardingOwnerName, setOnboardingOwnerName] = useState("anon");
+  const [onboardingSetupMode, setOnboardingSetupMode] = useState<"" | "quick" | "advanced">("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
   const [onboardingRunMode, setOnboardingRunMode] = useState<
@@ -4255,6 +4261,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setOnboardingStep("name");
           break;
         case "name":
+          setOnboardingStep("ownerName");
+          break;
+        case "ownerName":
           setOnboardingStep("avatar");
           break;
         case "avatar":
@@ -4273,12 +4282,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ) {
             setOnboardingStep("mint");
           } else {
-            setOnboardingStep("runMode");
+            setOnboardingStep("setupMode");
           }
           break;
         }
         case "mint":
-          setOnboardingStep("runMode");
+          setOnboardingStep("setupMode");
+          break;
+        case "setupMode":
+          if (onboardingSetupMode === "quick") {
+            // Quick path: skip directly to LLM provider
+            setOnboardingStep("llmProvider");
+          } else {
+            // Advanced path: go through runMode, etc.
+            setOnboardingStep("runMode");
+          }
           break;
         case "runMode":
           if (onboardingRunMode === "cloud") {
@@ -4310,7 +4328,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setOnboardingStep("connectors");
           break;
         case "llmProvider":
-          setOnboardingStep("inventorySetup");
+          if (onboardingSetupMode === "quick") {
+            setOnboardingStep("permissions");
+          } else {
+            setOnboardingStep("inventorySetup");
+          }
           break;
         case "inventorySetup":
           setOnboardingStep("connectors");
@@ -4356,6 +4378,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingOptions,
       onboardingRunMode,
       onboardingTheme,
+      onboardingSetupMode,
       setTheme,
       cloudConnected,
       setActionNotice,
@@ -4371,8 +4394,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "name":
         setOnboardingStep("welcome");
         break;
-      case "avatar":
+      case "ownerName":
         setOnboardingStep("name");
+        break;
+      case "avatar":
+        setOnboardingStep("ownerName");
         break;
       case "style":
         setOnboardingStep("avatar");
@@ -4383,7 +4409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "mint":
         setOnboardingStep("theme");
         break;
-      case "runMode":
+      case "setupMode":
         if (
           dropStatus?.dropEnabled &&
           !dropStatus.userHasMinted &&
@@ -4393,6 +4419,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           setOnboardingStep("theme");
         }
+        break;
+      case "runMode":
+        setOnboardingStep("setupMode");
         break;
       case "cloudProvider":
         setOnboardingStep("runMode");
@@ -4414,7 +4443,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("runMode");
         break;
       case "llmProvider":
-        if (onboardingRunMode === "local-sandbox") {
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("setupMode");
+        } else if (onboardingRunMode === "local-sandbox") {
           setOnboardingStep("dockerSetup");
         } else {
           setOnboardingStep("runMode");
@@ -4432,12 +4463,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
       case "permissions":
-        setOnboardingStep("connectors");
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("llmProvider");
+        } else {
+          setOnboardingStep("connectors");
+        }
         break;
     }
   }, [
     onboardingStep,
     onboardingRunMode,
+    onboardingSetupMode,
     dropStatus?.dropEnabled,
     dropStatus?.userHasMinted,
     dropStatus?.mintedOut,
@@ -4706,6 +4742,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         importError: setImportError,
         importSuccess: setImportSuccess,
         onboardingName: setOnboardingName,
+        onboardingOwnerName: setOnboardingOwnerName,
+        onboardingSetupMode: setOnboardingSetupMode,
         onboardingStyle: setOnboardingStyle,
         onboardingTheme: setOnboardingTheme,
         onboardingRunMode: setOnboardingRunMode,
@@ -5761,6 +5799,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingStep,
     onboardingOptions,
     onboardingName,
+    onboardingOwnerName,
+    onboardingSetupMode,
     onboardingStyle,
     onboardingTheme,
     onboardingRunMode,
