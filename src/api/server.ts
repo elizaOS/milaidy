@@ -152,6 +152,25 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
+import {
+  ensurePrivyWalletsForCustomUser,
+  isPrivyWalletProvisioningEnabled,
+} from "../services/privy-wallets";
+import { ethers } from "ethers";
+import {
+  buildBscTradePreflight,
+  buildBscTradeQuote,
+  buildBscBuyUnsignedTx,
+  buildBscSellUnsignedTx,
+  buildBscApproveUnsignedTx,
+  resolvePrimaryBscRpcUrl,
+} from "./bsc-trade";
+import {
+  loadWalletTradingProfile,
+  recordWalletTradeLedgerEntry,
+  updateWalletTradeLedgerEntryStatus,
+} from "./wallet-trading-profile";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -195,6 +214,60 @@ function isUuidLike(value: string): value is UUID {
 }
 
 const OG_FILENAME = ".og";
+const DELETED_CONVERSATIONS_FILENAME = "deleted-conversations.v1.json";
+const MAX_DELETED_CONVERSATION_IDS = 5000;
+
+interface DeletedConversationsStateFile {
+  version: 1;
+  updatedAt: string;
+  ids: string[];
+}
+
+function readDeletedConversationIdsFromState(): Set<string> {
+  const filePath = path.join(resolveStateDir(), DELETED_CONVERSATIONS_FILENAME);
+  if (!fs.existsSync(filePath)) return new Set();
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<DeletedConversationsStateFile>;
+    const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+    return new Set(
+      ids
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter((id) => id.length > 0),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to read deleted conversations state: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return new Set();
+  }
+}
+
+function persistDeletedConversationIdsToState(ids: Set<string>): void {
+  const dir = resolveStateDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+
+  const normalized = Array.from(ids)
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0)
+    .slice(-MAX_DELETED_CONVERSATION_IDS);
+
+  const filePath = path.join(dir, DELETED_CONVERSATIONS_FILENAME);
+  const tmpFilePath = `${filePath}.${process.pid}.tmp`;
+  const payload: DeletedConversationsStateFile = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ids: normalized,
+  };
+
+  fs.writeFileSync(tmpFilePath, `${JSON.stringify(payload, null, 2)}\n`, {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  fs.renameSync(tmpFilePath, filePath);
+}
 
 function readOGCodeFromState(): string | null {
   const filePath = path.join(resolveStateDir(), OG_FILENAME);
@@ -260,6 +333,8 @@ interface ServerState {
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
+  /** Tombstones for conversation IDs explicitly deleted by the user. */
+  deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
@@ -299,6 +374,10 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
+  /** Agent automation permission mode for self-directed config changes. */
+  agentAutomationMode?: AgentAutomationMode;
+  /** Wallet trade execution permission mode (user-sign/manual/agent-auto). */
+  tradePermissionMode?: TradePermissionMode;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
@@ -4165,6 +4244,191 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
     );
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Trade permission helpers (exported for use by awareness contributors)
+// ---------------------------------------------------------------------------
+
+export type TradePermissionMode = "user-sign-only" | "manual-local-key" | "agent-auto";
+
+/**
+ * Resolve the active trade permission mode from config.
+ * Falls back to "user-sign-only" when not configured.
+ */
+export function resolveTradePermissionMode(config: MiladyConfig): TradePermissionMode {
+  const raw = (config.features as Record<string, unknown> | undefined)?.tradePermissionMode;
+  if (
+    raw === "user-sign-only" ||
+    raw === "manual-local-key" ||
+    raw === "agent-auto"
+  ) {
+    return raw;
+  }
+  return "user-sign-only";
+}
+
+/**
+ * Returns true if local-key execution is permitted for the given actor.
+ * @param mode    The resolved trade permission mode.
+ * @param isAgent True when the caller is the agent (autonomous), false for user-initiated flows.
+ */
+export function canUseLocalTradeExecution(
+  mode: TradePermissionMode,
+  isAgent: boolean,
+): boolean {
+  if (mode === "agent-auto") return true;
+  if (mode === "manual-local-key") return !isAgent;
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Automation & agent permission helpers
+// ---------------------------------------------------------------------------
+
+type AgentAutomationMode = "connectors-only" | "full";
+
+const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
+const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
+  "user-sign-only",
+  "manual-local-key",
+  "agent-auto",
+]);
+const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
+  "connectors-only",
+  "full",
+]);
+
+function parseAgentAutomationMode(value: unknown): AgentAutomationMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!AGENT_AUTOMATION_MODES.has(normalized as AgentAutomationMode)) {
+    return null;
+  }
+  return normalized as AgentAutomationMode;
+}
+
+function resolveAgentAutomationModeFromConfig(
+  config: MiladyConfig,
+): AgentAutomationMode {
+  const features =
+    config.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const agentAutomation =
+    features?.agentAutomation &&
+    typeof features.agentAutomation === "object" &&
+    !Array.isArray(features.agentAutomation)
+      ? (features.agentAutomation as Record<string, unknown>)
+      : null;
+  return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
+}
+
+function parseTradePermissionMode(value: unknown): TradePermissionMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
+    return null;
+  }
+  return normalized as TradePermissionMode;
+}
+
+function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
+  const raw = req.headers[AGENT_AUTOMATION_HEADER];
+  if (typeof raw !== "string") return false;
+  return /^(1|true|yes|agent)$/i.test(raw.trim());
+}
+
+function persistAgentAutomationMode(
+  state: ServerState,
+  mode: AgentAutomationMode,
+): void {
+  state.agentAutomationMode = mode;
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.agentAutomation;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  features.agentAutomation = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+}
+
+function persistTradePermissionMode(
+  state: ServerState,
+  mode: TradePermissionMode,
+): void {
+  state.tradePermissionMode = mode;
+  process.env.MILADY_TRADE_PERMISSION_MODE = mode;
+
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.tradeExecution;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  features.tradeExecution = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+
+  if (!state.config.env || typeof state.config.env !== "object") {
+    state.config.env = {};
+  }
+  (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
+    mode;
+
+  const bscEnabled = mode === "agent-auto" ? "true" : "false";
+  process.env.MILADY_BSC_EXECUTION_ENABLED = bscEnabled;
+  (state.config.env as Record<string, string>).MILADY_BSC_EXECUTION_ENABLED =
+    bscEnabled;
+}
+
+function rejectAgentMutation(
+  req: http.IncomingMessage,
+  state: ServerState,
+  target:
+    | { kind: "connectors" }
+    | { kind: "plugins"; pluginNameOrId: string }
+    | { kind: "config" },
+): string | null {
+  if (!isAgentAutomationRequest(req)) return null;
+  const mode = state.agentAutomationMode ?? "full";
+  if (mode === "full") return null;
+
+  if (target.kind === "connectors") return null;
+
+  if (target.kind === "plugins") {
+    const shortId = target.pluginNameOrId
+      .trim()
+      .replace(/^@[^/]+\/plugin-/, "")
+      .replace(/^@[^/]+\//, "")
+      .replace(/^plugin-/, "");
+    const known = state.plugins.find((entry) => entry.id === shortId);
+    const category = known?.category ?? "feature";
+    if (category === "connector") return null;
+    return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+  }
+
+  return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -9851,6 +10115,92 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/permissions/automation-mode ──────────────────────────────
+  // Return agent automation permission mode for self-directed config actions.
+  if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+    const mode = state.agentAutomationMode ?? "full";
+    json(res, {
+      mode,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/automation-mode ──────────────────────────────
+  // Update agent automation permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseAgentAutomationMode(body.mode);
+    if (!parsed) {
+      error(res, 'Invalid mode. Expected "connectors-only" or "full".', 400);
+      return;
+    }
+
+    persistAgentAutomationMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/trade-mode ────────────────────────────────────
+  // Returns the current trade permission mode (must be before handlePermissionRoutes).
+  if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+    const mode = resolveTradePermissionMode(state.config);
+    json(res, {
+      tradePermissionMode: mode,
+      canUserLocalExecute: canUseLocalTradeExecution(mode, false),
+      canAgentAutoTrade: canUseLocalTradeExecution(mode, true),
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/trade-mode ────────────────────────────────────
+  // Update the trade permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+    const body = await readJsonBody<{ mode?: string }>(req, res);
+    if (!body) return;
+
+    const newMode = body.mode;
+    if (
+      newMode !== "user-sign-only" &&
+      newMode !== "manual-local-key" &&
+      newMode !== "agent-auto"
+    ) {
+      error(
+        res,
+        'mode must be "user-sign-only", "manual-local-key", or "agent-auto"',
+        400,
+      );
+      return;
+    }
+
+    if (!state.config.features) {
+      state.config.features = {};
+    }
+    (state.config.features as Record<string, unknown>).tradePermissionMode = newMode;
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[api] Trade-mode config save failed: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+
+    json(res, {
+      ok: true,
+      tradePermissionMode: newMode,
+      canUserLocalExecute: canUseLocalTradeExecution(newMode, false),
+      canAgentAutoTrade: canUseLocalTradeExecution(newMode, true),
+    });
+    return;
+  }
+
   if (
     await handlePermissionRoutes({
       req,
@@ -9865,6 +10215,701 @@ async function handleRequest(
       scheduleRuntimeRestart,
     })
   ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Agent self-status route
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/agent/self-status ──────────────────────────────────────────
+  // Returns a snapshot of the agent's current capabilities and status,
+  // used by action handlers (can-i, etc.) to evaluate permissions.
+  if (method === "GET" && pathname === "/api/agent/self-status") {
+    const addrs = getWalletAddresses();
+    const evmAddress = addrs.evmAddress ?? null;
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const bscRpcReady = Boolean(
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+    );
+    const canLocalTrade = canUseLocalTradeExecution(tradePermissionMode, false);
+    const canAgentAutoTrade = canUseLocalTradeExecution(tradePermissionMode, true);
+    const canTrade = Boolean(evmAddress) && bscRpcReady;
+    const automationMode: "connectors-only" | "full" =
+      (state.config.features as Record<string, unknown> | undefined)
+        ?.automationMode === "full"
+        ? "full"
+        : "connectors-only";
+
+    // Include registry snapshot summary if available
+    let registrySummary: string | null = null;
+    const registry = getGlobalAwarenessRegistry();
+    if (registry && state.runtime) {
+      try {
+        registrySummary = await registry.composeSummary(state.runtime);
+      } catch {
+        // Non-fatal: registry may not be initialized yet
+      }
+    }
+
+    json(res, {
+      generatedAt: new Date().toISOString(),
+      model: state.model ?? null,
+      provider: null,
+      automationMode,
+      tradePermissionMode,
+      shellEnabled: state.shellEnabled !== false,
+      wallet: {
+        hasWallet: Boolean(evmAddress || addrs.solanaAddress),
+        hasEvm: Boolean(evmAddress),
+        evmAddressShort:
+          evmAddress && evmAddress.length >= 12
+            ? `${evmAddress.slice(0, 6)}...${evmAddress.slice(-4)}`
+            : evmAddress,
+      },
+      capabilities: {
+        canTrade,
+        canLocalTrade: canTrade && localSigner && canLocalTrade,
+        canAutoTrade: canTrade && localSigner && canAgentAutoTrade,
+        canUseBrowser: false,
+        canUseComputer: false,
+        canRunTerminal: state.shellEnabled !== false,
+        canInstallPlugins: true,
+        canConfigurePlugins: true,
+        canConfigureConnectors: true,
+      },
+      ...(registrySummary !== null ? { registrySummary } : {}),
+    });
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Privy wallet routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/privy/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/privy/status") {
+    const enabled = isPrivyWalletProvisioningEnabled();
+    json(res, { enabled, configured: enabled });
+    return;
+  }
+
+  // ── POST /api/privy/login ───────────────────────────────────────────────
+  // Provisions Privy wallets for a custom user ID (agent identifier).
+  if (method === "POST" && pathname === "/api/privy/login") {
+    if (!isPrivyWalletProvisioningEnabled()) {
+      error(res, "Privy wallet provisioning is not configured.", 503);
+      return;
+    }
+    const body = await readJsonBody<{ userId?: string }>(req, res);
+    if (!body) return;
+
+    const userId = (body.userId ?? "").trim();
+    if (!userId) {
+      error(res, "userId is required", 400);
+      return;
+    }
+
+    try {
+      const result = await ensurePrivyWalletsForCustomUser(userId);
+      json(res, { ok: true, ...result });
+    } catch (err) {
+      logger.error(
+        `[api] Privy login failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Privy login failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/privy/logout ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/logout") {
+    // No-op for server-side managed wallets; Privy sessions are stateless.
+    json(res, { ok: true });
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Subscription status route
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/subscription/status (direct handler fallback) ─────────────
+  // Note: subscription-routes.ts handles /api/subscription/* but this is
+  // kept here in case the prefix routing is not active.
+  // (handleSubscriptionRoutes already covers this, so no duplicate needed.)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BSC trade routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── POST /api/wallet/trade/preflight ───────────────────────────────────
+  // Check BSC trade readiness (wallet, RPC, chain, gas).
+  if (method === "POST" && pathname === "/api/wallet/trade/preflight") {
+    const body = await readJsonBody<{ tokenAddress?: string }>(req, res);
+    if (!body) return;
+
+    const addrs = getWalletAddresses();
+    try {
+      const result = await buildBscTradePreflight({
+        walletAddress: addrs.evmAddress ?? null,
+        tokenAddress: body.tokenAddress,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+      });
+      json(res, result);
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade preflight failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade preflight failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/quote ────────────────────────────────────────
+  // Produce a BSC trade quote (unsigned transaction data).
+  if (method === "POST" && pathname === "/api/wallet/trade/quote") {
+    const body = await readJsonBody<{
+      side?: string;
+      tokenAddress?: string;
+      amount?: string;
+      slippageBps?: number;
+    }>(req, res);
+    if (!body) return;
+
+    if (!body.side || !body.tokenAddress || !body.amount) {
+      error(res, "side, tokenAddress, and amount are required", 400);
+      return;
+    }
+
+    const addrs = getWalletAddresses();
+    try {
+      const result = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress ?? null,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+        request: {
+          side: body.side as "buy" | "sell",
+          tokenAddress: body.tokenAddress,
+          amount: body.amount,
+          slippageBps: body.slippageBps,
+        },
+      });
+      json(res, result);
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade quote failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade quote failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/execute ─────────────────────────────────────
+  // Execute or prepare a BSC trade. In "user-sign-only" mode, returns an
+  // unsigned transaction for the user to sign. In local-key modes, executes
+  // using the server-side EVM private key.
+  if (method === "POST" && pathname === "/api/wallet/trade/execute") {
+    const body = await readJsonBody<{
+      side?: string;
+      tokenAddress?: string;
+      amount?: string;
+      slippageBps?: number;
+      deadlineSeconds?: number;
+      confirm?: boolean;
+      source?: "agent" | "manual";
+    }>(req, res);
+    if (!body) return;
+
+    if (!body.side || !body.tokenAddress || !body.amount) {
+      error(res, "side, tokenAddress, and amount are required", 400);
+      return;
+    }
+
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const isAgentRequest = body.source === "agent";
+    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const canExecuteLocally = canUseLocalTradeExecution(
+      tradePermissionMode,
+      isAgentRequest,
+    );
+    const addrs = getWalletAddresses();
+
+    try {
+      const quote = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress ?? null,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+        request: {
+          side: body.side as "buy" | "sell",
+          tokenAddress: body.tokenAddress,
+          amount: body.amount,
+          slippageBps: body.slippageBps,
+        },
+      });
+
+      const walletAddress = addrs.evmAddress ?? null;
+
+      // Build the unsigned trade transaction
+      const unsignedTx =
+        quote.side === "buy"
+          ? buildBscBuyUnsignedTx(quote, walletAddress, body.deadlineSeconds)
+          : buildBscSellUnsignedTx(quote, walletAddress, body.deadlineSeconds);
+
+      // Build approval tx for sell (if needed)
+      let unsignedApprovalTx = undefined;
+      let requiresApproval = false;
+      if (quote.side === "sell" && walletAddress) {
+        unsignedApprovalTx = buildBscApproveUnsignedTx(
+          quote.tokenAddress,
+          walletAddress,
+          quote.routerAddress,
+          quote.quoteIn.amountWei,
+        );
+        requiresApproval = true;
+      }
+
+      // If local execution is not permitted or no private key, return unsigned tx
+      if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
+        json(res, {
+          ok: true,
+          side: quote.side,
+          mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
+          quote,
+          executed: false,
+          requiresUserSignature: true,
+          unsignedTx,
+          unsignedApprovalTx,
+          requiresApproval,
+        });
+        return;
+      }
+
+      // Execute locally with EVM private key
+      const rpcUrl = resolvePrimaryBscRpcUrl({
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+      });
+
+      if (!rpcUrl) {
+        error(res, "BSC RPC not configured for local execution.", 503);
+        return;
+      }
+
+      const evmKey = process.env.EVM_PRIVATE_KEY!;
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const wallet = new ethers.Wallet(
+        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
+        provider,
+      );
+
+      const nonce = await provider.getTransactionCount(wallet.address, "pending");
+
+      // Execute approval first if needed
+      let approvalHash: string | undefined;
+      if (requiresApproval && unsignedApprovalTx) {
+        const approvalTxReq: ethers.TransactionRequest = {
+          to: unsignedApprovalTx.to,
+          data: unsignedApprovalTx.data,
+          value: BigInt(unsignedApprovalTx.valueWei),
+          chainId: unsignedApprovalTx.chainId,
+          nonce,
+        };
+        const approvalResponse = await wallet.sendTransaction(approvalTxReq);
+        approvalHash = approvalResponse.hash;
+        // Wait for approval to be mined before submitting trade
+        await approvalResponse.wait(1);
+      }
+
+      const tradeTxReq: ethers.TransactionRequest = {
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: BigInt(unsignedTx.valueWei),
+        chainId: unsignedTx.chainId,
+        nonce: requiresApproval ? nonce + 1 : nonce,
+      };
+
+      const tradeTxResponse = await wallet.sendTransaction(tradeTxReq);
+      const tradeNonce = requiresApproval ? nonce + 1 : nonce;
+
+      const executionResult = {
+        hash: tradeTxResponse.hash,
+        nonce: tradeNonce,
+        gasLimit: tradeTxResponse.gasLimit?.toString() ?? "0",
+        valueWei: unsignedTx.valueWei,
+        explorerUrl: `https://bscscan.com/tx/${tradeTxResponse.hash}`,
+        blockNumber: null as number | null,
+        status: "pending" as "pending" | "success",
+        approvalHash,
+      };
+
+      // Record in ledger
+      const source = body.source ?? "manual";
+      try {
+        recordWalletTradeLedgerEntry({
+          hash: tradeTxResponse.hash,
+          source,
+          side: quote.side,
+          tokenAddress: quote.tokenAddress,
+          slippageBps: quote.slippageBps,
+          route: quote.route,
+          quoteIn: {
+            symbol: quote.quoteIn.symbol,
+            amount: quote.quoteIn.amount,
+            amountWei: quote.quoteIn.amountWei,
+          },
+          quoteOut: {
+            symbol: quote.quoteOut.symbol,
+            amount: quote.quoteOut.amount,
+            amountWei: quote.quoteOut.amountWei,
+          },
+          status: "pending",
+          confirmations: 0,
+          nonce: tradeNonce,
+          blockNumber: null,
+          gasUsed: null,
+          effectiveGasPriceWei: null,
+          explorerUrl: executionResult.explorerUrl,
+        });
+      } catch (ledgerErr) {
+        logger.warn(
+          `[api] Failed to record trade ledger entry: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
+        );
+      }
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        side: quote.side,
+        mode: "local-key",
+        quote,
+        executed: true,
+        requiresUserSignature: false,
+        unsignedTx,
+        unsignedApprovalTx,
+        requiresApproval,
+        execution: executionResult,
+      });
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade execute failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade execution failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/wallet/trade/tx-status ────────────────────────────────────
+  // Check the on-chain status of a BSC transaction by hash.
+  if (method === "GET" && pathname === "/api/wallet/trade/tx-status") {
+    const hash = url.searchParams.get("hash");
+    if (!hash?.trim()) {
+      error(res, "hash query parameter is required", 400);
+      return;
+    }
+
+    const rpcUrl = resolvePrimaryBscRpcUrl({
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    });
+
+    if (!rpcUrl) {
+      error(res, "BSC RPC not configured.", 503);
+      return;
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const receipt = await provider.getTransactionReceipt(hash);
+
+      let txStatus: "pending" | "success" | "reverted" | "not_found";
+      let blockNumber: number | null = null;
+      let gasUsed: string | null = null;
+      let effectiveGasPriceWei: string | null = null;
+      let confirmations = 0;
+      let nonce: number | null = null;
+
+      if (!receipt) {
+        // Check if tx is in mempool
+        const tx = await provider.getTransaction(hash);
+        txStatus = tx ? "pending" : "not_found";
+        if (tx) nonce = tx.nonce;
+      } else {
+        txStatus = receipt.status === 1 ? "success" : "reverted";
+        blockNumber = receipt.blockNumber ?? null;
+        gasUsed = receipt.gasUsed?.toString() ?? null;
+        effectiveGasPriceWei = receipt.gasPrice?.toString() ?? null;
+        const currentBlock = await provider.getBlockNumber();
+        confirmations =
+          blockNumber !== null ? Math.max(0, currentBlock - blockNumber) : 0;
+        const tx = await provider.getTransaction(hash);
+        if (tx) nonce = tx.nonce;
+      }
+
+      // Update ledger if we have a definitive status
+      if (txStatus === "success" || txStatus === "reverted") {
+        try {
+          updateWalletTradeLedgerEntryStatus(hash, {
+            status: txStatus,
+            confirmations,
+            nonce,
+            blockNumber,
+            gasUsed,
+            effectiveGasPriceWei,
+            explorerUrl: `https://bscscan.com/tx/${hash}`,
+          });
+        } catch (ledgerErr) {
+          logger.warn(
+            `[api] Failed to update trade ledger: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
+          );
+        }
+      }
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        hash,
+        status: txStatus,
+        explorerUrl: `https://bscscan.com/tx/${hash}`,
+        chainId: 56,
+        blockNumber,
+        confirmations,
+        nonce,
+        gasUsed,
+        effectiveGasPriceWei,
+      });
+    } catch (err) {
+      logger.error(
+        `[api] BSC tx-status failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `TX status check failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/wallet/trading/profile ────────────────────────────────────
+  // Returns trading P&L profile from the local ledger.
+  if (method === "GET" && pathname === "/api/wallet/trading/profile") {
+    const windowParam = url.searchParams.get("window");
+    const sourceParam = url.searchParams.get("source");
+
+    const window =
+      windowParam === "7d" || windowParam === "30d" || windowParam === "all"
+        ? windowParam
+        : "30d";
+    const source =
+      sourceParam === "agent" || sourceParam === "manual" || sourceParam === "all"
+        ? sourceParam
+        : "all";
+
+    try {
+      const profile = loadWalletTradingProfile({ window, source });
+      json(res, profile);
+    } catch (err) {
+      logger.error(
+        `[api] Wallet trading profile failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trading profile fetch failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/transfer/execute ──────────────────────────────────
+  // Execute or prepare a BNB/ERC-20 token transfer.
+  if (method === "POST" && pathname === "/api/wallet/transfer/execute") {
+    const body = await readJsonBody<{
+      toAddress?: string;
+      amount?: string;
+      assetSymbol?: string;
+      tokenAddress?: string;
+      confirm?: boolean;
+    }>(req, res);
+    if (!body) return;
+
+    if (!body.toAddress?.trim() || !body.amount?.trim() || !body.assetSymbol?.trim()) {
+      error(res, "toAddress, amount, and assetSymbol are required", 400);
+      return;
+    }
+
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const canExecuteLocally = canUseLocalTradeExecution(tradePermissionMode, false);
+    const addrs = getWalletAddresses();
+
+    let toAddress: string;
+    try {
+      toAddress = ethers.getAddress(body.toAddress.trim());
+    } catch {
+      error(res, "Invalid toAddress — must be a valid EVM address", 400);
+      return;
+    }
+
+    const isBnb = body.assetSymbol.toUpperCase() === "BNB";
+
+    // Build unsigned transfer tx for user-sign mode
+    const unsignedTx = {
+      chainId: 56,
+      from: addrs.evmAddress ?? null,
+      to: isBnb ? toAddress : (body.tokenAddress ?? toAddress),
+      data: isBnb
+        ? "0x"
+        : (() => {
+            const iface = new ethers.Interface([
+              "function transfer(address to, uint256 amount) returns (bool)",
+            ]);
+            const decimals = 18; // default; token-specific decimals not fetched here
+            return iface.encodeFunctionData("transfer", [
+              toAddress,
+              ethers.parseUnits(body.amount!.trim(), decimals),
+            ]);
+          })(),
+      valueWei: isBnb ? ethers.parseEther(body.amount.trim()).toString() : "0",
+      explorerUrl: "https://bscscan.com",
+      assetSymbol: body.assetSymbol,
+      amount: body.amount.trim(),
+      tokenAddress: body.tokenAddress,
+    };
+
+    if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
+      json(res, {
+        ok: true,
+        mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
+        executed: false,
+        requiresUserSignature: true,
+        toAddress,
+        amount: body.amount.trim(),
+        assetSymbol: body.assetSymbol,
+        tokenAddress: body.tokenAddress,
+        unsignedTx,
+      });
+      return;
+    }
+
+    // Execute locally
+    const rpcUrl = resolvePrimaryBscRpcUrl({
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    });
+
+    if (!rpcUrl) {
+      error(res, "BSC RPC not configured for local execution.", 503);
+      return;
+    }
+
+    try {
+      const evmKey = process.env.EVM_PRIVATE_KEY!;
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const wallet = new ethers.Wallet(
+        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
+        provider,
+      );
+
+      const txReq: ethers.TransactionRequest = {
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: BigInt(unsignedTx.valueWei),
+        chainId: unsignedTx.chainId,
+      };
+
+      const txResponse = await wallet.sendTransaction(txReq);
+      const nonce = txResponse.nonce;
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        toAddress,
+        amount: body.amount.trim(),
+        assetSymbol: body.assetSymbol,
+        tokenAddress: body.tokenAddress,
+        unsignedTx,
+        execution: {
+          hash: txResponse.hash,
+          nonce,
+          gasLimit: txResponse.gasLimit?.toString() ?? "0",
+          valueWei: unsignedTx.valueWei,
+          explorerUrl: `https://bscscan.com/tx/${txResponse.hash}`,
+          blockNumber: null,
+          status: "pending",
+        },
+      });
+    } catch (err) {
+      logger.error(
+        `[api] Transfer execute failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Transfer failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/production-defaults ───────────────────────────────
+  // Apply opinionated production wallet configuration defaults.
+  // Sets sensible BSC RPC and trade permission defaults when not already
+  // configured.
+  if (method === "POST" && pathname === "/api/wallet/production-defaults") {
+    const changed: string[] = [];
+
+    if (!state.config.features) {
+      state.config.features = {};
+    }
+    const features = state.config.features as Record<string, unknown>;
+
+    // Default trade permission mode: user-sign-only (safe default)
+    if (!features.tradePermissionMode) {
+      features.tradePermissionMode = "user-sign-only";
+      changed.push("tradePermissionMode=user-sign-only");
+    }
+
+    if (changed.length > 0) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[api] production-defaults config save failed: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    json(res, {
+      ok: true,
+      applied: changed,
+      tradePermissionMode: resolveTradePermissionMode(state.config),
+    });
     return;
   }
 
@@ -9948,6 +10993,51 @@ async function handleRequest(
     }
     if (needsUpdate) {
       await runtime.updateWorld(world);
+    }
+  };
+
+  const markConversationDeleted = (conversationId: string): void => {
+    const normalizedId = conversationId.trim();
+    if (!normalizedId) return;
+    if (state.deletedConversationIds.has(normalizedId)) return;
+
+    state.deletedConversationIds.add(normalizedId);
+    while (state.deletedConversationIds.size > MAX_DELETED_CONVERSATION_IDS) {
+      const oldest = state.deletedConversationIds.values().next().value;
+      if (!oldest) break;
+      state.deletedConversationIds.delete(oldest);
+    }
+
+    try {
+      persistDeletedConversationIdsToState(state.deletedConversationIds);
+    } catch (err) {
+      logger.warn(
+        `[conversations] Failed to persist deleted conversation tombstones: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const deleteConversationRoomData = async (
+    runtime: AgentRuntime,
+    roomId: UUID,
+  ): Promise<void> => {
+    const runtimeWithDelete = runtime as AgentRuntime & {
+      deleteRoom?: (id: UUID) => Promise<unknown>;
+      adapter?: {
+        db?: {
+          deleteRoom?: (id: UUID) => Promise<unknown>;
+        };
+      };
+    };
+
+    if (typeof runtimeWithDelete.deleteRoom === "function") {
+      await runtimeWithDelete.deleteRoom(roomId);
+      return;
+    }
+
+    const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
+    if (typeof dbDeleteRoom === "function") {
+      await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
     }
   };
 
@@ -10624,10 +11714,12 @@ async function handleRequest(
 
   // ── GET /api/conversations ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/conversations") {
-    const convos = Array.from(state.conversations.values()).sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    const convos = Array.from(state.conversations.values())
+      .filter((c) => !state.deletedConversationIds.has(c.id))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
     json(res, { conversations: convos });
     return;
   }
@@ -11081,7 +12173,18 @@ async function handleRequest(
     !pathname.endsWith("/messages")
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
+    const conv = state.conversations.get(convId);
+    if (conv?.roomId && state.runtime) {
+      try {
+        await deleteConversationRoomData(state.runtime, conv.roomId);
+      } catch (err) {
+        logger.debug(
+          `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
     state.conversations.delete(convId);
+    markConversationDeleted(convId);
     json(res, { ok: true });
     return;
   }
@@ -13059,6 +14162,8 @@ export async function startApiServer(opts?: {
       config.ui?.assistant?.name ??
       "Milady");
 
+  const deletedConversationIds = readDeletedConversationIdsFromState();
+
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
     config,
@@ -13080,6 +14185,7 @@ export async function startApiServer(opts?: {
     chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
+    deletedConversationIds,
     cloudManager: null,
     sandboxManager: null,
     appManager: new AppManager(),
@@ -13093,6 +14199,8 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
+    agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
+    tradePermissionMode: resolveTradePermissionMode(config),
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
   };
@@ -13998,6 +15106,7 @@ export async function startApiServer(opts?: {
         if (!channelId.startsWith("web-conv-")) continue;
         const convId = channelId.replace("web-conv-", "");
         if (!convId || state.conversations.has(convId)) continue;
+        if (state.deletedConversationIds.has(convId)) continue;
 
         // Peek at the latest message to get a timestamp
         let updatedAt = new Date().toISOString();
