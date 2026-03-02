@@ -25,15 +25,27 @@ import type { DropStatus, MintResult } from "../../../src/contracts/drop";
 import type { StylePreset } from "../../../src/contracts/onboarding";
 import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
   SolanaNft,
   SolanaTokenBalance,
+  TradePermissionMode as WalletTradePermissionMode,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
 } from "../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
@@ -62,6 +74,14 @@ export type {
 };
 export type { StylePreset };
 export type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -71,6 +91,9 @@ export type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
 };
 export type { DropStatus, MintResult };
 export type { VerificationResult };
@@ -177,6 +200,68 @@ export interface AgentStatus {
   pendingRestart?: boolean;
   pendingRestartReasons?: string[];
   startup?: AgentStartupDiagnostics;
+}
+
+export type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode = WalletTradePermissionMode;
+
+export interface AgentAutomationModeResponse {
+  mode: AgentAutomationMode;
+  options: AgentAutomationMode[];
+}
+
+export interface TradePermissionModeResponse {
+  mode: TradePermissionMode;
+  options: TradePermissionMode[];
+}
+
+export interface ApplyProductionWalletDefaultsResponse {
+  ok: boolean;
+  profile: "pure-privy-safe";
+  walletMode: "privy";
+  tradePermissionMode: "user-sign-only";
+  bscExecutionEnabled: false;
+  clearedSecrets: string[];
+}
+
+export interface AgentSelfStatusSnapshot {
+  generatedAt: string;
+  state: AgentState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: "privy" | "hybrid";
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
 }
 
 // WebSocket connection state tracking
@@ -490,6 +575,17 @@ export interface OnboardingData {
   githubToken?: string;
 }
 
+export interface SubscriptionProviderStatus {
+  provider: string;
+  configured: boolean;
+  valid: boolean;
+  expiresAt: number | null;
+}
+
+export interface SubscriptionStatusResponse {
+  providers: SubscriptionProviderStatus[];
+}
+
 export interface SandboxPlatformStatus {
   platform: string;
   arch?: string;
@@ -681,6 +777,16 @@ export type ConversationChannelType =
   | "VOICE_DM"
   | "VOICE_GROUP"
   | "API";
+
+export interface ChatTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls?: number;
+  model?: string;
+}
+
+export type ConversationMode = "simple" | "power";
 
 export interface SkillInfo {
   id: string;
@@ -1950,6 +2056,10 @@ export class MiladyClient {
     return this.fetch("/api/status");
   }
 
+  async getAgentSelfStatus(): Promise<AgentSelfStatusSnapshot> {
+    return this.fetch("/api/agent/self-status");
+  }
+
   async getRuntimeSnapshot(opts?: {
     depth?: number;
     maxArrayLength?: number;
@@ -2057,15 +2167,8 @@ export class MiladyClient {
     });
   }
 
-  async getSubscriptionStatus(): Promise<{
-    providers: Array<{
-      provider: string;
-      configured: boolean;
-      valid: boolean;
-      expiresAt: number | null;
-    }>;
-  }> {
-    return this.fetch("/api/subscription/status");
+  async getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
+    return this.fetch<SubscriptionStatusResponse>("/api/subscription/status");
   }
 
   async deleteSubscription(provider: string): Promise<{ success: boolean }> {
@@ -2935,6 +3038,58 @@ export class MiladyClient {
     return this.fetch("/api/wallet/export", {
       method: "POST",
       body: JSON.stringify({ confirm: true, exportToken }),
+    });
+  }
+
+  // BSC Trading
+
+  async getBscTradePreflight(tokenAddress?: string): Promise<BscTradePreflightResponse> {
+    return this.fetch("/api/wallet/trade/preflight", {
+      method: "POST",
+      body: JSON.stringify(tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {}),
+    });
+  }
+
+  async getBscTradeQuote(request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> {
+    return this.fetch("/api/wallet/trade/quote", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async executeBscTrade(request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> {
+    return this.fetch("/api/wallet/trade/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async executeBscTransfer(request: BscTransferExecuteRequest): Promise<BscTransferExecuteResponse> {
+    return this.fetch("/api/wallet/transfer/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
+    return this.fetch(`/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`);
+  }
+
+  async getWalletTradingProfile(
+    window: WalletTradingProfileWindow = "30d",
+    source: WalletTradingProfileSourceFilter = "all",
+  ): Promise<WalletTradingProfileResponse> {
+    const params = new URLSearchParams({
+      window,
+      source,
+    });
+    return this.fetch(`/api/wallet/trading/profile?${params.toString()}`);
+  }
+
+  async applyProductionWalletDefaults(): Promise<ApplyProductionWalletDefaultsResponse> {
+    return this.fetch("/api/wallet/production-defaults", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
     });
   }
 
@@ -4200,6 +4355,44 @@ export class MiladyClient {
       "/api/permissions/shell",
     );
     return result.enabled;
+  }
+
+  /**
+   * Get agent automation permission mode.
+   */
+  async getAgentAutomationMode(): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode");
+  }
+
+  /**
+   * Set agent automation permission mode.
+   */
+  async setAgentAutomationMode(
+    mode: AgentAutomationMode,
+  ): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  /**
+   * Get wallet trade execution permission mode.
+   */
+  async getTradePermissionMode(): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode");
+  }
+
+  /**
+   * Set wallet trade execution permission mode.
+   */
+  async setTradePermissionMode(
+    mode: TradePermissionMode,
+  ): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   disconnectWs(): void {
