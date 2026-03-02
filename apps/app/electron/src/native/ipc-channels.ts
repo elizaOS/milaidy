@@ -101,6 +101,7 @@ export const KNOWN_IPC_CHANNELS = [
   "screencapture:startFrameCapture",
   "screencapture:startRecording",
   "screencapture:stopFrameCapture",
+  "screencapture:switchSource",
   "screencapture:stopRecording",
   "screencapture:takeScreenshot",
   "swabble:audioChunk",

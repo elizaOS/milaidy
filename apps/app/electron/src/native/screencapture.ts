@@ -675,6 +675,24 @@ export class ScreenCaptureManager {
     console.log("[ScreenCapture] Frame capture stopped");
   }
 
+  /**
+   * Switch the active stream source by stopping current capture and restarting
+   * with new options.
+   */
+  async switchSource(sourceType: string, customUrl?: string): Promise<void> {
+    this.stopFrameCapture();
+    const opts: FrameCaptureOptions = {
+      fps: this._frameCaptureOptions?.fps ?? 15,
+      quality: this._frameCaptureOptions?.quality ?? 70,
+      apiBase: this._frameCaptureOptions?.apiBase,
+      endpoint: this._frameCaptureOptions?.endpoint ?? "/api/stream/frame",
+    };
+    if (sourceType === "game" || sourceType === "custom-url") {
+      opts.gameUrl = customUrl;
+    }
+    await this.startFrameCapture(opts);
+  }
+
   isFrameCaptureActive(): boolean {
     return this._frameCaptureActive;
   }
@@ -774,5 +792,10 @@ export function registerScreenCaptureIPC(): void {
   );
   ipcMain.handle("screencapture:isFrameCaptureActive", async () =>
     m.isFrameCaptureActive(),
+  );
+  ipcMain.handle(
+    "screencapture:switchSource",
+    async (_e: IpcMainInvokeEvent, sourceType: string, customUrl?: string) =>
+      m.switchSource(sourceType, customUrl),
   );
 }

@@ -88,7 +88,9 @@ export interface StreamRouteState {
       fps?: number;
       quality?: number;
       endpoint?: string;
+      gameUrl?: string;
     }): Promise<void>;
+    stopFrameCapture?(): void;
   };
   /** All configured streaming destinations keyed by platform ID. */
   destinations: Map<string, StreamingDestination>;
@@ -301,11 +303,23 @@ async function startStreamPipeline(
       // requiring a manual button click in the renderer.
       if (state.screenCapture && !state.screenCapture.isFrameCaptureActive()) {
         try {
-          await state.screenCapture.startFrameCapture({
+          const captureOpts: {
+            fps: number;
+            quality: number;
+            endpoint: string;
+            gameUrl?: string;
+          } = {
             fps: 15,
             quality: 70,
             endpoint: "/api/stream/frame",
-          });
+          };
+          if (
+            activeStreamSource.type !== "stream-tab" &&
+            activeStreamSource.url
+          ) {
+            captureOpts.gameUrl = activeStreamSource.url;
+          }
+          await state.screenCapture.startFrameCapture(captureOpts);
           logger.info("[stream] Auto-started Electron frame capture");
         } catch (err) {
           logger.warn(`[stream] Failed to auto-start frame capture: ${err}`);
@@ -842,6 +856,82 @@ export async function handleStreamRoute(
       error(
         res,
         err instanceof Error ? err.message : "Failed to save settings",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── GET /api/stream/source -- get active stream source ───────────────
+  if (method === "GET" && pathname === "/api/stream/source") {
+    json(res, { source: activeStreamSource });
+    return true;
+  }
+
+  // ── POST /api/stream/source -- set active stream source ──────────────
+  if (method === "POST" && pathname === "/api/stream/source") {
+    try {
+      const body = await readRequestBody(req);
+      const { sourceType, customUrl } = JSON.parse(
+        typeof body === "string" ? body : JSON.stringify(body),
+      );
+
+      if (!["stream-tab", "game", "custom-url"].includes(sourceType)) {
+        json(res, { ok: false, error: "Invalid sourceType" }, 400);
+        return true;
+      }
+      if (sourceType === "custom-url" && !customUrl) {
+        json(
+          res,
+          { ok: false, error: "customUrl required for custom-url source" },
+          400,
+        );
+        return true;
+      }
+
+      // Stop current frame capture if active
+      if (state.screenCapture?.isFrameCaptureActive()) {
+        state.screenCapture.stopFrameCapture?.();
+      }
+
+      // Build capture options
+      const captureOpts: {
+        fps: number;
+        quality: number;
+        endpoint: string;
+        gameUrl?: string;
+      } = {
+        fps: 15,
+        quality: 70,
+        endpoint: "/api/stream/frame",
+      };
+
+      if (sourceType === "game" || sourceType === "custom-url") {
+        captureOpts.gameUrl = customUrl;
+      }
+
+      // Update state
+      activeStreamSource = { type: sourceType, url: customUrl };
+
+      // Restart frame capture if stream is running
+      if (state.streamManager.isRunning() && state.screenCapture) {
+        try {
+          await state.screenCapture.startFrameCapture(captureOpts);
+        } catch (err) {
+          logger.warn(
+            `[stream] Failed to restart frame capture after source switch: ${err}`,
+          );
+        }
+      }
+
+      json(res, { ok: true, source: activeStreamSource });
+    } catch (err) {
+      json(
+        res,
+        {
+          ok: false,
+          error: err instanceof Error ? err.message : "Failed to switch source",
+        },
         500,
       );
     }
