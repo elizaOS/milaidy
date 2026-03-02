@@ -393,6 +393,9 @@ export function App() {
     const isSkills = effectiveTab === "skills";
     const isSettings = effectiveTab === "settings";
     const isPlugins = effectiveTab === "plugins";
+    const isLifo = effectiveTab === "lifo";
+    const isStream = effectiveTab === "stream";
+    const isWallets = effectiveTab === "wallets";
     const isAdvancedOverlay =
       effectiveTab === "advanced" ||
       effectiveTab === "actions" ||
@@ -402,13 +405,12 @@ export function App() {
       effectiveTab === "runtime" ||
       effectiveTab === "database" ||
       effectiveTab === "logs" ||
-      effectiveTab === "security";
+      effectiveTab === "security" ||
+      isLifo ||
+      isStream;
     const isApps = effectiveTab === "apps";
     const isConnectors = effectiveTab === "connectors";
     const isKnowledge = effectiveTab === "knowledge";
-    const isLifo = effectiveTab === "lifo";
-    const isStream = effectiveTab === "stream";
-    const isWallets = effectiveTab === "wallets";
     const isPluginsLike = isPlugins || isConnectors;
     const isCentered =
       isSkills ||
