@@ -25,11 +25,13 @@ import {
   Search,
   Shield,
   Sliders,
+  Terminal,
   Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
+import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
@@ -54,6 +56,12 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "AI Model",
     icon: Bot,
     description: "Provider and model settings",
+  },
+  {
+    id: "coding-agents",
+    label: "Coding Agents",
+    icon: Terminal,
+    description: "Agent preferences, models, and permissions",
   },
   {
     id: "media",
@@ -523,6 +531,15 @@ export function SettingsView() {
               setState={setState}
               setTab={setTab}
             />
+          </SectionCard>
+
+          {/* CODING AGENTS SECTION */}
+          <SectionCard
+            id="coding-agents"
+            title="Coding Agents"
+            description="Configure preferred agents, permission levels, and per-agent model preferences."
+          >
+            <CodingAgentSettingsSection />
           </SectionCard>
 
           {/* MEDIA SECTION */}
