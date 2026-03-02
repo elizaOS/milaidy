@@ -176,7 +176,7 @@
     "chalk": "^5.4.1",
     "chokidar": "~3.5.3",
     "cli-highlight": "^2.1.11",
-    "coding-agent-adapters": "0.8.0",
+    "coding-agent-adapters": "0.8.9",
     "commander": "^14.0.0",
     "croner": "^9.0.0",
     "cross-spawn": "^7.0.6",
@@ -205,7 +205,7 @@
     "pdfjs-dist": "^5.4.530",
     "pg": "^8.16.3",
     "pino": "^10.3.1",
-    "pty-manager": "1.9.0",
+    "pty-manager": "1.9.4",
     "puppeteer-core": "^24.37.5",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
@@ -241,6 +241,6 @@
     "@elizaos/core": "next",
     "@elizaos/prompts": "next",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.0"
+    "pty-manager": "1.9.4"
   }
 }
