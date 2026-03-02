@@ -112,23 +112,27 @@ const THEME_STORAGE_KEY = "milady:theme";
 
 export type ThemeName =
   | "milady"
+  | "milady-classic"
   | "qt314"
   | "web2000"
   | "programmer"
   | "haxor"
-  | "psycho";
+  | "psycho"
+  | "dark";
 
 export const THEMES: ReadonlyArray<{
   id: ThemeName;
   label: string;
   hint: string;
 }> = [
-  { id: "milady", label: "milady", hint: "clean black & white" },
+  { id: "milady", label: "milady", hint: "BSC yellow default" },
+  { id: "milady-classic", label: "milady classic", hint: "sage green retro" },
   { id: "qt314", label: "qt3.14", hint: "soft pastels" },
   { id: "web2000", label: "web2000", hint: "green hacker vibes" },
   { id: "programmer", label: "programmer", hint: "vscode dark" },
   { id: "haxor", label: "haxor", hint: "terminal green" },
   { id: "psycho", label: "psycho", hint: "pure chaos" },
+  { id: "dark", label: "dark", hint: "clean dark mode" },
 ];
 
 const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
