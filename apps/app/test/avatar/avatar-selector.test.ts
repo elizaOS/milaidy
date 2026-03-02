@@ -2,41 +2,84 @@
  * Tests for avatar selection logic — VRM index management, path resolution, localStorage persistence.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getVrmPreviewUrl, getVrmUrl, VRM_COUNT } from "../../src/AppContext";
+import {
+  getVrmPreviewUrl,
+  getVrmTitle,
+  getVrmUrl,
+  VRM_COUNT,
+} from "../../src/AppContext";
 
 describe("Avatar VRM Utilities", () => {
   describe("VRM_COUNT", () => {
-    it("is 8 for the built-in miladies", () => {
-      expect(VRM_COUNT).toBe(8);
+    it("is 33 for all bundled avatars (24 base + 8 official + 1 named)", () => {
+      expect(VRM_COUNT).toBe(33);
     });
   });
 
   describe("getVrmUrl", () => {
-    it("returns correct path for each built-in index", () => {
-      for (let i = 1; i <= 8; i++) {
-        expect(getVrmUrl(i)).toBe(`/vrms/${i}.vrm`);
+    it("returns correct path for base milady VRMs (1-24)", () => {
+      for (let i = 1; i <= 24; i++) {
+        expect(getVrmUrl(i)).toBe(`/vrms/milady-${i}.vrm`);
       }
     });
 
+    it("returns correct path for official VRMs (25-32)", () => {
+      for (let i = 1; i <= 8; i++) {
+        expect(getVrmUrl(24 + i)).toBe(`/vrms/milady-official-${i}.vrm`);
+      }
+    });
+
+    it("returns correct path for named VRMs (33)", () => {
+      expect(getVrmUrl(33)).toBe("/vrms/shaw.vrm");
+    });
+
     it("clamps invalid indices to avatar 1", () => {
-      expect(getVrmUrl(9)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(-3)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(Number.NaN)).toBe("/vrms/1.vrm");
-      expect(getVrmUrl(0)).toBe("/vrms/1.vrm");
+      expect(getVrmUrl(34)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(-3)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(Number.NaN)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(0)).toBe("/vrms/milady-1.vrm");
     });
   });
 
   describe("getVrmPreviewUrl", () => {
-    it("returns correct path for each preview image", () => {
-      for (let i = 1; i <= 8; i++) {
+    it("returns correct preview path for base VRMs (1-24)", () => {
+      for (let i = 1; i <= 24; i++) {
         expect(getVrmPreviewUrl(i)).toBe(`/vrms/previews/milady-${i}.png`);
       }
+    });
+
+    it("returns correct preview path for official VRMs (25-32)", () => {
+      for (let i = 1; i <= 8; i++) {
+        expect(getVrmPreviewUrl(24 + i)).toBe(
+          `/vrms/previews/milady-official-${i}.png`,
+        );
+      }
+    });
+
+    it("returns named VRM preview for named VRMs (33)", () => {
+      expect(getVrmPreviewUrl(33)).toBe("/vrms/shaw.jpg");
     });
 
     it("clamps invalid preview indices to avatar 1", () => {
       expect(getVrmPreviewUrl(999)).toBe("/vrms/previews/milady-1.png");
       expect(getVrmPreviewUrl(-1)).toBe("/vrms/previews/milady-1.png");
       expect(getVrmPreviewUrl(0)).toBe("/vrms/previews/milady-1.png");
+    });
+  });
+
+  describe("getVrmTitle", () => {
+    it("returns formatted title for base VRMs", () => {
+      expect(getVrmTitle(1)).toBe("MILADY-01");
+      expect(getVrmTitle(24)).toBe("MILADY-24");
+    });
+
+    it("returns formatted title for official VRMs", () => {
+      expect(getVrmTitle(25)).toBe("OFFICIAL-01");
+      expect(getVrmTitle(32)).toBe("OFFICIAL-08");
+    });
+
+    it("returns label for named VRMs", () => {
+      expect(getVrmTitle(33)).toBe("SHAW");
     });
   });
 });
@@ -79,14 +122,14 @@ describe("Avatar Selection State", () => {
     });
 
     it("falls back to 1 for invalid stored values", () => {
-      const testCases = ["", "abc", "-1", "9", "NaN"];
+      const testCases = ["", "abc", "-1", "34", "NaN"];
 
       for (const invalid of testCases) {
         const n = Number(invalid);
         const isValid = !Number.isNaN(n) && n >= 0 && n <= VRM_COUNT;
         const result = isValid ? n : 1;
         // Invalid cases should fall back to 1
-        if (["", "abc", "-1", "9", "NaN"].includes(invalid) && !isValid) {
+        if (!isValid) {
           expect(result).toBe(1);
         }
       }
@@ -94,7 +137,7 @@ describe("Avatar Selection State", () => {
   });
 
   describe("VRM path resolution", () => {
-    it("resolves built-in index to /vrms/N.vrm", () => {
+    it("resolves built-in index to /vrms/milady-N.vrm", () => {
       const selectedVrmIndex = 5;
       const customVrmUrl: string | null = null;
 
@@ -103,7 +146,7 @@ describe("Avatar Selection State", () => {
           ? customVrmUrl
           : getVrmUrl(selectedVrmIndex || 1);
 
-      expect(vrmPath).toBe("/vrms/5.vrm");
+      expect(vrmPath).toBe("/vrms/milady-5.vrm");
     });
 
     it("resolves custom upload (index 0) to object URL", () => {
@@ -139,13 +182,13 @@ describe("Avatar Selection State", () => {
           ? customVrmUrl
           : getVrmUrl(selectedVrmIndex || 1);
 
-      expect(vrmPath).toBe("/vrms/1.vrm");
+      expect(vrmPath).toBe("/vrms/milady-1.vrm");
     });
 
     it("defaults to index 1 when selectedVrmIndex is 0 without custom URL", () => {
       const selectedVrmIndex = 0;
       const vrmPath = getVrmUrl(selectedVrmIndex || 1);
-      expect(vrmPath).toBe("/vrms/1.vrm");
+      expect(vrmPath).toBe("/vrms/milady-1.vrm");
     });
   });
 });
