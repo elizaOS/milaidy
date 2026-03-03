@@ -1,8 +1,8 @@
 import type { Command } from "commander";
-import { isTruthyEnvValue, setVerbose } from "../../utils/globals.js";
-import { getCommandPath, getVerboseFlag, hasHelpOrVersion } from "../argv.js";
-import { emitCliBanner } from "../banner.js";
-import { resolveCliName } from "../cli-name.js";
+import { isTruthyEnvValue, setVerbose } from "../../utils/globals";
+import { getCommandPath, getVerboseFlag, hasHelpOrVersion } from "../argv";
+import { emitCliBanner } from "../banner";
+import { resolveCliName } from "../cli-name";
 
 function setProcessTitleForCommand(actionCommand: Command) {
   let current: Command = actionCommand;
@@ -29,14 +29,14 @@ export function registerPreActionHooks(
     }
     const commandPath = getCommandPath(argv, 2);
     const hideBanner =
-      isTruthyEnvValue(process.env.MILAIDY_HIDE_BANNER) ||
+      isTruthyEnvValue(process.env.MILADY_HIDE_BANNER) ||
       commandPath[0] === "update" ||
       commandPath[0] === "completion";
     if (!hideBanner) {
       emitCliBanner(programVersion);
 
       const { scheduleUpdateNotification } = await import(
-        "../../services/update-notifier.js"
+        "../../services/update-notifier"
       );
       scheduleUpdateNotification();
     }

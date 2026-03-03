@@ -10,7 +10,7 @@
  *   EVM_PRIVATE_KEY — for wallet operations
  *   SOLANA_PRIVATE_KEY — for wallet operations (optional; uses SOLANA_API_KEY fallback)
  *
- * Run: MILAIDY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/api-auth-live.e2e.test.ts
+ * Run: MILADY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/api-auth-live.e2e.test.ts
  */
 import http from "node:http";
 import path from "node:path";
@@ -99,6 +99,7 @@ describe.skipIf(!canRun)(
   "Live: Authenticated full flow (LLM + wallet + auth)",
   () => {
     const API_TOKEN = `live-e2e-test-token-${Date.now()}`;
+    const EXPORT_TOKEN = `live-wallet-export-token-${Date.now()}`;
     let port: number;
     let close: () => Promise<void>;
     const savedEnv: Record<string, string | undefined> = {};
@@ -108,19 +109,21 @@ describe.skipIf(!canRun)(
     beforeAll(async () => {
       // Save env
       const envKeys = [
-        "MILAIDY_API_TOKEN",
-        "MILAIDY_PAIRING_DISABLED",
-        "MILAIDY_API_BIND",
+        "MILADY_API_TOKEN",
+        "MILADY_WALLET_EXPORT_TOKEN",
+        "MILADY_PAIRING_DISABLED",
+        "MILADY_API_BIND",
       ];
       for (const key of envKeys) {
         savedEnv[key] = process.env[key];
       }
 
       // Configure auth
-      process.env.MILAIDY_API_TOKEN = API_TOKEN;
-      delete process.env.MILAIDY_PAIRING_DISABLED;
+      process.env.MILADY_API_TOKEN = API_TOKEN;
+      process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
+      delete process.env.MILADY_PAIRING_DISABLED;
 
-      const { startApiServer } = await import("../src/api/server.js");
+      const { startApiServer } = await import("../src/api/server");
       const server = await startApiServer({ port: 0 });
       port = server.port;
       close = server.close;
@@ -314,7 +317,7 @@ describe.skipIf(!canRun)(
         port,
         "POST",
         "/api/wallet/export",
-        { confirm: true },
+        { confirm: true, exportToken: EXPORT_TOKEN },
         authHeaders,
       );
       const evm = exported.evm as {
@@ -362,8 +365,8 @@ describe.skipIf(!canRun)("Live: Token header variants with LLM", () => {
   let close: () => Promise<void>;
 
   beforeAll(async () => {
-    process.env.MILAIDY_API_TOKEN = API_TOKEN;
-    const { startApiServer } = await import("../src/api/server.js");
+    process.env.MILADY_API_TOKEN = API_TOKEN;
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -371,7 +374,7 @@ describe.skipIf(!canRun)("Live: Token header variants with LLM", () => {
 
   afterAll(async () => {
     await close();
-    delete process.env.MILAIDY_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
   });
 
   it("Bearer token works for chat (auth enforced)", async () => {
@@ -405,9 +408,9 @@ describe.skipIf(!canRun)("Live: Token header variants with LLM", () => {
     });
   }, 60_000);
 
-  it("X-Milaidy-Token works for status", async () => {
+  it("X-Milady-Token works for status", async () => {
     const { status } = await req(port, "GET", "/api/status", undefined, {
-      "X-Milaidy-Token": API_TOKEN,
+      "X-Milady-Token": API_TOKEN,
     });
     expect(status).toBe(200);
   });
@@ -426,12 +429,16 @@ describe.skipIf(!canRun)("Live: Token header variants with LLM", () => {
 
 describe.skipIf(!canRun)("Live: Auth + CORS + wallet combined", () => {
   const API_TOKEN = `combined-test-token-${Date.now()}`;
+  const EXPORT_TOKEN = `combined-wallet-export-token-${Date.now()}`;
   let port: number;
   let close: () => Promise<void>;
+  let savedExportToken: string | undefined;
 
   beforeAll(async () => {
-    process.env.MILAIDY_API_TOKEN = API_TOKEN;
-    const { startApiServer } = await import("../src/api/server.js");
+    savedExportToken = process.env.MILADY_WALLET_EXPORT_TOKEN;
+    process.env.MILADY_API_TOKEN = API_TOKEN;
+    process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -439,7 +446,12 @@ describe.skipIf(!canRun)("Live: Auth + CORS + wallet combined", () => {
 
   afterAll(async () => {
     await close();
-    delete process.env.MILAIDY_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
+    if (savedExportToken === undefined) {
+      delete process.env.MILADY_WALLET_EXPORT_TOKEN;
+    } else {
+      process.env.MILADY_WALLET_EXPORT_TOKEN = savedExportToken;
+    }
   });
 
   it("localhost origin + auth = wallet operations work", async () => {
@@ -497,7 +509,7 @@ describe.skipIf(!canRun)("Live: Auth + CORS + wallet combined", () => {
       port,
       "POST",
       "/api/wallet/export",
-      { confirm: true },
+      { confirm: true, exportToken: EXPORT_TOKEN },
       auth,
     );
     const evm = exported.evm as { privateKey: string; address: string | null };

@@ -4,7 +4,7 @@
  */
 
 import { logger } from "@elizaos/core";
-import type { ElizaCloudClient } from "./bridge-client.js";
+import type { ElizaCloudClient } from "./bridge-client";
 
 export class BackupScheduler {
   private timer: ReturnType<typeof setInterval> | null = null;

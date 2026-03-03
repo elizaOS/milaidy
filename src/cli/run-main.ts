@@ -1,10 +1,11 @@
 import process from "node:process";
-import { getPrimaryCommand, hasHelpOrVersion } from "./argv.js";
+import { getPrimaryCommand, hasHelpOrVersion } from "./argv";
+import { registerSubCliByName } from "./program/register.subclis";
 
 async function loadDotEnv(): Promise<void> {
   try {
     const { config } = await import("dotenv");
-    config();
+    config({ quiet: true });
   } catch (err) {
     if (
       (err as NodeJS.ErrnoException).code !== "MODULE_NOT_FOUND" &&
@@ -30,29 +31,36 @@ export async function runCli(argv: string[] = process.argv) {
     process.env.ZAI_API_KEY = process.env.Z_AI_API_KEY;
   }
 
-  const { buildProgram } = await import("./program.js");
+  const { buildProgram } = await import("./program");
   const program = buildProgram();
 
+  // Prevent Commander from calling process.exit() directly so that piped stdio (vitest etc)
+  // has a chance to flush cleanly before the process spins down.
+  program.exitOverride();
+
   process.on("unhandledRejection", (reason) => {
-    console.error(
-      "[milaidy] Unhandled rejection:",
-      formatUncaughtError(reason),
-    );
+    console.error("[milady] Unhandled rejection:", formatUncaughtError(reason));
     process.exit(1);
   });
 
   process.on("uncaughtException", (error) => {
-    console.error("[milaidy] Uncaught exception:", formatUncaughtError(error));
+    console.error("[milady] Uncaught exception:", formatUncaughtError(error));
     process.exit(1);
   });
 
   const primary = getPrimaryCommand(argv);
   if (primary && !hasHelpOrVersion(argv)) {
-    const { registerSubCliByName } = await import(
-      "./program/register.subclis.js"
-    );
     await registerSubCliByName(program, primary);
   }
 
-  await program.parseAsync(argv);
+  try {
+    await program.parseAsync(argv);
+  } catch (err) {
+    // If commander threw because of an early exit (e.g. --help, --version), don't crash.
+    if (err && typeof err === "object" && "code" in err && "exitCode" in err) {
+      process.exitCode = (err as { exitCode: number }).exitCode ?? 1;
+      return;
+    }
+    throw err;
+  }
 }

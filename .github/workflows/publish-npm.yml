@@ -1,6 +1,6 @@
 name: Publish npm
 
-# Publishes milaidy to npm with the correct dist-tag based on the version.
+# Publishes milady to npm with the correct dist-tag based on the version.
 #
 # Channel mapping:
 #   - Stable releases (v2.0.0)           → dist-tag "latest"
@@ -86,7 +86,20 @@ jobs:
           echo "Dist-tag: $DIST_TAG"
 
       - name: Install dependencies
-        run: bun install
+        run: |
+          # Use --ignore-scripts to skip postinstall (submodule init) since we don't need plugins for npm publish
+          # Retry up to 3 times to handle flaky network issues
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3..."
+            if bun install --frozen-lockfile --ignore-scripts; then
+              echo "Dependencies installed successfully"
+              exit 0
+            fi
+            echo "Attempt $attempt failed, waiting 10s before retry..."
+            sleep 10
+          done
+          echo "All attempts failed"
+          exit 1
 
       - name: Set version in package.json
         run: |
@@ -110,7 +123,7 @@ jobs:
           echo "$PACK_OUTPUT"
 
           # Verify critical files are included in the package
-          for required in "milaidy.mjs" "dist/index.js" "package.json"; do
+          for required in "milady.mjs" "dist/index.js" "package.json"; do
             if ! echo "$PACK_OUTPUT" | grep -q "$required"; then
               echo "::error::Required file '$required' missing from package contents"
               exit 1
@@ -127,11 +140,11 @@ jobs:
       - name: Verify publish
         run: |
           sleep 5  # Give the registry a moment to propagate
-          PUBLISHED=$(npm view milaidy@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
+          PUBLISHED=$(npm view miladyai@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
           EXPECTED="${{ steps.meta.outputs.version }}"
 
           if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
-            echo "Verified: milaidy@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
+            echo "Verified: miladyai@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
           else
             echo "::warning::Published version ($PUBLISHED) does not match expected ($EXPECTED). Registry may still be propagating."
           fi
@@ -142,11 +155,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Package | milaidy |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | milady |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | \`${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Dist-tag | \`${{ steps.meta.outputs.dist_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milaidy@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g miladyai@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

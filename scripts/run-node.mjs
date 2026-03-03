@@ -3,10 +3,21 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import {
+  chooseMiladyRuntime,
+  resolveRuntimeExecPath,
+} from "./run-node-runtime.mjs";
 
 const args = process.argv.slice(2);
-const env = { ...process.env };
 const cwd = process.cwd();
+const env = { ...process.env };
+// WHY: The child runs dist/eliza.js, which dynamic-imports @elizaos/plugin-*. Node does not
+// use cwd to resolve package names for import("pkg"); we must set NODE_PATH to repo root
+// node_modules so those imports succeed. See docs/plugin-resolution-and-node-path.md.
+const rootModules = path.join(cwd, "node_modules");
+env.NODE_PATH = env.NODE_PATH
+  ? `${rootModules}${path.delimiter}${env.NODE_PATH}`
+  : rootModules;
 const compiler = "tsdown";
 
 const distRoot = path.join(cwd, "dist");
@@ -77,7 +88,7 @@ const findLatestMtime = (dirPath, shouldSkip) => {
 };
 
 const shouldBuild = () => {
-  if (env.MILAIDY_FORCE_BUILD === "1") {
+  if (env.MILADY_FORCE_BUILD === "1") {
     return true;
   }
   const stampMtime = statMtime(buildStampPath);
@@ -103,20 +114,31 @@ const shouldBuild = () => {
 };
 
 const logRunner = (message) => {
-  if (env.MILAIDY_RUNNER_LOG === "0") {
+  if (env.MILADY_RUNNER_LOG === "0") {
     return;
   }
-  process.stderr.write(`[milaidy] ${message}\n`);
+  process.stderr.write(`[milady] ${message}\n`);
 };
 
 /** Exit code used by the restart action to signal "restart requested". */
 const RESTART_EXIT_CODE = 75;
 
 const runNode = () => {
-  // Eliza MIGRATION: Use bun for faster startup and better TypeScript support
-  const runtime = process.env.MILAIDY_RUNTIME || "bun";
-  const execPath = runtime === "bun" ? "bun" : process.execPath;
-  const nodeProcess = spawn(execPath, ["milaidy.mjs", ...args], {
+  const { runtime, warning } = chooseMiladyRuntime({
+    requestedRuntime: process.env.MILADY_RUNTIME,
+    platform: process.platform,
+    bunVersion: process.versions?.bun,
+  });
+  if (warning) {
+    logRunner(`${warning} Set MILADY_RUNTIME=bun to force Bun runtime.`);
+  }
+  const execPath = resolveRuntimeExecPath({
+    runtime,
+    currentExecPath: process.execPath,
+    platform: process.platform,
+    explicitNodePath: process.env.MILADY_NODE_PATH,
+  });
+  const nodeProcess = spawn(execPath, ["milady.mjs", ...args], {
     cwd,
     env,
     stdio: "inherit",

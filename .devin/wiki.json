@@ -1,0 +1,303 @@
+{
+  "repo_notes": [
+    {
+      "content": "Milady AI is a personal AI assistant powered by ElizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps ElizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 18789 with WebSocket support. The web UI runs on port 2138."
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "Introduce Milady AI, its purpose as a personal AI assistant powered by ElizaOS, and provide a high-level overview of the system architecture, supported platforms, and core capabilities",
+      "page_notes": [
+        {
+          "content": "Cover: what Milady is (ElizaOS-powered personal AI), privacy-first local execution, supported platforms (Desktop, Mobile, Chrome Extension, Web, TUI, CLI), key capabilities (chat, plugins, wallet, knowledge, autonomy, connectors). Include a system architecture diagram showing: CLI/Desktop/Web → API Server (port 18789) → ElizaOS AgentRuntime → Plugins/Providers/Connectors. Mention the tech stack: TypeScript, Bun, Electron, Capacitor, React/Vite for UI."
+        }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "purpose": "Guide users through installation, first run, and basic configuration",
+      "page_notes": [
+        {
+          "content": "Brief section that links to child pages. Recommended order: Installation → Onboarding & Configuration → Model Provider Setup."
+        }
+      ]
+    },
+    {
+      "title": "Installation",
+      "purpose": "Explain how to install Milady on different platforms (macOS, Windows, Linux) including desktop app, npm CLI, and from source",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": "Cover three installation methods: (1) Desktop app download (Electron, with macOS notarization and Windows EV certs), (2) npm/bun CLI install (`npm install -g milady` or `bun add -g milady`), (3) From source (git clone, bun install, bun run build). Mention packaging formats: Homebrew, Debian, Flatpak, Snap, PyPI. Reference the `packaging/` directory. Note system requirements and prerequisites (Node.js/Bun)."
+        }
+      ]
+    },
+    {
+      "title": "Onboarding & Configuration",
+      "purpose": "Walk through the onboarding process and explain the milady.json configuration file, environment variables, and basic setup options",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": "Document the interactive onboarding flow at `/api/onboarding`: character name/personality setup, execution mode selection, LLM provider selection and API key entry, workspace initialization. Reference `src/config/zod-schema*.ts` for validation rules. Mention `milady setup` and `milady configure` CLI commands. Then cover `~/.milady/milady.json` structure and key fields: agent name, model selection, provider API keys, workspace path, plugin installations, custom actions, trigger definitions, cloud configuration. Cover `milady config get/set` CLI commands and environment variable overrides."
+        }
+      ]
+    },
+    {
+      "title": "Model Provider Setup",
+      "purpose": "Configure and manage multiple AI model providers including API keys, model selection, and provider-specific settings",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": "Document all supported providers: Anthropic Claude, OpenAI, Groq, Ollama (local), xAI (Grok), DeepSeek, Google Gemini, OpenRouter. For each: how to get API key, configuration in milady.json, model selection. Cover: `milady models` CLI command, model switching mid-session, reasoning modes (off/minimal/low/medium/high/max), token tracking and cost calculation. Reference `src/providers/` and `models-routes.ts`."
+        }
+      ]
+    },
+    {
+      "title": "User Guide",
+      "purpose": "Practical guide for using Milady's features through different interfaces",
+      "page_notes": [
+        {
+          "content": "Hub page linking to all user-facing interface guides. Organize by interface type then by feature (Chat, Plugins, Knowledge, Wallet, Connectors, Triggers, Cloud)."
+        }
+      ]
+    },
+    {
+      "title": "Desktop, Web & Mobile Apps",
+      "purpose": "Using the Electron desktop app, web dashboard, Chrome extension, and Capacitor mobile app",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Desktop (Electron): system tray integration, agent lifecycle controls (start/stop/pause/restart), status monitoring, window management, platform-specific behaviors (macOS notarization, Windows). Reference `apps/app/`. Web dashboard (React/Vite at port 2138): accessing the UI (`milady dashboard` command or direct URL), navigation structure, available panels (chat, plugins, wallet, knowledge, settings, diagnostics). Reference `scripts/dev-ui.mjs`. Chrome extension (`apps/chrome-extension/`): installation, connecting to local instance, browser-integrated features, permissions. Mobile (Capacitor in `apps/app/`): installation on iOS/Android, connecting to agent, mobile-specific UI, reference `apps-routes.ts`."
+        }
+      ]
+    },
+    {
+      "title": "Terminal UI & CLI Reference",
+      "purpose": "Using the terminal-based UI and complete reference for all CLI commands, flags, and usage patterns",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "TUI: `milady tui` command, live activity feed, keyboard shortcuts/hotkeys, terminal styling, bridge to ElizaOS TUI. Reference `src/tui/` and `src/terminal/`. CLI commands from `src/cli/`: `milady start` (aliases: `milady`), `milady setup`, `milady configure`, `milady config get/set`, `milady models`, `milady plugins list/add/remove`, `milady dashboard`, `milady doctor`, `milady tui`. For each: syntax, flags, examples, common use cases."
+        }
+      ]
+    },
+    {
+      "title": "Chat Interface",
+      "purpose": "Interacting with the agent through chat, including streaming responses, conversations, message history, and chat commands",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Cover: sending messages, streaming responses, conversation management (new, reset), message history. Document chat commands: `/status`, `/new`, `/reset`, `/compact`, `/think`, `/verbose`, `/usage`, `/model`, `/restart`, `/help`. Explain context compaction (agent-driven summarization). Reference WebSocket endpoint `/ws` for real-time chat."
+        }
+      ]
+    },
+    {
+      "title": "Managing Plugins",
+      "purpose": "Installing, enabling, disabling, and configuring plugins through the UI and CLI",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Cover: browsing the plugin registry, installing plugins from npm/GitHub, `milady plugins list/add/remove` CLI commands, enabling/disabling via UI, plugin stability tracking, auto-enable behavior (`src/config/plugin-auto-enable.ts`), eject/reinject workflow. List key built-in plugins: anthropic, openai, groq, knowledge, browser, computeruse, cron, discord, telegram, shell, todo, trajectory-logger, trust, personality, secrets-manager, rolodex."
+        }
+      ]
+    },
+    {
+      "title": "Knowledge & Learning",
+      "purpose": "Importing knowledge from URLs, YouTube, PDFs, managing the knowledge base, and memory management",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Document: importing knowledge from URLs (with body size bounds), YouTube (with fetch size bounds), PDFs (via plugin-pdf). Cover: knowledge base indexing and search, memory bounds enforcement (`src/api/memory-bounds.ts`), URL knowledge import timeout guards. Reference `knowledge-routes.ts` and `@elizaos/plugin-knowledge`."
+        }
+      ]
+    },
+    {
+      "title": "Wallet Management",
+      "purpose": "Generating, importing, and managing EVM and Solana wallets, viewing balances and NFTs",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Cover: generating new wallets (EVM + Solana), importing existing wallets, private key validation, viewing balances and NFTs, secure export with authentication. Reference `wallet-routes.ts`. Note security considerations for private key handling."
+        }
+      ]
+    },
+    {
+      "title": "Connectors & Triggers",
+      "purpose": "Connecting to social platforms (Discord, Telegram, Signal) and setting up scheduled tasks and automated trigger-based actions",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Connectors: Discord (full connector with gateway relay, `@elizaos/plugin-discord`), Telegram (`@elizaos/plugin-telegram`), Signal. For each: setup instructions, authentication, capabilities, configuration. Mention planned: WhatsApp, Slack, Matrix, MS Teams, Google Chat, iMessage. Triggers: the trigger/cron system in `src/triggers/`, creating scheduled tasks, cron expression syntax, custom trigger handlers, configuration persistence, `@elizaos/plugin-cron` integration, common automation patterns."
+        }
+      ]
+    },
+    {
+      "title": "Deployment & Troubleshooting",
+      "purpose": "Deploying agents to Eliza Cloud or self-hosted infrastructure, and common issues with diagnostic tools",
+      "parent": "User Guide",
+      "page_notes": [
+        {
+          "content": "Cloud: Eliza Cloud overview, authentication flow, deploying agents, remote management, backup/sync, URL validation, bridge client, reconnection logic. Reference `src/cloud/`. Self-hosting: Docker via `deploy/cloud-agent-template/`, environment config, persistent storage, reverse proxy, systemd. Packaging: Debian, Flatpak, Snap. Troubleshooting: `milady doctor` diagnostic command, common installation issues, provider connection problems, version compatibility (`src/services/version-compat.ts`), missing AI provider detection, self-updater (`src/services/self-updater.ts`), auto-update checking, FAQ."
+        }
+      ]
+    },
+    {
+      "title": "Core Concepts",
+      "purpose": "Explain the fundamental concepts and architecture of the Milady system",
+      "page_notes": [
+        {
+          "content": "Hub page introducing the key architectural concepts. Provide a system diagram showing relationships between Runtime, Plugins, Providers, Connectors, Hooks, and the API layer."
+        }
+      ]
+    },
+    {
+      "title": "Architecture Overview",
+      "purpose": "High-level system architecture, component relationships, data flow, and technology stack",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Architectural diagrams: how Milady wraps ElizaOS, CLI → API Server → AgentRuntime → Plugins. Request flow (user input → API → runtime → LLM → response), data storage (PGlite/PostgreSQL via Drizzle ORM), workspace structure (`~/.milady/`), build system (tsdown + Vite), process architecture. Tech stack: TypeScript, Bun, Electron, Capacitor, React, Vite, Drizzle."
+        }
+      ]
+    },
+    {
+      "title": "Agent Runtime",
+      "purpose": "Explain the ElizaOS AgentRuntime, its lifecycle, initialization, and role in the system",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Runtime lifecycle: initialization → plugin loading → provider setup → ready state. `src/runtime/eliza.ts` as main entry point, runtime configuration, agent lifecycle states (starting, running, paused, stopped), context management, custom actions registration (`src/runtime/custom-actions.ts`). How Milady extends the base ElizaOS runtime."
+        }
+      ]
+    },
+    {
+      "title": "Plugin System",
+      "purpose": "Deep dive into the plugin architecture, plugin discovery, loading, validation, and types of plugins",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Plugin interface and lifecycle, discovery and registry (`src/services/plugin-registry.ts`), dynamic loading from npm/GitHub, validation, plugin types (providers, actions, services, connectors), stability tracking, auto-enable logic (`src/config/plugin-auto-enable.ts`), skill marketplace (`src/services/skill-marketplace.ts`), MCP marketplace (`src/services/mcp-marketplace.ts`)."
+        }
+      ]
+    },
+    {
+      "title": "Message Processing & Autonomy",
+      "purpose": "How messages flow through the system and how the autonomous thinking loop works",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Message pipeline: user input → API/WebSocket → runtime processing → LLM call → response streaming → memory storage. Context compaction, memory bounds enforcement, token tracking, cost calculation, reasoning modes, provider selection and fallback. Autonomy: autonomous mode activation and control, the autonomy loop (think → decide → act → observe), proactive behavior patterns, self-directed decision-making. Reference `src/runtime/autonomy-flow.test.ts` and `autonomy-routes.ts`."
+        }
+      ]
+    },
+    {
+      "title": "Knowledge System",
+      "purpose": "How the knowledge base works internally, including indexing, embedding, retrieval, and memory management",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Knowledge import pipeline (URL → fetch → parse → embed → store), YouTube transcript extraction, PDF processing via plugin-pdf, local embedding models (`@elizaos/plugin-local-embedding`), indexing and search, memory bounds enforcement, import safety guards (body size bounds, fetch size bounds, timeout guards)."
+        }
+      ]
+    },
+    {
+      "title": "Hooks, Security & Sandbox",
+      "purpose": "The hooks extensibility mechanism, security architecture, and sandboxed code execution",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "Hooks (`src/hooks/`): hook discovery, registry, loader, execution lifecycle, available hook points, custom hook registration, execution order, error handling. Security: API token authentication, stealth mode for Claude Code integration (`src/auth/apply-stealth.ts`, `src/auth/credentials.ts`), database query guards (readonly enforcement), network policy validation (`src/security/`), sandbox audit logging (SandboxAuditLog), terminal run limits (`src/api/terminal-run-limits.ts`), pairing code auth, trust model (local-first, what data leaves the machine, cloud sync security). Sandbox: SandboxManager (`src/services/sandbox-manager.ts`), isolated code execution, configurable sandbox levels, `@elizaos/plugin-computeruse`, `@elizaos/plugin-shell`, safety measures."
+        }
+      ]
+    },
+    {
+      "title": "Trajectory Logging",
+      "purpose": "Explain trajectory recording, LLM call tracking, execution history, and persistence",
+      "parent": "Core Concepts",
+      "page_notes": [
+        {
+          "content": "What trajectories capture (agent actions, LLM calls, execution paths), trajectory persistence (`src/runtime/trajectory-persistence.ts`), automatic saving, `@elizaos/plugin-trajectory-logger`, querying and exporting trajectory data, using trajectories for learning and analysis."
+        }
+      ]
+    },
+    {
+      "title": "API Documentation",
+      "purpose": "Complete reference for all HTTP and WebSocket API endpoints served on port 18789",
+      "page_notes": [
+        {
+          "content": "Hub page listing all API endpoint groups. API server runs on port 18789, WebSocket at /ws. Authentication required for most endpoints. All routes defined in `src/api/` directory."
+        }
+      ]
+    },
+    {
+      "title": "Authentication & Agent Control",
+      "purpose": "Authentication mechanisms and API endpoints for controlling agent lifecycle",
+      "parent": "API Documentation",
+      "page_notes": [
+        {
+          "content": "Auth: pairing code flow, API token generation/validation, security headers, stealth mode for Claude Code, credential management (`src/auth/credentials.ts`), reference `auth-routes.ts`. Agent control from `agent-lifecycle-routes.ts`: POST /api/agent/start, stop, pause, restart, GET /api/status. Agent transfer from `agent-transfer-routes.ts`: migration, export, admin routes from `agent-admin-routes.ts`."
+        }
+      ]
+    },
+    {
+      "title": "Chat, Knowledge & Models API",
+      "purpose": "API endpoints for chat, conversations, knowledge management, and model provider operations",
+      "parent": "API Documentation",
+      "page_notes": [
+        {
+          "content": "Chat: POST /api/chat, GET /api/chat/stream (SSE), GET /api/conversations, conversation CRUD, WebSocket at /ws. Include request/response schemas and streaming event format. Knowledge (`knowledge-routes.ts`): import (URL, YouTube, PDF), search, listing, deletion, import safety parameters. Models (`models-routes.ts`): list providers, test connection, get/set active model, provider capabilities, provider-specific config schemas."
+        }
+      ]
+    },
+    {
+      "title": "Configuration, Database & Wallet API",
+      "purpose": "API endpoints for settings management, database operations, and wallet operations",
+      "parent": "API Documentation",
+      "page_notes": [
+        {
+          "content": "Config: GET/PUT /api/config, POST /api/onboarding, GET/POST /api/plugins, GET /api/skills, GET /api/connectors, character endpoints from `character-routes.ts`. Database: GET /api/database/status, GET /api/database/tables, POST /api/database/query (readonly enforcement and query guards). Wallet (`wallet-routes.ts`): POST /api/wallet/generate, import, export (requires auth), GET /api/wallet/balances, nfts. EVM and Solana support."
+        }
+      ]
+    },
+    {
+      "title": "Cloud, Autonomy, Sandbox & Diagnostics API",
+      "purpose": "API endpoints for cloud integration, autonomous behavior, sandbox operations, trajectory logging, and diagnostics",
+      "parent": "API Documentation",
+      "page_notes": [
+        {
+          "content": "Cloud (`cloud-routes.ts`, `cloud-status-routes.ts`): POST /api/cloud/login, GET /api/cloud/agents, POST /api/cloud/provision, connect, status, backups. Autonomy (`autonomy-routes.ts`): get state, enable/disable, configure parameters, safety considerations. Sandbox: POST /api/sandbox/exec, GET /api/sandbox/screen, POST /api/sandbox/computer, audit logging, execution limits. Trajectories (`trajectory-routes.ts`): GET /api/trajectories, /:id, /export, statistics, filtering. Diagnostics (`diagnostics-routes.ts`): health check, version info, provider status. Also reference `training-routes.ts` and `subscription-routes.ts`."
+        }
+      ]
+    },
+    {
+      "title": "Plugin Development",
+      "purpose": "Complete guide for developing custom plugins for Milady, from architecture to publishing",
+      "page_notes": [
+        {
+          "content": "Hub page introducing plugin development: why build plugins, what plugins can do (actions, providers, services, connectors), development prerequisites."
+        }
+      ]
+    },
+    {
+      "title": "Plugin Architecture & Creation",
+      "purpose": "Plugin structure, lifecycle, and step-by-step guide to creating a new plugin with actions, providers, hooks, and triggers",
+      "parent": "Plugin Development",
+      "page_notes": [
+        {
+          "content": "Architecture: Plugin interface definition, lifecycle (discovery → validation → loading → initialization → running → cleanup), service/action/provider registration. Reference ElizaOS plugin contracts. Creation walkthrough: project scaffolding, directory structure, implementing the plugin interface, defining actions (reference `src/actions/`), defining providers (reference `src/providers/`), testing locally, configuring in milady.json, minimal working example. Actions: interface (name, description, handler, validation). Providers: interface (name, get, context injection). Examples: workspace provider (`src/providers/workspace.ts`), media provider, terminal action, emote actions. Hooks: registration from plugins, available hook points, trigger/cron registration, custom trigger handlers. Reference `src/hooks/` and `src/triggers/`."
+        }
+      ]
+    },
+    {
+      "title": "Publishing Plugins",
+      "purpose": "How to package, test, and publish plugins to the Milady plugin registry and npm",
+      "parent": "Plugin Development",
+      "page_notes": [
+        {
+          "content": "Packaging requirements, npm publishing workflow, registry submission, plugin stability tiers, version compatibility, plugin marketplace listing (`src/services/skill-marketplace.ts`, `src/services/mcp-marketplace.ts`). Include checklist for plugin readiness."
+        }
+      ]
+    }
+  ]
+}

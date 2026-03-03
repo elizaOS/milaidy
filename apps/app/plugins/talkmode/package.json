@@ -1,8 +1,8 @@
 {
-  "name": "@milaidy/capacitor-talkmode",
+  "name": "@milady/capacitor-talkmode",
   "version": "1.0.0",
   "private": true,
-  "description": "Talk mode plugin with STT, chat, and TTS for Milaidy",
+  "description": "Talk mode plugin with STT, chat, and TTS for Milady",
   "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
@@ -39,8 +39,11 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
-  "milaidy": {
-    "platforms": ["browser", "node"],
+  "milady": {
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Support via Web Speech API for STT/TTS. No ElevenLabs streaming (CORS). System TTS fallback.",

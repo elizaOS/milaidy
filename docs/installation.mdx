@@ -1,0 +1,334 @@
+---
+title: "Installation"
+sidebarTitle: "Installation"
+description: "Download the desktop app or install Milady via CLI on macOS, Windows, or Linux."
+---
+
+## Prerequisites
+
+Before installing Milady, make sure you have the required runtime:
+
+| Requirement | Version | How to Check | Install |
+|-------------|---------|-------------|---------|
+| **Node.js** | >= 22 | `node --version` | [nodejs.org](https://nodejs.org) or `nvm install 22` |
+
+For **building from source** or development, you also need:
+
+| Requirement | Version | How to Check | Install |
+|-------------|---------|-------------|---------|
+| **Bun** | latest | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
+
+<Info>
+Node 22+ is required because Milady uses native ES modules, the `node:` protocol prefix, and other modern Node APIs. Bun is only needed for development and building from source -- it is used as the package manager and script runner. The published npm package and install scripts run on Node.js alone.
+</Info>
+
+You will also need an API key from at least one model provider (Anthropic, OpenAI, OpenRouter, etc.) -- unless you plan to use [Ollama](https://ollama.ai) for fully local inference, which requires no API key.
+
+## Desktop App (Recommended)
+
+The desktop app is the easiest way to get started. It packages the full Milady runtime, web dashboard, and gateway into a native Electron application with auto-updates and system tray integration.
+
+Download from **[GitHub Releases](https://github.com/milady-ai/milady/releases/latest)**:
+
+| Platform | File | Notes |
+|----------|------|-------|
+| macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | M1/M2/M3/M4 Macs |
+| macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | Pre-2020 Macs |
+| Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | Windows 10+ |
+| Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | AppImage or Debian package |
+
+All releases are signed and notarized. No Gatekeeper warnings on macOS.
+
+### Verify Download Integrity
+
+```bash
+cd ~/Downloads
+curl -fsSLO https://github.com/milady-ai/milady/releases/latest/download/SHA256SUMS.txt
+shasum -a 256 --check --ignore-missing SHA256SUMS.txt
+```
+
+## CLI Install
+
+<Tabs>
+  <Tab title="macOS / Linux">
+    The install script downloads the latest release, places the binary in your PATH, and runs initial setup:
+
+    ```bash
+    curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
+    milady setup
+    ```
+
+    Then start Milady:
+
+    ```bash
+    milady
+    ```
+  </Tab>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    irm https://milady-ai.github.io/milady/install.ps1 | iex
+    ```
+
+    After installation, open a new terminal window and run:
+
+    ```powershell
+    milady setup
+    milady
+    ```
+  </Tab>
+  <Tab title="npm">
+    If you prefer npm/npx:
+
+    ```bash
+    npm install -g milaidy
+    milady setup
+    milady
+    ```
+  </Tab>
+</Tabs>
+
+## Build from Source
+
+For contributors or anyone who wants the latest development version:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/milady-ai/milady.git
+    cd milady
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+
+    The `postinstall` script automatically initializes git submodules, ensures the skills directory exists, links the browser server, and patches dependencies.
+  </Step>
+  <Step title="Build everything">
+    ```bash
+    bun run build
+    ```
+
+    This compiles the TypeScript source with `tsdown`, writes build info, and builds the web app in `apps/app`.
+
+    <Info>
+    If you want to build without Bun as the runtime (Node only): `bun run build:node` uses `node --import tsx` instead of Bun for script execution.
+    </Info>
+  </Step>
+  <Step title="Start Milady">
+    ```bash
+    bun run start
+    ```
+
+    This launches the gateway and API server. On first run, you will be walked through the interactive onboarding flow.
+  </Step>
+</Steps>
+
+## Development Mode
+
+Milady has several development modes depending on what you are working on:
+
+<CodeGroup>
+```bash Full dev (runtime + UI hot reload)
+bun run dev
+```
+
+```bash UI only (web dashboard hot reload)
+bun run dev:ui
+```
+
+```bash Desktop app (Electron with live reload)
+bun run dev:desktop
+```
+
+```bash TUI (terminal interface)
+bun run tui
+```
+
+```bash TUI with dev profile (port 19001)
+bun run tui:dev
+```
+
+```bash All services simultaneously
+bun run dev:all
+```
+</CodeGroup>
+
+The `dev` script uses `scripts/dev-ui.mjs` to start the runtime with hot-reload for both the backend and the web UI. The `dev:desktop` script starts the Electron app with live reload from `apps/app/electron`.
+
+## Mobile Builds
+
+Milady uses [Capacitor](https://capacitorjs.com) to target Android and iOS:
+
+<Tabs>
+  <Tab title="Android">
+    ```bash
+    bun run build:android
+    ```
+
+    For development with live reload:
+
+    ```bash
+    bun run dev:android
+    ```
+
+    Requires Android Studio and the Android SDK.
+  </Tab>
+  <Tab title="iOS">
+    ```bash
+    bun run build:ios
+    ```
+
+    For development with live reload:
+
+    ```bash
+    bun run dev:ios
+    ```
+
+    Requires Xcode and a Mac.
+  </Tab>
+</Tabs>
+
+## Environment Setup
+
+Milady stores all state in `~/.milady/` by default. The onboarding wizard handles initial configuration, but you can also set environment variables directly.
+
+### API Keys
+
+Set at least one model provider key. You can do this via the onboarding wizard, in `~/.milady/milady.json` under the `env` field, or in `~/.milady/.env`:
+
+<CodeGroup>
+```bash Anthropic (recommended)
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+```bash OpenAI
+export OPENAI_API_KEY="sk-..."
+```
+
+```bash OpenRouter
+export OPENROUTER_API_KEY="sk-or-..."
+```
+
+```bash Google Gemini
+export GOOGLE_API_KEY="AI..."
+```
+
+```bash Ollama (local, no key needed)
+export OLLAMA_BASE_URL="http://localhost:11434"
+```
+</CodeGroup>
+
+### Ports
+
+| Service | Default Port | Environment Variable |
+|---------|-------------|---------------------|
+| Dashboard (Web UI) | `2138` | `MILADY_PORT` |
+| Gateway (API + WebSocket) | `18789` | `MILADY_GATEWAY_PORT` |
+
+```bash
+# Example: custom ports
+MILADY_PORT=3000 MILADY_GATEWAY_PORT=19000 milady start
+```
+
+### State Directory
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MILADY_STATE_DIR` | `~/.milady` | Root directory for all Milady state |
+| `MILADY_CONFIG_PATH` | `~/.milady/milady.json` | Explicit config file path |
+
+## Security: API Token
+
+The API server binds to `127.0.0.1` (loopback) by default -- only your local machine can reach it. If you expose the server to the network (e.g., `MILADY_API_BIND=0.0.0.0` for container or cloud deployments), you **must** set an authentication token:
+
+```bash
+echo "MILADY_API_TOKEN=$(openssl rand -hex 32)" >> ~/.milady/.env
+```
+
+<Warning>
+Without a token on a public bind address, anyone who can reach the server gets full access to the dashboard, agent endpoints, and wallet operations.
+</Warning>
+
+## Verify Installation
+
+After installation, confirm everything is working:
+
+```bash
+# Check version
+milady --version
+
+# Show configured model providers
+milady models
+
+# Run the interactive setup wizard
+milady setup
+```
+
+The `models` command lists all configured model providers and their status. The `setup` command runs the onboarding wizard if needed and validates your workspace.
+
+<Info>
+A `milady doctor` diagnostic command is planned but not yet implemented. See [milady doctor](/cli/doctor) for the planned behavior.
+</Info>
+
+## Troubleshooting
+
+### Node version too old
+
+```
+Error: Milady requires Node.js >= 22
+```
+
+Upgrade Node.js: `nvm install 22 && nvm use 22`, or download from [nodejs.org](https://nodejs.org).
+
+### Bun not found
+
+```
+Error: bun: command not found
+```
+
+Install Bun:
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+Then restart your terminal or run `source ~/.bashrc` / `source ~/.zshrc`.
+
+### Port already in use
+
+```
+Error: EADDRINUSE :::2138
+```
+
+Another process is using the default port. Either stop it or use a different port:
+```bash
+MILADY_PORT=3000 milady start
+```
+
+### Permission denied on install script
+
+```bash
+chmod +x ~/.milady/bin/milady
+```
+
+### PGLite / database corruption
+
+If you see database errors on startup, Milady will attempt automatic recovery. If that fails, you can reset the database:
+
+```bash
+rm -rf ~/.milady/workspace/.eliza/.elizadb
+milady start
+```
+
+<Warning>
+Deleting the database directory removes all conversation history and memory. Use this as a last resort.
+</Warning>
+
+### macOS Gatekeeper blocks the app
+
+The desktop app is signed and notarized. If Gatekeeper still blocks it:
+
+```bash
+xattr -cr /Applications/Milady.app
+```

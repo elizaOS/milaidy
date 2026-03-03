@@ -9,7 +9,7 @@ export default [
       {
         file: "dist/plugin.js",
         format: "iife",
-        name: "capacitorMilaidyCamera",
+        name: "capacitorMiladyCamera",
         globals: {
           "@capacitor/core": "capacitorExports",
         },

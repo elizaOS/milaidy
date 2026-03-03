@@ -1,5 +1,5 @@
 {
-  "name": "milaidy-cloud-agent",
+  "name": "milady-cloud-agent",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,6 @@
     "@elizaos/core": "next",
     "@elizaos/plugin-sql": "next",
     "@elizaos/plugin-elizacloud": "next",
-    "tsx": "^4"
+    "tsx": "4.21.0"
   }
 }

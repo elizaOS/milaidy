@@ -16,7 +16,7 @@ const packageRoot = path.resolve(
 );
 
 export function setup(): void {
-  const distIndex = path.join(packageRoot, "dist", "index.js");
+  const distIndex = path.join(packageRoot, "dist", "index");
 
   if (fs.existsSync(distIndex)) {
     // Already built — skip to keep the fast path fast.

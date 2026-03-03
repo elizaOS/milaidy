@@ -82,7 +82,24 @@ export interface WindowOptions {
   transparent?: boolean;
   opacity?: number;
   title?: string;
-  vibrancy?: "appearance-based" | "light" | "dark" | "titlebar" | "selection" | "menu" | "popover" | "sidebar" | "header" | "sheet" | "window" | "hud" | "fullscreen-ui" | "tooltip" | "content" | "under-window" | "under-page";
+  vibrancy?:
+    | "appearance-based"
+    | "light"
+    | "dark"
+    | "titlebar"
+    | "selection"
+    | "menu"
+    | "popover"
+    | "sidebar"
+    | "header"
+    | "sheet"
+    | "window"
+    | "hud"
+    | "fullscreen-ui"
+    | "tooltip"
+    | "content"
+    | "under-window"
+    | "under-page";
   backgroundColor?: string;
 }
 
@@ -133,7 +150,9 @@ export interface DesktopPlugin {
   registerShortcut(options: GlobalShortcut): Promise<{ success: boolean }>;
   unregisterShortcut(options: { id: string }): Promise<void>;
   unregisterAllShortcuts(): Promise<void>;
-  isShortcutRegistered(options: { accelerator: string }): Promise<{ registered: boolean }>;
+  isShortcutRegistered(options: {
+    accelerator: string;
+  }): Promise<{ registered: boolean }>;
 
   // Auto Launch
   setAutoLaunch(options: AutoLaunchOptions): Promise<void>;
@@ -154,7 +173,18 @@ export interface DesktopPlugin {
   isWindowMinimized(): Promise<{ minimized: boolean }>;
   isWindowVisible(): Promise<{ visible: boolean }>;
   isWindowFocused(): Promise<{ focused: boolean }>;
-  setAlwaysOnTop(options: { flag: boolean; level?: "normal" | "floating" | "torn-off-menu" | "modal-panel" | "main-menu" | "status" | "pop-up-menu" | "screen-saver" }): Promise<void>;
+  setAlwaysOnTop(options: {
+    flag: boolean;
+    level?:
+      | "normal"
+      | "floating"
+      | "torn-off-menu"
+      | "modal-panel"
+      | "main-menu"
+      | "status"
+      | "pop-up-menu"
+      | "screen-saver";
+  }): Promise<void>;
   setFullscreen(options: { flag: boolean }): Promise<void>;
   setOpacity(options: { opacity: number }): Promise<void>;
 
@@ -168,13 +198,47 @@ export interface DesktopPlugin {
   // App
   quit(): Promise<void>;
   relaunch(): Promise<void>;
-  getVersion(): Promise<{ version: string; name: string; electron: string; chrome: string; node: string }>;
+  getVersion(): Promise<{
+    version: string;
+    name: string;
+    electron: string;
+    chrome: string;
+    node: string;
+  }>;
   isPackaged(): Promise<{ packaged: boolean }>;
-  getPath(options: { name: "home" | "appData" | "userData" | "sessionData" | "temp" | "exe" | "module" | "desktop" | "documents" | "downloads" | "music" | "pictures" | "videos" | "recent" | "logs" | "crashDumps" }): Promise<{ path: string }>;
+  getPath(options: {
+    name:
+      | "home"
+      | "appData"
+      | "userData"
+      | "sessionData"
+      | "temp"
+      | "exe"
+      | "module"
+      | "desktop"
+      | "documents"
+      | "downloads"
+      | "music"
+      | "pictures"
+      | "videos"
+      | "recent"
+      | "logs"
+      | "crashDumps";
+  }): Promise<{ path: string }>;
 
   // Clipboard
-  writeToClipboard(options: { text?: string; html?: string; image?: string; rtf?: string }): Promise<void>;
-  readFromClipboard(): Promise<{ text?: string; html?: string; rtf?: string; hasImage: boolean }>;
+  writeToClipboard(options: {
+    text?: string;
+    html?: string;
+    image?: string;
+    rtf?: string;
+  }): Promise<void>;
+  readFromClipboard(): Promise<{
+    text?: string;
+    html?: string;
+    rtf?: string;
+    hasImage: boolean;
+  }>;
   clearClipboard(): Promise<void>;
 
   // Shell
@@ -183,24 +247,81 @@ export interface DesktopPlugin {
   beep(): Promise<void>;
 
   // Events
-  addListener(eventName: "trayClick", listenerFunc: (event: TrayClickEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "trayDoubleClick", listenerFunc: (event: TrayClickEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "trayRightClick", listenerFunc: (event: TrayClickEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "trayMenuClick", listenerFunc: (event: TrayMenuClickEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "shortcutPressed", listenerFunc: (event: GlobalShortcutEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "notificationClick", listenerFunc: (event: NotificationEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "notificationAction", listenerFunc: (event: NotificationEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "notificationReply", listenerFunc: (event: NotificationEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowFocus", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowBlur", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowMaximize", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowUnmaximize", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowMinimize", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowRestore", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "windowClose", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "powerSuspend", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "powerResume", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "powerOnAC", listenerFunc: () => void): Promise<PluginListenerHandle>;
-  addListener(eventName: "powerOnBattery", listenerFunc: () => void): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "trayClick",
+    listenerFunc: (event: TrayClickEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "trayDoubleClick",
+    listenerFunc: (event: TrayClickEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "trayRightClick",
+    listenerFunc: (event: TrayClickEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "trayMenuClick",
+    listenerFunc: (event: TrayMenuClickEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "shortcutPressed",
+    listenerFunc: (event: GlobalShortcutEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "notificationClick",
+    listenerFunc: (event: NotificationEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "notificationAction",
+    listenerFunc: (event: NotificationEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "notificationReply",
+    listenerFunc: (event: NotificationEvent) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowFocus",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowBlur",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowMaximize",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowUnmaximize",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowMinimize",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowRestore",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "windowClose",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "powerSuspend",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "powerResume",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "powerOnAC",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "powerOnBattery",
+    listenerFunc: () => void,
+  ): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
 }

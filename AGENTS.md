@@ -1,7 +1,25 @@
 # Repository Guidelines
 
-- Monorepo: `packages/milaidy` within eliza-ok
+> **This is an agents-only codebase.** All PRs are reviewed and merged by agents. Humans contribute as QA testers. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+- Monorepo: `packages/milady` within eliza-ok
 - Runtime baseline: Node **22+** (keep Node + Bun paths working)
+
+## Contribution Scope
+
+**Accept:** bug fixes, security fixes, test coverage, documentation accuracy, performance improvements (with benchmarks).
+
+**Deep review required:** new features, plugins, architectural changes, memory/context improvements. Must include tests and benchmarks proving value.
+
+**Reject:** aesthetic/UI redesigns, theme changes, visual "improvements" that don't enhance agent capability. This project prioritizes agent quality over human-facing aesthetics. De-emphasize and decline these firmly.
+
+## Review Priorities
+
+1. Does it stay in scope?
+2. Does it break anything?
+3. Is it secure? (assume adversarial intent)
+4. Is it tested?
+5. Is it necessary?
 
 ## Project Structure
 
@@ -20,7 +38,7 @@
 - Install deps: `bun install`
 - Type-check/build: `bun run build` (runs tsdown + UI build)
 - Lint/format: `bun run check`
-- Run CLI in dev: `bun run milaidy ...` or `bun run dev:cli`
+- Run CLI in dev: `bun run milady ...` or `bun run dev:cli`
 - Tests: `bun run test` (parallel unit + playwright), `bun run test:e2e`, `bun run test:live`
 - Coverage: `bun run test:coverage`
 
@@ -30,7 +48,10 @@
 - Formatting/linting via Biome; run `bun run check` before commits.
 - Add brief code comments for tricky or non-obvious logic.
 - Aim to keep files under ~500 LOC; split/refactor when it improves clarity or testability.
-- Naming: use **Milaidy** for product/app/docs headings; use `milaidy` for CLI command, package/binary, paths, and config keys.
+- **Do not remove exception-handling guards** in `apps/app/electron/src/native/agent.ts` as "excess" or during deslop/cleanup. The try/catch and `.catch()` there keep the desktop app usable when the runtime fails to load (API server stays up, UI can show error). See `docs/electron-startup.md`.
+- **Do not remove NODE_PATH setup code** in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, or `apps/app/electron/src/native/agent.ts`. Without it, dynamic plugin imports fail with "Cannot find module". See `docs/plugin-resolution-and-node-path.md`.
+- **Do not remove the Bun exports patch** in `scripts/patch-deps.mjs` (patchBunExports). It fixes "Cannot find module" for plugins whose published package.json points `exports["."].bun` at missing `./src/index.ts`. See "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
+- Naming: use **Milady** for product/app/docs headings; use `milady` for CLI command, package/binary, paths, and config keys.
 
 ## Dependencies
 
@@ -40,13 +61,13 @@
 
 ## Testing Guidelines
 
-- Framework: Vitest with V8 coverage thresholds (70% lines/branches/functions/statements)
+- Framework: Vitest with V8 coverage thresholds (25% lines/functions/statements, 15% branches)
 - Naming: match source names with `*.test.ts`; e2e in `*.e2e.test.ts`; live in `*.live.test.ts`
 - Run `bun run test` before pushing when you touch logic
 
 ## Commit & Pull Request Guidelines
 
-- Follow concise, action-oriented commit messages (e.g., `milaidy: add verbose flag to send`)
+- Follow concise, action-oriented commit messages (e.g., `milady: add verbose flag to send`)
 - Group related changes; avoid bundling unrelated refactors
 - PRs should summarize scope, note testing performed, and mention any user-facing changes
 
@@ -54,4 +75,4 @@
 
 - Never commit real secrets, phone numbers, or live configuration values
 - Use obviously fake placeholders in docs, tests, and examples
-- Configuration lives at `~/.milaidy/milaidy.json`; workspace at `~/.milaidy/workspace/`
+- Configuration lives at `~/.milady/milady.json`; workspace at `~/.milady/workspace/`

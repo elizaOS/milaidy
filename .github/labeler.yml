@@ -1,0 +1,67 @@
+# Auto-labels PRs based on changed file paths
+# Used by actions/labeler in auto-label.yml
+
+core:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/runtime/**'
+      - 'src/cli/**'
+      - 'src/config/**'
+
+connector:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/plugins/telegram*/**'
+      - 'src/plugins/discord*/**'
+      - 'src/plugins/slack*/**'
+
+ui:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'apps/app/**'
+      - '**/*.css'
+      - '**/*.scss'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.test.ts'
+      - 'test/**'
+      - 'vitest*.config.*'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+
+docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**'
+
+build:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'tsconfig*.json'
+      - 'tsdown.config.*'
+      - 'scripts/**'
+
+plugins:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'packages/plugin-*/**'
+      - 'src/plugins/**'
+
+electron:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'apps/app/electron/**'
+
+deploy:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'deploy/**'
+      - 'Dockerfile*'
+      - 'docker-compose*'

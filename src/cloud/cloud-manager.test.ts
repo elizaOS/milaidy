@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Must mock before importing CloudManager, and use factory functions
 // that return class-like constructors so `new` works.
-vi.mock("./bridge-client.js", () => {
+vi.mock("./bridge-client", () => {
   return {
     ElizaCloudClient: class MockElizaCloudClient {
       _baseUrl: string;
@@ -27,7 +27,7 @@ vi.mock("./bridge-client.js", () => {
   };
 });
 
-vi.mock("./cloud-proxy.js", () => {
+vi.mock("./cloud-proxy", () => {
   return {
     CloudRuntimeProxy: class MockProxy {
       agentName: string;
@@ -38,7 +38,7 @@ vi.mock("./cloud-proxy.js", () => {
   };
 });
 
-vi.mock("./backup.js", () => {
+vi.mock("./backup", () => {
   return {
     BackupScheduler: class MockBackup {
       start = vi.fn();
@@ -48,7 +48,7 @@ vi.mock("./backup.js", () => {
   };
 });
 
-vi.mock("./reconnect.js", () => {
+vi.mock("./reconnect", () => {
   return {
     ConnectionMonitor: class MockMonitor {
       start = vi.fn();
@@ -57,8 +57,14 @@ vi.mock("./reconnect.js", () => {
   };
 });
 
-import type { CloudConfig } from "../config/types.milaidy.js";
-import { CloudManager } from "./cloud-manager.js";
+vi.mock("./validate-url", () => {
+  return {
+    validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
+  };
+});
+
+import type { CloudConfig } from "../config/types.milady";
+import { CloudManager } from "./cloud-manager";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -75,40 +81,42 @@ function cfg(overrides: Partial<CloudConfig> = {}): CloudConfig {
 
 describe("CloudManager", () => {
   describe("init", () => {
-    it("creates client from config", () => {
+    it("creates client from config", async () => {
       const mgr = new CloudManager(cfg());
-      mgr.init();
+      await mgr.init();
       expect(mgr.getClient()).not.toBeNull();
     });
 
-    it("throws when apiKey is missing", () => {
+    it("throws when apiKey is missing", async () => {
       const mgr = new CloudManager(cfg({ apiKey: undefined }));
-      expect(() => mgr.init()).toThrow("Cloud API key is not configured");
+      await expect(mgr.init()).rejects.toThrow(
+        "Cloud API key is not configured",
+      );
     });
 
-    it("strips /api/v1 suffix from baseUrl", () => {
+    it("strips /api/v1 suffix from baseUrl", async () => {
       const mgr = new CloudManager(
         cfg({ baseUrl: "https://test.elizacloud.ai/api/v1" }),
       );
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://test.elizacloud.ai",
       );
     });
 
-    it("strips trailing slashes", () => {
+    it("strips trailing slashes", async () => {
       const mgr = new CloudManager(
         cfg({ baseUrl: "https://test.elizacloud.ai///" }),
       );
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://test.elizacloud.ai",
       );
     });
 
-    it("defaults to elizacloud.ai when no baseUrl", () => {
+    it("defaults to elizacloud.ai when no baseUrl", async () => {
       const mgr = new CloudManager(cfg({ baseUrl: undefined }));
-      mgr.init();
+      await mgr.init();
       expect((mgr.getClient() as Record<string, string>)._baseUrl).toBe(
         "https://www.elizacloud.ai",
       );
@@ -140,6 +148,25 @@ describe("CloudManager", () => {
       await mgr.connect("agent-123");
       expect(statuses).toContain("connecting");
       expect(statuses).toContain("connected");
+    });
+
+    it("resets status and state on connection failure", async () => {
+      const mgr = new CloudManager(cfg());
+      await mgr.init();
+
+      const state = mgr as {
+        client: { provision: (...args: unknown[]) => Promise<unknown> };
+      };
+      state.client.provision = vi.fn(async () => {
+        throw new Error("provision failed");
+      });
+
+      await expect(mgr.connect("agent-123")).rejects.toThrow(
+        "provision failed",
+      );
+      expect(mgr.getStatus()).toBe("disconnected");
+      expect(mgr.getActiveAgentId()).toBeNull();
+      expect(mgr.getProxy()).toBeNull();
     });
   });
 

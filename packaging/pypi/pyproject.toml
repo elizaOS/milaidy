@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "milady"
 version = "2.0.0a7"
-description = "Dynamic loader for Milaidy — personal AI assistant built on ElizaOS"
+description = "Dynamic loader for Milady — personal AI assistant built on ElizaOS"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
@@ -17,7 +17,7 @@ keywords = [
     "assistant",
     "agent",
     "elizaos",
-    "milaidy",
+    "milady",
     "milady",
     "llm",
     "cli",
@@ -44,13 +44,13 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://milady.ai"
-Repository = "https://github.com/milady-ai/milaidy"
+Repository = "https://github.com/milady-ai/milady"
 Documentation = "https://docs.milady.ai"
-Issues = "https://github.com/milady-ai/milaidy/issues"
+Issues = "https://github.com/milady-ai/milady/issues"
 
 [project.scripts]
 milady = "milady.cli:main"
-milaidy = "milady.cli:main"
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["milady"]

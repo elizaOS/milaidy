@@ -131,7 +131,7 @@ export interface LocationPlugin {
    */
   addListener(
     eventName: "locationChange",
-    listenerFunc: (location: LocationResult) => void
+    listenerFunc: (location: LocationResult) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -139,7 +139,7 @@ export interface LocationPlugin {
    */
   addListener(
     eventName: "error",
-    listenerFunc: (error: LocationErrorEvent) => void
+    listenerFunc: (error: LocationErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

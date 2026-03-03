@@ -42,9 +42,15 @@ interface SpeechRecognition extends EventTarget {
   onaudiostart: ((this: SpeechRecognition, ev: Event) => void) | null;
   onaudioend: ((this: SpeechRecognition, ev: Event) => void) | null;
   onend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
-  onnomatch: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
-  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
+  onerror:
+    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void)
+    | null;
+  onnomatch:
+    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
+    | null;
+  onresult:
+    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
+    | null;
   onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
   start(): void;
   stop(): void;
@@ -81,9 +87,15 @@ interface SpeechSynthesisUtterance extends EventTarget {
   volume: number;
   rate: number;
   pitch: number;
-  onend: ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisEvent) => void) | null;
-  onerror: ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisErrorEvent) => void) | null;
-  onstart: ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisEvent) => void) | null;
+  onend:
+    | ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisEvent) => void)
+    | null;
+  onerror:
+    | ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisErrorEvent) => void)
+    | null;
+  onstart:
+    | ((this: SpeechSynthesisUtterance, ev: SpeechSynthesisEvent) => void)
+    | null;
 }
 
 declare let SpeechSynthesisUtterance: {

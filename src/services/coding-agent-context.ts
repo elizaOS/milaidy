@@ -164,6 +164,15 @@ export type ValidationResult<T> =
   | { ok: true; data: T }
   | { ok: false; errors: Array<{ path: string; message: string }> };
 
+function formatValidationErrors(
+  issues: Array<{ path: Array<unknown>; message: string }>,
+): Array<{ path: string; message: string }> {
+  return issues.map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+}
+
 /**
  * Validate a coding agent context object.
  * Returns a typed result with either the validated data or an array of errors.
@@ -175,13 +184,7 @@ export function validateCodingAgentContext(
   if (result.success) {
     return { ok: true, data: result.data };
   }
-  return {
-    ok: false,
-    errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  };
+  return { ok: false, errors: formatValidationErrors(result.error.issues) };
 }
 
 /**
@@ -194,13 +197,7 @@ export function validateCodingIteration(
   if (result.success) {
     return { ok: true, data: result.data };
   }
-  return {
-    ok: false,
-    errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  };
+  return { ok: false, errors: formatValidationErrors(result.error.issues) };
 }
 
 /**
@@ -213,13 +210,7 @@ export function validateHumanFeedback(
   if (result.success) {
     return { ok: true, data: result.data };
   }
-  return {
-    ok: false,
-    errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  };
+  return { ok: false, errors: formatValidationErrors(result.error.issues) };
 }
 
 /**
@@ -232,13 +223,7 @@ export function validateConnectorConfig(
   if (result.success) {
     return { ok: true, data: result.data };
   }
-  return {
-    ok: false,
-    errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  };
+  return { ok: false, errors: formatValidationErrors(result.error.issues) };
 }
 
 // ---------------------------------------------------------------------------

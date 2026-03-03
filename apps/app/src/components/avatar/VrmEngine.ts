@@ -1,6 +1,7 @@
+import { type VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
-import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { resolveAppAssetUrl } from "../../asset-url";
 
 export type VrmEngineState = {
   vrmLoaded: boolean;
@@ -48,10 +49,12 @@ export class VrmEngine {
   private mouthSmoothed = 0;
   private vrmName: string | null = null;
   private lookAtTarget = new THREE.Vector3(0, 1, 0);
-  private readonly idleGlbUrl = "/animations/idle.glb";
+  private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
   private forceFaceCameraFlip = true;
 
-  private cameraAnimation: CameraAnimationConfig = { ...DEFAULT_CAMERA_ANIMATION };
+  private cameraAnimation: CameraAnimationConfig = {
+    ...DEFAULT_CAMERA_ANIMATION,
+  };
   private baseCameraPosition = new THREE.Vector3();
   private elapsedTime = 0;
 
@@ -79,6 +82,12 @@ export class VrmEngine {
   /** Probability of a quick double-blink */
   private static readonly DOUBLE_BLINK_CHANCE = 0.15;
 
+  // ── Emote playback state ────────────────────────────────────────────────
+  private emoteAction: THREE.AnimationAction | null = null;
+  private emoteTimeout: ReturnType<typeof setTimeout> | null = null;
+  private emoteClipCache = new Map<string, THREE.AnimationClip>();
+  private emoteRequestId = 0;
+
   setup(canvas: HTMLCanvasElement, onUpdate: UpdateCallback): void {
     if (this.initialized && this.renderer?.domElement === canvas) {
       this.onUpdate = onUpdate;
@@ -92,7 +101,11 @@ export class VrmEngine {
     this.onUpdate = onUpdate;
     this.loadingAborted = false;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setClearColor(0x000000, 0);
     this.renderer = renderer;
@@ -140,6 +153,12 @@ export class VrmEngine {
     this.vrmName = null;
     this.mixer = null;
     this.idleAction = null;
+    if (this.emoteTimeout !== null) {
+      clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+    }
+    this.emoteAction = null;
+    this.emoteClipCache.clear();
     this.renderer?.dispose();
     this.renderer = null;
     this.scene = null;
@@ -192,6 +211,80 @@ export class VrmEngine {
     this.forceFaceCameraFlip = enabled;
   }
 
+  /**
+   * Play an emote animation. Crossfades from idle into the emote, and for
+   * non-looping emotes automatically fades back to idle after `duration`
+   * seconds. For looping emotes, call {@link stopEmote} to return to idle.
+   */
+  async playEmote(
+    glbPath: string,
+    duration: number,
+    loop: boolean,
+  ): Promise<void> {
+    const vrm = this.vrm;
+    const mixer = this.mixer;
+    if (!vrm || !mixer) return;
+
+    // Stop any currently-playing emote first.
+    this.stopEmote();
+
+    // Track this request so stale async loads are discarded.
+    this.emoteRequestId++;
+    const requestId = this.emoteRequestId;
+
+    const clip = await this.loadEmoteClip(glbPath, vrm);
+    if (!clip || this.vrm !== vrm || this.mixer !== mixer) return;
+    if (this.emoteRequestId !== requestId) return; // superseded by newer call
+
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.setLoop(
+      loop ? THREE.LoopRepeat : THREE.LoopOnce,
+      loop ? Infinity : 1,
+    );
+    action.clampWhenFinished = !loop;
+
+    // Crossfade: idle out → emote in
+    const fadeDuration = 0.3;
+    if (this.idleAction) {
+      this.idleAction.fadeOut(fadeDuration);
+    }
+    action.fadeIn(fadeDuration);
+    action.play();
+    this.emoteAction = action;
+
+    if (!loop) {
+      // After the emote finishes, fade back to idle.
+      const safeDuration =
+        Number.isFinite(duration) && duration > 0 ? duration : 3;
+      const returnDelay = Math.max(0.5, safeDuration) * 1000;
+      this.emoteTimeout = setTimeout(() => {
+        if (this.emoteRequestId === requestId) {
+          this.stopEmote();
+        }
+      }, returnDelay);
+    }
+  }
+
+  /** Stop the current emote and crossfade back to idle. */
+  stopEmote(): void {
+    if (this.emoteTimeout !== null) {
+      clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+    }
+
+    const fadeDuration = 0.3;
+    if (this.emoteAction) {
+      this.emoteAction.fadeOut(fadeDuration);
+      this.emoteAction = null;
+    }
+    if (this.idleAction) {
+      this.idleAction.reset();
+      this.idleAction.fadeIn(fadeDuration);
+      this.idleAction.play();
+    }
+  }
+
   async loadVrmFromUrl(url: string, name?: string): Promise<void> {
     if (!this.scene) throw new Error("VrmEngine not initialized");
     if (!this.camera) throw new Error("VrmEngine not initialized");
@@ -204,16 +297,32 @@ export class VrmEngine {
       this.vrmName = null;
       this.mixer = null;
       this.idleAction = null;
+      this.stopEmote();
+      this.emoteClipCache.clear();
     }
 
     const loader = new GLTFLoader();
-    loader.register((parser) => new VRMLoaderPlugin(parser));
+    loader.register(
+      (parser: unknown) =>
+        new VRMLoaderPlugin(
+          parser as ConstructorParameters<typeof VRMLoaderPlugin>[0],
+        ),
+    );
 
     const originalWarn = console.warn;
-    type ConsoleArg = string | number | boolean | bigint | symbol | null | undefined | object;
+    type ConsoleArg =
+      | string
+      | number
+      | boolean
+      | bigint
+      | symbol
+      | null
+      | undefined
+      | object;
     console.warn = (...args: ConsoleArg[]) => {
       const msg = args.map((a) => String(a)).join(" ");
-      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset")) return;
+      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset"))
+        return;
       originalWarn(...args);
     };
 
@@ -254,12 +363,19 @@ export class VrmEngine {
     this.vrmName = name ?? null;
     this.resetBlink();
 
+    // Create the mixer early so emotes can play even if idle anim fails.
+    this.mixer = new THREE.AnimationMixer(vrm.scene);
+
     try {
       await this.loadAndPlayIdle(vrm);
       if (!this.loadingAborted && this.vrm === vrm) {
         vrm.scene.visible = true;
       }
-    } catch {
+    } catch (err) {
+      console.warn(
+        "[VrmEngine] Failed to load idle animation — avatar will show T-pose",
+        { idleGlbUrl: this.idleGlbUrl, error: err },
+      );
       if (!this.loadingAborted && this.vrm === vrm) {
         vrm.scene.visible = true;
       }
@@ -296,17 +412,18 @@ export class VrmEngine {
         Math.sin(t * 0.3) * 0.2;
 
       const swayZ =
-        Math.sin(t * 0.4 + 1.0) * 0.4 +
-        Math.sin(t * 0.9 + 2.0) * 0.3;
+        Math.sin(t * 0.4 + 1.0) * 0.4 + Math.sin(t * 0.9 + 2.0) * 0.3;
 
       camera.position.x =
         this.baseCameraPosition.x + swayX * this.cameraAnimation.swayAmplitude;
       camera.position.y =
         this.baseCameraPosition.y + bobY * this.cameraAnimation.bobAmplitude;
       camera.position.z =
-        this.baseCameraPosition.z + swayZ * this.cameraAnimation.swayAmplitude * 0.5;
+        this.baseCameraPosition.z +
+        swayZ * this.cameraAnimation.swayAmplitude * 0.5;
 
-      const rotX = Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
+      const rotX =
+        Math.sin(t * 0.6 + 0.3) * this.cameraAnimation.rotationAmplitude * 0.5;
       const rotY = Math.sin(t * 0.4) * this.cameraAnimation.rotationAmplitude;
 
       camera.rotation.x = rotX;
@@ -352,7 +469,11 @@ export class VrmEngine {
 
     // Frame on upper body: look at shoulder height, zoom in to crop below waist.
     // Offset camera left so the model renders on the right side of the canvas.
-    const upperBodyHeight = Math.max(scaledWidth, scaledHeight * 0.55, scaledDepth);
+    const upperBodyHeight = Math.max(
+      scaledWidth,
+      scaledHeight * 0.55,
+      scaledDepth,
+    );
     const shoulderHeight = scaledHeight * 0.42;
 
     const fovRad = (camera.fov * Math.PI) / 180;
@@ -371,7 +492,9 @@ export class VrmEngine {
   private async loadAndPlayIdle(vrm: VRM): Promise<void> {
     if (this.loadingAborted) return;
 
-    const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm.ts");
+    const { retargetMixamoGltfToVrm } = await import(
+      "./retargetMixamoGltfToVrm.ts"
+    );
 
     if (this.loadingAborted || this.vrm !== vrm) return;
 
@@ -385,12 +508,14 @@ export class VrmEngine {
     const clip = retargetMixamoGltfToVrm(
       { scene: gltf.scene, animations: gltf.animations },
       vrm,
+      "idle",
     );
 
     if (this.loadingAborted || this.vrm !== vrm) return;
 
-    const mixer = new THREE.AnimationMixer(vrm.scene);
-    this.mixer = mixer;
+    // Reuse the mixer created in loadVrmFromUrl (so emotes work even if this fails).
+    const mixer = this.mixer;
+    if (!mixer) return;
 
     const action = mixer.clipAction(clip);
     action.reset();
@@ -398,6 +523,42 @@ export class VrmEngine {
     action.fadeIn(0.25);
     action.play();
     this.idleAction = action;
+  }
+
+  private async loadEmoteClip(
+    glbPath: string,
+    vrm: VRM,
+  ): Promise<THREE.AnimationClip | null> {
+    // Return from cache if already loaded for this VRM.
+    const cached = this.emoteClipCache.get(glbPath);
+    if (cached) return cached;
+
+    try {
+      const { retargetMixamoGltfToVrm } = await import(
+        "./retargetMixamoGltfToVrm"
+      );
+      if (this.vrm !== vrm) return null;
+
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(glbPath);
+      if (this.vrm !== vrm) return null;
+
+      gltf.scene.updateMatrixWorld(true);
+      vrm.scene.updateMatrixWorld(true);
+      const emoteLabel =
+        glbPath.split("/").pop()?.replace(".glb", "") ?? "emote";
+      const clip = retargetMixamoGltfToVrm(
+        { scene: gltf.scene, animations: gltf.animations },
+        vrm,
+        emoteLabel,
+      );
+
+      this.emoteClipCache.set(glbPath, clip);
+      return clip;
+    } catch (err) {
+      console.error(`[VrmEngine] Failed to load emote: ${glbPath}`, err);
+      return null;
+    }
   }
 
   /**
@@ -454,7 +615,10 @@ export class VrmEngine {
 
       case "closing": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_CLOSE_DURATION,
+        );
         // Ease-in (accelerate) — eyelids speed up as they close
         this.blinkValue = t * t;
         if (t >= 1) {
@@ -475,7 +639,10 @@ export class VrmEngine {
 
       case "opening": {
         this.blinkPhaseTimer += delta;
-        const t = Math.min(1, this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION);
+        const t = Math.min(
+          1,
+          this.blinkPhaseTimer / VrmEngine.BLINK_OPEN_DURATION,
+        );
         // Ease-out (decelerate) — eyelids slow down as they finish opening
         const eased = 1 - (1 - t) * (1 - t);
         this.blinkValue = 1 - eased;

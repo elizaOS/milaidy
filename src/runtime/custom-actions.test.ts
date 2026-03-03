@@ -1,0 +1,347 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CustomActionDef } from "../config/types.milady";
+
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(),
+}));
+
+import { lookup as dnsLookup } from "node:dns/promises";
+import {
+  __setPinnedFetchImplForTests,
+  buildTestHandler,
+} from "./custom-actions";
+
+function makeHttpAction(url: string): CustomActionDef {
+  return {
+    id: "test-action",
+    name: "TEST_HTTP_ACTION",
+    description: "test",
+    similes: [],
+    parameters: [],
+    handler: {
+      type: "http",
+      method: "GET",
+      url,
+    },
+    enabled: true,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+function makeCodeAction(code: string): CustomActionDef {
+  return {
+    id: "test-code-action",
+    name: "TEST_CODE_ACTION",
+    description: "test code",
+    similes: [],
+    parameters: [],
+    handler: {
+      type: "code",
+      code,
+    },
+    enabled: true,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+function makeShellAction(command: string): CustomActionDef {
+  return {
+    id: "test-shell-action",
+    name: "TEST_SHELL_ACTION",
+    description: "test shell",
+    similes: [],
+    parameters: [],
+    handler: {
+      type: "shell",
+      command,
+    },
+    enabled: true,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+describe("custom action SSRF guard", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    __setPinnedFetchImplForTests(({ url, init }) => {
+      return fetch(url.toString(), init);
+    });
+  });
+
+  afterEach(() => {
+    __setPinnedFetchImplForTests(null);
+    vi.restoreAllMocks();
+  });
+
+  it("rejects hostname aliases resolving to link-local metadata IPs", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "169.254.169.254", family: 4 },
+    ]);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const handler = buildTestHandler(
+      makeHttpAction("http://169.254.169.254.nip.io/latest/meta-data"),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("Blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects hostname aliases resolving to loopback", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "127.0.0.1", family: 4 },
+    ]);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const handler = buildTestHandler(
+      makeHttpAction("http://localhost.nip.io:2138/api/status"),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("Blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects direct IPv6 link-local targets across fe80::/10", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const handler = buildTestHandler(makeHttpAction("http://[fea0::1]/test"));
+
+    const result = await handler({});
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("Blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(vi.mocked(dnsLookup)).not.toHaveBeenCalled();
+  });
+
+  it("allows explicit localhost API target on the configured API port", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: true, text: async () => "ok" } as Response);
+
+    const handler = buildTestHandler(
+      makeHttpAction("http://localhost:2138/api/status"),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("ok");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(dnsLookup)).not.toHaveBeenCalled();
+  });
+
+  it("allows public hosts when DNS resolves to public IPs", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: true, text: async () => "ok" } as Response);
+
+    const handler = buildTestHandler(
+      makeHttpAction("https://example.com/test"),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("ok");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins HTTP handler fetches to the validated DNS address", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const transportSpy = vi.fn(async () => {
+      return new Response("ok", { status: 200 });
+    });
+    __setPinnedFetchImplForTests(transportSpy);
+
+    const handler = buildTestHandler(
+      makeHttpAction("https://example.com/pinned"),
+    );
+    const result = await handler({});
+
+    expect(result.ok).toBe(true);
+    expect(transportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          hostname: "example.com",
+          pinnedAddress: "93.184.216.34",
+        }),
+      }),
+    );
+  });
+
+  it("blocks redirect responses and uses manual redirect mode", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 302,
+      statusText: "Found",
+      headers: new Headers({ location: "http://169.254.169.254/latest" }),
+      text: async () => "",
+    } as Response);
+
+    const handler = buildTestHandler(
+      makeHttpAction("https://example.com/redirect"),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("redirects are not allowed");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/redirect",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("blocks code handlers from fetching internal addresses", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const handler = buildTestHandler(
+      makeCodeAction(`
+        await fetch("http://127.0.0.1:9999/private");
+        return "unexpected";
+      `),
+    );
+
+    await expect(handler({})).rejects.toThrow("Blocked");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("allows code handlers to fetch public URLs", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ status: 200, text: async () => "ok" } as Response);
+    const handler = buildTestHandler(
+      makeCodeAction(`
+        const response = await fetch("https://example.com/data");
+        return await response.text();
+      `),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("ok");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/data",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("pins code-handler fetches during DNS rebinding attempts", async () => {
+    vi.mocked(dnsLookup)
+      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
+      .mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    const transportSpy = vi.fn(async () => {
+      return new Response("ok", { status: 200 });
+    });
+    __setPinnedFetchImplForTests(transportSpy);
+
+    const handler = buildTestHandler(
+      makeCodeAction(`
+        const response = await fetch("https://example.com/code");
+        return await response.text();
+      `),
+    );
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("ok");
+    expect(vi.mocked(dnsLookup)).toHaveBeenCalledTimes(1);
+    expect(transportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          hostname: "example.com",
+          pinnedAddress: "93.184.216.34",
+        }),
+      }),
+    );
+  });
+
+  it("blocks redirects for code handlers", async () => {
+    vi.mocked(dnsLookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      status: 302,
+      headers: new Headers({ location: "http://169.254.169.254/latest" }),
+      text: async () => "",
+    } as Response);
+    const handler = buildTestHandler(
+      makeCodeAction(`
+        const response = await fetch("https://example.com/redirect");
+        return String(response.status);
+      `),
+    );
+
+    await expect(handler({})).rejects.toThrow(
+      "redirects are not allowed for code custom actions",
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/redirect",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("includes a scoped clientId for shell terminal runs", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: true, text: async () => "ok" } as Response);
+    const handler = buildTestHandler(makeShellAction("echo hello"));
+
+    const result = await handler({});
+    expect(result.ok).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://localhost:2138/api/terminal/run",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          command: "echo hello",
+          clientId: "runtime-shell-action",
+        }),
+      }),
+    );
+  });
+
+  it("attaches API auth token for shell handlers when MILADY_API_TOKEN is set", async () => {
+    const originalToken = process.env.MILADY_API_TOKEN;
+    process.env.MILADY_API_TOKEN = "test-api-token";
+
+    try {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue({ ok: true, text: async () => "ok" } as Response);
+      const handler = buildTestHandler(makeShellAction("echo hello"));
+
+      const result = await handler({});
+      expect(result.ok).toBe(true);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "http://localhost:2138/api/terminal/run",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+            Authorization: "Bearer test-api-token",
+          }),
+        }),
+      );
+    } finally {
+      if (originalToken === undefined) {
+        delete process.env.MILADY_API_TOKEN;
+      } else {
+        process.env.MILADY_API_TOKEN = originalToken;
+      }
+    }
+  });
+});

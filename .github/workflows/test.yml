@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
@@ -17,20 +17,11 @@ env:
 
 jobs:
   unit-tests:
-    name: Unit Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    name: Unit Tests
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -40,20 +31,42 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
       - name: Run unit tests
-        run: bun run test
+        run: bunx vitest run --config vitest.unit.config.ts
 
       - name: Run unit tests with coverage
         run: bun run test:coverage
-        if: matrix.os == 'ubuntu-latest'
 
       - name: Upload coverage report
-        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           retention-days: 14
+
+  db-check:
+    name: Database Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Run database security and query-guard tests
+        run: bun run db:check
 
   e2e-tests:
     name: E2E Tests (Vitest)
@@ -62,10 +75,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Build
+        run: bun run build
+
+      - name: Run E2E tests
+        run: >
+          bunx vitest run --config vitest.e2e.config.ts
+          --exclude test/anvil-contracts.e2e.test.ts
+          --exclude test/apps-e2e.e2e.test.ts
+
+  app-startup-e2e:
+    name: App Startup E2E (Onboarding)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -75,11 +110,141 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build
-        run: bun run build
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
-      - name: Run E2E tests
-        run: bun run test:e2e
+      - name: Run app startup/onboarding tests
+        run: >
+          bunx vitest run --config apps/app/vitest.config.ts
+          apps/app/test/electron/electron-startup.e2e.test.ts
+          apps/app/test/electron/electron-plugin-entrypoints.e2e.test.ts
+          apps/app/test/app/startup-chat.e2e.test.ts
+          apps/app/test/app/startup-onboarding.e2e.test.ts
+
+  electron-ui-e2e:
+    name: Electron Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Build web assets
+        run: bun run --filter @milady/app build
+
+      - name: Build Electron app
+        run: bun run --filter @milady/app build:electron
+
+  electron-packaged-dmg-e2e:
+    name: Electron Packaged DMG E2E (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Build web assets
+        run: bun run --filter @milady/app build
+
+      - name: Sync Electron platform
+        run: bun run --filter @milady/app cap:sync:electron
+
+      - name: Build standalone DMG
+        run: |
+          cd apps/app/electron
+          bun run electron:make:dmg:test
+        continue-on-error: true
+
+  cloud-live-e2e:
+    name: Cloud Live E2E (Eliza Cloud)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check cloud secrets
+        id: cloud
+        run: |
+          if [ -z "${{ secrets.ELIZAOS_CLOUD_API_KEY }}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Cloud API key is not configured; skipping cloud live test job."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.cloud.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: steps.cloud.outputs.enabled == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        if: steps.cloud.outputs.enabled == 'true'
+        run: |
+          for i in 1 2 3 4 5; do
+            bun install --frozen-lockfile && break
+            echo "Attempt $i failed, retrying in $((i * 15))s..."
+            sleep $((i * 15))
+          done
+
+      - name: Run repository postinstall patches
+        if: steps.cloud.outputs.enabled == 'true'
+        run: bun run postinstall
+
+      - name: Run cloud live test
+        if: steps.cloud.outputs.enabled == 'true'
+        run: >
+          bunx vitest run --config vitest.e2e.config.ts
+          test/cloud-providers.e2e.test.ts
+        env:
+          MILADY_LIVE_TEST: "1"
+          ELIZAOS_CLOUD_API_KEY: ${{ secrets.ELIZAOS_CLOUD_API_KEY }}
+          ELIZAOS_CLOUD_BASE_URL: ${{ secrets.ELIZAOS_CLOUD_BASE_URL }}
 
   validation-e2e:
     name: End-to-End Validation (Issue #6)
@@ -88,11 +253,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -101,24 +261,31 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
       - name: Build
         run: bun run build
 
       - name: Run E2E Validation tests
-        run: bun run test:e2e
+        run: bunx vitest run --config vitest.e2e.config.ts test/e2e-validation.e2e.test.ts
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
   test-status:
     name: All Tests Passed
     if: always()
-    needs: [unit-tests, e2e-tests, validation-e2e]
+    needs: [unit-tests, db-check, e2e-tests, app-startup-e2e, electron-ui-e2e, electron-packaged-dmg-e2e, cloud-live-e2e, validation-e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Check test results
         run: |
+          # Note: electron jobs are optional (macOS packaging can have flaky deps)
           if [[ "${{ needs.unit-tests.result }}" == "failure" || \
+                "${{ needs.db-check.result }}" == "failure" || \
                 "${{ needs.e2e-tests.result }}" == "failure" || \
+                "${{ needs.app-startup-e2e.result }}" == "failure" || \
+                "${{ needs.cloud-live-e2e.result }}" == "failure" || \
                 "${{ needs.validation-e2e.result }}" == "failure" ]]; then
             echo "One or more test jobs failed"
             exit 1

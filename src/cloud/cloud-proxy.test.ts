@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import type { ElizaCloudClient } from "./bridge-client.js";
-import { CloudRuntimeProxy } from "./cloud-proxy.js";
+import type { ElizaCloudClient } from "./bridge-client";
+import { CloudRuntimeProxy } from "./cloud-proxy";
 
 function createMockClient(
   overrides: Partial<ElizaCloudClient> = {},
@@ -46,6 +46,7 @@ describe("CloudRuntimeProxy", () => {
       "a1",
       "Hi there",
       "web-chat",
+      "DM",
     );
   });
 
@@ -54,7 +55,12 @@ describe("CloudRuntimeProxy", () => {
     const proxy = new CloudRuntimeProxy(client, "a1", "Bot");
 
     await proxy.handleChatMessage("Hi", "custom-room");
-    expect(client.sendMessage).toHaveBeenCalledWith("a1", "Hi", "custom-room");
+    expect(client.sendMessage).toHaveBeenCalledWith(
+      "a1",
+      "Hi",
+      "custom-room",
+      "DM",
+    );
   });
 
   it("handleChatMessageStream yields only text chunks", async () => {

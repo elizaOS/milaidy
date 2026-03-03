@@ -1,0 +1,15 @@
+[profile.default]
+src = "."
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.20"
+optimizer = true
+optimizer_runs = 200
+
+# Exclude test/certora/mocks folders from OZ that have broken imports
+exclude = ["**/certora/**", "**/test/**", "**/mocks/**"]
+
+# Remappings for OpenZeppelin
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+]

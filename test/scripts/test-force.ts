@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { forceFreePort, type PortProcess } from "../src/cli/ports.js";
+import { forceFreePort, type PortProcess } from "../src/cli/ports";
 
 const DEFAULT_PORT = 18789;
 
@@ -27,13 +27,13 @@ function killGatewayListeners(port: number): PortProcess[] {
 
 function runTests() {
   const isolatedLock =
-    process.env.MILAIDY_GATEWAY_LOCK ??
-    path.join(os.tmpdir(), `milaidy-gateway.lock.test.${Date.now()}`);
+    process.env.MILADY_GATEWAY_LOCK ??
+    path.join(os.tmpdir(), `milady-gateway.lock.test.${Date.now()}`);
   const result = spawnSync("bun", ["run", "vitest", "run"], {
     stdio: "inherit",
     env: {
       ...process.env,
-      MILAIDY_GATEWAY_LOCK: isolatedLock,
+      MILADY_GATEWAY_LOCK: isolatedLock,
     },
   });
   if (result.error) {
@@ -45,7 +45,7 @@ function runTests() {
 
 function main() {
   const port = Number.parseInt(
-    process.env.MILAIDY_GATEWAY_PORT ?? `${DEFAULT_PORT}`,
+    process.env.MILADY_GATEWAY_PORT ?? `${DEFAULT_PORT}`,
     10,
   );
 

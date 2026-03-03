@@ -11,12 +11,12 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
-  LocationPlugin,
+  LocationErrorEvent,
   LocationOptions,
+  LocationPermissionStatus,
+  LocationPlugin,
   LocationResult,
   WatchLocationOptions,
-  LocationPermissionStatus,
-  LocationErrorEvent,
 } from "../../src/definitions";
 
 type EventCallback<T> = (event: T) => void;
@@ -29,7 +29,13 @@ interface ListenerEntry {
 
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
-type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
+type IpcValue =
+  | IpcPrimitive
+  | IpcObject
+  | IpcValue[]
+  | ArrayBuffer
+  | Float32Array
+  | Uint8Array;
 type IpcListener = (...args: IpcValue[]) => void;
 
 // Type for Electron IPC
@@ -61,7 +67,10 @@ export class LocationElectron implements LocationPlugin {
     // Try Electron IPC for native location services first
     if (window.electron?.ipcRenderer) {
       try {
-        const result = await window.electron.ipcRenderer.invoke("location:getCurrentPosition", options as IpcValue);
+        const result = await window.electron.ipcRenderer.invoke(
+          "location:getCurrentPosition",
+          options as IpcValue,
+        );
         return result as LocationResult;
       } catch {
         // Fall through to browser API
@@ -76,7 +85,8 @@ export class LocationElectron implements LocationPlugin {
       }
 
       const geoOptions: PositionOptions = {
-        enableHighAccuracy: options?.accuracy === "best" || options?.accuracy === "high",
+        enableHighAccuracy:
+          options?.accuracy === "best" || options?.accuracy === "high",
         timeout: options?.timeout || 30000,
         maximumAge: options?.maxAge || 0,
       };
@@ -92,12 +102,14 @@ export class LocationElectron implements LocationPlugin {
           });
           reject(error);
         },
-        geoOptions
+        geoOptions,
       );
     });
   }
 
-  async watchPosition(options?: WatchLocationOptions): Promise<{ watchId: string }> {
+  async watchPosition(
+    options?: WatchLocationOptions,
+  ): Promise<{ watchId: string }> {
     const watchId = `watch_${++this.watchIdCounter}`;
 
     // Try Electron IPC for native location services
@@ -109,7 +121,10 @@ export class LocationElectron implements LocationPlugin {
         });
 
         // Set up IPC listener for location updates
-        const handler = (data: { watchId: string; location: LocationResult }) => {
+        const handler = (data: {
+          watchId: string;
+          location: LocationResult;
+        }) => {
           if (data.watchId === watchId) {
             this.notifyListeners("locationChange", data.location);
           }
@@ -124,7 +139,8 @@ export class LocationElectron implements LocationPlugin {
 
     // Use browser Geolocation API
     const geoOptions: PositionOptions = {
-      enableHighAccuracy: options?.accuracy === "best" || options?.accuracy === "high",
+      enableHighAccuracy:
+        options?.accuracy === "best" || options?.accuracy === "high",
       timeout: options?.timeout || 30000,
       maximumAge: 0,
     };
@@ -140,7 +156,7 @@ export class LocationElectron implements LocationPlugin {
           message: error.message,
         });
       },
-      geoOptions
+      geoOptions,
     );
 
     this.watches.set(watchId, nativeWatchId);
@@ -158,7 +174,10 @@ export class LocationElectron implements LocationPlugin {
     // Also notify Electron if using native
     if (window.electron?.ipcRenderer) {
       try {
-        await window.electron.ipcRenderer.invoke("location:clearWatch", options);
+        await window.electron.ipcRenderer.invoke(
+          "location:clearWatch",
+          options,
+        );
       } catch {
         // Ignore
       }
@@ -198,14 +217,17 @@ export class LocationElectron implements LocationPlugin {
             resolve({ location: "prompt" });
           }
         },
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
     });
   }
 
   // MARK: - Helpers
 
-  private toLocationResult(position: GeolocationPosition, cached: boolean): LocationResult {
+  private toLocationResult(
+    position: GeolocationPosition,
+    cached: boolean,
+  ): LocationResult {
     return {
       coords: {
         latitude: position.coords.latitude,
@@ -246,15 +268,15 @@ export class LocationElectron implements LocationPlugin {
 
   async addListener(
     eventName: "locationChange",
-    listenerFunc: (event: LocationResult) => void
+    listenerFunc: (event: LocationResult) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "error",
-    listenerFunc: (event: LocationErrorEvent) => void
+    listenerFunc: (event: LocationErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: string,
-    listenerFunc: EventCallback<LocationEventData>
+    listenerFunc: EventCallback<LocationEventData>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);

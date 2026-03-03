@@ -3,8 +3,8 @@ import {
   normalizeTelegramCommandDescription,
   normalizeTelegramCommandName,
   resolveTelegramCustomCommands,
-} from "./telegram-custom-commands.js";
-import { ToolPolicySchema } from "./zod-schema.agent-runtime.js";
+} from "./telegram-custom-commands";
+import { ToolPolicySchema } from "./zod-schema.agent-runtime";
 import {
   BlockStreamingChunkSchema,
   BlockStreamingCoalesceSchema,
@@ -19,7 +19,7 @@ import {
   ReplyToModeSchema,
   RetryConfigSchema,
   requireOpenAllowFrom,
-} from "./zod-schema.core.js";
+} from "./zod-schema.core";
 
 const ToolPolicyBySenderSchema = z
   .record(z.string(), ToolPolicySchema)
@@ -802,6 +802,59 @@ export const BlueBubblesConfigSchema = BlueBubblesAccountSchemaBase.extend({
   });
 });
 
+// ── Retake.tv streaming connector ──────────────────────────────────────────
+
+export const RetakeConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    accessToken: z.string().optional(),
+    apiUrl: z.string().url().optional(),
+    captureUrl: z.string().optional(),
+  })
+  .strict();
+
+// ── Twitch chat connector schema ──────────────────────────────────────────
+
+export const TwitchConnectorConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    username: z.string().optional(),
+    clientId: z.string().optional(),
+    accessToken: z.string().optional(),
+    clientSecret: z.string().optional(),
+    refreshToken: z.string().optional(),
+    channel: z.string().optional(),
+    channels: z.string().optional(),
+    requireMention: z.boolean().optional(),
+    allowedRoles: z.string().optional(),
+  })
+  .strict();
+
+// ── Streaming destination schemas ──────────────────────────────────────────
+
+export const TwitchStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+  })
+  .strict();
+
+export const YoutubeStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().url().optional(),
+  })
+  .strict();
+
+export const CustomRtmpConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    rtmpUrl: z.string().optional(),
+    rtmpKey: z.string().optional(),
+  })
+  .strict();
+
 export const MSTeamsChannelSchema = z
   .object({
     requireMention: z.boolean().optional(),
@@ -1014,3 +1067,44 @@ export const WhatsAppConfigSchema = z
         'channels.whatsapp.dmPolicy="open" requires channels.whatsapp.allowFrom to include "*"',
     });
   });
+
+export const TwitterConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    // Authentication
+    apiKey: z.string().optional(),
+    apiSecretKey: z.string().optional(),
+    accessToken: z.string().optional(),
+    accessTokenSecret: z.string().optional(),
+
+    // Posting configuration
+    postEnable: z.boolean().optional().default(true),
+    postImmediately: z.boolean().optional().default(false),
+    postIntervalMin: z.number().int().positive().optional().default(90),
+    postIntervalMax: z.number().int().positive().optional().default(180),
+    postIntervalVariance: z.number().min(0).max(1).optional().default(0.1),
+
+    // Interaction settings
+    searchEnable: z.boolean().optional().default(false),
+    autoRespondMentions: z.boolean().optional().default(true),
+    enableActionProcessing: z.boolean().optional().default(true),
+    timelineAlgorithm: z
+      .enum(["weighted", "latest"])
+      .optional()
+      .default("weighted"),
+
+    // DM settings
+    dmPolicy: DmPolicySchema.optional().default("pairing"),
+
+    // Safety and testing
+    dryRun: z.boolean().optional().default(false),
+    retryLimit: z.number().int().positive().optional().default(3),
+    pollInterval: z.number().int().positive().optional().default(120),
+
+    // Advanced
+    maxTweetLength: z.number().int().positive().optional().default(4000),
+    configWrites: z.boolean().optional(),
+  })
+  .strict();
+
+export type TwitterConfig = z.infer<typeof TwitterConfigSchema>;

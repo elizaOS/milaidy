@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDocsLink, formatTerminalLink } from "./links.js";
+import { formatDocsLink, formatTerminalLink } from "./links";
 
 describe("formatTerminalLink", () => {
   describe("when force is false", () => {

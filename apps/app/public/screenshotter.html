@@ -27,8 +27,8 @@
 <h1>VRM Screenshotter</h1>
 <p class="status" id="status">Renders each VRM in idle pose and captures a framed preview image.</p>
 <div style="margin-bottom: 20px;">
-  <button id="run-all">Generate All Previews</button>
-  <button id="download-all">Download All</button>
+  <button type="button" id="run-all">Generate All Previews</button>
+  <button type="button" id="download-all">Download All</button>
 </div>
 <div class="grid" id="grid"></div>
 
@@ -45,7 +45,7 @@ async function loadModules() {
     for (const url of urls) {
       try { return await import(url); } catch { /* next */ }
     }
-    throw new Error('All import attempts failed for: ' + urls[0]);
+    throw new Error(`All import attempts failed for: ${urls[0]}`);
   }
   const THREE = await tryImport(
     '/node_modules/.vite/deps/three.js',
@@ -105,7 +105,7 @@ function normalizeMixamoRigName(name) {
   if (colon >= 0) {
     const ns = base.slice(0, colon);
     const rest = base.slice(colon + 1);
-    if (ns === "mixamorig") return "mixamorig" + rest;
+    if (ns === "mixamorig") return `mixamorig${rest}`;
     return rest;
   }
   return base;
@@ -239,8 +239,8 @@ async function renderVRM(index, modules) {
     const box2 = new THREE.Box3().setFromObject(vrm.scene);
     const size = box2.getSize(new THREE.Vector3());
     const height = Math.max(0.001, size.y);
-    const width = Math.max(0.001, size.x);
-    const depth = Math.max(0.001, size.z);
+    const _width = Math.max(0.001, size.x);
+    const _depth = Math.max(0.001, size.z);
 
     // Normalize all models to standard height so they appear the same size
     const STANDARD_HEIGHT = 1.0;

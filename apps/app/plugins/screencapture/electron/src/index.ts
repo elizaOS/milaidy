@@ -5,7 +5,11 @@
  * fast-path for screenshots when available.
  */
 
-import type { ScreenCapturePlugin, ScreenshotOptions, ScreenshotResult } from "../../src/definitions";
+import type {
+  ScreenCapturePlugin,
+  ScreenshotOptions,
+  ScreenshotResult,
+} from "../../src/definitions";
 import { ScreenCaptureWeb } from "../../src/web";
 
 interface DesktopCapturerThumbnail {
@@ -34,8 +38,13 @@ declare global {
   }
 }
 
-export class ScreenCaptureElectron extends ScreenCaptureWeb implements ScreenCapturePlugin {
-  async captureScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult> {
+export class ScreenCaptureElectron
+  extends ScreenCaptureWeb
+  implements ScreenCapturePlugin
+{
+  async captureScreenshot(
+    options?: ScreenshotOptions,
+  ): Promise<ScreenshotResult> {
     if (window.electron?.desktopCapturer) {
       try {
         const scale = options?.scale ?? 1;
@@ -66,7 +75,8 @@ export class ScreenCaptureElectron extends ScreenCaptureWeb implements ScreenCap
           const image = new Image();
           await new Promise<void>((resolve, reject) => {
             image.onload = () => resolve();
-            image.onerror = () => reject(new Error("Failed to load screenshot image"));
+            image.onerror = () =>
+              reject(new Error("Failed to load screenshot image"));
             image.src = dataUrl;
           });
 
@@ -92,7 +102,10 @@ export class ScreenCaptureElectron extends ScreenCaptureWeb implements ScreenCap
           };
         }
       } catch (error) {
-        console.warn("[ScreenCapture] desktopCapturer failed, falling back to getDisplayMedia:", error);
+        console.warn(
+          "[ScreenCapture] desktopCapturer failed, falling back to getDisplayMedia:",
+          error,
+        );
       }
     }
 

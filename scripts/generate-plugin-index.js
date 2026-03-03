@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 /**
  * Generate plugins.json — a static manifest of all available plugins
- * that ships with the milaidy package.
+ * that ships with the milady package.
  *
- * Scans every plugin-* directory under the monorepo's plugins/ folder,
- * reads each package.json, and writes plugins.json to the milaidy
- * package root.
+ * Fetches plugin metadata from the elizaos-plugins registry and writes
+ * plugins.json to the milady package root.
  *
- * Run from the milaidy package directory:
+ * Run from the milady package directory:
  *   node scripts/generate-plugin-index.js
- *
- * Or from the monorepo root:
- *   node packages/milaidy/scripts/generate-plugin-index.js
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,37 +16,12 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// This script lives at packages/milaidy/scripts/
 const packageRoot = path.resolve(__dirname, "..");
 const outputPath = path.join(packageRoot, "plugins.json");
 
-// Find the plugins directory — walk up from the package root to find
-// the monorepo root that contains the plugins/ directory.
-function findPluginsDir() {
-  let dir = packageRoot;
-  for (let i = 0; i < 10; i++) {
-    const candidate = path.join(dir, "plugins");
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      // Verify it contains plugin-* dirs
-      const entries = fs.readdirSync(candidate);
-      if (entries.some((e) => e.startsWith("plugin-"))) {
-        return candidate;
-      }
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
-}
-
-const pluginsDir = findPluginsDir();
-if (!pluginsDir) {
-  console.error(
-    "Could not find plugins/ directory. Run this from a development checkout.",
-  );
-  process.exit(1);
-}
+// Registry URL
+const GENERATED_REGISTRY_URL =
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/next/generated-registry.json";
 
 // ---------------------------------------------------------------------------
 // Category classification
@@ -80,6 +51,7 @@ const CONNECTORS = new Set([
   "telegram",
   "discord",
   "slack",
+  "twitter",
   "whatsapp",
   "signal",
   "imessage",
@@ -282,74 +254,77 @@ if (fs.existsSync(outputPath)) {
 }
 
 // ---------------------------------------------------------------------------
-// Scan plugins
+// Fetch from registry
 // ---------------------------------------------------------------------------
 
-const entries = [];
+async function fetchRegistry() {
+  console.log(`Fetching plugin registry from ${GENERATED_REGISTRY_URL}...`);
 
-for (const dir of fs.readdirSync(pluginsDir).sort()) {
-  if (!dir.startsWith("plugin-")) continue;
+  const response = await fetch(GENERATED_REGISTRY_URL);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch registry: ${response.status} ${response.statusText}`,
+    );
+  }
 
-  const tsPackageJson = path.join(
-    pluginsDir,
-    dir,
-    "typescript",
-    "package.json",
-  );
-  const rootPackageJson = path.join(pluginsDir, dir, "package.json");
-  const pkgPath = fs.existsSync(tsPackageJson)
-    ? tsPackageJson
-    : rootPackageJson;
+  const registry = await response.json();
+  return registry;
+}
 
-  if (!fs.existsSync(pkgPath)) continue;
-
+async function main() {
+  let registry;
   try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    const agentConfig = pkg.agentConfig;
-    const pluginParams = agentConfig?.pluginParameters ?? {};
-    let configKeys = Object.keys(pluginParams);
+    registry = await fetchRegistry();
+  } catch (err) {
+    console.error(`Error fetching registry: ${err.message}`);
+    console.log("Keeping existing plugins.json");
+    process.exit(0);
+  }
 
-    const id = dir.replace(/^plugin-/, "");
-    const npmName = pkg.name ?? `@elizaos/${dir}`;
-    const description = pkg.description ?? "";
-    const category = categorize(id);
+  const entries = [];
 
-    // If no agentConfig is present, preserve configKeys from existing manifest
+  // Registry format: { registry: { "@elizaos/plugin-xxx": { ... } } }
+  const packages = registry.registry || {};
+
+  for (const [npmName, pkgInfo] of Object.entries(packages)) {
+    // Only process @elizaos/plugin-* packages
+    if (!npmName.startsWith("@elizaos/plugin-")) continue;
+
+    // Skip if no v2 support (we're using next/alpha versions)
+    if (!pkgInfo.supports?.v2) continue;
+
+    const id = npmName.replace("@elizaos/plugin-", "");
+    const dirName = `plugin-${id}`;
+    const description = pkgInfo.description || "";
+    // Use v2 npm version (next/alpha)
+    const version = pkgInfo.npm?.v2 || undefined;
+
+    // Get existing entry to preserve hand-authored metadata
     const existingEntry = existingManifest.get(id);
-    if (configKeys.length === 0 && existingEntry?.configKeys?.length > 0) {
-      configKeys = existingEntry.configKeys;
-    }
 
+    // Preserve existing category if the inferred one is just "feature" (default)
+    const inferredCategory = categorize(id);
+    const category =
+      inferredCategory === "feature" && existingEntry?.category
+        ? existingEntry.category
+        : inferredCategory;
+
+    // Preserve configKeys from existing manifest
+    const configKeys = existingEntry?.configKeys || [];
     const envKey = findEnvKey(configKeys);
 
-    // Extract version
-    const version = pkg.version ?? null;
+    // Preserve pluginDeps from existing manifest
+    const pluginDeps = existingEntry?.pluginDeps;
 
-    // Extract plugin dependencies (only @elizaos/plugin-* references)
-    const allDeps = {
-      ...(pkg.dependencies ?? {}),
-      ...(pkg.peerDependencies ?? {}),
-    };
-    const pluginDeps = Object.keys(allDeps)
-      .filter((dep) => dep.startsWith("@elizaos/plugin-"))
-      .map((dep) => dep.replace("@elizaos/plugin-", ""));
-
-    // Resolve pluginParameters: prefer agentConfig > existing manifest > inferred
-    let finalPluginParams;
-    if (Object.keys(pluginParams).length > 0) {
-      finalPluginParams = pluginParams;
-    } else if (
-      existingEntry?.pluginParameters &&
-      Object.keys(existingEntry.pluginParameters).length > 0
-    ) {
-      finalPluginParams = existingEntry.pluginParameters;
-    } else if (configKeys.length > 0) {
+    // Preserve pluginParameters from existing manifest, or infer from configKeys
+    let finalPluginParams = existingEntry?.pluginParameters;
+    if (!finalPluginParams && configKeys.length > 0) {
       finalPluginParams = inferPluginParameters(configKeys);
     }
 
     entries.push({
       id,
-      dirName: dir,
+      dirName,
       name: formatName(id),
       npmName,
       description,
@@ -357,24 +332,30 @@ for (const dir of fs.readdirSync(pluginsDir).sort()) {
       envKey,
       configKeys,
       version: version || undefined,
-      pluginDeps: pluginDeps.length > 0 ? pluginDeps : undefined,
+      pluginDeps: pluginDeps?.length > 0 ? pluginDeps : undefined,
       pluginParameters: finalPluginParams,
     });
-  } catch (err) {
-    console.warn(`  Skipping ${dir}: ${err.message}`);
   }
+
+  // Sort by id
+  entries.sort((a, b) => a.id.localeCompare(b.id));
+
+  // ---------------------------------------------------------------------------
+  // Write output
+  // ---------------------------------------------------------------------------
+
+  const manifest = {
+    $schema: "plugin-index-v1",
+    generatedAt: new Date().toISOString(),
+    count: entries.length,
+    plugins: entries,
+  };
+
+  fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(`Generated ${outputPath} (${entries.length} plugins)`);
 }
 
-// ---------------------------------------------------------------------------
-// Write output
-// ---------------------------------------------------------------------------
-
-const manifest = {
-  $schema: "plugin-index-v1",
-  generatedAt: new Date().toISOString(),
-  count: entries.length,
-  plugins: entries,
-};
-
-fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(`Generated ${outputPath} (${entries.length} plugins)`);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -1,27 +1,35 @@
 import { WebPlugin } from "@capacitor/core";
 
 import type {
-  CameraPlugin,
   CameraDevice,
+  CameraDirection,
+  CameraErrorEvent,
+  CameraFrameEvent,
+  CameraPermissionStatus,
   CameraPreviewOptions,
   CameraPreviewResult,
-  CameraDirection,
+  CameraSettings,
   PhotoCaptureOptions,
   PhotoResult,
   VideoCaptureOptions,
-  VideoResult,
   VideoRecordingState,
-  CameraSettings,
-  CameraPermissionStatus,
-  CameraFrameEvent,
-  CameraErrorEvent,
+  VideoResult,
 } from "./definitions";
 
-type CameraEventData = CameraFrameEvent | CameraErrorEvent | VideoRecordingState;
+type CameraEventData =
+  | CameraFrameEvent
+  | CameraErrorEvent
+  | VideoRecordingState;
 
-const VIDEO_MIME_TYPES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+const VIDEO_MIME_TYPES = [
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
+  "video/mp4",
+];
 
-const getSupportedMimeType = (): string | null => VIDEO_MIME_TYPES.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
+const getSupportedMimeType = (): string | null =>
+  VIDEO_MIME_TYPES.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
 
 export class CameraWeb extends WebPlugin {
   private mediaStream: MediaStream | null = null;
@@ -41,7 +49,10 @@ export class CameraWeb extends WebPlugin {
     exposureCompensation: 0,
     whiteBalance: "auto",
   };
-  private pluginListeners: Array<{ eventName: string; callback: (event: CameraEventData) => void }> = [];
+  private pluginListeners: Array<{
+    eventName: string;
+    callback: (event: CameraEventData) => void;
+  }> = [];
 
   async getDevices(): Promise<{ devices: CameraDevice[] }> {
     await navigator.mediaDevices.getUserMedia({ video: true });
@@ -64,7 +75,7 @@ export class CameraWeb extends WebPlugin {
           supportedResolutions: capabilities?.resolutions ?? [],
           supportedFrameRates: capabilities?.frameRates ?? [],
         };
-      })
+      }),
     );
 
     return { devices };
@@ -72,10 +83,18 @@ export class CameraWeb extends WebPlugin {
 
   private inferDirection(label: string): CameraDirection {
     const lowerLabel = label.toLowerCase();
-    if (lowerLabel.includes("front") || lowerLabel.includes("facetime") || lowerLabel.includes("user")) {
+    if (
+      lowerLabel.includes("front") ||
+      lowerLabel.includes("facetime") ||
+      lowerLabel.includes("user")
+    ) {
       return "front";
     }
-    if (lowerLabel.includes("back") || lowerLabel.includes("rear") || lowerLabel.includes("environment")) {
+    if (
+      lowerLabel.includes("back") ||
+      lowerLabel.includes("rear") ||
+      lowerLabel.includes("environment")
+    ) {
       return "back";
     }
     return "external";
@@ -89,19 +108,25 @@ export class CameraWeb extends WebPlugin {
   } | null> {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
     } catch {
       return null; // Device not accessible
     }
 
     const track = stream.getVideoTracks()[0];
     if (!track) {
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((t) => {
+        t.stop();
+      });
       return null;
     }
 
     const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach((t) => {
+      t.stop();
+    });
 
     type MediaTrackCapabilitiesExtended = MediaTrackCapabilities & {
       zoom?: { min: number; max: number };
@@ -142,16 +167,29 @@ export class CameraWeb extends WebPlugin {
     };
   }
 
-  async startPreview(options: CameraPreviewOptions): Promise<CameraPreviewResult> {
+  async startPreview(
+    options: CameraPreviewOptions,
+  ): Promise<CameraPreviewResult> {
     await this.stopPreview();
 
     const constraints: MediaStreamConstraints = {
       video: {
         deviceId: options.deviceId ? { exact: options.deviceId } : undefined,
-        facingMode: options.direction === "front" ? "user" : options.direction === "back" ? "environment" : undefined,
-        width: options.resolution?.width ? { ideal: options.resolution.width } : { ideal: 1920 },
-        height: options.resolution?.height ? { ideal: options.resolution.height } : { ideal: 1080 },
-        frameRate: options.frameRate ? { ideal: options.frameRate } : { ideal: 30 },
+        facingMode:
+          options.direction === "front"
+            ? "user"
+            : options.direction === "back"
+              ? "environment"
+              : undefined,
+        width: options.resolution?.width
+          ? { ideal: options.resolution.width }
+          : { ideal: 1920 },
+        height: options.resolution?.height
+          ? { ideal: options.resolution.height }
+          : { ideal: 1080 },
+        frameRate: options.frameRate
+          ? { ideal: options.frameRate }
+          : { ideal: 30 },
       },
       audio: false,
     };
@@ -192,7 +230,9 @@ export class CameraWeb extends WebPlugin {
     }
 
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
+      this.mediaStream.getTracks().forEach((track) => {
+        track.stop();
+      });
       this.mediaStream = null;
     }
 
@@ -205,7 +245,10 @@ export class CameraWeb extends WebPlugin {
     this.currentDeviceId = null;
   }
 
-  async switchCamera(options: { deviceId?: string; direction?: CameraDirection }): Promise<CameraPreviewResult> {
+  async switchCamera(options: {
+    deviceId?: string;
+    direction?: CameraDirection;
+  }): Promise<CameraPreviewResult> {
     if (!this.previewElement) {
       throw new Error("Preview not started");
     }
@@ -255,7 +298,12 @@ export class CameraWeb extends WebPlugin {
 
     const quality = (options?.quality ?? 90) / 100;
     const format = options?.format || "jpeg";
-    const mimeType = format === "png" ? "image/png" : format === "webp" ? "image/webp" : "image/jpeg";
+    const mimeType =
+      format === "png"
+        ? "image/png"
+        : format === "webp"
+          ? "image/webp"
+          : "image/jpeg";
 
     const base64 = canvas.toDataURL(mimeType, quality).split(",")[1];
 
@@ -279,8 +327,13 @@ export class CameraWeb extends WebPlugin {
     let streamToRecord = this.mediaStream;
 
     if (options?.audio !== false) {
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamToRecord = new MediaStream([...this.mediaStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      streamToRecord = new MediaStream([
+        ...this.mediaStream.getVideoTracks(),
+        ...audioStream.getAudioTracks(),
+      ]);
     }
 
     const mimeType = getSupportedMimeType();
@@ -320,12 +373,20 @@ export class CameraWeb extends WebPlugin {
       if (!this.isRecording || autoStopping) return;
 
       const duration = (Date.now() - this.recordingStartTime) / 1000;
-      const fileSize = this.recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0);
+      const fileSize = this.recordedChunks.reduce(
+        (acc, chunk) => acc + chunk.size,
+        0,
+      );
 
-      this.notifyListeners("recordingState", { isRecording: true, duration, fileSize });
+      this.notifyListeners("recordingState", {
+        isRecording: true,
+        duration,
+        fileSize,
+      });
 
-      const overLimit = (options?.maxDuration && duration >= options.maxDuration)
-        || (options?.maxFileSize && fileSize >= options.maxFileSize);
+      const overLimit =
+        (options?.maxDuration && duration >= options.maxDuration) ||
+        (options?.maxFileSize && fileSize >= options.maxFileSize);
 
       if (overLimit) {
         autoStopping = true;
@@ -357,7 +418,9 @@ export class CameraWeb extends WebPlugin {
 
         this.isRecording = false;
 
-        const blob = new Blob(this.recordedChunks, { type: this.mediaRecorder?.mimeType || "video/webm" });
+        const blob = new Blob(this.recordedChunks, {
+          type: this.mediaRecorder?.mimeType || "video/webm",
+        });
         const url = URL.createObjectURL(blob);
 
         const video = document.createElement("video");
@@ -397,8 +460,13 @@ export class CameraWeb extends WebPlugin {
   }
 
   async getRecordingState(): Promise<VideoRecordingState> {
-    const duration = this.isRecording ? (Date.now() - this.recordingStartTime) / 1000 : 0;
-    const fileSize = this.recordedChunks.reduce((acc, chunk) => acc + chunk.size, 0);
+    const duration = this.isRecording
+      ? (Date.now() - this.recordingStartTime) / 1000
+      : 0;
+    const fileSize = this.recordedChunks.reduce(
+      (acc, chunk) => acc + chunk.size,
+      0,
+    );
 
     return {
       isRecording: this.isRecording,
@@ -411,7 +479,9 @@ export class CameraWeb extends WebPlugin {
     return { settings: { ...this.currentSettings } };
   }
 
-  async setSettings(options: { settings: Partial<CameraSettings> }): Promise<void> {
+  async setSettings(options: {
+    settings: Partial<CameraSettings>;
+  }): Promise<void> {
     this.currentSettings = { ...this.currentSettings, ...options.settings };
 
     if (this.mediaStream && options.settings.zoom !== undefined) {
@@ -421,7 +491,9 @@ export class CameraWeb extends WebPlugin {
 
   async setZoom(options: { zoom: number }): Promise<void> {
     if (!Number.isFinite(options.zoom) || options.zoom < 0) {
-      throw new Error(`Invalid zoom value: ${options.zoom}. Must be a non-negative finite number.`);
+      throw new Error(
+        `Invalid zoom value: ${options.zoom}. Must be a non-negative finite number.`,
+      );
     }
     await this.applyZoom(options.zoom);
     this.currentSettings.zoom = options.zoom;
@@ -441,8 +513,13 @@ export class CameraWeb extends WebPlugin {
     const caps = capabilities as MediaTrackCapabilitiesExtended;
 
     if (caps.zoom) {
-      const clampedZoom = Math.max(caps.zoom.min, Math.min(caps.zoom.max, zoom));
-      await track.applyConstraints({ advanced: [{ zoom: clampedZoom } as MediaTrackConstraintSet] });
+      const clampedZoom = Math.max(
+        caps.zoom.min,
+        Math.min(caps.zoom.max, zoom),
+      );
+      await track.applyConstraints({
+        advanced: [{ zoom: clampedZoom } as MediaTrackConstraintSet],
+      });
     }
   }
 
@@ -461,10 +538,17 @@ export class CameraWeb extends WebPlugin {
 
     try {
       await track.applyConstraints({
-        advanced: [{ focusMode: "manual", pointsOfInterest: [{ x: options.x, y: options.y }] } as MediaTrackConstraintSet],
+        advanced: [
+          {
+            focusMode: "manual",
+            pointsOfInterest: [{ x: options.x, y: options.y }],
+          } as MediaTrackConstraintSet,
+        ],
       });
     } catch (e) {
-      throw new Error(`Failed to set focus point: ${e instanceof Error ? e.message : "unknown error"}`);
+      throw new Error(
+        `Failed to set focus point: ${e instanceof Error ? e.message : "unknown error"}`,
+      );
     }
   }
 
@@ -483,10 +567,17 @@ export class CameraWeb extends WebPlugin {
 
     try {
       await track.applyConstraints({
-        advanced: [{ exposureMode: "manual", pointsOfInterest: [{ x: options.x, y: options.y }] } as MediaTrackConstraintSet],
+        advanced: [
+          {
+            exposureMode: "manual",
+            pointsOfInterest: [{ x: options.x, y: options.y }],
+          } as MediaTrackConstraintSet,
+        ],
       });
     } catch (e) {
-      throw new Error(`Failed to set exposure point: ${e instanceof Error ? e.message : "unknown error"}`);
+      throw new Error(
+        `Failed to set exposure point: ${e instanceof Error ? e.message : "unknown error"}`,
+      );
     }
   }
 
@@ -495,17 +586,24 @@ export class CameraWeb extends WebPlugin {
     let microphoneStatus: "granted" | "denied" | "prompt" = "prompt";
 
     try {
-      const cameraResult = await navigator.permissions.query({ name: "camera" as PermissionName });
+      const cameraResult = await navigator.permissions.query({
+        name: "camera" as PermissionName,
+      });
       cameraStatus = cameraResult.state as "granted" | "denied" | "prompt";
     } catch (err) {
       console.debug("[Camera] permissions.query('camera') not supported:", err);
     }
 
     try {
-      const micResult = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const micResult = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       microphoneStatus = micResult.state as "granted" | "denied" | "prompt";
     } catch (err) {
-      console.debug("[Camera] permissions.query('microphone') not supported:", err);
+      console.debug(
+        "[Camera] permissions.query('microphone') not supported:",
+        err,
+      );
     }
 
     // Note: Web platform doesn't have a "photos" permission concept.
@@ -522,22 +620,35 @@ export class CameraWeb extends WebPlugin {
     let microphoneStatus: "granted" | "denied" | "prompt" = "denied";
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
       cameraStatus = "granted";
       microphoneStatus = "granted";
     } catch {
       try {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoStream.getTracks().forEach((track) => track.stop());
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        videoStream.getTracks().forEach((track) => {
+          track.stop();
+        });
         cameraStatus = "granted";
       } catch {
         cameraStatus = "denied";
       }
 
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getTracks().forEach((track) => track.stop());
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        audioStream.getTracks().forEach((track) => {
+          track.stop();
+        });
         microphoneStatus = "granted";
       } catch {
         microphoneStatus = "denied";
@@ -553,16 +664,27 @@ export class CameraWeb extends WebPlugin {
 
   async addListener(
     eventName: string,
-    listenerFunc: (event: CameraEventData) => void
+    listenerFunc: (event: CameraEventData) => void,
   ): Promise<{ remove: () => Promise<void> }> {
     const entry = { eventName, callback: listenerFunc };
     this.pluginListeners.push(entry);
-    return { remove: async () => { const i = this.pluginListeners.indexOf(entry); if (i >= 0) this.pluginListeners.splice(i, 1); } };
+    return {
+      remove: async () => {
+        const i = this.pluginListeners.indexOf(entry);
+        if (i >= 0) this.pluginListeners.splice(i, 1);
+      },
+    };
   }
 
-  async removeAllListeners(): Promise<void> { this.pluginListeners = []; }
+  async removeAllListeners(): Promise<void> {
+    this.pluginListeners = [];
+  }
 
   protected notifyListeners(eventName: string, data: CameraEventData): void {
-    this.pluginListeners.filter((l) => l.eventName === eventName).forEach((l) => l.callback(data));
+    this.pluginListeners
+      .filter((l) => l.eventName === eventName)
+      .forEach((l) => {
+        l.callback(data);
+      });
   }
 }

@@ -2,9 +2,10 @@
  * Logs view component — logs viewer with filtering.
  */
 
-import { useEffect } from "react";
-import { useApp } from "../AppContext.js";
+import { useEffect, useMemo, useState } from "react";
+import { useApp } from "../AppContext";
 import type { LogEntry } from "../api-client";
+import { formatTime } from "./shared/format";
 
 /** Per-tag badge colour map. */
 const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -18,6 +19,8 @@ const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
 };
 
 export function LogsView() {
+  const [searchQuery, setSearchQuery] = useState("");
+
   const {
     logs,
     logSources,
@@ -47,11 +50,32 @@ export function LogsView() {
     setState("logTagFilter", "");
     setState("logLevelFilter", "");
     setState("logSourceFilter", "");
+    setSearchQuery("");
     void loadLogs();
   };
 
   const hasActiveFilters =
-    logTagFilter !== "" || logLevelFilter !== "" || logSourceFilter !== "";
+    logTagFilter !== "" ||
+    logLevelFilter !== "" ||
+    logSourceFilter !== "" ||
+    searchQuery.trim() !== "";
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const filteredLogs = useMemo(() => {
+    if (!normalizedSearch) return logs;
+    return logs.filter((entry) => {
+      const haystack = [
+        entry.message ?? "",
+        entry.source ?? "",
+        entry.level ?? "",
+        ...(entry.tags ?? []),
+      ];
+      return haystack.some((part) =>
+        part.toLowerCase().includes(normalizedSearch),
+      );
+    });
+  }, [logs, normalizedSearch]);
 
   const handleTagChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setState("logTagFilter", e.target.value);
@@ -62,6 +86,15 @@ export function LogsView() {
     <div className="flex flex-col h-full">
       {/* Filters row — filters left, refresh right */}
       <div className="flex flex-wrap gap-1.5 mb-2.5 items-center">
+        <input
+          type="text"
+          className="text-xs px-3 py-1.5 border border-border bg-card text-txt min-w-56"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search logs..."
+          aria-label="Search logs"
+        />
+
         <select
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
           value={logLevelFilter}
@@ -104,6 +137,7 @@ export function LogsView() {
 
         {hasActiveFilters && (
           <button
+            type="button"
             className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleClearFilters}
           >
@@ -112,6 +146,7 @@ export function LogsView() {
         )}
 
         <button
+          type="button"
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent ml-auto"
           onClick={() => void loadLogs()}
         >
@@ -121,21 +156,21 @@ export function LogsView() {
 
       {/* Log entries — full remaining height */}
       <div className="font-mono text-xs flex-1 min-h-0 overflow-y-auto border border-border p-2 bg-card">
-        {logs.length === 0 ? (
+        {filteredLogs.length === 0 ? (
           <div className="text-center py-8 text-muted">
             No log entries
             {hasActiveFilters ? " matching filters" : " yet"}.
           </div>
         ) : (
-          logs.map((entry: LogEntry, idx: number) => (
+          filteredLogs.map((entry: LogEntry) => (
             <div
-              key={idx}
+              key={`${entry.timestamp}-${entry.source}-${entry.level}-${entry.message}`}
               className="font-mono text-xs px-2 py-1 border-b border-border flex gap-2 items-baseline"
               data-testid="log-entry"
             >
               {/* Timestamp */}
               <span className="text-muted whitespace-nowrap">
-                {new Date(entry.timestamp).toLocaleTimeString()}
+                {formatTime(entry.timestamp, { fallback: "—" })}
               </span>
 
               {/* Level */}
@@ -158,11 +193,11 @@ export function LogsView() {
 
               {/* Tag badges */}
               <span className="inline-flex gap-0.5 shrink-0">
-                {(entry.tags ?? []).map((t: string, ti: number) => {
+                {(entry.tags ?? []).map((t: string) => {
                   const c = TAG_COLORS[t];
                   return (
                     <span
-                      key={ti}
+                      key={t}
                       className="inline-block text-[10px] px-1.5 py-px rounded-lg mr-0.5"
                       style={{
                         background: c ? c.bg : "var(--bg-muted)",

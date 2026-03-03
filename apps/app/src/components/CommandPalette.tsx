@@ -1,5 +1,6 @@
-import { useEffect, useRef, useMemo } from "react";
-import { useApp } from "../AppContext.js";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useApp } from "../AppContext";
+import { useBugReport } from "../hooks/useBugReport";
 
 interface CommandItem {
   id: string;
@@ -15,7 +16,6 @@ export function CommandPalette() {
     commandActiveIndex,
     agentStatus,
     handleStart,
-    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
@@ -24,15 +24,22 @@ export function CommandPalette() {
     loadLogs,
     loadWorkbench,
     handleChatClear,
+    activeGameViewerUrl,
     setState,
-    closeCommandPalette,
   } = useApp();
+  const { open: openBugReport } = useBugReport();
+  const closeCommandPalette = useCallback(
+    () => setState("commandPaletteOpen", false),
+    [setState],
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const agentState = agentStatus?.state ?? "stopped";
   const isRunning = agentState === "running";
   const isPaused = agentState === "paused";
+  const currentGameViewerUrl =
+    typeof activeGameViewerUrl === "string" ? activeGameViewerUrl : "";
 
   // Build command list
   const allCommands = useMemo<CommandItem[]>(() => {
@@ -45,45 +52,103 @@ export function CommandPalette() {
         label: "Start Agent",
         action: handleStart,
       });
-    } else {
+    }
+    if (isRunning || isPaused) {
       commands.push({
-        id: "stop-agent",
-        label: "Stop Agent",
-        action: handleStop,
-      });
-      if (isRunning || isPaused) {
-        commands.push({
-          id: "pause-resume-agent",
-          label: isPaused ? "Resume Agent" : "Pause Agent",
-          action: handlePauseResume,
-        });
-      }
-      commands.push({
-        id: "restart-agent",
-        label: "Restart Agent",
-        action: handleRestart,
+        id: "pause-resume-agent",
+        label: isPaused ? "Resume Agent" : "Pause Agent",
+        action: handlePauseResume,
       });
     }
+    commands.push({
+      id: "restart-agent",
+      label: "Restart Agent",
+      action: handleRestart,
+    });
 
     // Navigation commands
     commands.push(
       { id: "nav-chat", label: "Open Chat", action: () => setTab("chat") },
-      { id: "nav-features", label: "Open Features", action: () => setTab("features") },
-      { id: "nav-connectors", label: "Open Connectors", action: () => setTab("connectors") },
-      { id: "nav-skills", label: "Open Skills", action: () => setTab("skills") },
-      { id: "nav-character", label: "Open Character", action: () => setTab("character") },
-      { id: "nav-config", label: "Open Config", action: () => setTab("config") },
-      { id: "nav-admin", label: "Open Admin", action: () => setTab("admin") },
-      { id: "nav-inventory", label: "Open Inventory", action: () => setTab("inventory") },
-      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") }
+      { id: "nav-apps", label: "Open Apps", action: () => setTab("apps") },
+      {
+        id: "nav-character",
+        label: "Open Character",
+        action: () => setTab("character"),
+      },
+      {
+        id: "nav-triggers",
+        label: "Open Triggers",
+        action: () => setTab("triggers"),
+      },
+      {
+        id: "nav-wallets",
+        label: "Open Wallets",
+        action: () => setTab("wallets"),
+      },
+      {
+        id: "nav-knowledge",
+        label: "Open Knowledge",
+        action: () => setTab("knowledge"),
+      },
+      {
+        id: "nav-connectors",
+        label: "Open Social",
+        action: () => setTab("connectors"),
+      },
+      {
+        id: "nav-plugins",
+        label: "Open Plugins",
+        action: () => setTab("plugins"),
+      },
+      {
+        id: "nav-config",
+        label: "Open Config",
+        action: () => setTab("settings"),
+      },
+      {
+        id: "nav-database",
+        label: "Open Database",
+        action: () => setTab("database"),
+      },
+      {
+        id: "nav-settings",
+        label: "Open Settings",
+        action: () => setTab("settings"),
+      },
+      { id: "nav-logs", label: "Open Logs", action: () => setTab("logs") },
+      {
+        id: "nav-security",
+        label: "Open Security",
+        action: () => setTab("security"),
+      },
+      {
+        id: "nav-lifo",
+        label: "Open Lifo",
+        action: () => setTab("lifo"),
+      },
     );
+
+    if (currentGameViewerUrl.trim()) {
+      commands.push({
+        id: "nav-current-game",
+        label: "Open Current Game",
+        action: () => {
+          setTab("apps");
+          setState("appsSubTab", "games");
+        },
+      });
+    }
 
     // Refresh commands
     commands.push(
       { id: "refresh-plugins", label: "Refresh Features", action: loadPlugins },
       { id: "refresh-skills", label: "Refresh Skills", action: loadSkills },
       { id: "refresh-logs", label: "Refresh Logs", action: loadLogs },
-      { id: "refresh-workbench", label: "Refresh Workbench", action: loadWorkbench }
+      {
+        id: "refresh-workbench",
+        label: "Refresh Workbench",
+        action: loadWorkbench,
+      },
     );
 
     // Chat commands
@@ -93,21 +158,30 @@ export function CommandPalette() {
       action: handleChatClear,
     });
 
+    // Bug report
+    commands.push({
+      id: "report-bug",
+      label: "Report Bug",
+      action: openBugReport,
+    });
+
     return commands;
   }, [
     agentState,
     isRunning,
     isPaused,
     handleStart,
-    handleStop,
     handlePauseResume,
     handleRestart,
     setTab,
+    currentGameViewerUrl,
+    setState,
     handleChatClear,
     loadPlugins,
     loadSkills,
     loadLogs,
     loadWorkbench,
+    openBugReport,
   ]);
 
   // Filter commands by query
@@ -136,24 +210,31 @@ export function CommandPalette() {
       }
 
       if (e.key === "ArrowDown") {
+        if (filteredCommands.length === 0) return;
         e.preventDefault();
         setState(
           "commandActiveIndex",
-          commandActiveIndex < filteredCommands.length - 1 ? commandActiveIndex + 1 : 0
+          commandActiveIndex < filteredCommands.length - 1
+            ? commandActiveIndex + 1
+            : 0,
         );
         return;
       }
 
       if (e.key === "ArrowUp") {
+        if (filteredCommands.length === 0) return;
         e.preventDefault();
         setState(
           "commandActiveIndex",
-          commandActiveIndex > 0 ? commandActiveIndex - 1 : filteredCommands.length - 1
+          commandActiveIndex > 0
+            ? commandActiveIndex - 1
+            : filteredCommands.length - 1,
         );
         return;
       }
 
       if (e.key === "Enter") {
+        if (filteredCommands.length === 0) return;
         e.preventDefault();
         const cmd = filteredCommands[commandActiveIndex];
         if (cmd) {
@@ -174,6 +255,23 @@ export function CommandPalette() {
     closeCommandPalette,
   ]);
 
+  useEffect(() => {
+    if (filteredCommands.length === 0) {
+      if (commandActiveIndex !== 0) {
+        setState("commandActiveIndex", 0);
+      }
+      return;
+    }
+
+    const maxIndex = filteredCommands.length - 1;
+    if (commandActiveIndex < 0 || commandActiveIndex > maxIndex) {
+      setState(
+        "commandActiveIndex",
+        Math.min(Math.max(commandActiveIndex, 0), maxIndex),
+      );
+    }
+  }, [commandActiveIndex, filteredCommands.length, setState]);
+
   // Reset active index when query changes
   useEffect(() => {
     if (commandQuery !== "") {
@@ -191,10 +289,19 @@ export function CommandPalette() {
           closeCommandPalette();
         }
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closeCommandPalette();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
     >
       <div
         className="bg-bg border border-border w-[520px] max-h-[420px] flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        role="document"
       >
         <input
           ref={inputRef}
@@ -212,9 +319,12 @@ export function CommandPalette() {
           ) : (
             filteredCommands.map((cmd, idx) => (
               <button
+                type="button"
                 key={cmd.id}
                 className={`w-full px-4 py-2.5 cursor-pointer flex justify-between items-center text-left text-sm font-body ${
-                  idx === commandActiveIndex ? "bg-bg-hover" : "hover:bg-bg-hover"
+                  idx === commandActiveIndex
+                    ? "bg-bg-hover"
+                    : "hover:bg-bg-hover"
                 }`}
                 onClick={() => {
                   cmd.action();
@@ -223,7 +333,9 @@ export function CommandPalette() {
                 onMouseEnter={() => setState("commandActiveIndex", idx)}
               >
                 <span>{cmd.label}</span>
-                {cmd.hint && <span className="text-xs text-muted">{cmd.hint}</span>}
+                {cmd.hint && (
+                  <span className="text-xs text-muted">{cmd.hint}</span>
+                )}
               </button>
             ))
           )}

@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isSubagentSessionKey, logger } from "@elizaos/core";
-import { resolveUserPath } from "../config/paths.js";
+import * as elizaCore from "@elizaos/core";
+import { resolveUserPath } from "../config/paths";
 
 export interface RunCommandResult {
   code: number;
@@ -84,11 +84,11 @@ export function resolveDefaultAgentWorkspaceDir(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
 ): string {
-  const profile = env.MILAIDY_PROFILE?.trim();
+  const profile = env.MILADY_PROFILE?.trim();
   if (profile && profile.toLowerCase() !== "default") {
-    return path.join(homedir(), ".milaidy", `workspace-${profile}`);
+    return path.join(homedir(), ".milady", `workspace-${profile}`);
   }
-  return path.join(homedir(), ".milaidy", "workspace");
+  return path.join(homedir(), ".milady", "workspace");
 }
 
 export const DEFAULT_AGENT_WORKSPACE_DIR = resolveDefaultAgentWorkspaceDir();
@@ -185,8 +185,8 @@ directory:
 
 ## Configuration
 
-Agent configuration is managed through \`~/.milaidy/milaidy.json\`
-or the Milaidy Control UI.
+Agent configuration is managed through \`~/.milady/milady.json\`
+or the Milady Control UI.
 `,
 };
 
@@ -206,6 +206,35 @@ export type WorkspaceBootstrapFile = {
   content?: string;
   missing: boolean;
 };
+
+type ElizaCoreWorkspaceHelpers = {
+  isSubagentSessionKey?: (key: string) => boolean;
+  logger?: {
+    warn: (message: string) => void;
+  };
+};
+
+const coreWorkspaceHelpers = elizaCore as ElizaCoreWorkspaceHelpers;
+
+function isSubagentSessionKey(sessionKey: string): boolean {
+  if (typeof coreWorkspaceHelpers.isSubagentSessionKey === "function") {
+    return coreWorkspaceHelpers.isSubagentSessionKey(sessionKey);
+  }
+  // Older @elizaos/core versions do not expose subagent helpers.
+  // Treat all sessions as primary sessions in that case.
+  return false;
+}
+
+function logWarn(message: string): void {
+  if (
+    coreWorkspaceHelpers.logger &&
+    typeof coreWorkspaceHelpers.logger.warn === "function"
+  ) {
+    coreWorkspaceHelpers.logger.warn(message);
+    return;
+  }
+  console.warn(message);
+}
 
 async function writeFileIfMissing(filePath: string, content: string) {
   try {
@@ -259,7 +288,7 @@ async function ensureGitRepo(dir: string, isBrandNewWorkspace: boolean) {
       timeoutMs: 10_000,
     });
   } catch (err) {
-    logger.warn(
+    logWarn(
       `[workspace] git init failed: ${err instanceof Error ? err.message : err}`,
     );
   }

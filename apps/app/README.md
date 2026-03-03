@@ -1,18 +1,18 @@
 <p align="center">
-  <img src="../ui/public/pfp.jpg" alt="Milaidy" width="120" />
+  <img src="../ui/public/pfp.jpg" alt="Milady" width="120" />
 </p>
 
-<h1 align="center">Milaidy</h1>
+<h1 align="center">Milady</h1>
 
 <p align="center">
   <em>cute agents for the acceleration</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/milady-ai/milaidy/actions/workflows/release.yml"><img src="https://github.com/milady-ai/milaidy/actions/workflows/release.yml/badge.svg" alt="Build & Release" /></a>
-  <a href="https://github.com/milady-ai/milaidy/actions/workflows/test.yml"><img src="https://github.com/milady-ai/milaidy/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
-  <a href="https://www.npmjs.com/package/milaidy"><img src="https://img.shields.io/npm/v/milaidy" alt="npm version" /></a>
-  <a href="https://github.com/milady-ai/milaidy/blob/main/LICENSE"><img src="https://img.shields.io/github/license/milady-ai/milaidy" alt="License" /></a>
+  <a href="https://github.com/milady-ai/milady/actions/workflows/release.yml"><img src="https://github.com/milady-ai/milady/actions/workflows/release.yml/badge.svg" alt="Build & Release" /></a>
+  <a href="https://github.com/milady-ai/milady/actions/workflows/test.yml"><img src="https://github.com/milady-ai/milady/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
+  <a href="https://www.npmjs.com/package/milady"><img src="https://img.shields.io/npm/v/milady" alt="npm version" /></a>
+  <a href="https://github.com/milady-ai/milady/blob/main/LICENSE"><img src="https://img.shields.io/github/license/milady-ai/milady" alt="License" /></a>
 </p>
 
 <p align="center">
@@ -30,34 +30,33 @@ A personal AI assistant you run on your own devices, built on [ElizaOS](https://
 macOS / Linux / WSL:
 
 ```bash
-curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash
+curl -fsSL https://milady-ai.github.io/milady/install.sh | bash
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://milady-ai.github.io/milaidy/install.ps1 | iex
+irm https://milady-ai.github.io/milady/install.ps1 | iex
 ```
 
-### npm / npx
+### npm global
 
 ```bash
-npm install -g milaidy
-# or run without installing
-npx milaidy
-# or with bun
-bunx milaidy
+npm install -g miladyai
+milady setup
 ```
 
-Then run setup:
+### no-install (optional)
 
 ```bash
-milaidy setup
+bunx miladyai setup
+# or
+npx miladyai setup
 ```
 
 ### Download the App
 
-Desktop and mobile builds are available on the [Releases](https://github.com/milady-ai/milaidy/releases) page:
+Desktop and mobile builds are available on the [Releases](https://github.com/milady-ai/milady/releases) page:
 
 | Platform | Format |
 |---|---|
@@ -71,8 +70,8 @@ Desktop and mobile builds are available on the [Releases](https://github.com/mil
 ## Quick Start
 
 ```bash
-milaidy onboard --install-daemon
-milaidy agent --message "hello" --thinking high
+milady onboard --install-daemon
+milady agent --message "hello" --thinking high
 ```
 
 ## Development
@@ -82,8 +81,8 @@ milaidy agent --message "hello" --thinking high
 ### Setup
 
 ```bash
-git clone https://github.com/milady-ai/milaidy.git
-cd milaidy
+git clone https://github.com/milady-ai/milady.git
+cd milady
 
 bun install
 bun run build
@@ -120,6 +119,18 @@ bun run android
 ```bash
 bun run plugin:build
 ```
+
+### Desktop app startup and errors
+
+If the embedded agent fails to load (e.g. missing native module), the app keeps the API server up so the UI can show an error instead of "Failed to fetch". **Why:** Without that, one load failure would close the API server and the window would show only "Failed to fetch" with no message. See [Electron startup and exception handling](../../docs/electron-startup.md) for why the guards in `electron/src/native/agent.ts` exist and must not be removed.
+
+### Plugin resolution
+
+Dynamic plugin imports (`import("@elizaos/plugin-*")`) resolve from the importing file's location. In dev mode and CLI, that can miss root `node_modules`. We set `NODE_PATH` to repo root in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, and `electron/src/native/agent.ts` (dev path). **Why:** Without this, plugins like `@elizaos/plugin-coding-agent` fail with "Cannot find module" on boot. For Bun specifically, some published plugins have `exports["."].bun = "./src/index.ts"` (missing in the tarball); we patch those in `scripts/patch-deps.mjs` so Bun resolves via `dist/`. See [Plugin resolution and NODE_PATH](../../docs/plugin-resolution-and-node-path.md) (including "Bun and published package exports").
+
+### Build and release (Electron bundle, CI)
+
+Plugin and native deps for the packaged app are copied into `milady-dist/node_modules` by `scripts/copy-electron-plugins-and-deps.mjs`, which **derives** the list from each @elizaos package's `package.json` (no manual list). macOS Intel builds run install and build under Rosetta so x64 native binaries are included. **Why:** [Build and release (CI, desktop binaries)](../../docs/build-and-release.md) explains arch, copy script, and release workflow.
 
 ### Tests
 

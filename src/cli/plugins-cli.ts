@@ -1,28 +1,130 @@
+import type { IAgentRuntime } from "@elizaos/core";
 import chalk from "chalk";
 import type { Command } from "commander";
+import type {
+  InstallProgressLike,
+  PluginManagerLike,
+} from "../services/plugin-manager-types";
+import { parseClampedInteger } from "../utils/number-parsing";
 
 /**
  * Normalize a user-provided plugin name to its fully-qualified form.
  * Accepts `@scope/plugin-x`, `plugin-x`, or shorthand `x` (→ `@elizaos/plugin-x`).
  */
-function normalizePluginName(name: string): string {
+export function normalizePluginName(name: string): string {
+  // Already fully qualified (starts with @) or plugin- prefix
   if (name.startsWith("@") || name.startsWith("plugin-")) {
     return name;
   }
+  // Shorthand: add @elizaos/plugin- prefix
   return `@elizaos/plugin-${name}`;
 }
 
-function clampInt(
-  raw: string,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
+/**
+ * Parse plugin name and optional version from user input.
+ * Examples:
+ *   - "twitter" → { name: "@elizaos/plugin-twitter", version: undefined }
+ *   - "twitter@1.2.3" → { name: "@elizaos/plugin-twitter", version: "1.2.3" }
+ *   - "@custom/plugin-x@2.0.0" → { name: "@custom/plugin-x", version: "2.0.0" }
+ */
+export function parsePluginSpec(input: string): {
+  name: string;
+  version?: string;
+} {
+  const trimmed = input.trim();
+  let namePart = trimmed;
+  let versionPart: string | undefined;
+
+  if (trimmed.startsWith("@")) {
+    const secondAt = trimmed.indexOf("@", 1);
+    if (secondAt !== -1) {
+      namePart = trimmed.slice(0, secondAt);
+      versionPart = trimmed.slice(secondAt + 1);
+    }
+  } else {
+    const atIndex = trimmed.indexOf("@");
+    if (atIndex !== -1) {
+      namePart = trimmed.slice(0, atIndex);
+      versionPart = trimmed.slice(atIndex + 1);
+    }
   }
-  return Math.min(Math.max(parsed, min), max);
+
+  const version = versionPart?.trim() || undefined;
+  return { name: normalizePluginName(namePart), version };
+}
+
+/**
+ * Display plugin configuration parameters in a formatted table.
+ */
+function displayPluginConfig(
+  plugin: {
+    id: string;
+    name?: string;
+    parameters?: Array<{
+      key: string;
+      description?: string;
+      required?: boolean;
+      sensitive?: boolean;
+    }>;
+    configUiHints?: Record<
+      string,
+      { label?: string; help?: string; sensitive?: boolean }
+    >;
+  },
+  currentEnv: Record<string, string | undefined>,
+): void {
+  const params = plugin.parameters ?? [];
+  if (params.length === 0) {
+    console.log(chalk.dim("  No configurable parameters."));
+    return;
+  }
+
+  for (const param of params) {
+    const hint = plugin.configUiHints?.[param.key] ?? {};
+    const label = hint.label ?? param.key;
+    const value = currentEnv[param.key];
+    const isSet = value != null && value !== "";
+    const isSensitive = param.sensitive || hint.sensitive;
+
+    const displayValue = !isSet
+      ? chalk.dim("(not set)")
+      : isSensitive
+        ? chalk.dim("●●●●●●●●")
+        : chalk.white(value);
+
+    const required = param.required ? chalk.red(" *") : "";
+    const help =
+      (hint.help ?? param.description)
+        ? chalk.dim(` — ${hint.help ?? param.description}`)
+        : "";
+
+    console.log(
+      `  ${chalk.cyan(label.padEnd(30))} ${displayValue}${required}${help}`,
+    );
+  }
+}
+
+async function getPluginManager(): Promise<PluginManagerLike> {
+  const { PluginManagerService } = await import(
+    "@elizaos/plugin-plugin-manager"
+  );
+  const PluginManagerServiceCtor = PluginManagerService as unknown as new (
+    runtime: IAgentRuntime,
+  ) => PluginManagerLike;
+  const mockRuntime = {
+    plugins: [],
+    actions: [],
+    providers: [],
+    evaluators: [],
+    services: [],
+    getService: () => null,
+    registerService: () => {},
+    registerAction: () => {},
+    registerProvider: () => {},
+    registerEvaluator: () => {},
+    registerEvent: () => {},
+  } as unknown as IAgentRuntime;
+  return new PluginManagerServiceCtor(mockRuntime);
 }
 
 export function registerPluginsCli(program: Command): void {
@@ -39,19 +141,18 @@ export function registerPluginsCli(program: Command): void {
     .option("-q, --query <query>", "Filter plugins by name or keyword")
     .option("-l, --limit <number>", "Max results to show", "30")
     .action(async (opts: { query?: string; limit: string }) => {
-      const { getRegistryPlugins, searchPlugins } = await import(
-        "../services/registry-client.js"
-      );
-      const { listInstalledPlugins } = await import(
-        "../services/plugin-installer.js"
-      );
+      const pluginManager = await getPluginManager();
 
-      const limit = clampInt(opts.limit, 1, 500, 30);
-      const installed = await listInstalledPlugins();
+      const limit = parseClampedInteger(opts.limit, {
+        min: 1,
+        max: 500,
+        fallback: 30,
+      });
+      const installed = await pluginManager.listInstalledPlugins();
       const installedNames = new Set(installed.map((p) => p.name));
 
       if (opts.query) {
-        const results = await searchPlugins(opts.query, limit);
+        const results = await pluginManager.searchRegistry(opts.query, limit);
 
         if (results.length === 0) {
           console.log(`\nNo plugins found matching "${opts.query}"\n`);
@@ -90,7 +191,7 @@ export function registerPluginsCli(program: Command): void {
           console.log();
         }
       } else {
-        const registry = await getRegistryPlugins();
+        const registry = await pluginManager.refreshRegistry();
         const all = Array.from(registry.values());
 
         const installedCount = all.filter((p) =>
@@ -123,11 +224,9 @@ export function registerPluginsCli(program: Command): void {
         console.log();
       }
 
+      console.log(chalk.dim("Install a plugin: milady plugins install <name>"));
       console.log(
-        chalk.dim("Install a plugin: milaidy plugins install <name>"),
-      );
-      console.log(
-        chalk.dim("Search:           milaidy plugins list -q <keyword>"),
+        chalk.dim("Search:           milady plugins list -q <keyword>"),
       );
       console.log();
     });
@@ -138,10 +237,14 @@ export function registerPluginsCli(program: Command): void {
     .description("Search the plugin registry by keyword")
     .option("-l, --limit <number>", "Max results", "15")
     .action(async (query: string, opts: { limit: string }) => {
-      const { searchPlugins } = await import("../services/registry-client.js");
-      const limit = clampInt(opts.limit, 1, 50, 15);
+      const pluginManager = await getPluginManager();
+      const limit = parseClampedInteger(opts.limit, {
+        min: 1,
+        max: 50,
+        fallback: 15,
+      });
 
-      const results = await searchPlugins(query, limit);
+      const results = await pluginManager.searchRegistry(query, limit);
 
       if (results.length === 0) {
         console.log(`\nNo plugins found matching "${query}"\n`);
@@ -172,18 +275,16 @@ export function registerPluginsCli(program: Command): void {
     .command("info <name>")
     .description("Show detailed information about a plugin")
     .action(async (name: string) => {
-      const { getPluginInfo } = await import("../services/registry-client.js");
+      const pluginManager = await getPluginManager();
 
       const normalizedName = normalizePluginName(name);
 
-      const info = await getPluginInfo(normalizedName);
+      const info = await pluginManager.getRegistryPlugin(normalizedName);
 
       if (!info) {
         console.log(`\n${chalk.red("Not found:")} ${normalizedName}`);
         console.log(
-          chalk.dim(
-            "Run 'milaidy plugins search <keyword>' to find plugins.\n",
-          ),
+          chalk.dim("Run 'milady plugins search <keyword>' to find plugins.\n"),
         );
         return;
       }
@@ -226,34 +327,35 @@ export function registerPluginsCli(program: Command): void {
       }
 
       console.log(
-        `\n  Install: ${chalk.cyan(`milaidy plugins install ${info.name}`)}\n`,
+        `\n  Install: ${chalk.cyan(`milady plugins install ${info.name}`)}\n`,
       );
     });
 
   // ── install ──────────────────────────────────────────────────────────
   pluginsCommand
     .command("install <name>")
-    .description("Install a plugin from the registry")
+    .description(
+      "Install a plugin from the registry. Optionally pin to a specific version or dist-tag (e.g., twitter@1.2.3, twitter@next)",
+    )
     .option("--no-restart", "Install without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
-      const { installPlugin, installAndRestart } = await import(
-        "../services/plugin-installer.js"
-      );
+      const { name: normalizedName, version } = parsePluginSpec(name);
 
-      const normalizedName = normalizePluginName(name);
+      const displayName = version
+        ? `${normalizedName}@${version}`
+        : normalizedName;
+      console.log(`\nInstalling ${chalk.cyan(displayName)}...\n`);
 
-      console.log(`\nInstalling ${chalk.cyan(normalizedName)}...\n`);
-
-      const progressHandler = (progress: {
-        phase: string;
-        message: string;
-      }) => {
+      const progressHandler = (progress: InstallProgressLike) => {
         console.log(`  [${progress.phase}] ${progress.message}`);
       };
 
-      const result = opts.restart
-        ? await installAndRestart(normalizedName, progressHandler)
-        : await installPlugin(normalizedName, progressHandler);
+      const { installPlugin } = await import("../services/plugin-installer");
+      const result = await installPlugin(
+        normalizedName,
+        progressHandler,
+        version,
+      );
 
       if (result.success) {
         console.log(
@@ -266,6 +368,10 @@ export function registerPluginsCli(program: Command): void {
         } else if (result.requiresRestart) {
           console.log(
             chalk.dim("Agent is restarting to load the new plugin..."),
+          );
+          const { requestRestart } = await import("../runtime/restart");
+          await Promise.resolve(
+            requestRestart(`Plugin ${result.pluginName} installed`),
           );
         }
       } else {
@@ -281,15 +387,11 @@ export function registerPluginsCli(program: Command): void {
     .description("Uninstall a user-installed plugin")
     .option("--no-restart", "Uninstall without restarting the agent")
     .action(async (name: string, opts: { restart: boolean }) => {
-      const { uninstallPlugin, uninstallAndRestart } = await import(
-        "../services/plugin-installer.js"
-      );
+      const pluginManager = await getPluginManager();
 
       console.log(`\nUninstalling ${chalk.cyan(name)}...\n`);
 
-      const result = opts.restart
-        ? await uninstallAndRestart(name)
-        : await uninstallPlugin(name);
+      const result = await pluginManager.uninstallPlugin(name);
 
       if (result.success) {
         console.log(
@@ -310,15 +412,12 @@ export function registerPluginsCli(program: Command): void {
     .command("installed")
     .description("List plugins installed from the registry")
     .action(async () => {
-      const { listInstalledPlugins } = await import(
-        "../services/plugin-installer.js"
-      );
-
-      const plugins = await listInstalledPlugins();
+      const pluginManager = await getPluginManager();
+      const plugins = await pluginManager.listInstalledPlugins();
 
       if (plugins.length === 0) {
         console.log("\nNo plugins installed from the registry.\n");
-        console.log(chalk.dim("Install one: milaidy plugins install <name>\n"));
+        console.log(chalk.dim("Install one: milady plugins install <name>\n"));
         return;
       }
 
@@ -327,8 +426,6 @@ export function registerPluginsCli(program: Command): void {
       );
       for (const p of plugins) {
         console.log(`  ${chalk.cyan(p.name)} ${chalk.dim(`v${p.version}`)}`);
-        console.log(`    ${chalk.dim(`installed: ${p.installedAt}`)}`);
-        console.log(`    ${chalk.dim(`path: ${p.installPath}`)}`);
         console.log();
       }
     });
@@ -338,31 +435,27 @@ export function registerPluginsCli(program: Command): void {
     .command("refresh")
     .description("Force-refresh the plugin registry cache")
     .action(async () => {
-      const { refreshRegistry } = await import(
-        "../services/registry-client.js"
-      );
+      const pluginManager = await getPluginManager();
 
       console.log("\nRefreshing registry cache...");
-      const registry = await refreshRegistry();
+      const registry = await pluginManager.refreshRegistry();
       console.log(`${chalk.green("Done!")} ${registry.size} plugins loaded.\n`);
     });
 
   // ── test ─────────────────────────────────────────────────────────────
   pluginsCommand
     .command("test")
-    .description(
-      "Validate custom drop-in plugins in ~/.milaidy/plugins/custom/",
-    )
+    .description("Validate custom drop-in plugins in ~/.milady/plugins/custom/")
     .action(async () => {
       const nodePath = await import("node:path");
       const { pathToFileURL } = await import("node:url");
       const fsPromises = await import("node:fs/promises");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths.js"
+        "../config/paths"
       );
-      const { loadMilaidyConfig } = await import("../config/config.js");
+      const { loadMiladyConfig } = await import("../config/config");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins, resolvePackageEntry } =
-        await import("../runtime/eliza.js");
+        await import("../runtime/eliza");
 
       const customDir = nodePath.join(
         resolveStateDir(),
@@ -370,13 +463,13 @@ export function registerPluginsCli(program: Command): void {
       );
       const scanDirs = [customDir];
 
-      let config: ReturnType<typeof loadMilaidyConfig> | null = null;
+      let config: ReturnType<typeof loadMiladyConfig> | null = null;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch (err) {
         console.log(
           chalk.dim(
-            `  (Could not read milaidy.json: ${err instanceof Error ? err.message : String(err)} — scanning default directory only)\n`,
+            `  (Could not read milady.json: ${err instanceof Error ? err.message : String(err)} — scanning default directory only)\n`,
           ),
         );
       }
@@ -500,9 +593,9 @@ export function registerPluginsCli(program: Command): void {
     .action(async (rawPath: string) => {
       const _nodePath = await import("node:path");
       const nodeFs = await import("node:fs");
-      const { resolveUserPath } = await import("../config/paths.js");
-      const { loadMilaidyConfig, saveMilaidyConfig } = await import(
-        "../config/config.js"
+      const { resolveUserPath } = await import("../config/paths");
+      const { loadMiladyConfig, saveMiladyConfig } = await import(
+        "../config/config"
       );
 
       const resolved = resolveUserPath(rawPath);
@@ -518,11 +611,11 @@ export function registerPluginsCli(program: Command): void {
         return;
       }
 
-      let config: ReturnType<typeof loadMilaidyConfig>;
+      let config: ReturnType<typeof loadMiladyConfig>;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch {
-        config = {} as ReturnType<typeof loadMilaidyConfig>;
+        config = {} as ReturnType<typeof loadMiladyConfig>;
       }
 
       if (!config.plugins) config.plugins = {};
@@ -536,7 +629,7 @@ export function registerPluginsCli(program: Command): void {
       }
 
       config.plugins.load.paths.push(rawPath);
-      saveMilaidyConfig(config);
+      saveMiladyConfig(config);
 
       console.log(`\n${chalk.green("Added:")} ${rawPath} → ${resolved}`);
       console.log(
@@ -551,16 +644,16 @@ export function registerPluginsCli(program: Command): void {
     .action(async () => {
       const nodePath = await import("node:path");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths.js"
+        "../config/paths"
       );
-      const { loadMilaidyConfig } = await import("../config/config.js");
+      const { loadMiladyConfig } = await import("../config/config");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza.js"
+        "../runtime/eliza"
       );
 
-      let config: ReturnType<typeof loadMilaidyConfig> | null = null;
+      let config: ReturnType<typeof loadMiladyConfig> | null = null;
       try {
-        config = loadMilaidyConfig();
+        config = loadMiladyConfig();
       } catch {
         // No config
       }
@@ -598,6 +691,202 @@ export function registerPluginsCli(program: Command): void {
       console.log();
     });
 
+  // ── config ──────────────────────────────────────────────────────────
+  pluginsCommand
+    .command("config <name>")
+    .description("Show or edit plugin configuration")
+    .option("-e, --edit", "Interactive edit mode")
+    .action(async (name: string, opts: { edit?: boolean }) => {
+      const nodeFs = await import("node:fs");
+      const nodePath = await import("node:path");
+
+      // Read plugins.json catalog
+      const pluginsPath = nodePath.resolve(process.cwd(), "plugins.json");
+      let catalog: { plugins?: Array<Record<string, unknown>> };
+      try {
+        catalog = JSON.parse(nodeFs.readFileSync(pluginsPath, "utf8"));
+      } catch (err) {
+        console.log(
+          `\n${chalk.red("Error:")} Could not read plugins.json: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      // Find the plugin by id, npmName, or name
+      const plugins = catalog.plugins ?? [];
+      const plugin = plugins.find(
+        (p) =>
+          p.id === name ||
+          p.npmName === name ||
+          (typeof p.name === "string" &&
+            p.name.toLowerCase().includes(name.toLowerCase())),
+      );
+
+      if (!plugin) {
+        console.log(`\n${chalk.red("Not found:")} ${name}`);
+        console.log(
+          chalk.dim("Run 'milady plugins list' to see available plugins.\n"),
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const pluginId = String(plugin.id ?? "");
+      const pluginName = String(plugin.name ?? pluginId);
+      const params = plugin.pluginParameters as
+        | Record<
+            string,
+            {
+              type?: string;
+              description?: string;
+              required?: boolean;
+              sensitive?: boolean;
+            }
+          >
+        | undefined;
+      const configUiHints = plugin.configUiHints as
+        | Record<string, { label?: string; help?: string; sensitive?: boolean }>
+        | undefined;
+
+      // Display mode
+      if (!opts.edit) {
+        console.log(
+          `\n${chalk.bold(pluginName)} ${chalk.dim(`(${pluginId})`)}`,
+        );
+        console.log(
+          chalk.dim("─".repeat(pluginName.length + pluginId.length + 3)),
+        );
+
+        displayPluginConfig(
+          {
+            id: pluginId,
+            name: pluginName,
+            parameters: params
+              ? Object.entries(params).map(([key, param]) => ({
+                  key,
+                  description: param.description,
+                  required: param.required,
+                  sensitive: param.sensitive,
+                }))
+              : [],
+            configUiHints,
+          },
+          process.env as Record<string, string | undefined>,
+        );
+        console.log();
+        return;
+      }
+
+      // Edit mode
+      const clack = await import("@clack/prompts");
+
+      console.log(`\n${chalk.bold("Configure")} ${chalk.cyan(pluginName)}\n`);
+
+      const newValues: Record<string, string> = {};
+
+      if (!params || Object.keys(params).length === 0) {
+        console.log(chalk.dim("  No configurable parameters.\n"));
+        return;
+      }
+
+      for (const [key, param] of Object.entries(params)) {
+        const hint = configUiHints?.[key] ?? {};
+        const label = hint.label ?? key;
+        const currentValue = process.env[key];
+        const isSensitive = param.sensitive || hint.sensitive;
+        const help = hint.help ?? param.description ?? "";
+
+        const displayCurrent = currentValue
+          ? isSensitive
+            ? chalk.dim("●●●●●●●●")
+            : chalk.dim(`(current: ${currentValue})`)
+          : chalk.dim("(not set)");
+
+        let promptValue: string | boolean | symbol;
+
+        if (param.type === "boolean") {
+          promptValue = await clack.confirm({
+            message: `${label} ${displayCurrent}`,
+            initialValue: currentValue === "true",
+          });
+        } else if (isSensitive) {
+          promptValue = await clack.password({
+            message: `${label} ${displayCurrent}`,
+            validate: (v) =>
+              param.required && !v ? "This field is required" : undefined,
+          });
+        } else {
+          promptValue = await clack.text({
+            message: `${label} ${displayCurrent}`,
+            placeholder: help || undefined,
+            validate: (v) =>
+              param.required && !v ? "This field is required" : undefined,
+          });
+        }
+
+        if (clack.isCancel(promptValue)) {
+          clack.cancel("Configuration cancelled.");
+          process.exit(0);
+        }
+
+        if (typeof promptValue === "boolean") {
+          newValues[key] = String(promptValue);
+        } else if (typeof promptValue === "string" && promptValue !== "") {
+          newValues[key] = promptValue;
+        }
+      }
+
+      // Save to config and env
+      const { loadMiladyConfig, saveMiladyConfig } = await import(
+        "../config/config"
+      );
+
+      let config: ReturnType<typeof loadMiladyConfig>;
+      try {
+        config = loadMiladyConfig();
+      } catch {
+        config = {} as ReturnType<typeof loadMiladyConfig>;
+      }
+
+      // Initialize plugin config structure
+      const configAny = config as Record<string, unknown>;
+      if (!configAny.plugins || typeof configAny.plugins !== "object") {
+        configAny.plugins = {};
+      }
+      const pluginsObj = configAny.plugins as Record<string, unknown>;
+      if (!pluginsObj.entries || typeof pluginsObj.entries !== "object") {
+        pluginsObj.entries = {};
+      }
+      const entries = pluginsObj.entries as Record<
+        string,
+        Record<string, unknown>
+      >;
+      if (!entries[pluginId]) {
+        entries[pluginId] = { enabled: true, config: {} };
+      }
+      if (
+        !entries[pluginId].config ||
+        typeof entries[pluginId].config !== "object"
+      ) {
+        entries[pluginId].config = {};
+      }
+      const pluginConfig = entries[pluginId].config as Record<string, unknown>;
+
+      // Update both process.env and config file
+      for (const [key, value] of Object.entries(newValues)) {
+        process.env[key] = value;
+        pluginConfig[key] = value;
+      }
+
+      saveMiladyConfig(config);
+
+      console.log(
+        `\n${chalk.green("Success!")} Configuration saved for ${pluginName}.`,
+      );
+      console.log(chalk.dim("Restart your agent to apply changes.\n"));
+    });
+
   // ── open ────────────────────────────────────────────────────────────
   pluginsCommand
     .command("open [name-or-path]")
@@ -609,10 +898,10 @@ export function registerPluginsCli(program: Command): void {
       const nodeFs = await import("node:fs");
       const { spawnSync } = await import("node:child_process");
       const { resolveStateDir, resolveUserPath } = await import(
-        "../config/paths.js"
+        "../config/paths"
       );
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza.js"
+        "../runtime/eliza"
       );
 
       const customDir = nodePath.join(
@@ -737,17 +1026,57 @@ export function registerPluginsCli(program: Command): void {
 export function findPluginExport(
   mod: Record<string, unknown>,
 ): { name: string; description: string } | null {
-  const isPlugin = (v: unknown): v is { name: string; description: string } =>
+  const isPluginBasic = (
+    v: unknown,
+  ): v is { name: string; description: string } =>
     v !== null &&
     typeof v === "object" &&
     typeof (v as Record<string, unknown>).name === "string" &&
     typeof (v as Record<string, unknown>).description === "string";
 
-  if (isPlugin(mod.default)) return mod.default;
-  if (isPlugin(mod.plugin)) return mod.plugin;
-  if (isPlugin(mod)) return mod as { name: string; description: string };
-  for (const value of Object.values(mod)) {
-    if (isPlugin(value)) return value;
+  const hasPluginCapabilities = (v: unknown): boolean => {
+    if (v === null || typeof v !== "object") return false;
+    const obj = v as Record<string, unknown>;
+    return (
+      Array.isArray(obj.services) ||
+      Array.isArray(obj.providers) ||
+      Array.isArray(obj.actions) ||
+      Array.isArray(obj.routes) ||
+      Array.isArray(obj.events) ||
+      typeof obj.init === "function"
+    );
+  };
+
+  const isPluginStrict = (
+    v: unknown,
+  ): v is { name: string; description: string } =>
+    isPluginBasic(v) && hasPluginCapabilities(v);
+
+  if (isPluginStrict(mod.default)) return mod.default;
+  if (isPluginStrict(mod.plugin)) return mod.plugin;
+  if (isPluginStrict(mod)) return mod as { name: string; description: string };
+
+  const keys = Object.keys(mod).filter(
+    (key) => key !== "default" && key !== "plugin",
+  );
+  const preferred = keys.filter(
+    (key) => /plugin$/i.test(key) || /^plugin/i.test(key),
+  );
+  const fallback = keys.filter((key) => !preferred.includes(key));
+
+  for (const key of [...preferred, ...fallback]) {
+    const value = mod[key];
+    if (isPluginStrict(value)) return value;
   }
+
+  for (const key of preferred) {
+    const value = mod[key];
+    if (isPluginBasic(value)) return value;
+  }
+
+  if (isPluginBasic(mod.default)) return mod.default;
+  if (isPluginBasic(mod.plugin)) return mod.plugin;
+  if (isPluginBasic(mod)) return mod as { name: string; description: string };
+
   return null;
 }

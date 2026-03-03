@@ -1,19 +1,35 @@
-import { VERSION } from "../runtime/version.js";
+import { VERSION } from "../runtime/version";
 
-/** Known connector IDs for config schema generation */
-const CONNECTOR_IDS = [
-  "discord",
+/** Known connector IDs for config schema generation. Keep in sync with runtime/plugin maps. */
+export const CONNECTOR_IDS = [
   "telegram",
+  "discord",
   "slack",
+  "twitter",
   "whatsapp",
   "signal",
+  "bluebubbles",
   "imessage",
-  "matrix",
+  "farcaster",
+  "lens",
   "msteams",
+  "mattermost",
   "googlechat",
+  "feishu",
+  "matrix",
+  "nostr",
+  "retake",
+  "blooio",
+  "twitch",
 ] as const;
 
-import { MilaidySchema } from "./zod-schema.js";
+import { MiladySchema } from "./zod-schema";
+
+export type ShowIfCondition = {
+  field: string;
+  op: "eq" | "neq" | "in" | "truthy" | "falsy";
+  value?: unknown;
+};
 
 export type ConfigUiHint = {
   label?: string;
@@ -24,11 +40,51 @@ export type ConfigUiHint = {
   sensitive?: boolean;
   placeholder?: string;
   itemTemplate?: unknown;
+  /** Explicit field type override (must match a catalog field name). */
+  type?: string;
+  /** Icon name for the field label. */
+  icon?: string;
+  /** Whether the field is read-only. */
+  readonly?: boolean;
+  /** Hide this field from the UI entirely. */
+  hidden?: boolean;
+  /** Layout width hint. */
+  width?: "full" | "half" | "third";
+  /** Regex pattern for string validation. */
+  pattern?: string;
+  /** Error message when pattern doesn't match. */
+  patternError?: string;
+  /** Legacy conditional visibility. */
+  showIf?: ShowIfCondition;
+  /** Enhanced options for select/radio/multiselect fields. */
+  options?: Array<{
+    value: string;
+    label: string;
+    description?: string;
+    icon?: string;
+    disabled?: boolean;
+  }>;
+  /** Minimum value (for number fields). */
+  min?: number;
+  /** Maximum value (for number fields). */
+  max?: number;
+  /** Step increment (for number fields). */
+  step?: number;
+  /** Display unit label (e.g., "ms", "tokens", "%"). */
+  unit?: string;
+  /** Schema for array item fields. */
+  itemSchema?: ConfigUiHint;
+  /** Minimum items (for array fields). */
+  minItems?: number;
+  /** Maximum items (for array fields). */
+  maxItems?: number;
+  /** Plugin-provided custom React component name. */
+  component?: string;
 };
 
 export type ConfigUiHints = Record<string, ConfigUiHint>;
 
-export type ConfigSchema = ReturnType<typeof MilaidySchema.toJSONSchema>;
+export type ConfigSchema = ReturnType<typeof MiladySchema.toJSONSchema>;
 
 type JsonSchemaNode = Record<string, unknown>;
 
@@ -47,7 +103,24 @@ export type PluginUiMetadata = {
     string,
     Pick<
       ConfigUiHint,
-      "label" | "help" | "advanced" | "sensitive" | "placeholder"
+      | "label"
+      | "help"
+      | "advanced"
+      | "sensitive"
+      | "placeholder"
+      | "type"
+      | "icon"
+      | "readonly"
+      | "hidden"
+      | "width"
+      | "pattern"
+      | "patternError"
+      | "showIf"
+      | "options"
+      | "min"
+      | "max"
+      | "step"
+      | "unit"
     >
   >;
   configSchema?: JsonSchemaNode;
@@ -84,6 +157,7 @@ const GROUP_LABELS: Record<string, string> = {
   connectors: "Connectors",
   skills: "Skills",
   plugins: "Plugins",
+  embedding: "Embedding",
   discovery: "Discovery",
   presence: "Presence",
   voicewake: "Voice Wake",
@@ -111,6 +185,7 @@ const GROUP_ORDER: Record<string, number> = {
   connectors: 150,
   skills: 200,
   plugins: 205,
+  embedding: 205,
   discovery: 210,
   presence: 220,
   voicewake: 230,
@@ -287,6 +362,13 @@ const FIELD_LABELS: Record<string, string> = {
   "agents.defaults.memorySearch.cache.enabled": "Memory Search Embedding Cache",
   "agents.defaults.memorySearch.cache.maxEntries":
     "Memory Search Embedding Cache Max Entries",
+  embedding: "Embedding",
+  "embedding.model": "Embedding Model",
+  "embedding.modelRepo": "Embedding Model Repo",
+  "embedding.dimensions": "Embedding Dimensions",
+  "embedding.contextSize": "Embedding Context Size",
+  "embedding.gpuLayers": "Embedding GPU Layers",
+  "embedding.idleTimeoutMinutes": "Embedding Idle Timeout (min)",
   memory: "Memory",
   "memory.backend": "Memory Backend",
   "memory.citations": "Memory Citations Mode",
@@ -356,6 +438,11 @@ const FIELD_LABELS: Record<string, string> = {
   "connectors.imessage": "iMessage",
   "connectors.bluebubbles": "BlueBubbles",
   "connectors.msteams": "MS Teams",
+  "connectors.retake": "Retake",
+  "connectors.retake.enabled": "Retake Enabled",
+  "connectors.retake.accessToken": "Retake Agent Token",
+  "connectors.retake.apiUrl": "Retake API URL",
+  "connectors.retake.captureUrl": "Retake Capture URL",
   "connectors.telegram.botToken": "Telegram Bot Token",
   "connectors.telegram.dmPolicy": "Telegram DM Policy",
   "connectors.telegram.streamMode": "Telegram Draft Stream Mode",
@@ -424,7 +511,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 const FIELD_HELP: Record<string, string> = {
-  "meta.lastTouchedVersion": "Auto-set when Milaidy writes the config.",
+  "meta.lastTouchedVersion": "Auto-set when Milady writes the config.",
   "meta.lastTouchedAt": "ISO timestamp of the last config write (auto-set).",
   "update.channel":
     'Update channel for git + npm installs ("stable", "beta", or "dev").',
@@ -449,7 +536,7 @@ const FIELD_HELP: Record<string, string> = {
     "Required by default for gateway access (unless using Tailscale Serve identity); required for non-loopback binds.",
   "gateway.auth.password": "Required for Tailscale funnel.",
   "gateway.controlUi.basePath":
-    "Optional URL prefix where the Control UI is served (e.g. /milaidy).",
+    "Optional URL prefix where the Control UI is served (e.g. /milady).",
   "gateway.controlUi.root":
     "Optional filesystem root for Control UI assets (defaults to dist/control-ui).",
   "gateway.controlUi.allowedOrigins":
@@ -481,7 +568,7 @@ const FIELD_HELP: Record<string, string> = {
   "diagnostics.cacheTrace.enabled":
     "Log cache trace snapshots for embedded agent runs (default: false).",
   "diagnostics.cacheTrace.filePath":
-    "JSONL output path for cache trace logs (default: $MILAIDY_STATE_DIR/logs/cache-trace.jsonl).",
+    "JSONL output path for cache trace logs (default: $MILADY_STATE_DIR/logs/cache-trace.jsonl).",
   "diagnostics.cacheTrace.includeMessages":
     "Include full message payloads in trace output (default: true).",
   "diagnostics.cacheTrace.includePrompt":
@@ -627,7 +714,7 @@ const FIELD_HELP: Record<string, string> = {
   "agents.defaults.memorySearch.fallback":
     'Fallback provider when embeddings fail ("openai", "gemini", "local", or "none").',
   "agents.defaults.memorySearch.store.path":
-    "SQLite index path (default: ~/.milaidy/memory/{agentId}.sqlite).",
+    "SQLite index path (default: ~/.milady/memory/{agentId}.sqlite).",
   "agents.defaults.memorySearch.store.vector.enabled":
     "Enable sqlite-vec extension for vector search (default: true).",
   "agents.defaults.memorySearch.store.vector.extensionPath":
@@ -642,9 +729,21 @@ const FIELD_HELP: Record<string, string> = {
     "Multiplier for candidate pool size (default: 4).",
   "agents.defaults.memorySearch.cache.enabled":
     "Cache chunk embeddings in SQLite to speed up reindexing and frequent updates (default: true).",
+  "embedding.model":
+    "GGUF model filename for local embeddings (default: nomic-embed-text-v1.5.Q5_K_M.gguf).",
+  "embedding.modelRepo":
+    "HuggingFace repo for auto-downloading the embedding model (default: nomic-ai/nomic-embed-text-v1.5-GGUF).",
+  "embedding.dimensions":
+    "Embedding vector dimensions (must match the model; default: 768).",
+  "embedding.contextSize":
+    "Embedding context window size (must match the model; default inferred from selected model).",
+  "embedding.gpuLayers":
+    'GPU layers for embedding model loading: "auto" (Metal on macOS), "max", or a number (default: "auto" on macOS, 0 elsewhere).',
+  "embedding.idleTimeoutMinutes":
+    "Minutes of inactivity before unloading the embedding model from memory (default: 30, 0 = never unload).",
   memory: "Memory backend configuration (global).",
   "memory.backend":
-    'Memory backend ("builtin" for Milaidy embeddings, "qmd" for QMD sidecar).',
+    'Memory backend ("builtin" for Milady embeddings, "qmd" for QMD sidecar).',
   "memory.citations": 'Default citation behavior ("auto", "on", or "off").',
   "memory.qmd.command": "Path to the qmd binary (default: resolves from PATH).",
   "memory.qmd.includeDefaultMemory":
@@ -705,14 +804,14 @@ const FIELD_HELP: Record<string, string> = {
   "plugins.entries.*.config":
     "Plugin-defined config payload (schema is provided by the plugin).",
   "plugins.installs":
-    "CLI-managed install metadata (used by `milaidy plugins update` to locate install sources).",
+    "CLI-managed install metadata (used by `milady plugins update` to locate install sources).",
   "plugins.installs.*.source": 'Install source ("npm", "archive", or "path").',
   "plugins.installs.*.spec":
     "Original npm spec used for install (if source is npm).",
   "plugins.installs.*.sourcePath":
     "Original archive/path used for install (if any).",
   "plugins.installs.*.installPath":
-    "Resolved install directory (usually ~/.milaidy/plugins/<id>).",
+    "Resolved install directory (usually ~/.milady/plugins/<id>).",
   "plugins.installs.*.version":
     "Version recorded at install time (if available).",
   "plugins.installs.*.installedAt": "ISO timestamp of last install/update.",
@@ -770,6 +869,12 @@ const FIELD_HELP: Record<string, string> = {
     "Allow iMessage to write config in response to channel events/commands (default: true).",
   "connectors.msteams.configWrites":
     "Allow Microsoft Teams to write config in response to channel events/commands (default: true).",
+  "connectors.retake.accessToken":
+    "Bearer token for retake.tv agent API (equivalent to RETAKE_AGENT_TOKEN env var).",
+  "connectors.retake.apiUrl":
+    "Retake.tv API base URL (default: https://retake.tv/api/v1).",
+  "connectors.retake.captureUrl":
+    "URL of the page to capture for streaming (default: local agent UI).",
   "connectors.discord.commands.native":
     'Override native commands for Discord (bool or "auto").',
   "connectors.discord.commands.nativeSkills":
@@ -854,11 +959,13 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
   "gateway.remote.url": "ws://host:18789",
   "gateway.remote.tlsFingerprint": "sha256:ab12cd34…",
   "gateway.remote.sshTarget": "user@host",
-  "gateway.controlUi.basePath": "/milaidy",
+  "gateway.controlUi.basePath": "/milady",
   "gateway.controlUi.root": "dist/control-ui",
   "gateway.controlUi.allowedOrigins": "https://control.example.com",
   "connectors.mattermost.baseUrl": "https://chat.example.com",
-  "agents.list[].identity.avatar": "avatars/milaidy.png",
+  "connectors.retake.apiUrl": "https://retake.tv/api/v1",
+  "connectors.retake.captureUrl": "http://127.0.0.1:2138",
+  "agents.list[].identity.avatar": "avatars/milady.png",
 };
 
 const SENSITIVE_PATTERNS = [/token/i, /password/i, /secret/i, /api.?key/i];
@@ -1188,11 +1295,11 @@ function buildBaseConfigSchema(): ConfigSchemaResponse {
   if (cachedBase) {
     return cachedBase;
   }
-  const schema = MilaidySchema.toJSONSchema({
+  const schema = MiladySchema.toJSONSchema({
     target: "draft-07",
     unrepresentable: "any",
   });
-  schema.title = "MilaidyConfig";
+  schema.title = "MiladyConfig";
   const hints = applySensitiveHints(buildBaseHints());
   const next = {
     schema: stripConnectorSchema(schema),

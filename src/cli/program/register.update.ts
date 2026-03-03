@@ -1,27 +1,17 @@
 /**
- * `milaidy update` — check for and install updates.
+ * `milady update` — check for and install updates.
  *
- *   milaidy update                   # Check & update on current channel
- *   milaidy update --channel beta    # Switch to beta and update
- *   milaidy update --check           # Check only, don't install
- *   milaidy update status            # Show versions across all channels
- *   milaidy update channel [name]    # View or change release channel
+ *   milady update                   # Check & update on current channel
+ *   milady update --channel beta    # Switch to beta and update
+ *   milady update --check           # Check only, don't install
+ *   milady update status            # Show versions across all channels
+ *   milady update channel [name]    # View or change release channel
  */
 
 import type { Command } from "commander";
-import { loadMilaidyConfig, saveMilaidyConfig } from "../../config/config.js";
-import type { ReleaseChannel } from "../../config/types.milaidy.js";
-import { VERSION } from "../../runtime/version.js";
-import {
-  detectInstallMethod,
-  performUpdate,
-} from "../../services/self-updater.js";
-import {
-  checkForUpdate,
-  fetchAllChannelVersions,
-  resolveChannel,
-} from "../../services/update-checker.js";
-import { theme } from "../../terminal/theme.js";
+import type { ReleaseChannel } from "../../config/types.milady";
+import { theme } from "../../terminal/theme";
+import { CLI_VERSION } from "../version";
 
 const ALL_CHANNELS: readonly ReleaseChannel[] = ["stable", "beta", "nightly"];
 
@@ -58,7 +48,16 @@ async function updateAction(opts: {
   check?: boolean;
   force?: boolean;
 }): Promise<void> {
-  const config = loadMilaidyConfig();
+  const { loadMiladyConfig, saveMiladyConfig } = await import(
+    "../../config/config"
+  );
+  const { checkForUpdate, resolveChannel } = await import(
+    "../../services/update-checker"
+  );
+  const { detectInstallMethod, performUpdate } = await import(
+    "../../services/self-updater"
+  );
+  const config = loadMiladyConfig();
   let newChannel: ReleaseChannel | undefined;
 
   if (opts.channel) {
@@ -66,7 +65,7 @@ async function updateAction(opts: {
     const oldChannel = resolveChannel(config.update);
 
     if (newChannel !== oldChannel) {
-      saveMilaidyConfig({
+      saveMiladyConfig({
         ...config,
         update: {
           ...config.update,
@@ -85,9 +84,9 @@ async function updateAction(opts: {
   const effectiveChannel = newChannel ?? resolveChannel(config.update);
 
   console.log(
-    `\n${theme.heading("Milaidy Update")}  ${theme.muted(`(channel: ${effectiveChannel})`)}`,
+    `\n${theme.heading("Milady Update")}  ${theme.muted(`(channel: ${effectiveChannel})`)}`,
   );
-  console.log(theme.muted(`Current version: ${VERSION}\n`));
+  console.log(theme.muted(`Current version: ${CLI_VERSION}\n`));
   console.log("Checking for updates...\n");
 
   const result = await checkForUpdate({ force: opts.force ?? !!newChannel });
@@ -101,14 +100,14 @@ async function updateAction(opts: {
   if (!result.updateAvailable) {
     console.log(
       theme.success(
-        `  Already up to date! (${VERSION} is the latest on ${effectiveChannel})\n`,
+        `  Already up to date! (${CLI_VERSION} is the latest on ${effectiveChannel})\n`,
       ),
     );
     return;
   }
 
   console.log(
-    `  ${theme.accent("Update available:")} ${VERSION} -> ${theme.success(result.latestVersion ?? "unknown")}`,
+    `  ${theme.accent("Update available:")} ${CLI_VERSION} -> ${theme.success(result.latestVersion ?? "unknown")}`,
   );
   console.log(
     theme.muted(
@@ -117,7 +116,7 @@ async function updateAction(opts: {
   );
 
   if (opts.check) {
-    console.log(theme.muted("  Run `milaidy update` to install the update.\n"));
+    console.log(theme.muted("  Run `milady update` to install the update.\n"));
     return;
   }
 
@@ -134,7 +133,11 @@ async function updateAction(opts: {
   console.log(theme.muted(`  Install method: ${method}`));
   console.log("  Installing update...\n");
 
-  const updateResult = await performUpdate(VERSION, effectiveChannel, method);
+  const updateResult = await performUpdate(
+    CLI_VERSION,
+    effectiveChannel,
+    method,
+  );
 
   if (!updateResult.success) {
     console.error(theme.error(`\n  Update failed: ${updateResult.error}\n`));
@@ -149,7 +152,7 @@ async function updateAction(opts: {
   if (updateResult.newVersion) {
     console.log(
       theme.success(
-        `\n  Updated successfully! ${VERSION} -> ${updateResult.newVersion}`,
+        `\n  Updated successfully! ${CLI_VERSION} -> ${updateResult.newVersion}`,
       ),
     );
   } else {
@@ -161,17 +164,22 @@ async function updateAction(opts: {
     );
   }
   console.log(
-    theme.muted("  Restart milaidy for the new version to take effect.\n"),
+    theme.muted("  Restart milady for the new version to take effect.\n"),
   );
 }
 
 async function statusAction(): Promise<void> {
+  const { loadMiladyConfig } = await import("../../config/config");
+  const { resolveChannel, fetchAllChannelVersions } = await import(
+    "../../services/update-checker"
+  );
+  const { detectInstallMethod } = await import("../../services/self-updater");
   console.log(`\n${theme.heading("Version Status")}\n`);
 
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const channel = resolveChannel(config.update);
 
-  console.log(`  Installed:  ${theme.accent(VERSION)}`);
+  console.log(`  Installed:  ${theme.accent(CLI_VERSION)}`);
   console.log(`  Channel:    ${channelLabel(channel)}`);
   console.log(`  Install:    ${theme.muted(detectInstallMethod())}`);
 
@@ -195,7 +203,11 @@ async function statusAction(): Promise<void> {
 }
 
 async function channelAction(channelArg: string | undefined): Promise<void> {
-  const config = loadMilaidyConfig();
+  const { loadMiladyConfig, saveMiladyConfig } = await import(
+    "../../config/config"
+  );
+  const { resolveChannel } = await import("../../services/update-checker");
+  const config = loadMiladyConfig();
   const current = resolveChannel(config.update);
 
   if (!channelArg) {
@@ -210,7 +222,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
       );
     }
     console.log(
-      `\n  ${theme.muted("Switch with: milaidy update channel <stable|beta|nightly>")}\n`,
+      `\n  ${theme.muted("Switch with: milady update channel <stable|beta|nightly>")}\n`,
     );
     return;
   }
@@ -224,7 +236,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
     return;
   }
 
-  saveMilaidyConfig({
+  saveMiladyConfig({
     ...config,
     update: {
       ...config.update,
@@ -239,7 +251,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
   );
   console.log(theme.muted(`  ${CHANNEL_DESCRIPTIONS[newChannel]}`));
   console.log(
-    `\n  ${theme.muted("Run `milaidy update` to fetch the latest version from this channel.")}\n`,
+    `\n  ${theme.muted("Run `milady update` to fetch the latest version from this channel.")}\n`,
   );
 }
 

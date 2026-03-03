@@ -4,15 +4,17 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 
 const execFileAsync = promisify(execFile);
 
-const SKILLSMP_BASE_URL = "https://skillsmp.com";
+const DEFAULT_SKILLS_MARKETPLACE_URL = "https://clawhub.ai";
+const LEGACY_SKILLSMP_HOST = "skillsmp.com";
 const VALID_NAME = /^[a-zA-Z0-9._-]+$/;
 const VALID_GIT_REF = /^[a-zA-Z0-9][\w./-]*$/;
 /** Timeout for git clone/sparse-checkout (shallow + sparse should be fast). */
 const GIT_TIMEOUT_MS = 15_000;
-/** Timeout for skillsmp.com API fetch calls. */
+/** Timeout for marketplace API fetch calls. */
 const FETCH_TIMEOUT_MS = 30_000;
 
 /**
@@ -167,14 +169,15 @@ async function runSkillSecurityScan(
 
 export interface SkillsMarketplaceSearchItem {
   id: string;
+  slug?: string;
   name: string;
   description: string;
-  repository: string;
-  githubUrl: string;
+  repository?: string;
+  githubUrl?: string;
   path: string | null;
   tags: string[];
   score: number | null;
-  source: "skillsmp";
+  source: "clawhub" | "skillsmp";
 }
 
 export interface InstalledMarketplaceSkill {
@@ -186,23 +189,24 @@ export interface InstalledMarketplaceSkill {
   path: string;
   installPath: string;
   installedAt: string;
-  source: "skillsmp" | "manual";
+  source: "clawhub" | "skillsmp" | "manual";
   /** Security scan status, set after installation scan */
   scanStatus?: "clean" | "warning" | "critical" | "blocked";
 }
 
 export interface InstallSkillInput {
+  slug?: string;
   githubUrl?: string;
   repository?: string;
   path?: string;
   name?: string;
   description?: string;
-  source?: "skillsmp" | "manual";
+  source?: "clawhub" | "skillsmp" | "manual";
 }
 
 function stateDirBase(): string {
-  const base = process.env.MILAIDY_STATE_DIR?.trim();
-  return base || path.join(os.homedir(), ".milaidy");
+  const base = process.env.MILADY_STATE_DIR?.trim();
+  return base || path.join(os.homedir(), ".milady");
 }
 
 function safeName(raw: string): string {
@@ -364,11 +368,19 @@ async function writeInstallRecords(
 }
 
 function normalizeTags(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((t) => String(t ?? "").trim())
-    .filter((t) => t.length > 0)
-    .slice(0, 10);
+  if (Array.isArray(raw)) {
+    return raw
+      .map((t) => String(t ?? "").trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 10);
+  }
+  if (raw && typeof raw === "object") {
+    return Object.keys(raw as Record<string, unknown>)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 10);
+  }
+  return [];
 }
 
 function inferRepository(skill: Record<string, unknown>): string | null {
@@ -442,14 +454,23 @@ function inferPath(skill: Record<string, unknown>): string | null {
   return null;
 }
 
-function inferName(skill: Record<string, unknown>, repository: string): string {
-  const candidates = [skill.slug, skill.name, skill.id, skill.title];
+function inferName(skill: Record<string, unknown>, fallbackId: string): string {
+  const candidates = [
+    skill.displayName,
+    skill.slug,
+    skill.name,
+    skill.id,
+    skill.title,
+  ];
   for (const value of candidates) {
     if (typeof value !== "string") continue;
     const cleaned = value.trim();
     if (cleaned) return cleaned;
   }
-  return repository.split("/").pop() || repository;
+  if (fallbackId.includes("/")) {
+    return fallbackId.split("/").pop() || fallbackId;
+  }
+  return fallbackId;
 }
 
 function inferDescription(skill: Record<string, unknown>): string {
@@ -460,37 +481,70 @@ function inferDescription(skill: Record<string, unknown>): string {
   return "";
 }
 
+function resolveMarketplaceBaseUrl(): string {
+  const configured =
+    process.env.SKILLS_REGISTRY?.trim() ||
+    process.env.CLAWHUB_REGISTRY?.trim() ||
+    process.env.SKILLS_MARKETPLACE_URL?.trim();
+  return configured || DEFAULT_SKILLS_MARKETPLACE_URL;
+}
+
+function isLegacySkillsmp(baseUrl: string): boolean {
+  try {
+    const hostname = new URL(baseUrl).hostname.toLowerCase();
+    return (
+      hostname === LEGACY_SKILLSMP_HOST || hostname.endsWith(".skillsmp.com")
+    );
+  } catch {
+    return baseUrl.toLowerCase().includes(LEGACY_SKILLSMP_HOST);
+  }
+}
+
 export async function searchSkillsMarketplace(
   query: string,
   opts?: { limit?: number; aiSearch?: boolean },
 ): Promise<SkillsMarketplaceSearchItem[]> {
-  const apiKey = process.env.SKILLSMP_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error(
-      "SKILLSMP_API_KEY is not set. Add it to enable Skills marketplace search.",
-    );
-  }
-
-  const endpoint = opts?.aiSearch
-    ? "/api/v1/skills/ai-search"
-    : "/api/v1/skills/search";
-  const url = new URL(`${SKILLSMP_BASE_URL}${endpoint}`);
+  const baseUrl = resolveMarketplaceBaseUrl();
+  const legacySkillsmp = isLegacySkillsmp(baseUrl);
+  const endpoint = legacySkillsmp
+    ? opts?.aiSearch
+      ? "/api/v1/skills/ai-search"
+      : "/api/v1/skills/search"
+    : "/api/v1/search";
+  const url = new URL(`${baseUrl}${endpoint}`);
   if (query.trim()) url.searchParams.set("q", query.trim());
   url.searchParams.set(
     "limit",
     String(Math.max(1, Math.min(opts?.limit ?? 20, 50))),
   );
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  if (legacySkillsmp) {
+    const apiKey = process.env.SKILLSMP_API_KEY?.trim();
+    if (!apiKey) {
+      throw new Error(
+        "SKILLSMP_API_KEY is not set. Add it to enable Skills marketplace search.",
+      );
+    }
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  const searchSpan = createIntegrationTelemetrySpan({
+    boundary: "marketplace",
+    operation: "search_skills_marketplace",
+    timeoutMs: FETCH_TIMEOUT_MS,
+  });
   let resp: Response;
   try {
     resp = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
+      headers,
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (err) {
+    searchSpan.failure({ error: err });
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       msg.includes("aborted") || msg.includes("timeout")
@@ -505,6 +559,7 @@ export async function searchSkillsMarketplace(
   >;
 
   if (!resp.ok) {
+    searchSpan.failure({ statusCode: resp.status, errorKind: "http_error" });
     const msg = (payload.error as Record<string, unknown> | undefined)?.message;
     throw new Error(
       typeof msg === "string" && msg
@@ -542,9 +597,11 @@ export async function searchSkillsMarketplace(
   for (const entry of list) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     const skill = entry as Record<string, unknown>;
+    const slug = typeof skill.slug === "string" ? skill.slug.trim() : "";
     const repository = inferRepository(skill);
-    if (!repository) continue;
-    const name = inferName(skill, repository);
+    if (!repository && !slug) continue;
+    const fallbackId = repository || slug;
+    const name = inferName(skill, fallbackId);
     const description = inferDescription(skill);
     const skillPath = inferPath(skill);
     const scoreValue = skill.score;
@@ -552,20 +609,28 @@ export async function searchSkillsMarketplace(
       typeof scoreValue === "number" && Number.isFinite(scoreValue)
         ? scoreValue
         : null;
+    const githubUrl =
+      typeof skill.githubUrl === "string" && skill.githubUrl.trim()
+        ? skill.githubUrl.trim()
+        : repository
+          ? `https://github.com/${repository}`
+          : undefined;
 
     out.push({
-      id: String(skill.id ?? skill.slug ?? name),
+      id: String(skill.id ?? slug ?? name),
+      slug: slug || undefined,
       name,
       description,
-      repository,
-      githubUrl: `https://github.com/${repository}`,
+      repository: repository || undefined,
+      githubUrl,
       path: skillPath,
       tags: normalizeTags(skill.tags ?? skill.topics),
       score,
-      source: "skillsmp",
+      source: legacySkillsmp ? "skillsmp" : "clawhub",
     });
   }
 
+  searchSpan.success({ statusCode: resp.status });
   return out;
 }
 
@@ -579,50 +644,27 @@ async function runGitCloneSubset(
   if (skillPath !== ".") {
     sanitizeSkillPath(skillPath);
   }
-  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-install-"));
-  const cloneDir = path.join(tmpBase, "repo");
-  const repoUrl = `https://github.com/${repository}.git`;
 
-  try {
-    await execFileAsync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "--branch",
-        ref,
-        repoUrl,
-        cloneDir,
-      ],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-    await execFileAsync(
-      "git",
-      ["-C", cloneDir, "sparse-checkout", "set", skillPath],
-      { timeout: GIT_TIMEOUT_MS },
-    );
+  await withTemporarySparseCheckout(
+    repository,
+    ref,
+    skillPath,
+    async (cloneDir) => {
+      const sourceDir = path.join(cloneDir, skillPath);
+      assertPathWithinRoot(cloneDir, sourceDir);
+      const stat = await fs.stat(sourceDir).catch(() => null);
+      if (!stat || !stat.isDirectory()) {
+        throw new Error(`Skill path not found in repository: ${skillPath}`);
+      }
 
-    const sourceDir = path.join(cloneDir, skillPath);
-    assertPathWithinRoot(cloneDir, sourceDir);
-    const stat = await fs.stat(sourceDir).catch(() => null);
-    if (!stat || !stat.isDirectory()) {
-      throw new Error(`Skill path not found in repository: ${skillPath}`);
-    }
-
-    await fs.mkdir(path.dirname(targetDir), { recursive: true });
-    await fs.cp(sourceDir, targetDir, {
-      recursive: true,
-      errorOnExist: true,
-      force: false,
-    });
-  } finally {
-    await fs
-      .rm(tmpBase, { recursive: true, force: true })
-      .catch(() => undefined);
-  }
+      await fs.mkdir(path.dirname(targetDir), { recursive: true });
+      await fs.cp(sourceDir, targetDir, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+      });
+    },
+  );
 }
 
 async function resolveSkillPathInRepo(
@@ -633,32 +675,7 @@ async function resolveSkillPathInRepo(
   validateGitRef(ref);
   if (requestedPath) return sanitizeSkillPath(requestedPath);
 
-  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-probe-"));
-  const cloneDir = path.join(tmpBase, "repo");
-  const repoUrl = `https://github.com/${repository}.git`;
-
-  try {
-    await execFileAsync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "--branch",
-        ref,
-        repoUrl,
-        cloneDir,
-      ],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-    await execFileAsync(
-      "git",
-      ["-C", cloneDir, "sparse-checkout", "set", "."],
-      { timeout: GIT_TIMEOUT_MS },
-    );
-
+  return withTemporarySparseCheckout(repository, ref, ".", async (cloneDir) => {
     const rootSkill = path.join(cloneDir, "SKILL.md");
     const hasRoot = await fs
       .stat(rootSkill)
@@ -683,6 +700,42 @@ async function resolveSkillPathInRepo(
     throw new Error(
       "Could not determine skill path automatically. Provide an explicit GitHub tree URL or path.",
     );
+  });
+}
+
+async function withTemporarySparseCheckout<T>(
+  repository: string,
+  ref: string,
+  checkoutPath: string,
+  task: (cloneDir: string) => Promise<T>,
+): Promise<T> {
+  const repoUrl = `https://github.com/${repository}.git`;
+  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-probe-"));
+  const cloneDir = path.join(tmpBase, "repo");
+
+  try {
+    await execFileAsync(
+      "git",
+      [
+        "clone",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+        "--sparse",
+        "--branch",
+        ref,
+        repoUrl,
+        cloneDir,
+      ],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+    await execFileAsync(
+      "git",
+      ["-C", cloneDir, "sparse-checkout", "set", checkoutPath],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+
+    return await task(cloneDir);
   } finally {
     await fs
       .rm(tmpBase, { recursive: true, force: true })

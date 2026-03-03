@@ -116,7 +116,7 @@ jobs:
 
           # CLI entry point exists
           which milady
-          which milaidy
+          which milady
 
   build-pypi-matrix:
     name: PyPI on Python ${{ matrix.python }}

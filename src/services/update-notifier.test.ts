@@ -6,25 +6,33 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  buildMockUpdateCheckResult,
+  waitMs,
+} from "../test-support/test-helpers";
 
 // Mock dependencies before importing the module under test
-vi.mock("../config/config.js", () => ({
-  loadMilaidyConfig: vi.fn(() => ({})),
+vi.mock("../config/config", () => ({
+  loadMiladyConfig: vi.fn(() => ({})),
 }));
 
-vi.mock("./update-checker.js", () => ({
+vi.mock("./update-checker", () => ({
   checkForUpdate: vi.fn(),
   resolveChannel: vi.fn(() => "stable"),
 }));
 
-vi.mock("../terminal/theme.js", () => ({
-  theme: {
-    accent: (s: string) => `[accent:${s}]`,
-    muted: (s: string) => `[muted:${s}]`,
-    success: (s: string) => `[success:${s}]`,
-    command: (s: string) => `[command:${s}]`,
-  },
-}));
+function mockTerminalTheme() {
+  return {
+    theme: {
+      accent: (s: string) => `[accent:${s}]`,
+      muted: (s: string) => `[muted:${s}]`,
+      success: (s: string) => `[success:${s}]`,
+      command: (s: string) => `[command:${s}]`,
+    },
+  };
+}
+
+vi.mock("../terminal/theme", mockTerminalTheme);
 
 // ============================================================================
 // Helpers
@@ -39,25 +47,18 @@ async function importFreshNotifier() {
   vi.resetModules();
 
   // Re-mock after reset
-  vi.doMock("../config/config.js", () => ({
-    loadMilaidyConfig: vi.fn(() => ({})),
+  vi.doMock("../config/config", () => ({
+    loadMiladyConfig: vi.fn(() => ({})),
   }));
-  vi.doMock("./update-checker.js", () => ({
+  vi.doMock("./update-checker", () => ({
     checkForUpdate: vi.fn(),
     resolveChannel: vi.fn(() => "stable"),
   }));
-  vi.doMock("../terminal/theme.js", () => ({
-    theme: {
-      accent: (s: string) => `[accent:${s}]`,
-      muted: (s: string) => `[muted:${s}]`,
-      success: (s: string) => `[success:${s}]`,
-      command: (s: string) => `[command:${s}]`,
-    },
-  }));
+  vi.doMock("../terminal/theme", mockTerminalTheme);
 
-  const mod = await import("./update-notifier.js");
-  const config = await import("../config/config.js");
-  const checker = await import("./update-checker.js");
+  const mod = await import("./update-notifier");
+  const config = await import("../config/config");
+  const checker = await import("./update-checker");
   return {
     scheduleUpdateNotification: mod.scheduleUpdateNotification,
     config,
@@ -72,6 +73,10 @@ async function importFreshNotifier() {
 describe("scheduleUpdateNotification", () => {
   const originalCI = process.env.CI;
   let stderrSpy: ReturnType<typeof vi.spyOn>;
+  const WAIT_FOR_CHECK_MS = 50;
+  const WAIT_FOR_GUARD_MS = 10;
+  const readStderr = () =>
+    stderrSpy.mock.calls.map((c) => String(c[0])).join("");
 
   beforeEach(() => {
     delete process.env.CI;
@@ -101,7 +106,7 @@ describe("scheduleUpdateNotification", () => {
     scheduleUpdateNotification();
 
     // Allow any microtasks to settle
-    await new Promise((r) => setTimeout(r, 10));
+    await waitMs(WAIT_FOR_GUARD_MS);
 
     expect(checker.checkForUpdate).not.toHaveBeenCalled();
   });
@@ -115,7 +120,7 @@ describe("scheduleUpdateNotification", () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 10));
+    await waitMs(WAIT_FOR_GUARD_MS);
 
     expect(checker.checkForUpdate).not.toHaveBeenCalled();
   });
@@ -123,92 +128,71 @@ describe("scheduleUpdateNotification", () => {
   it("does not check when checkOnStart is false", async () => {
     const { scheduleUpdateNotification, config, checker } =
       await importFreshNotifier();
-    vi.mocked(config.loadMilaidyConfig).mockReturnValue({
+    vi.mocked(config.loadMiladyConfig).mockReturnValue({
       update: { checkOnStart: false },
     });
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 10));
+    await waitMs(WAIT_FOR_GUARD_MS);
 
     expect(checker.checkForUpdate).not.toHaveBeenCalled();
   });
 
   it("calls checkForUpdate when conditions are met", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: false,
-      currentVersion: "2.0.0",
-      latestVersion: "2.0.0",
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult(),
+    );
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
     expect(checker.checkForUpdate).toHaveBeenCalledOnce();
   });
 
   it("writes update notice to stderr when update is available", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: true,
-      currentVersion: "2.0.0",
-      latestVersion: "2.1.0",
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({
+        updateAvailable: true,
+        latestVersion: "2.1.0",
+      }),
+    );
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).toContain("Update available");
     expect(output).toContain("2.0.0");
     expect(output).toContain("2.1.0");
-    expect(output).toContain("milaidy update");
+    expect(output).toContain("milady update");
   });
 
   it("does not write notice when no update is available", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: false,
-      currentVersion: "2.0.0",
-      latestVersion: "2.0.0",
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({}),
+    );
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
     // stderr should NOT have any update notice
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).not.toContain("Update available");
   });
 
   it("only fires once per process (dedup)", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: false,
-      currentVersion: "2.0.0",
-      latestVersion: "2.0.0",
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({}),
+    );
 
     scheduleUpdateNotification();
     scheduleUpdateNotification(); // second call
     scheduleUpdateNotification(); // third call
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
     // checkForUpdate should only be called ONCE despite 3 calls
     expect(checker.checkForUpdate).toHaveBeenCalledOnce();
@@ -216,21 +200,20 @@ describe("scheduleUpdateNotification", () => {
 
   it("includes channel suffix for non-stable channels", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: true,
-      currentVersion: "2.0.0",
-      latestVersion: "2.1.0-beta.1",
-      channel: "beta",
-      distTag: "beta",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({
+        updateAvailable: true,
+        latestVersion: "2.1.0-beta.1",
+        channel: "beta",
+        distTag: "beta",
+      }),
+    );
     vi.mocked(checker.resolveChannel).mockReturnValue("beta");
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).toContain("beta");
   });
 
@@ -242,49 +225,56 @@ describe("scheduleUpdateNotification", () => {
 
     // Should not throw
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
     // No output, no crash
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).not.toContain("Update available");
   });
 
   it("does not write notice when latestVersion is null", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: true, // available but latestVersion is null (shouldn't happen, but guard)
-      currentVersion: "2.0.0",
-      latestVersion: null,
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({
+        updateAvailable: true,
+        latestVersion: null, // guard path
+      }),
+    );
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).not.toContain("Update available");
+  });
+
+  it("ignores corrupt config and still checks for updates", async () => {
+    const { scheduleUpdateNotification, config, checker } =
+      await importFreshNotifier();
+    vi.mocked(config.loadMiladyConfig).mockImplementation(() => {
+      throw new Error("corrupt");
+    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({}),
+    );
+
+    scheduleUpdateNotification();
+    await waitMs(WAIT_FOR_CHECK_MS);
+
+    expect(checker.checkForUpdate).toHaveBeenCalledOnce();
   });
 
   it("does not include channel suffix for stable channel", async () => {
     const { scheduleUpdateNotification, checker } = await importFreshNotifier();
-    vi.mocked(checker.checkForUpdate).mockResolvedValue({
-      updateAvailable: true,
-      currentVersion: "2.0.0",
-      latestVersion: "2.1.0",
-      channel: "stable",
-      distTag: "latest",
-      cached: false,
-      error: null,
-    });
+    vi.mocked(checker.checkForUpdate).mockResolvedValue(
+      buildMockUpdateCheckResult({ updateAvailable: true }),
+    );
     vi.mocked(checker.resolveChannel).mockReturnValue("stable");
 
     scheduleUpdateNotification();
-    await new Promise((r) => setTimeout(r, 50));
+    await waitMs(WAIT_FOR_CHECK_MS);
 
-    const output = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = readStderr();
     expect(output).toContain("Update available");
     // Should NOT have "(stable)" suffix — only non-stable channels show the suffix
     expect(output).not.toContain("(stable)");

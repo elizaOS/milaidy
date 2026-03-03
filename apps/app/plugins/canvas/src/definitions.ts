@@ -106,7 +106,16 @@ export interface CanvasImageData {
 }
 
 export interface CanvasDrawPathCommand {
-  type: "moveTo" | "lineTo" | "quadraticCurveTo" | "bezierCurveTo" | "arcTo" | "arc" | "ellipse" | "rect" | "closePath";
+  type:
+    | "moveTo"
+    | "lineTo"
+    | "quadraticCurveTo"
+    | "bezierCurveTo"
+    | "arcTo"
+    | "arc"
+    | "ellipse"
+    | "rect"
+    | "closePath";
   args: number[];
 }
 
@@ -116,7 +125,15 @@ export interface CanvasPath {
 
 export interface CanvasDrawOptions {
   layerId?: string;
-  blendMode?: "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn";
+  blendMode?:
+    | "normal"
+    | "multiply"
+    | "screen"
+    | "overlay"
+    | "darken"
+    | "lighten"
+    | "color-dodge"
+    | "color-burn";
   opacity?: number;
   shadow?: CanvasShadow;
   transform?: CanvasTransform;
@@ -286,7 +303,10 @@ export interface CanvasPlugin {
   /**
    * Create a new canvas with the specified size
    */
-  create(options: { size: CanvasSize; backgroundColor?: CanvasColor | string }): Promise<{ canvasId: string }>;
+  create(options: {
+    size: CanvasSize;
+    backgroundColor?: CanvasColor | string;
+  }): Promise<{ canvasId: string }>;
 
   /**
    * Destroy a canvas and free resources
@@ -311,17 +331,28 @@ export interface CanvasPlugin {
   /**
    * Clear the entire canvas or a specific area
    */
-  clear(options: { canvasId: string; rect?: CanvasRect; layerId?: string }): Promise<void>;
+  clear(options: {
+    canvasId: string;
+    rect?: CanvasRect;
+    layerId?: string;
+  }): Promise<void>;
 
   /**
    * Create a new layer
    */
-  createLayer(options: { canvasId: string; layer: Omit<CanvasLayer, "id"> }): Promise<{ layerId: string }>;
+  createLayer(options: {
+    canvasId: string;
+    layer: Omit<CanvasLayer, "id">;
+  }): Promise<{ layerId: string }>;
 
   /**
    * Update layer properties
    */
-  updateLayer(options: { canvasId: string; layerId: string; layer: Partial<CanvasLayer> }): Promise<void>;
+  updateLayer(options: {
+    canvasId: string;
+    layerId: string;
+    layer: Partial<CanvasLayer>;
+  }): Promise<void>;
 
   /**
    * Delete a layer
@@ -432,7 +463,10 @@ export interface CanvasPlugin {
   /**
    * Set global canvas transform
    */
-  setTransform(options: { canvasId: string; transform: CanvasTransform }): Promise<void>;
+  setTransform(options: {
+    canvasId: string;
+    transform: CanvasTransform;
+  }): Promise<void>;
 
   /**
    * Reset global canvas transform
@@ -442,7 +476,10 @@ export interface CanvasPlugin {
   /**
    * Enable or disable touch input handling
    */
-  setTouchEnabled(options: { canvasId: string; enabled: boolean }): Promise<void>;
+  setTouchEnabled(options: {
+    canvasId: string;
+    enabled: boolean;
+  }): Promise<void>;
 
   // ---- Web View Methods ----
 
@@ -478,7 +515,7 @@ export interface CanvasPlugin {
    */
   addListener(
     eventName: "touch",
-    listenerFunc: (event: CanvasTouchEvent) => void
+    listenerFunc: (event: CanvasTouchEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -486,7 +523,7 @@ export interface CanvasPlugin {
    */
   addListener(
     eventName: "render",
-    listenerFunc: (event: CanvasRenderEvent) => void
+    listenerFunc: (event: CanvasRenderEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -494,7 +531,7 @@ export interface CanvasPlugin {
    */
   addListener(
     eventName: "webViewReady",
-    listenerFunc: (event: WebViewReadyEvent) => void
+    listenerFunc: (event: WebViewReadyEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -502,15 +539,15 @@ export interface CanvasPlugin {
    */
   addListener(
     eventName: "navigationError",
-    listenerFunc: (event: NavigationErrorEvent) => void
+    listenerFunc: (event: NavigationErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
-   * Add listener for deep link events (milaidy:// URL intercepts)
+   * Add listener for deep link events (milady:// URL intercepts)
    */
   addListener(
     eventName: "deepLink",
-    listenerFunc: (event: DeepLinkEvent) => void
+    listenerFunc: (event: DeepLinkEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**
@@ -518,7 +555,7 @@ export interface CanvasPlugin {
    */
   addListener(
     eventName: "a2uiAction",
-    listenerFunc: (event: A2UIActionEvent) => void
+    listenerFunc: (event: A2UIActionEvent) => void,
   ): Promise<PluginListenerHandle>;
 
   /**

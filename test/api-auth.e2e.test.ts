@@ -2,20 +2,21 @@
  * E2E tests for the API token auth and pairing flow (PR #13).
  *
  * Covers:
- * - Token-based auth gate (MILAIDY_API_TOKEN)
+ * - Token-based auth gate (MILADY_API_TOKEN)
  * - CORS origin restrictions (local, capacitor, custom)
  * - Pairing code generation, validation, rate limiting, expiry
  * - Auth status endpoint (/api/auth/status)
  * - Pairing endpoint (/api/auth/pair)
  * - Auth bypass when no token is configured
- * - Bearer, X-Milaidy-Token, X-Api-Key header extraction
- * - Loopback binding (MILAIDY_API_BIND)
+ * - Bearer, X-Milady-Token, X-Api-Key header extraction
+ * - Loopback binding (MILADY_API_BIND)
  *
  * NO MOCKS — all tests spin up a real HTTP server.
  */
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server.js";
+import { WebSocket } from "ws";
+import { startApiServer } from "../src/api/server";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — supports custom headers and origin injection
@@ -73,6 +74,38 @@ function req(
   });
 }
 
+type WsConnectResult = { kind: "open" } | { kind: "rejected"; status?: number };
+
+function connectWs(
+  url: string,
+  headers?: Record<string, string>,
+): Promise<WsConnectResult> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(url, { headers });
+    let settled = false;
+
+    const finish = (result: WsConnectResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        ws.terminate();
+      } catch {
+        // noop
+      }
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => finish({ kind: "rejected" }), 3000);
+
+    ws.on("open", () => finish({ kind: "open" }));
+    ws.on("unexpected-response", (_req, res) =>
+      finish({ kind: "rejected", status: res.statusCode }),
+    );
+    ws.on("error", () => finish({ kind: "rejected" }));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Env save/restore helper
 // ---------------------------------------------------------------------------
@@ -94,15 +127,15 @@ function saveEnv(...keys: string[]): { restore: () => void } {
 // 1. AUTH BYPASS — No token configured
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("Auth bypass (no MILAIDY_API_TOKEN)", () => {
+describe("Auth bypass (no MILADY_API_TOKEN)", () => {
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILAIDY_API_TOKEN", "MILAIDY_PAIRING_DISABLED");
-    delete process.env.MILAIDY_API_TOKEN;
-    delete process.env.MILAIDY_PAIRING_DISABLED;
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    delete process.env.MILADY_API_TOKEN;
+    delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -137,20 +170,74 @@ describe("Auth bypass (no MILAIDY_API_TOKEN)", () => {
   });
 });
 
+describe("Non-loopback binding enforces auth without explicit token", () => {
+  let port: number;
+  let close: () => Promise<void>;
+  let envBackup: { restore: () => void };
+  let generatedToken = "";
+
+  beforeAll(async () => {
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_API_BIND",
+    );
+    delete process.env.MILADY_API_TOKEN;
+    delete process.env.MILADY_PAIRING_DISABLED;
+    process.env.MILADY_API_BIND = "0.0.0.0";
+
+    const server = await startApiServer({ port: 0 });
+    port = server.port;
+    close = server.close;
+    generatedToken = process.env.MILADY_API_TOKEN ?? "";
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+    envBackup.restore();
+  });
+
+  it("auto-generates a token when MILADY_API_BIND is non-loopback", () => {
+    expect(generatedToken).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("rejects unauthenticated requests", async () => {
+    const { status, data } = await req(port, "GET", "/api/status");
+    expect(status).toBe(401);
+    expect(data.error).toBe("Unauthorized");
+  });
+
+  it("/api/auth/status reports auth required", async () => {
+    const { status, data } = await req(port, "GET", "/api/auth/status");
+    expect(status).toBe(200);
+    expect(data.required).toBe(true);
+  });
+
+  it("accepts the generated token", async () => {
+    const { status } = await req(port, "GET", "/api/status", undefined, {
+      headers: { Authorization: `Bearer ${generatedToken}` },
+    });
+    expect(status).toBe(200);
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. TOKEN AUTH GATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("Token auth gate (MILAIDY_API_TOKEN set)", () => {
+describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   const TEST_TOKEN = "test-secret-token-abc123";
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
+  const TERMINAL_TOKEN = "test-terminal-token-def456";
+
   beforeAll(async () => {
-    envBackup = saveEnv("MILAIDY_API_TOKEN", "MILAIDY_PAIRING_DISABLED");
-    process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
-    delete process.env.MILAIDY_PAIRING_DISABLED;
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED", "MILADY_TERMINAL_RUN_TOKEN");
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
+    delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -194,9 +281,9 @@ describe("Token auth gate (MILAIDY_API_TOKEN set)", () => {
     expect(typeof data.agentName).toBe("string");
   });
 
-  it("accepts token via X-Milaidy-Token header", async () => {
+  it("accepts token via X-Milady-Token header", async () => {
     const { status } = await req(port, "GET", "/api/status", undefined, {
-      headers: { "X-Milaidy-Token": TEST_TOKEN },
+      headers: { "X-Milady-Token": TEST_TOKEN },
     });
     expect(status).toBe(200);
   });
@@ -213,6 +300,36 @@ describe("Token auth gate (MILAIDY_API_TOKEN set)", () => {
       headers: { Authorization: `bearer ${TEST_TOKEN}` },
     });
     expect(status).toBe(200);
+  });
+
+  it("rejects WebSocket upgrade without token", async () => {
+    const result = await connectWs(`ws://127.0.0.1:${port}/ws`);
+    expect(result.kind).toBe("rejected");
+    if (result.kind === "rejected") {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  it("rejects WebSocket query-token auth by default", async () => {
+    const result = await connectWs(
+      `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
+    );
+    expect(result.kind).toBe("rejected");
+    if (result.kind === "rejected") {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  it("accepts WebSocket upgrade with query token when enabled", async () => {
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
+    try {
+      const result = await connectWs(
+        `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
+      );
+      expect(result.kind).toBe("open");
+    } finally {
+      delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
+    }
   });
 
   // ── Auth endpoints exempt from token ───────────────────────────────────
@@ -243,6 +360,7 @@ describe("Token auth gate (MILAIDY_API_TOKEN set)", () => {
       ["GET", "/api/wallet/addresses"],
       ["GET", "/api/wallet/config"],
       ["GET", "/api/onboarding/status"],
+      ["POST", "/api/terminal/run"],
     ];
 
     for (const [method, path] of endpoints) {
@@ -268,6 +386,75 @@ describe("Token auth gate (MILAIDY_API_TOKEN set)", () => {
       expect(status).toBe(200);
     }
   });
+
+  it("terminal run auth gate accepts valid token", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+    const { status } = await req(
+      port,
+      "POST",
+      "/api/terminal/run",
+      { command: "echo auth-gate", terminalToken: TERMINAL_TOKEN },
+      auth,
+    );
+    // shell policy may still deny execution, but auth gate must pass
+    expect(status).not.toBe(401);
+  });
+
+  it("protects sensitive config mutation surfaces with token auth", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+
+    const mutationRequests: Array<{
+      method: string;
+      path: string;
+      body?: Record<string, unknown>;
+      expectedWithAuth: number;
+    }> = [
+      {
+        method: "PUT",
+        path: "/api/config",
+        body: { features: { browser: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "PUT",
+        path: "/api/secrets",
+        body: { secrets: {} },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "POST",
+        path: "/api/connectors",
+        body: { name: "auth-gate-test", config: { enabled: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "DELETE",
+        path: "/api/connectors/auth-gate-test",
+        expectedWithAuth: 200,
+      },
+      // Note: MCP config endpoints have additional security gates (terminal auth, URL validation)
+      // that are tested separately in server.mcp-config-validation.test.ts
+    ];
+
+    for (const testCase of mutationRequests) {
+      const { status: noAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+      );
+      expect(noAuthStatus).toBe(401);
+
+      const { status: withAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+        auth,
+      );
+      expect(withAuthStatus).toBe(testCase.expectedWithAuth);
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -281,13 +468,13 @@ describe("CORS origin restrictions", () => {
 
   beforeAll(async () => {
     envBackup = saveEnv(
-      "MILAIDY_API_TOKEN",
-      "MILAIDY_ALLOWED_ORIGINS",
-      "MILAIDY_ALLOW_NULL_ORIGIN",
+      "MILADY_API_TOKEN",
+      "MILADY_ALLOWED_ORIGINS",
+      "MILADY_ALLOW_NULL_ORIGIN",
     );
-    delete process.env.MILAIDY_API_TOKEN;
-    delete process.env.MILAIDY_ALLOWED_ORIGINS;
-    delete process.env.MILAIDY_ALLOW_NULL_ORIGIN;
+    delete process.env.MILADY_API_TOKEN;
+    delete process.env.MILADY_ALLOWED_ORIGINS;
+    delete process.env.MILADY_ALLOW_NULL_ORIGIN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -361,8 +548,8 @@ describe("CORS origin restrictions", () => {
     expect(status).toBe(204);
   });
 
-  it("MILAIDY_ALLOWED_ORIGINS allows custom origins", async () => {
-    process.env.MILAIDY_ALLOWED_ORIGINS = "https://custom.example.com";
+  it("MILADY_ALLOWED_ORIGINS allows custom origins", async () => {
+    process.env.MILADY_ALLOWED_ORIGINS = "https://custom.example.com";
     try {
       const { status, headers } = await req(
         port,
@@ -376,7 +563,7 @@ describe("CORS origin restrictions", () => {
         "https://custom.example.com",
       );
     } finally {
-      delete process.env.MILAIDY_ALLOWED_ORIGINS;
+      delete process.env.MILADY_ALLOWED_ORIGINS;
     }
   });
 
@@ -388,15 +575,32 @@ describe("CORS origin restrictions", () => {
     expect(s1).toBe(403);
 
     // Allowed with flag
-    process.env.MILAIDY_ALLOW_NULL_ORIGIN = "1";
+    process.env.MILADY_ALLOW_NULL_ORIGIN = "1";
     try {
       const { status: s2 } = await req(port, "GET", "/api/status", undefined, {
         origin: "null",
       });
       expect(s2).toBe(200);
     } finally {
-      delete process.env.MILAIDY_ALLOW_NULL_ORIGIN;
+      delete process.env.MILADY_ALLOW_NULL_ORIGIN;
     }
+  });
+
+  it("rejects WebSocket from non-local origin", async () => {
+    const result = await connectWs(`ws://127.0.0.1:${port}/ws`, {
+      Origin: "https://evil.example.com",
+    });
+    expect(result.kind).toBe("rejected");
+    if (result.kind === "rejected") {
+      expect(result.status).toBe(403);
+    }
+  });
+
+  it("allows WebSocket from localhost origin", async () => {
+    const result = await connectWs(`ws://127.0.0.1:${port}/ws`, {
+      Origin: `http://localhost:${port}`,
+    });
+    expect(result.kind).toBe("open");
   });
 });
 
@@ -411,9 +615,9 @@ describe("Pairing flow", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILAIDY_API_TOKEN", "MILAIDY_PAIRING_DISABLED");
-    process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
-    delete process.env.MILAIDY_PAIRING_DISABLED;
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -449,8 +653,8 @@ describe("Pairing flow", () => {
     expect(status).toBe(403);
   });
 
-  it("pairing disabled when MILAIDY_PAIRING_DISABLED=1", async () => {
-    process.env.MILAIDY_PAIRING_DISABLED = "1";
+  it("pairing disabled when MILADY_PAIRING_DISABLED=1", async () => {
+    process.env.MILADY_PAIRING_DISABLED = "1";
     try {
       const { status: authStatus, data: authData } = await req(
         port,
@@ -466,7 +670,7 @@ describe("Pairing flow", () => {
       expect(status).toBe(403);
       expect(data.error).toContain("disabled");
     } finally {
-      delete process.env.MILAIDY_PAIRING_DISABLED;
+      delete process.env.MILADY_PAIRING_DISABLED;
     }
   });
 
@@ -493,8 +697,8 @@ describe("Pairing flow", () => {
   it("correct pairing code returns token and invalidates code", async () => {
     // Spin up a fresh server to get a clean pairing code
     const freshToken = "fresh-pair-token-999";
-    const savedToken = process.env.MILAIDY_API_TOKEN;
-    process.env.MILAIDY_API_TOKEN = freshToken;
+    const savedToken = process.env.MILADY_API_TOKEN;
+    process.env.MILADY_API_TOKEN = freshToken;
 
     const fresh = await startApiServer({ port: 0 });
 
@@ -524,8 +728,8 @@ describe("Pairing flow", () => {
       expect(s1).toBe(403);
     } finally {
       await fresh.close();
-      if (savedToken) process.env.MILAIDY_API_TOKEN = savedToken;
-      else delete process.env.MILAIDY_API_TOKEN;
+      if (savedToken) process.env.MILADY_API_TOKEN = savedToken;
+      else delete process.env.MILADY_API_TOKEN;
     }
   }, 30_000);
 });
@@ -536,17 +740,20 @@ describe("Pairing flow", () => {
 
 describe("Auth + wallet integration", () => {
   const TEST_TOKEN = "wallet-auth-test-token";
+  const EXPORT_TOKEN = "wallet-auth-export-token";
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
     envBackup = saveEnv(
-      "MILAIDY_API_TOKEN",
+      "MILADY_API_TOKEN",
+      "MILADY_WALLET_EXPORT_TOKEN",
       "EVM_PRIVATE_KEY",
       "SOLANA_PRIVATE_KEY",
     );
-    process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
     process.env.EVM_PRIVATE_KEY =
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
@@ -607,7 +814,7 @@ describe("Auth + wallet integration", () => {
       port,
       "POST",
       "/api/wallet/export",
-      { confirm: true },
+      { confirm: true, exportToken: EXPORT_TOKEN },
       auth,
     );
     expect(status).toBe(200);
@@ -628,8 +835,8 @@ describe("Auth + agent lifecycle", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILAIDY_API_TOKEN");
-    process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
+    envBackup = saveEnv("MILADY_API_TOKEN");
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -703,12 +910,12 @@ describe("Auth + agent lifecycle", () => {
 
 describe("maskSecret utility", () => {
   it("exports maskSecret from wallet module", async () => {
-    const { maskSecret } = await import("../src/api/wallet.js");
+    const { maskSecret } = await import("../src/api/wallet");
     expect(typeof maskSecret).toBe("function");
   });
 
   it("masks long secrets showing first/last 4 chars", async () => {
-    const { maskSecret } = await import("../src/api/wallet.js");
+    const { maskSecret } = await import("../src/api/wallet");
     expect(
       maskSecret(
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -717,18 +924,18 @@ describe("maskSecret utility", () => {
   });
 
   it("masks short secrets as ****", async () => {
-    const { maskSecret } = await import("../src/api/wallet.js");
+    const { maskSecret } = await import("../src/api/wallet");
     expect(maskSecret("short")).toBe("****");
     expect(maskSecret("12345678")).toBe("****");
   });
 
   it("handles empty and null-like input", async () => {
-    const { maskSecret } = await import("../src/api/wallet.js");
+    const { maskSecret } = await import("../src/api/wallet");
     expect(maskSecret("")).toBe("****");
   });
 
   it("masks 9-char string with prefix/suffix", async () => {
-    const { maskSecret } = await import("../src/api/wallet.js");
+    const { maskSecret } = await import("../src/api/wallet");
     expect(maskSecret("123456789")).toBe("1234...6789");
   });
 });
@@ -744,8 +951,8 @@ describe("Auth edge cases and security", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILAIDY_API_TOKEN");
-    process.env.MILAIDY_API_TOKEN = TEST_TOKEN;
+    envBackup = saveEnv("MILADY_API_TOKEN");
+    process.env.MILADY_API_TOKEN = TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

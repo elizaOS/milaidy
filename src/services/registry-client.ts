@@ -1,8 +1,8 @@
 /**
- * Registry Client for Milaidy.
+ * Registry Client for Milady.
  *
  * Provides a 3-tier cached registry (memory → file → network) that works
- * offline, in .app bundles, and in dev. Fetches from the next@registry branch.
+ * offline, in .app bundles, and in dev. Fetches from the next branch.
  *
  * @module services/registry-client
  */
@@ -11,15 +11,42 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { logger } from "@elizaos/core";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
+import type { RegistryEndpoint } from "../config/types.milady.js";
+import {
+  LOCAL_APP_DEFAULT_SANDBOX,
+  resolveAppOverride,
+  sanitizeSandbox,
+} from "./registry-client-app-meta.js";
+import {
+  isDefaultEndpoint as isDefaultEndpointForUrl,
+  mergeCustomEndpoints,
+  normaliseEndpointUrl,
+  parseRegistryEndpointUrl,
+} from "./registry-client-endpoints.js";
+import {
+  applyLocalWorkspaceApps,
+  applyNodeModulePlugins,
+} from "./registry-client-local.js";
+import { fetchFromNetwork as fetchRegistryFromNetwork } from "./registry-client-network.js";
+import {
+  getPluginInfoFromRegistry,
+  normalizePluginLookupAlias,
+  scoreEntries,
+  toAppEntry,
+  toAppInfo,
+  toPluginListItem,
+  toSearchResults,
+} from "./registry-client-queries.js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const GENERATED_REGISTRY_URL =
-  "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/next%40registry/generated-registry.json";
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/next/generated-registry.json";
 const INDEX_REGISTRY_URL =
-  "https://raw.githubusercontent.com/elizaos-plugins/registry/refs/heads/next%40registry/index.json";
+  "https://raw.githubusercontent.com/elizaos-plugins/registry/next/index.json";
 const CACHE_TTL_MS = 3_600_000; // 1 hour
 
 // ---------------------------------------------------------------------------
@@ -47,10 +74,19 @@ export interface RegistryPluginInfo {
     v2Branch: string | null;
   };
   supports: { v0: boolean; v1: boolean; v2: boolean };
+  /** Absolute local workspace package path when discovered from filesystem. */
+  localPath?: string;
   /** Set to "app" when this entry is a launchable application */
   kind?: string;
   /** App metadata — present when kind is "app" */
   appMeta?: RegistryAppMeta;
+}
+
+export interface RegistryAppViewerMeta {
+  url: string;
+  embedParams?: Record<string, string>;
+  postMessageAuth?: boolean;
+  sandbox?: string;
 }
 
 /** App-specific metadata from the registry. */
@@ -63,6 +99,7 @@ export interface RegistryAppMeta {
   capabilities: string[];
   minPlayers: number | null;
   maxPlayers: number | null;
+  viewer?: RegistryAppViewerMeta;
 }
 
 /** App-specific info for listing and searching. */
@@ -113,135 +150,36 @@ let memoryCache: {
   fetchedAt: number;
 } | null = null;
 
-function cacheFilePath(): string {
-  const base =
-    process.env.MILAIDY_STATE_DIR?.trim() ||
-    path.join(os.homedir(), ".milaidy");
-  return path.join(base, "cache", "registry.json");
-}
-
 // ---------------------------------------------------------------------------
 // Network fetch + parse (inlined wire types — not exported)
 // ---------------------------------------------------------------------------
 
 async function fetchFromNetwork(): Promise<Map<string, RegistryPluginInfo>> {
-  // Try enriched registry first
   try {
-    const resp = await fetch(GENERATED_REGISTRY_URL);
-    if (resp.ok) {
-      const data = (await resp.json()) as {
-        registry: Record<
-          string,
-          {
-            git: {
-              repo: string;
-              v0: { branch: string | null };
-              v1: { branch: string | null };
-              v2: { branch: string | null };
-            };
-            npm: {
-              repo: string;
-              v0: string | null;
-              v1: string | null;
-              v2: string | null;
-            };
-            supports: { v0: boolean; v1: boolean; v2: boolean };
-            description: string;
-            homepage: string | null;
-            topics: string[];
-            stargazers_count: number;
-            language: string;
-            kind?: string;
-            app?: {
-              displayName: string;
-              category: string;
-              launchType: string;
-              launchUrl: string | null;
-              icon: string | null;
-              capabilities: string[];
-              minPlayers: number | null;
-              maxPlayers: number | null;
-            };
-          }
-        >;
-      };
-      const plugins = new Map<string, RegistryPluginInfo>();
-      for (const [name, e] of Object.entries(data.registry)) {
-        const info: RegistryPluginInfo = {
-          name,
-          gitRepo: e.git.repo,
-          gitUrl: `https://github.com/${e.git.repo}.git`,
-          description: e.description || "",
-          homepage: e.homepage,
-          topics: e.topics || [],
-          stars: e.stargazers_count || 0,
-          language: e.language || "TypeScript",
-          npm: {
-            package: e.npm.repo,
-            v0Version: e.npm.v0,
-            v1Version: e.npm.v1,
-            v2Version: e.npm.v2,
-          },
-          git: {
-            v0Branch: e.git.v0?.branch ?? null,
-            v1Branch: e.git.v1?.branch ?? null,
-            v2Branch: e.git.v2?.branch ?? null,
-          },
-          supports: e.supports,
-        };
-
-        if (e.kind === "app" && e.app) {
-          info.kind = "app";
-          info.appMeta = {
-            displayName: e.app.displayName,
-            category: e.app.category,
-            launchType: e.app.launchType,
-            launchUrl: e.app.launchUrl,
-            icon: e.app.icon,
-            capabilities: e.app.capabilities || [],
-            minPlayers: e.app.minPlayers ?? null,
-            maxPlayers: e.app.maxPlayers ?? null,
-          };
-        }
-
-        plugins.set(name, info);
-      }
-      return plugins;
-    }
+    return await fetchRegistryFromNetwork({
+      generatedRegistryUrl: GENERATED_REGISTRY_URL,
+      indexRegistryUrl: INDEX_REGISTRY_URL,
+      applyLocalWorkspaceApps,
+      applyNodeModulePlugins,
+      sanitizeSandbox,
+    });
   } catch (err) {
     logger.warn(
-      `[registry-client] generated-registry.json unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      `[registry-client] generated-registry/index fallback failed: ${err instanceof Error ? err.message : String(err)}`,
     );
+    throw err;
   }
-
-  // Fallback to index.json
-  const resp = await fetch(INDEX_REGISTRY_URL);
-  if (!resp.ok)
-    throw new Error(`index.json: ${resp.status} ${resp.statusText}`);
-  const data = (await resp.json()) as Record<string, string>;
-  const plugins = new Map<string, RegistryPluginInfo>();
-  for (const [name, gitRef] of Object.entries(data)) {
-    const repo = gitRef.replace(/^github:/, "");
-    plugins.set(name, {
-      name,
-      gitRepo: repo,
-      gitUrl: `https://github.com/${repo}.git`,
-      description: "",
-      homepage: null,
-      topics: [],
-      stars: 0,
-      language: "TypeScript",
-      npm: { package: name, v0Version: null, v1Version: null, v2Version: null },
-      git: { v0Branch: null, v1Branch: null, v2Branch: "next" },
-      supports: { v0: false, v1: false, v2: false },
-    });
-  }
-  return plugins;
 }
 
 // ---------------------------------------------------------------------------
 // File cache
 // ---------------------------------------------------------------------------
+
+function cacheFilePath(): string {
+  const base =
+    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  return path.join(base, "cache", "registry.json");
+}
 
 async function readFileCache(): Promise<Map<
   string,
@@ -275,6 +213,79 @@ async function writeFileCache(
 }
 
 // ---------------------------------------------------------------------------
+// Multi-endpoint management
+// ---------------------------------------------------------------------------
+
+/** Return the list of custom registry endpoints from config. */
+export function getConfiguredEndpoints(): RegistryEndpoint[] {
+  try {
+    const cfg = loadMiladyConfig();
+    return cfg.plugins?.registryEndpoints ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Add a custom registry endpoint. Blocks duplicate URLs. */
+export function addRegistryEndpoint(label: string, url: string): void {
+  const parsed = parseRegistryEndpointUrl(url);
+  const normalised = normaliseEndpointUrl(parsed.toString());
+  if (isDefaultEndpoint(normalised)) {
+    throw new Error("Cannot add the default registry as a custom endpoint.");
+  }
+  const cfg = loadMiladyConfig();
+  const endpoints = cfg.plugins?.registryEndpoints ?? [];
+  if (endpoints.some((ep) => normaliseEndpointUrl(ep.url) === normalised)) {
+    throw new Error(`Endpoint already exists: ${url}`);
+  }
+  if (!cfg.plugins) cfg.plugins = {};
+  cfg.plugins.registryEndpoints = [
+    ...endpoints,
+    { label, url: normalised, enabled: true },
+  ];
+  saveMiladyConfig(cfg);
+  memoryCache = null;
+}
+
+/** Remove a custom registry endpoint by URL. Cannot remove the default. */
+export function removeRegistryEndpoint(url: string): void {
+  const normalised = normaliseEndpointUrl(url);
+  if (isDefaultEndpoint(normalised)) {
+    throw new Error("Cannot remove the default ElizaOS registry.");
+  }
+  const cfg = loadMiladyConfig();
+  const endpoints = cfg.plugins?.registryEndpoints ?? [];
+  const updated = endpoints.filter(
+    (ep) => normaliseEndpointUrl(ep.url) !== normalised,
+  );
+  if (updated.length === endpoints.length) {
+    throw new Error(`Endpoint not found: ${url}`);
+  }
+  if (!cfg.plugins) cfg.plugins = {};
+  cfg.plugins.registryEndpoints = updated;
+  saveMiladyConfig(cfg);
+  memoryCache = null;
+}
+
+/** Toggle an endpoint's enabled status. */
+export function toggleRegistryEndpoint(url: string, enabled: boolean): void {
+  const normalised = normaliseEndpointUrl(url);
+  const cfg = loadMiladyConfig();
+  const endpoints = cfg.plugins?.registryEndpoints ?? [];
+  const ep = endpoints.find((e) => normaliseEndpointUrl(e.url) === normalised);
+  if (!ep) throw new Error(`Endpoint not found: ${url}`);
+  ep.enabled = enabled;
+  if (!cfg.plugins) cfg.plugins = {};
+  cfg.plugins.registryEndpoints = endpoints;
+  saveMiladyConfig(cfg);
+  memoryCache = null;
+}
+
+export function isDefaultEndpoint(url: string): boolean {
+  return isDefaultEndpointForUrl(url, GENERATED_REGISTRY_URL);
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -288,14 +299,16 @@ export async function getRegistryPlugins(): Promise<
 
   const fromFile = await readFileCache();
   if (fromFile) {
+    await applyLocalWorkspaceApps(fromFile);
+    await applyNodeModulePlugins(fromFile);
+    await mergeCustomEndpoints(fromFile, getConfiguredEndpoints());
     memoryCache = { plugins: fromFile, fetchedAt: Date.now() };
     return fromFile;
   }
 
-  logger.info(
-    "[registry-client] Fetching plugin registry from next@registry...",
-  );
+  logger.info("[registry-client] Fetching plugin registry from next branch...");
   const plugins = await fetchFromNetwork();
+  await mergeCustomEndpoints(plugins, getConfiguredEndpoints());
   logger.info(`[registry-client] Loaded ${plugins.size} plugins`);
 
   memoryCache = { plugins, fetchedAt: Date.now() };
@@ -326,67 +339,15 @@ export async function getPluginInfo(
   name: string,
 ): Promise<RegistryPluginInfo | null> {
   const registry = await getRegistryPlugins();
+  const normalizedName = normalizePluginLookupAlias(name);
+  const candidates = Array.from(new Set([normalizedName, name]));
 
-  let p = registry.get(name);
-  if (p) return p;
-
-  if (!name.startsWith("@")) {
-    p = registry.get(`@elizaos/${name}`);
-    if (p) return p;
+  for (const candidate of candidates) {
+    const info = getPluginInfoFromRegistry(registry, candidate);
+    if (info) return info;
   }
 
-  const bare = name.replace(/^@[^/]+\//, "");
-  for (const [key, value] of registry) {
-    if (key.endsWith(`/${bare}`)) return value;
-  }
   return null;
-}
-
-/**
- * Score registry entries against a query. Shared by searchPlugins and searchApps.
- * Returns entries sorted by score descending, limited to `limit` results.
- */
-function scoreEntries(
-  entries: Iterable<RegistryPluginInfo>,
-  query: string,
-  limit: number,
-  extraNames?: (p: RegistryPluginInfo) => string[],
-  extraTerms?: (p: RegistryPluginInfo) => string[],
-): Array<{ p: RegistryPluginInfo; s: number }> {
-  const lq = query.toLowerCase();
-  const terms = lq.split(/\s+/).filter((t) => t.length > 1);
-  const scored: Array<{ p: RegistryPluginInfo; s: number }> = [];
-
-  for (const p of entries) {
-    const ln = p.name.toLowerCase();
-    const ld = p.description.toLowerCase();
-    const aliases = extraNames?.(p) ?? [];
-    let s = 0;
-
-    // Exact match on name or aliases
-    if (ln === lq || ln === `@elizaos/${lq}` || aliases.some((a) => a === lq))
-      s += 100;
-    else if (ln.includes(lq) || aliases.some((a) => a.includes(lq))) s += 50;
-    if (ld.includes(lq)) s += 30;
-    // Topics + extra terms (capabilities for apps)
-    for (const t of p.topics) if (t.toLowerCase().includes(lq)) s += 25;
-    for (const t of extraTerms?.(p) ?? [])
-      if (t.toLowerCase().includes(lq)) s += 25;
-    for (const term of terms) {
-      if (ln.includes(term) || aliases.some((a) => a.includes(term))) s += 15;
-      if (ld.includes(term)) s += 10;
-      for (const t of p.topics) if (t.toLowerCase().includes(term)) s += 8;
-    }
-    if (s > 0) {
-      if (p.stars > 100) s += 3;
-      if (p.stars > 500) s += 3;
-      if (p.stars > 1000) s += 4;
-      scored.push({ p, s });
-    }
-  }
-
-  scored.sort((a, b) => b.s - a.s || b.p.stars - a.p.stars);
-  return scored.slice(0, limit);
 }
 
 /** Search plugins by query (local fuzzy match on name/description/topics). */
@@ -396,49 +357,7 @@ export async function searchPlugins(
 ): Promise<RegistrySearchResult[]> {
   const registry = await getRegistryPlugins();
   const results = scoreEntries(registry.values(), query, limit);
-  const max = results[0]?.s || 1;
-
-  return results.map(({ p, s }) => ({
-    name: p.name,
-    description: p.description,
-    score: s / max,
-    tags: p.topics,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    stars: p.stars,
-    supports: p.supports,
-    repository: `https://github.com/${p.gitRepo}`,
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// App-specific queries
-// ---------------------------------------------------------------------------
-
-function toAppInfo(p: RegistryPluginInfo): RegistryAppInfo {
-  const meta = p.appMeta;
-  return {
-    name: p.name,
-    displayName: meta?.displayName ?? p.name.replace(/^@elizaos\/app-/, ""),
-    description: p.description,
-    category: meta?.category ?? "game",
-    launchType: meta?.launchType ?? "url",
-    launchUrl: meta?.launchUrl ?? p.homepage,
-    icon: meta?.icon ?? null,
-    capabilities: meta?.capabilities ?? [],
-    stars: p.stars,
-    repository: `https://github.com/${p.gitRepo}`,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    supports: p.supports,
-    npm: p.npm,
-    // Pass through viewer config from the registry metadata
-    viewer:
-      meta?.launchType === "connect" || meta?.launchType === "local"
-        ? {
-            url: meta?.launchUrl ?? "",
-            sandbox: "allow-scripts allow-same-origin allow-popups",
-          }
-        : undefined,
-  };
+  return toSearchResults(results);
 }
 
 /** List all registered apps. */
@@ -447,9 +366,9 @@ export async function listApps(): Promise<RegistryAppInfo[]> {
   const apps: RegistryAppInfo[] = [];
 
   for (const p of registry.values()) {
-    if (p.kind === "app") {
-      apps.push(toAppInfo(p));
-    }
+    const appEntry = toAppEntry(p, resolveAppOverride);
+    if (!appEntry) continue;
+    apps.push(toAppInfo(appEntry, sanitizeSandbox, LOCAL_APP_DEFAULT_SANDBOX));
   }
 
   apps.sort((a, b) => b.stars - a.stars);
@@ -461,8 +380,10 @@ export async function getAppInfo(
   name: string,
 ): Promise<RegistryAppInfo | null> {
   const info = await getPluginInfo(name);
-  if (!info || info.kind !== "app") return null;
-  return toAppInfo(info);
+  if (!info) return null;
+  const appEntry = toAppEntry(info, resolveAppOverride);
+  if (!appEntry) return null;
+  return toAppInfo(appEntry, sanitizeSandbox, LOCAL_APP_DEFAULT_SANDBOX);
 }
 
 /** Search apps by query. */
@@ -471,7 +392,11 @@ export async function searchApps(
   limit = 15,
 ): Promise<RegistryAppInfo[]> {
   const registry = await getRegistryPlugins();
-  const appEntries = [...registry.values()].filter((p) => p.kind === "app");
+  const appEntries: RegistryPluginInfo[] = [];
+  for (const p of registry.values()) {
+    const appEntry = toAppEntry(p, resolveAppOverride);
+    if (appEntry) appEntries.push(appEntry);
+  }
 
   const results = scoreEntries(
     appEntries,
@@ -481,12 +406,10 @@ export async function searchApps(
     (p) => p.appMeta?.capabilities ?? [],
   );
 
-  return results.map(({ p }) => toAppInfo(p));
+  return results.map(({ p }) =>
+    toAppInfo(p, sanitizeSandbox, LOCAL_APP_DEFAULT_SANDBOX),
+  );
 }
-
-// ---------------------------------------------------------------------------
-// Non-app plugin queries (for unified Apps & Plugins view)
-// ---------------------------------------------------------------------------
 
 /** Slim plugin info returned by listNonAppPlugins / searchNonAppPlugins. */
 export interface RegistryPluginListItem {
@@ -502,19 +425,6 @@ export interface RegistryPluginListItem {
     v0Version: string | null;
     v1Version: string | null;
     v2Version: string | null;
-  };
-}
-
-function toPluginListItem(p: RegistryPluginInfo): RegistryPluginListItem {
-  return {
-    name: p.name,
-    description: p.description,
-    stars: p.stars,
-    repository: `https://github.com/${p.gitRepo}`,
-    topics: p.topics,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    supports: p.supports,
-    npm: p.npm,
   };
 }
 

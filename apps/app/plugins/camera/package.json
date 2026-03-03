@@ -1,7 +1,7 @@
 {
-  "name": "@milaidy/capacitor-camera",
+  "name": "@milady/capacitor-camera",
   "version": "1.0.0",
-  "description": "Milaidy Camera Plugin for Capacitor - Photo and video capture with advanced controls",
+  "description": "Milady Camera Plugin for Capacitor - Photo and video capture with advanced controls",
   "main": "./dist/plugin.cjs.js",
   "module": "./src/index.ts",
   "types": "./dist/plugin.d.ts",
@@ -15,11 +15,11 @@
     "electron/",
     "*.podspec"
   ],
-  "author": "Milaidy",
+  "author": "Milady",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/milady-ai/milaidy"
+    "url": "https://github.com/milady-ai/milady"
   },
   "scripts": {
     "build": "npm run clean && tsc && rollup -c rollup.config.mjs",
@@ -46,8 +46,11 @@
       "src": "android"
     }
   },
-  "milaidy": {
-    "platforms": ["browser", "node"],
+  "milady": {
+    "platforms": [
+      "browser",
+      "node"
+    ],
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via MediaDevices API (camera preview, photo/video capture, permissions)",

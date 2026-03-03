@@ -9,6 +9,7 @@
 
 import * as crypto from "node:crypto";
 import * as http from "node:http";
+import { readRequestBody } from "../http-helpers";
 
 const PORT = Number(process.env.PORT ?? "2138");
 const BRIDGE_PORT = Number(process.env.BRIDGE_PORT ?? "18790");
@@ -274,15 +275,6 @@ healthServer.listen(PORT, "0.0.0.0", () => {
 
 // ─── Bridge HTTP server ─────────────────────────────────────────────────
 
-function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
-  });
-}
-
 const bridgeServer = http.createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -300,7 +292,7 @@ const bridgeServer = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/api/restore") {
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const incoming = JSON.parse(body) as Partial<typeof state>;
     if (incoming.memories) state.memories = incoming.memories;
     if (incoming.config) state.config = incoming.config;
@@ -313,7 +305,7 @@ const bridgeServer = http.createServer(async (req, res) => {
 
   // ── SSE streaming endpoint ──────────────────────────────────────────────
   // Streams agent response chunks as Server-Sent Events.  The Eliza Cloud
-  // proxy connects here and relays events to the Milaidy client.
+  // proxy connects here and relays events to the Milady client.
   if (req.method === "POST" && req.url === "/bridge/stream") {
     if (!agentRuntime) {
       res.writeHead(503, { "Content-Type": "application/json" });
@@ -321,7 +313,7 @@ const bridgeServer = http.createServer(async (req, res) => {
       return;
     }
 
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const rpc = JSON.parse(body) as {
       jsonrpc: string;
       id?: string | number;
@@ -368,7 +360,7 @@ const bridgeServer = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && req.url === "/bridge") {
-    const body = await readBody(req);
+    const body = await readRequestBody(req);
     const rpc = JSON.parse(body) as {
       jsonrpc: string;
       id?: string | number;

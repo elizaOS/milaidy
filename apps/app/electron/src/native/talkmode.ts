@@ -7,12 +7,16 @@
  * - Renderer audio capture via IPC (Whisper)
  */
 
-import { EventEmitter } from "events";
-import { ipcMain, BrowserWindow } from "electron";
+import { EventEmitter } from "node:events";
+import https from "node:https";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
-import { WhisperSTT, WhisperStreamTranscriber, WhisperResult } from "./whisper";
-import https from "https";
+import { type BrowserWindow, ipcMain } from "electron";
 import type { IpcValue } from "./ipc-types";
+import {
+  type WhisperResult,
+  WhisperSTT,
+  WhisperStreamTranscriber,
+} from "./whisper";
 
 // Types
 export interface TalkModeConfig {
@@ -193,10 +197,6 @@ export class TalkModeManager extends EventEmitter {
   private isEnabled = false;
   private isSpeaking = false;
 
-  constructor() {
-    super();
-  }
-
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
   }
@@ -204,7 +204,9 @@ export class TalkModeManager extends EventEmitter {
   /**
    * Start TalkMode
    */
-  async start(options?: { config?: TalkModeConfig }): Promise<{ started: boolean; error?: string }> {
+  async start(options?: {
+    config?: TalkModeConfig;
+  }): Promise<{ started: boolean; error?: string }> {
     if (this.isEnabled) {
       return { started: true };
     }
@@ -226,7 +228,8 @@ export class TalkModeManager extends EventEmitter {
         if (!initialized) {
           this.sendToRenderer("talkmode:error", {
             code: "whisper_unavailable",
-            message: "Whisper not available. Renderer should use Web Speech API.",
+            message:
+              "Whisper not available. Renderer should use Web Speech API.",
             recoverable: true,
           });
         } else {
@@ -237,7 +240,8 @@ export class TalkModeManager extends EventEmitter {
         console.warn("[TalkMode] Failed to initialize Whisper:", error);
         this.sendToRenderer("talkmode:error", {
           code: "whisper_init_failed",
-          message: error instanceof Error ? error.message : "Whisper init failed",
+          message:
+            error instanceof Error ? error.message : "Whisper init failed",
           recoverable: true,
         });
       }
@@ -248,7 +252,7 @@ export class TalkModeManager extends EventEmitter {
       this.elevenLabs = new ElevenLabsTTS(
         this.config.tts.apiKey,
         this.config.tts.voiceId,
-        this.config.tts.modelId
+        this.config.tts.modelId,
       );
       this.setupTTSListeners();
     }
@@ -293,11 +297,14 @@ export class TalkModeManager extends EventEmitter {
   private setupTTSListeners(): void {
     if (!this.elevenLabs) return;
 
-    this.elevenLabs.on("speaking", (data: { text: string; isSystemTts: boolean }) => {
-      this.isSpeaking = true;
-      this.setState("speaking", "Speaking");
-      this.sendToRenderer("talkmode:speaking", data);
-    });
+    this.elevenLabs.on(
+      "speaking",
+      (data: { text: string; isSystemTts: boolean }) => {
+        this.isSpeaking = true;
+        this.setState("speaking", "Speaking");
+        this.sendToRenderer("talkmode:speaking", data);
+      },
+    );
 
     this.elevenLabs.on("speakComplete", (data: { completed: boolean }) => {
       this.isSpeaking = false;
@@ -409,7 +416,7 @@ export class TalkModeManager extends EventEmitter {
       this.elevenLabs.updateConfig(
         config.tts.apiKey,
         config.tts.voiceId,
-        config.tts.modelId
+        config.tts.modelId,
       );
     }
   }
@@ -484,17 +491,23 @@ export function getTalkModeManager(): TalkModeManager {
 export function registerTalkModeIPC(): void {
   const manager = getTalkModeManager();
 
-  ipcMain.handle("talkmode:start", async (_e: IpcMainInvokeEvent, options?: { config?: TalkModeConfig }) => {
-    return manager.start(options);
-  });
+  ipcMain.handle(
+    "talkmode:start",
+    async (_e: IpcMainInvokeEvent, options?: { config?: TalkModeConfig }) => {
+      return manager.start(options);
+    },
+  );
 
   ipcMain.handle("talkmode:stop", async () => {
     return manager.stop();
   });
 
-  ipcMain.handle("talkmode:speak", async (_e: IpcMainInvokeEvent, options: SpeakOptions) => {
-    return manager.speak(options);
-  });
+  ipcMain.handle(
+    "talkmode:speak",
+    async (_e: IpcMainInvokeEvent, options: SpeakOptions) => {
+      return manager.speak(options);
+    },
+  );
 
   ipcMain.handle("talkmode:stopSpeaking", async () => {
     return manager.stopSpeaking();
@@ -512,9 +525,12 @@ export function registerTalkModeIPC(): void {
     return { enabled: manager.isEnabledNow() };
   });
 
-  ipcMain.handle("talkmode:updateConfig", (_e: IpcMainInvokeEvent, options: { config: Partial<TalkModeConfig> }) => {
-    return manager.updateConfig(options.config);
-  });
+  ipcMain.handle(
+    "talkmode:updateConfig",
+    (_e: IpcMainInvokeEvent, options: { config: Partial<TalkModeConfig> }) => {
+      return manager.updateConfig(options.config);
+    },
+  );
 
   ipcMain.handle("talkmode:isWhisperAvailable", () => {
     return { available: manager.isWhisperAvailable() };
@@ -524,8 +540,12 @@ export function registerTalkModeIPC(): void {
     return manager.getWhisperInfo();
   });
 
-  ipcMain.on("talkmode:audioChunk", (_e: IpcMainEvent, payload: ArrayBuffer | Float32Array) => {
-    const samples = payload instanceof Float32Array ? payload : new Float32Array(payload);
-    manager.feedAudio(samples);
-  });
+  ipcMain.on(
+    "talkmode:audioChunk",
+    (_e: IpcMainEvent, payload: ArrayBuffer | Float32Array) => {
+      const samples =
+        payload instanceof Float32Array ? payload : new Float32Array(payload);
+      manager.feedAudio(samples);
+    },
+  );
 }

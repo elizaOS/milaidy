@@ -14,7 +14,7 @@ import {
   createHookEvent,
   registerHook,
   triggerHook,
-} from "./registry.js";
+} from "./registry";
 
 // ---------------------------------------------------------------------------
 // mocks

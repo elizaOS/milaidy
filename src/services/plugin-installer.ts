@@ -1,12 +1,12 @@
 /**
- * Plugin Installer for Milaidy.
+ * Plugin Installer for Milady.
  *
  * Cross-platform plugin installation and lifecycle management.
  *
  * Install targets:
- *   ~/.milaidy/plugins/installed/<sanitised-name>/
+ *   ~/.milady/plugins/installed/<sanitised-name>/
  *
- * Works identically whether milaidy is:
+ * Works identically whether milady is:
  *   - Running from source (dev)
  *   - Running as a CLI install (npm global)
  *   - Running inside an Electron .app bundle
@@ -15,7 +15,7 @@
  * Strategy:
  *   1. npm/bun install to an isolated prefix directory
  *   2. Fallback: git clone from the plugin's GitHub repo
- *   3. Track the installation in milaidy.json config
+ *   3. Track the installation in milady.json config
  *   4. Trigger agent restart to load the new plugin
  *
  * @module services/plugin-installer
@@ -27,9 +27,9 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
-import { loadMilaidyConfig, saveMilaidyConfig } from "../config/config.js";
-import { requestRestart } from "../runtime/restart.js";
-import { getPluginInfo, type RegistryPluginInfo } from "./registry-client.js";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import { requestRestart } from "../runtime/restart";
+import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,18 +38,19 @@ const execFileAsync = promisify(execFile);
 // ---------------------------------------------------------------------------
 
 /** npm package names: @scope/name or name. No shell metacharacters. */
-const VALID_PACKAGE_NAME = /^(@[a-zA-Z0-9][\w.-]*\/)?[a-zA-Z0-9][\w.-]*$/;
+export const VALID_PACKAGE_NAME =
+  /^(@[a-zA-Z0-9][\w.-]*\/)?[a-zA-Z0-9][\w.-]*$/;
 
 /** Version strings: semver, dist-tags, git refs. Conservative allowlist. */
 const VALID_VERSION = /^[a-zA-Z0-9][\w.+-]*$/;
 
 /** Git branch names: alphanumeric, hyphens, slashes, dots. No shell metacharacters. */
-const VALID_BRANCH = /^[a-zA-Z0-9][\w./-]*$/;
+export const VALID_BRANCH = /^[a-zA-Z0-9][\w./-]*$/;
 
 /** Git URLs: https:// only, no shell metacharacters. */
-const VALID_GIT_URL = /^https:\/\/[a-zA-Z0-9][\w./-]*\.git$/;
+export const VALID_GIT_URL = /^https:\/\/[a-zA-Z0-9][\w./-]*\.git$/;
 
-function assertValidPackageName(name: string): void {
+export function assertValidPackageName(name: string): void {
   if (!VALID_PACKAGE_NAME.test(name)) {
     throw new Error(`Invalid package name: "${name}"`);
   }
@@ -61,13 +62,7 @@ function assertValidVersion(version: string): void {
   }
 }
 
-function assertValidBranch(branch: string): void {
-  if (!VALID_BRANCH.test(branch)) {
-    throw new Error(`Invalid branch name: "${branch}"`);
-  }
-}
-
-function assertValidGitUrl(url: string): void {
+export function assertValidGitUrl(url: string): void {
   if (!VALID_GIT_URL.test(url)) {
     throw new Error(`Invalid git URL: "${url}"`);
   }
@@ -131,8 +126,8 @@ export interface UninstallResult {
 // ---------------------------------------------------------------------------
 
 function pluginsBaseDir(): string {
-  const stateDir = process.env.MILAIDY_STATE_DIR?.trim();
-  const base = stateDir || path.join(os.homedir(), ".milaidy");
+  const stateDir = process.env.MILADY_STATE_DIR?.trim();
+  const base = stateDir || path.join(os.homedir(), ".milady");
   return path.join(base, "plugins", "installed");
 }
 
@@ -143,7 +138,7 @@ function isWithinPluginsDir(targetPath: string): boolean {
   return resolved.startsWith(`${base}${path.sep}`);
 }
 
-function sanitisePackageName(name: string): string {
+export function sanitisePackageName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
@@ -155,8 +150,8 @@ function pluginDir(pluginName: string): string {
 // Package manager detection
 // ---------------------------------------------------------------------------
 
-async function detectPackageManager(): Promise<"bun" | "pnpm" | "npm"> {
-  for (const cmd of ["bun", "pnpm", "npm"] as const) {
+export async function detectPackageManager(): Promise<"bun" | "npm"> {
+  for (const cmd of ["bun", "npm"] as const) {
     try {
       await execFileAsync(cmd, ["--version"]);
       return cmd;
@@ -175,22 +170,30 @@ async function detectPackageManager(): Promise<"bun" | "pnpm" | "npm"> {
  * Install a plugin from the registry.
  *
  * 1. Resolves the plugin name in the registry.
- * 2. Installs via npm/bun to ~/.milaidy/plugins/installed/<name>/.
+ * 2. Installs via npm/bun to ~/.milady/plugins/installed/<name>/.
  * 3. Falls back to git clone if npm is not available for this package.
- * 4. Writes an install record to milaidy.json.
+ * 4. Writes an install record to milady.json.
  * 5. Returns metadata about the installation for the caller to
  *    decide whether to trigger a restart.
+ *
+ * @param pluginName - The plugin name (e.g., "@elizaos/plugin-twitter")
+ * @param onProgress - Optional progress callback
+ * @param requestedVersion - Optional specific version to install (e.g., "1.2.23-alpha.0")
  */
 export function installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
-  return serialise(() => _installPlugin(pluginName, onProgress));
+  return serialise(() =>
+    _installPlugin(pluginName, onProgress, requestedVersion),
+  );
 }
 
 async function _installPlugin(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
   const emit = (phase: InstallPhase, message: string) =>
     onProgress?.({ phase, pluginName, message });
@@ -211,7 +214,10 @@ async function _installPlugin(
 
   // Determine the canonical package name and version to install
   const canonicalName = info.name;
-  const npmVersion = info.npm.v2Version || info.npm.v1Version || "next";
+  // Use requested version if provided, otherwise use registry version
+  const npmVersion =
+    requestedVersion || info.npm.v2Version || info.npm.v1Version || "next";
+  const localPath = info.localPath;
   const targetDir = pluginDir(canonicalName);
 
   // Ensure the directory exists (idempotent)
@@ -229,54 +235,77 @@ async function _installPlugin(
     );
   }
 
-  // Try npm install; fall back to git clone
+  // Try local workspace install (when available), then npm install, then git clone.
   let installedVersion = npmVersion;
   let installSource: "npm" | "path" = "npm";
-  emit("downloading", `Installing ${canonicalName}@${npmVersion}...`);
+  const pm = await detectPackageManager();
+  let installed = false;
 
-  try {
-    const pm = await detectPackageManager();
-    await runPackageInstall(pm, canonicalName, npmVersion, targetDir);
-
-    // Read the actual installed version from node_modules
-    const installedPkgPath = path.join(
-      targetDir,
-      "node_modules",
-      ...canonicalName.split("/"),
-      "package.json",
-    );
+  if (localPath) {
+    emit("downloading", `Installing ${canonicalName} from local workspace...`);
     try {
-      const pkg = JSON.parse(await fs.readFile(installedPkgPath, "utf-8")) as {
-        version?: string;
-      };
-      if (typeof pkg.version === "string" && pkg.version.length > 0) {
-        installedVersion = pkg.version;
+      await runLocalPathInstall(pm, canonicalName, localPath, targetDir);
+      installedVersion = await readInstalledVersion(
+        targetDir,
+        canonicalName,
+        npmVersion,
+      );
+      installSource = "path";
+      installed = true;
+    } catch (localErr) {
+      logger.warn(
+        `[plugin-installer] local install failed for ${canonicalName}: ${localErr instanceof Error ? localErr.message : String(localErr)}`,
+      );
+    }
+  }
+
+  if (!installed) {
+    emit("downloading", `Installing ${canonicalName}@${npmVersion}...`);
+    try {
+      await runPackageInstall(pm, canonicalName, npmVersion, targetDir);
+      installedVersion = await readInstalledVersion(
+        targetDir,
+        canonicalName,
+        npmVersion,
+      );
+      installSource = "npm";
+      installed = true;
+    } catch (npmErr) {
+      logger.warn(
+        `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
+      );
+      emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
+
+      try {
+        await gitCloneInstall(info, targetDir, onProgress);
+        installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
+        installSource = "path"; // git-cloned plugins are local path installs
+        installed = true;
+      } catch (gitErr) {
+        const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
+        emit("error", `Installation failed: ${msg}`);
+        return {
+          success: false,
+          pluginName: canonicalName,
+          version: "",
+          installPath: targetDir,
+          requiresRestart: false,
+          error: msg,
+        };
       }
-    } catch {
-      /* keep requested version */
     }
-  } catch (npmErr) {
-    logger.warn(
-      `[plugin-installer] npm failed for ${canonicalName}: ${npmErr instanceof Error ? npmErr.message : String(npmErr)}`,
-    );
-    emit("downloading", `npm failed, cloning from ${info.gitUrl}...`);
+  }
 
-    try {
-      await gitCloneInstall(info, targetDir, onProgress);
-      installedVersion = info.npm.v2Version || info.npm.v1Version || "git";
-      installSource = "path"; // git-cloned plugins are local path installs
-    } catch (gitErr) {
-      const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
-      emit("error", `Installation failed: ${msg}`);
-      return {
-        success: false,
-        pluginName: canonicalName,
-        version: "",
-        installPath: targetDir,
-        requiresRestart: false,
-        error: msg,
-      };
-    }
+  if (!installed) {
+    emit("error", "Installation failed");
+    return {
+      success: false,
+      pluginName: canonicalName,
+      version: "",
+      installPath: targetDir,
+      requiresRestart: false,
+      error: `Failed to install plugin "${canonicalName}"`,
+    };
   }
 
   emit("validating", "Verifying plugin can be loaded...");
@@ -297,7 +326,7 @@ async function _installPlugin(
 
   emit("configuring", "Recording installation in config...");
 
-  // Write install record to milaidy.json
+  // Write install record to milady.json
   recordInstallation(canonicalName, {
     source: installSource,
     spec: `${canonicalName}@${installedVersion}`,
@@ -326,8 +355,9 @@ async function _installPlugin(
 export async function installAndRestart(
   pluginName: string,
   onProgress?: ProgressCallback,
+  requestedVersion?: string,
 ): Promise<InstallResult> {
-  const result = await installPlugin(pluginName, onProgress);
+  const result = await installPlugin(pluginName, onProgress, requestedVersion);
 
   if (result.success && result.requiresRestart) {
     onProgress?.({
@@ -357,7 +387,7 @@ export function uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 }
 
 async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const installs = config.plugins?.installs;
 
   if (!installs || !installs[pluginName]) {
@@ -385,16 +415,28 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 
   // Remove from disk
   try {
-    await fs.rm(dirToRemove, { recursive: true, force: true });
+    await fs.rm(dirToRemove, { recursive: true, force: false });
   } catch (err) {
-    logger.warn(
-      `[plugin-installer] Could not remove ${dirToRemove}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    const code =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      typeof (err as { code?: string }).code === "string"
+        ? (err as { code: string }).code
+        : undefined;
+    if (code !== "ENOENT") {
+      return {
+        success: false,
+        pluginName,
+        requiresRestart: false,
+        error: `Failed to remove plugin directory "${dirToRemove}": ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   // Remove from config
   delete installs[pluginName];
-  saveMilaidyConfig(config);
+  saveMiladyConfig(config);
 
   return {
     success: true,
@@ -423,7 +465,7 @@ export async function uninstallAndRestart(
 // ---------------------------------------------------------------------------
 
 async function runPackageInstall(
-  pm: "bun" | "pnpm" | "npm",
+  pm: "bun" | "npm",
   packageName: string,
   version: string,
   targetDir: string,
@@ -431,17 +473,161 @@ async function runPackageInstall(
   assertValidPackageName(packageName);
   assertValidVersion(version);
   const spec = `${packageName}@${version}`;
+  await installSpecWithFallback(pm, spec, targetDir);
+}
 
+async function runLocalPathInstall(
+  pm: "bun" | "npm",
+  packageName: string,
+  sourcePath: string,
+  targetDir: string,
+): Promise<void> {
+  assertValidPackageName(packageName);
+  const resolvedSourcePath = path.resolve(sourcePath);
+  const packageJsonPath = path.join(resolvedSourcePath, "package.json");
+  await fs.access(packageJsonPath);
+  const spec = `file:${resolvedSourcePath}`;
+  await installSpecWithFallback(pm, spec, targetDir);
+}
+
+async function installSpecWithFallback(
+  pm: "bun" | "npm",
+  spec: string,
+  targetDir: string,
+): Promise<void> {
+  try {
+    await runInstallSpec(pm, spec, targetDir);
+  } catch (primaryErr) {
+    if (pm === "npm") throw primaryErr;
+    logger.warn(
+      `[plugin-installer] ${pm} install failed for ${spec}; retrying with npm: ${primaryErr instanceof Error ? primaryErr.message : String(primaryErr)}`,
+    );
+    await runInstallSpec("npm", spec, targetDir);
+  }
+}
+
+async function runInstallSpec(
+  pm: "bun" | "npm",
+  spec: string,
+  targetDir: string,
+): Promise<void> {
+  // SECURITY: --ignore-scripts prevents npm postinstall/preinstall scripts
+  // from executing arbitrary code on the host. Without this flag, any
+  // package (including compromised registered plugins) can run shell
+  // commands as the current user — reading wallet keys, installing
+  // backdoors, or exfiltrating credentials.
   switch (pm) {
     case "bun":
-      await execFileAsync("bun", ["add", spec], { cwd: targetDir });
-      break;
-    case "pnpm":
-      await execFileAsync("pnpm", ["add", spec, "--dir", targetDir]);
+      await execFileAsync("bun", ["add", "--ignore-scripts", spec], {
+        cwd: targetDir,
+      });
       break;
     default:
-      await execFileAsync("npm", ["install", spec, "--prefix", targetDir]);
+      await execFileAsync("npm", [
+        "install",
+        "--ignore-scripts",
+        spec,
+        "--prefix",
+        targetDir,
+      ]);
   }
+}
+
+async function readInstalledVersion(
+  targetDir: string,
+  packageName: string,
+  fallbackVersion: string,
+): Promise<string> {
+  const installedPkgPath = path.join(
+    targetDir,
+    "node_modules",
+    ...packageName.split("/"),
+    "package.json",
+  );
+  try {
+    const pkg = JSON.parse(await fs.readFile(installedPkgPath, "utf-8")) as {
+      version?: string;
+    };
+    if (typeof pkg.version === "string" && pkg.version.length > 0) {
+      return pkg.version;
+    }
+  } catch {
+    // Keep fallback version.
+  }
+  return fallbackVersion;
+}
+
+async function remoteBranchExists(
+  gitUrl: string,
+  branch: string,
+): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", gitUrl, branch],
+      { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function listRemoteBranches(gitUrl: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", gitUrl],
+      { env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
+    const branches: string[] = [];
+    for (const rawLine of stdout.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const parts = line.split(/\s+/);
+      if (parts.length < 2) continue;
+      const ref = parts[1];
+      if (!ref.startsWith("refs/heads/")) continue;
+      const branch = ref.replace(/^refs\/heads\//, "");
+      if (VALID_BRANCH.test(branch)) {
+        branches.push(branch);
+      }
+    }
+    return branches;
+  } catch {
+    return [];
+  }
+}
+
+export async function resolveGitBranch(
+  info: RegistryPluginInfo,
+): Promise<string> {
+  assertValidGitUrl(info.gitUrl);
+  const rawCandidates = [
+    info.git.v2Branch,
+    info.git.v1Branch,
+    "next",
+    "main",
+    "master",
+  ];
+  const candidates = [
+    ...new Set(rawCandidates.filter((c): c is string => Boolean(c?.trim()))),
+  ];
+  for (const branch of candidates) {
+    if (!VALID_BRANCH.test(branch)) continue;
+    if (await remoteBranchExists(info.gitUrl, branch)) return branch;
+  }
+  const remoteBranches = await listRemoteBranches(info.gitUrl);
+  if (remoteBranches.length > 0) {
+    const preferred = ["main", "next", "master", "1.x", "develop", "dev"];
+    for (const branch of preferred) {
+      if (remoteBranches.includes(branch)) {
+        return branch;
+      }
+    }
+    return remoteBranches[0];
+  }
+  return "main";
 }
 
 async function gitCloneInstall(
@@ -449,9 +635,7 @@ async function gitCloneInstall(
   targetDir: string,
   onProgress?: ProgressCallback,
 ): Promise<void> {
-  const branch = info.git.v2Branch || info.git.v1Branch || "next";
-  assertValidBranch(branch);
-  assertValidGitUrl(info.gitUrl);
+  const branch = await resolveGitBranch(info);
 
   const tempDir = path.join(path.dirname(targetDir), `temp-${Date.now()}`);
 
@@ -480,7 +664,7 @@ async function gitCloneInstall(
     });
 
     const pm = await detectPackageManager();
-    await execFileAsync(pm, ["install"], { cwd: tempDir });
+    await execFileAsync(pm, ["install", "--ignore-scripts"], { cwd: tempDir });
 
     // If there's a typescript/ subdirectory (monorepo plugin structure),
     // build it and use that as the install target.
@@ -556,7 +740,7 @@ function recordInstallation(
     installedAt: string;
   },
 ): void {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
 
   // Ensure the plugins.installs path exists in the config object
   if (!config.plugins) {
@@ -567,7 +751,7 @@ function recordInstallation(
   }
 
   config.plugins.installs[pluginName] = record;
-  saveMilaidyConfig(config);
+  saveMiladyConfig(config);
 }
 
 // ---------------------------------------------------------------------------
@@ -581,7 +765,7 @@ export function listInstalledPlugins(): Array<{
   installPath: string;
   installedAt: string;
 }> {
-  const config = loadMilaidyConfig();
+  const config = loadMiladyConfig();
   const installs = config.plugins?.installs ?? {};
 
   return Object.entries(installs).map(([name, record]) => ({

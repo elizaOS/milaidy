@@ -1,16 +1,23 @@
 /**
- * Cloud API routes for Milaidy — handles /api/cloud/* endpoints.
+ * Cloud API routes for Milady — handles /api/cloud/* endpoints.
  */
 
 import type http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import type { CloudManager } from "../cloud/cloud-manager.js";
-import type { MilaidyConfig } from "../config/config.js";
-import { saveMilaidyConfig } from "../config/config.js";
+import type { CloudManager } from "../cloud/cloud-manager";
+import { validateCloudBaseUrl } from "../cloud/validate-url";
+import type { MiladyConfig } from "../config/config";
+import { saveMiladyConfig } from "../config/config";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
+import {
+  readJsonBody as parseJsonBody,
+  sendJson,
+  sendJsonError,
+} from "./http-helpers";
 
 export interface CloudRouteState {
-  config: MilaidyConfig;
+  config: MiladyConfig;
   cloudManager: CloudManager | null;
   /** The running agent runtime — needed to persist cloud credentials to the DB. */
   runtime: AgentRuntime | null;
@@ -24,32 +31,45 @@ function extractAgentId(pathname: string): string | null {
   return id && UUID_RE.test(id) ? id : null;
 }
 
-function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    req.on("data", (c: Buffer) => {
-      totalBytes += c.length;
-      if (totalBytes > 1_048_576) {
-        req.destroy();
-        reject(new Error("Request body too large"));
-        return;
-      }
-      chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
+/**
+ * Read and parse a JSON request body with size limits and error handling.
+ * Returns null (and sends a 4xx response) if reading or parsing fails.
+ */
+async function readJsonBody<T = Record<string, unknown>>(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<T | null> {
+  return parseJsonBody(req, res, {
+    maxBytes: 1_048_576,
+    tooLargeMessage: "Request body too large",
+    destroyOnTooLarge: true,
   });
 }
 
-function json(res: http.ServerResponse, data: unknown, status = 200): void {
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(data));
+const CLOUD_LOGIN_CREATE_TIMEOUT_MS = 10_000;
+const CLOUD_LOGIN_POLL_TIMEOUT_MS = 10_000;
+
+function isRedirectResponse(response: Response): boolean {
+  return response.status >= 300 && response.status < 400;
 }
 
-function err(res: http.ServerResponse, message: string, status = 400): void {
-  json(res, { error: message }, status);
+function isTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === "TimeoutError" || error.name === "AbortError") return true;
+  const message = error.message.toLowerCase();
+  return message.includes("timed out") || message.includes("timeout");
+}
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  return fetch(input, {
+    ...init,
+    redirect: "manual",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
 }
 
 /**
@@ -65,20 +85,64 @@ export async function handleCloudRoute(
   // POST /api/cloud/login
   if (method === "POST" && pathname === "/api/cloud/login") {
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
+    const urlError = await validateCloudBaseUrl(baseUrl);
+    if (urlError) {
+      sendJsonError(res, urlError);
+      return true;
+    }
     const sessionId = crypto.randomUUID();
-
-    const createRes = await fetch(`${baseUrl}/api/auth/cli-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId }),
+    const loginCreateSpan = createIntegrationTelemetrySpan({
+      boundary: "cloud",
+      operation: "login_create_session",
+      timeoutMs: CLOUD_LOGIN_CREATE_TIMEOUT_MS,
     });
 
-    if (!createRes.ok) {
-      err(res, "Failed to create auth session with Eliza Cloud", 502);
+    let createRes: Response;
+    try {
+      createRes = await fetchWithTimeout(
+        `${baseUrl}/api/auth/cli-session`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        },
+        CLOUD_LOGIN_CREATE_TIMEOUT_MS,
+      );
+    } catch (fetchErr) {
+      if (isTimeoutError(fetchErr)) {
+        loginCreateSpan.failure({ error: fetchErr, statusCode: 504 });
+        sendJsonError(res, "Eliza Cloud login request timed out", 504);
+        return true;
+      }
+      loginCreateSpan.failure({ error: fetchErr, statusCode: 502 });
+      sendJsonError(res, "Failed to reach Eliza Cloud", 502);
       return true;
     }
 
-    json(res, {
+    if (isRedirectResponse(createRes)) {
+      loginCreateSpan.failure({
+        statusCode: createRes.status,
+        errorKind: "redirect_response",
+      });
+      sendJsonError(
+        res,
+        "Eliza Cloud login request was redirected; redirects are not allowed",
+        502,
+      );
+      return true;
+    }
+
+    if (!createRes.ok) {
+      loginCreateSpan.failure({
+        statusCode: createRes.status,
+        errorKind: "http_error",
+      });
+      sendJsonError(res, "Failed to create auth session with Eliza Cloud", 502);
+      return true;
+    }
+
+    loginCreateSpan.success({ statusCode: createRes.status });
+    sendJson(res, {
       ok: true,
       sessionId,
       browserUrl: `${baseUrl}/auth/cli-login?session=${encodeURIComponent(sessionId)}`,
@@ -94,17 +158,76 @@ export async function handleCloudRoute(
     );
     const sessionId = url.searchParams.get("sessionId");
     if (!sessionId) {
-      err(res, "sessionId query parameter is required");
+      sendJsonError(res, "sessionId query parameter is required");
       return true;
     }
 
     const baseUrl = state.config.cloud?.baseUrl ?? "https://www.elizacloud.ai";
-    const pollRes = await fetch(
-      `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
-    );
+    const urlError = await validateCloudBaseUrl(baseUrl);
+    if (urlError) {
+      sendJsonError(res, urlError);
+      return true;
+    }
+    const loginPollSpan = createIntegrationTelemetrySpan({
+      boundary: "cloud",
+      operation: "login_poll_status",
+      timeoutMs: CLOUD_LOGIN_POLL_TIMEOUT_MS,
+    });
+    let pollRes: Response;
+    try {
+      pollRes = await fetchWithTimeout(
+        `${baseUrl}/api/auth/cli-session/${encodeURIComponent(sessionId)}`,
+        {},
+        CLOUD_LOGIN_POLL_TIMEOUT_MS,
+      );
+    } catch (fetchErr) {
+      if (isTimeoutError(fetchErr)) {
+        loginPollSpan.failure({ error: fetchErr, statusCode: 504 });
+        sendJson(
+          res,
+          {
+            status: "error",
+            error: "Eliza Cloud status request timed out",
+          },
+          504,
+        );
+        return true;
+      }
+      loginPollSpan.failure({ error: fetchErr, statusCode: 502 });
+      sendJson(
+        res,
+        {
+          status: "error",
+          error: "Failed to reach Eliza Cloud",
+        },
+        502,
+      );
+      return true;
+    }
+
+    if (isRedirectResponse(pollRes)) {
+      loginPollSpan.failure({
+        statusCode: pollRes.status,
+        errorKind: "redirect_response",
+      });
+      sendJson(
+        res,
+        {
+          status: "error",
+          error:
+            "Eliza Cloud status request was redirected; redirects are not allowed",
+        },
+        502,
+      );
+      return true;
+    }
 
     if (!pollRes.ok) {
-      json(
+      loginPollSpan.failure({
+        statusCode: pollRes.status,
+        errorKind: "http_error",
+      });
+      sendJson(
         res,
         pollRes.status === 404
           ? { status: "expired", error: "Session not found or expired" }
@@ -116,11 +239,22 @@ export async function handleCloudRoute(
       return true;
     }
 
-    const data = (await pollRes.json()) as {
+    let data: {
       status: string;
       apiKey?: string;
       keyPrefix?: string;
     };
+    try {
+      data = (await pollRes.json()) as {
+        status: string;
+        apiKey?: string;
+        keyPrefix?: string;
+      };
+    } catch (parseErr) {
+      loginPollSpan.failure({ error: parseErr, statusCode: pollRes.status });
+      throw parseErr;
+    }
+    loginPollSpan.success({ statusCode: pollRes.status });
 
     if (data.status === "authenticated" && data.apiKey) {
       // ── 1. Save to config file (on-disk persistence) ────────────────
@@ -131,7 +265,7 @@ export async function handleCloudRoute(
       cloud.apiKey = data.apiKey;
       (state.config as Record<string, unknown>).cloud = cloud;
       try {
-        saveMilaidyConfig(state.config);
+        saveMiladyConfig(state.config);
         logger.info("[cloud-login] API key saved to config file");
       } catch (saveErr) {
         logger.error(
@@ -170,12 +304,13 @@ export async function handleCloudRoute(
       }
 
       // ── 4. Init cloud manager if needed ─────────────────────────────
-      if (state.cloudManager && !state.cloudManager.getClient())
-        state.cloudManager.init();
+      if (state.cloudManager && !state.cloudManager.getClient()) {
+        await state.cloudManager.init();
+      }
 
-      json(res, { status: "authenticated", keyPrefix: data.keyPrefix });
+      sendJson(res, { status: "authenticated", keyPrefix: data.keyPrefix });
     } else {
-      json(res, { status: data.status });
+      sendJson(res, { status: data.status });
     }
     return true;
   }
@@ -184,10 +319,10 @@ export async function handleCloudRoute(
   if (method === "GET" && pathname === "/api/cloud/agents") {
     const client = state.cloudManager?.getClient();
     if (!client) {
-      err(res, "Not connected to Eliza Cloud", 401);
+      sendJsonError(res, "Not connected to Eliza Cloud", 401);
       return true;
     }
-    json(res, { ok: true, agents: await client.listAgents() });
+    sendJson(res, { ok: true, agents: await client.listAgents() });
     return true;
   }
 
@@ -195,23 +330,19 @@ export async function handleCloudRoute(
   if (method === "POST" && pathname === "/api/cloud/agents") {
     const client = state.cloudManager?.getClient();
     if (!client) {
-      err(res, "Not connected to Eliza Cloud", 401);
+      sendJsonError(res, "Not connected to Eliza Cloud", 401);
       return true;
     }
 
-    const raw = await readBody(req);
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      err(res, "Request body must be a JSON object");
-      return true;
-    }
-    const body = parsed as {
+    const body = await readJsonBody<{
       agentName?: string;
       agentConfig?: Record<string, unknown>;
       environmentVars?: Record<string, string>;
-    };
+    }>(req, res);
+    if (!body) return true;
+
     if (!body.agentName?.trim()) {
-      err(res, "agentName is required");
+      sendJsonError(res, "agentName is required");
       return true;
     }
 
@@ -220,7 +351,7 @@ export async function handleCloudRoute(
       agentConfig: body.agentConfig,
       environmentVars: body.environmentVars,
     });
-    json(res, { ok: true, agent }, 201);
+    sendJson(res, { ok: true, agent }, 201);
     return true;
   }
 
@@ -232,11 +363,11 @@ export async function handleCloudRoute(
   ) {
     const agentId = extractAgentId(pathname);
     if (!agentId || !state.cloudManager) {
-      err(res, "Invalid agent ID or cloud not connected", 400);
+      sendJsonError(res, "Invalid agent ID or cloud not connected", 400);
       return true;
     }
     const proxy = await state.cloudManager.connect(agentId);
-    json(res, {
+    sendJson(res, {
       ok: true,
       agentId,
       agentName: proxy.agentName,
@@ -253,18 +384,18 @@ export async function handleCloudRoute(
   ) {
     const agentId = extractAgentId(pathname);
     if (!agentId || !state.cloudManager) {
-      err(res, "Invalid agent ID or cloud not connected", 400);
+      sendJsonError(res, "Invalid agent ID or cloud not connected", 400);
       return true;
     }
     const client = state.cloudManager.getClient();
     if (!client) {
-      err(res, "Not connected to Eliza Cloud", 401);
+      sendJsonError(res, "Not connected to Eliza Cloud", 401);
       return true;
     }
     if (state.cloudManager.getActiveAgentId() === agentId)
       await state.cloudManager.disconnect();
     await client.deleteAgent(agentId);
-    json(res, { ok: true, agentId, status: "stopped" });
+    sendJson(res, { ok: true, agentId, status: "stopped" });
     return true;
   }
 
@@ -276,13 +407,13 @@ export async function handleCloudRoute(
   ) {
     const agentId = extractAgentId(pathname);
     if (!agentId || !state.cloudManager) {
-      err(res, "Invalid agent ID or cloud not connected", 400);
+      sendJsonError(res, "Invalid agent ID or cloud not connected", 400);
       return true;
     }
     if (state.cloudManager.getActiveAgentId())
       await state.cloudManager.disconnect();
     const proxy = await state.cloudManager.connect(agentId);
-    json(res, {
+    sendJson(res, {
       ok: true,
       agentId,
       agentName: proxy.agentName,
@@ -294,7 +425,46 @@ export async function handleCloudRoute(
   // POST /api/cloud/disconnect
   if (method === "POST" && pathname === "/api/cloud/disconnect") {
     if (state.cloudManager) await state.cloudManager.disconnect();
-    json(res, { ok: true, status: "disconnected" });
+    const cloud = (state.config.cloud ?? {}) as NonNullable<
+      typeof state.config.cloud
+    >;
+    cloud.enabled = false;
+    delete cloud.apiKey;
+    (state.config as Record<string, unknown>).cloud = cloud;
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (saveErr) {
+      logger.warn(
+        `[cloud-login] Failed to save cloud disconnect state: ${saveErr instanceof Error ? saveErr.message : saveErr}`,
+      );
+    }
+
+    delete process.env.ELIZAOS_CLOUD_API_KEY;
+    delete process.env.ELIZAOS_CLOUD_ENABLED;
+
+    if (state.runtime) {
+      try {
+        if (!state.runtime.character.secrets) {
+          state.runtime.character.secrets = {};
+        }
+        const secrets = state.runtime.character.secrets as Record<
+          string,
+          string | number | boolean
+        >;
+        delete secrets.ELIZAOS_CLOUD_API_KEY;
+        delete secrets.ELIZAOS_CLOUD_ENABLED;
+        await state.runtime.updateAgent(state.runtime.agentId, {
+          secrets: { ...secrets },
+        });
+      } catch (dbErr) {
+        logger.warn(
+          `[cloud-login] Failed to clear cloud secrets from agent DB: ${dbErr instanceof Error ? dbErr.message : dbErr}`,
+        );
+      }
+    }
+
+    sendJson(res, { ok: true, status: "disconnected" });
     return true;
   }
 

@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "ai.milaidy.plugins.screencapture",
+  "applicationId": "ai.milady.plugins.screencapture",
   "variantName": "debug",
   "elements": [
     {

@@ -1,6 +1,6 @@
-import { ascii } from "../ascii.js";
-import { cyberGreen, isRich, theme } from "../terminal/theme.js";
-import { resolveCommitHash } from "./git-commit.js";
+import { ascii } from "../ascii";
+import { cyberGreen, isRich, theme } from "../terminal/theme";
+import { resolveCommitHash } from "./git-commit";
 
 type BannerOptions = {
   env?: NodeJS.ProcessEnv;

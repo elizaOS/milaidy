@@ -1,36 +1,118 @@
+// @vitest-environment jsdom
 /**
- * Tests for @milaidy/capacitor-desktop — web fallbacks, window ops, clipboard, events.
+ * Tests for @milady/capacitor-desktop — web fallbacks, window ops, clipboard, events.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DesktopWeb } from "../../plugins/desktop/src/web";
 
-describe("@milaidy/capacitor-desktop", () => {
+describe("@milady/capacitor-desktop", () => {
   let d: DesktopWeb;
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't provide navigator.clipboard — stub it
+    if (!navigator.clipboard) {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: vi.fn(async () => { }),
+          readText: vi.fn(async () => ""),
+          read: vi.fn(async () => []),
+          write: vi.fn(async () => { }),
+        },
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      // Ensure methods exist on already-stubbed clipboard
+      if (!navigator.clipboard.writeText) {
+        Object.defineProperty(navigator.clipboard, "writeText", {
+          value: vi.fn(async () => { }),
+          writable: true,
+          configurable: true,
+        });
+      }
+      if (!navigator.clipboard.readText) {
+        Object.defineProperty(navigator.clipboard, "readText", {
+          value: vi.fn(async () => ""),
+          writable: true,
+          configurable: true,
+        });
+      }
+    }
+
+    // jsdom doesn't provide AudioContext — stub it for beep()
+    const gainNode = {
+      gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+      connect: vi.fn(),
+    };
+    gainNode.connect.mockReturnValue(gainNode);
+    const dest = {};
+    (globalThis as Record<string, unknown>).AudioContext = class {
+      createOscillator() {
+        const osc = {
+          type: "sine",
+          frequency: { value: 0, setValueAtTime: vi.fn() },
+          connect: vi.fn().mockReturnValue(gainNode),
+          start: vi.fn(),
+          stop: vi.fn(),
+        };
+        return osc;
+      }
+      createGain() {
+        return gainNode;
+      }
+      get destination() {
+        return dest;
+      }
+      get currentTime() {
+        return 0;
+      }
+    };
+
+    // jsdom location.reload is read-only; replace location entirely
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).location = new URL("http://localhost/") as any;
+    (window as any).location.reload = vi.fn();
+
     d = new DesktopWeb();
   });
 
   // -- No-op native features --
 
   describe("no-op native features on web", () => {
-    it.each(["createTray", "updateTray", "destroyTray", "setTrayMenu"] as const)(
-      "%s resolves", async (method) => {
-        await expect((d as Record<string, (...a: unknown[]) => Promise<void>>)[method]({})).resolves.toBeUndefined();
-      },
-    );
-
-    it("registerShortcut returns success: false", async () => {
-      expect((await d.registerShortcut({ id: "x", accelerator: "CmdOrCtrl+T" })).success).toBe(false);
+    it.each([
+      "createTray",
+      "updateTray",
+      "destroyTray",
+      "setTrayMenu",
+    ] as const)("%s resolves", async (method) => {
+      await expect(
+        (d as Record<string, (...a: unknown[]) => Promise<void>>)[method]({}),
+      ).resolves.toBeUndefined();
     });
 
-    it.each(["CmdOrCtrl+T", "", "F12"])("isShortcutRegistered(%s) → false", async (acc) => {
-      expect((await d.isShortcutRegistered({ accelerator: acc })).registered).toBe(false);
+    it("registerShortcut returns success: false", async () => {
+      expect(
+        (await d.registerShortcut({ id: "x", accelerator: "CmdOrCtrl+T" }))
+          .success,
+      ).toBe(false);
+    });
+
+    it.each([
+      "CmdOrCtrl+T",
+      "",
+      "F12",
+    ])("isShortcutRegistered(%s) → false", async (acc) => {
+      expect(
+        (await d.isShortcutRegistered({ accelerator: acc })).registered,
+      ).toBe(false);
     });
 
     it("getAutoLaunchStatus returns disabled", async () => {
-      expect(await d.getAutoLaunchStatus()).toEqual({ enabled: false, openAsHidden: false });
+      expect(await d.getAutoLaunchStatus()).toEqual({
+        enabled: false,
+        openAsHidden: false,
+      });
     });
   });
 
@@ -39,14 +121,21 @@ describe("@milaidy/capacitor-desktop", () => {
   describe("window management", () => {
     it("getWindowBounds returns numeric bounds", async () => {
       const b = await d.getWindowBounds();
-      for (const k of ["x", "y", "width", "height"] as const) expect(typeof b[k]).toBe("number");
+      for (const k of ["x", "y", "width", "height"] as const)
+        expect(typeof b[k]).toBe("number");
     });
 
     it.each([
       ["isWindowMaximized", "maximized", false],
       ["isWindowVisible", "visible", true],
     ] as const)("%s returns %s=%s", async (method, key, val) => {
-      expect((await (d as Record<string, () => Promise<Record<string, boolean>>>)[method]())[key]).toBe(val);
+      expect(
+        (
+          await (d as Record<string, () => Promise<Record<string, boolean>>>)[
+            method
+          ]()
+        )[key],
+      ).toBe(val);
     });
 
     it("closeWindow/showWindow/focusWindow call window methods", async () => {
@@ -60,9 +149,14 @@ describe("@milaidy/capacitor-desktop", () => {
     });
 
     it.each([
-      "minimizeWindow", "maximizeWindow", "unmaximizeWindow", "hideWindow",
+      "minimizeWindow",
+      "maximizeWindow",
+      "unmaximizeWindow",
+      "hideWindow",
     ] as const)("%s is a no-op", async (m) => {
-      await expect((d as Record<string, () => Promise<void>>)[m]()).resolves.toBeUndefined();
+      await expect(
+        (d as Record<string, () => Promise<void>>)[m](),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -110,11 +204,19 @@ describe("@milaidy/capacitor-desktop", () => {
       expect((await d.isPackaged()).packaged).toBe(false);
     });
 
-    it.each(["home", "appData", "userData", "temp", "desktop", "documents", "downloads"] as const)(
-      "getPath(%s) throws", async (name) => {
-        await expect(d.getPath({ name })).rejects.toThrow(/not available in browser/i);
-      },
-    );
+    it.each([
+      "home",
+      "appData",
+      "userData",
+      "temp",
+      "desktop",
+      "documents",
+      "downloads",
+    ] as const)("getPath(%s) throws", async (name) => {
+      await expect(d.getPath({ name })).rejects.toThrow(
+        /not available in browser/i,
+      );
+    });
 
     it("quit → window.close, relaunch → location.reload", async () => {
       const close = vi.spyOn(window, "close");
@@ -130,18 +232,27 @@ describe("@milaidy/capacitor-desktop", () => {
 
   describe("clipboard", () => {
     it("writeToClipboard calls clipboard.writeText", async () => {
-      const spy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
+      const spy = vi
+        .spyOn(navigator.clipboard, "writeText")
+        .mockResolvedValueOnce();
       await d.writeToClipboard({ text: "hello" });
       expect(spy).toHaveBeenCalledWith("hello");
     });
 
     it("readFromClipboard returns text with hasImage=false", async () => {
-      vi.spyOn(navigator.clipboard, "readText").mockResolvedValueOnce("content");
-      expect(await d.readFromClipboard()).toEqual({ text: "content", hasImage: false });
+      vi.spyOn(navigator.clipboard, "readText").mockResolvedValueOnce(
+        "content",
+      );
+      expect(await d.readFromClipboard()).toEqual({
+        text: "content",
+        hasImage: false,
+      });
     });
 
     it("clearClipboard writes empty string", async () => {
-      const spy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
+      const spy = vi
+        .spyOn(navigator.clipboard, "writeText")
+        .mockResolvedValueOnce();
       await d.clearClipboard();
       expect(spy).toHaveBeenCalledWith("");
     });

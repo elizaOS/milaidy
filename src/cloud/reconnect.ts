@@ -3,7 +3,7 @@
  */
 
 import { logger } from "@elizaos/core";
-import type { ElizaCloudClient } from "./bridge-client.js";
+import type { ElizaCloudClient } from "./bridge-client";
 
 export interface ConnectionMonitorCallbacks {
   onDisconnect: () => void;

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Pre-push hook: Codex 5.3 review before pushing to shared branches
+# Install: ln -sf ../../.github/hooks/pre-push .git/hooks/pre-push
+
+set -euo pipefail
+
+# Only review on pushes to develop or feature branches
+remote="$1"
+url="$2"
+
+# Skip if codex is not installed
+if ! command -v codex &>/dev/null; then
+  echo "⚠️  codex not found, skipping pre-push review"
+  exit 0
+fi
+
+# Read push refs from stdin
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip deletes
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  branch="${remote_ref#refs/heads/}"
+
+  # Skip main (Shaw's branch)
+  if [ "$branch" = "main" ]; then
+    continue
+  fi
+
+  # Skip if no commits to review
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    base="origin/develop"
+  else
+    base="$remote_sha"
+  fi
+
+  echo ""
+  echo "🔍 Running Codex 5.3 review against $base..."
+  echo "   Branch: $branch"
+  echo ""
+
+  # Run codex review
+  if ! codex review --base "$base" --title "Pre-push review: $branch" 2>&1; then
+    echo ""
+    echo "❌ Codex review found issues. Push anyway? (y/N)"
+    read -r answer < /dev/tty
+    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+      echo "Push aborted."
+      exit 1
+    fi
+  fi
+
+  echo "✅ Codex review passed."
+done
+
+exit 0

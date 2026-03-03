@@ -10,7 +10,7 @@
  *   ALCHEMY_API_KEY      — Alchemy API key with Ethereum mainnet enabled
  *   HELIUS_API_KEY       — Helius API key
  *
- * Run: MILAIDY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/wallet-live.e2e.test.ts
+ * Run: MILADY_LIVE_TEST=1 npx vitest run -c vitest.e2e.config.ts test/wallet-live.e2e.test.ts
  */
 import http from "node:http";
 import path from "node:path";
@@ -24,14 +24,6 @@ try {
 } catch {
   // dotenv may not be available — keys must be in process.env already
 }
-
-// Also load the user's explicit API keys if not already set
-if (!process.env.ALCHEMY_API_KEY)
-  process.env.ALCHEMY_API_KEY = "b_Ou4aeoKR4tGaTPVp36T";
-if (!process.env.HELIUS_API_KEY)
-  process.env.HELIUS_API_KEY = "67ea9085-1406-4db8-8872-38ac77950d7a";
-if (!process.env.BIRDEYE_API_KEY)
-  process.env.BIRDEYE_API_KEY = "229f561f74844baebc96ce72aca959db";
 
 // Normalize key names: .env uses SOLANA_API_KEY, wallet expects SOLANA_PRIVATE_KEY
 if (!process.env.SOLANA_PRIVATE_KEY && process.env.SOLANA_API_KEY) {
@@ -52,6 +44,7 @@ const hasSolKey = Boolean(process.env.SOLANA_PRIVATE_KEY?.trim());
 const hasAlchemy = Boolean(process.env.ALCHEMY_API_KEY?.trim());
 const hasHelius = Boolean(process.env.HELIUS_API_KEY?.trim());
 const canRun = hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
+const WALLET_EXPORT_TOKEN = `wallet-live-export-token-${Date.now()}`;
 
 function req(
   port: number,
@@ -96,9 +89,53 @@ function req(
 describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
   let port: number;
   let close: () => Promise<void>;
+  let savedExportToken: string | undefined;
 
   beforeAll(async () => {
-    const { startApiServer } = await import("../src/api/server.js");
+    savedExportToken = process.env.MILADY_WALLET_EXPORT_TOKEN;
+    process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TOKEN;
+
+    // Validate or generate keys BEFORE starting the server
+    const { generateWalletKeys, deriveEvmAddress, deriveSolanaAddress } =
+      await import("../src/api/wallet");
+
+    // 1. Ensure EVM Key is valid
+    let validEvm = false;
+    if (process.env.EVM_PRIVATE_KEY) {
+      try {
+        deriveEvmAddress(process.env.EVM_PRIVATE_KEY);
+        validEvm = true;
+      } catch {
+        console.warn(
+          "  [Test Setup] Invalid EVM_PRIVATE_KEY in env, generating fallback...",
+        );
+      }
+    }
+    if (!validEvm) {
+      const keys = generateWalletKeys();
+      process.env.EVM_PRIVATE_KEY = keys.evmPrivateKey;
+      console.log("  [Test Setup] Using generated fallback EVM key");
+    }
+
+    // 2. Ensure Solana Key is valid
+    let validSol = false;
+    if (process.env.SOLANA_PRIVATE_KEY) {
+      try {
+        deriveSolanaAddress(process.env.SOLANA_PRIVATE_KEY);
+        validSol = true;
+      } catch {
+        console.warn(
+          "  [Test Setup] Invalid SOLANA_PRIVATE_KEY in env, generating fallback...",
+        );
+      }
+    }
+    if (!validSol) {
+      const keys = generateWalletKeys();
+      process.env.SOLANA_PRIVATE_KEY = keys.solanaPrivateKey;
+      console.log("  [Test Setup] Using generated fallback Solana key");
+    }
+
+    const { startApiServer } = await import("../src/api/server");
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -106,6 +143,11 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
   afterAll(async () => {
     await close();
+    if (savedExportToken === undefined) {
+      delete process.env.MILADY_WALLET_EXPORT_TOKEN;
+    } else {
+      process.env.MILADY_WALLET_EXPORT_TOKEN = savedExportToken;
+    }
   });
 
   // ── Addresses ──────────────────────────────────────────────────────────
@@ -284,6 +326,7 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
     const { data: addrs } = await req(port, "GET", "/api/wallet/addresses");
     const { data: exported } = await req(port, "POST", "/api/wallet/export", {
       confirm: true,
+      exportToken: WALLET_EXPORT_TOKEN,
     });
 
     const evmExport = exported.evm as {
@@ -308,10 +351,12 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
 
     // Re-derive from exported key to verify it's the same address
     const { deriveEvmAddress, deriveSolanaAddress } = await import(
-      "../src/api/wallet.js"
+      "../src/api/wallet"
     );
-    expect(deriveEvmAddress(evmExport?.privateKey)).toBe(addrs.evmAddress);
-    expect(deriveSolanaAddress(solExport?.privateKey)).toBe(
+    expect(deriveEvmAddress(evmExport?.privateKey as string)).toBe(
+      addrs.evmAddress,
+    );
+    expect(deriveSolanaAddress(solExport?.privateKey as string)).toBe(
       addrs.solanaAddress,
     );
   });
@@ -319,7 +364,7 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
   // ── Full flow: generate -> import -> addresses -> balances ────────────
 
   it("full flow: generate new keys, import, verify addresses, fetch balances", async () => {
-    const { generateWalletKeys } = await import("../src/api/wallet.js");
+    const { generateWalletKeys } = await import("../src/api/wallet");
 
     // Generate fresh keys
     const freshKeys = generateWalletKeys();

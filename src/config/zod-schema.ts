@@ -3,36 +3,43 @@ import {
   AgentDefaultsSchema,
   AgentEntrySchema,
   ToolsSchema,
-} from "./zod-schema.agent-runtime.js";
+} from "./zod-schema.agent-runtime";
 import {
   ChannelHeartbeatVisibilitySchema,
   GroupPolicySchema,
   HexColorSchema,
   ModelsConfigSchema,
   TranscribeAudioSchema,
-} from "./zod-schema.core.js";
+} from "./zod-schema.core";
 import {
   HookMappingSchema,
   HooksGmailSchema,
+  InstallRecordSchema,
   InternalHooksSchema,
-} from "./zod-schema.hooks.js";
+} from "./zod-schema.hooks";
 import {
   BlueBubblesConfigSchema,
+  CustomRtmpConfigSchema,
   DiscordConfigSchema,
   GoogleChatConfigSchema,
   IMessageConfigSchema,
   MSTeamsConfigSchema,
+  RetakeConfigSchema,
   SignalConfigSchema,
   SlackConfigSchema,
   TelegramConfigSchema,
+  TwitchConnectorConfigSchema,
+  TwitchStreamConfigSchema,
+  TwitterConfigSchema,
   WhatsAppConfigSchema,
-} from "./zod-schema.providers-core.js";
+  YoutubeStreamConfigSchema,
+} from "./zod-schema.providers-core";
 import {
   CommandsSchema,
   MessagesSchema,
   SessionSchema,
   SessionSendPolicySchema,
-} from "./zod-schema.session.js";
+} from "./zod-schema.session";
 
 // --- Agents (merged from zod-schema.agents.ts) ---
 
@@ -134,14 +141,30 @@ const ConnectorsSchema = z
     whatsapp: WhatsAppConfigSchema.optional(),
     telegram: TelegramConfigSchema.optional(),
     discord: DiscordConfigSchema.optional(),
+    twitter: TwitterConfigSchema.optional(),
     googlechat: GoogleChatConfigSchema.optional(),
     slack: SlackConfigSchema.optional(),
     signal: SignalConfigSchema.optional(),
     imessage: IMessageConfigSchema.optional(),
     bluebubbles: BlueBubblesConfigSchema.optional(),
     msteams: MSTeamsConfigSchema.optional(),
+    retake: RetakeConfigSchema.optional(),
+    twitch: TwitchConnectorConfigSchema.optional(),
   })
   .passthrough() // Allow extension connector configs (nostr, matrix, zalo, etc.)
+  .optional();
+
+// --- Streaming destinations ---
+
+const StreamingSchema = z
+  .object({
+    activeDestination: z.string().optional(),
+    retake: RetakeConfigSchema.optional(),
+    twitch: TwitchStreamConfigSchema.optional(),
+    youtube: YoutubeStreamConfigSchema.optional(),
+    customRtmp: CustomRtmpConfigSchema.optional(),
+  })
+  .passthrough() // Allow extension streaming destination configs
   .optional();
 
 const BrowserSnapshotDefaultsSchema = z
@@ -269,7 +292,7 @@ export const CharacterSchema = z
 
 // --- Main config schema ---
 
-export const MilaidySchema = z
+export const MiladySchema = z
   .object({
     meta: z
       .object({
@@ -524,6 +547,7 @@ export const MilaidySchema = z
       .strict()
       .optional(),
     connectors: ConnectorsSchema,
+    streaming: StreamingSchema,
     /** @deprecated Use `connectors`. Kept for backward compatibility. */
     channels: ConnectorsSchema,
     discovery: z
@@ -720,6 +744,19 @@ export const MilaidySchema = z
       .strict()
       .optional(),
     memory: MemorySchema,
+    embedding: z
+      .object({
+        model: z.string().optional(),
+        modelRepo: z.string().optional(),
+        dimensions: z.number().int().positive().optional(),
+        contextSize: z.number().int().positive().optional(),
+        gpuLayers: z
+          .union([z.literal("auto"), z.literal("max"), z.number().int().min(0)])
+          .optional(),
+        idleTimeoutMinutes: z.number().min(0).optional(),
+      })
+      .strict()
+      .optional(),
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),
@@ -736,12 +773,7 @@ export const MilaidySchema = z
           .object({
             preferBrew: z.boolean().optional(),
             nodeManager: z
-              .union([
-                z.literal("npm"),
-                z.literal("pnpm"),
-                z.literal("yarn"),
-                z.literal("bun"),
-              ])
+              .union([z.literal("npm"), z.literal("yarn"), z.literal("bun")])
               .optional(),
           })
           .strict()
@@ -790,25 +822,7 @@ export const MilaidySchema = z
               .strict(),
           )
           .optional(),
-        installs: z
-          .record(
-            z.string(),
-            z
-              .object({
-                source: z.union([
-                  z.literal("npm"),
-                  z.literal("archive"),
-                  z.literal("path"),
-                ]),
-                spec: z.string().optional(),
-                sourcePath: z.string().optional(),
-                installPath: z.string().optional(),
-                version: z.string().optional(),
-                installedAt: z.string().optional(),
-              })
-              .strict(),
-          )
-          .optional(),
+        installs: z.record(z.string(), InstallRecordSchema).optional(),
       })
       .strict()
       .optional(),

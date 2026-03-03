@@ -1,0 +1,64 @@
+name: Benchmark Bridge Tests
+
+concurrency:
+  group: benchmark-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "src/benchmark/**"
+      - "package.json"
+      - ".github/workflows/benchmark-tests.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "src/benchmark/**"
+      - "package.json"
+      - ".github/workflows/benchmark-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: benchmark-tests
+            command: bunx vitest run src/benchmark/*.test.ts
+          - lane: benchmark-lint
+            command: bunx @biomejs/biome check src/benchmark
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: |
+          for i in 1 2 3; do
+            bun install --ignore-scripts && break
+            if [ "$i" -eq 3 ]; then
+              echo "bun install failed after $i attempts"
+              exit 1
+            fi
+            echo "Retry $i: bun install failed, retrying..."
+            sleep 5
+          done
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Run ${{ matrix.lane }} lane
+        env:
+          CI: "true"
+        run: ${{ matrix.command }}

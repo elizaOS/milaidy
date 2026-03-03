@@ -1,12 +1,11 @@
 import { WebPlugin } from "@capacitor/core";
 
 import type {
-  SwabblePlugin,
-  SwabbleStartOptions,
-  SwabbleStartResult,
   SwabbleConfig,
   SwabblePermissionStatus,
   SwabbleSpeechSegment,
+  SwabbleStartOptions,
+  SwabbleStartResult,
 } from "./definitions";
 
 interface SpeechRecognitionInstance extends EventTarget {
@@ -15,8 +14,15 @@ interface SpeechRecognitionInstance extends EventTarget {
   lang: string;
   onstart: ((this: SpeechRecognitionInstance) => void) | null;
   onend: ((this: SpeechRecognitionInstance) => void) | null;
-  onerror: ((this: SpeechRecognitionInstance, event: { error: string }) => void) | null;
-  onresult: ((this: SpeechRecognitionInstance, event: SpeechRecognitionResultEvent) => void) | null;
+  onerror:
+    | ((this: SpeechRecognitionInstance, event: { error: string }) => void)
+    | null;
+  onresult:
+    | ((
+        this: SpeechRecognitionInstance,
+        event: SpeechRecognitionResultEvent,
+      ) => void)
+    | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -29,19 +35,24 @@ interface SpeechRecognitionResultEvent {
 
 interface SpeechRecognitionResultList {
   length: number;
-  [index: number]: { isFinal: boolean; 0: { transcript: string; confidence: number } };
+  [index: number]: {
+    isFinal: boolean;
+    0: { transcript: string; confidence: number };
+  };
 }
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
 const getSpeechRecognition = (): SpeechRecognitionCtor | null =>
-  (window as unknown as Record<string, unknown>).SpeechRecognition as SpeechRecognitionCtor ||
-  (window as unknown as Record<string, unknown>).webkitSpeechRecognition as SpeechRecognitionCtor ||
+  ((window as unknown as Record<string, unknown>)
+    .SpeechRecognition as SpeechRecognitionCtor) ||
+  ((window as unknown as Record<string, unknown>)
+    .webkitSpeechRecognition as SpeechRecognitionCtor) ||
   null;
 
 /**
  * WakeWordGate detects trigger phrases in transcripts.
- * 
+ *
  * LIMITATION: Web Speech API does not provide word-level timing data.
  * Unlike native implementations, we cannot measure post-trigger gaps.
  * The `postGap` returned is always -1 (unavailable), and minPostTriggerGap is ignored.
@@ -58,15 +69,19 @@ class WakeWordGate {
   }
 
   updateConfig(config: Partial<SwabbleConfig>): void {
-    if (config.triggers) this.triggers = config.triggers.map((t) => t.toLowerCase().trim());
-    if (config.minCommandLength !== undefined) this.minCommandLength = config.minCommandLength;
+    if (config.triggers)
+      this.triggers = config.triggers.map((t) => t.toLowerCase().trim());
+    if (config.minCommandLength !== undefined)
+      this.minCommandLength = config.minCommandLength;
   }
 
   /**
    * Match wake word in transcript using text-only detection.
    * Returns postGap=-1 to indicate timing data is unavailable on web.
    */
-  match(transcript: string): { wakeWord: string; command: string; postGap: number } | null {
+  match(
+    transcript: string,
+  ): { wakeWord: string; command: string; postGap: number } | null {
     const normalizedTranscript = transcript.toLowerCase();
 
     for (const trigger of this.triggers) {
@@ -102,7 +117,10 @@ export class SwabbleWeb extends WebPlugin {
 
     const SpeechRecognitionAPI = getSpeechRecognition();
     if (!SpeechRecognitionAPI) {
-      return { started: false, error: "Speech recognition not supported in this browser" };
+      return {
+        started: false,
+        error: "Speech recognition not supported in this browser",
+      };
     }
 
     this.config = options.config;
@@ -128,7 +146,8 @@ export class SwabbleWeb extends WebPlugin {
     };
 
     recognition.onerror = (event: { error: string }) => {
-      const recoverable = event.error === "no-speech" || event.error === "aborted";
+      const recoverable =
+        event.error === "no-speech" || event.error === "aborted";
       this.notifyListeners("error", {
         code: event.error,
         message: `Speech recognition error: ${event.error}`,
@@ -136,11 +155,15 @@ export class SwabbleWeb extends WebPlugin {
       });
       if (!recoverable) {
         this.isActive = false;
-        this.notifyListeners("stateChange", { state: "error", reason: event.error });
+        this.notifyListeners("stateChange", {
+          state: "error",
+          reason: event.error,
+        });
       }
     };
 
-    recognition.onresult = (event: SpeechRecognitionResultEvent) => this.handleSpeechResult(event);
+    recognition.onresult = (event: SpeechRecognitionResultEvent) =>
+      this.handleSpeechResult(event);
 
     this.recognition = recognition;
     await this.startAudioLevelMonitoring();
@@ -162,15 +185,20 @@ export class SwabbleWeb extends WebPlugin {
     const words = transcript.split(/\s+/).filter(Boolean);
     this.segments = words.map((text) => ({
       text,
-      start: -1,    // Unavailable on web
-      duration: -1, // Unavailable on web  
+      start: -1, // Unavailable on web
+      duration: -1, // Unavailable on web
       isFinal,
     }));
 
     const lastResult = event.results[event.results.length - 1];
     const confidence = lastResult?.[0]?.confidence;
 
-    this.notifyListeners("transcript", { transcript, segments: this.segments, isFinal, confidence });
+    this.notifyListeners("transcript", {
+      transcript,
+      segments: this.segments,
+      isFinal,
+      confidence,
+    });
 
     if (isFinal && this.wakeGate) {
       const match = this.wakeGate.match(transcript);
@@ -181,7 +209,9 @@ export class SwabbleWeb extends WebPlugin {
   }
 
   private async startAudioLevelMonitoring(): Promise<void> {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+    const stream = await navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .catch(() => null);
     if (!stream) return;
 
     this.mediaStream = stream;
@@ -208,7 +238,9 @@ export class SwabbleWeb extends WebPlugin {
     this.levelInterval = null;
     this.audioContext?.close();
     this.audioContext = null;
-    this.mediaStream?.getTracks().forEach((t) => t.stop());
+    this.mediaStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
     this.mediaStream = null;
     this.analyser = null;
   }
@@ -231,7 +263,9 @@ export class SwabbleWeb extends WebPlugin {
     return { config: this.config };
   }
 
-  async updateConfig(options: { config: Partial<SwabbleConfig> }): Promise<void> {
+  async updateConfig(options: {
+    config: Partial<SwabbleConfig>;
+  }): Promise<void> {
     if (this.config) {
       this.config = { ...this.config, ...options.config };
       this.wakeGate?.updateConfig(options.config);
@@ -245,16 +279,25 @@ export class SwabbleWeb extends WebPlugin {
   async checkPermissions(): Promise<SwabblePermissionStatus> {
     let microphone: SwabblePermissionStatus["microphone"] = "prompt";
     try {
-      const result = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       microphone = result.state as SwabblePermissionStatus["microphone"];
-    } catch { /* permissions.query not supported for microphone in some browsers */ }
-    return { microphone, speechRecognition: getSpeechRecognition() ? "granted" : "not_supported" };
+    } catch {
+      /* permissions.query not supported for microphone in some browsers */
+    }
+    return {
+      microphone,
+      speechRecognition: getSpeechRecognition() ? "granted" : "not_supported",
+    };
   }
 
   async requestPermissions(): Promise<SwabblePermissionStatus> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
       return this.checkPermissions();
     } catch {
       return {
@@ -285,6 +328,8 @@ export class SwabbleWeb extends WebPlugin {
   async setAudioDevice(_options: { deviceId: string }): Promise<void> {
     // Web Speech API doesn't support device selection directly.
     // The browser uses its default audio input device.
-    throw new Error("setAudioDevice is not supported on web platform - browser uses system default audio input");
+    throw new Error(
+      "setAudioDevice is not supported on web platform - browser uses system default audio input",
+    );
   }
 }

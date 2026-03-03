@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDurationMs } from "./parse-duration.js";
+import { parseDurationMs } from "./parse-duration";
 
 describe("parseDurationMs", () => {
   it("parses bare ms", () => {

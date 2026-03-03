@@ -5,21 +5,21 @@ import {
   ConfigIncludeError,
   type IncludeResolver,
   resolveConfigIncludes,
-} from "./includes.js";
+} from "./includes";
 
 const ROOT_DIR = path.parse(process.cwd()).root;
 const CONFIG_DIR = path.join(ROOT_DIR, "config");
-const ETC_MILAIDY_DIR = path.join(ROOT_DIR, "etc", "milaidy");
+const ETC_MILADY_DIR = path.join(ROOT_DIR, "etc", "milady");
 const SHARED_DIR = path.join(ROOT_DIR, "shared");
 
-const DEFAULT_BASE_PATH = path.join(CONFIG_DIR, "milaidy.json");
+const DEFAULT_BASE_PATH = path.join(CONFIG_DIR, "milady.json");
 
 function configPath(...parts: string[]) {
   return path.join(CONFIG_DIR, ...parts);
 }
 
-function etcMilaidyPath(...parts: string[]) {
-  return path.join(ETC_MILAIDY_DIR, ...parts);
+function etcMiladyPath(...parts: string[]) {
+  return path.join(ETC_MILADY_DIR, ...parts);
 }
 
 function sharedPath(...parts: string[]) {
@@ -63,6 +63,34 @@ describe("resolveConfigIncludes", () => {
     expect(resolve(obj)).toEqual(obj);
   });
 
+  it("drops prototype-pollution keys in plain objects", () => {
+    const obj = {
+      safe: true,
+      __proto__: { polluted: true },
+      constructor: { hacked: true },
+      prototype: { hacked: true },
+    };
+    const resolved = resolve(obj) as Record<string, unknown>;
+    expect(resolved).toEqual({ safe: true });
+    expect(Object.hasOwn(resolved, "__proto__")).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("drops prototype-pollution keys from includes", () => {
+    const files = {
+      [configPath("bad.json")]: {
+        safe: 1,
+        __proto__: { polluted: true },
+        constructor: { hacked: true },
+        prototype: { hacked: true },
+      },
+    };
+    const obj = { $include: "./bad.json" };
+    const resolved = resolve(obj, files) as Record<string, unknown>;
+    expect(resolved).toEqual({ safe: 1 });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("resolves single file $include", () => {
     const files = { [configPath("agents.json")]: { list: [{ id: "main" }] } };
     const obj = { agents: { $include: "./agents.json" } };
@@ -72,7 +100,7 @@ describe("resolveConfigIncludes", () => {
   });
 
   it("resolves absolute path $include", () => {
-    const absolute = etcMilaidyPath("agents.json");
+    const absolute = etcMiladyPath("agents.json");
     const files = { [absolute]: { list: [{ id: "main" }] } };
     const obj = { agents: { $include: absolute } };
     expect(resolve(obj, files)).toEqual({
@@ -291,7 +319,7 @@ describe("resolveConfigIncludes", () => {
   it("resolves parent directory references", () => {
     const files = { [sharedPath("common.json")]: { shared: true } };
     const obj = { $include: "../../shared/common.json" };
-    expect(resolve(obj, files, configPath("sub", "milaidy.json"))).toEqual({
+    expect(resolve(obj, files, configPath("sub", "milady.json"))).toEqual({
       shared: true,
     });
   });

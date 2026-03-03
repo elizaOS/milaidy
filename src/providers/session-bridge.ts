@@ -1,7 +1,7 @@
 /**
- * Bridges Milaidy session keys with ElizaOS rooms.
+ * Bridges Milady session keys with ElizaOS rooms.
  *
- * Milaidy keys: agent:{agentId}:main (DMs), agent:{agentId}:{channel}:group:{id} (groups)
+ * Milady keys: agent:{agentId}:main (DMs), agent:{agentId}:{channel}:group:{id} (groups)
  * ElizaOS rooms: per-agent UUIDs via createUniqueUuid(runtime, channelId)
  */
 
@@ -13,14 +13,56 @@ import type {
   Room,
   State,
 } from "@elizaos/core";
-import {
-  buildAgentMainSessionKey,
-  ChannelType,
-  parseAgentSessionKey,
-} from "@elizaos/core";
+import * as elizaCore from "@elizaos/core";
+
+type ElizaCoreSessionHelpers = {
+  buildAgentMainSessionKey?: (params: {
+    agentId: string;
+    mainKey: string;
+  }) => string;
+  ChannelType?: {
+    DM: number | string;
+    SELF: number | string;
+    GROUP: number | string;
+  };
+  parseAgentSessionKey?: (key: string) =>
+    | {
+        agentId?: string;
+      }
+    | undefined;
+};
+
+const coreSessionHelpers = elizaCore as ElizaCoreSessionHelpers;
+// Fallback for when ChannelType is not exported by @elizaos/core (e.g. in tests)
+const channelType = coreSessionHelpers.ChannelType ?? {
+  DM: "DM",
+  SELF: "SELF",
+  GROUP: "GROUP",
+};
+
+function buildAgentMainSessionKey(params: {
+  agentId: string;
+  mainKey: string;
+}): string {
+  if (typeof coreSessionHelpers.buildAgentMainSessionKey === "function") {
+    return coreSessionHelpers.buildAgentMainSessionKey(params);
+  }
+  return `agent:${params.agentId}:${params.mainKey}`;
+}
+
+function parseAgentSessionKey(key: string):
+  | {
+      agentId?: string;
+    }
+  | undefined {
+  if (typeof coreSessionHelpers.parseAgentSessionKey === "function") {
+    return coreSessionHelpers.parseAgentSessionKey(key);
+  }
+  return undefined;
+}
 
 /**
- * Resolve an Milaidy session key from an ElizaOS room.
+ * Resolve an Milady session key from an ElizaOS room.
  *
  * DMs -> agent:{agentId}:main
  * Groups -> agent:{agentId}:{channel}:group:{groupId}
@@ -34,12 +76,12 @@ export function resolveSessionKeyFromRoom(
 ): string {
   const channel = meta?.channel ?? room.source ?? "unknown";
 
-  if (room.type === ChannelType.DM || room.type === ChannelType.SELF) {
+  if (room.type === channelType.DM || room.type === channelType.SELF) {
     return buildAgentMainSessionKey({ agentId, mainKey: "main" });
   }
 
   const id = meta?.groupId ?? room.channelId ?? room.id;
-  const kind = room.type === ChannelType.GROUP ? "group" : "channel";
+  const kind = room.type === channelType.GROUP ? "group" : "channel";
   const base = `agent:${agentId}:${channel}:${kind}:${id}`;
   return meta?.threadId ? `${base}:thread:${meta.threadId}` : base;
 }
@@ -50,8 +92,8 @@ export function createSessionKeyProvider(options?: {
   const agentId = options?.defaultAgentId ?? "main";
 
   return {
-    name: "milaidySessionKey",
-    description: "Milaidy session key (DM/group/thread isolation)",
+    name: "miladySessionKey",
+    description: "Milady session key (DM/group/thread isolation)",
     dynamic: true,
     position: 5,
 
@@ -93,7 +135,7 @@ export function createSessionKeyProvider(options?: {
 
       return {
         text: `Session: ${key}`,
-        values: { sessionKey: key, isGroup: room.type === ChannelType.GROUP },
+        values: { sessionKey: key, isGroup: room.type === channelType.GROUP },
         data: { sessionKey: key },
       };
     },

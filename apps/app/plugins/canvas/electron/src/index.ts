@@ -8,23 +8,23 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
-  CanvasPlugin,
-  CanvasSize,
-  CanvasRect,
   CanvasColor,
-  CanvasLayer,
-  CanvasStrokeStyle,
-  CanvasFillStyle,
-  CanvasTextStyle,
-  CanvasPoint,
-  CanvasPath,
-  CanvasDrawOptions,
   CanvasDrawBatchCommand,
-  CanvasTransform,
-  CanvasImageData,
+  CanvasDrawOptions,
+  CanvasFillStyle,
   CanvasGradient,
-  CanvasTouchEvent,
+  CanvasImageData,
+  CanvasLayer,
+  CanvasPath,
+  CanvasPlugin,
+  CanvasPoint,
+  CanvasRect,
   CanvasRenderEvent,
+  CanvasSize,
+  CanvasStrokeStyle,
+  CanvasTextStyle,
+  CanvasTouchEvent,
+  CanvasTransform,
 } from "../../src/definitions";
 
 type EventCallback<T> = (event: T) => void;
@@ -49,12 +49,27 @@ function colorToString(color: CanvasColor | string): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
-function createGradient(ctx: CanvasRenderingContext2D, gradient: CanvasGradient): CanvasGradient2D {
+function createGradient(
+  ctx: CanvasRenderingContext2D,
+  gradient: CanvasGradient,
+): CanvasGradient2D {
   let canvasGradient: CanvasGradient2D;
   if (gradient.type === "linear") {
-    canvasGradient = ctx.createLinearGradient(gradient.x0, gradient.y0, gradient.x1, gradient.y1);
+    canvasGradient = ctx.createLinearGradient(
+      gradient.x0,
+      gradient.y0,
+      gradient.x1,
+      gradient.y1,
+    );
   } else {
-    canvasGradient = ctx.createRadialGradient(gradient.x0, gradient.y0, gradient.r0, gradient.x1, gradient.y1, gradient.r1);
+    canvasGradient = ctx.createRadialGradient(
+      gradient.x0,
+      gradient.y0,
+      gradient.r0,
+      gradient.x1,
+      gradient.y1,
+      gradient.r1,
+    );
   }
   for (const stop of gradient.stops) {
     canvasGradient.addColorStop(stop.offset, colorToString(stop.color));
@@ -62,7 +77,9 @@ function createGradient(ctx: CanvasRenderingContext2D, gradient: CanvasGradient)
   return canvasGradient;
 }
 
-type CanvasGradient2D = ReturnType<CanvasRenderingContext2D["createLinearGradient"]>;
+type CanvasGradient2D = ReturnType<
+  CanvasRenderingContext2D["createLinearGradient"]
+>;
 
 /**
  * Canvas Plugin implementation for Electron
@@ -75,7 +92,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Canvas Lifecycle
 
-  async create(options: { size: CanvasSize; backgroundColor?: CanvasColor | string }): Promise<{ canvasId: string }> {
+  async create(options: {
+    size: CanvasSize;
+    backgroundColor?: CanvasColor | string;
+  }): Promise<{ canvasId: string }> {
     const canvasId = `canvas_${++this.canvasIdCounter}`;
 
     const canvas = document.createElement("canvas");
@@ -115,7 +135,10 @@ export class CanvasElectron implements CanvasPlugin {
     }
   }
 
-  async attach(options: { canvasId: string; element: HTMLElement }): Promise<void> {
+  async attach(options: {
+    canvasId: string;
+    element: HTMLElement;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -151,7 +174,11 @@ export class CanvasElectron implements CanvasPlugin {
     instance.element.height = options.size.height;
   }
 
-  async clear(options: { canvasId: string; rect?: CanvasRect; layerId?: string }): Promise<void> {
+  async clear(options: {
+    canvasId: string;
+    rect?: CanvasRect;
+    layerId?: string;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -159,7 +186,12 @@ export class CanvasElectron implements CanvasPlugin {
 
     const ctx = instance.context;
     if (options.rect) {
-      ctx.clearRect(options.rect.x, options.rect.y, options.rect.width, options.rect.height);
+      ctx.clearRect(
+        options.rect.x,
+        options.rect.y,
+        options.rect.width,
+        options.rect.height,
+      );
     } else {
       ctx.clearRect(0, 0, instance.element.width, instance.element.height);
     }
@@ -167,7 +199,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Layer Management
 
-  async createLayer(options: { canvasId: string; layer: Omit<CanvasLayer, "id"> }): Promise<{ layerId: string }> {
+  async createLayer(options: {
+    canvasId: string;
+    layer: Omit<CanvasLayer, "id">;
+  }): Promise<{ layerId: string }> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -183,7 +218,11 @@ export class CanvasElectron implements CanvasPlugin {
     return { layerId };
   }
 
-  async updateLayer(options: { canvasId: string; layerId: string; layer: Partial<CanvasLayer> }): Promise<void> {
+  async updateLayer(options: {
+    canvasId: string;
+    layerId: string;
+    layer: Partial<CanvasLayer>;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -197,7 +236,10 @@ export class CanvasElectron implements CanvasPlugin {
     Object.assign(layer, options.layer);
   }
 
-  async deleteLayer(options: { canvasId: string; layerId: string }): Promise<void> {
+  async deleteLayer(options: {
+    canvasId: string;
+    layerId: string;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -206,7 +248,9 @@ export class CanvasElectron implements CanvasPlugin {
     instance.layers.delete(options.layerId);
   }
 
-  async getLayers(options: { canvasId: string }): Promise<{ layers: CanvasLayer[] }> {
+  async getLayers(options: {
+    canvasId: string;
+  }): Promise<{ layers: CanvasLayer[] }> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -217,7 +261,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Drawing Operations
 
-  private applyDrawOptions(ctx: CanvasRenderingContext2D, drawOptions?: CanvasDrawOptions): void {
+  private applyDrawOptions(
+    ctx: CanvasRenderingContext2D,
+    drawOptions?: CanvasDrawOptions,
+  ): void {
     if (!drawOptions) return;
 
     if (drawOptions.opacity !== undefined) {
@@ -240,7 +287,10 @@ export class CanvasElectron implements CanvasPlugin {
     }
   }
 
-  private applyTransform(ctx: CanvasRenderingContext2D, transform: CanvasTransform): void {
+  private applyTransform(
+    ctx: CanvasRenderingContext2D,
+    transform: CanvasTransform,
+  ): void {
     if (transform.translateX || transform.translateY) {
       ctx.translate(transform.translateX || 0, transform.translateY || 0);
     }
@@ -255,7 +305,10 @@ export class CanvasElectron implements CanvasPlugin {
     }
   }
 
-  private applyStroke(ctx: CanvasRenderingContext2D, stroke: CanvasStrokeStyle): void {
+  private applyStroke(
+    ctx: CanvasRenderingContext2D,
+    stroke: CanvasStrokeStyle,
+  ): void {
     ctx.strokeStyle = colorToString(stroke.color);
     ctx.lineWidth = stroke.width;
     if (stroke.lineCap) ctx.lineCap = stroke.lineCap;
@@ -263,7 +316,10 @@ export class CanvasElectron implements CanvasPlugin {
     if (stroke.dashPattern) ctx.setLineDash(stroke.dashPattern);
   }
 
-  private applyFill(ctx: CanvasRenderingContext2D, fill: CanvasFillStyle | CanvasGradient): void {
+  private applyFill(
+    ctx: CanvasRenderingContext2D,
+    fill: CanvasFillStyle | CanvasGradient,
+  ): void {
     if ("type" in fill) {
       ctx.fillStyle = createGradient(ctx, fill);
     } else {
@@ -338,7 +394,15 @@ export class CanvasElectron implements CanvasPlugin {
     this.applyDrawOptions(ctx, options.drawOptions);
 
     ctx.beginPath();
-    ctx.ellipse(options.center.x, options.center.y, options.radiusX, options.radiusY, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      options.center.x,
+      options.center.y,
+      options.radiusX,
+      options.radiusY,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.closePath();
 
     if (options.fill) {
@@ -404,19 +468,53 @@ export class CanvasElectron implements CanvasPlugin {
           ctx.lineTo(cmd.args[0], cmd.args[1]);
           break;
         case "quadraticCurveTo":
-          ctx.quadraticCurveTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3]);
+          ctx.quadraticCurveTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+          );
           break;
         case "bezierCurveTo":
-          ctx.bezierCurveTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5]);
+          ctx.bezierCurveTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5],
+          );
           break;
         case "arcTo":
-          ctx.arcTo(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4]);
+          ctx.arcTo(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+          );
           break;
         case "arc":
-          ctx.arc(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5] === 1);
+          ctx.arc(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5] === 1,
+          );
           break;
         case "ellipse":
-          ctx.ellipse(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3], cmd.args[4], cmd.args[5], cmd.args[6], cmd.args[7] === 1);
+          ctx.ellipse(
+            cmd.args[0],
+            cmd.args[1],
+            cmd.args[2],
+            cmd.args[3],
+            cmd.args[4],
+            cmd.args[5],
+            cmd.args[6],
+            cmd.args[7] === 1,
+          );
           break;
         case "rect":
           ctx.rect(cmd.args[0], cmd.args[1], cmd.args[2], cmd.args[3]);
@@ -461,7 +559,12 @@ export class CanvasElectron implements CanvasPlugin {
     if (options.style.baseline) ctx.textBaseline = options.style.baseline;
 
     if (options.style.maxWidth) {
-      ctx.fillText(options.text, options.position.x, options.position.y, options.style.maxWidth);
+      ctx.fillText(
+        options.text,
+        options.position.x,
+        options.position.y,
+        options.style.maxWidth,
+      );
     } else {
       ctx.fillText(options.text, options.position.x, options.position.y);
     }
@@ -492,11 +595,23 @@ export class CanvasElectron implements CanvasPlugin {
         if (options.srcRect) {
           ctx.drawImage(
             img,
-            options.srcRect.x, options.srcRect.y, options.srcRect.width, options.srcRect.height,
-            options.destRect.x, options.destRect.y, options.destRect.width, options.destRect.height
+            options.srcRect.x,
+            options.srcRect.y,
+            options.srcRect.width,
+            options.srcRect.height,
+            options.destRect.x,
+            options.destRect.y,
+            options.destRect.width,
+            options.destRect.height,
           );
         } else {
-          ctx.drawImage(img, options.destRect.x, options.destRect.y, options.destRect.width, options.destRect.height);
+          ctx.drawImage(
+            img,
+            options.destRect.x,
+            options.destRect.y,
+            options.destRect.width,
+            options.destRect.height,
+          );
         }
 
         ctx.restore();
@@ -546,7 +661,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Pixel Data
 
-  async getPixelData(options: { canvasId: string; rect?: CanvasRect }): Promise<{
+  async getPixelData(options: {
+    canvasId: string;
+    rect?: CanvasRect;
+  }): Promise<{
     data: Uint8ClampedArray;
     width: number;
     height: number;
@@ -586,8 +704,14 @@ export class CanvasElectron implements CanvasPlugin {
     }
 
     const format = options.format || "png";
-    const mimeType = format === "jpeg" ? "image/jpeg" : format === "webp" ? "image/webp" : "image/png";
-    const quality = options.quality !== undefined ? options.quality / 100 : 0.92;
+    const mimeType =
+      format === "jpeg"
+        ? "image/jpeg"
+        : format === "webp"
+          ? "image/webp"
+          : "image/png";
+    const quality =
+      options.quality !== undefined ? options.quality / 100 : 0.92;
 
     const dataUrl = instance.element.toDataURL(mimeType, quality);
     const base64 = dataUrl.split(",")[1];
@@ -602,7 +726,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Transform
 
-  async setTransform(options: { canvasId: string; transform: CanvasTransform }): Promise<void> {
+  async setTransform(options: {
+    canvasId: string;
+    transform: CanvasTransform;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -624,7 +751,10 @@ export class CanvasElectron implements CanvasPlugin {
 
   // MARK: - Touch Input
 
-  async setTouchEnabled(options: { canvasId: string; enabled: boolean }): Promise<void> {
+  async setTouchEnabled(options: {
+    canvasId: string;
+    enabled: boolean;
+  }): Promise<void> {
     const instance = this.canvases.get(options.canvasId);
     if (!instance) {
       throw new Error(`Canvas not found: ${options.canvasId}`);
@@ -642,7 +772,10 @@ export class CanvasElectron implements CanvasPlugin {
   private setupTouchListeners(instance: CanvasInstance): void {
     const canvas = instance.element;
 
-    const createTouchEvent = (e: TouchEvent, type: "start" | "move" | "end" | "cancel"): CanvasTouchEvent => {
+    const createTouchEvent = (
+      e: TouchEvent,
+      type: "start" | "move" | "end" | "cancel",
+    ): CanvasTouchEvent => {
       const rect = canvas.getBoundingClientRect();
       const touches = Array.from(e.touches).map((t) => ({
         id: t.identifier,
@@ -677,11 +810,15 @@ export class CanvasElectron implements CanvasPlugin {
     }
 
     // Store handlers for removal
-    (canvas as HTMLCanvasElement & { _touchHandlers?: typeof handlers })._touchHandlers = handlers;
+    (
+      canvas as HTMLCanvasElement & { _touchHandlers?: typeof handlers }
+    )._touchHandlers = handlers;
   }
 
   private removeTouchListeners(instance: CanvasInstance): void {
-    const canvas = instance.element as HTMLCanvasElement & { _touchHandlers?: Record<string, EventListener> };
+    const canvas = instance.element as HTMLCanvasElement & {
+      _touchHandlers?: Record<string, EventListener>;
+    };
     const handlers = canvas._touchHandlers;
     if (handlers) {
       for (const [event, handler] of Object.entries(handlers)) {
@@ -703,15 +840,15 @@ export class CanvasElectron implements CanvasPlugin {
 
   async addListener(
     eventName: "touch",
-    listenerFunc: (event: CanvasTouchEvent) => void
+    listenerFunc: (event: CanvasTouchEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "render",
-    listenerFunc: (event: CanvasRenderEvent) => void
+    listenerFunc: (event: CanvasRenderEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: string,
-    listenerFunc: EventCallback<CanvasEvent>
+    listenerFunc: EventCallback<CanvasEvent>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);

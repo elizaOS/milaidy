@@ -1,14 +1,14 @@
 import type { Command } from "commander";
-import { formatDocsLink } from "../../terminal/links.js";
-import { theme } from "../../terminal/theme.js";
-import { runCommandWithRuntime } from "../cli-utils.js";
+import { formatDocsLink } from "../../terminal/links";
+import { theme } from "../../terminal/theme";
+import { runCommandWithRuntime } from "../cli-utils";
 
 const defaultRuntime = { error: console.error, exit: process.exit };
 
 export function registerSetupCommand(program: Command) {
   program
     .command("setup")
-    .description("Initialize ~/.milaidy/milaidy.json and the agent workspace")
+    .description("Initialize ~/.milady/milady.json and the agent workspace")
     .addHelpText(
       "after",
       () =>
@@ -17,13 +17,13 @@ export function registerSetupCommand(program: Command) {
     .option("--workspace <dir>", "Agent workspace directory")
     .action(async (opts: { workspace?: string }) => {
       await runCommandWithRuntime(defaultRuntime, async () => {
-        const { loadMilaidyConfig } = await import("../../config/config.js");
+        const { loadMiladyConfig } = await import("../../config/config");
         const { ensureAgentWorkspace, resolveDefaultAgentWorkspaceDir } =
-          await import("../../providers/workspace.js");
+          await import("../../providers/workspace");
 
         let config: Record<string, unknown> = {};
         try {
-          config = loadMilaidyConfig() as Record<string, unknown>;
+          config = loadMiladyConfig() as Record<string, unknown>;
           console.log(`${theme.success("✓")} Config loaded`);
         } catch (err) {
           if ((err as NodeJS.ErrnoException).code === "ENOENT") {

@@ -4,7 +4,7 @@ import type {
   HumanDelayConfig,
   TypingMode,
 } from "@elizaos/core";
-import type { MemorySearchConfig } from "./types.tools.js";
+import type { MemorySearchConfig } from "./types.tools";
 
 // --- Sandbox types (merged from types.sandbox.ts) ---
 
@@ -164,6 +164,8 @@ export type CliBackendConfig = {
 };
 
 export type AgentDefaultsConfig = {
+  /** Active subscription provider, set automatically by provider switch. */
+  subscriptionProvider?: string;
   /** Primary model and fallbacks (provider/model). */
   model?: AgentModelListConfig;
   /** Optional image-capable model and fallbacks (provider/model). */
@@ -172,6 +174,8 @@ export type AgentDefaultsConfig = {
   models?: Record<string, AgentModelEntryConfig>;
   /** Agent working directory (preferred). Used as the default cwd for agent runs. */
   workspace?: string;
+  /** Stable owner/admin entity id used for control-chat ownership and trust policies. */
+  adminEntityId?: string;
   /** Optional repository root for system prompt runtime line (overrides auto-detect). */
   repoRoot?: string;
   /** Skip bootstrap (BOOTSTRAP.md creation, etc.) for pre-configured deployments. */

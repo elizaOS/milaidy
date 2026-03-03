@@ -1,10 +1,10 @@
 import { WebPlugin } from "@capacitor/core";
 import type {
-  TalkModeConfig,
-  TalkModeState,
-  TalkModePermissionStatus,
   SpeakOptions,
   SpeakResult,
+  TalkModeConfig,
+  TalkModePermissionStatus,
+  TalkModeState,
 } from "./definitions";
 
 /** Minimal interface for the SpeechRecognition instance used by TalkMode */
@@ -14,8 +14,18 @@ interface SpeechRecognitionInstance extends EventTarget {
   lang: string;
   onstart: ((this: SpeechRecognitionInstance) => void) | null;
   onend: ((this: SpeechRecognitionInstance) => void) | null;
-  onerror: ((this: SpeechRecognitionInstance, event: { error: string; message?: string }) => void) | null;
-  onresult: ((this: SpeechRecognitionInstance, event: SpeechRecognitionResultEvent) => void) | null;
+  onerror:
+    | ((
+        this: SpeechRecognitionInstance,
+        event: { error: string; message?: string },
+      ) => void)
+    | null;
+  onresult:
+    | ((
+        this: SpeechRecognitionInstance,
+        event: SpeechRecognitionResultEvent,
+      ) => void)
+    | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -28,7 +38,10 @@ interface SpeechRecognitionResultEvent {
 
 interface SpeechRecognitionResultList {
   length: number;
-  [index: number]: { isFinal: boolean; 0: { transcript: string; confidence: number } };
+  [index: number]: {
+    isFinal: boolean;
+    0: { transcript: string; confidence: number };
+  };
 }
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
@@ -55,15 +68,21 @@ export class TalkModeWeb extends WebPlugin {
     }
   }
 
-  async start(options?: { config?: TalkModeConfig }): Promise<{ started: boolean; error?: string }> {
+  async start(options?: {
+    config?: TalkModeConfig;
+  }): Promise<{ started: boolean; error?: string }> {
     if (options?.config) {
       this.config = { ...this.config, ...options.config };
     }
 
     // Check for Web Speech API support
     const SpeechRecognitionAPI: SpeechRecognitionCtor | undefined =
-      (window as unknown as Record<string, unknown>).SpeechRecognition as SpeechRecognitionCtor | undefined ||
-      (window as unknown as Record<string, unknown>).webkitSpeechRecognition as SpeechRecognitionCtor | undefined;
+      ((window as unknown as Record<string, unknown>).SpeechRecognition as
+        | SpeechRecognitionCtor
+        | undefined) ||
+      ((window as unknown as Record<string, unknown>).webkitSpeechRecognition as
+        | SpeechRecognitionCtor
+        | undefined);
 
     if (!SpeechRecognitionAPI) {
       return {
@@ -123,7 +142,8 @@ export class TalkModeWeb extends WebPlugin {
       this.recognition.start();
       return { started: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start";
+      const message =
+        error instanceof Error ? error.message : "Failed to start";
       return { started: false, error: message };
     }
   }
@@ -145,7 +165,9 @@ export class TalkModeWeb extends WebPlugin {
     return { state: this.state, statusText: this.statusText };
   }
 
-  async updateConfig(options: { config: Partial<TalkModeConfig> }): Promise<void> {
+  async updateConfig(options: {
+    config: Partial<TalkModeConfig>;
+  }): Promise<void> {
     this.config = { ...this.config, ...options.config };
   }
 
@@ -199,7 +221,7 @@ export class TalkModeWeb extends WebPlugin {
         });
       };
 
-      this.synthesis!.speak(utterance);
+      this.synthesis?.speak(utterance);
     });
   }
 
@@ -220,7 +242,9 @@ export class TalkModeWeb extends WebPlugin {
     // Check microphone permission
     let microphone: TalkModePermissionStatus["microphone"] = "prompt";
     try {
-      const result = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
       microphone = result.state as TalkModePermissionStatus["microphone"];
     } catch {
       // Permissions API may not support microphone query
@@ -228,10 +252,14 @@ export class TalkModeWeb extends WebPlugin {
 
     // Check if speech recognition is supported
     const SpeechRecognitionAPI: SpeechRecognitionCtor | undefined =
-      (window as unknown as Record<string, unknown>).SpeechRecognition as SpeechRecognitionCtor | undefined ||
-      (window as unknown as Record<string, unknown>).webkitSpeechRecognition as SpeechRecognitionCtor | undefined;
+      ((window as unknown as Record<string, unknown>).SpeechRecognition as
+        | SpeechRecognitionCtor
+        | undefined) ||
+      ((window as unknown as Record<string, unknown>).webkitSpeechRecognition as
+        | SpeechRecognitionCtor
+        | undefined);
 
-    const speechRecognition: TalkModePermissionStatus["speechRecognition"] = 
+    const speechRecognition: TalkModePermissionStatus["speechRecognition"] =
       SpeechRecognitionAPI ? "prompt" : "not_supported";
 
     return { microphone, speechRecognition };
@@ -241,7 +269,9 @@ export class TalkModeWeb extends WebPlugin {
     // Request microphone permission by attempting to get user media
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     } catch {
       // Permission denied or error
     }

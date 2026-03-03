@@ -1,4 +1,4 @@
-package ai.milaidy.plugins.gateway
+package ai.milady.plugins.gateway
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -25,7 +25,7 @@ import kotlin.coroutines.suspendCoroutine
 /**
  * Gateway Plugin for Capacitor
  *
- * Provides WebSocket connectivity to an Milaidy Gateway server.
+ * Provides WebSocket connectivity to an Milady Gateway server.
  * This implementation handles authentication, reconnection, and RPC-style
  * request/response as well as event streaming.
  */
@@ -55,7 +55,7 @@ class GatewayPlugin : Plugin() {
     private var nsdManager: NsdManager? = null
     private var isDiscovering = false
     private val discoveredGateways = ConcurrentHashMap<String, JSObject>()
-    private val serviceType = "_milaidy-gw._tcp."
+    private val serviceType = "_milady-gw._tcp."
 
     private val discoveryListener = object : NsdManager.DiscoveryListener {
         override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
@@ -372,7 +372,7 @@ class GatewayPlugin : Plugin() {
     }
 
     private fun sendConnectFrame(options: JSObject) {
-        val clientName = options.getString("clientName") ?: "milaidy-capacitor-android"
+        val clientName = options.getString("clientName") ?: "milady-capacitor-android"
         val clientVersion = options.getString("clientVersion") ?: "1.0.0"
         val roleParam = options.getString("role") ?: "operator"
         val scopesParam = options.getJSONArray("scopes")?.let { arr ->

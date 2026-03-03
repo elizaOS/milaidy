@@ -10,24 +10,28 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import type {
-  GatewayPlugin,
   GatewayConnectOptions,
   GatewayConnectResult,
+  GatewayDiscoveryEvent,
   GatewayDiscoveryOptions,
   GatewayDiscoveryResult,
-  GatewayDiscoveryEvent,
   GatewayEndpoint,
+  GatewayErrorEvent,
+  GatewayEvent,
+  GatewayPlugin,
   GatewaySendOptions,
   GatewaySendResult,
-  GatewayEvent,
   GatewayStateEvent,
-  GatewayErrorEvent,
   JsonObject,
   JsonValue,
 } from "../../src/definitions";
 
 type EventCallback<T> = (event: T) => void;
-type GatewayEventData = GatewayEvent | GatewayStateEvent | GatewayErrorEvent | GatewayDiscoveryEvent;
+type GatewayEventData =
+  | GatewayEvent
+  | GatewayStateEvent
+  | GatewayErrorEvent
+  | GatewayDiscoveryEvent;
 type GatewayEventName = "gatewayEvent" | "stateChange" | "error" | "discovery";
 
 interface ListenerEntry {
@@ -37,7 +41,13 @@ interface ListenerEntry {
 
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = { [key: string]: IpcValue };
-type IpcValue = IpcPrimitive | IpcObject | IpcValue[] | ArrayBuffer | Float32Array | Uint8Array;
+type IpcValue =
+  | IpcPrimitive
+  | IpcObject
+  | IpcValue[]
+  | ArrayBuffer
+  | Float32Array
+  | Uint8Array;
 type IpcListener = (...args: IpcValue[]) => void;
 
 // Type for Electron IPC
@@ -74,9 +84,13 @@ const getBoolean = (value: JsonValue | undefined): boolean | undefined =>
   typeof value === "boolean" ? value : undefined;
 
 const toStringArray = (value: JsonValue | undefined): string[] =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 
-const parseGatewayError = (value: JsonValue | undefined): GatewaySendResult["error"] | undefined => {
+const parseGatewayError = (
+  value: JsonValue | undefined,
+): GatewaySendResult["error"] | undefined => {
   if (!value || !isJsonObject(value)) return undefined;
   const code = getString(value.code);
   const message = getString(value.message);
@@ -116,13 +130,15 @@ export class GatewayElectron implements GatewayPlugin {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 800;
   private closed = false;
-  private connectResolve: ((result: GatewayConnectResult) => void) | null = null;
+  private connectResolve: ((result: GatewayConnectResult) => void) | null =
+    null;
   private connectReject: ((error: Error) => void) | null = null;
 
   private listeners: ListenerEntry[] = [];
   private discoveredGateways: Map<string, GatewayEndpoint> = new Map();
   private isDiscovering = false;
-  private discoveryIPCHandler: ((event: GatewayDiscoveryEvent) => void) | null = null;
+  private discoveryIPCHandler: ((event: GatewayDiscoveryEvent) => void) | null =
+    null;
 
   // MARK: - Connection Methods
 
@@ -188,7 +204,7 @@ export class GatewayElectron implements GatewayPlugin {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: this.options.clientName || "milaidy-capacitor",
+        id: this.options.clientName || "milady-capacitor",
         version: this.options.clientVersion || "1.0.0",
         platform: this.getPlatform(),
         mode: "ui",
@@ -223,7 +239,9 @@ export class GatewayElectron implements GatewayPlugin {
         if (result.ok && result.payload && isJsonObject(result.payload)) {
           this.handleHelloOk(result.payload);
         } else if (this.connectReject) {
-          this.connectReject(new Error(result.error?.message || "Connection failed"));
+          this.connectReject(
+            new Error(result.error?.message || "Connection failed"),
+          );
         }
         this.connectReject = null;
         this.connectResolve = null;
@@ -307,8 +325,14 @@ export class GatewayElectron implements GatewayPlugin {
       const payload = parsedValue.payload;
       const seq = getNumber(parsedValue.seq);
 
-      if (seq !== undefined && this.lastSeq !== null && seq > this.lastSeq + 1) {
-        console.warn(`[Gateway] Event sequence gap: expected ${this.lastSeq + 1}, got ${seq}`);
+      if (
+        seq !== undefined &&
+        this.lastSeq !== null &&
+        seq > this.lastSeq + 1
+      ) {
+        console.warn(
+          `[Gateway] Event sequence gap: expected ${this.lastSeq + 1}, got ${seq}`,
+        );
       }
       if (seq !== undefined) {
         this.lastSeq = seq;
@@ -359,7 +383,10 @@ export class GatewayElectron implements GatewayPlugin {
     }, this.backoffMs);
   }
 
-  private notifyStateChange(state: GatewayStateEvent["state"], reason?: string): void {
+  private notifyStateChange(
+    state: GatewayStateEvent["state"],
+    reason?: string,
+  ): void {
     this.notifyListeners("stateChange", {
       state,
       reason,
@@ -452,7 +479,9 @@ export class GatewayElectron implements GatewayPlugin {
 
   // MARK: - Discovery Methods
 
-  async startDiscovery(options?: GatewayDiscoveryOptions): Promise<GatewayDiscoveryResult> {
+  async startDiscovery(
+    options?: GatewayDiscoveryOptions,
+  ): Promise<GatewayDiscoveryResult> {
     if (this.isDiscovering) {
       return {
         gateways: Array.from(this.discoveredGateways.values()),
@@ -468,7 +497,10 @@ export class GatewayElectron implements GatewayPlugin {
         this.discoveryIPCHandler = (event: GatewayDiscoveryEvent) => {
           this.handleDiscoveryEvent(event);
         };
-        window.electron.ipcRenderer.on("gateway:discovery", this.discoveryIPCHandler);
+        window.electron.ipcRenderer.on(
+          "gateway:discovery",
+          this.discoveryIPCHandler,
+        );
 
         await window.electron.ipcRenderer.invoke("gateway:startDiscovery", {
           wideAreaDomain: options?.wideAreaDomain,
@@ -482,14 +514,22 @@ export class GatewayElectron implements GatewayPlugin {
       } catch (error) {
         this.isDiscovering = false;
         if (this.discoveryIPCHandler && window.electron?.ipcRenderer) {
-          window.electron.ipcRenderer.removeListener("gateway:discovery", this.discoveryIPCHandler);
+          window.electron.ipcRenderer.removeListener(
+            "gateway:discovery",
+            this.discoveryIPCHandler,
+          );
           this.discoveryIPCHandler = null;
         }
-        console.warn("[Gateway] Native discovery failed, using fallback:", error);
+        console.warn(
+          "[Gateway] Native discovery failed, using fallback:",
+          error,
+        );
       }
     }
 
-    console.warn("[Gateway] mDNS discovery not available - Electron IPC bridge not configured");
+    console.warn(
+      "[Gateway] mDNS discovery not available - Electron IPC bridge not configured",
+    );
     return {
       gateways: [],
       status: "Discovery not available on this platform",
@@ -501,7 +541,10 @@ export class GatewayElectron implements GatewayPlugin {
 
     if (window.electron?.ipcRenderer) {
       if (this.discoveryIPCHandler) {
-        window.electron.ipcRenderer.removeListener("gateway:discovery", this.discoveryIPCHandler);
+        window.electron.ipcRenderer.removeListener(
+          "gateway:discovery",
+          this.discoveryIPCHandler,
+        );
         this.discoveryIPCHandler = null;
       }
       try {
@@ -544,23 +587,23 @@ export class GatewayElectron implements GatewayPlugin {
 
   async addListener(
     eventName: "gatewayEvent",
-    listenerFunc: (event: GatewayEvent) => void
+    listenerFunc: (event: GatewayEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "stateChange",
-    listenerFunc: (event: GatewayStateEvent) => void
+    listenerFunc: (event: GatewayStateEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "error",
-    listenerFunc: (event: GatewayErrorEvent) => void
+    listenerFunc: (event: GatewayErrorEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: "discovery",
-    listenerFunc: (event: GatewayDiscoveryEvent) => void
+    listenerFunc: (event: GatewayDiscoveryEvent) => void,
   ): Promise<PluginListenerHandle>;
   async addListener(
     eventName: GatewayEventName,
-    listenerFunc: EventCallback<GatewayEventData>
+    listenerFunc: EventCallback<GatewayEventData>,
   ): Promise<PluginListenerHandle> {
     const entry: ListenerEntry = { eventName, callback: listenerFunc };
     this.listeners.push(entry);
