@@ -1973,24 +1973,6 @@ export class MiladyClient {
     return this.fetch(`/api/runtime${qs ? `?${qs}` : ""}`);
   }
 
-  async setAutomationMode(
-    mode: "connectors-only" | "full",
-  ): Promise<{ mode: string }> {
-    return this.fetch("/api/permissions/automation-mode", {
-      method: "PUT",
-      body: JSON.stringify({ mode }),
-    });
-  }
-
-  async setTradeMode(
-    mode: string,
-  ): Promise<{ ok: boolean; tradePermissionMode: string }> {
-    return this.fetch("/api/permissions/trade-mode", {
-      method: "PUT",
-      body: JSON.stringify({ mode }),
-    });
-  }
-
   async playEmote(emoteId: string): Promise<{ ok: boolean }> {
     return this.fetch("/api/emote", {
       method: "POST",

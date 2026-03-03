@@ -5390,6 +5390,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     startupRetryNonce,
   ]);
 
+  // Hydrate custom background when user switches TO custom avatar (index 0)
+  // after startup. The init effect only hydrates when the app boots with index 0;
+  // this covers the case where the user switches later.
+  useEffect(() => {
+    if (selectedVrmIndex !== 0 || customBackgroundUrl) return;
+    let cancelled = false;
+    client.hasCustomBackground().then((has) => {
+      if (!cancelled && has) {
+        setCustomBackgroundUrl(
+          resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVrmIndex, customBackgroundUrl]);
+
   // When agent transitions to "running", send a greeting if conversation is empty
   useEffect(() => {
     const current = agentStatus?.state ?? null;
