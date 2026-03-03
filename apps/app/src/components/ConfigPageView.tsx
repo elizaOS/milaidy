@@ -346,22 +346,26 @@ function CloudServicesSection() {
 
   const handleToggle = useCallback(
     async (key: CloudServiceKey) => {
-      const newValue = !services[key];
-      const updated = { ...services, [key]: newValue };
+      const prev = { ...services }; // snapshot BEFORE mutation
+      const updated = { ...services, [key]: !services[key] };
       setServices(updated);
       setSaving(true);
 
-      // Also set inferenceMode based on inference toggle
-      const inferenceMode = updated.inference ? "cloud" : "byok";
+      const payload: {
+        cloud: { services: typeof updated; inferenceMode?: string };
+      } = {
+        cloud: { services: updated },
+      };
+      if (key === "inference") {
+        payload.cloud.inferenceMode = updated.inference ? "cloud" : "byok";
+      }
 
       try {
-        await client.updateConfig({
-          cloud: { services: updated, inferenceMode },
-        });
+        await client.updateConfig(payload);
         setNeedsRestart(true);
       } catch (err) {
-        // Revert on error
-        setServices(services);
+        // Revert to pre-toggle snapshot
+        setServices(prev);
         console.error("[config] Failed to save cloud services:", err);
       } finally {
         setSaving(false);
