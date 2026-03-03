@@ -159,6 +159,9 @@ export function createStreamingDestination(
         (cfg.rtmpUrlEnvVar ? process.env[cfg.rtmpUrlEnvVar] : undefined) ??
         cfg.defaultRtmpUrl
       ).trim();
+      if (!rtmpUrl) {
+        throw new Error(`${cfg.platformName} RTMP URL not configured`);
+      }
 
       return { rtmpUrl, rtmpKey: streamKey };
     },

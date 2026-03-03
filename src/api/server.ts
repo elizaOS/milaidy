@@ -39,7 +39,10 @@ import {
   saveMiladyConfig,
 } from "../config/config";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
-import { isConnectorConfigured } from "../config/plugin-auto-enable";
+import {
+  isConnectorConfigured,
+  isStreamingDestinationConfigured,
+} from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
@@ -10172,11 +10175,26 @@ async function handleRequest(
     }
     // Detect image format from magic bytes
     let ext = "";
-    if (rawBody[0] === 0x89 && rawBody[1] === 0x50 && rawBody[2] === 0x4e && rawBody[3] === 0x47) {
+    if (
+      rawBody[0] === 0x89 &&
+      rawBody[1] === 0x50 &&
+      rawBody[2] === 0x4e &&
+      rawBody[3] === 0x47
+    ) {
       ext = "png";
     } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
       ext = "jpg";
-    } else if (rawBody[0] === 0x52 && rawBody[1] === 0x49 && rawBody[2] === 0x46 && rawBody[3] === 0x46 && rawBody.length >= 12 && rawBody[8] === 0x57 && rawBody[9] === 0x45 && rawBody[10] === 0x42 && rawBody[11] === 0x50) {
+    } else if (
+      rawBody[0] === 0x52 &&
+      rawBody[1] === 0x49 &&
+      rawBody[2] === 0x46 &&
+      rawBody[3] === 0x46 &&
+      rawBody.length >= 12 &&
+      rawBody[8] === 0x57 &&
+      rawBody[9] === 0x45 &&
+      rawBody[10] === 0x42 &&
+      rawBody[11] === 0x50
+    ) {
       ext = "webp";
     } else {
       error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
@@ -10187,7 +10205,9 @@ async function handleRequest(
     // Remove any previous custom background (may have a different extension)
     for (const old of ["png", "jpg", "webp"]) {
       const p = path.join(avatarDir, `custom-background.${old}`);
-      try { fs.unlinkSync(p); } catch {}
+      try {
+        fs.unlinkSync(p);
+      } catch {}
     }
     const bgPath = path.join(avatarDir, `custom-background.${ext}`);
     fs.writeFileSync(bgPath, rawBody);
@@ -10202,12 +10222,19 @@ async function handleRequest(
     pathname === "/api/avatar/background"
   ) {
     const avatarDir = path.join(resolveStateDir(), "avatars");
-    const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+    const MIME: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      webp: "image/webp",
+    };
     let found = "";
     for (const ext of ["png", "jpg", "webp"]) {
       const p = path.join(avatarDir, `custom-background.${ext}`);
       try {
-        if (fs.statSync(p).isFile()) { found = p; break; }
+        if (fs.statSync(p).isFile()) {
+          found = p;
+          break;
+        }
       } catch {}
     }
     if (!found) {
@@ -15117,21 +15144,28 @@ export async function startApiServer(opts?: {
             }
           | undefined;
 
-        // Determine active streaming destination
-        let destination:
-          | import("./stream-routes.js").StreamingDestination
-          | undefined;
-
-        // Check connectors.retake (primary retake config location)
+        // Build destination registry — all configured destinations
         const connectors = state.config.connectors ?? {};
+        const streaming = (state.config as Record<string, unknown>).streaming as
+          | Record<string, unknown>
+          | undefined;
+        const destinations = new Map<
+          string,
+          import("./stream-routes.js").StreamingDestination
+        >();
+
+        // Retake (API-driven, full integration)
         if (isConnectorConfigured("retake", connectors.retake)) {
           try {
             const retakeMod = "@milady/plugin-retake";
             const { createRetakeDestination } = await import(retakeMod);
-            destination = createRetakeDestination(
-              connectors.retake as
-                | { accessToken?: string; apiUrl?: string }
-                | undefined,
+            destinations.set(
+              "retake",
+              createRetakeDestination(
+                connectors.retake as
+                  | { accessToken?: string; apiUrl?: string }
+                  | undefined,
+              ),
             );
           } catch (err) {
             logger.warn(
@@ -15140,23 +15174,19 @@ export async function startApiServer(opts?: {
           }
         }
 
-        // Check streaming.customRtmp
-        const streaming = (state.config as Record<string, unknown>).streaming as
-          | Record<string, unknown>
-          | undefined;
-        if (
-          !destination &&
-          streaming?.customRtmp &&
-          typeof streaming.customRtmp === "object"
-        ) {
+        // Custom RTMP
+        if (streaming?.customRtmp && typeof streaming.customRtmp === "object") {
           const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
           if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
             try {
               const { createCustomRtmpDestination } = await import(
                 "../plugins/custom-rtmp/index.js"
               );
-              destination = createCustomRtmpDestination(
-                rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+              destinations.set(
+                "custom-rtmp",
+                createCustomRtmpDestination(
+                  rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+                ),
               );
             } catch (err) {
               logger.warn(
@@ -15166,49 +15196,84 @@ export async function startApiServer(opts?: {
           }
         }
 
-        // Check streaming.twitch
-        if (
-          !destination &&
-          streaming?.twitch &&
-          typeof streaming.twitch === "object"
-        ) {
-          const twitchConfig = streaming.twitch as Record<string, unknown>;
-          if (twitchConfig.streamKey) {
-            try {
-              const twitchMod = "@milady/plugin-twitch-streaming";
-              const { createTwitchDestination } = await import(twitchMod);
-              destination = createTwitchDestination(
-                twitchConfig as { streamKey?: string },
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        // Twitch
+        if (isStreamingDestinationConfigured("twitch", streaming?.twitch)) {
+          try {
+            const twitchMod = "@milady/plugin-twitch-streaming";
+            const { createTwitchDestination } = await import(twitchMod);
+            destinations.set(
+              "twitch",
+              createTwitchDestination(
+                streaming?.twitch as { streamKey?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
 
-        // Check streaming.youtube
-        if (
-          !destination &&
-          streaming?.youtube &&
-          typeof streaming.youtube === "object"
-        ) {
-          const ytConfig = streaming.youtube as Record<string, unknown>;
-          if (ytConfig.streamKey) {
-            try {
-              const youtubeMod = "@milady/plugin-youtube-streaming";
-              const { createYoutubeDestination } = await import(youtubeMod);
-              destination = createYoutubeDestination(
-                ytConfig as { streamKey?: string; rtmpUrl?: string },
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        // YouTube
+        if (isStreamingDestinationConfigured("youtube", streaming?.youtube)) {
+          try {
+            const youtubeMod = "@milady/plugin-youtube-streaming";
+            const { createYoutubeDestination } = await import(youtubeMod);
+            destinations.set(
+              "youtube",
+              createYoutubeDestination(
+                streaming?.youtube as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
+
+        // pump.fun
+        if (isStreamingDestinationConfigured("pumpfun", streaming?.pumpfun)) {
+          try {
+            const pumpfunMod = "@milady/plugin-pumpfun-streaming";
+            const { createPumpfunDestination } = await import(pumpfunMod);
+            destinations.set(
+              "pumpfun",
+              createPumpfunDestination(
+                streaming?.pumpfun as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load pumpfun destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
+        // X (Twitter)
+        if (isStreamingDestinationConfigured("x", streaming?.x)) {
+          try {
+            const xMod = "@milady/plugin-x-streaming";
+            const { createXStreamDestination } = await import(xMod);
+            destinations.set(
+              "x",
+              createXStreamDestination(
+                streaming?.x as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load x destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
+        // Active destination: config preference → first available
+        const activeDestinationId =
+          (streaming?.activeDestination as string | undefined) ??
+          (destinations.size > 0
+            ? destinations.keys().next().value
+            : undefined);
 
         const streamState = {
           streamManager,
@@ -15216,7 +15281,8 @@ export async function startApiServer(opts?: {
           screenCapture,
           captureUrl: (connectors.retake as Record<string, unknown> | undefined)
             ?.captureUrl as string | undefined,
-          destination,
+          destinations,
+          activeDestinationId,
           get config() {
             const cfg = state.config as Record<string, unknown> | undefined;
             const msgs = cfg?.messages as Record<string, unknown> | undefined;
@@ -15237,9 +15303,13 @@ export async function startApiServer(opts?: {
           handleStreamRoute(req, res, pathname, method, streamState),
         );
 
-        const destLabel = destination
-          ? `destination: ${destination.name}`
-          : "no destination";
+        const destNames = Array.from(destinations.values())
+          .map((d) => d.name)
+          .join(", ");
+        const destLabel =
+          destinations.size > 0
+            ? `destinations: ${destNames}`
+            : "no destinations";
         addLog("info", `Stream routes registered (${destLabel})`, "system", [
           "system",
           "streaming",
