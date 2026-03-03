@@ -1077,6 +1077,7 @@ const WORKSPACE_PLUGIN_OVERRIDES = new Set<string>([
   "@milady/plugin-twitch-streaming",
   "@milady/plugin-youtube-streaming",
   "@milady/plugin-retake",
+  "@milady/plugin-bnb-identity",
 ]);
 
 function getWorkspacePluginOverridePath(pluginName: string): string | null {

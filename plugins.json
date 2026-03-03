@@ -213,7 +213,8 @@
           "group": "Client Identity",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/antdesign/white"
     },
     {
       "id": "agent-orchestrator",
@@ -241,7 +242,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "agent-skills",
@@ -320,7 +322,8 @@
           "advanced": true,
           "help": "Legacy setting for Otto bundled skills"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "anthropic",
@@ -329,7 +332,7 @@
       "npmName": "@elizaos/plugin-anthropic",
       "description": "",
       "category": "ai-provider",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/78/Anthropic_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/anthropic/white",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
         "ANTHROPIC_API_KEY",
@@ -683,7 +686,8 @@
           "min": 0,
           "max": 10000
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/tradingview/white"
     },
     {
       "id": "babylon",
@@ -884,7 +888,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/babylonchain/brand-kit/main/Logos/SVG/Babylon_Logo_White.svg"
     },
     {
       "id": "blooio",
@@ -1000,7 +1005,8 @@
           "group": "Webhook",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "bluebubbles",
@@ -1126,7 +1132,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/BlueBubblesApp/BlueBubbles-App/master/assets/icon/icon_white.png"
     },
     {
       "id": "bluesky",
@@ -1135,7 +1142,7 @@
       "npmName": "@elizaos/plugin-bluesky",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Bluesky_Logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/bluesky/white",
       "envKey": null,
       "configKeys": [
         "BLUESKY_ENABLED",
@@ -1435,7 +1442,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Chrome_icon_%28September_2014%29.svg"
+      "logoUrl": "https://cdn.simpleicons.org/googlechrome/white"
     },
     {
       "id": "cli",
@@ -1475,7 +1482,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "clawbal",
@@ -1536,7 +1544,8 @@
           "description": "Path to milady-image-generator assets for unique PFP generation",
           "required": false
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "coding-agent",
@@ -1548,7 +1557,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "1.0.0",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg"
+      "logoUrl": "https://cdn.simpleicons.org/visualstudiocode/white"
     },
     {
       "id": "code",
@@ -1619,7 +1628,7 @@
           "help": "Comma-separated list of forbidden shell commands"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg"
+      "logoUrl": "https://cdn.simpleicons.org/visualstudiocode/white"
     },
     {
       "id": "commands",
@@ -1703,7 +1712,8 @@
           "group": "Commands",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "computeruse",
@@ -1753,7 +1763,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/virtualbox/white"
     },
     {
       "id": "copilot-proxy",
@@ -1872,7 +1883,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/githubcopilot/white"
     },
     {
       "id": "cron",
@@ -1881,7 +1893,7 @@
       "npmName": "@elizaos/plugin-cron",
       "description": "Cron scheduling plugin for ElizaOS agents - schedule recurring or one-time jobs that execute actions, run prompts, or trigger events",
       "category": "feature",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Clock_icon.svg",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Clock_Icon_White.svg",
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
@@ -1958,7 +1970,8 @@
           "width": "half",
           "help": "Enables shell configuration via directives"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "discord",
@@ -1967,7 +1980,7 @@
       "npmName": "@elizaos/plugin-discord",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Discord_Circle_Header.svg",
+      "logoUrl": "https://cdn.simpleicons.org/discord/white",
       "envKey": "DISCORD_API_TOKEN",
       "configKeys": [
         "DISCORD_API_TOKEN",
@@ -2202,7 +2215,8 @@
           "unit": "ms",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/microsoftedge/white"
     },
     {
       "id": "elevenlabs",
@@ -2435,7 +2449,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0e/ElevenLabs_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "eliza-classic",
@@ -2446,7 +2460,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "elizacloud",
@@ -2734,7 +2749,7 @@
       "npmName": "@elizaos/plugin-evm",
       "description": "",
       "category": "feature",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/05/Ethereum_logo_2014.svg",
+      "logoUrl": "https://cdn.simpleicons.org/ethereum/white",
       "envKey": "ALCHEMY_API_KEY",
       "configKeys": [
         "EVM_PRIVATE_KEY",
@@ -2932,7 +2947,8 @@
           "width": "half",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "farcaster",
@@ -2941,7 +2957,7 @@
       "npmName": "@elizaos/plugin-farcaster",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://raw.githubusercontent.com/farcasterxyz/brand-assets/main/Farcaster%20Logo%20SVG/Farcaster%20Logo%20-%20Symbol%20-%20Purple.svg",
+      "logoUrl": "https://cdn.simpleicons.org/farcaster/white",
       "envKey": "FARCASTER_NEYNAR_API_KEY",
       "configKeys": [
         "FARCASTER_DRY_RUN",
@@ -3231,7 +3247,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/flathub/cn.feishu.Feishu/master/cn.feishu.Feishu.svg"
     },
     {
       "id": "form",
@@ -3242,7 +3259,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "logoUrl": "https://cdn.simpleicons.org/googleforms/white"
     },
     {
       "id": "github",
@@ -3251,7 +3269,7 @@
       "npmName": "@elizaos/plugin-github",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
+      "logoUrl": "https://cdn.simpleicons.org/github/white",
       "envKey": "GITHUB_API_TOKEN",
       "configKeys": [
         "GITHUB_API_TOKEN",
@@ -3460,7 +3478,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/lighthouse/white"
     },
     {
       "id": "google-chat",
@@ -3597,7 +3616,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Chat_icon_%282023%29.svg"
+      "logoUrl": "https://cdn.simpleicons.org/googlechat/white"
     },
     {
       "id": "google-genai",
@@ -3606,7 +3625,7 @@
       "npmName": "@elizaos/plugin-google-genai",
       "description": "",
       "category": "ai-provider",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/googlegemini/white",
       "envKey": "GOOGLE_GENERATIVE_AI_API_KEY",
       "configKeys": [
         "GOOGLE_GENERATIVE_AI_API_KEY",
@@ -3726,7 +3745,7 @@
       "npmName": "@elizaos/plugin-groq",
       "description": "",
       "category": "ai-provider",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c9/Groq_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/groq/white",
       "envKey": "GROQ_API_KEY",
       "configKeys": [
         "GROQ_API_KEY",
@@ -3909,7 +3928,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/56/IMessage_logo_%28Apple_Inc.%29.svg"
+      "logoUrl": "https://cdn.simpleicons.org/imessage/white"
     },
     {
       "id": "inmemorydb",
@@ -3920,7 +3939,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "instagram",
@@ -3929,7 +3949,7 @@
       "npmName": "@elizaos/plugin-instagram",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/af/Instagram_logo_2022.svg",
+      "logoUrl": "https://cdn.simpleicons.org/instagram/white",
       "envKey": null,
       "configKeys": [
         "INSTAGRAM_USERNAME",
@@ -4097,7 +4117,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaos-plugins/plugin-iq/main/assets/logo.svg"
     },
     {
       "id": "knowledge",
@@ -4537,7 +4558,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/line/white"
     },
     {
       "id": "linear",
@@ -4546,7 +4567,7 @@
       "npmName": "@elizaos/plugin-linear",
       "description": "Linear integration plugin for ElizaOS (TypeScript)",
       "category": "feature",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Linear_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/linear/white",
       "envKey": "LINEAR_API_KEY",
       "configKeys": [
         "LINEAR_API_KEY",
@@ -4696,7 +4717,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "local-embedding",
@@ -4802,7 +4824,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "localdb",
@@ -4813,7 +4836,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "lp-manager",
@@ -5015,7 +5039,8 @@
           "group": "DEX Config",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/uniswap/white"
     },
     {
       "id": "matrix",
@@ -5128,7 +5153,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Matrix_icon.svg"
+      "logoUrl": "https://cdn.simpleicons.org/matrix/white"
     },
     {
       "id": "mattermost",
@@ -5265,7 +5290,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/30/Mattermost_logo_horizontal.svg"
+      "logoUrl": "https://cdn.simpleicons.org/mattermost/white"
     },
     {
       "id": "mcp",
@@ -5318,7 +5343,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "minecraft",
@@ -5411,7 +5437,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Minecraft_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/minecraft/white"
     },
     {
       "id": "moltbook",
@@ -5514,7 +5540,8 @@
           "group": "Autonomy",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://www.moltbook.fans/favicon.ico"
     },
     {
       "id": "msteams",
@@ -5645,7 +5672,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282025%E2%80%93present%29.svg"
+      "logoUrl": "https://cdn.simpleicons.org/microsoftteams/white"
     },
     {
       "id": "mysticism",
@@ -5706,7 +5733,8 @@
           "unit": "SOL",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/vlc/white"
     },
     {
       "id": "n8n",
@@ -5782,7 +5810,7 @@
           "width": "full"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/70/N8n-logo-new.svg"
+      "logoUrl": "https://cdn.simpleicons.org/n8n/white"
     },
     {
       "id": "nextcloud-talk",
@@ -5897,7 +5925,7 @@
           "width": "full"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/60/Nextcloud_Logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/nextcloud/white"
     },
     {
       "id": "nostr",
@@ -6084,7 +6112,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Ollama_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/ollama/white"
     },
     {
       "id": "openai",
@@ -6093,7 +6121,7 @@
       "npmName": "@elizaos/plugin-openai",
       "description": "",
       "category": "ai-provider",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ef/OpenAI_Logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/openai/white",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
         "OPENAI_API_KEY",
@@ -6597,7 +6625,7 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg"
+      "logoUrl": "https://cdn.simpleicons.org/adobeacrobatreader/white"
     },
     {
       "id": "personality",
@@ -6625,7 +6653,8 @@
           "width": "full",
           "placeholder": "user1,user2,user3"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "plugin-manager",
@@ -6636,7 +6665,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "polymarket",
@@ -6730,7 +6760,7 @@
           "width": "full"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e4/Polygon_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/polymarket/white"
     },
     {
       "id": "prose",
@@ -6773,7 +6803,8 @@
           "label": "Skills Directory",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/codefactor/white"
     },
     {
       "id": "rlm",
@@ -6784,7 +6815,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/codefactor/white"
     },
     {
       "id": "roblox",
@@ -6890,7 +6922,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Roblox_logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/roblox/white"
     },
     {
       "id": "robot-voice",
@@ -6901,7 +6933,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "rolodex",
@@ -6912,7 +6945,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/googlecontacts/white"
     },
     {
       "id": "rss",
@@ -6921,7 +6955,7 @@
       "npmName": "@elizaos/plugin-rss",
       "description": "RSS and Atom feed integration plugin for elizaOS - enables agents to fetch and monitor news feeds",
       "category": "feature",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/43/Feed-icons.svg",
+      "logoUrl": "https://cdn.simpleicons.org/rss/white",
       "envKey": null,
       "configKeys": [
         "RSS_FEEDS",
@@ -7094,7 +7128,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bc/Amazon-S3-Logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/amazons3/white"
     },
     {
       "id": "scheduling",
@@ -7164,7 +7198,8 @@
           "unit": "bytes",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlekeep/white"
     },
     {
       "id": "secrets-manager",
@@ -7214,7 +7249,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/keepassxc/white"
     },
     {
       "id": "shell",
@@ -7328,7 +7364,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Shell_icon.svg"
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "signal",
@@ -7392,7 +7428,7 @@
           "width": "half"
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8d/Signal-Logo.svg"
+      "logoUrl": "https://cdn.simpleicons.org/signal/white"
     },
     {
       "id": "simple-voice",
@@ -7403,7 +7439,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "slack",
@@ -7412,7 +7449,7 @@
       "npmName": "@elizaos/plugin-slack",
       "description": "Slack integration plugin for ElizaOS agents with Socket Mode support",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
+      "logoUrl": "https://cdn.simpleicons.org/slack/white",
       "envKey": "SLACK_BOT_TOKEN",
       "configKeys": [
         "SLACK_BOT_TOKEN",
@@ -7589,7 +7626,8 @@
           "label": "Moralis API Key",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/activitypub/white"
     },
     {
       "id": "solana",
@@ -7598,7 +7636,7 @@
       "npmName": "@elizaos/plugin-solana",
       "description": "",
       "category": "feature",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Solana_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/solana/white",
       "envKey": "HELIUS_API_KEY",
       "configKeys": [
         "SOL_ADDRESS",
@@ -7753,7 +7791,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "logoUrl": "https://cdn.simpleicons.org/postgresql/white"
     },
     {
       "id": "tee",
@@ -7805,14 +7844,15 @@
           "label": "Wallet Secret Salt",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/Phala-Network/phala-brand-kit/master/Logo/Logo-Phala-Network-White.svg"
     },
     {
       "id": "telegram",
       "dirName": "plugin-telegram",
       "name": "Telegram",
       "npmName": "@elizaos/plugin-telegram",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg",
+      "logoUrl": "https://cdn.simpleicons.org/telegram/white",
       "description": "",
       "category": "connector",
       "envKey": "TELEGRAM_BOT_TOKEN",
@@ -7969,7 +8009,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/urbit/white"
     },
     {
       "id": "twitter",
@@ -7978,7 +8019,7 @@
       "npmName": "@elizaos/plugin-twitter",
       "description": "Twitter/X social media connector with posting, mentions, and DMs",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg",
+      "logoUrl": "https://cdn.simpleicons.org/x/white",
       "envKey": "TWITTER_API_KEY",
       "configKeys": [
         "TWITTER_API_KEY",
@@ -8212,7 +8253,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/lighthouse/white"
     },
     {
       "id": "trust",
@@ -8253,7 +8295,8 @@
           "label": "World ID",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaos-plugins/plugin-trust/main/assets/logo.svg"
     },
     {
       "id": "tts",
@@ -8337,7 +8380,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "twilio",
@@ -8566,7 +8610,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Twilio-logo-red.svg"
+      "logoUrl": "https://cdn.simpleicons.org/twilio/white"
     },
     {
       "id": "twitch",
@@ -8575,7 +8619,7 @@
       "npmName": "@elizaos/plugin-twitch",
       "description": "",
       "category": "connector",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Twitch_Glitch_Logo_Purple.svg",
+      "logoUrl": "https://cdn.simpleicons.org/twitch/white",
       "envKey": "TWITCH_ACCESS_TOKEN",
       "configKeys": [
         "TWITCH_USERNAME",
@@ -8765,7 +8809,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "streaming-base",
@@ -8776,7 +8821,8 @@
       "category": "streaming",
       "envKey": null,
       "configKeys": [],
-      "pluginParameters": {}
+      "pluginParameters": {},
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "twitch-streaming",
@@ -8803,7 +8849,8 @@
           "group": "Authentication",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/twitch/white"
     },
     {
       "id": "youtube-streaming",
@@ -8842,7 +8889,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/youtube/white"
     },
     {
       "id": "custom-rtmp",
@@ -8881,7 +8929,8 @@
           "group": "Authentication",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "vercel-ai-gateway",
@@ -9031,7 +9080,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Vercel_logo_2025.svg"
+      "logoUrl": "https://cdn.simpleicons.org/vercel/white"
     },
     {
       "id": "vision",
@@ -9068,7 +9117,8 @@
           "min": 0,
           "max": 100
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlelens/white"
     },
     {
       "id": "webhooks",
@@ -9079,14 +9129,15 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/make/white"
     },
     {
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
       "npmName": "@elizaos/plugin-whatsapp",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg",
+      "logoUrl": "https://cdn.simpleicons.org/whatsapp/white",
       "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
@@ -9320,7 +9371,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/coinbase/x402/main/assets/logo.svg"
     },
     {
       "id": "xai",
@@ -9567,7 +9619,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/XAI_Logo.svg"
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/20/XAI-Logo.svg"
     },
     {
       "id": "zalo",
@@ -9709,7 +9761,7 @@
           "advanced": true
         }
       },
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/85/Zalo_logo_2019.svg"
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Zalo_logo.svg"
     },
     {
       "id": "zalouser",
@@ -9847,7 +9899,8 @@
           "group": "Policies",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Zalo_logo.svg"
     }
   ]
 }

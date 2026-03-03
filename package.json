@@ -157,6 +157,7 @@
     "@mariozechner/pi-ai": "0.52.12",
     "@mariozechner/pi-tui": "0.54.0",
     "@milady/plugin-retake": "workspace:*",
+    "@milady/plugin-bnb-identity": "workspace:*",
     "@milady/plugin-streaming-base": "workspace:*",
     "@milady/plugin-twitch-streaming": "workspace:*",
     "@milady/plugin-youtube-streaming": "workspace:*",
