@@ -9795,6 +9795,80 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/avatar/background ──────────────────────────────────────────
+  // Upload a custom background image. Saved to ~/.milady/avatars/custom-background.<ext>.
+  if (method === "POST" && pathname === "/api/avatar/background") {
+    const MAX_BG_BYTES = 10 * 1024 * 1024; // 10 MB
+    const rawBody = await readRequestBodyBuffer(req, {
+      maxBytes: MAX_BG_BYTES,
+      returnNullOnTooLarge: true,
+    });
+    if (!rawBody || rawBody.length === 0) {
+      error(res, "Request body is empty or exceeds 10 MB", 400);
+      return;
+    }
+    // Detect image format from magic bytes
+    let ext = "";
+    if (rawBody[0] === 0x89 && rawBody[1] === 0x50 && rawBody[2] === 0x4e && rawBody[3] === 0x47) {
+      ext = "png";
+    } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
+      ext = "jpg";
+    } else if (rawBody[0] === 0x52 && rawBody[1] === 0x49 && rawBody[2] === 0x46 && rawBody[3] === 0x46 && rawBody.length >= 12 && rawBody[8] === 0x57 && rawBody[9] === 0x45 && rawBody[10] === 0x42 && rawBody[11] === 0x50) {
+      ext = "webp";
+    } else {
+      error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
+      return;
+    }
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    // Remove any previous custom background (may have a different extension)
+    for (const old of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${old}`);
+      try { fs.unlinkSync(p); } catch {}
+    }
+    const bgPath = path.join(avatarDir, `custom-background.${ext}`);
+    fs.writeFileSync(bgPath, rawBody);
+    json(res, { ok: true, size: rawBody.length });
+    return;
+  }
+
+  // ── GET /api/avatar/background ─────────────────────────────────────────────
+  // Serve the user's custom background image if it exists.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname === "/api/avatar/background"
+  ) {
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+    let found = "";
+    for (const ext of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${ext}`);
+      try {
+        if (fs.statSync(p).isFile()) { found = p; break; }
+      } catch {}
+    }
+    if (!found) {
+      error(res, "No custom background found", 404);
+      return;
+    }
+    const stat = fs.statSync(found);
+    const fileExt = path.extname(found).slice(1);
+    const headers: Record<string, string | number> = {
+      "Content-Type": MIME[fileExt] || "application/octet-stream",
+      "Content-Length": stat.size,
+      "Cache-Control": "no-cache",
+    };
+    if (method === "HEAD") {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    const body = fs.readFileSync(found);
+    res.writeHead(200, headers);
+    res.end(body);
+    return;
+  }
+
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
     const { buildConfigSchema } = await import("../config/schema");

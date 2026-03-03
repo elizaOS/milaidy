@@ -1973,6 +1973,24 @@ export class MiladyClient {
     return this.fetch(`/api/runtime${qs ? `?${qs}` : ""}`);
   }
 
+  async setAutomationMode(
+    mode: "connectors-only" | "full",
+  ): Promise<{ mode: string }> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  async setTradeMode(
+    mode: string,
+  ): Promise<{ ok: boolean; tradePermissionMode: string }> {
+    return this.fetch("/api/permissions/trade-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
   async playEmote(emoteId: string): Promise<{ ok: boolean }> {
     return this.fetch("/api/emote", {
       method: "POST",
@@ -2243,6 +2261,31 @@ export class MiladyClient {
     try {
       const res = await this.rawRequest(
         "/api/avatar/vrm",
+        { method: "HEAD" },
+        { allowNonOk: true },
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── Custom background image ─────────────────────────────────────────
+
+  async uploadCustomBackground(file: File): Promise<void> {
+    const buf = await file.arrayBuffer();
+    await this.fetch("/api/avatar/background", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buf,
+    });
+  }
+
+  /** Uses raw fetch instead of this.fetch() because HEAD returns no JSON body. */
+  async hasCustomBackground(): Promise<boolean> {
+    try {
+      const res = await this.rawRequest(
+        "/api/avatar/background",
         { method: "HEAD" },
         { allowNonOk: true },
       );
@@ -3715,7 +3758,7 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     const res = await this.rawRequest(path, {
       method: "POST",
       headers: {
@@ -3740,6 +3783,7 @@ export class MiladyClient {
     let fullText = "";
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
+    let doneUsage: ChatTokenUsage | undefined;
 
     const findSseEventBreak = (
       chunkBuffer: string,
@@ -3765,15 +3809,15 @@ export class MiladyClient {
         fullText?: string;
         agentName?: string;
         message?: string;
+        usage?: {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+          model?: string;
+        };
       };
       try {
-        parsed = JSON.parse(payload) as {
-          type?: string;
-          text?: string;
-          fullText?: string;
-          agentName?: string;
-          message?: string;
-        };
+        parsed = JSON.parse(payload) as typeof parsed;
       } catch {
         return;
       }
@@ -3791,6 +3835,14 @@ export class MiladyClient {
         if (typeof parsed.fullText === "string") doneText = parsed.fullText;
         if (typeof parsed.agentName === "string" && parsed.agentName.trim()) {
           doneAgentName = parsed.agentName;
+        }
+        if (parsed.usage) {
+          doneUsage = {
+            promptTokens: parsed.usage.promptTokens ?? 0,
+            completionTokens: parsed.usage.completionTokens ?? 0,
+            totalTokens: parsed.usage.totalTokens ?? 0,
+            model: parsed.usage.model,
+          };
         }
         return;
       }
@@ -3833,6 +3885,7 @@ export class MiladyClient {
     return {
       text: resolvedText,
       agentName: doneAgentName ?? "Milady",
+      ...(doneUsage ? { usage: doneUsage } : {}),
     };
   }
 
@@ -3862,7 +3915,7 @@ export class MiladyClient {
     onToken: (token: string) => void,
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
@@ -3924,7 +3977,7 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,

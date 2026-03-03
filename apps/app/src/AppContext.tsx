@@ -106,6 +106,13 @@ export function getVrmPreviewUrl(index: number): string {
   return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
 }
 
+/** Resolve a built-in VRM index (1–N) to its background image URL. */
+export function getVrmBackgroundUrl(index: number): string {
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.png`);
+}
+
 // ── Theme ──────────────────────────────────────────────────────────────
 
 const THEME_STORAGE_KEY = "milady:theme";
@@ -788,6 +795,7 @@ export interface AppState {
   characterDraft: CharacterData;
   selectedVrmIndex: number;
   customVrmUrl: string;
+  customBackgroundUrl: string;
 
   // Cloud
   cloudEnabled: boolean;
@@ -1335,6 +1343,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [characterDraft, setCharacterDraft] = useState<CharacterData>({});
   const [selectedVrmIndex, setSelectedVrmIndexRaw] = useState(loadAvatarIndex);
   const [customVrmUrl, setCustomVrmUrl] = useState("");
+  const [customBackgroundUrl, setCustomBackgroundUrl] = useState("");
 
   // Wrap setter to also persist to localStorage
   const setSelectedVrmIndex = useCallback((v: number) => {
@@ -4504,6 +4513,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cloudEnabled: setCloudEnabled,
         selectedVrmIndex: setSelectedVrmIndex,
         customVrmUrl: setCustomVrmUrl,
+        customBackgroundUrl: setCustomBackgroundUrl,
         commandQuery: setCommandQuery,
         commandActiveIndex: setCommandActiveIndex,
         emotePickerOpen: setEmotePickerOpen,
@@ -5287,6 +5297,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           setSelectedVrmIndex(1);
         }
+        // Restore custom background if one was uploaded
+        const hasBg = await client.hasCustomBackground();
+        if (hasBg) {
+          setCustomBackgroundUrl(
+            resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
+          );
+        }
       }
 
       // Cloud polling
@@ -5513,6 +5530,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     characterDraft,
     selectedVrmIndex,
     customVrmUrl,
+    customBackgroundUrl,
     cloudEnabled,
     cloudConnected,
     cloudCredits,
