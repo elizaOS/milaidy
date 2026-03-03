@@ -5487,6 +5487,22 @@ import { parseActionBlock } from "./parse-action-block";
  * If the callback fails or Milaidy's response has no action block,
  * returns null → coordinator falls back to the small LLM.
  */
+
+/**
+ * Sanitize raw PTY terminal output before it enters the LLM pipeline.
+ * Strips ANSI escape sequences, enforces a character limit to prevent context
+ * overflow, and trims whitespace to reduce prompt injection surface.
+ */
+function sanitizeEventDescription(raw: string): string {
+  // Strip ANSI escape sequences
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching ANSI escape sequences requires ESC (U+001B)
+  const noAnsi = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
+  // Enforce character limit to prevent context overflow
+  const truncated = noAnsi.slice(0, 2000);
+  // Strip any obvious prompt injection attempts
+  return truncated.trim();
+}
+
 function wireCoordinatorEventRouting(st: ServerState): boolean {
   if (!st.runtime) return false;
   const coordinator = getCoordinatorFromRuntime(st.runtime);
@@ -5548,6 +5564,11 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
             return;
           }
 
+          // Sanitize PTY terminal output before it enters the LLM pipeline
+          // to prevent prompt injection and context overflow.
+          const sanitizedDescription =
+            sanitizeEventDescription(eventDescription);
+
           // Create a message memory so the event enters Milaidy's conversation history.
           const message = createMessageMemory({
             id: crypto.randomUUID() as UUID,
@@ -5555,7 +5576,7 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
             agentId: runtime.agentId,
             roomId: st.chatRoomId,
             content: {
-              text: eventDescription,
+              text: sanitizedDescription,
               source: "coordinator",
               channelType: "DM",
             },
@@ -5806,6 +5827,13 @@ async function maybeRouteAutonomyEventToConversation(
 
   await routeAutonomyTextToUser(state, text, source);
 }
+
+/**
+ * Reference counter for coordinator pause/resume.
+ * Multiple concurrent requests may pause the coordinator simultaneously;
+ * the coordinator is only resumed once all pausing requests have finished.
+ */
+let coordinatorPauseCount = 0;
 
 async function handleRequest(
   req: http.IncomingMessage,
@@ -11278,13 +11306,18 @@ async function handleRequest(
       aborted = true;
     });
 
-    // Pause coordinator LLM decisions while processing user message
+    // Pause coordinator LLM decisions while processing user message.
+    // Use a reference counter so concurrent requests don't prematurely resume.
     const streamCoordinator = state.runtime.getService("SWARM_COORDINATOR") as
       | { pause?: () => void; resume?: () => void; isPaused?: boolean }
       | undefined;
-    const streamDidPause = streamCoordinator && !streamCoordinator.isPaused;
+    const streamDidPause =
+      streamCoordinator != null && !streamCoordinator.isPaused;
     if (streamDidPause) {
-      streamCoordinator.pause?.();
+      coordinatorPauseCount++;
+      if (coordinatorPauseCount === 1) {
+        streamCoordinator.pause?.();
+      }
     }
 
     try {
@@ -11347,9 +11380,12 @@ async function handleRequest(
         }
       }
     } finally {
-      // Resume coordinator after user message processed
+      // Resume coordinator only when all concurrent requests have finished
       if (streamDidPause) {
-        streamCoordinator.resume?.();
+        coordinatorPauseCount--;
+        if (coordinatorPauseCount === 0) {
+          streamCoordinator.resume?.();
+        }
       }
       res.end();
     }
@@ -11381,13 +11417,17 @@ async function handleRequest(
       return;
     }
 
-    // Pause coordinator LLM decisions while processing user message
+    // Pause coordinator LLM decisions while processing user message.
+    // Use a reference counter so concurrent requests don't prematurely resume.
     const chatCoordinator = state.runtime.getService("SWARM_COORDINATOR") as
       | { pause?: () => void; resume?: () => void; isPaused?: boolean }
       | undefined;
-    const chatDidPause = chatCoordinator && !chatCoordinator.isPaused;
+    const chatDidPause = chatCoordinator != null && !chatCoordinator.isPaused;
     if (chatDidPause) {
-      chatCoordinator.pause?.();
+      coordinatorPauseCount++;
+      if (coordinatorPauseCount === 1) {
+        chatCoordinator.pause?.();
+      }
     }
 
     try {
@@ -11437,9 +11477,12 @@ async function handleRequest(
         error(res, getErrorMessage(err), 500);
       }
     } finally {
-      // Resume coordinator after user message processed
+      // Resume coordinator only when all concurrent requests have finished
       if (chatDidPause) {
-        chatCoordinator.resume?.();
+        coordinatorPauseCount--;
+        if (coordinatorPauseCount === 0) {
+          chatCoordinator.resume?.();
+        }
       }
     }
     return;

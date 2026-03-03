@@ -336,34 +336,7 @@ async function ensureTrajectoriesTable(
   if (schemaVersions.get(key) === SCHEMA_VERSION) return true;
 
   try {
-    // First, check if the table exists and has the correct schema
-    // by attempting to select all required columns
-    let needsRecreate = false;
-    try {
-      await executeRawSql(
-        runtime,
-        `SELECT trajectory_id, metadata, steps_json, archetype FROM trajectories LIMIT 1`,
-      );
-    } catch {
-      // Table doesn't exist or is missing trajectory_id column
-      // Try to drop and recreate
-      needsRecreate = true;
-      console.warn(
-        "[trajectory-persistence] Trajectories table missing or has outdated schema, recreating...",
-      );
-      try {
-        await executeRawSql(
-          runtime,
-          `DROP TABLE IF EXISTS trajectories CASCADE`,
-        );
-      } catch (dropErr) {
-        console.warn(
-          "[trajectory-persistence] Could not drop old table:",
-          dropErr,
-        );
-      }
-    }
-
+    // Create the table if it doesn't already exist
     await executeRawSql(
       runtime,
       `CREATE TABLE IF NOT EXISTS trajectories (
@@ -392,11 +365,38 @@ async function ensureTrajectoriesTable(
       )`,
     );
 
-    if (needsRecreate) {
-      console.warn(
-        "[trajectory-persistence] Recreated trajectories table with updated schema",
-      );
-    }
+    // Add any columns that may be missing from older schema versions.
+    // Using ADD COLUMN IF NOT EXISTS preserves all existing trajectory data.
+    const addColumnIfMissing = async (
+      col: string,
+      definition: string,
+    ): Promise<void> => {
+      try {
+        await executeRawSql(
+          runtime,
+          `ALTER TABLE trajectories ADD COLUMN IF NOT EXISTS ${col} ${definition}`,
+        );
+      } catch (alterErr) {
+        // Some SQLite drivers don't support IF NOT EXISTS on ALTER TABLE;
+        // ignore "duplicate column" errors silently.
+        const msg =
+          alterErr instanceof Error ? alterErr.message : String(alterErr);
+        if (!msg.toLowerCase().includes("duplicate column")) {
+          console.warn(
+            `[trajectory-persistence] Could not add column ${col}:`,
+            alterErr,
+          );
+        }
+      }
+    };
+
+    await addColumnIfMissing("trajectory_id", "TEXT");
+    await addColumnIfMissing("episode_length", "INTEGER");
+    await addColumnIfMissing("ai_judge_reward", "REAL");
+    await addColumnIfMissing("ai_judge_reasoning", "TEXT");
+    await addColumnIfMissing("archetype", "TEXT");
+    await addColumnIfMissing("metadata", "TEXT NOT NULL DEFAULT '{}'");
+    await addColumnIfMissing("steps_json", "TEXT NOT NULL DEFAULT '[]'");
 
     schemaVersions.set(key, SCHEMA_VERSION);
     initializedRuntimes.add(key);

@@ -50,6 +50,26 @@ export interface PTYService {
 const VALID_ACTIONS = ["respond", "escalate", "ignore", "complete"];
 
 /**
+ * Find the first JSON object containing an "action" key using balanced brace
+ * matching. This handles nested objects correctly, unlike a simple regex.
+ */
+function extractJsonWithAction(text: string): string | null {
+  const idx = text.indexOf('"action"');
+  if (idx === -1) return null;
+  // Find the opening brace before "action"
+  const start = text.lastIndexOf("{", idx);
+  if (start === -1) return null;
+  // Count braces to find the matching close brace
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") depth--;
+    if (depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
+/**
  * Parse a JSON action block from Milaidy's natural language response.
  * Looks for a fenced ```json block first, then bare JSON with "action" key.
  * Returns null if no valid action block is found.
@@ -58,8 +78,8 @@ export function parseActionBlock(text: string): CoordinationLLMResponse | null {
   if (!text) return null;
   // Try fenced ```json block first
   const fenced = text.match(/```(?:json)?\s*\n?(\{[\s\S]*?\})\s*\n?```/);
-  // Bare JSON fallback: non-greedy match from first { containing "action" to next }
-  const jsonStr = fenced?.[1] ?? text.match(/\{[^}]*"action"[^}]*\}/)?.[0];
+  // Bare JSON fallback: use balanced brace matching to handle nested objects
+  const jsonStr = fenced?.[1] ?? extractJsonWithAction(text);
   if (!jsonStr) return null;
   try {
     const parsed = JSON.parse(jsonStr);
