@@ -4,8 +4,8 @@
  *
  * On a fresh clone, apps/app/public/vrms/ and animations/ may be empty or
  * contain only Git LFS pointers.  This script clones the milady-ai/avatars
- * repository into a temp directory and copies the assets into the correct
- * locations under apps/app/public/.
+ * repository (org-owned) into a temp directory and copies the assets into
+ * the correct locations under apps/app/public/.
  *
  * Run automatically via the `postinstall` hook, or manually:
  *   node scripts/ensure-avatars.mjs
@@ -30,16 +30,18 @@ const PUBLIC = join(ROOT, "apps", "app", "public");
 const VRMS_DIR = join(PUBLIC, "vrms");
 const ANIMATIONS_DIR = join(PUBLIC, "animations");
 
+// milady-ai/avatars is an org-owned repo in the milady-ai GitHub organization.
+// Pinned to a specific commit for reproducible installs (supply-chain safety).
 const AVATARS_REPO = "https://github.com/milady-ai/avatars.git";
+const AVATARS_COMMIT = "23e9bfc02e55e70acb8c8f0d4786829ecccbb5b6";
 const TAG = "[ensure-avatars]";
 
 /** A VRM file is valid if it is > 1 KB (rules out LFS pointers & stubs). */
-function hasValidVrm(dir) {
+export function hasValidVrm(dir) {
   if (!existsSync(dir)) return false;
   try {
     const files = readdirSync(dir).filter((f) => f.endsWith(".vrm"));
     if (files.length === 0) return false;
-    // Check the first VRM is a real binary, not an LFS pointer (~130 bytes)
     const stat = statSync(join(dir, files[0]));
     return stat.size > 1024;
   } catch {
@@ -47,7 +49,7 @@ function hasValidVrm(dir) {
   }
 }
 
-function hasValidAnimations(dir) {
+export function hasValidAnimations(dir) {
   if (!existsSync(dir)) return false;
   const emotesDir = join(dir, "emotes");
   if (!existsSync(emotesDir)) return false;
@@ -70,6 +72,16 @@ function gitAvailable() {
   }
 }
 
+/** Count files matching an extension in a directory (non-recursive). */
+function countFiles(dir, ext) {
+  if (!existsSync(dir)) return 0;
+  try {
+    return readdirSync(dir).filter((f) => f.endsWith(ext)).length;
+  } catch {
+    return 0;
+  }
+}
+
 export function runEnsureAvatars({
   force = false,
   log = console.log,
@@ -86,7 +98,7 @@ export function runEnsureAvatars({
   }
 
   log(
-    `${TAG} Avatar assets missing or incomplete — cloning from ${AVATARS_REPO}...`,
+    `${TAG} Avatar assets missing or incomplete — cloning from ${AVATARS_REPO} @ ${AVATARS_COMMIT.slice(0, 8)}...`,
   );
 
   const tmpDir = join(ROOT, ".avatar-clone-tmp");
@@ -97,40 +109,54 @@ export function runEnsureAvatars({
       rmSync(tmpDir, { recursive: true, force: true });
     }
 
-    // Shallow clone for speed (assets only, no history)
+    // Clone and checkout pinned commit for reproducibility.
+    // Uses --depth 1 + fetch for speed (avoids full history).
     execSync(`git clone --depth 1 ${AVATARS_REPO} "${tmpDir}"`, {
       cwd: ROOT,
       stdio: "inherit",
     });
+    execSync(`git -C "${tmpDir}" fetch --depth 1 origin ${AVATARS_COMMIT}`, {
+      cwd: ROOT,
+      stdio: "inherit",
+    });
+    execSync(`git -C "${tmpDir}" checkout ${AVATARS_COMMIT}`, {
+      cwd: ROOT,
+      stdio: "inherit",
+    });
 
-    // Copy VRM files and directories
+    // cpSync(src, dest, { recursive: true }) merges src contents INTO dest
+    // (like rsync -a src/ dest/), it does NOT create dest/basename(src).
+    // So vrms/milady-1.vrm → apps/app/public/vrms/milady-1.vrm (correct).
+
     const avatarVrms = join(tmpDir, "vrms");
     if (existsSync(avatarVrms)) {
       mkdirSync(VRMS_DIR, { recursive: true });
       cpSync(avatarVrms, VRMS_DIR, { recursive: true, force: true });
-      log(`${TAG} Copied VRMs, previews, and backgrounds`);
+      const vrmCount = countFiles(VRMS_DIR, ".vrm");
+      log(`${TAG} Copied ${vrmCount} VRMs + previews and backgrounds`);
     }
 
-    // Copy animation files and directories
     const avatarAnims = join(tmpDir, "animations");
     if (existsSync(avatarAnims)) {
       mkdirSync(ANIMATIONS_DIR, { recursive: true });
       cpSync(avatarAnims, ANIMATIONS_DIR, { recursive: true, force: true });
-      log(`${TAG} Copied animations and emotes`);
+      const glbCount = countFiles(join(ANIMATIONS_DIR, "emotes"), ".glb");
+      const fbxCount = countFiles(join(ANIMATIONS_DIR, "mixamo"), ".fbx");
+      log(`${TAG} Copied ${glbCount} emotes + ${fbxCount} mixamo animations`);
     }
 
-    // Verify the copy worked
+    // Verify the copy produced valid assets
     const vrmsOk = hasValidVrm(VRMS_DIR);
     const animsOk = hasValidAnimations(ANIMATIONS_DIR);
 
-    if (vrmsOk && animsOk) {
-      log(`${TAG} Avatar assets installed successfully`);
-    } else {
+    if (!vrmsOk || !animsOk) {
       logError(
-        `${TAG} Warning: copy completed but verification failed (vrms=${vrmsOk}, animations=${animsOk})`,
+        `${TAG} ERROR: copy completed but verification failed (vrms=${vrmsOk}, animations=${animsOk})`,
       );
+      return { cloned: true, vrmsOk, animsOk, reason: "verify-failed" };
     }
 
+    log(`${TAG} Avatar assets installed successfully`);
     return { cloned: true, vrmsOk, animsOk };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -140,7 +166,6 @@ export function runEnsureAvatars({
     );
     return { cloned: false, reason: "clone-failed", error: message };
   } finally {
-    // Always clean up temp directory
     try {
       if (existsSync(tmpDir)) {
         rmSync(tmpDir, { recursive: true, force: true });
