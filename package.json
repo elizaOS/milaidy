@@ -134,7 +134,7 @@
     "@elizaos/plugin-openrouter": "next",
     "@elizaos/plugin-pdf": "next",
     "@elizaos/plugin-personality": "next",
-    "@elizaos/plugin-pi-ai": "next",
+    "@elizaos/plugin-pi-ai": "^1.7.3-alpha.3",
     "@elizaos/plugin-plugin-manager": "next",
     "@elizaos/plugin-rolodex": "next",
     "@elizaos/plugin-secrets-manager": "next",
