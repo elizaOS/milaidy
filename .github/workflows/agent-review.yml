@@ -239,7 +239,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           model: gpt-5.3-codex
-          effort: extra-high
+          effort: xhigh
           safety-strategy: read-only
           prompt: |
             You are the sole code reviewer for the Milady project (milady-ai/milady).
