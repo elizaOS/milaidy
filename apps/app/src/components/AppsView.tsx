@@ -517,18 +517,13 @@ export function AppsView() {
   ]);
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const ALLOWED_APP_KEYWORDS = [
-    "2004scape",
-    "hyperscape",
-    "hyperfy",
-    "babylon",
-  ];
-
   const filtered = apps.filter((app) => {
-    const isAllowed = ALLOWED_APP_KEYWORDS.some((keyword) =>
-      app.name.toLowerCase().includes(keyword),
-    );
-    if (!isAllowed) return false;
+    if (app.category !== "app") return false;
+
+    // Hardcode disable non-clawbal apps in production for now
+    if (import.meta.env.PROD && !app.name.includes("clawbal")) {
+      return false;
+    }
 
     if (
       normalizedSearch &&
