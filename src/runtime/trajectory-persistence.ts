@@ -1,6 +1,104 @@
-import type { IAgentRuntime } from "@elizaos/core";
+import { type IAgentRuntime, Service } from "@elizaos/core";
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
+
+// ============================================================================
+// Types for the full TrajectoryLoggerApi (compatible with trajectory-routes.ts)
+// ============================================================================
+
+interface TrajectoryListOptions {
+  limit?: number;
+  offset?: number;
+  source?: string;
+  status?: TrajectoryStatus;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  scenarioId?: string;
+  batchId?: string;
+  isTrainingData?: boolean;
+}
+
+interface TrajectoryListItem {
+  id: string;
+  agentId: string;
+  source: string;
+  status: TrajectoryStatus;
+  startTime: number;
+  endTime: number | null;
+  durationMs: number | null;
+  stepCount: number;
+  llmCallCount: number;
+  providerAccessCount: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  createdAt: string;
+}
+
+interface TrajectoryListResult {
+  trajectories: TrajectoryListItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+interface TrajectoryStep {
+  stepId?: string;
+  timestamp: number;
+  llmCalls?: Array<{
+    callId?: string;
+    timestamp?: number;
+    model?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
+    response?: string;
+    temperature?: number;
+    maxTokens?: number;
+    purpose?: string;
+    actionType?: string;
+    latencyMs?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+  }>;
+  providerAccesses?: Array<{
+    providerId?: string;
+    providerName?: string;
+    purpose?: string;
+    data?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+    timestamp?: number;
+  }>;
+}
+
+interface Trajectory {
+  trajectoryId: string;
+  agentId: string;
+  startTime: number;
+  endTime?: number;
+  durationMs?: number;
+  steps?: TrajectoryStep[];
+  metrics?: { finalStatus?: string };
+  metadata?: Record<string, unknown>;
+  stepsJson?: string;
+}
+
+type TrajectoryExportFormat = "json" | "csv" | "art";
+
+interface TrajectoryExportOptions {
+  format: TrajectoryExportFormat;
+  includePrompts?: boolean;
+  trajectoryIds?: string[];
+  startDate?: string;
+  endDate?: string;
+  scenarioId?: string;
+  batchId?: string;
+}
+
+interface TrajectoryExportResult {
+  filename: string;
+  data: string | Uint8Array;
+  mimeType: string;
+}
 
 type RuntimeDb = {
   execute: (query: { queryChunks: object[] }) => Promise<unknown>;
@@ -84,6 +182,7 @@ const initializedRuntimes = new WeakSet<object>();
 const patchedLoggers = new WeakSet<object>();
 
 const stepWriteQueues = new WeakMap<object, Map<string, Promise<void>>>();
+const lastWritePromises = new WeakMap<object, Promise<void>>();
 
 let cachedSqlRaw: ((query: string) => { queryChunks: object[] }) | null = null;
 
@@ -224,21 +323,52 @@ function warnRuntime(
   }
 }
 
+// Module version - changes on each hot reload, ensuring schema checks run
+const SCHEMA_VERSION = Date.now();
+const schemaVersions = new WeakMap<object, number>();
+
 async function ensureTrajectoriesTable(
   runtime: IAgentRuntime,
 ): Promise<boolean> {
   const key = runtime as unknown as object;
-  if (initializedRuntimes.has(key)) return true;
+
+  // Only skip if verified with current module version
+  if (schemaVersions.get(key) === SCHEMA_VERSION) return true;
 
   try {
-    // Schema matches @elizaos/plugin-trajectory-logger's table definition.
-    // When the plugin is loaded it creates this table first; our CREATE IF
-    // NOT EXISTS is a no-op in that case. When running without the plugin
-    // (e.g. standalone persistence) this acts as the fallback DDL.
+    // First, check if the table exists and has the correct schema
+    // by attempting to select all required columns
+    let needsRecreate = false;
+    try {
+      await executeRawSql(
+        runtime,
+        `SELECT trajectory_id, metadata, steps_json, archetype FROM trajectories LIMIT 1`,
+      );
+    } catch {
+      // Table doesn't exist or is missing trajectory_id column
+      // Try to drop and recreate
+      needsRecreate = true;
+      console.warn(
+        "[trajectory-persistence] Trajectories table missing or has outdated schema, recreating...",
+      );
+      try {
+        await executeRawSql(
+          runtime,
+          `DROP TABLE IF EXISTS trajectories CASCADE`,
+        );
+      } catch (dropErr) {
+        console.warn(
+          "[trajectory-persistence] Could not drop old table:",
+          dropErr,
+        );
+      }
+    }
+
     await executeRawSql(
       runtime,
       `CREATE TABLE IF NOT EXISTS trajectories (
         id TEXT PRIMARY KEY,
+        trajectory_id TEXT,
         agent_id TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT 'runtime',
         status TEXT NOT NULL DEFAULT 'completed',
@@ -251,14 +381,24 @@ async function ensureTrajectoriesTable(
         total_prompt_tokens INTEGER NOT NULL DEFAULT 0,
         total_completion_tokens INTEGER NOT NULL DEFAULT 0,
         total_reward REAL NOT NULL DEFAULT 0,
-        steps_json JSONB NOT NULL DEFAULT '[]',
-        metadata_json JSONB NOT NULL DEFAULT '{}',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        steps_json TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        episode_length INTEGER,
         ai_judge_reward REAL,
-        ai_judge_reasoning TEXT
+        ai_judge_reasoning TEXT,
+        archetype TEXT
       )`,
     );
+
+    if (needsRecreate) {
+      console.warn(
+        "[trajectory-persistence] Recreated trajectories table with updated schema",
+      );
+    }
+
+    schemaVersions.set(key, SCHEMA_VERSION);
     initializedRuntimes.add(key);
     return true;
   } catch (err) {
@@ -641,9 +781,7 @@ async function loadTrajectoryById(
       startTime,
       endTime,
       steps,
-      metadata: parseMetadata(
-        readRecordValue(row, ["metadata_json", "metadata", "meta"]),
-      ),
+      metadata: parseMetadata(readRecordValue(row, ["metadata", "meta"])),
       totalReward: toNumber(
         readRecordValue(row, ["total_reward", "totalReward"]),
         0,
@@ -680,6 +818,7 @@ async function saveTrajectory(
 
   const sql = `INSERT INTO trajectories (
       id,
+      trajectory_id,
       agent_id,
       source,
       status,
@@ -693,10 +832,12 @@ async function saveTrajectory(
       total_completion_tokens,
       total_reward,
       steps_json,
-      metadata_json,
+      metadata,
       created_at,
-      updated_at
+      updated_at,
+      episode_length
     ) VALUES (
+      ${sqlQuote(trajectory.id)},
       ${sqlQuote(trajectory.id)},
       ${sqlQuote(runtime.agentId)},
       ${sqlQuote(trajectory.source)},
@@ -710,12 +851,14 @@ async function saveTrajectory(
       ${sqlNumber(summary.totalPromptTokens)},
       ${sqlNumber(summary.totalCompletionTokens)},
       ${sqlNumber(trajectory.totalReward)},
-      ${sqlQuote(JSON.stringify(trajectory.steps))}::jsonb,
-      ${sqlQuote(JSON.stringify(trajectory.metadata))}::jsonb,
-      ${sqlQuote(createdAt)}::timestamptz,
-      ${sqlQuote(updatedAt)}::timestamptz
+      ${sqlQuote(JSON.stringify(trajectory.steps))},
+      ${sqlQuote(JSON.stringify(trajectory.metadata))},
+      ${sqlQuote(createdAt)},
+      ${sqlQuote(updatedAt)},
+      ${sqlNumber(trajectory.steps.length)}
     )
     ON CONFLICT (id) DO UPDATE SET
+      trajectory_id = EXCLUDED.trajectory_id,
       agent_id = EXCLUDED.agent_id,
       source = EXCLUDED.source,
       status = EXCLUDED.status,
@@ -729,9 +872,10 @@ async function saveTrajectory(
       total_completion_tokens = EXCLUDED.total_completion_tokens,
       total_reward = EXCLUDED.total_reward,
       steps_json = EXCLUDED.steps_json,
-      metadata_json = EXCLUDED.metadata_json,
+      metadata = EXCLUDED.metadata,
       created_at = EXCLUDED.created_at,
-      updated_at = EXCLUDED.updated_at`;
+      updated_at = EXCLUDED.updated_at,
+      episode_length = EXCLUDED.episode_length`;
 
   try {
     await executeRawSql(runtime, sql);
@@ -822,7 +966,12 @@ async function appendProviderAccess(
 }
 
 export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
-  if (!hasRuntimeDb(runtime)) return;
+  if (!hasRuntimeDb(runtime)) {
+    console.warn(
+      "[trajectory-persistence] installDatabaseTrajectoryLogger: no database adapter found on runtime",
+    );
+    return;
+  }
 
   const logger = resolveTrajectoryLogger(runtime);
   if (!logger) {
@@ -879,11 +1028,17 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     const normalized = normalizeLlmCallPayload(args);
     if (!normalized) return;
 
-    void enqueueStepWrite(runtime, normalized.stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
-      await appendLlmCall(runtime, normalized.stepId, normalized.params);
-    });
+    const writePromise = enqueueStepWrite(
+      runtime,
+      normalized.stepId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+        await appendLlmCall(runtime, normalized.stepId, normalized.params);
+      },
+    );
+    const runtimeKey = runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
   }) as unknown as (params: Record<string, unknown>) => void;
 
   logger.logProviderAccess = ((...args: unknown[]) => {
@@ -898,15 +1053,259 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     const normalized = normalizeProviderAccessPayload(args);
     if (!normalized) return;
 
-    void enqueueStepWrite(runtime, normalized.stepId, async () => {
-      const tableReady = await ensureTrajectoriesTable(runtime);
-      if (!tableReady) return;
-      await appendProviderAccess(runtime, normalized.stepId, normalized.params);
-    });
+    const writePromise = enqueueStepWrite(
+      runtime,
+      normalized.stepId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+        await appendProviderAccess(
+          runtime,
+          normalized.stepId,
+          normalized.params,
+        );
+      },
+    );
+    const runtimeKey = runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
   }) as unknown as (params: Record<string, unknown>) => void;
 
   logger.getLlmCallLogs = () => [];
   logger.getProviderAccessLogs = () => [];
+
+  // Add startTrajectory, startStep, endTrajectory methods expected by plugin-trajectory-logger
+  // and query methods for API endpoints
+  const loggerAny = logger as unknown as {
+    startTrajectory?: (
+      stepIdOrAgentId: string,
+      options?: {
+        agentId?: string;
+        roomId?: string;
+        entityId?: string;
+        source?: string;
+        metadata?: Record<string, unknown>;
+      },
+    ) => Promise<string>;
+    startStep?: (trajectoryId: string) => string;
+    endTrajectory?: (
+      stepIdOrTrajectoryId: string,
+      status?: string,
+    ) => Promise<void>;
+    listTrajectories?: (
+      options?: TrajectoryListOptions,
+    ) => Promise<TrajectoryListResult>;
+    getTrajectoryDetail?: (trajectoryId: string) => Promise<Trajectory | null>;
+    getStats?: () => Promise<unknown>;
+  };
+
+  loggerAny.startTrajectory = async (
+    stepIdOrAgentId: string,
+    options?: {
+      agentId?: string;
+      roomId?: string;
+      entityId?: string;
+      source?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<string> => {
+    const isLegacySignature = typeof options?.agentId === "string";
+    const stepId = isLegacySignature
+      ? stepIdOrAgentId
+      : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const writePromise = enqueueStepWrite(runtime, stepId, async () => {
+      const tableReady = await ensureTrajectoriesTable(runtime);
+      if (!tableReady) return;
+
+      await startTrajectoryStepInDatabase({
+        runtime,
+        stepId,
+        source: options?.source ?? "chat",
+        metadata: options?.metadata,
+      });
+    });
+
+    const runtimeKey = runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+
+    return stepId;
+  };
+
+  loggerAny.startStep = (_trajectoryId: string): string => {
+    return `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
+
+  loggerAny.endTrajectory = async (
+    stepIdOrTrajectoryId: string,
+    status = "completed",
+  ): Promise<void> => {
+    const writePromise = enqueueStepWrite(
+      runtime,
+      stepIdOrTrajectoryId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(runtime);
+        if (!tableReady) return;
+
+        await completeTrajectoryStepInDatabase({
+          runtime,
+          stepId: stepIdOrTrajectoryId,
+          status: status as TrajectoryStatus,
+        });
+      },
+    );
+
+    const runtimeKey = runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+  };
+
+  // Add query methods for API endpoints
+  loggerAny.listTrajectories = async (
+    options: TrajectoryListOptions = {},
+  ): Promise<TrajectoryListResult> => {
+    if (!hasRuntimeDb(runtime)) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
+
+    const tableReady = await ensureTrajectoriesTable(runtime);
+    if (!tableReady) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
+
+    const limit = Math.min(500, Math.max(1, options.limit ?? 50));
+    const offset = Math.max(0, options.offset ?? 0);
+
+    const whereClauses: string[] = [];
+    if (options.source) {
+      whereClauses.push(`source = ${sqlQuote(options.source)}`);
+    }
+    if (options.status) {
+      whereClauses.push(`status = ${sqlQuote(options.status)}`);
+    }
+    if (options.startDate) {
+      const startTime = new Date(options.startDate).getTime();
+      if (Number.isFinite(startTime)) {
+        whereClauses.push(`start_time >= ${startTime}`);
+      }
+    }
+    if (options.endDate) {
+      const endTime = new Date(options.endDate).getTime();
+      if (Number.isFinite(endTime)) {
+        whereClauses.push(`start_time <= ${endTime}`);
+      }
+    }
+    if (options.search) {
+      const searchPattern = `%${options.search.replace(/[%_]/g, "\\$&")}%`;
+      whereClauses.push(`id LIKE ${sqlQuote(searchPattern)}`);
+    }
+
+    const whereClause =
+      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    try {
+      const countResult = await executeRawSql(
+        runtime,
+        `SELECT count(*) AS total FROM trajectories ${whereClause}`,
+      );
+      const countRow = asRecord(extractRows(countResult)[0]);
+      const total = toNumber(countRow?.total, 0);
+
+      const result = await executeRawSql(
+        runtime,
+        `SELECT * FROM trajectories ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+      );
+
+      const rows = extractRows(result);
+      const trajectories: TrajectoryListItem[] = rows
+        .map((row) => {
+          const r = asRecord(row);
+          if (!r) return null;
+          return {
+            id: toText(r.id ?? r.trajectory_id, ""),
+            agentId: toText(r.agent_id, runtime.agentId),
+            source: toText(r.source, "runtime"),
+            status: normalizeStatus(r.status, "completed"),
+            startTime: toNumber(r.start_time, Date.now()),
+            endTime: toOptionalNumber(r.end_time) ?? null,
+            durationMs: toOptionalNumber(r.duration_ms) ?? null,
+            stepCount: toNumber(r.step_count, 0),
+            llmCallCount: toNumber(r.llm_call_count, 0),
+            providerAccessCount: toNumber(r.provider_access_count, 0),
+            totalPromptTokens: toNumber(r.total_prompt_tokens, 0),
+            totalCompletionTokens: toNumber(r.total_completion_tokens, 0),
+            createdAt: toText(
+              r.created_at,
+              new Date(toNumber(r.start_time, Date.now())).toISOString(),
+            ),
+          };
+        })
+        .filter((item): item is TrajectoryListItem => item !== null);
+
+      return { trajectories, total, offset, limit };
+    } catch (err) {
+      console.error("[trajectory-persistence] listTrajectories error:", err);
+      return { trajectories: [], total: 0, offset, limit };
+    }
+  };
+
+  loggerAny.getTrajectoryDetail = async (
+    trajectoryId: string,
+  ): Promise<Trajectory | null> => {
+    if (!hasRuntimeDb(runtime)) return null;
+
+    const tableReady = await ensureTrajectoriesTable(runtime);
+    if (!tableReady) return null;
+
+    const persisted = await loadTrajectoryById(runtime, trajectoryId);
+    if (!persisted) return null;
+
+    return {
+      trajectoryId: persisted.id,
+      agentId: runtime.agentId,
+      startTime: persisted.startTime,
+      endTime: persisted.endTime ?? undefined,
+      durationMs: persisted.endTime
+        ? persisted.endTime - persisted.startTime
+        : undefined,
+      steps: persisted.steps.map((step) => ({
+        stepId: step.stepId,
+        timestamp: step.timestamp,
+        llmCalls: step.llmCalls,
+        providerAccesses: step.providerAccesses,
+      })),
+      metrics: { finalStatus: persisted.status },
+      metadata: persisted.metadata,
+      stepsJson: JSON.stringify(persisted.steps),
+    };
+  };
+
+  loggerAny.getStats = async (): Promise<unknown> => {
+    if (!hasRuntimeDb(runtime)) {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+
+    const tableReady = await ensureTrajectoriesTable(runtime);
+    if (!tableReady) {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+
+    try {
+      const countResult = await executeRawSql(
+        runtime,
+        "SELECT count(*) AS total FROM trajectories",
+      );
+      const countRow = asRecord(extractRows(countResult)[0]);
+      const total = toNumber(countRow?.total, 0);
+
+      return {
+        total,
+        enabled: true,
+        byStatus: {},
+        bySource: {},
+      };
+    } catch {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+  };
 
   patchedLoggers.add(loggerObject);
 
@@ -1055,4 +1454,437 @@ export async function clearPersistedTrajectoryRows(
   } catch {
     return null;
   }
+}
+
+/**
+ * Wait for all pending trajectory writes to complete.
+ * Useful for tests to ensure writes are flushed before assertions.
+ */
+export async function flushTrajectoryWrites(
+  runtime: IAgentRuntime,
+): Promise<void> {
+  const runtimeKey = runtime as unknown as object;
+  const perStep = stepWriteQueues.get(runtimeKey);
+  if (perStep) {
+    const pending = Array.from(perStep.values());
+    if (pending.length > 0) {
+      await Promise.all(pending);
+    }
+  }
+  const lastWrite = lastWritePromises.get(runtimeKey);
+  if (lastWrite) {
+    await lastWrite;
+  }
+}
+
+// ============================================================================
+// DatabaseTrajectoryLogger - Full implementation for trajectory-routes.ts
+// ============================================================================
+
+/**
+ * Database-backed trajectory logger service that implements the full API
+ * expected by trajectory-routes.ts. This service reads from and writes to
+ * the database for trajectory persistence.
+ */
+export class DatabaseTrajectoryLogger extends Service {
+  static serviceType = "trajectory_logger";
+  capabilityDescription =
+    "Database-backed trajectory logging service for LLM call persistence";
+
+  private enabled = true;
+
+  /**
+   * Static start method required by @elizaos/core runtime.
+   */
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    const service = new DatabaseTrajectoryLogger(runtime);
+    await service.initialize();
+    return service;
+  }
+
+  async initialize(): Promise<void> {
+    if (hasRuntimeDb(this.runtime)) {
+      await ensureTrajectoriesTable(this.runtime);
+    }
+  }
+
+  async stop(): Promise<void> {
+    await flushTrajectoryWrites(this.runtime);
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
+  /**
+   * Start a new trajectory for tracking LLM interactions.
+   * Supports both legacy (stepId, {agentId}) and new (agentId, options) signatures.
+   */
+  async startTrajectory(
+    stepIdOrAgentId: string,
+    options?: {
+      agentId?: string;
+      roomId?: string;
+      entityId?: string;
+      source?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<string> {
+    if (!this.enabled) return stepIdOrAgentId;
+
+    const isLegacySignature = typeof options?.agentId === "string";
+    const stepId = isLegacySignature
+      ? stepIdOrAgentId
+      : `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // Initialize trajectory in database
+    const writePromise = enqueueStepWrite(this.runtime, stepId, async () => {
+      const tableReady = await ensureTrajectoriesTable(this.runtime);
+      if (!tableReady) return;
+
+      await startTrajectoryStepInDatabase({
+        runtime: this.runtime,
+        stepId,
+        source: options?.source ?? "chat",
+        metadata: options?.metadata,
+      });
+    });
+
+    const runtimeKey = this.runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+
+    return stepId;
+  }
+
+  /**
+   * Start a new step within an existing trajectory.
+   */
+  startStep(_trajectoryId: string): string {
+    const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // For database logger, steps are independent - we just return the new stepId
+    return stepId;
+  }
+
+  /**
+   * End a trajectory and mark it with the given status.
+   */
+  async endTrajectory(
+    stepIdOrTrajectoryId: string,
+    status: TrajectoryStatus = "completed",
+  ): Promise<void> {
+    if (!this.enabled) return;
+
+    const writePromise = enqueueStepWrite(
+      this.runtime,
+      stepIdOrTrajectoryId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(this.runtime);
+        if (!tableReady) return;
+
+        await completeTrajectoryStepInDatabase({
+          runtime: this.runtime,
+          stepId: stepIdOrTrajectoryId,
+          status,
+        });
+      },
+    );
+
+    const runtimeKey = this.runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+  }
+
+  logLlmCall(params: Record<string, unknown>): void {
+    if (!this.enabled) return;
+    const normalized = normalizeLlmCallPayload([params]);
+    if (!normalized) return;
+
+    const writePromise = enqueueStepWrite(
+      this.runtime,
+      normalized.stepId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(this.runtime);
+        if (!tableReady) return;
+        await appendLlmCall(this.runtime, normalized.stepId, normalized.params);
+      },
+    );
+    const runtimeKey = this.runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+  }
+
+  logProviderAccess(params: Record<string, unknown>): void {
+    if (!this.enabled) return;
+    const normalized = normalizeProviderAccessPayload([params]);
+    if (!normalized) return;
+
+    const writePromise = enqueueStepWrite(
+      this.runtime,
+      normalized.stepId,
+      async () => {
+        const tableReady = await ensureTrajectoriesTable(this.runtime);
+        if (!tableReady) return;
+        await appendProviderAccess(
+          this.runtime,
+          normalized.stepId,
+          normalized.params,
+        );
+      },
+    );
+    const runtimeKey = this.runtime as unknown as object;
+    lastWritePromises.set(runtimeKey, writePromise);
+  }
+
+  getLlmCallLogs(): readonly unknown[] {
+    return [];
+  }
+
+  getProviderAccessLogs(): readonly unknown[] {
+    return [];
+  }
+
+  async listTrajectories(
+    options: TrajectoryListOptions,
+  ): Promise<TrajectoryListResult> {
+    if (!hasRuntimeDb(this.runtime)) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
+
+    const tableReady = await ensureTrajectoriesTable(this.runtime);
+    if (!tableReady) {
+      return { trajectories: [], total: 0, offset: 0, limit: 50 };
+    }
+
+    const limit = Math.min(500, Math.max(1, options.limit ?? 50));
+    const offset = Math.max(0, options.offset ?? 0);
+
+    // Build WHERE clause
+    const whereClauses: string[] = [];
+    if (options.source) {
+      whereClauses.push(`source = ${sqlQuote(options.source)}`);
+    }
+    if (options.status) {
+      whereClauses.push(`status = ${sqlQuote(options.status)}`);
+    }
+    if (options.startDate) {
+      const startTime = new Date(options.startDate).getTime();
+      if (Number.isFinite(startTime)) {
+        whereClauses.push(`start_time >= ${startTime}`);
+      }
+    }
+    if (options.endDate) {
+      const endTime = new Date(options.endDate).getTime();
+      if (Number.isFinite(endTime)) {
+        whereClauses.push(`start_time <= ${endTime}`);
+      }
+    }
+    if (options.search) {
+      const searchPattern = `%${options.search.replace(/[%_]/g, "\\$&")}%`;
+      whereClauses.push(`id LIKE ${sqlQuote(searchPattern)}`);
+    }
+
+    const whereClause =
+      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    try {
+      // Get total count
+      const countResult = await executeRawSql(
+        this.runtime,
+        `SELECT count(*) AS total FROM trajectories ${whereClause}`,
+      );
+      const countRow = asRecord(extractRows(countResult)[0]);
+      const total = toNumber(countRow?.total, 0);
+
+      // Get rows
+      const result = await executeRawSql(
+        this.runtime,
+        `SELECT * FROM trajectories ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+      );
+
+      const rows = extractRows(result);
+      const trajectories: TrajectoryListItem[] = rows
+        .map((row) => {
+          const r = asRecord(row);
+          if (!r) return null;
+          return {
+            id: toText(r.id ?? r.trajectory_id, ""),
+            agentId: toText(r.agent_id, this.runtime.agentId),
+            source: toText(r.source, "runtime"),
+            status: normalizeStatus(r.status, "completed"),
+            startTime: toNumber(r.start_time, Date.now()),
+            endTime: toOptionalNumber(r.end_time) ?? null,
+            durationMs: toOptionalNumber(r.duration_ms) ?? null,
+            stepCount: toNumber(r.step_count, 0),
+            llmCallCount: toNumber(r.llm_call_count, 0),
+            providerAccessCount: toNumber(r.provider_access_count, 0),
+            totalPromptTokens: toNumber(r.total_prompt_tokens, 0),
+            totalCompletionTokens: toNumber(r.total_completion_tokens, 0),
+            createdAt: toText(
+              r.created_at,
+              new Date(toNumber(r.start_time, Date.now())).toISOString(),
+            ),
+          };
+        })
+        .filter((item): item is TrajectoryListItem => item !== null);
+
+      return { trajectories, total, offset, limit };
+    } catch (err) {
+      console.error("[DatabaseTrajectoryLogger] listTrajectories error:", err);
+      return { trajectories: [], total: 0, offset, limit };
+    }
+  }
+
+  async getTrajectoryDetail(trajectoryId: string): Promise<Trajectory | null> {
+    if (!hasRuntimeDb(this.runtime)) return null;
+
+    const tableReady = await ensureTrajectoriesTable(this.runtime);
+    if (!tableReady) return null;
+
+    const persisted = await loadTrajectoryById(this.runtime, trajectoryId);
+    if (!persisted) return null;
+
+    return {
+      trajectoryId: persisted.id,
+      agentId: this.runtime.agentId,
+      startTime: persisted.startTime,
+      endTime: persisted.endTime ?? undefined,
+      durationMs: persisted.endTime
+        ? persisted.endTime - persisted.startTime
+        : undefined,
+      steps: persisted.steps.map((step) => ({
+        stepId: step.stepId,
+        timestamp: step.timestamp,
+        llmCalls: step.llmCalls,
+        providerAccesses: step.providerAccesses,
+      })),
+      metrics: { finalStatus: persisted.status },
+      metadata: persisted.metadata,
+      stepsJson: JSON.stringify(persisted.steps),
+    };
+  }
+
+  async getStats(): Promise<unknown> {
+    if (!hasRuntimeDb(this.runtime)) {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+
+    const tableReady = await ensureTrajectoriesTable(this.runtime);
+    if (!tableReady) {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+
+    try {
+      const countResult = await executeRawSql(
+        this.runtime,
+        "SELECT count(*) AS total FROM trajectories",
+      );
+      const countRow = asRecord(extractRows(countResult)[0]);
+      const total = toNumber(countRow?.total, 0);
+
+      return {
+        total,
+        enabled: this.enabled,
+        byStatus: {},
+        bySource: {},
+      };
+    } catch {
+      return { total: 0, byStatus: {}, bySource: {} };
+    }
+  }
+
+  async deleteTrajectories(trajectoryIds: string[]): Promise<number> {
+    const result = await deletePersistedTrajectoryRows(
+      this.runtime,
+      trajectoryIds,
+    );
+    return result ?? 0;
+  }
+
+  async clearAllTrajectories(): Promise<number> {
+    const result = await clearPersistedTrajectoryRows(this.runtime);
+    return result ?? 0;
+  }
+
+  async exportTrajectories(
+    options: TrajectoryExportOptions,
+  ): Promise<TrajectoryExportResult> {
+    const listResult = await this.listTrajectories({
+      limit: 10000,
+      startDate: options.startDate,
+      endDate: options.endDate,
+    });
+
+    let ids = listResult.trajectories.map((t) => t.id);
+    if (options.trajectoryIds && options.trajectoryIds.length > 0) {
+      const idSet = new Set(options.trajectoryIds);
+      ids = ids.filter((id) => idSet.has(id));
+    }
+
+    const trajectories: Trajectory[] = [];
+    for (const id of ids) {
+      const detail = await this.getTrajectoryDetail(id);
+      if (detail) trajectories.push(detail);
+    }
+
+    if (options.format === "json") {
+      return {
+        filename: `trajectories-${Date.now()}.json`,
+        data: JSON.stringify(trajectories, null, 2),
+        mimeType: "application/json",
+      };
+    }
+
+    if (options.format === "csv") {
+      const rows = [
+        "id,agentId,startTime,endTime,status,llmCallCount,promptTokens,completionTokens",
+      ];
+      for (const t of trajectories) {
+        const llmCount = t.steps?.reduce(
+          (sum, s) => sum + (s.llmCalls?.length ?? 0),
+          0,
+        );
+        const promptTokens = t.steps?.reduce(
+          (sum, s) =>
+            sum +
+            (s.llmCalls?.reduce((s2, c) => s2 + (c.promptTokens ?? 0), 0) ?? 0),
+          0,
+        );
+        const completionTokens = t.steps?.reduce(
+          (sum, s) =>
+            sum +
+            (s.llmCalls?.reduce((s2, c) => s2 + (c.completionTokens ?? 0), 0) ??
+              0),
+          0,
+        );
+        rows.push(
+          `${t.trajectoryId},${t.agentId},${t.startTime},${t.endTime ?? ""},${t.metrics?.finalStatus ?? ""},${llmCount ?? 0},${promptTokens ?? 0},${completionTokens ?? 0}`,
+        );
+      }
+      return {
+        filename: `trajectories-${Date.now()}.csv`,
+        data: rows.join("\n"),
+        mimeType: "text/csv",
+      };
+    }
+
+    // Default to JSON for 'art' format
+    return {
+      filename: `trajectories-${Date.now()}.json`,
+      data: JSON.stringify(trajectories, null, 2),
+      mimeType: "application/json",
+    };
+  }
+}
+
+/**
+ * Create and register a database-backed trajectory logger service on the runtime.
+ * This replaces any existing trajectory_logger service with one that persists to the database.
+ */
+export function createDatabaseTrajectoryLogger(
+  runtime: IAgentRuntime,
+): DatabaseTrajectoryLogger {
+  const logger = new DatabaseTrajectoryLogger(runtime);
+  return logger;
 }
