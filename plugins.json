@@ -9025,7 +9025,7 @@
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
-      "npmName": "@elizaos/plugin-whatsapp",
+      "npmName": "@milady/plugin-whatsapp",
       "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg",
       "description": "WhatsApp plugin for ElizaOS \u2014 supports Baileys (QR code) and Cloud API",
       "category": "connector",
