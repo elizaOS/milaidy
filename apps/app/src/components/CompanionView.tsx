@@ -14,6 +14,8 @@ import type {
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
 } from "../api-client";
+import { client } from "../api-client";
+import { resolveAppAssetUrl } from "../asset-url";
 import { createTranslator } from "../i18n";
 import {
   MOOD_ANIMATION_POOLS,
@@ -401,6 +403,8 @@ export function CompanionView() {
   const currentAmbientIntentIdRef = useRef<string | null>(null);
   const idleCycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionAnimatingRef = useRef(false);
+  const ambientBlockedUntilMsRef = useRef(0);
+  const emoteLoopOverrideRef = useRef(false);
   const scheduleNextAccentRef = useRef<() => void>(() => {});
   const recentTxRefreshAtRef = useRef<Record<string, number>>({});
 
@@ -1439,6 +1443,9 @@ export function CompanionView() {
   const applyAmbientIntent = useCallback(() => {
     const engine = vrmEngineRef.current;
     if (!engine || !ambientIntent) return;
+    // Don't override a user/agent-triggered emote.
+    if (emoteLoopOverrideRef.current) return;
+    if (Date.now() < ambientBlockedUntilMsRef.current) return;
     if (currentAmbientIntentIdRef.current === ambientIntent.id) return;
 
     currentAmbientIntentIdRef.current = ambientIntent.id;
@@ -1456,6 +1463,8 @@ export function CompanionView() {
       idleCycleTimerRef.current = null;
     }
     if (actionAnimatingRef.current) return;
+    if (emoteLoopOverrideRef.current) return;
+    if (Date.now() < ambientBlockedUntilMsRef.current) return;
 
     const engine = vrmEngineRef.current;
     if (!engine) return;
@@ -1468,6 +1477,8 @@ export function CompanionView() {
 
     idleCycleTimerRef.current = setTimeout(() => {
       if (actionAnimatingRef.current) return;
+      if (emoteLoopOverrideRef.current) return;
+      if (Date.now() < ambientBlockedUntilMsRef.current) return;
       const anim = pickRandomAnimationDef(pool.accents);
       if (anim) {
         void engine.playEmote(anim.url, anim.durationSec, false);
@@ -1508,6 +1519,9 @@ export function CompanionView() {
     setVrmLoaded(false);
     setShowVrmFallback(false);
     currentAmbientIntentIdRef.current = null;
+    ambientBlockedUntilMsRef.current = 0;
+    emoteLoopOverrideRef.current = false;
+    actionAnimatingRef.current = false;
     if (idleCycleTimerRef.current) {
       clearTimeout(idleCycleTimerRef.current);
       idleCycleTimerRef.current = null;
@@ -1534,6 +1548,69 @@ export function CompanionView() {
       }
     };
   }, [vrmLoaded, scheduleNextAccent]);
+
+  // Subscribe to WebSocket emote events so the companion avatar plays emotes
+  // triggered from the EmotePicker or agent actions.
+  useEffect(() => {
+    if (!vrmLoaded) return;
+    return client.onWsEvent("emote", (data) => {
+      const engine = vrmEngineRef.current;
+      if (!engine) return;
+      const rawPath = data.glbPath as string;
+      const resolvedPath = resolveAppAssetUrl(rawPath);
+      const duration =
+        typeof data.duration === "number" && Number.isFinite(data.duration)
+          ? data.duration
+          : 3;
+      const isLoop = data.loop === true;
+
+      // Block both ambient systems from overriding this emote.
+      currentAmbientIntentIdRef.current = null;
+      actionAnimatingRef.current = true;
+      if (isLoop) {
+        emoteLoopOverrideRef.current = true;
+      } else {
+        ambientBlockedUntilMsRef.current =
+          Date.now() + Math.max(1800, Math.round(duration * 1000) + 700);
+      }
+      if (idleCycleTimerRef.current) {
+        clearTimeout(idleCycleTimerRef.current);
+        idleCycleTimerRef.current = null;
+      }
+
+      void engine.playEmote(resolvedPath, duration, isLoop);
+
+      if (!isLoop) {
+        setTimeout(
+          () => {
+            actionAnimatingRef.current = false;
+            scheduleNextAccent();
+          },
+          Math.max(1800, Math.round(duration * 1000) + 700),
+        );
+      }
+    });
+  }, [vrmLoaded, scheduleNextAccent]);
+
+  // Listen for stop-emote events from the EmotePicker "Stop" button.
+  useEffect(() => {
+    if (!vrmLoaded) return;
+    const handler = () => {
+      const engine = vrmEngineRef.current;
+      if (!engine) return;
+      actionAnimatingRef.current = false;
+      emoteLoopOverrideRef.current = false;
+      ambientBlockedUntilMsRef.current = 0;
+      currentAmbientIntentIdRef.current = null;
+      engine.stopEmote();
+      setTimeout(() => {
+        applyAmbientIntent();
+        scheduleNextAccent();
+      }, 80);
+    };
+    document.addEventListener("milady:stop-emote", handler);
+    return () => document.removeEventListener("milady:stop-emote", handler);
+  }, [vrmLoaded, applyAmbientIntent, scheduleNextAccent]);
 
   return (
     <div className="anime-comp-screen font-display">

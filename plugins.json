@@ -30,7 +30,9 @@
         "ACP_AGENT_ID"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "ACP_GATEWAY_URL": {
           "type": "string",
@@ -221,7 +223,9 @@
       "description": "Agent orchestration plugin for ElizaOS (task lifecycle + agent providers)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ORCHESTRATOR_ACTIVE_PROVIDER"],
+      "configKeys": [
+        "ORCHESTRATOR_ACTIVE_PROVIDER"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ORCHESTRATOR_ACTIVE_PROVIDER": {
@@ -325,6 +329,7 @@
       "npmName": "@elizaos/plugin-anthropic",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/78/Anthropic_logo.svg",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
         "ANTHROPIC_API_KEY",
@@ -429,7 +434,9 @@
         "ZEROEX_API_KEY"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["solana"],
+      "pluginDeps": [
+        "solana"
+      ],
       "pluginParameters": {
         "BIRDEYE_API_KEY": {
           "type": "string",
@@ -1128,6 +1135,7 @@
       "npmName": "@elizaos/plugin-bluesky",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Bluesky_Logo.svg",
       "envKey": null,
       "configKeys": [
         "BLUESKY_ENABLED",
@@ -1360,7 +1368,9 @@
         "CAPSOLVER_API_KEY"
       ],
       "version": "2.0.0-alpha.6",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "BROWSERBASE_API_KEY": {
           "type": "string",
@@ -1424,7 +1434,8 @@
           "group": "Authentication",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Chrome_icon_%28September_2014%29.svg"
     },
     {
       "id": "cli",
@@ -1434,7 +1445,10 @@
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CLI_NAME", "CLI_VERSION"],
+      "configKeys": [
+        "CLI_NAME",
+        "CLI_VERSION"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "CLI_NAME": {
@@ -1533,7 +1547,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg"
     },
     {
       "id": "code",
@@ -1550,7 +1565,9 @@
         "CODER_FORBIDDEN_COMMANDS"
       ],
       "version": "2.0.0-alpha.5",
-      "pluginDeps": ["shell"],
+      "pluginDeps": [
+        "shell"
+      ],
       "pluginParameters": {
         "CODER_ENABLED": {
           "type": "boolean",
@@ -1601,7 +1618,8 @@
           "width": "full",
           "help": "Comma-separated list of forbidden shell commands"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg"
     },
     {
       "id": "commands",
@@ -1863,10 +1881,13 @@
       "npmName": "@elizaos/plugin-cron",
       "description": "Cron scheduling plugin for ElizaOS agents - schedule recurring or one-time jobs that execute actions, run prompts, or trigger events",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Clock_icon.svg",
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"]
+      "pluginDeps": [
+        "cli"
+      ]
     },
     {
       "id": "directives",
@@ -1946,6 +1967,7 @@
       "npmName": "@elizaos/plugin-discord",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Discord_Circle_Header.svg",
       "envKey": "DISCORD_API_TOKEN",
       "configKeys": [
         "DISCORD_API_TOKEN",
@@ -2412,7 +2434,8 @@
           "group": "Speech-to-Text",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0e/ElevenLabs_logo.svg"
     },
     {
       "id": "eliza-classic",
@@ -2701,7 +2724,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/eliza/main/docs/static/img/logo.png"
     },
     {
       "id": "evm",
@@ -2710,6 +2734,7 @@
       "npmName": "@elizaos/plugin-evm",
       "description": "",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/05/Ethereum_logo_2014.svg",
       "envKey": "ALCHEMY_API_KEY",
       "configKeys": [
         "EVM_PRIVATE_KEY",
@@ -2888,7 +2913,9 @@
       "description": "Experience learning plugin for ElizaOS - records and recalls transferable agent learnings",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["AUTO_RECORD_THRESHOLD"],
+      "configKeys": [
+        "AUTO_RECORD_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "AUTO_RECORD_THRESHOLD": {
@@ -2914,6 +2941,7 @@
       "npmName": "@elizaos/plugin-farcaster",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://raw.githubusercontent.com/farcasterxyz/brand-assets/main/Farcaster%20Logo%20SVG/Farcaster%20Logo%20-%20Symbol%20-%20Purple.svg",
       "envKey": "FARCASTER_NEYNAR_API_KEY",
       "configKeys": [
         "FARCASTER_DRY_RUN",
@@ -3223,6 +3251,7 @@
       "npmName": "@elizaos/plugin-github",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
       "envKey": "GITHUB_API_TOKEN",
       "configKeys": [
         "GITHUB_API_TOKEN",
@@ -3338,7 +3367,8 @@
       "category": "connector",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg"
     },
     {
       "id": "goals",
@@ -3566,7 +3596,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Google_Chat_icon_%282023%29.svg"
     },
     {
       "id": "google-genai",
@@ -3575,6 +3606,7 @@
       "npmName": "@elizaos/plugin-google-genai",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg",
       "envKey": "GOOGLE_GENERATIVE_AI_API_KEY",
       "configKeys": [
         "GOOGLE_GENERATIVE_AI_API_KEY",
@@ -3694,6 +3726,7 @@
       "npmName": "@elizaos/plugin-groq",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c9/Groq_logo.svg",
       "envKey": "GROQ_API_KEY",
       "configKeys": [
         "GROQ_API_KEY",
@@ -3875,7 +3908,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/56/IMessage_logo_%28Apple_Inc.%29.svg"
     },
     {
       "id": "inmemorydb",
@@ -3895,6 +3929,7 @@
       "npmName": "@elizaos/plugin-instagram",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/af/Instagram_logo_2022.svg",
       "envKey": null,
       "configKeys": [
         "INSTAGRAM_USERNAME",
@@ -4071,6 +4106,7 @@
       "npmName": "@elizaos/plugin-knowledge",
       "description": "Knowledge and RAG plugin for elizaOS - provides retrieval augmented generation capabilities",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Search_Icon.svg",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
         "CTX_KNOWLEDGE_ENABLED",
@@ -4500,7 +4536,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg"
     },
     {
       "id": "linear",
@@ -4509,6 +4546,7 @@
       "npmName": "@elizaos/plugin-linear",
       "description": "Linear integration plugin for ElizaOS (TypeScript)",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Linear_logo.svg",
       "envKey": "LINEAR_API_KEY",
       "configKeys": [
         "LINEAR_API_KEY",
@@ -4803,7 +4841,12 @@
         "LP_EVM_DEXES"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic", "discord", "telegram", "evm"],
+      "pluginDeps": [
+        "anthropic",
+        "discord",
+        "telegram",
+        "evm"
+      ],
       "pluginParameters": {
         "SOLANA_RPC_URL": {
           "type": "string",
@@ -5084,7 +5127,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Matrix_icon.svg"
     },
     {
       "id": "mattermost",
@@ -5220,7 +5264,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/30/Mattermost_logo_horizontal.svg"
     },
     {
       "id": "mcp",
@@ -5230,7 +5275,10 @@
       "description": "elizaOS plugin to integrate with MCP (Model Context Protocol) servers",
       "category": "connector",
       "envKey": null,
-      "configKeys": ["PATH", "mcp"],
+      "configKeys": [
+        "PATH",
+        "mcp"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "PATH": {
@@ -5258,7 +5306,8 @@
           "group": "Configuration",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/23/Model_Context_Protocol_logo.svg"
     },
     {
       "id": "memory",
@@ -5361,7 +5410,8 @@
           "group": "Configuration",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Minecraft_logo.svg"
     },
     {
       "id": "moltbook",
@@ -5594,7 +5644,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282025%E2%80%93present%29.svg"
     },
     {
       "id": "mysticism",
@@ -5610,7 +5661,9 @@
         "MYSTICISM_PRICE_ASTROLOGY"
       ],
       "version": "2.0.0-alpha.1",
-      "pluginDeps": ["form"],
+      "pluginDeps": [
+        "form"
+      ],
       "pluginParameters": {
         "MYSTICISM_PRICE_TAROT": {
           "type": "number",
@@ -5728,7 +5781,8 @@
           "group": "n8n Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/70/N8n-logo-new.svg"
     },
     {
       "id": "nextcloud-talk",
@@ -5842,7 +5896,8 @@
           "group": "Policies",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/60/Nextcloud_Logo.svg"
     },
     {
       "id": "nostr",
@@ -5851,6 +5906,7 @@
       "npmName": "@elizaos/plugin-nostr",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Nostr_Logo.svg/100px-Nostr_Logo.svg.png",
       "envKey": null,
       "configKeys": [
         "NOSTR_PRIVATE_KEY",
@@ -6027,7 +6083,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Ollama_logo.svg"
     },
     {
       "id": "openai",
@@ -6036,6 +6093,7 @@
       "npmName": "@elizaos/plugin-openai",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ef/OpenAI_Logo.svg",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
         "OPENAI_API_KEY",
@@ -6526,7 +6584,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://openrouter.ai/static/favicon.png"
     },
     {
       "id": "pdf",
@@ -6537,7 +6596,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg"
     },
     {
       "id": "personality",
@@ -6547,7 +6607,9 @@
       "description": "ElizaOS plugin for agent self-modification and character evolution",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ADMIN_USERS"],
+      "configKeys": [
+        "ADMIN_USERS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ADMIN_USERS": {
@@ -6593,7 +6655,9 @@
         "CLOB_API_PASSPHRASE"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["evm"],
+      "pluginDeps": [
+        "evm"
+      ],
       "pluginParameters": {
         "POLYMARKET_PRIVATE_KEY": {
           "type": "string",
@@ -6665,7 +6729,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e4/Polygon_logo.svg"
     },
     {
       "id": "prose",
@@ -6824,7 +6889,8 @@
           "group": "Connection",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Roblox_logo.svg"
     },
     {
       "id": "robot-voice",
@@ -6855,6 +6921,7 @@
       "npmName": "@elizaos/plugin-rss",
       "description": "RSS and Atom feed integration plugin for elizaOS - enables agents to fetch and monitor news feeds",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/43/Feed-icons.svg",
       "envKey": null,
       "configKeys": [
         "RSS_FEEDS",
@@ -7026,7 +7093,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bc/Amazon-S3-Logo.svg"
     },
     {
       "id": "scheduling",
@@ -7035,8 +7103,11 @@
       "npmName": "@elizaos/plugin-scheduling",
       "description": "Scheduling and calendar coordination plugin for ElizaOS agents",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/1/15/Calendar_icon.svg",
       "envKey": null,
-      "configKeys": ["DEFAULT_TIMEZONE"],
+      "configKeys": [
+        "DEFAULT_TIMEZONE"
+      ],
       "version": "2.0.0-alpha.6",
       "pluginParameters": {
         "DEFAULT_TIMEZONE": {
@@ -7062,7 +7133,10 @@
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
+      "configKeys": [
+        "SCRATCHPAD_BASE_PATH",
+        "SCRATCHPAD_MAX_FILE_SIZE"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "SCRATCHPAD_BASE_PATH": {
@@ -7253,7 +7327,8 @@
           "min": 0,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Shell_icon.svg"
     },
     {
       "id": "signal",
@@ -7316,7 +7391,8 @@
           "label": "Ignore Group Messages",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8d/Signal-Logo.svg"
     },
     {
       "id": "simple-voice",
@@ -7336,6 +7412,7 @@
       "npmName": "@elizaos/plugin-slack",
       "description": "Slack integration plugin for ElizaOS agents with Socket Mode support",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
       "envKey": "SLACK_BOT_TOKEN",
       "configKeys": [
         "SLACK_BOT_TOKEN",
@@ -7521,6 +7598,7 @@
       "npmName": "@elizaos/plugin-solana",
       "description": "",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Solana_logo.svg",
       "envKey": "HELIUS_API_KEY",
       "configKeys": [
         "SOL_ADDRESS",
@@ -7685,7 +7763,11 @@
       "description": "Trusted Execution Environment (TEE) integration plugin for elizaOS - Multi-language support (TypeScript, Python, Rust)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
+      "configKeys": [
+        "TEE_MODE",
+        "TEE_VENDOR",
+        "WALLET_SECRET_SALT"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "TEE_MODE": {
@@ -7730,6 +7812,7 @@
       "dirName": "plugin-telegram",
       "name": "Telegram",
       "npmName": "@elizaos/plugin-telegram",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg",
       "description": "",
       "category": "connector",
       "envKey": "TELEGRAM_BOT_TOKEN",
@@ -7895,6 +7978,7 @@
       "npmName": "@elizaos/plugin-twitter",
       "description": "Twitter/X social media connector with posting, mentions, and DMs",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg",
       "envKey": "TWITTER_API_KEY",
       "configKeys": [
         "TWITTER_API_KEY",
@@ -8083,8 +8167,12 @@
       "npmName": "@elizaos/plugin-todo",
       "description": "Multi-language Todo list plugin for elizaOS with TypeScript, Python, and Rust implementations",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/07/Clipboard_icon.svg",
       "envKey": null,
-      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
+      "configKeys": [
+        "ENABLE_REMINDERS",
+        "REMINDER_INTERVAL_MS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ENABLE_REMINDERS": {
@@ -8134,9 +8222,14 @@
       "description": "Trust and permission management plugin for ElizaOS",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
+      "configKeys": [
+        "OWNER_ENTITY_ID",
+        "WORLD_ID"
+      ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic"],
+      "pluginDeps": [
+        "anthropic"
+      ],
       "pluginParameters": {
         "OWNER_ENTITY_ID": {
           "type": "string",
@@ -8472,7 +8565,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Twilio-logo-red.svg"
     },
     {
       "id": "twitch",
@@ -8481,6 +8575,7 @@
       "npmName": "@elizaos/plugin-twitch",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Twitch_Glitch_Logo_Purple.svg",
       "envKey": "TWITCH_ACCESS_TOKEN",
       "configKeys": [
         "TWITCH_USERNAME",
@@ -8597,11 +8692,26 @@
           "width": "full",
           "type": "multiselect",
           "options": [
-            { "value": "broadcaster", "label": "Broadcaster" },
-            { "value": "moderator", "label": "Moderator" },
-            { "value": "vip", "label": "VIP" },
-            { "value": "subscriber", "label": "Subscriber" },
-            { "value": "viewer", "label": "Viewer" }
+            {
+              "value": "broadcaster",
+              "label": "Broadcaster"
+            },
+            {
+              "value": "moderator",
+              "label": "Moderator"
+            },
+            {
+              "value": "vip",
+              "label": "VIP"
+            },
+            {
+              "value": "subscriber",
+              "label": "Subscriber"
+            },
+            {
+              "value": "viewer",
+              "label": "Viewer"
+            }
           ]
         }
       }
@@ -8920,7 +9030,8 @@
           "max": 300000,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Vercel_logo_2025.svg"
     },
     {
       "id": "vision",
@@ -8930,7 +9041,10 @@
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
+      "configKeys": [
+        "CAMERA_NAME",
+        "PIXEL_CHANGE_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.5",
       "pluginParameters": {
         "CAMERA_NAME": {
@@ -8971,7 +9085,8 @@
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
-      "npmName": "@milady/plugin-whatsapp",
+      "npmName": "@elizaos/plugin-whatsapp",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg",
       "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
@@ -9451,7 +9566,8 @@
           "max": 4000,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/XAI_Logo.svg"
     },
     {
       "id": "zalo",
@@ -9592,7 +9708,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/8/85/Zalo_logo_2019.svg"
     },
     {
       "id": "zalouser",
