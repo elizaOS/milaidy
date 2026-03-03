@@ -9809,11 +9809,26 @@ async function handleRequest(
     }
     // Detect image format from magic bytes
     let ext = "";
-    if (rawBody[0] === 0x89 && rawBody[1] === 0x50 && rawBody[2] === 0x4e && rawBody[3] === 0x47) {
+    if (
+      rawBody[0] === 0x89 &&
+      rawBody[1] === 0x50 &&
+      rawBody[2] === 0x4e &&
+      rawBody[3] === 0x47
+    ) {
       ext = "png";
     } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
       ext = "jpg";
-    } else if (rawBody[0] === 0x52 && rawBody[1] === 0x49 && rawBody[2] === 0x46 && rawBody[3] === 0x46 && rawBody.length >= 12 && rawBody[8] === 0x57 && rawBody[9] === 0x45 && rawBody[10] === 0x42 && rawBody[11] === 0x50) {
+    } else if (
+      rawBody[0] === 0x52 &&
+      rawBody[1] === 0x49 &&
+      rawBody[2] === 0x46 &&
+      rawBody[3] === 0x46 &&
+      rawBody.length >= 12 &&
+      rawBody[8] === 0x57 &&
+      rawBody[9] === 0x45 &&
+      rawBody[10] === 0x42 &&
+      rawBody[11] === 0x50
+    ) {
       ext = "webp";
     } else {
       error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
@@ -9824,7 +9839,9 @@ async function handleRequest(
     // Remove any previous custom background (may have a different extension)
     for (const old of ["png", "jpg", "webp"]) {
       const p = path.join(avatarDir, `custom-background.${old}`);
-      try { fs.unlinkSync(p); } catch {}
+      try {
+        fs.unlinkSync(p);
+      } catch {}
     }
     const bgPath = path.join(avatarDir, `custom-background.${ext}`);
     fs.writeFileSync(bgPath, rawBody);
@@ -9839,12 +9856,19 @@ async function handleRequest(
     pathname === "/api/avatar/background"
   ) {
     const avatarDir = path.join(resolveStateDir(), "avatars");
-    const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+    const MIME: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      webp: "image/webp",
+    };
     let found = "";
     for (const ext of ["png", "jpg", "webp"]) {
       const p = path.join(avatarDir, `custom-background.${ext}`);
       try {
-        if (fs.statSync(p).isFile()) { found = p; break; }
+        if (fs.statSync(p).isFile()) {
+          found = p;
+          break;
+        }
       } catch {}
     }
     if (!found) {
