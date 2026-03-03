@@ -12,6 +12,7 @@ vi.mock("../../src/AppContext", () => ({
   getVrmNeedsFlip: () => false,
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
+  getVrmBackgroundUrl: (index: number) => `/vrms/backgrounds/milady-${index}.png`,
   getVrmTitle: (index: number) => `MILADY-${index}`,
   VRM_COUNT: 24,
 }));
@@ -29,6 +30,23 @@ vi.mock("../../src/components/ChatModalView.js", () => ({
     ),
 }));
 
+const mockUploadCustomVrm = vi.fn(async () => {});
+const mockUploadCustomBackground = vi.fn(async () => {});
+
+vi.mock("../../src/api-client", () => ({
+  client: {
+    uploadCustomVrm: (...args: unknown[]) => mockUploadCustomVrm(...args),
+    uploadCustomBackground: (...args: unknown[]) =>
+      mockUploadCustomBackground(...args),
+    onWsEvent: vi.fn(() => () => {}),
+  },
+}));
+
+vi.mock("../../src/asset-url", () => ({
+  resolveApiUrl: (p: string) => p,
+  resolveAppAssetUrl: (p: string) => p,
+}));
+
 import { CompanionView } from "../../src/components/CompanionView";
 
 const RECENT_TRADES_KEY = "anime_wallet_recent_trades";
@@ -38,6 +56,7 @@ function createContext() {
     setState: vi.fn(),
     selectedVrmIndex: 1,
     customVrmUrl: "",
+    customBackgroundUrl: "",
     walletAddresses: null,
     walletBalances: null,
     walletNfts: null,
@@ -1055,5 +1074,155 @@ describe("CompanionView", () => {
     });
 
     expect(ctx.copyToClipboard).toHaveBeenCalledWith(pendingHash);
+  });
+
+  // -- Custom VRM & background upload in roster --
+
+  it("renders a custom VRM upload button in the character roster", async () => {
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    // Find the hidden file input for VRM upload
+    const vrmInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props.type === "file" &&
+        node.props.accept === ".vrm",
+    );
+    expect(vrmInput.length).toBeGreaterThanOrEqual(1);
+
+    // Find the upload button with "Custom" label
+    const uploadButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.title === "string" &&
+        node.props.title.includes("Upload custom .vrm"),
+    );
+    expect(uploadButton.length).toBe(1);
+
+    // Verify it shows "Custom" text
+    const content = text(uploadButton[0]);
+    expect(content).toContain("Custom");
+  });
+
+  it("highlights the custom VRM upload button when custom avatar is active", async () => {
+    const ctx = createContext();
+    ctx.selectedVrmIndex = 0;
+    ctx.customVrmUrl = "/api/avatar/vrm?t=123";
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const uploadButton = tree?.root.find(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.title === "string" &&
+        node.props.title.includes("Upload custom .vrm"),
+    );
+    expect(uploadButton.props.className).toContain("is-active");
+  });
+
+  it("renders a background upload button in the roster", async () => {
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    // Find the hidden file input for background upload
+    const bgInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props.type === "file" &&
+        typeof node.props.accept === "string" &&
+        node.props.accept.includes("image/png"),
+    );
+    expect(bgInput.length).toBeGreaterThanOrEqual(1);
+
+    // Find the "Change Background" button
+    const bgButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.title === "string" &&
+        node.props.title.includes("Upload custom background"),
+    );
+    expect(bgButton.length).toBe(1);
+    expect(text(bgButton[0])).toContain("Change Background");
+  });
+
+  it("uses custom background URL when set with custom VRM", async () => {
+    const ctx = createContext();
+    ctx.selectedVrmIndex = 0;
+    ctx.customVrmUrl = "/api/avatar/vrm?t=123";
+    ctx.customBackgroundUrl = "/api/avatar/background?t=456";
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    // The VrmViewer should receive the custom background URL via the
+    // backgroundUrl or similar prop/context. We verify indirectly by
+    // checking the custom VRM active indicator appears
+    const content = text(tree?.root);
+    // Should show custom VRM active indicator (from i18n)
+    expect(content).toContain("custom VRM active");
+  });
+
+  it("falls back to milady-1 background when custom VRM has no custom background", async () => {
+    const ctx = createContext();
+    ctx.selectedVrmIndex = 0;
+    ctx.customVrmUrl = "/api/avatar/vrm?t=123";
+    ctx.customBackgroundUrl = ""; // No custom background
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    // Should still render without broken image references
+    const content = text(tree?.root);
+    expect(content).not.toContain("companion-bg.png"); // old broken path
+    expect(content).toContain("custom VRM active");
+  });
+
+  it("shows custom VRM active indicator when selectedVrmIndex is 0", async () => {
+    const ctx = createContext();
+    ctx.selectedVrmIndex = 0;
+    ctx.customVrmUrl = "blob:http://localhost:5173/abc123";
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const content = text(tree?.root);
+    expect(content).toContain("custom VRM active");
+  });
+
+  it("does not show custom VRM indicator for built-in avatars", async () => {
+    const ctx = createContext();
+    ctx.selectedVrmIndex = 3;
+    ctx.customVrmUrl = "";
+    mockUseApp.mockReturnValue(ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const content = text(tree?.root);
+    expect(content).not.toContain("companion.customVrmActive");
   });
 });

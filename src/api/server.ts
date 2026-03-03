@@ -89,7 +89,7 @@ import {
 import { parseClampedInteger } from "../utils/number-parsing";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
-import { detectRuntimeModel } from "./agent-model";
+import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
 import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
@@ -2258,6 +2258,12 @@ function serveStaticUi(
 interface ChatGenerationResult {
   text: string;
   agentName: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    model?: string;
+  };
 }
 
 interface ChatGenerateOptions {
@@ -2579,9 +2585,20 @@ async function generateChatResponse(
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
 
+  // Estimate token usage from text lengths (~4 chars per token)
+  const promptText = extractCompatTextContent(message.content) ?? "";
+  const estPromptTokens = Math.ceil(promptText.length / 4);
+  const estCompletionTokens = Math.ceil(finalText.length / 4);
+
   return {
     text: finalText,
     agentName,
+    usage: {
+      promptTokens: estPromptTokens,
+      completionTokens: estCompletionTokens,
+      totalTokens: estPromptTokens + estCompletionTokens,
+      model: detectRuntimeModel(runtime, undefined) ?? undefined,
+    },
   };
 }
 
@@ -9975,6 +9992,80 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/avatar/background ──────────────────────────────────────────
+  // Upload a custom background image. Saved to ~/.milady/avatars/custom-background.<ext>.
+  if (method === "POST" && pathname === "/api/avatar/background") {
+    const MAX_BG_BYTES = 10 * 1024 * 1024; // 10 MB
+    const rawBody = await readRequestBodyBuffer(req, {
+      maxBytes: MAX_BG_BYTES,
+      returnNullOnTooLarge: true,
+    });
+    if (!rawBody || rawBody.length === 0) {
+      error(res, "Request body is empty or exceeds 10 MB", 400);
+      return;
+    }
+    // Detect image format from magic bytes
+    let ext = "";
+    if (rawBody[0] === 0x89 && rawBody[1] === 0x50 && rawBody[2] === 0x4e && rawBody[3] === 0x47) {
+      ext = "png";
+    } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
+      ext = "jpg";
+    } else if (rawBody[0] === 0x52 && rawBody[1] === 0x49 && rawBody[2] === 0x46 && rawBody[3] === 0x46 && rawBody.length >= 12 && rawBody[8] === 0x57 && rawBody[9] === 0x45 && rawBody[10] === 0x42 && rawBody[11] === 0x50) {
+      ext = "webp";
+    } else {
+      error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
+      return;
+    }
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    // Remove any previous custom background (may have a different extension)
+    for (const old of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${old}`);
+      try { fs.unlinkSync(p); } catch {}
+    }
+    const bgPath = path.join(avatarDir, `custom-background.${ext}`);
+    fs.writeFileSync(bgPath, rawBody);
+    json(res, { ok: true, size: rawBody.length });
+    return;
+  }
+
+  // ── GET /api/avatar/background ─────────────────────────────────────────────
+  // Serve the user's custom background image if it exists.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname === "/api/avatar/background"
+  ) {
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+    let found = "";
+    for (const ext of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${ext}`);
+      try {
+        if (fs.statSync(p).isFile()) { found = p; break; }
+      } catch {}
+    }
+    if (!found) {
+      error(res, "No custom background found", 404);
+      return;
+    }
+    const stat = fs.statSync(found);
+    const fileExt = path.extname(found).slice(1);
+    const headers: Record<string, string | number> = {
+      "Content-Type": MIME[fileExt] || "application/octet-stream",
+      "Content-Length": stat.size,
+      "Cache-Control": "no-cache",
+    };
+    if (method === "HEAD") {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    const body = fs.readFileSync(found);
+    res.writeHead(200, headers);
+    res.end(body);
+    return;
+  }
+
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
     const { buildConfigSchema } = await import("../config/schema");
@@ -10341,10 +10432,66 @@ async function handleRequest(
       }
     }
 
+    // Resolve model from multiple sources (state.model → config → env)
+    const resolvedModel =
+      state.model ??
+      detectRuntimeModel(state.runtime ?? null, state.config) ??
+      null;
+
+    // Derive provider label from model string
+    const resolvedProvider = resolvedModel
+      ? resolveProviderFromModel(resolvedModel)
+      : null;
+
+    // Gather plugin info from the runtime
+    const pluginNames: string[] = [];
+    const aiProviderNames: string[] = [];
+    const connectorNames: string[] = [];
+    const BROWSER_PLUGIN_IDS = new Set([
+      "browser",
+      "browserbase",
+      "chrome-extension",
+    ]);
+    const COMPUTER_PLUGIN_IDS = new Set(["computeruse", "computer-use"]);
+    let hasBrowserPlugin = false;
+    let hasComputerPlugin = false;
+
+    if (state.runtime && Array.isArray(state.runtime.plugins)) {
+      for (const plugin of state.runtime.plugins) {
+        const name = typeof plugin?.name === "string" ? plugin.name.trim() : "";
+        if (!name) continue;
+        pluginNames.push(name);
+        const lower = name.toLowerCase();
+        if (
+          lower.includes("openai") ||
+          lower.includes("anthropic") ||
+          lower.includes("groq") ||
+          lower.includes("gemini") ||
+          lower.includes("openrouter") ||
+          lower.includes("deepseek") ||
+          lower.includes("ollama")
+        ) {
+          aiProviderNames.push(name);
+        }
+        if (
+          lower.includes("discord") ||
+          lower.includes("telegram") ||
+          lower.includes("twitter") ||
+          lower.includes("slack")
+        ) {
+          connectorNames.push(name);
+        }
+        if (BROWSER_PLUGIN_IDS.has(lower)) hasBrowserPlugin = true;
+        if (COMPUTER_PLUGIN_IDS.has(lower)) hasComputerPlugin = true;
+      }
+    }
+
     json(res, {
       generatedAt: new Date().toISOString(),
-      model: state.model ?? null,
-      provider: null,
+      state: state.agentState,
+      agentName: state.agentName,
+      model: resolvedModel,
+      provider: resolvedProvider,
       automationMode,
       tradePermissionMode,
       shellEnabled: state.shellEnabled !== false,
@@ -10365,12 +10512,18 @@ async function handleRequest(
         localSignerAvailable: localSigner,
         managedBscRpcReady: bscRpcReady,
       },
+      plugins: {
+        totalActive: pluginNames.length,
+        active: pluginNames,
+        aiProviders: aiProviderNames,
+        connectors: connectorNames,
+      },
       capabilities: {
         canTrade,
         canLocalTrade: canTrade && localSigner && canLocalTrade,
         canAutoTrade: canTrade && localSigner && canAgentAutoTrade,
-        canUseBrowser: false,
-        canUseComputer: false,
+        canUseBrowser: hasBrowserPlugin,
+        canUseComputer: hasComputerPlugin,
         canRunTerminal: state.shellEnabled !== false,
         canInstallPlugins: true,
         canConfigurePlugins: true,
@@ -12011,10 +12164,11 @@ async function handleRequest(
           turnStartedAt,
         );
         conv.updatedAt = new Date().toISOString();
-        writeSse(res, {
+        writeSseJson(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          ...(result.usage ? { usage: result.usage } : {}),
         });
 
         // Background chat renaming
@@ -12362,10 +12516,11 @@ async function handleRequest(
       );
 
       if (!aborted) {
-        writeSse(res, {
+        writeSseJson(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          ...(result.usage ? { usage: result.usage } : {}),
         });
       }
     } catch (err) {
@@ -14279,7 +14434,9 @@ export async function startApiServer(opts?: {
     config,
     agentState: initialAgentState,
     agentName,
-    model: hasRuntime ? detectRuntimeModel(opts.runtime ?? null) : undefined,
+    model: hasRuntime
+      ? detectRuntimeModel(opts.runtime ?? null, config)
+      : undefined,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     startup: initialStartup,
@@ -15273,7 +15430,7 @@ export async function startApiServer(opts?: {
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
-    state.model = detectRuntimeModel(rt);
+    state.model = detectRuntimeModel(rt, state.config);
     state.startedAt = Date.now();
     state.startup = {
       phase: "running",

@@ -4173,11 +4173,10 @@ describe("API Server E2E (chat SSE)", () => {
     expect(String(headers["content-type"])).toContain("text/event-stream");
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
-    });
+    const chatDone = events.find((e: Record<string, unknown>) => e.type === "done");
+    expect(chatDone).toBeDefined();
+    expect(chatDone?.fullText).toBe("Hello world");
+    expect(chatDone?.agentName).toBe("ChatStreamAgent");
   });
 
   it("POST /api/conversations/:id/messages/stream emits token and done events", async () => {
@@ -4201,10 +4200,367 @@ describe("API Server E2E (chat SSE)", () => {
     expect(status).toBe(200);
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
+    const doneEvent = events.find((e: Record<string, unknown>) => e.type === "done");
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.fullText).toBe("Hello world");
+    expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Binary upload helper — sends raw Buffer body with octet-stream content type
+// ---------------------------------------------------------------------------
+
+function reqBinaryUpload(
+  port: number,
+  method: string,
+  p: string,
+  body: Buffer,
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  data: Record<string, unknown>;
+}> {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": body.length,
+        },
+      },
+      (res) => {
+        const ch: Buffer[] = [];
+        res.on("data", (c: Buffer) => ch.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(ch).toString("utf-8");
+          let data: Record<string, unknown> = {};
+          try {
+            data = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            data = { _raw: raw };
+          }
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, data });
+        });
+      },
+    );
+    r.on("error", reject);
+    r.write(body);
+    r.end();
+  });
+}
+
+function reqBinaryDownload(
+  port: number,
+  method: string,
+  p: string,
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  data: Buffer;
+}> {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            data: Buffer.concat(chunks),
+          });
+        });
+      },
+    );
+    r.on("error", reject);
+    r.end();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Custom avatar & background endpoints
+// ---------------------------------------------------------------------------
+
+describe("API Server E2E (custom avatar & background)", () => {
+  let port: number;
+  let close: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = await startApiServer({ port: 0 });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+  });
+
+  // -- VRM upload --
+
+  describe("POST /api/avatar/vrm", () => {
+    it("rejects an empty body", async () => {
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        Buffer.alloc(0),
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/empty|exceeds/i);
+    });
+
+    it("rejects a non-GLB file (wrong magic bytes)", async () => {
+      const notGlb = Buffer.from("This is not a glTF file at all");
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        notGlb,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*vrm/i);
+    });
+
+    it("accepts a valid GLB file (correct magic header)", async () => {
+      // GLB magic: glTF (0x67 0x6c 0x54 0x46) + version 2 + length
+      const glbHeader = Buffer.alloc(12);
+      glbHeader[0] = 0x67; // g
+      glbHeader[1] = 0x6c; // l
+      glbHeader[2] = 0x54; // T
+      glbHeader[3] = 0x46; // F
+      glbHeader.writeUInt32LE(2, 4); // version
+      glbHeader.writeUInt32LE(12, 8); // length
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        glbHeader,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(12);
     });
   });
+
+  describe("GET /api/avatar/vrm", () => {
+    it("serves the uploaded VRM file", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/vrm",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("model/gltf-binary");
+      expect(headers["cache-control"]).toBe("no-cache");
+      // The file we uploaded was 12 bytes
+      expect(data.length).toBe(12);
+      // Verify GLB magic bytes round-tripped correctly
+      expect(data[0]).toBe(0x67);
+      expect(data[1]).toBe(0x6c);
+      expect(data[2]).toBe(0x54);
+      expect(data[3]).toBe(0x46);
+    });
+  });
+
+  describe("HEAD /api/avatar/vrm", () => {
+    it("returns 200 with correct headers and no body", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "HEAD",
+        "/api/avatar/vrm",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("model/gltf-binary");
+      expect(Number(headers["content-length"])).toBe(12);
+      expect(data.length).toBe(0); // HEAD returns no body
+    });
+  });
+
+  // -- Background upload --
+
+  describe("POST /api/avatar/background", () => {
+    it("rejects an empty body", async () => {
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        Buffer.alloc(0),
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/empty|exceeds/i);
+    });
+
+    it("rejects a file with invalid magic bytes", async () => {
+      const invalidImg = Buffer.from("This is definitely not an image file!!");
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        invalidImg,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*image/i);
+    });
+
+    it("rejects a GLB file (not an image)", async () => {
+      const glb = Buffer.alloc(12);
+      glb[0] = 0x67;
+      glb[1] = 0x6c;
+      glb[2] = 0x54;
+      glb[3] = 0x46;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        glb,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*image/i);
+    });
+
+    it("accepts a valid PNG file", async () => {
+      // Minimal PNG: magic bytes + IHDR + IEND
+      const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      const pngBody = Buffer.alloc(64);
+      pngMagic.copy(pngBody);
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        pngBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(64);
+    });
+
+    it("accepts a valid JPEG file", async () => {
+      const jpegBody = Buffer.alloc(32);
+      jpegBody[0] = 0xff;
+      jpegBody[1] = 0xd8;
+      jpegBody[2] = 0xff;
+      jpegBody[3] = 0xe0;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        jpegBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(32);
+    });
+
+    it("accepts a valid WebP file", async () => {
+      // WebP: RIFF....WEBP
+      const webpBody = Buffer.alloc(32);
+      webpBody[0] = 0x52; // R
+      webpBody[1] = 0x49; // I
+      webpBody[2] = 0x46; // F
+      webpBody[3] = 0x46; // F
+      webpBody.writeUInt32LE(24, 4); // file size - 8
+      webpBody[8] = 0x57;  // W
+      webpBody[9] = 0x45;  // E
+      webpBody[10] = 0x42; // B
+      webpBody[11] = 0x50; // P
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        webpBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(32);
+    });
+
+    it("replaces previous background on re-upload with different format", async () => {
+      // First upload a PNG
+      const png = Buffer.alloc(32);
+      png[0] = 0x89;
+      png[1] = 0x50;
+      png[2] = 0x4e;
+      png[3] = 0x47;
+      await reqBinaryUpload(port, "POST", "/api/avatar/background", png);
+
+      // Then upload a JPEG — the previous PNG should be cleaned up
+      const jpeg = Buffer.alloc(48);
+      jpeg[0] = 0xff;
+      jpeg[1] = 0xd8;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        jpeg,
+      );
+      expect(status).toBe(200);
+      expect(data.size).toBe(48);
+
+      // Verify GET serves the JPEG, not the PNG
+      const { status: getStatus, headers } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/background",
+      );
+      expect(getStatus).toBe(200);
+      expect(headers["content-type"]).toBe("image/jpeg");
+    });
+  });
+
+  describe("GET /api/avatar/background", () => {
+    it("serves the uploaded background image with correct content-type", async () => {
+      // Upload a PNG first
+      const png = Buffer.alloc(100);
+      png[0] = 0x89;
+      png[1] = 0x50;
+      png[2] = 0x4e;
+      png[3] = 0x47;
+      png[4] = 0x0d;
+      png[5] = 0x0a;
+      png[6] = 0x1a;
+      png[7] = 0x0a;
+      await reqBinaryUpload(port, "POST", "/api/avatar/background", png);
+
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/background",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("image/png");
+      expect(headers["cache-control"]).toBe("no-cache");
+      expect(data.length).toBe(100);
+      // Verify PNG magic bytes round-tripped
+      expect(data[0]).toBe(0x89);
+      expect(data[1]).toBe(0x50);
+      expect(data[2]).toBe(0x4e);
+      expect(data[3]).toBe(0x47);
+    });
+  });
+
+  describe("HEAD /api/avatar/background", () => {
+    it("returns 200 with correct headers and no body", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "HEAD",
+        "/api/avatar/background",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("image/png");
+      expect(Number(headers["content-length"])).toBe(100);
+      expect(data.length).toBe(0); // HEAD returns no body
+    });
+  });
+
 });
