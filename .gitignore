@@ -8,6 +8,7 @@ apps/app/electron/build/
 .bun
 .DS_Store
 **/.DS_Store
+.avatar-clone-tmp
 
 # Build artifacts
 *.bun-build
