@@ -739,8 +739,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   );
   const explicitInferenceMode = config.cloud?.inferenceMode;
   const cloudInferenceMode =
-    explicitInferenceMode ??
-    (hasSubscriptionProvider ? "byok" : "cloud");
+    explicitInferenceMode ?? (hasSubscriptionProvider ? "byok" : "cloud");
   const cloudInferenceToggle = config.cloud?.services?.inference ?? true;
   const cloudHandlesInference =
     cloudEffectivelyEnabled &&
@@ -1815,12 +1814,9 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
   // user's own keys handle models.
   // If the user chose a subscription provider, treat that as "byok" unless
   // they explicitly set inferenceMode to "cloud".
-  const hasSubProvider = Boolean(
-    config.agents?.defaults?.subscriptionProvider,
-  );
+  const hasSubProvider = Boolean(config.agents?.defaults?.subscriptionProvider);
   const explicitMode = cloud.inferenceMode;
-  const inferenceMode =
-    explicitMode ?? (hasSubProvider ? "byok" : "cloud");
+  const inferenceMode = explicitMode ?? (hasSubProvider ? "byok" : "cloud");
   const inferenceToggle = cloud.services?.inference ?? true;
   const cloudDoesInference =
     inferenceMode === "cloud" && inferenceToggle !== false;

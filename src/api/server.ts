@@ -1239,7 +1239,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-            icon: (p as any).logoUrl ?? (p as any).icon ?? null,
+            icon: p.logoUrl ?? p.icon ?? null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
