@@ -182,8 +182,8 @@ describe("startMemoryLeakDetector", () => {
     }
 
     expect(capturedInfo).not.toBeNull();
-    expect(capturedInfo!.mbPerMinute).toBeGreaterThan(0);
-    expect(capturedInfo!.currentMb).toBeGreaterThan(50); // Should be greater than initial
+    expect(capturedInfo?.mbPerMinute).toBeGreaterThan(0);
+    expect(capturedInfo?.currentMb).toBeGreaterThan(50); // Should be greater than initial
     stop();
   });
 

@@ -104,3 +104,4 @@ test-output/
 
 # External plugin repos (not submodules)
 elizaos-plugins/
+e2e-screenshots/

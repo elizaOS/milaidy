@@ -106,6 +106,7 @@ export function OnboardingWizard() {
     onboardingBlooioPhoneNumber,
     onboardingGithubToken,
     onboardingSubscriptionTab,
+    onboardingElizaCloudTab,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
@@ -1107,51 +1108,111 @@ export function OnboardingWizard() {
               </button>
             </div>
 
-            {/* Eliza Cloud — cloud login */}
+            {/* Eliza Cloud — login or API key */}
             {onboardingProvider === "elizacloud" && (
-              <div className="max-w-[600px] mx-auto">
-                {cloudConnected ? (
-                  <div className="flex items-center gap-2 px-4 py-2.5 border border-green-500/30 bg-green-500/10 text-green-400 text-sm rounded-lg justify-center">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <title>Connected</title>
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    connected~
-                  </div>
-                ) : (
+              <div className="max-w-[600px] mx-auto text-left">
+                <div className="flex items-center gap-4 border-b border-border mb-4">
                   <button
                     type="button"
-                    className="w-full px-6 py-2.5 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
-                    onClick={handleCloudLogin}
-                    disabled={cloudLoginBusy}
+                    className={`text-sm pb-2 border-b-2 ${
+                      onboardingElizaCloudTab === "login"
+                        ? "border-accent text-accent"
+                        : "border-transparent text-muted hover:text-txt"
+                    }`}
+                    onClick={() => setState("onboardingElizaCloudTab", "login")}
                   >
-                    {cloudLoginBusy ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
-                        connecting...
-                      </span>
-                    ) : (
-                      "connect account"
-                    )}
+                    Login
                   </button>
+                  <button
+                    type="button"
+                    className={`text-sm pb-2 border-b-2 ${
+                      onboardingElizaCloudTab === "apikey"
+                        ? "border-accent text-accent"
+                        : "border-transparent text-muted hover:text-txt"
+                    }`}
+                    onClick={() =>
+                      setState("onboardingElizaCloudTab", "apikey")
+                    }
+                  >
+                    API Key
+                  </button>
+                </div>
+
+                {onboardingElizaCloudTab === "login" ? (
+                  <div className="text-center">
+                    {cloudConnected ? (
+                      <div className="flex items-center gap-2 px-4 py-2.5 border border-green-500/30 bg-green-500/10 text-green-400 text-sm rounded-lg justify-center">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <title>Connected</title>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        connected~
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-full px-6 py-2.5 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={handleCloudLogin}
+                        disabled={cloudLoginBusy}
+                      >
+                        {cloudLoginBusy ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
+                            connecting...
+                          </span>
+                        ) : (
+                          "connect account"
+                        )}
+                      </button>
+                    )}
+                    {cloudLoginError && (
+                      <p className="text-danger text-[13px] mt-2">
+                        {cloudLoginError}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted mt-3">
+                      Free credits to start. Opens browser to authenticate.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label
+                      htmlFor="elizacloud-apikey"
+                      className="block text-sm text-txt mb-1.5"
+                    >
+                      Eliza Cloud API Key
+                    </label>
+                    <input
+                      id="elizacloud-apikey"
+                      type="password"
+                      placeholder="ec-..."
+                      value={onboardingApiKey}
+                      onChange={handleApiKeyChange}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-lg bg-card text-txt focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    <p className="text-xs text-muted mt-2">
+                      Use this if browser login doesn't work. Get your API key
+                      from{" "}
+                      <a
+                        href="https://elizacloud.ai/dashboard/settings"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        elizacloud.ai/dashboard
+                      </a>
+                    </p>
+                  </div>
                 )}
-                {cloudLoginError && (
-                  <p className="text-danger text-[13px] mt-2">
-                    {cloudLoginError}
-                  </p>
-                )}
-                <p className="text-xs text-muted mt-3">
-                  Free credits to start. No API key needed.
-                </p>
               </div>
             )}
 
@@ -1935,11 +1996,13 @@ export function OnboardingWizard() {
         if (onboardingProvider === "openai-subscription") {
           return openaiConnected;
         }
-        if (
-          onboardingProvider === "elizacloud" ||
-          onboardingProvider === "ollama" ||
-          onboardingProvider === "pi-ai"
-        ) {
+        if (onboardingProvider === "elizacloud") {
+          // Allow proceeding if logged in OR if API key is provided
+          return onboardingElizaCloudTab === "login"
+            ? cloudConnected
+            : onboardingApiKey.trim().length > 0;
+        }
+        if (onboardingProvider === "ollama" || onboardingProvider === "pi-ai") {
           return true;
         }
         return onboardingProvider.length > 0 && onboardingApiKey.length > 0;

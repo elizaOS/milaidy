@@ -20,7 +20,6 @@ import {
   type CatalogSkill,
   type CharacterData,
   type CodingAgentSession,
-  type ConnectionStateInfo,
   type Conversation,
   type ConversationChannelType,
   type ConversationMessage,
@@ -877,6 +876,7 @@ export interface AppState {
   onboardingBlooioPhoneNumber: string;
   onboardingGithubToken: string;
   onboardingSubscriptionTab: "token" | "oauth";
+  onboardingElizaCloudTab: "login" | "apikey";
   onboardingSelectedChains: Set<string>;
   onboardingRpcSelections: Record<string, string>;
   onboardingRpcKeys: Record<string, string>;
@@ -1119,7 +1119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [restartBannerDismissed, setRestartBannerDismissed] = useState(false);
 
   // --- Backend connection state (for crash handling) ---
-  const [backendConnection, setBackendConnection] = useState<{
+  const [_backendConnection, setBackendConnection] = useState<{
     state: "connected" | "disconnected" | "reconnecting" | "failed";
     reconnectAttempt: number;
     maxReconnectAttempts: number;
@@ -1131,7 +1131,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showDisconnectedUI: false,
   });
   const [
-    backendDisconnectedBannerDismissed,
+    _backendDisconnectedBannerDismissed,
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
 
@@ -1468,6 +1468,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<
     "token" | "oauth"
   >("token");
+  const [onboardingElizaCloudTab, setOnboardingElizaCloudTab] = useState<
+    "login" | "apikey"
+  >("login");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<
     Set<string>
   >(new Set(["evm", "solana"]));
@@ -2323,16 +2326,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [handleRestart]);
 
   // Backend disconnection banner actions
-  const dismissBackendDisconnectedBanner = useCallback(() => {
+  const _dismissBackendDisconnectedBanner = useCallback(() => {
     setBackendDisconnectedBannerDismissed(true);
   }, []);
 
-  const retryBackendConnection = useCallback(() => {
+  const _retryBackendConnection = useCallback(() => {
     setBackendDisconnectedBannerDismissed(false);
     client.resetConnection();
   }, []);
 
-  const restartBackend = useCallback(async () => {
+  const _restartBackend = useCallback(async () => {
     const electron = (
       window as {
         electron?: {
@@ -4488,6 +4491,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber,
         onboardingGithubToken: setOnboardingGithubToken,
         onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
         onboardingRpcKeys: setOnboardingRpcKeys,
         onboardingAvatar: setOnboardingAvatar,
         onboardingRestarting: setOnboardingRestarting,
@@ -5534,6 +5538,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingBlooioPhoneNumber,
     onboardingGithubToken,
     onboardingSubscriptionTab,
+    onboardingElizaCloudTab,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
