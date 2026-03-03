@@ -386,54 +386,75 @@ jobs:
               return;
             }
 
-            // Read Claude's execution output
+            // Try to read Claude's execution output
             const outputPath = '/home/runner/work/_temp/claude-execution-output.json';
-            if (!fs.existsSync(outputPath)) {
-              core.warning('No execution output found, cannot post fallback comment');
-              return;
-            }
-
-            const raw = fs.readFileSync(outputPath, 'utf8');
-            let messages;
-            try {
-              messages = JSON.parse(raw);
-            } catch {
-              // JSONL format (one JSON object per line)
-              messages = raw.trim().split('\n').filter(Boolean).map(line => {
-                try { return JSON.parse(line); } catch { return null; }
-              }).filter(Boolean);
-            }
-
-            // Find the last assistant text message (Claude's final response)
             let reviewBody = '';
-            const candidates = Array.isArray(messages) ? messages : [messages];
-            for (const msg of candidates.reverse()) {
-              // SDK output format: look for result or assistant messages
-              if (msg.type === 'assistant' && msg.message?.content) {
-                const textBlocks = msg.message.content.filter(b => b.type === 'text');
-                if (textBlocks.length > 0) {
-                  reviewBody = textBlocks.map(b => b.text).join('\n\n');
+
+            if (fs.existsSync(outputPath)) {
+              const raw = fs.readFileSync(outputPath, 'utf8');
+              let messages;
+              try {
+                messages = JSON.parse(raw);
+              } catch {
+                messages = raw.trim().split('\n').filter(Boolean).map(line => {
+                  try { return JSON.parse(line); } catch { return null; }
+                }).filter(Boolean);
+              }
+
+              const candidates = Array.isArray(messages) ? messages : [messages];
+              for (const msg of candidates.reverse()) {
+                if (msg.type === 'assistant' && msg.message?.content) {
+                  const textBlocks = msg.message.content.filter(b => b.type === 'text');
+                  if (textBlocks.length > 0) {
+                    reviewBody = textBlocks.map(b => b.text).join('\n\n');
+                    break;
+                  }
+                }
+                if (msg.role === 'assistant' && typeof msg.content === 'string') {
+                  reviewBody = msg.content;
                   break;
                 }
               }
-              // Alternative format
-              if (msg.role === 'assistant' && typeof msg.content === 'string') {
-                reviewBody = msg.content;
-                break;
-              }
             }
 
-            if (!reviewBody) {
-              core.warning('Could not extract review text from Claude output');
+            if (reviewBody) {
+              const body = `${reviewBody}\n\n${runMarker}`;
+              const { data: comment } = await github.rest.issues.createComment({
+                owner, repo, issue_number: prNumber, body,
+              });
+              console.log(`Fallback comment posted: ${comment.html_url}`);
               return;
             }
 
-            // Post the comment with run marker
-            const body = `${reviewBody}\n\n${runMarker}`;
+            // Neither Claude nor Codex produced a review — post a service-unavailable comment
+            // with a parseable decision so extract-verdict doesn't silently swallow the failure.
+            const claudeOutcome = process.env.CLAUDE_OUTCOME || 'unknown';
+            const codexOutcome = process.env.CODEX_OUTCOME || 'skipped';
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+
+            const unavailableBody = [
+              `## Agent Review — Service Unavailable`,
+              ``,
+              `Both AI reviewers failed to complete the review for this run:`,
+              `- **Claude**: ${claudeOutcome}`,
+              `- **Codex (fallback)**: ${codexOutcome}`,
+              ``,
+              `This is likely a temporary API outage. The PR will need to be re-reviewed once services recover.`,
+              ``,
+              `**[View workflow run](${runUrl})**`,
+              ``,
+              `6. **Decision:** REQUEST CHANGES (automated review unavailable — please re-trigger or wait for service recovery)`,
+              ``,
+              runMarker,
+            ].join('\n');
+
             const { data: comment } = await github.rest.issues.createComment({
-              owner, repo, issue_number: prNumber, body,
+              owner, repo, issue_number: prNumber, body: unavailableBody,
             });
-            console.log(`Fallback comment posted: ${comment.html_url}`);
+            core.warning(`Both reviewers failed. Posted service-unavailable comment: ${comment.html_url}`);
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude-review.outcome }}
+          CODEX_OUTCOME: ${{ steps.codex-review.outcome || 'skipped' }}
 
       - name: Extract review decision from PR comments
         id: extract-verdict
