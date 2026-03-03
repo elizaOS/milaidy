@@ -291,16 +291,17 @@ export async function handleWalletRoutes(
     const addresses = deps.getWalletAddresses();
     const nodeRealSet = Boolean(process.env.NODEREAL_BSC_RPC_URL?.trim());
     const quickNodeSet = Boolean(process.env.QUICKNODE_BSC_RPC_URL?.trim());
+    const bscRpcSet = Boolean(process.env.BSC_RPC_URL?.trim());
     const configStatus: WalletConfigStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
       ankrKeySet: Boolean(process.env.ANKR_API_KEY),
       nodeRealBscRpcSet: nodeRealSet,
       quickNodeBscRpcSet: quickNodeSet,
-      managedBscRpcReady: nodeRealSet || quickNodeSet,
+      managedBscRpcReady: nodeRealSet || quickNodeSet || bscRpcSet,
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
-      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],
+      evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon", "BSC"],
       evmAddress: addresses.evmAddress,
       solanaAddress: addresses.solanaAddress,
     };
@@ -319,6 +320,9 @@ export async function handleWalletRoutes(
       "ANKR_API_KEY",
       "HELIUS_API_KEY",
       "BIRDEYE_API_KEY",
+      "NODEREAL_BSC_RPC_URL",
+      "QUICKNODE_BSC_RPC_URL",
+      "BSC_RPC_URL",
     ];
 
     if (!config.env) config.env = {};
