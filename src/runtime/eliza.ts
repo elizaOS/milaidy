@@ -727,6 +727,25 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   const cloudExplicitlyDisabled = cloudMode === false;
   const cloudEffectivelyEnabled =
     cloudMode === true || (!cloudExplicitlyDisabled && cloudHasApiKey);
+  // When inferenceMode is "byok" or "local", OR services.inference is false,
+  // the user wants their own AI provider keys — cloud stays enabled for
+  // RPC/services but does NOT hijack model inference.
+  //
+  // If the user chose a subscription provider (e.g. anthropic-subscription)
+  // during onboarding and never explicitly set inferenceMode, treat that as
+  // "byok" — the subscription IS the user's inference choice.
+  const hasSubscriptionProvider = Boolean(
+    config.agents?.defaults?.subscriptionProvider,
+  );
+  const explicitInferenceMode = config.cloud?.inferenceMode;
+  const cloudInferenceMode =
+    explicitInferenceMode ??
+    (hasSubscriptionProvider ? "byok" : "cloud");
+  const cloudInferenceToggle = config.cloud?.services?.inference ?? true;
+  const cloudHandlesInference =
+    cloudEffectivelyEnabled &&
+    cloudInferenceMode === "cloud" &&
+    cloudInferenceToggle !== false;
   const configEnv = config.env as
     | (Record<string, unknown> & { vars?: Record<string, unknown> })
     | undefined;
@@ -834,19 +853,27 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   const applyProviderPrecedence = (): void => {
     // Provider precedence:
-    // 1) ElizaCloud (when enabled)
-    // 2) pi-ai (when enabled and cloud is not active)
+    // 1) ElizaCloud for inference (when enabled AND inferenceMode is "cloud")
+    // 2) pi-ai (when enabled and cloud inference is not active)
     // 3) direct provider plugins (api-key/env based)
+    //
+    // When inferenceMode is "byok" or "local", cloud stays loaded for
+    // RPC/services but direct AI provider plugins are preserved so the
+    // user's own API keys (e.g. Anthropic) handle model inference.
     if (cloudEffectivelyEnabled) {
       pluginsToLoad.add("@elizaos/plugin-elizacloud");
 
-      // When cloud is active, remove direct AI provider plugins and pi-ai —
-      // the cloud plugin handles ALL model calls via its own gateway.
-      const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
-      directProviders.delete("@elizaos/plugin-elizacloud");
-      for (const p of directProviders) {
-        pluginsToLoad.delete(p);
+      if (cloudHandlesInference) {
+        // Cloud handles ALL model calls — remove direct AI provider plugins.
+        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
+        directProviders.delete("@elizaos/plugin-elizacloud");
+        for (const p of directProviders) {
+          pluginsToLoad.delete(p);
+        }
+        return;
       }
+      // inferenceMode is "byok" or "local" — keep direct provider plugins.
+      // Cloud plugin stays loaded for non-inference cloud services (RPC, media, etc.)
       return;
     }
 
@@ -1784,16 +1811,60 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
 
   // Propagate model names so the cloud plugin picks them up.  Falls back to
   // sensible defaults when cloud is enabled but no explicit selection exists.
+  // Skip when inferenceMode is "byok"/"local" or services.inference is off —
+  // user's own keys handle models.
+  // If the user chose a subscription provider, treat that as "byok" unless
+  // they explicitly set inferenceMode to "cloud".
+  const hasSubProvider = Boolean(
+    config.agents?.defaults?.subscriptionProvider,
+  );
+  const explicitMode = cloud.inferenceMode;
+  const inferenceMode =
+    explicitMode ?? (hasSubProvider ? "byok" : "cloud");
+  const inferenceToggle = cloud.services?.inference ?? true;
+  const cloudDoesInference =
+    inferenceMode === "cloud" && inferenceToggle !== false;
   const models = (config as Record<string, unknown>).models as
     | { small?: string; large?: string }
     | undefined;
-  if (effectivelyEnabled) {
+  if (effectivelyEnabled && cloudDoesInference) {
     const small = models?.small || "openai/gpt-5-mini";
     const large = models?.large || "anthropic/claude-sonnet-4.5";
     process.env.SMALL_MODEL = small;
     process.env.LARGE_MODEL = large;
     process.env.ELIZAOS_CLOUD_SMALL_MODEL = small;
     process.env.ELIZAOS_CLOUD_LARGE_MODEL = large;
+  } else if (effectivelyEnabled) {
+    // Cloud enabled but inference handled by user's own keys — clean cloud
+    // model env vars so the cloud plugin doesn't intercept model calls.
+    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+  }
+
+  // Propagate per-service disable flags so downstream code can check them
+  // without needing direct access to the MiladyConfig object.
+  const services = cloud.services;
+  if (services) {
+    if (services.tts === false) {
+      process.env.MILADY_CLOUD_TTS_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_TTS_DISABLED;
+    }
+    if (services.media === false) {
+      process.env.MILADY_CLOUD_MEDIA_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_MEDIA_DISABLED;
+    }
+    if (services.embeddings === false) {
+      process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED;
+    }
+    if (services.rpc === false) {
+      process.env.MILADY_CLOUD_RPC_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_RPC_DISABLED;
+    }
   }
 }
 
