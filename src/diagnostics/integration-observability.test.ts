@@ -139,16 +139,23 @@ describe("createIntegrationTelemetrySpan", () => {
       expect(event.durationMs).toBe(42);
     });
 
-    it("covers all declared boundary types", () => {
-      // If IntegrationBoundary is extended, this test must be updated.
-      // This acts as a change-detection gate for the boundary contract.
-      const expected: IntegrationBoundary[] = [
-        "cloud",
-        "wallet",
-        "marketplace",
-        "mcp",
-      ];
-      expect(BOUNDARIES).toEqual(expected);
+    it("covers all declared boundary types (parsed from source)", async () => {
+      // Parse the IntegrationBoundary type union directly from the source file
+      // so this test FAILS if someone adds a new boundary without updating BOUNDARIES.
+      const fs = await import("node:fs/promises");
+      const nodePath = await import("node:path");
+      const source = await fs.readFile(
+        nodePath.resolve(__dirname, "integration-observability.ts"),
+        "utf-8",
+      );
+      const match = source.match(
+        /export type IntegrationBoundary\s*=\s*([^;]+)/,
+      );
+      expect(match).not.toBeNull();
+      const declared = [...match![1].matchAll(/"([^"]+)"/g)]
+        .map((m) => m[1])
+        .sort();
+      expect([...BOUNDARIES].sort()).toEqual(declared);
     });
   });
 
@@ -477,22 +484,47 @@ describe("observability boundary coverage", () => {
     "mcp",
   ];
 
-  it("IntegrationObservabilityEvent contains required metric fields", () => {
-    // Compile-time contract: the event type must have success/failure/latency fields.
-    // This test validates the shape at runtime by creating a conforming object.
-    const event: IntegrationObservabilityEvent = {
-      schema: "integration_boundary_v1",
-      boundary: "cloud",
-      operation: "test",
-      outcome: "success",
-      durationMs: 0,
+  it("emitted success events contain all required metric fields", () => {
+    // Validate the REAL span output (not a hand-constructed object) has the
+    // required fields: schema, boundary, operation, outcome, durationMs.
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
     };
+    const span = createIntegrationTelemetrySpan(
+      { boundary: "cloud", operation: "contract_check" },
+      { now: fixedClock(0, 7), sink },
+    );
+    span.success({ statusCode: 200 });
 
-    expect(event).toHaveProperty("schema");
-    expect(event).toHaveProperty("boundary");
-    expect(event).toHaveProperty("operation");
-    expect(event).toHaveProperty("outcome");
-    expect(event).toHaveProperty("durationMs");
+    const event = parseEvent((sink.info.mock.calls[0] as [string])[0]);
+    expect(event).toHaveProperty("schema", "integration_boundary_v1");
+    expect(event).toHaveProperty("boundary", "cloud");
+    expect(event).toHaveProperty("operation", "contract_check");
+    expect(event).toHaveProperty("outcome", "success");
+    expect(event).toHaveProperty("durationMs", 7);
+    expect(typeof event.durationMs).toBe("number");
+  });
+
+  it("emitted failure events contain all required metric fields", () => {
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
+    };
+    const span = createIntegrationTelemetrySpan(
+      { boundary: "wallet", operation: "contract_check_fail" },
+      { now: fixedClock(0, 12), sink },
+    );
+    span.failure({ statusCode: 502, errorKind: "http_error" });
+
+    const event = parseEvent((sink.warn.mock.calls[0] as [string])[0]);
+    expect(event).toHaveProperty("schema", "integration_boundary_v1");
+    expect(event).toHaveProperty("boundary", "wallet");
+    expect(event).toHaveProperty("operation", "contract_check_fail");
+    expect(event).toHaveProperty("outcome", "failure");
+    expect(event).toHaveProperty("durationMs", 12);
+    expect(typeof event.durationMs).toBe("number");
+    expect(event).toHaveProperty("errorKind", "http_error");
   });
 
   it.each(
