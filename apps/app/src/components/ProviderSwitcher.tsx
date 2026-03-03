@@ -162,11 +162,11 @@ export function ProviderSwitcher({
           models?.large || envLarge || (cloudEnabledCfg ? defaultLarge : ""),
         );
         const rawPiAi =
-          (typeof vars.MILAIDY_USE_PI_AI === "string"
-            ? vars.MILAIDY_USE_PI_AI
+          (typeof vars.MILADY_USE_PI_AI === "string"
+            ? vars.MILADY_USE_PI_AI
             : undefined) ||
-          (typeof env?.MILAIDY_USE_PI_AI === "string"
-            ? env.MILAIDY_USE_PI_AI
+          (typeof env?.MILADY_USE_PI_AI === "string"
+            ? env.MILADY_USE_PI_AI
             : "");
         const piAiOn = ["1", "true", "yes"].includes(
           rawPiAi.trim().toLowerCase(),
@@ -288,7 +288,7 @@ export function ProviderSwitcher({
               services: { inference: false },
               inferenceMode: "byok",
             },
-            env: { vars: { MILAIDY_USE_PI_AI: "" } },
+            env: { vars: { MILADY_USE_PI_AI: "" } },
           });
           setPiAiEnabled(false);
           if (!willTogglePlugins) {
@@ -337,7 +337,7 @@ export function ProviderSwitcher({
             services: { inference: false },
             inferenceMode: "byok",
           },
-          env: { vars: { MILAIDY_USE_PI_AI: "" } },
+          env: { vars: { MILADY_USE_PI_AI: "" } },
         });
         const switchId =
           providerId === "anthropic-subscription"
@@ -371,7 +371,7 @@ export function ProviderSwitcher({
           services: { inference: true },
           inferenceMode: "cloud",
         },
-        env: { vars: { MILAIDY_USE_PI_AI: "" } },
+        env: { vars: { MILADY_USE_PI_AI: "" } },
         agents: { defaults: { model: { primary: null } } },
         models: {
           small: currentSmallModel || "moonshotai/kimi-k2-turbo",
@@ -396,7 +396,7 @@ export function ProviderSwitcher({
           services: { inference: false },
           inferenceMode: "byok",
         },
-        env: { vars: { MILAIDY_USE_PI_AI: "1" } },
+        env: { vars: { MILADY_USE_PI_AI: "1" } },
         agents: {
           defaults: {
             model: {
