@@ -164,6 +164,7 @@
     "@mariozechner/pi-tui": "0.54.0",
     "@milady/plugin-retake": "workspace:*",
     "@milady/plugin-bnb-identity": "workspace:*",
+    "@opinion-labs/opinion-clob-sdk": "^0.5.3",
     "@milady/plugin-streaming-base": "workspace:*",
     "@milady/plugin-twitch-streaming": "workspace:*",
     "@milady/plugin-youtube-streaming": "workspace:*",
