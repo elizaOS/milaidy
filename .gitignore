@@ -106,3 +106,4 @@ test-output/
 elizaos-plugins/
 .claude/worktrees/
 e2e-screenshots/
+data/

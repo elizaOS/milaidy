@@ -1858,6 +1858,7 @@ export class MiladyClient {
   private readonly wsSendQueueLimit = 32;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 500;
+  private wsHasConnectedOnce = false;
 
   // Connection state tracking for backend crash handling
   private connectionState: WebSocketConnectionState = "disconnected";
@@ -3744,6 +3745,17 @@ export class MiladyClient {
       this.connectionState = "connected";
       this.emitConnectionStateChange();
 
+      // Notify listeners when the WS reconnects (not on the first connect)
+      // so they can re-hydrate state that may have been lost during the gap.
+      if (this.wsHasConnectedOnce) {
+        const handlers = this.wsHandlers.get("ws-reconnected");
+        if (handlers) {
+          for (const handler of handlers) {
+            handler({ type: "ws-reconnected" });
+          }
+        }
+      }
+      this.wsHasConnectedOnce = true;
       if (
         this.wsSendQueue.length > 0 &&
         this.ws?.readyState === WebSocket.OPEN

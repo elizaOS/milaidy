@@ -25,6 +25,7 @@ import {
   Search,
   Shield,
   Sliders,
+  Terminal,
   Upload,
   Wallet,
   X,
@@ -33,6 +34,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
 import { createTranslator } from "../i18n";
+import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
@@ -58,6 +60,12 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "AI Model",
     icon: Bot,
     description: "Provider and model settings",
+  },
+  {
+    id: "coding-agents",
+    label: "Coding Agents",
+    icon: Terminal,
+    description: "Agent preferences, models, and permissions",
   },
   {
     id: "wallet-rpc",
@@ -604,6 +612,11 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
           setTab={setTab}
         />
       </SectionCard>
+
+      {/* CODING AGENTS SECTION */}
+      <div id="coding-agents">
+        <CodingAgentSettingsSection />
+      </div>
 
       {/* WALLET & RPC SECTION */}
       <SectionCard
