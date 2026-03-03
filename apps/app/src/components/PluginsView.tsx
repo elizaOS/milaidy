@@ -1013,9 +1013,9 @@ function PluginConfigForm({
         if (isArrayField && typeof configValue === "string") {
           v[p.key] = configValue
             ? configValue
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean)
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
             : [];
         } else {
           v[p.key] = configValue;
@@ -1024,9 +1024,9 @@ function PluginConfigForm({
         if (isArrayField && typeof p.currentValue === "string") {
           v[p.key] = String(p.currentValue)
             ? String(p.currentValue)
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean)
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
             : [];
         } else {
           v[p.key] = p.currentValue;
@@ -1771,8 +1771,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         onDragOver={(e) => handleDragOver(e, p.id)}
         onDrop={(e) => handleDrop(e, p.id)}
         onDragEnd={handleDragEnd}
-        className={`border border-border bg-card transition-colors duration-150 flex flex-col ${enabledBorder} ${isOpen ? "ring-1 ring-accent" : "hover:border-accent/40"
-          } ${isDragging ? "opacity-30" : ""} ${isDragOver ? "ring-2 ring-accent/60" : ""}`}
+        className={`border border-border bg-card transition-colors duration-150 flex flex-col ${enabledBorder} ${
+          isOpen ? "ring-1 ring-accent" : "hover:border-accent/40"
+        } ${isDragging ? "opacity-30" : ""} ${isDragOver ? "ring-2 ring-accent/60" : ""}`}
         data-plugin-id={p.id}
       >
         {/* Top: drag handle + icon + name + toggle */}
@@ -1794,7 +1795,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     alt=""
                     className="w-5 h-5 rounded-sm object-contain"
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
                     }}
                   />
                 ) : (
@@ -1814,13 +1816,15 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             <button
               type="button"
               data-plugin-toggle={p.id}
-              className={`text-[10px] font-bold tracking-wider px-2.5 py-[2px] border transition-colors duration-150 shrink-0 ${p.enabled
-                ? "bg-accent text-accent-fg border-accent"
-                : "bg-transparent text-muted border-border hover:text-txt"
-                } ${toggleDisabled
+              className={`text-[10px] font-bold tracking-wider px-2.5 py-[2px] border transition-colors duration-150 shrink-0 ${
+                p.enabled
+                  ? "bg-accent text-accent-fg border-accent"
+                  : "bg-transparent text-muted border-border hover:text-txt"
+              } ${
+                toggleDisabled
                   ? "opacity-60 cursor-not-allowed"
                   : "cursor-pointer"
-                }`}
+              }`}
               onClick={(e) => {
                 e.stopPropagation();
                 void handleTogglePlugin(p.id, !p.enabled);
@@ -1844,10 +1848,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           )}
           {p.enabled && !p.isActive && !isShowcase && (
             <span
-              className={`text-[10px] px-1.5 py-px border lowercase tracking-wide whitespace-nowrap ${p.loadError
-                ? "border-destructive bg-[rgba(153,27,27,0.04)] text-destructive"
-                : "border-warn bg-[rgba(234,179,8,0.06)] text-warn"
-                }`}
+              className={`text-[10px] px-1.5 py-px border lowercase tracking-wide whitespace-nowrap ${
+                p.loadError
+                  ? "border-destructive bg-[rgba(153,27,27,0.04)] text-destructive"
+                  : "border-warn bg-[rgba(234,179,8,0.06)] text-warn"
+              }`}
               title={
                 p.loadError || "Plugin is enabled but not loaded in the runtime"
               }
@@ -1880,8 +1885,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           {hasParams && !isShowcase ? (
             <>
               <span
-                className={`inline-block w-[7px] h-[7px] rounded-full shrink-0 ${allParamsSet ? "bg-ok" : "bg-destructive"
-                  }`}
+                className={`inline-block w-[7px] h-[7px] rounded-full shrink-0 ${
+                  allParamsSet ? "bg-ok" : "bg-destructive"
+                }`}
               />
               <span className="text-[10px] text-muted">
                 {setCount}/{totalCount} configured
@@ -1913,15 +1919,16 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               >
                 {installingPlugins.has(p.id)
                   ? installProgress.get(p.npmName ?? "")?.message ||
-                  "Installing..."
+                    "Installing..."
                   : "Install"}
               </button>
             )}
           {hasParams && (
             <button
               type="button"
-              className={`text-[10px] text-muted hover:text-accent cursor-pointer transition-colors flex items-center gap-1 ${isOpen ? "text-accent" : ""
-                }`}
+              className={`text-[10px] text-muted hover:text-accent cursor-pointer transition-colors flex items-center gap-1 ${
+                isOpen ? "text-accent" : ""
+              }`}
               onClick={() => toggleSettings(p.id)}
               title="Settings"
             >
@@ -2017,8 +2024,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     return (
       <div className="plugins-game-modal">
         <div
-          className={`plugins-game-list-panel${gameNarrow && gameMobileDetail ? " is-hidden" : ""
-            }`}
+          className={`plugins-game-list-panel${
+            gameNarrow && gameMobileDetail ? " is-hidden" : ""
+          }`}
         >
           <div className="plugins-game-list-head">
             <div className="plugins-game-section-title">{sectionTitle}</div>
@@ -2033,8 +2041,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 <button
                   key={p.id}
                   type="button"
-                  className={`plugins-game-card${effectiveGameSelected === p.id ? " is-selected" : ""
-                    }${!p.enabled ? " is-disabled" : ""}`}
+                  className={`plugins-game-card${
+                    effectiveGameSelected === p.id ? " is-selected" : ""
+                  }${!p.enabled ? " is-disabled" : ""}`}
                   onClick={() => {
                     setGameSelectedId(p.id);
                     if (gameNarrow) setGameMobileDetail(true);
@@ -2051,7 +2060,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                               src={icon}
                               alt=""
                               className="plugins-game-card-icon"
-                              style={{ objectFit: 'contain' }}
+                              style={{ objectFit: "contain" }}
                             />
                           ) : (
                             icon
@@ -2066,8 +2075,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     <div className="plugins-game-card-name">{p.name}</div>
                     <div className="plugins-game-card-meta">
                       <span
-                        className={`plugins-game-badge ${p.enabled ? "is-on" : "is-off"
-                          }`}
+                        className={`plugins-game-badge ${
+                          p.enabled ? "is-on" : "is-off"
+                        }`}
                       >
                         {p.enabled ? "ON" : "OFF"}
                       </span>
@@ -2079,8 +2089,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           </div>
         </div>
         <div
-          className={`plugins-game-detail-panel${gameNarrow && !gameMobileDetail ? " is-hidden" : ""
-            }`}
+          className={`plugins-game-detail-panel${
+            gameNarrow && !gameMobileDetail ? " is-hidden" : ""
+          }`}
         >
           {selectedPlugin ? (
             <>
@@ -2128,8 +2139,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                   </div>
                   <button
                     type="button"
-                    className={`plugins-game-toggle ${selectedPlugin.enabled ? "is-on" : "is-off"
-                      }`}
+                    className={`plugins-game-toggle ${
+                      selectedPlugin.enabled ? "is-on" : "is-off"
+                    }`}
                     onClick={() =>
                       void handleTogglePlugin(
                         selectedPlugin.id,
@@ -2188,8 +2200,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 </button>
                 <button
                   type="button"
-                  className={`plugins-game-save-btn${pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
-                    }`}
+                  className={`plugins-game-save-btn${
+                    pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
+                  }`}
                   onClick={() => void handleConfigSave(selectedPlugin.id)}
                   disabled={pluginSaving.has(selectedPlugin.id)}
                 >
@@ -2248,10 +2261,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             <button
               key={s}
               type="button"
-              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${pluginStatusFilter === s
-                ? "bg-accent text-accent-fg border-accent"
-                : "bg-surface text-txt border-border hover:bg-bg-hover"
-                }`}
+              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${
+                pluginStatusFilter === s
+                  ? "bg-accent text-accent-fg border-accent"
+                  : "bg-surface text-txt border-border hover:bg-bg-hover"
+              }`}
               onClick={() => setState("pluginStatusFilter", s as StatusFilter)}
             >
               {s === "all"
@@ -2296,10 +2310,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             <button
               key={tag.id}
               type="button"
-              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${subgroupFilter === tag.id
-                ? "bg-accent text-accent-fg border-accent"
-                : "bg-surface text-txt border-border hover:bg-bg-hover"
-                }`}
+              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${
+                subgroupFilter === tag.id
+                  ? "bg-accent text-accent-fg border-accent"
+                  : "bg-surface text-txt border-border hover:bg-bg-hover"
+              }`}
               onClick={() => setSubgroupFilter(tag.id)}
             >
               {tag.label} ({tag.count})
@@ -2460,7 +2475,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       >
                         {installingPlugins.has(p.id)
                           ? installProgress.get(p.npmName ?? "")?.message ||
-                          "Installing..."
+                            "Installing..."
                           : "Install Plugin"}
                       </button>
                     )}
@@ -2475,14 +2490,15 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     {p.isActive && (
                       <button
                         type="button"
-                        className={`px-3 py-1.5 text-[11px] border rounded-sm transition-colors ${testResults.get(p.id)?.loading
-                          ? "border-[var(--border)] text-[var(--muted)] cursor-wait"
-                          : testResults.get(p.id)?.success
-                            ? "border-[var(--ok)] text-[var(--ok)] bg-[color-mix(in_srgb,var(--ok)_5%,transparent)]"
-                            : testResults.get(p.id)?.error
-                              ? "border-[var(--destructive)] text-[var(--destructive)]"
-                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] cursor-pointer"
-                          }`}
+                        className={`px-3 py-1.5 text-[11px] border rounded-sm transition-colors ${
+                          testResults.get(p.id)?.loading
+                            ? "border-[var(--border)] text-[var(--muted)] cursor-wait"
+                            : testResults.get(p.id)?.success
+                              ? "border-[var(--ok)] text-[var(--ok)] bg-[color-mix(in_srgb,var(--ok)_5%,transparent)]"
+                              : testResults.get(p.id)?.error
+                                ? "border-[var(--destructive)] text-[var(--destructive)]"
+                                : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] cursor-pointer"
+                        }`}
                         disabled={testResults.get(p.id)?.loading}
                         onClick={() => handleTestConnection(p.id)}
                       >
@@ -2504,10 +2520,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     </button>
                     <button
                       type="button"
-                      className={`text-[12px] px-5 py-1.5 cursor-pointer border rounded-sm transition-all duration-200 font-medium ${saveSuccess
-                        ? "!bg-ok !text-white !border-ok"
-                        : "bg-accent text-accent-fg border-accent hover:bg-accent-hover hover:shadow-sm"
-                        }`}
+                      className={`text-[12px] px-5 py-1.5 cursor-pointer border rounded-sm transition-all duration-200 font-medium ${
+                        saveSuccess
+                          ? "!bg-ok !text-white !border-ok"
+                          : "bg-accent text-accent-fg border-accent hover:bg-accent-hover hover:shadow-sm"
+                      }`}
                       onClick={() => handleConfigSave(p.id)}
                       disabled={isSaving}
                     >

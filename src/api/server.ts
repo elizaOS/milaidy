@@ -1322,7 +1322,10 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-            icon: (p as any).logoUrl ?? (p as any).icon ?? null,
+            icon:
+              ((p as unknown as Record<string, string | undefined>).logoUrl ??
+                (p as unknown as Record<string, string | undefined>).icon) ||
+              null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -10954,7 +10957,7 @@ async function handleRequest(
         return;
       }
 
-      const evmKey = process.env.EVM_PRIVATE_KEY!;
+      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
       const provider = new ethers.JsonRpcProvider(rpcUrl);
       const wallet = new ethers.Wallet(
         evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
@@ -11281,7 +11284,7 @@ async function handleRequest(
     }
 
     try {
-      const evmKey = process.env.EVM_PRIVATE_KEY!;
+      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
       const provider = new ethers.JsonRpcProvider(rpcUrl);
       const wallet = new ethers.Wallet(
         evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,

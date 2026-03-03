@@ -61,9 +61,12 @@
         "@lunchtable/plugin-ltcg": "^0.1.0",
         "@mariozechner/pi-ai": "0.52.12",
         "@mariozechner/pi-tui": "0.54.0",
+        "@milady/plugin-bnb-identity": "workspace:*",
+        "@milady/plugin-pumpfun-streaming": "workspace:*",
         "@milady/plugin-retake": "workspace:*",
         "@milady/plugin-streaming-base": "workspace:*",
         "@milady/plugin-twitch-streaming": "workspace:*",
+        "@milady/plugin-x-streaming": "workspace:*",
         "@milady/plugin-youtube-streaming": "workspace:*",
         "@noble/curves": "^2.0.1",
         "@opentelemetry/api": "1.9.0",
@@ -393,6 +396,27 @@
         "miladyai": "next",
       },
     },
+    "packages/plugin-bnb-identity": {
+      "name": "@milady/plugin-bnb-identity",
+      "version": "0.1.0",
+      "dependencies": {
+        "@elizaos/core": "next",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.3",
+      },
+    },
+    "packages/plugin-pumpfun": {
+      "name": "@milady/plugin-pumpfun-streaming",
+      "version": "0.1.0",
+      "dependencies": {
+        "@elizaos/core": "next",
+        "@milady/plugin-streaming-base": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.3",
+      },
+    },
     "packages/plugin-retake": {
       "name": "@milady/plugin-retake",
       "version": "0.1.0",
@@ -431,6 +455,17 @@
       "peerDependencies": {
         "react": ">=18.0.0",
         "zod": ">=3.0.0",
+      },
+    },
+    "packages/plugin-x-streaming": {
+      "name": "@milady/plugin-x-streaming",
+      "version": "0.1.0",
+      "dependencies": {
+        "@elizaos/core": "next",
+        "@milady/plugin-streaming-base": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.3",
       },
     },
     "packages/plugin-youtube": {
@@ -1068,11 +1103,17 @@
 
     "@milady/capacitor-talkmode": ["@milady/capacitor-talkmode@workspace:apps/app/plugins/talkmode"],
 
+    "@milady/plugin-bnb-identity": ["@milady/plugin-bnb-identity@workspace:packages/plugin-bnb-identity"],
+
+    "@milady/plugin-pumpfun-streaming": ["@milady/plugin-pumpfun-streaming@workspace:packages/plugin-pumpfun"],
+
     "@milady/plugin-retake": ["@milady/plugin-retake@workspace:packages/plugin-retake"],
 
     "@milady/plugin-streaming-base": ["@milady/plugin-streaming-base@workspace:packages/plugin-streaming-base"],
 
     "@milady/plugin-twitch-streaming": ["@milady/plugin-twitch-streaming@workspace:packages/plugin-twitch"],
+
+    "@milady/plugin-x-streaming": ["@milady/plugin-x-streaming@workspace:packages/plugin-x-streaming"],
 
     "@milady/plugin-youtube-streaming": ["@milady/plugin-youtube-streaming@workspace:packages/plugin-youtube"],
 
@@ -2742,7 +2783,7 @@
 
     "levn": ["levn@0.4.1", "", { "dependencies": { "prelude-ls": "^1.2.1", "type-check": "~0.4.0" } }, "sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ=="],
 
-    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d", "sha512-5q4/OuDQaMYx3RpDqMqS3WYyqjrsSMpU8ipQZtpYnm5l6DwNoLV9oIYMDK0NILKW+tyk3tVCIA11BMYQ+A1+GA=="],
+    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d"],
 
     "libsodium": ["libsodium@0.7.16", "", {}, "sha512-3HrzSPuzm6Yt9aTYCDxYEG8x8/6C0+ag655Y7rhhWZM9PT4NpdnbqlzXhGZlDnkgR6MeSTnOt/VIyHLs9aSf+Q=="],
 

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getVrmBackgroundUrl,
   getVrmNeedsFlip,
   getVrmPreviewUrl,
   getVrmTitle,
   getVrmUrl,
-  getVrmBackgroundUrl,
   useApp,
   VRM_COUNT,
 } from "../AppContext";
@@ -309,8 +309,8 @@ export function CompanionView() {
     agentState === "running"
       ? "text-ok border-ok"
       : agentState === "paused" ||
-        agentState === "restarting" ||
-        agentState === "starting"
+          agentState === "restarting" ||
+          agentState === "starting"
         ? "text-warn border-warn"
         : agentState === "error"
           ? "text-danger border-danger"
@@ -407,7 +407,7 @@ export function CompanionView() {
   const actionAnimatingRef = useRef(false);
   const ambientBlockedUntilMsRef = useRef(0);
   const emoteLoopOverrideRef = useRef(false);
-  const scheduleNextAccentRef = useRef<() => void>(() => { });
+  const scheduleNextAccentRef = useRef<() => void>(() => {});
   const recentTxRefreshAtRef = useRef<Record<string, number>>({});
 
   const walletPanelRef = useRef<HTMLDivElement | null>(null);
@@ -425,7 +425,13 @@ export function CompanionView() {
           alert("This .vrm is a Git LFS pointer, not the real model file.");
           return;
         }
-        if (bytes.length < 4 || bytes[0] !== 0x67 || bytes[1] !== 0x6c || bytes[2] !== 0x54 || bytes[3] !== 0x46) {
+        if (
+          bytes.length < 4 ||
+          bytes[0] !== 0x67 ||
+          bytes[1] !== 0x6c ||
+          bytes[2] !== 0x54 ||
+          bytes[3] !== 0x46
+        ) {
           alert("Invalid VRM file. Please select a valid .vrm binary.");
           return;
         }
@@ -436,7 +442,10 @@ export function CompanionView() {
         client
           .uploadCustomVrm(file)
           .then(() => {
-            setState("customVrmUrl", resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
+            setState(
+              "customVrmUrl",
+              resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`),
+            );
             requestAnimationFrame(() => URL.revokeObjectURL(url));
           })
           .catch(() => {
@@ -457,7 +466,10 @@ export function CompanionView() {
       client
         .uploadCustomBackground(file)
         .then(() => {
-          setState("customBackgroundUrl", resolveApiUrl(`/api/avatar/background?t=${Date.now()}`));
+          setState(
+            "customBackgroundUrl",
+            resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
+          );
           requestAnimationFrame(() => URL.revokeObjectURL(url));
         })
         .catch(() => {
@@ -1480,7 +1492,7 @@ export function CompanionView() {
       : getVrmPreviewUrl(1);
   const vrmBackgroundUrl =
     selectedVrmIndex === 0 && customVrmUrl
-      ? (customBackgroundUrl || getVrmBackgroundUrl(1))
+      ? customBackgroundUrl || getVrmBackgroundUrl(1)
       : getVrmBackgroundUrl(safeSelectedVrmIndex);
   const needsFlip =
     selectedVrmIndex > 0 && getVrmNeedsFlip(safeSelectedVrmIndex);
@@ -1785,9 +1797,9 @@ export function CompanionView() {
                   {agentState}
                 </span>
                 {(agentState as string) === "restarting" ||
-                  (agentState as string) === "starting" ||
-                  (agentState as string) === "not_started" ||
-                  (agentState as string) === "stopped" ? (
+                (agentState as string) === "starting" ||
+                (agentState as string) === "not_started" ||
+                (agentState as string) === "stopped" ? (
                   <span className="anime-header-pill-icon opacity-60">
                     <svg
                       className="animate-spin"
@@ -1869,7 +1881,7 @@ export function CompanionView() {
                       }
                     >
                       {restartBusy ||
-                        (agentState as string) === "restarting" ? (
+                      (agentState as string) === "restarting" ? (
                         <svg
                           className="animate-spin"
                           width="12"
@@ -2512,7 +2524,7 @@ export function CompanionView() {
                                                 className="anime-wallet-address-copy"
                                                 disabled={Boolean(
                                                   walletRecentBusyHashes[
-                                                  entry.hash
+                                                    entry.hash
                                                   ],
                                                 )}
                                                 onClick={() => {
@@ -2530,30 +2542,30 @@ export function CompanionView() {
                                             </div>
                                             {(entry.confirmations > 0 ||
                                               typeof entry.nonce ===
-                                              "number") && (
-                                                <div className="anime-wallet-recent-extra">
-                                                  {entry.confirmations > 0 && (
-                                                    <span>
-                                                      {t(
-                                                        "wallet.txStatus.confirmations",
-                                                        {
-                                                          count:
-                                                            entry.confirmations,
-                                                        },
-                                                      )}
-                                                    </span>
-                                                  )}
-                                                  {typeof entry.nonce ===
-                                                    "number" && (
-                                                      <span>
-                                                        {t(
-                                                          "wallet.txStatus.nonce",
-                                                          { nonce: entry.nonce },
-                                                        )}
-                                                      </span>
+                                                "number") && (
+                                              <div className="anime-wallet-recent-extra">
+                                                {entry.confirmations > 0 && (
+                                                  <span>
+                                                    {t(
+                                                      "wallet.txStatus.confirmations",
+                                                      {
+                                                        count:
+                                                          entry.confirmations,
+                                                      },
                                                     )}
-                                                </div>
-                                              )}
+                                                  </span>
+                                                )}
+                                                {typeof entry.nonce ===
+                                                  "number" && (
+                                                  <span>
+                                                    {t(
+                                                      "wallet.txStatus.nonce",
+                                                      { nonce: entry.nonce },
+                                                    )}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
                                             {entry.status === "reverted" &&
                                               entry.reason && (
                                                 <div className="anime-wallet-recent-reason">
@@ -2667,11 +2679,11 @@ export function CompanionView() {
                             <span>
                               {swapSide === "buy"
                                 ? t("wallet.spendSymbol", {
-                                  symbol: swapInputSymbol,
-                                })
+                                    symbol: swapInputSymbol,
+                                  })
                                 : t("wallet.sellSymbol", {
-                                  symbol: swapInputSymbol,
-                                })}
+                                    symbol: swapInputSymbol,
+                                  })}
                             </span>
                             <input
                               type="text"
@@ -3182,8 +3194,24 @@ export function CompanionView() {
                     onClick={() => vrmFileInputRef.current?.click()}
                     title="Upload custom .vrm"
                   >
-                    <div className="anime-roster-img" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <div
+                      className="anime-roster-img"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <title>Upload VRM</title>
                         <path d="M12 5v14m-7-7h14" />
                       </svg>
@@ -3211,7 +3239,16 @@ export function CompanionView() {
                   onClick={() => bgFileInputRef.current?.click()}
                   title="Upload custom background image"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <title>Upload Background</title>
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <circle cx="8.5" cy="8.5" r="1.5" />

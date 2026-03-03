@@ -12,7 +12,8 @@ vi.mock("../../src/AppContext", () => ({
   getVrmNeedsFlip: () => false,
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
-  getVrmBackgroundUrl: (index: number) => `/vrms/backgrounds/milady-${index}.png`,
+  getVrmBackgroundUrl: (index: number) =>
+    `/vrms/backgrounds/milady-${index}.png`,
   getVrmTitle: (index: number) => `MILADY-${index}`,
   VRM_COUNT: 24,
 }));

@@ -16,8 +16,8 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
 } from "node:fs";
@@ -71,7 +71,11 @@ function gitAvailable() {
   }
 }
 
-export function runEnsureAvatars({ force = false, log = console.log, logError = console.error } = {}) {
+export function runEnsureAvatars({
+  force = false,
+  log = console.log,
+  logError = console.error,
+} = {}) {
   if (!force && hasValidVrm(VRMS_DIR) && hasValidAnimations(ANIMATIONS_DIR)) {
     log(`${TAG} Avatar assets already present — skipping`);
     return { cloned: false, reason: "already-present" };
@@ -82,7 +86,9 @@ export function runEnsureAvatars({ force = false, log = console.log, logError = 
     return { cloned: false, reason: "no-git" };
   }
 
-  log(`${TAG} Avatar assets missing or incomplete — cloning from ${AVATARS_REPO}...`);
+  log(
+    `${TAG} Avatar assets missing or incomplete — cloning from ${AVATARS_REPO}...`,
+  );
 
   const tmpDir = join(ROOT, ".avatar-clone-tmp");
 
@@ -122,7 +128,7 @@ export function runEnsureAvatars({ force = false, log = console.log, logError = 
       log(`${TAG} Avatar assets installed successfully`);
     } else {
       logError(
-        `${TAG} Warning: copy completed but verification failed (vrms=${vrmsOk}, animations=${animsOk})`
+        `${TAG} Warning: copy completed but verification failed (vrms=${vrmsOk}, animations=${animsOk})`,
       );
     }
 
@@ -131,7 +137,7 @@ export function runEnsureAvatars({ force = false, log = console.log, logError = 
     const message = err instanceof Error ? err.message : String(err);
     logError(`${TAG} Failed to clone avatar assets: ${message}`);
     logError(
-      `${TAG} You can manually clone: git clone ${AVATARS_REPO} /tmp/avatars && cp -r /tmp/avatars/vrms/ apps/app/public/vrms/ && cp -r /tmp/avatars/animations/ apps/app/public/animations/`
+      `${TAG} You can manually clone: git clone ${AVATARS_REPO} /tmp/avatars && cp -r /tmp/avatars/vrms/ apps/app/public/vrms/ && cp -r /tmp/avatars/animations/ apps/app/public/animations/`,
     );
     return { cloned: false, reason: "clone-failed", error: message };
   } finally {

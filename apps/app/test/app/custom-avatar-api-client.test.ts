@@ -41,8 +41,12 @@ describe("uploadCustomVrm", () => {
       json: async () => ({ ok: true, size: 12 }),
     });
 
-    const glbData = new Uint8Array([0x67, 0x6c, 0x54, 0x46, 0, 0, 0, 2, 12, 0, 0, 0]);
-    const file = new File([glbData], "custom.vrm", { type: "model/gltf-binary" });
+    const glbData = new Uint8Array([
+      0x67, 0x6c, 0x54, 0x46, 0, 0, 0, 2, 12, 0, 0, 0,
+    ]);
+    const file = new File([glbData], "custom.vrm", {
+      type: "model/gltf-binary",
+    });
 
     await client.uploadCustomVrm(file);
 

@@ -234,15 +234,15 @@ export const THEMES: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-    { id: "milady", label: "milady", hint: "BSC yellow default" },
-    { id: "milady-classic", label: "milady classic", hint: "sage green retro" },
-    { id: "qt314", label: "qt3.14", hint: "soft pastels" },
-    { id: "web2000", label: "web2000", hint: "green hacker vibes" },
-    { id: "programmer", label: "programmer", hint: "vscode dark" },
-    { id: "haxor", label: "haxor", hint: "terminal green" },
-    { id: "psycho", label: "psycho", hint: "pure chaos" },
-    { id: "dark", label: "dark", hint: "clean dark mode" },
-  ];
+  { id: "milady", label: "milady", hint: "BSC yellow default" },
+  { id: "milady-classic", label: "milady classic", hint: "sage green retro" },
+  { id: "qt314", label: "qt3.14", hint: "soft pastels" },
+  { id: "web2000", label: "web2000", hint: "green hacker vibes" },
+  { id: "programmer", label: "programmer", hint: "vscode dark" },
+  { id: "haxor", label: "haxor", hint: "terminal green" },
+  { id: "psycho", label: "psycho", hint: "pure chaos" },
+  { id: "dark", label: "dark", hint: "clean dark mode" },
+];
 
 const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
@@ -1562,7 +1562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSelectedVrmIndexRaw(normalized);
     saveAvatarIndex(normalized);
     // Sync to server so headless stream capture uses the same avatar
-    client.saveStreamSettings({ avatarIndex: normalized }).catch(() => { });
+    client.saveStreamSettings({ avatarIndex: normalized }).catch(() => {});
   }, []);
 
   // --- Cloud ---
@@ -1847,7 +1847,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentTheme(name);
     applyTheme(name);
     // Sync to server so headless stream capture uses the same theme
-    client.saveStreamSettings({ theme: name }).catch(() => { });
+    client.saveStreamSettings({ theme: name }).catch(() => {});
   }, []);
 
   const setUiLanguage = useCallback(
@@ -2504,7 +2504,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.start.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2523,7 +2524,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.stop.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2553,7 +2555,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES[action].success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES[action].verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES[action].verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2593,7 +2596,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2680,8 +2684,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const confirmed = window.confirm(
       "This will completely reset the agent — wiping all config, memory, and data.\n\n" +
-      "You will be taken back to the onboarding wizard.\n\n" +
-      "Are you sure?",
+        "You will be taken back to the onboarding wizard.\n\n" +
+        "Are you sure?",
     );
     if (!confirmed) return;
     if (!beginLifecycleAction("reset")) return;
@@ -2707,7 +2711,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setActionNotice(LIFECYCLE_MESSAGES.reset.success, "success", 3200);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2866,7 +2871,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!result.ok) {
             appendLocalCommandTurn(
               rawText,
-              `Custom action "${customAction.name}" failed: ${result.error ?? "unknown error"
+              `Custom action "${customAction.name}" failed: ${
+                result.error ?? "unknown error"
               }`,
             );
             return { handled: true };
@@ -3618,7 +3624,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* ignore */
         });
         setActionNotice(
-          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${err instanceof Error ? err.message : "unknown error"
+          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${
+            err instanceof Error ? err.message : "unknown error"
           }`,
           "error",
           4200,
@@ -5633,7 +5640,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Restore custom background if one was uploaded
         const hasBg = await client.hasCustomBackground();
         if (hasBg) {
-          setCustomBackgroundUrl(resolveApiUrl(`/api/avatar/background?t=${Date.now()}`));
+          setCustomBackgroundUrl(
+            resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
+          );
         }
       }
 

@@ -493,7 +493,11 @@ kbd {
 /* ── Wallets BSC-first view ───────────────────────────────────────── */
 
 .wallets-bsc {
-  --wb-card-highlight: linear-gradient(135deg, rgba(240, 185, 11, 0.12), rgba(240, 185, 11, 0.02));
+  --wb-card-highlight: linear-gradient(
+    135deg,
+    rgba(240, 185, 11, 0.12),
+    rgba(240, 185, 11, 0.02)
+  );
 }
 
 .wallets-bsc__setup code {
@@ -687,7 +691,9 @@ kbd {
 
 .wt__portfolio {
   border: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.1), rgba(240, 185, 11, 0.02)), var(--card);
+  background:
+    linear-gradient(135deg, rgba(240, 185, 11, 0.1), rgba(240, 185, 11, 0.02)),
+    var(--card);
   padding: 14px 16px 12px;
 }
 
@@ -1240,7 +1246,8 @@ kbd {
   gap: 8px;
   padding: 5px 8px;
   background: color-mix(in srgb, var(--danger, #e74c3c) 8%, var(--bg) 92%);
-  border: 1px solid color-mix(in srgb, var(--danger, #e74c3c) 30%, var(--border) 70%);
+  border: 1px solid
+    color-mix(in srgb, var(--danger, #e74c3c) 30%, var(--border) 70%);
   border-radius: 3px;
 }
 
@@ -1253,7 +1260,8 @@ kbd {
 }
 
 .wt__error-retry {
-  border: 1px solid color-mix(in srgb, var(--danger, #e74c3c) 40%, var(--border) 60%);
+  border: 1px solid
+    color-mix(in srgb, var(--danger, #e74c3c) 40%, var(--border) 60%);
   background: transparent;
   color: var(--danger, #e74c3c);
   padding: 2px 8px;
@@ -1435,7 +1443,10 @@ kbd {
   gap: 10px;
   align-items: center;
   text-align: left;
-  transition: border-color 140ms ease, transform 140ms ease, background-color 140ms ease;
+  transition:
+    border-color 140ms ease,
+    transform 140ms ease,
+    background-color 140ms ease;
 }
 
 .companion-game__roster-item:hover {
