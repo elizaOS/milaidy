@@ -5141,6 +5141,10 @@ async function handleRequest(
 
   // ── GET /api/debug/context — Expose action & context info for benchmarking
   if (method === "GET" && pathname === "/api/debug/context") {
+    if (!process.env.MILAIDY_DEBUG_ACTIONS) {
+      error(res, "Debug endpoints require MILAIDY_DEBUG_ACTIONS=1", 403);
+      return;
+    }
     if (!state.runtime) {
       error(res, "Runtime not available", 503);
       return;
@@ -5199,12 +5203,22 @@ async function handleRequest(
   // ── POST /api/debug/prompt-preview — Show the full composed state for a message
   // Returns the exact provider outputs the LLM would see, including formatted actions.
   if (method === "POST" && pathname === "/api/debug/prompt-preview") {
+    if (!process.env.MILAIDY_DEBUG_ACTIONS) {
+      error(res, "Debug endpoints require MILAIDY_DEBUG_ACTIONS=1", 403);
+      return;
+    }
     if (!state.runtime) {
       error(res, "Runtime not available", 503);
       return;
     }
     const raw = await readBody(req);
-    const body = JSON.parse(raw) as { text?: string };
+    let body: { text?: string };
+    try {
+      body = JSON.parse(raw) as { text?: string };
+    } catch {
+      error(res, "Invalid JSON body", 400);
+      return;
+    }
     const text = body?.text;
     if (!text) {
       error(res, "Missing 'text' field", 400);
@@ -5254,12 +5268,22 @@ async function handleRequest(
 
   // ── POST /api/debug/validate-actions — Check which actions pass validate() for a message
   if (method === "POST" && pathname === "/api/debug/validate-actions") {
+    if (!process.env.MILAIDY_DEBUG_ACTIONS) {
+      error(res, "Debug endpoints require MILAIDY_DEBUG_ACTIONS=1", 403);
+      return;
+    }
     if (!state.runtime) {
       error(res, "Runtime not available", 503);
       return;
     }
     const raw = await readBody(req);
-    const body = JSON.parse(raw) as { text?: string };
+    let body: { text?: string };
+    try {
+      body = JSON.parse(raw) as { text?: string };
+    } catch {
+      error(res, "Invalid JSON body", 400);
+      return;
+    }
     const text = body?.text;
     if (!text) {
       error(res, "Missing 'text' field", 400);

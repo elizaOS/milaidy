@@ -77,8 +77,7 @@ const ACTION_DESCRIPTION_ENRICHMENTS: Record<string, string> = {
     "Execute a shell command, terminal command, or script in the system shell.",
 
   // Skill management
-  INSTALL_SKILL:
-    "Install or add a skill or plugin by name from the catalog.",
+  INSTALL_SKILL: "Install or add a skill or plugin by name from the catalog.",
   SEARCH_SKILLS:
     "Search, browse, or list available skills and plugins in the catalog.",
   GET_SKILL_DETAILS:
@@ -93,16 +92,13 @@ const ACTION_DESCRIPTION_ENRICHMENTS: Record<string, string> = {
   // File operations (plugin-code)
   EDIT_FILE:
     "Edit a file by replacing or modifying specific lines or text content within it.",
-  GIT:
-    "Run a git operation such as status, diff, log, commit, branch, merge, or checkout.",
-  READ_FILE:
-    "Read and display the contents of a specific file by path.",
+  GIT: "Run a git operation such as status, diff, log, commit, branch, merge, or checkout.",
+  READ_FILE: "Read and display the contents of a specific file by path.",
   WRITE_FILE:
     "Create or overwrite a file with new content at a specified path.",
   SEARCH_FILES:
     "Search for files containing specific text, patterns, or keywords across the project.",
-  LIST_FILES:
-    "List files and directories at a given path to see what exists.",
+  LIST_FILES: "List files and directories at a given path to see what exists.",
 };
 
 /**
@@ -187,6 +183,9 @@ const ACTION_EXAMPLE_INJECTIONS: Record<
 export function enrichActionDescriptions(runtime: AgentRuntime): void {
   let enriched = 0;
   for (const action of runtime.actions) {
+    // Guard against double-enrichment on hot-reload
+    if ((action as unknown as Record<string, unknown>)._enriched) continue;
+
     const descReplacement = ACTION_DESCRIPTION_ENRICHMENTS[action.name];
     if (descReplacement) {
       action.description = descReplacement;
@@ -201,6 +200,8 @@ export function enrichActionDescriptions(runtime: AgentRuntime): void {
         (action.examples as Array<unknown>).push(...examples);
       }
     }
+
+    (action as unknown as Record<string, unknown>)._enriched = true;
   }
   if (enriched > 0) {
     logger.info(`[milaidy] Enriched descriptions for ${enriched} actions`);
