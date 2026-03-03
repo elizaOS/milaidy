@@ -95,13 +95,36 @@ describe("hasValidAnimations", () => {
 
 // ── runEnsureAvatars ──────────────────────────────────────────────────
 
+// Stub checkers that simulate "assets already present" without touching disk.
+const presentVrm = () => true;
+const presentAnims = () => true;
+const absentVrm = () => false;
+const absentAnims = () => false;
+
 describe("runEnsureAvatars", () => {
+  let savedSkipEnv: string | undefined;
+
+  beforeEach(() => {
+    savedSkipEnv = process.env.SKIP_AVATAR_CLONE;
+    delete process.env.SKIP_AVATAR_CLONE;
+  });
+
+  afterEach(() => {
+    if (savedSkipEnv === undefined) {
+      delete process.env.SKIP_AVATAR_CLONE;
+    } else {
+      process.env.SKIP_AVATAR_CLONE = savedSkipEnv;
+    }
+  });
+
   it("skips when avatar assets are already present", () => {
     const logs: string[] = [];
     const result = runEnsureAvatars({
       force: false,
       log: (msg: string) => logs.push(msg),
       logError: (msg: string) => logs.push(msg),
+      _hasValidVrm: presentVrm,
+      _hasValidAnimations: presentAnims,
     });
 
     expect(result.cloned).toBe(false);
@@ -114,6 +137,8 @@ describe("runEnsureAvatars", () => {
       force: false,
       log: () => {},
       logError: () => {},
+      _hasValidVrm: presentVrm,
+      _hasValidAnimations: presentAnims,
     });
     expect(result.cloned).toBe(false);
     expect(result.reason).toBe("already-present");
@@ -127,7 +152,39 @@ describe("runEnsureAvatars", () => {
       force: false,
       log: () => {},
       logError: () => {},
+      _hasValidVrm: presentVrm,
+      _hasValidAnimations: presentAnims,
     });
     expect(result).toHaveProperty("cloned");
+  });
+
+  it("returns skipped-by-env when SKIP_AVATAR_CLONE=1", () => {
+    process.env.SKIP_AVATAR_CLONE = "1";
+    const logs: string[] = [];
+    const result = runEnsureAvatars({
+      force: false,
+      log: (msg: string) => logs.push(msg),
+      logError: (msg: string) => logs.push(msg),
+      _hasValidVrm: absentVrm,
+      _hasValidAnimations: absentAnims,
+    });
+    expect(result.cloned).toBe(false);
+    expect(result.reason).toBe("skipped-by-env");
+    expect(logs.some((m: string) => m.includes("SKIP_AVATAR_CLONE"))).toBe(
+      true,
+    );
+  });
+
+  it("returns skipped-by-env when SKIP_AVATAR_CLONE=true", () => {
+    process.env.SKIP_AVATAR_CLONE = "true";
+    const result = runEnsureAvatars({
+      force: false,
+      log: () => {},
+      logError: () => {},
+      _hasValidVrm: absentVrm,
+      _hasValidAnimations: absentAnims,
+    });
+    expect(result.cloned).toBe(false);
+    expect(result.reason).toBe("skipped-by-env");
   });
 });

@@ -86,10 +86,18 @@ export function runEnsureAvatars({
   force = false,
   log = console.log,
   logError = console.error,
+  _hasValidVrm = hasValidVrm,
+  _hasValidAnimations = hasValidAnimations,
 } = {}) {
-  if (!force && hasValidVrm(VRMS_DIR) && hasValidAnimations(ANIMATIONS_DIR)) {
+  if (!force && _hasValidVrm(VRMS_DIR) && _hasValidAnimations(ANIMATIONS_DIR)) {
     log(`${TAG} Avatar assets already present — skipping`);
     return { cloned: false, reason: "already-present" };
+  }
+
+  const skipEnv = process.env.SKIP_AVATAR_CLONE;
+  if (skipEnv === "1" || skipEnv === "true") {
+    log(`${TAG} SKIP_AVATAR_CLONE set — skipping clone`);
+    return { cloned: false, reason: "skipped-by-env" };
   }
 
   if (!gitAvailable()) {
