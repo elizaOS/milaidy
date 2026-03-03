@@ -51,6 +51,7 @@ function mockState(
       unmute: vi.fn(async () => {}),
     },
     destinations: new Map(),
+    activeStreamSource: { type: "stream-tab" as const },
     port: 2138,
     ...overrides,
   };

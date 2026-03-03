@@ -96,6 +96,11 @@ export interface StreamRouteState {
   destinations: Map<string, StreamingDestination>;
   /** Currently active destination ID (user-switchable). */
   activeDestinationId?: string;
+  /** Active stream capture source (stream-tab, game, or custom URL). */
+  activeStreamSource: {
+    type: "stream-tab" | "game" | "custom-url";
+    url?: string;
+  };
   /** Access to agent config for TTS settings. */
   config?: { messages?: { tts?: TtsConfig } };
 }
@@ -111,11 +116,6 @@ export function getActiveDestination(
   const first = state.destinations.values().next();
   return first.done ? undefined : first.value;
 }
-
-let activeStreamSource: {
-  type: "stream-tab" | "game" | "custom-url";
-  url?: string;
-} = { type: "stream-tab" };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -314,10 +314,10 @@ async function startStreamPipeline(
             endpoint: "/api/stream/frame",
           };
           if (
-            activeStreamSource.type !== "stream-tab" &&
-            activeStreamSource.url
+            state.activeStreamSource.type !== "stream-tab" &&
+            state.activeStreamSource.url
           ) {
-            captureOpts.gameUrl = activeStreamSource.url;
+            captureOpts.gameUrl = state.activeStreamSource.url;
           }
           await state.screenCapture.startFrameCapture(captureOpts);
           logger.info("[stream] Auto-started Electron frame capture");
@@ -864,7 +864,7 @@ export async function handleStreamRoute(
 
   // ── GET /api/stream/source -- get active stream source ───────────────
   if (method === "GET" && pathname === "/api/stream/source") {
-    json(res, { source: activeStreamSource });
+    json(res, { source: state.activeStreamSource });
     return true;
   }
 
@@ -877,15 +877,11 @@ export async function handleStreamRoute(
       );
 
       if (!["stream-tab", "game", "custom-url"].includes(sourceType)) {
-        json(res, { ok: false, error: "Invalid sourceType" }, 400);
+        error(res, "Invalid sourceType", 400);
         return true;
       }
       if (sourceType === "custom-url" && !customUrl) {
-        json(
-          res,
-          { ok: false, error: "customUrl required for custom-url source" },
-          400,
-        );
+        error(res, "customUrl required for custom-url source", 400);
         return true;
       }
 
@@ -911,7 +907,7 @@ export async function handleStreamRoute(
       }
 
       // Update state
-      activeStreamSource = { type: sourceType, url: customUrl };
+      state.activeStreamSource = { type: sourceType, url: customUrl };
 
       // Restart frame capture if stream is running
       if (state.streamManager.isRunning() && state.screenCapture) {
@@ -924,14 +920,11 @@ export async function handleStreamRoute(
         }
       }
 
-      json(res, { ok: true, source: activeStreamSource });
+      json(res, { ok: true, source: state.activeStreamSource });
     } catch (err) {
-      json(
+      error(
         res,
-        {
-          ok: false,
-          error: err instanceof Error ? err.message : "Failed to switch source",
-        },
+        err instanceof Error ? err.message : "Failed to switch source",
         500,
       );
     }
