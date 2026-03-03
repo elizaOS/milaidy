@@ -50,6 +50,7 @@ import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
 } from "../security/network-policy";
+import { shouldServeSpaFallback } from "./spa-fallback-guard";
 import { AppManager } from "../services/app-manager";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
@@ -2142,11 +2143,7 @@ function serveStaticUi(
     // Missing file falls through to SPA index fallback below.
   }
 
-  // Only serve the SPA index.html for navigation-like requests (no file extension
-  // or .html). Asset requests (.vrm, .js, .png, etc.) that miss on disk should 404
-  // rather than silently returning HTML — which breaks binary loaders like GLTFLoader.
-  const reqExt = path.extname(decodedPath).toLowerCase();
-  if (reqExt && reqExt !== ".html") return false;
+  if (!shouldServeSpaFallback(decodedPath)) return false;
 
   if (!uiIndexHtml) return false;
   sendStaticResponse(
