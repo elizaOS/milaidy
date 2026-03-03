@@ -125,13 +125,11 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     provider: "alchemy",
   },
   {
-    // Ankr handles BSC token + NFT inventory APIs.
     name: "BSC",
-    subdomain: "bsc-mainnet",
+    subdomain: "bnb-mainnet",
     chainId: 56,
     nativeSymbol: "BNB",
-    provider: "ankr",
-    ankrChain: "bsc",
+    provider: "alchemy",
   },
 ] as const;
 
@@ -1425,6 +1423,7 @@ export async function fetchEvmBalances(
     if (keys.alchemyKey) return true;
     if (chain.chainId === 1) return ethRpcUrls.length > 0;
     if (chain.chainId === 8453) return baseRpcUrls.length > 0;
+    if (chain.chainId === 56) return hasManagedBscRpc;
     return false;
   });
 
@@ -1462,6 +1461,14 @@ export async function fetchEvmBalances(
               knownTokenAddresses,
             );
           }
+          if (chain.chainId === 56 && hasManagedBscRpc) {
+            return await fetchEvmChainBalancesViaRpc(
+              chain,
+              address,
+              bscRpcUrls,
+              knownTokenAddresses,
+            );
+          }
           return makeEvmChainFailure(chain, "Missing ALCHEMY_API_KEY");
         }
         return await fetchAlchemyChainBalances(chain, address, keys.alchemyKey);
@@ -1483,11 +1490,15 @@ export async function fetchEvmNfts(
   const hasManagedBscRpc = Boolean(
     keys.nodeRealBscRpcUrl || keys.quickNodeBscRpcUrl || keys.bscRpcUrl,
   );
-  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) =>
-    chain.provider === "ankr"
-      ? (isBscChain(chain) && hasManagedBscRpc) || Boolean(keys.ankrKey)
-      : Boolean(keys.alchemyKey),
-  );
+  const activeChains = DEFAULT_EVM_CHAINS.filter((chain) => {
+    if (chain.provider === "ankr") {
+      return (isBscChain(chain) && hasManagedBscRpc) || Boolean(keys.ankrKey);
+    }
+    if (keys.alchemyKey) return true;
+    // BSC without Alchemy: include if managed RPC exists (NFTs will be empty)
+    if (chain.chainId === 56) return hasManagedBscRpc;
+    return false;
+  });
 
   return Promise.all(
     activeChains.map(
