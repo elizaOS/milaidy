@@ -122,6 +122,7 @@ jobs:
 
       - name: Run Claude Review
         id: claude-review
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         env:
           NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org'
@@ -228,6 +229,139 @@ jobs:
             <!-- agent-review-run:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.event.pull_request.head.sha }} -->
 
             Be direct. Be opinionated. This repo's quality is your responsibility.
+
+      # ── Codex fallback: runs only when Claude crashes ──────────────────────────
+      - name: Run Codex Review (fallback)
+        id: codex-review
+        if: steps.claude-review.outcome == 'failure'
+        continue-on-error: true
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.3-codex
+          effort: extra-high
+          safety-strategy: read-only
+          prompt: |
+            You are the sole code reviewer for the Milady project (milady-ai/milady).
+            This is an agents-only codebase. No human code contributions are accepted — humans contribute by using the app and reporting bugs as QA testers. Your review is final.
+
+            ## PR Info
+            - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+            - **Author**: ${{ github.event.pull_request.user.login }}
+            - **Base**: ${{ github.event.pull_request.base.ref }}
+            - **Pre-classification**: ${{ needs.classify.outputs.category }}
+            - **Contributor trust**: ${{ steps.trust-context.outputs.trust_info }}
+
+            The PR diff is available via `gh pr diff ${{ github.event.pull_request.number }}`.
+            Read the diff carefully and review the changes.
+
+            ## Review Protocol
+
+            ### 1. Scope Check
+            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+
+            **IN SCOPE (welcome):**
+            - Bug fixes (connector issues, crashes, regressions, error handling)
+            - Performance improvements (with benchmarks proving improvement)
+            - Security fixes
+            - Test coverage improvements
+            - Documentation fixes for accuracy
+
+            **REQUIRES DEEP REVIEW (may not get merged):**
+            - New features (must align with project mission, must include tests)
+            - New plugins or integrations
+            - Architectural changes
+            - Memory/context improvements (must include benchmarks)
+            - Dependency additions (must justify why)
+
+            **OUT OF SCOPE (close or request changes):**
+            - Frontend redesigns, aesthetic changes, theme changes, icon swaps
+            - "Beautification" PRs that don't improve agent capability
+            - Changes that prioritize human visual experience over agent quality
+            - Scope creep disguised as improvements
+            - Changes without tests for testable code
+
+            If this PR is classified as "aesthetic": reject it firmly but politely.
+
+            ### 2. Code Quality
+            - TypeScript strict mode compliance
+            - No `any` types unless absolutely necessary (explain why)
+            - Biome lint/format compliance
+            - Files under ~500 LOC
+            - Meaningful variable names, brief comments on non-obvious logic
+            - No committed secrets, real phone numbers, or live config values
+            - Dependencies: do NOT add unless src/ code directly imports them
+
+            ### 3. Security Review
+            - Check for prompt injection vectors
+            - Check for credential exposure
+            - Check for supply chain risks (new dependencies, postinstall scripts)
+            - Check for data exfiltration patterns
+            - Flag any changes to auth, permissions, or secret handling
+
+            ### 4. Test Requirements
+            - Bug fixes MUST include a regression test
+            - New features MUST include unit tests
+            - Coverage thresholds: 25% lines/functions/statements, 15% branches (enforced in vitest.config.ts)
+
+            ### 5. Dark Forest Awareness
+            Assume adversarial intent until proven otherwise. Ask yourself:
+            - Why would someone submit this change?
+            - What does it break that isn't obvious?
+            - Does it introduce subtle behavior changes?
+            - Could this be a supply chain attack?
+            - Are there hidden side effects in seemingly innocent changes?
+
+            ### 6. Trust-Calibrated Review
+            Adjust scrutiny based on contributor trust tier:
+            - **Legendary (90+):** Standard review. Proven elite contributor.
+            - **Trusted (75-89):** Expedited review. Trust their patterns but check security.
+            - **Established (60-74):** Normal review depth. Proven track record.
+            - **Contributing (45-59):** Standard review. Active contributor.
+            - **Probationary (30-44):** Careful review. Verify claims, check edge cases.
+            - **Untested (15-29):** Deep review. Line-by-line scrutiny. Extra security checks.
+            - **Restricted (<15):** Maximum scrutiny. Assume adversarial. Verify everything.
+
+            ## Output Format
+            Your review MUST include this structured format:
+            1. **Classification:** bug fix / feature / aesthetic / security / other
+            2. **Scope verdict:** in scope / needs deep review / out of scope
+            3. **Code quality:** pass / issues found (list them)
+            4. **Security:** clear / concerns (list them)
+            5. **Tests:** adequate / missing (specify what's needed)
+            6. **Decision:** APPROVE / REQUEST CHANGES / CLOSE (with reason)
+
+            The **Decision** line is machine-parsed by downstream automation. It MUST be exactly one of: APPROVE, REQUEST CHANGES, or CLOSE.
+
+            Be direct. Be opinionated. This repo's quality is your responsibility.
+
+      - name: Post Codex review comment
+        if: steps.codex-review.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = process.env.GITHUB_RUN_ID || context.runId;
+            const runAttempt = process.env.GITHUB_RUN_ATTEMPT || '1';
+            const sha = context.payload.pull_request.head.sha;
+            const runMarker = `<!-- agent-review-run:${runId}:${runAttempt}:${sha} -->`;
+
+            const reviewBody = process.env.CODEX_OUTPUT || '';
+            if (!reviewBody.trim()) {
+              core.warning('Codex produced no output');
+              return;
+            }
+
+            const body = `> **Note:** This review was generated by Codex (fallback) because Claude was unavailable.\n\n${reviewBody}\n\n${runMarker}`;
+            const { data: comment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+            console.log(`Codex review posted: ${comment.html_url}`);
+        env:
+          CODEX_OUTPUT: ${{ steps.codex-review.outputs.final-message }}
+      # ── End Codex fallback ─────────────────────────────────────────────────────
 
       - name: Ensure review comment was posted
         if: always()
