@@ -3010,7 +3010,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chatAbortRef.current = null;
     setChatSending(false);
     setChatFirstTokenReceived(false);
-  }, []);
+
+    // Also stop any active PTY sessions — the user wants everything to halt
+    for (const session of ptySessions) {
+      client.stopCodingAgent(session.sessionId).catch(() => {});
+    }
+  }, [ptySessions]);
 
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
@@ -5027,7 +5032,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
               setPendingRestart(false);
               setPendingRestartReasons([]);
               void loadPlugins();
+              hydratePtySessions();
+              ptyHydratedViaWs = true;
             }
+          }
+          // Re-hydrate PTY sessions on first WS status event to close
+          // the race between initial REST fetch and WS connection.
+          if (!ptyHydratedViaWs) {
+            ptyHydratedViaWs = true;
+            hydratePtySessions();
           }
           // Sync pending restart state from periodic broadcasts
           if (typeof data.pendingRestart === "boolean") {

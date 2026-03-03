@@ -44,6 +44,7 @@ export interface ConsoleBridge {
 /** PTY service interface (accessed via runtime.getService). */
 export interface PTYService {
   consoleBridge?: ConsoleBridge;
+  stopSession?(sessionId: string): Promise<void>;
 }
 
 const VALID_ACTIONS = ["respond", "escalate", "ignore", "complete"];

@@ -7,8 +7,8 @@ import { client } from "../api-client";
  *
  * Lifecycle:
  * 1. Mount → create Terminal + FitAddon, open in container
- * 2. Subscribe to live PTY output via WS
- * 3. Hydrate with buffered output via REST
+ * 2. Hydrate with buffered output via REST (full history)
+ * 3. Subscribe to live PTY output via WS (after hydrate to avoid duplicates)
  * 4. Forward keyboard input to PTY
  * 5. Resize on container resize
  * 6. Unmount → unsubscribe, dispose

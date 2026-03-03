@@ -5410,7 +5410,8 @@ async function routeAutonomyTextToUser(
 
 /**
  * Get the SwarmCoordinator from the runtime services (if available).
- * The coordinator is registered by @elizaos/plugin-agent-orchestrator.
+ * Discovers via runtime.getService("SWARM_COORDINATOR") — the coordinator
+ * registers itself during PTYService.start().
  */
 function getCoordinatorFromRuntime(runtime: AgentRuntime): {
   setChatCallback?: (
@@ -5425,7 +5426,6 @@ function getCoordinatorFromRuntime(runtime: AgentRuntime): {
     ) => Promise<CoordinationLLMResponse | null>,
   ) => void;
 } | null {
-  // Try to get coordinator from runtime services
   const coordinator = runtime.getService("SWARM_COORDINATOR");
   if (coordinator)
     return coordinator as ReturnType<typeof getCoordinatorFromRuntime>;
@@ -5732,21 +5732,19 @@ async function handleCodingAgentsFallback(
   const stopMatch = pathname.match(/^\/api\/coding-agents\/([^/]+)\/stop$/);
   if (method === "POST" && stopMatch) {
     const sessionId = decodeURIComponent(stopMatch[1]);
-    const orchestratorService = runtime.getService("CODE_TASK") as {
-      cancelTask?: (taskId: string) => Promise<void>;
-    } | null;
+    const ptyService = runtime.getService("PTY_SERVICE") as PTYService | null;
 
-    if (!orchestratorService?.cancelTask) {
-      error(res, "Orchestrator service not available", 503);
+    if (!ptyService?.stopSession) {
+      error(res, "PTY Service not available", 503);
       return true;
     }
 
     try {
-      await orchestratorService.cancelTask(sessionId);
+      await ptyService.stopSession(sessionId);
       json(res, { ok: true });
       return true;
     } catch (e) {
-      error(res, `Failed to stop task: ${e}`, 500);
+      error(res, `Failed to stop session: ${e}`, 500);
       return true;
     }
   }
