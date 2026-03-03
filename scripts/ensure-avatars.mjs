@@ -119,6 +119,10 @@ export function runEnsureAvatars({
 
     // Clone and checkout pinned commit for reproducibility.
     // Uses --depth 1 + fetch for speed (avoids full history).
+    // TODO: Pin the initial clone to a tag (e.g. --branch v1.0) so the
+    //       shallow clone fetches a known ref instead of the current default
+    //       branch HEAD.  The checkout below still locks to AVATARS_COMMIT,
+    //       so correctness is unaffected — a tag would just save one fetch.
     execSync(`git clone --depth 1 ${AVATARS_REPO} "${tmpDir}"`, {
       cwd: ROOT,
       stdio: "inherit",

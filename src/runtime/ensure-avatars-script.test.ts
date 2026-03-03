@@ -145,17 +145,35 @@ describe("runEnsureAvatars", () => {
     expect(result).not.toHaveProperty("error");
   });
 
-  it("accepts all option parameters", () => {
-    // Verify the function signature accepts force, log, logError
-    expect(typeof runEnsureAvatars).toBe("function");
+  it("bypasses already-present check when force=true", () => {
+    // Even though validators report assets present, force should skip
+    // the early return and attempt to clone (which will fail in CI
+    // without git — that's fine, we're testing the branch logic).
+    const logs: string[] = [];
     const result = runEnsureAvatars({
-      force: false,
-      log: () => {},
-      logError: () => {},
+      force: true,
+      log: (msg: string) => logs.push(msg),
+      logError: (msg: string) => logs.push(msg),
       _hasValidVrm: presentVrm,
       _hasValidAnimations: presentAnims,
     });
-    expect(result).toHaveProperty("cloned");
+    // With force=true and assets "present", the function should NOT
+    // return "already-present" — it proceeds to the clone path.
+    expect(result.reason).not.toBe("already-present");
+  });
+
+  it("does not skip when SKIP_AVATAR_CLONE is an unrelated value", () => {
+    process.env.SKIP_AVATAR_CLONE = "no";
+    const logs: string[] = [];
+    const result = runEnsureAvatars({
+      force: false,
+      log: (msg: string) => logs.push(msg),
+      logError: (msg: string) => logs.push(msg),
+      _hasValidVrm: absentVrm,
+      _hasValidAnimations: absentAnims,
+    });
+    // "no" is not "1" or "true", so the env guard should not trigger
+    expect(result.reason).not.toBe("skipped-by-env");
   });
 
   it("returns skipped-by-env when SKIP_AVATAR_CLONE=1", () => {
@@ -186,5 +204,15 @@ describe("runEnsureAvatars", () => {
     });
     expect(result.cloned).toBe(false);
     expect(result.reason).toBe("skipped-by-env");
+  });
+});
+
+// ── Module exports ───────────────────────────────────────────────────
+
+describe("module exports", () => {
+  it("exports expected functions", () => {
+    expect(typeof hasValidVrm).toBe("function");
+    expect(typeof hasValidAnimations).toBe("function");
+    expect(typeof runEnsureAvatars).toBe("function");
   });
 });
