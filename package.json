@@ -21,6 +21,7 @@
     "scripts/patch-deps.mjs",
     "scripts/init-submodules.mjs",
     "scripts/ensure-skills.mjs",
+    "scripts/ensure-avatars.mjs",
     "scripts/link-browser-server.mjs"
   ],
   "workspaces": [

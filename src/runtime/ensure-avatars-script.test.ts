@@ -147,8 +147,8 @@ describe("runEnsureAvatars", () => {
 
   it("bypasses already-present check when force=true", () => {
     // Even though validators report assets present, force should skip
-    // the early return and attempt to clone (which will fail in CI
-    // without git — that's fine, we're testing the branch logic).
+    // the early return and reach the git-available check.
+    // Stub _gitAvailable to false so we never hit the network.
     const logs: string[] = [];
     const result = runEnsureAvatars({
       force: true,
@@ -156,10 +156,12 @@ describe("runEnsureAvatars", () => {
       logError: (msg: string) => logs.push(msg),
       _hasValidVrm: presentVrm,
       _hasValidAnimations: presentAnims,
+      _gitAvailable: () => false,
     });
-    // With force=true and assets "present", the function should NOT
-    // return "already-present" — it proceeds to the clone path.
+    // With force=true the function skips "already-present" and reaches
+    // the no-git path (because we stubbed git as unavailable).
     expect(result.reason).not.toBe("already-present");
+    expect(result.reason).toBe("no-git");
   });
 
   it("does not skip when SKIP_AVATAR_CLONE is an unrelated value", () => {
@@ -171,9 +173,27 @@ describe("runEnsureAvatars", () => {
       logError: (msg: string) => logs.push(msg),
       _hasValidVrm: absentVrm,
       _hasValidAnimations: absentAnims,
+      _gitAvailable: () => false,
     });
-    // "no" is not "1" or "true", so the env guard should not trigger
+    // "no" is not "1" or "true", so the env guard should not trigger.
+    // Falls through to no-git (stubbed) instead.
     expect(result.reason).not.toBe("skipped-by-env");
+    expect(result.reason).toBe("no-git");
+  });
+
+  it("returns no-git when git is unavailable", () => {
+    const logs: string[] = [];
+    const result = runEnsureAvatars({
+      force: false,
+      log: (msg: string) => logs.push(msg),
+      logError: (msg: string) => logs.push(msg),
+      _hasValidVrm: absentVrm,
+      _hasValidAnimations: absentAnims,
+      _gitAvailable: () => false,
+    });
+    expect(result.cloned).toBe(false);
+    expect(result.reason).toBe("no-git");
+    expect(logs.some((m: string) => m.includes("git not found"))).toBe(true);
   });
 
   it("returns skipped-by-env when SKIP_AVATAR_CLONE=1", () => {

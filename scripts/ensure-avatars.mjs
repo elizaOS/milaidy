@@ -88,6 +88,7 @@ export function runEnsureAvatars({
   logError = console.error,
   _hasValidVrm = hasValidVrm,
   _hasValidAnimations = hasValidAnimations,
+  _gitAvailable = gitAvailable,
 } = {}) {
   if (!force && _hasValidVrm(VRMS_DIR) && _hasValidAnimations(ANIMATIONS_DIR)) {
     log(`${TAG} Avatar assets already present — skipping`);
@@ -100,7 +101,7 @@ export function runEnsureAvatars({
     return { cloned: false, reason: "skipped-by-env" };
   }
 
-  if (!gitAvailable()) {
+  if (!_gitAvailable()) {
     logError(`${TAG} git not found — cannot clone avatar assets`);
     return { cloned: false, reason: "no-git" };
   }
