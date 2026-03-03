@@ -13864,6 +13864,7 @@ export async function startApiServer(opts?: {
             ?.captureUrl as string | undefined,
           destinations,
           activeDestinationId,
+          activeStreamSource: { type: "stream-tab" as const },
           get config() {
             const cfg = state.config as Record<string, unknown> | undefined;
             const msgs = cfg?.messages as Record<string, unknown> | undefined;
