@@ -1,4 +1,5 @@
 {
+  "npmRebuild": false,
   "appId": "com.miladyai.milady",
   "productName": "Milady",
   "directories": {
@@ -14,30 +15,35 @@
     "milady-dist/**/*",
     "*.tar.gz"
   ],
-  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*", "*.tar.gz"],
+  "asarUnpack": [
+    "milady-dist/**/*",
+    "*.tar.gz"
+  ],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
     "repo": "milady"
   },
+  "compression": "normal",
   "nsis": {
+    "oneClick": true,
+    "perMachine": false,
     "allowElevation": true,
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true
+    "allowToChangeInstallationDirectory": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Milady"
   },
   "win": {
     "target": "nsis",
-    "icon": "assets/appIcon.ico",
-    "azureSignOptions": {
-      "endpoint": "https://eus.codesigning.azure.net/",
-      "certificateProfileName": "milady-code-sign",
-      "codeSigningAccountName": "milady",
-      "publisherName": "Milady AI"
-    }
+    "icon": "assets/appIcon.ico"
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "target": ["dmg", "zip"],
+    "target": [
+      "dmg",
+      "zip"
+    ],
     "icon": "assets/appIcon.png",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -68,7 +74,10 @@
     ]
   },
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": [
+      "AppImage",
+      "deb"
+    ],
     "category": "Utility",
     "icon": "assets/appIcon.png"
   }
