@@ -10282,7 +10282,8 @@ async function handleRequest(
     const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const bscRpcReady = Boolean(
       process.env.NODEREAL_BSC_RPC_URL?.trim() ||
-        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+        process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+        process.env.BSC_RPC_URL?.trim(),
     );
     const canLocalTrade = canUseLocalTradeExecution(tradePermissionMode, false);
     const canAgentAutoTrade = canUseLocalTradeExecution(
@@ -10317,10 +10318,19 @@ async function handleRequest(
       wallet: {
         hasWallet: Boolean(evmAddress || addrs.solanaAddress),
         hasEvm: Boolean(evmAddress),
+        hasSolana: Boolean(addrs.solanaAddress),
+        evmAddress,
         evmAddressShort:
           evmAddress && evmAddress.length >= 12
             ? `${evmAddress.slice(0, 6)}...${evmAddress.slice(-4)}`
             : evmAddress,
+        solanaAddress: addrs.solanaAddress ?? null,
+        solanaAddressShort:
+          addrs.solanaAddress && addrs.solanaAddress.length >= 12
+            ? `${addrs.solanaAddress.slice(0, 4)}...${addrs.solanaAddress.slice(-4)}`
+            : (addrs.solanaAddress ?? null),
+        localSignerAvailable: localSigner,
+        managedBscRpcReady: bscRpcReady,
       },
       capabilities: {
         canTrade,

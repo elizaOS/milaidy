@@ -41,7 +41,8 @@ export const walletContributor: AwarenessContributor = {
     const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const bscRpc = Boolean(
       process.env.NODEREAL_BSC_RPC_URL?.trim() ||
-        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+        process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+        process.env.BSC_RPC_URL?.trim(),
     );
 
     const parts: string[] = [];
@@ -64,7 +65,8 @@ export const walletContributor: AwarenessContributor = {
     const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const bscRpc = Boolean(
       process.env.NODEREAL_BSC_RPC_URL?.trim() ||
-        process.env.QUICKNODE_BSC_RPC_URL?.trim(),
+        process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+        process.env.BSC_RPC_URL?.trim(),
     );
     const canUserTrade = canUseLocalTradeExecution(tradeMode, false);
     const canAgentTrade = canUseLocalTradeExecution(tradeMode, true);
