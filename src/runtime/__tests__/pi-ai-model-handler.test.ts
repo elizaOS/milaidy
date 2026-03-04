@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Api, Model } from "@mariozechner/pi-ai";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -86,9 +86,12 @@ describe("createPiAiHandler", () => {
       const handler = createPiAiHandler(() => fakeModel(), {});
       const runtime = fakeRuntime();
 
-      const result = await handler(runtime as any, {
-        prompt: "Say hello",
-      } as any);
+      const result = await handler(
+        runtime as unknown,
+        {
+          prompt: "Say hello",
+        } as unknown,
+      );
 
       expect(result).toBe("Hello world");
     });
@@ -107,7 +110,7 @@ describe("createPiAiHandler", () => {
       const handler = createPiAiHandler(() => fakeModel(), {});
       const runtime = fakeRuntime();
 
-      await handler(runtime as any, { prompt: "test" } as any);
+      await handler(runtime as unknown, { prompt: "test" } as unknown);
 
       expect(runtime.emitEvent).toHaveBeenCalledWith(
         "MODEL_USED",
@@ -137,9 +140,12 @@ describe("createPiAiHandler", () => {
       const handler = createPiAiHandler(() => fakeModel(), {});
       const runtime = fakeRuntime();
 
-      const result = await handler(runtime as any, {
-        prompt: "test",
-      } as any);
+      const result = await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+        } as unknown,
+      );
 
       expect(result).toBe("partial");
     });
@@ -158,12 +164,13 @@ describe("createPiAiHandler", () => {
       const runtime = fakeRuntime();
 
       await expect(
-        handler(runtime as any, { prompt: "test" } as any),
+        handler(runtime as unknown, { prompt: "test" } as unknown),
       ).rejects.toThrow("pi-ai stream() failed");
     });
 
     it("wraps stream() failures in a descriptive error", async () => {
       mockStream.mockReturnValueOnce(
+        // biome-ignore lint/correctness/useYield: generator throws before yielding to test error wrapping
         (async function* () {
           throw new Error("Connection timeout");
         })(),
@@ -173,10 +180,8 @@ describe("createPiAiHandler", () => {
       const runtime = fakeRuntime();
 
       await expect(
-        handler(runtime as any, { prompt: "test" } as any),
-      ).rejects.toThrow(
-        /pi-ai stream\(\) failed.*Connection timeout/,
-      );
+        handler(runtime as unknown, { prompt: "test" } as unknown),
+      ).rejects.toThrow(/pi-ai stream\(\) failed.*Connection timeout/);
     });
   });
 
@@ -200,10 +205,13 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      const result = (await handler(runtime as any, {
-        prompt: "test",
-        stream: true,
-      } as any)) as {
+      const result = (await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+          stream: true,
+        } as unknown,
+      )) as {
         textStream: AsyncGenerator<string>;
         text: Promise<string>;
         usage: Promise<unknown>;
@@ -251,10 +259,13 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      const result = (await handler(runtime as any, {
-        prompt: "test",
-        stream: true,
-      } as any)) as { textStream: AsyncGenerator<string> };
+      const result = (await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+          stream: true,
+        } as unknown,
+      )) as { textStream: AsyncGenerator<string> };
 
       // Drain the stream
       for await (const _chunk of result.textStream) {
@@ -291,10 +302,13 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      const result = (await handler(runtime as any, {
-        prompt: "test",
-        stream: true,
-      } as any)) as {
+      const result = (await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+          stream: true,
+        } as unknown,
+      )) as {
         textStream: AsyncGenerator<string>;
         text: Promise<string>;
         finishReason: Promise<string | undefined>;
@@ -337,10 +351,13 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      const result = await handler(runtime as any, {
-        prompt: "test",
-        onStreamChunk,
-      } as any);
+      const result = await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+          onStreamChunk,
+        } as unknown,
+      );
 
       expect(result).toBe("Hello TUI");
       expect(onStreamChunk).toHaveBeenCalledWith("Hello");
@@ -364,10 +381,13 @@ describe("createPiAiHandler", () => {
       const runtime = fakeRuntime();
 
       await expect(
-        handler(runtime as any, {
-          prompt: "test",
-          onStreamChunk: vi.fn(),
-        } as any),
+        handler(
+          runtime as unknown,
+          {
+            prompt: "test",
+            onStreamChunk: vi.fn(),
+          } as unknown,
+        ),
       ).rejects.toThrow("pi-ai stream() failed");
     });
   });
@@ -392,7 +412,7 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      await handler(runtime as any, { prompt: "test" } as any);
+      await handler(runtime as unknown, { prompt: "test" } as unknown);
 
       // Verify stream was called with signal in options
       expect(mockStream).toHaveBeenCalledWith(
@@ -417,10 +437,13 @@ describe("createPiAiHandler", () => {
       const handler = createPiAiHandler(() => fakeModel(), {});
       const runtime = fakeRuntime();
 
-      await handler(runtime as any, {
-        prompt: "test",
-        abortSignal: controller.signal,
-      } as any);
+      await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+          abortSignal: controller.signal,
+        } as unknown,
+      );
 
       expect(mockStream).toHaveBeenCalledWith(
         expect.anything(),
@@ -451,9 +474,12 @@ describe("createPiAiHandler", () => {
       });
 
       // Should not throw despite emitEvent failure
-      const result = await handler(runtime as any, {
-        prompt: "test",
-      } as any);
+      const result = await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+        } as unknown,
+      );
 
       expect(result).toBe("ok");
     });
@@ -473,9 +499,12 @@ describe("createPiAiHandler", () => {
       // Runtime without emitEvent
       const runtime = { registerModel: vi.fn() };
 
-      const result = await handler(runtime as any, {
-        prompt: "test",
-      } as any);
+      const result = await handler(
+        runtime as unknown,
+        {
+          prompt: "test",
+        } as unknown,
+      );
 
       expect(result).toBe("ok");
     });
@@ -500,7 +529,7 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      await handler(runtime as any, { prompt: "test" } as any);
+      await handler(runtime as unknown, { prompt: "test" } as unknown);
 
       expect(mockStream).toHaveBeenCalledWith(
         expect.anything(),
@@ -525,7 +554,7 @@ describe("createPiAiHandler", () => {
       });
       const runtime = fakeRuntime();
 
-      await handler(runtime as any, { prompt: "test" } as any);
+      await handler(runtime as unknown, { prompt: "test" } as unknown);
 
       const callArgs = mockStream.mock.calls[0][2];
       expect(callArgs).not.toHaveProperty("apiKey");
@@ -549,7 +578,7 @@ describe("registerPiAiModelHandler", () => {
     const large = fakeModel("anthropic", "large-model");
     const small = fakeModel("anthropic", "small-model");
 
-    registerPiAiModelHandler(runtime as any, {
+    registerPiAiModelHandler(runtime as unknown, {
       largeModel: large,
       smallModel: small,
       providerName: "pi-ai",
@@ -574,7 +603,7 @@ describe("registerPiAiModelHandler", () => {
     const large = fakeModel("anthropic", "large");
     const small = fakeModel("anthropic", "small");
 
-    const ctrl = registerPiAiModelHandler(runtime as any, {
+    const ctrl = registerPiAiModelHandler(runtime as unknown, {
       largeModel: large,
       smallModel: small,
     });
@@ -594,7 +623,7 @@ describe("registerPiAiModelHandler", () => {
   it("includes providerAliases in registration", () => {
     const runtime = fakeRuntime();
 
-    registerPiAiModelHandler(runtime as any, {
+    registerPiAiModelHandler(runtime as unknown, {
       largeModel: fakeModel(),
       smallModel: fakeModel(),
       providerName: "pi-ai",
@@ -610,7 +639,7 @@ describe("registerPiAiModelHandler", () => {
   it("uses custom priority", () => {
     const runtime = fakeRuntime();
 
-    registerPiAiModelHandler(runtime as any, {
+    registerPiAiModelHandler(runtime as unknown, {
       largeModel: fakeModel(),
       smallModel: fakeModel(),
       priority: 999,
@@ -627,7 +656,12 @@ describe("registerPiAiModelHandler", () => {
 // Tests — getPiModel / parseModelSpec (utils)
 // ---------------------------------------------------------------------------
 
-import { getPiModel, parseModelSpec, formatModelSpec, DEFAULT_PI_MODEL_SPEC } from "../../utils/pi-ai.js";
+import {
+  DEFAULT_PI_MODEL_SPEC,
+  formatModelSpec,
+  getPiModel,
+  parseModelSpec,
+} from "../../utils/pi-ai.js";
 
 describe("getPiModel / parseModelSpec", () => {
   it("parseModelSpec splits provider/modelId correctly", () => {

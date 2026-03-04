@@ -148,7 +148,7 @@ describe("createPiCredentialProvider", () => {
       // Capture the credentials object snapshot before mutation
       let capturedCreds: Record<string, unknown> | null = null;
       mockGetOAuthApiKey.mockImplementation(
-        (provider: string, creds: Record<string, unknown>) => {
+        (_provider: string, creds: Record<string, unknown>) => {
           // Snapshot before the caller mutates the object
           capturedCreds = JSON.parse(JSON.stringify(creds));
           return Promise.resolve({
@@ -292,9 +292,7 @@ describe("createPiCredentialProvider", () => {
 
       const key = await provider.getApiKey("anthropic");
       expect(key).toBe("anthropic-sub-token");
-      expect(mockGetAccessToken).toHaveBeenCalledWith(
-        "anthropic-subscription",
-      );
+      expect(mockGetAccessToken).toHaveBeenCalledWith("anthropic-subscription");
     });
 
     it("returns undefined when no fallback available", async () => {
@@ -346,8 +344,7 @@ describe("createPiCredentialProvider", () => {
               defaultModel: "gpt-5",
             }),
           );
-        if (filePath.endsWith("auth.json"))
-          return Promise.resolve("{}");
+        if (filePath.endsWith("auth.json")) return Promise.resolve("{}");
         return Promise.reject(new Error("ENOENT"));
       });
 

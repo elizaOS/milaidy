@@ -31,9 +31,9 @@ vi.mock("@elizaos/core", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 import {
-  resolvePhettaCompanionOptionsFromEnv,
   createPhettaCompanionPlugin,
   type PhettaCompanionPluginOptions,
+  resolvePhettaCompanionOptionsFromEnv,
 } from "../phetta-companion-plugin.js";
 
 // ---------------------------------------------------------------------------
@@ -53,26 +53,38 @@ describe("resolvePhettaCompanionOptionsFromEnv", () => {
   });
 
   // parseBool truthy values
-  it.each(["1", "true", "yes", "y", "on", "TRUE", "Yes", "ON"])(
-    "parseBool treats '%s' as true",
-    (v) => {
-      const opts = resolvePhettaCompanionOptionsFromEnv({
-        PHETTA_COMPANION_ENABLED: v,
-      });
-      expect(opts.enabled).toBe(true);
-    },
-  );
+  it.each([
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+    "TRUE",
+    "Yes",
+    "ON",
+  ])("parseBool treats '%s' as true", (v) => {
+    const opts = resolvePhettaCompanionOptionsFromEnv({
+      PHETTA_COMPANION_ENABLED: v,
+    });
+    expect(opts.enabled).toBe(true);
+  });
 
   // parseBool falsy values
-  it.each(["0", "false", "no", "n", "off", "FALSE", "No", "OFF"])(
-    "parseBool treats '%s' as false",
-    (v) => {
-      const opts = resolvePhettaCompanionOptionsFromEnv({
-        PHETTA_COMPANION_ENABLED: v,
-      });
-      expect(opts.enabled).toBe(false);
-    },
-  );
+  it.each([
+    "0",
+    "false",
+    "no",
+    "n",
+    "off",
+    "FALSE",
+    "No",
+    "OFF",
+  ])("parseBool treats '%s' as false", (v) => {
+    const opts = resolvePhettaCompanionOptionsFromEnv({
+      PHETTA_COMPANION_ENABLED: v,
+    });
+    expect(opts.enabled).toBe(false);
+  });
 
   // parseBool defaults on unrecognized
   it("parseBool returns default for unrecognized values", () => {
@@ -144,6 +156,16 @@ describe("createPhettaCompanionPlugin", () => {
     vi.unstubAllGlobals();
   });
 
+  /** Retrieve an action by name, throwing if not found (avoids non-null assertion). */
+  function getAction(
+    plugin: ReturnType<typeof createPhettaCompanionPlugin>,
+    name: string,
+  ) {
+    const action = plugin.actions?.find((a) => a.name === name);
+    if (!action) throw new Error(`Action ${name} not found`);
+    return action;
+  }
+
   function defaultOpts(
     overrides: Partial<PhettaCompanionPluginOptions> = {},
   ): PhettaCompanionPluginOptions {
@@ -213,18 +235,19 @@ describe("createPhettaCompanionPlugin", () => {
 
   describe("PHETTA_NOTIFY action handler", () => {
     it("sends notification via fetch and returns success", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find((a) => a.name === "PHETTA_NOTIFY");
-      expect(action).toBeDefined();
+      const action = getAction(plugin, "PHETTA_NOTIFY");
 
-      const result = await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { message: "Hello pet!" } } as any,
+      const result = await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { message: "Hello pet!" } } as unknown,
         vi.fn(),
       );
 
@@ -235,23 +258,23 @@ describe("createPhettaCompanionPlugin", () => {
           body: expect.stringContaining("Hello pet!"),
         }),
       );
-      expect(result).toEqual(
-        expect.objectContaining({ success: true }),
-      );
+      expect(result).toEqual(expect.objectContaining({ success: true }));
     });
 
     it("defaults message to 'Notification' when not provided", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find((a) => a.name === "PHETTA_NOTIFY");
+      const action = getAction(plugin, "PHETTA_NOTIFY");
 
-      await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: {} } as any,
+      await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: {} } as unknown,
         vi.fn(),
       );
 
@@ -266,19 +289,17 @@ describe("createPhettaCompanionPlugin", () => {
       );
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find((a) => a.name === "PHETTA_NOTIFY");
+      const action = getAction(plugin, "PHETTA_NOTIFY");
 
-      const result = await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { message: "test" } } as any,
+      const result = await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { message: "test" } } as unknown,
         vi.fn(),
       );
 
-      expect(result).toEqual(
-        expect.objectContaining({ success: false }),
-      );
+      expect(result).toEqual(expect.objectContaining({ success: false }));
     });
   });
 
@@ -286,18 +307,18 @@ describe("createPhettaCompanionPlugin", () => {
 
   describe("PHETTA_SEND_EVENT action handler", () => {
     it("sends event via fetch and returns success", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find(
-        (a) => a.name === "PHETTA_SEND_EVENT",
-      );
+      const action = getAction(plugin, "PHETTA_SEND_EVENT");
 
-      const result = await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
+      const result = await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
         {
           parameters: {
             type: "agentThinking",
@@ -305,7 +326,7 @@ describe("createPhettaCompanionPlugin", () => {
             file: "/path/to/file.ts",
             data: { key: "value" },
           },
-        } as any,
+        } as unknown,
         vi.fn(),
       );
 
@@ -323,24 +344,27 @@ describe("createPhettaCompanionPlugin", () => {
       expect(body.data).toEqual({ key: "value" });
 
       expect(result).toEqual(
-        expect.objectContaining({ success: true, values: { delivered: true, type: "agentThinking" } }),
+        expect.objectContaining({
+          success: true,
+          values: { delivered: true, type: "agentThinking" },
+        }),
       );
     });
 
     it("defaults type to 'custom' when not provided", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find(
-        (a) => a.name === "PHETTA_SEND_EVENT",
-      );
+      const action = getAction(plugin, "PHETTA_SEND_EVENT");
 
-      await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: {} } as any,
+      await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: {} } as unknown,
         vi.fn(),
       );
 
@@ -349,19 +373,19 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("ignores non-object data parameter", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find(
-        (a) => a.name === "PHETTA_SEND_EVENT",
-      );
+      const action = getAction(plugin, "PHETTA_SEND_EVENT");
 
-      await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { type: "test", data: "not-object" } } as any,
+      await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { type: "test", data: "not-object" } } as unknown,
         vi.fn(),
       );
 
@@ -370,19 +394,19 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("ignores array data parameter", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find(
-        (a) => a.name === "PHETTA_SEND_EVENT",
-      );
+      const action = getAction(plugin, "PHETTA_SEND_EVENT");
 
-      await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { type: "test", data: [1, 2, 3] } } as any,
+      await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { type: "test", data: [1, 2, 3] } } as unknown,
         vi.fn(),
       );
 
@@ -395,12 +419,18 @@ describe("createPhettaCompanionPlugin", () => {
 
   describe("event routing", () => {
     it("sends userMessage event on MESSAGE_RECEIVED", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const handlers = (plugin.events as Record<string, Array<(payload: unknown) => Promise<void>>>)
-        .MESSAGE_RECEIVED;
+      const handlers = (
+        plugin.events as Record<
+          string,
+          Array<(payload: unknown) => Promise<void>>
+        >
+      ).MESSAGE_RECEIVED;
       expect(handlers).toHaveLength(1);
 
       await handlers[0]({
@@ -425,12 +455,18 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("sends assistantMessage event on MESSAGE_SENT", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const handlers = (plugin.events as Record<string, Array<(payload: unknown) => Promise<void>>>)
-        .MESSAGE_SENT;
+      const handlers = (
+        plugin.events as Record<
+          string,
+          Array<(payload: unknown) => Promise<void>>
+        >
+      ).MESSAGE_SENT;
       expect(handlers).toHaveLength(1);
 
       await handlers[0]({
@@ -450,12 +486,18 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("skips event when message text is empty", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const handlers = (plugin.events as Record<string, Array<(payload: unknown) => Promise<void>>>)
-        .MESSAGE_RECEIVED;
+      const handlers = (
+        plugin.events as Record<
+          string,
+          Array<(payload: unknown) => Promise<void>>
+        >
+      ).MESSAGE_RECEIVED;
 
       await handlers[0]({
         message: { content: { text: "   " } },
@@ -467,11 +509,16 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("sends agentStart/agentDone/error on run events", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const events = plugin.events as Record<string, Array<(payload: unknown) => Promise<void>>>;
+      const events = plugin.events as Record<
+        string,
+        Array<(payload: unknown) => Promise<void>>
+      >;
 
       const runPayload = {
         runId: "run-1",
@@ -504,13 +551,18 @@ describe("createPhettaCompanionPlugin", () => {
     });
 
     it("sends agentThinking/custom on action events when forwardActions enabled", async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response("OK", { status: 200 }));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
 
       const plugin = createPhettaCompanionPlugin(
         defaultOpts({ forwardActions: true }),
       );
-      const events = plugin.events as Record<string, Array<(payload: unknown) => Promise<void>>>;
+      const events = plugin.events as Record<
+        string,
+        Array<(payload: unknown) => Promise<void>>
+      >;
 
       const actionPayload = {
         roomId: "room-1",
@@ -544,20 +596,18 @@ describe("createPhettaCompanionPlugin", () => {
       );
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find((a) => a.name === "PHETTA_NOTIFY");
+      const action = getAction(plugin, "PHETTA_NOTIFY");
 
       // Should not throw
-      const result = await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { message: "test" } } as any,
+      const result = await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { message: "test" } } as unknown,
         vi.fn(),
       );
 
-      expect(result).toEqual(
-        expect.objectContaining({ success: false }),
-      );
+      expect(result).toEqual(expect.objectContaining({ success: false }));
     });
 
     it("returns false when server returns non-OK status", async () => {
@@ -567,19 +617,17 @@ describe("createPhettaCompanionPlugin", () => {
       );
 
       const plugin = createPhettaCompanionPlugin(defaultOpts());
-      const action = plugin.actions?.find((a) => a.name === "PHETTA_NOTIFY");
+      const action = getAction(plugin, "PHETTA_NOTIFY");
 
-      const result = await action!.handler(
-        {} as any,
-        {} as any,
-        {} as any,
-        { parameters: { message: "test" } } as any,
+      const result = await action.handler(
+        {} as unknown,
+        {} as unknown,
+        {} as unknown,
+        { parameters: { message: "test" } } as unknown,
         vi.fn(),
       );
 
-      expect(result).toEqual(
-        expect.objectContaining({ success: false }),
-      );
+      expect(result).toEqual(expect.objectContaining({ success: false }));
     });
   });
 });

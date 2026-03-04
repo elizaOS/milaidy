@@ -81,7 +81,8 @@ export class PermissionManager {
     }
 
     if (!forceRefresh && this.isCacheValid(id)) {
-      return this.cache.get(id)!;
+      const cached = this.cache.get(id);
+      if (cached) return cached;
     }
 
     let result: PermissionCheckResult;
