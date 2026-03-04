@@ -55,6 +55,7 @@ describe("agent lifecycle routes", () => {
         pathname: ctx.pathname,
         state: ctx.runtime,
         json: (res, data, status) => ctx.json(res, data, status),
+        error: (res, message, status) => ctx.error(res, message, status),
       }),
     { runtimeProvider: () => state },
   );
@@ -87,6 +88,24 @@ describe("agent lifecycle routes", () => {
         model: "openai-main",
       },
     });
+  });
+
+  test("start returns 503 when runtime is unavailable", async () => {
+    state.runtime = null;
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+
+    expect(result.status).toBe(503);
+    expect(state.agentState).toBe("not_started");
+    expect(state.startedAt).toBeUndefined();
+    expect(state.model).toBeUndefined();
+    expect(result.payload).toMatchObject({
+      error: "Agent is not running",
+    });
+    expect(enableAutonomy).not.toHaveBeenCalled();
   });
 
   test("stops the agent and disables autonomy", async () => {
@@ -157,5 +176,28 @@ describe("agent lifecycle routes", () => {
         model: "openai-main",
       },
     });
+  });
+
+  test("pause/resume return 503 when runtime is unavailable", async () => {
+    state.runtime = null;
+    state.agentState = "running";
+    state.startedAt = Date.now() - 1_000;
+    state.model = "openai-main";
+
+    const paused = await invoke({
+      method: "POST",
+      pathname: "/api/agent/pause",
+    });
+    expect(paused.status).toBe(503);
+    expect(paused.payload).toMatchObject({ error: "Agent is not running" });
+
+    const resumed = await invoke({
+      method: "POST",
+      pathname: "/api/agent/resume",
+    });
+    expect(resumed.status).toBe(503);
+    expect(resumed.payload).toMatchObject({ error: "Agent is not running" });
+    expect(enableAutonomy).not.toHaveBeenCalled();
+    expect(disableAutonomy).not.toHaveBeenCalled();
   });
 });

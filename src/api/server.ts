@@ -6790,6 +6790,7 @@ async function handleRequest(
       pathname,
       state,
       json,
+      error,
     })
   ) {
     return;
