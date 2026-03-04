@@ -180,7 +180,7 @@ export async function createBenchmarkRuntime(): Promise<{
 
   if (
     process.env.MILADY_BENCH_MOCK === "true" ||
-    process.env.MILAIDY_BENCH_MOCK === "true"
+    process.env.MILADY_BENCH_MOCK === "true"
   ) {
     try {
       const { plugin: mockPlugin, source } = await (async () => {

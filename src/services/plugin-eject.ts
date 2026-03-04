@@ -29,7 +29,7 @@ function serialise<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export interface UpstreamMetadata {
-  $schema: "milaidy-upstream-v1";
+  $schema: "milady-upstream-v1";
   source: string;
   gitUrl: string;
   branch: string;
@@ -130,7 +130,7 @@ async function readUpstreamMetadata(
     const raw = await fs.readFile(upstreamFilePath(pluginDir), "utf-8");
     const parsed = JSON.parse(raw) as Partial<UpstreamMetadata>;
     if (
-      parsed.$schema !== "milaidy-upstream-v1" ||
+      parsed.$schema !== "milady-upstream-v1" ||
       typeof parsed.gitUrl !== "string" ||
       typeof parsed.branch !== "string" ||
       typeof parsed.commitHash !== "string" ||
@@ -140,7 +140,7 @@ async function readUpstreamMetadata(
       return null;
     }
     return {
-      $schema: "milaidy-upstream-v1",
+      $schema: "milady-upstream-v1",
       source:
         typeof parsed.source === "string" ? parsed.source : parsed.npmPackage,
       gitUrl: parsed.gitUrl,
@@ -356,7 +356,7 @@ export function ejectPlugin(pluginId: string): Promise<EjectResult> {
       const commitHash = await gitStdout(["rev-parse", "HEAD"], targetDir);
 
       const metadata: UpstreamMetadata = {
-        $schema: "milaidy-upstream-v1",
+        $schema: "milady-upstream-v1",
         source: `github:${info.gitRepo}`,
         gitUrl,
         branch,
