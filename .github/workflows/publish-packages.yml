@@ -33,7 +33,7 @@ on:
         default: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: publish-packages-${{ github.ref }}
