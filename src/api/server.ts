@@ -8911,6 +8911,14 @@ async function handleRequest(
   };
 
   const normalizeHandle = (value: string): string => value.trim().toLowerCase();
+  const resolveHandleOwnerId = (
+    explicitOwnerId: string | null | undefined,
+  ): string => {
+    const fromClient = (explicitOwnerId ?? "").trim();
+    if (fromClient) return fromClient;
+    // Backend fallback for clients that fail to persist local ownerId.
+    return "local-default-owner";
+  };
 
   // ── GET /api/polymarket/portfolio ───────────────────────────────────────
   if (method === "GET" && pathname === "/api/polymarket/portfolio") {
@@ -8934,7 +8942,7 @@ async function handleRequest(
   if (method === "GET" && pathname === "/api/handles/check") {
     const urlObj = new URL(req.url ?? "", `http://${req.headers.host ?? "127.0.0.1"}`);
     const handle = normalizeHandle(urlObj.searchParams.get("handle") ?? "");
-    const ownerId = (urlObj.searchParams.get("ownerId") ?? "").trim();
+    const ownerId = resolveHandleOwnerId(urlObj.searchParams.get("ownerId"));
     const { ownership, locks } = getHandleStore();
 
     const handleOwnerId = ownership[handle] ?? null;
@@ -8969,18 +8977,13 @@ async function handleRequest(
     if (!body) return;
 
     const handle = normalizeHandle(body.handle ?? "");
-    const ownerId = (body.ownerId ?? "").trim();
+    const ownerId = resolveHandleOwnerId(body.ownerId);
     const previousHandle = normalizeHandle(body.previousHandle ?? "");
 
     if (!handle) {
       error(res, "handle is required", 400);
       return;
     }
-    if (!ownerId) {
-      error(res, "ownerId is required", 400);
-      return;
-    }
-
     if (!/^[a-z0-9._-]{2,32}$/.test(handle)) {
       error(res, "Invalid handle format", 422);
       return;
