@@ -25,6 +25,9 @@
  */
 void milady_hide_window(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
+        // Assumes the first window in [NSApp windows] is the main/key window.
+        // This holds for single-window Electrobun apps. For multi-window
+        // setups, use [NSApp mainWindow] or [NSApp keyWindow] instead.
         NSWindow *win = [[NSApp windows] firstObject];
         if (win) [win orderOut:nil];
     });

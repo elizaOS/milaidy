@@ -62,6 +62,9 @@ async function initCoreGraphicsFFI(): Promise<boolean> {
 #include <string.h>
 #include <stdio.h>
 
+// Single static buffer — safe because Bun FFI calls are single-threaded
+// (no concurrent C invocations from JS). Must not be called from multiple
+// native threads simultaneously.
 static char buffer[65536];
 
 const char* list_windows(void) {
@@ -303,7 +306,8 @@ export class ScreenCaptureManager {
   }
 
   async switchSource(_options: { sourceId: string }) {
-    return { available: true };
+    // TODO: implement actual source switching via ScreenCaptureKit
+    return { available: false };
   }
 
   dispose(): void {

@@ -234,6 +234,9 @@ async function initWindowBridge(): Promise<boolean> {
     const srcPath = path.join(import.meta.dir, "darwin/window_bridge.m");
     if (!fs.existsSync(srcPath)) return false;
 
+    // NOTE: Cache filename has no version tag. If the Obj-C source changes,
+    // stale dylib may be loaded until /tmp is cleaned or filename is updated.
+    // Consider appending a source hash or version tag for cache invalidation.
     const cachePath = path.join(os.tmpdir(), "milady-window-bridge.dylib");
     if (!fs.existsSync(cachePath)) {
       const proc = Bun.spawn(
