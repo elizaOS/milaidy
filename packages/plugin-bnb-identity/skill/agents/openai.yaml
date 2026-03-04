@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plugin BNB Identity"
+  short_description: "Update and debug Milady ERC-8004 identity plugin implementation"
+  default_prompt: "Implement or modify plugin-bnb-identity behavior and validate with bun test/build."
