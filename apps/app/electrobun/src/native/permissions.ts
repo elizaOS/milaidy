@@ -44,10 +44,11 @@ export class PermissionManager {
     return this.shellEnabled;
   }
 
-  private isCacheValid(id: SystemPermissionId): boolean {
+  private getFromCache(id: SystemPermissionId): PermissionState | null {
     const cached = this.cache.get(id);
-    if (!cached) return false;
-    return Date.now() - cached.lastChecked < this.cacheTimeoutMs;
+    if (!cached) return null;
+    if (Date.now() - cached.lastChecked >= this.cacheTimeoutMs) return null;
+    return cached;
   }
 
   clearCache(): void {
@@ -80,9 +81,8 @@ export class PermissionManager {
       return state;
     }
 
-    if (!forceRefresh && this.isCacheValid(id)) {
-      const cached = this.cache.get(id);
-      if (cached !== undefined) return cached;
+    if (!forceRefresh) {
+      const cached = this.getFromCache(id);
       if (cached) return cached;
     }
 
