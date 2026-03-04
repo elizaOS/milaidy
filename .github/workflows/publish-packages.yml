@@ -32,6 +32,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+
 concurrency:
   group: publish-packages-${{ github.ref }}
   cancel-in-progress: false
