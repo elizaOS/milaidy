@@ -9508,6 +9508,25 @@ export class MilaidyApp extends LitElement {
     if (has("twitch")) return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
     if (has("twitter") || normalized === "x") return "https://www.google.com/s2/favicons?domain=x.com&sz=64";
     if (has("zalo", "zalouser")) return "/brands/zalo.svg";
+    if (has("moltbook")) return "https://www.google.com/s2/favicons?domain=moltbook.com&sz=64";
+    if (has("n8n")) return "https://www.google.com/s2/favicons?domain=n8n.io&sz=64";
+    if (has("elevenlabs")) return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
+    if (has("webhooks")) return "https://www.google.com/s2/favicons?domain=webhook.site&sz=64";
+    if (has("rss")) return "https://www.google.com/s2/favicons?domain=rss.com&sz=64";
+    if (has("s3", "storage")) return "https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64";
+    if (has("evm")) return "https://www.google.com/s2/favicons?domain=ethereum.org&sz=64";
+    if (has("solana")) return "https://www.google.com/s2/favicons?domain=solana.com&sz=64";
+    if (has("x402")) return "https://www.google.com/s2/favicons?domain=x402.org&sz=64";
+    if (has("cron")) return "https://www.google.com/s2/favicons?domain=cron.com&sz=64";
+    if (has("browser")) return "https://www.google.com/s2/favicons?domain=google.com&sz=64";
+    if (has("computeruse")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+    if (has("copilot")) return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
+    if (has("coding-agent", "codingagentswarms", "swarms")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("robot voice", "simple voice", "tts")) return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
+    if (has("trajectory logger")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("eliza classic")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("vision")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+    if (has("mysticism", "prose", "social alpha", "rlm", "tee", "acp")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (has("iq")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (has("msteams", "microsoftteams", "teams")) return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
     if (has("mattermost")) return "/brands/mattermost.svg";
@@ -9532,24 +9551,7 @@ export class MilaidyApp extends LitElement {
     if (has("localdb")) return "/brands/localdb.svg";
     if (has("inmemorydb", "in-memory")) return "/brands/inmemorydb.svg";
     if (has("mcp")) return "https://www.google.com/s2/favicons?domain=modelcontextprotocol.io&sz=64";
-    if (has("acp")) return this.generatedConnectorIcon("ACP");
-    return this.generatedConnectorIcon(appId);
-  }
-
-  private generatedConnectorIcon(label: string): string {
-    const safe = (label || "app")
-      .replace(/[^a-z0-9]+/gi, " ")
-      .trim();
-    const words = safe.split(/\s+/).filter(Boolean);
-    const initials =
-      (words[0]?.[0] ?? "A") + (words[1]?.[0] ?? words[0]?.[1] ?? "P");
-    let hash = 0;
-    for (let i = 0; i < safe.length; i += 1) {
-      hash = (hash * 31 + safe.charCodeAt(i)) | 0;
-    }
-    const hue = Math.abs(hash) % 360;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="hsl(${hue} 56% 40%)"/><text x="32" y="38" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial" font-size="22" font-weight="700" fill="white">${initials.toUpperCase()}</text></svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    return "/brands/generic-app.svg";
   }
 
   private pluginDescription(plugin: PluginInfo): string {
