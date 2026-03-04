@@ -2140,7 +2140,11 @@ function serveStaticUi(
       return true;
     }
   } catch {
-    // Missing file falls through to SPA index fallback below.
+    // File not found on disk.
+    if (!shouldServeSpaFallback(decodedPath)) {
+      error(res, "Not Found", 404);
+      return true; // handled — do not fall through to auth gate
+    }
   }
 
   if (!shouldServeSpaFallback(decodedPath)) return false;
