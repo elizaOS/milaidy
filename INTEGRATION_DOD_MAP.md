@@ -18,7 +18,7 @@ Repository: `milady-ai/milady`
 - External registry/marketplace boundaries include plugin registry, skill marketplace, and MCP registry (`src/services/registry-client.ts`, `src/services/skill-marketplace.ts`, `src/services/mcp-marketplace.ts`).
 - Connector ecosystem is plugin-driven with env/config auto-enable maps (`src/config/plugin-auto-enable.ts`, `src/config/schema.ts`).
 - Security hardening exists for wallet export token, MCP config validation, websocket auth, DB host pinning, and URL safety checks (`src/api/server.wallet-export-auth.test.ts`, `src/api/server.mcp-config-validation.test.ts`, `src/api/server.websocket-auth.test.ts`, `src/api/database.ts`, `src/cloud/validate-url.ts`, `src/api/knowledge-routes.ts`).
-- Coverage policy is aligned: 25% lines/functions/statements, 15% branches — enforced in `vitest.config.ts` and documented in `AGENTS.md`, `CONTRIBUTING.md`, `docs/guides/contribution-guide.md`, and `.github/workflows/agent-review.yml`.
+- Coverage policy is aligned: 25% lines/functions/statements, 15% branches — enforced in `vitest.config.ts` and documented in `AGENTS.md`, `CONTRIBUTING.md`, `docs/guides/contribution-guide.md`, `docs/guides/contributing.md`, `docs/plugins/publish.md`, `docs/INTEGRATION_DEFINITION_OF_DONE_GRAPH.md`, and `.github/workflows/agent-review.yml`. Drift is guarded by `scripts/coverage-policy-drift.test.ts`.
 
 ---
 
