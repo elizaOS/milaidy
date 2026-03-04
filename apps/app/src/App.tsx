@@ -34,6 +34,7 @@ import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
 import { SkillsView } from "./components/SkillsView";
 import { StartupFailureView } from "./components/StartupFailureView";
+import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { StreamView } from "./components/StreamView";
 import { SystemWarningBanner } from "./components/SystemWarningBanner";
 import { TerminalPanel } from "./components/TerminalPanel";
@@ -62,44 +63,48 @@ function useIsPopout(): boolean {
 
 function ViewRouter() {
   const { tab } = useApp();
-  switch (tab) {
-    case "chat":
-      return <ChatView />;
-    case "companion":
-      return COMPANION_ENABLED ? <CompanionView /> : <ChatView />;
-    case "stream":
-      return <StreamView />;
-    case "apps":
-      // Apps disabled in production builds; fall through to chat
-      return APPS_ENABLED ? <AppsPageView /> : <ChatView />;
-    case "character":
-    case "character-select":
-      return <CharacterView />;
-    case "wallets":
-      return <InventoryView />;
-    case "knowledge":
-      return <KnowledgeView />;
-    case "connectors":
-      return <ConnectorsPageView />;
-    case "advanced":
-    case "plugins":
-    case "skills":
-    case "actions":
-    case "triggers":
-    case "fine-tuning":
-    case "trajectories":
-    case "runtime":
-    case "database":
-    case "lifo":
-    case "logs":
-    case "security":
-      return <AdvancedPageView />;
-    case "voice":
-    case "settings":
-      return <SettingsView />;
-    default:
-      return <ChatView />;
-  }
+  const view = (() => {
+    switch (tab) {
+      case "chat":
+        return <ChatView />;
+      case "companion":
+        return COMPANION_ENABLED ? <CompanionView /> : <ChatView />;
+      case "stream":
+        return <StreamView />;
+      case "apps":
+        // Apps disabled in production builds; fall through to chat
+        return APPS_ENABLED ? <AppsPageView /> : <ChatView />;
+      case "character":
+      case "character-select":
+        return <CharacterView />;
+      case "wallets":
+        return <InventoryView />;
+      case "knowledge":
+        return <KnowledgeView />;
+      case "connectors":
+        return <ConnectorsPageView />;
+      case "advanced":
+      case "plugins":
+      case "skills":
+      case "actions":
+      case "triggers":
+      case "fine-tuning":
+      case "trajectories":
+      case "runtime":
+      case "database":
+      case "lifo":
+      case "logs":
+      case "security":
+        return <AdvancedPageView />;
+      case "voice":
+      case "settings":
+        return <SettingsView />;
+      default:
+        return <ChatView />;
+    }
+  })();
+
+  return <ErrorBoundary>{view}</ErrorBoundary>;
 }
 
 export function App() {
