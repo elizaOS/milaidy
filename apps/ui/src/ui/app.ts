@@ -9532,8 +9532,24 @@ export class MilaidyApp extends LitElement {
     if (has("localdb")) return "/brands/localdb.svg";
     if (has("inmemorydb", "in-memory")) return "/brands/inmemorydb.svg";
     if (has("mcp")) return "https://www.google.com/s2/favicons?domain=modelcontextprotocol.io&sz=64";
-    if (has("acp")) return "/brands/generic-app.svg";
-    return "/brands/generic-app.svg";
+    if (has("acp")) return this.generatedConnectorIcon("ACP");
+    return this.generatedConnectorIcon(appId);
+  }
+
+  private generatedConnectorIcon(label: string): string {
+    const safe = (label || "app")
+      .replace(/[^a-z0-9]+/gi, " ")
+      .trim();
+    const words = safe.split(/\s+/).filter(Boolean);
+    const initials =
+      (words[0]?.[0] ?? "A") + (words[1]?.[0] ?? words[0]?.[1] ?? "P");
+    let hash = 0;
+    for (let i = 0; i < safe.length; i += 1) {
+      hash = (hash * 31 + safe.charCodeAt(i)) | 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="hsl(${hue} 56% 40%)"/><text x="32" y="38" text-anchor="middle" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial" font-size="22" font-weight="700" fill="white">${initials.toUpperCase()}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
 
   private pluginDescription(plugin: PluginInfo): string {
