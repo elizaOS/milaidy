@@ -7127,6 +7127,27 @@ export class MilaidyApp extends LitElement {
     }
   }
 
+  private async promptAndSaveElizaCloudApiKey(): Promise<void> {
+    const token = window.prompt("Paste your Eliza Cloud API key");
+    if (!token?.trim()) return;
+    const plugin = this.plugins.find((p) => p.id === "elizacloud") ?? this.aiPluginCatalog().find((p) => p.id === "elizacloud") ?? null;
+    if (!plugin) {
+      this.showUiNotice("Eliza Cloud provider is not available right now.");
+      return;
+    }
+    try {
+      const nextConfig: Record<string, unknown> = {
+        ...(plugin.configured ? { _preserveConfiguredState: true } : {}),
+        ELIZAOS_CLOUD_API_KEY: token.trim(),
+      };
+      await client.updatePlugin(plugin.id, nextConfig);
+      await this.loadPlugins();
+      this.showUiNotice("Eliza Cloud API key saved.");
+    } catch (err) {
+      this.showUiNotice(`Could not save Eliza Cloud key: ${err instanceof Error ? err.message : "network error"}`);
+    }
+  }
+
   private virtualAiProviderPlugin(provider: ProviderOption): PluginInfo {
     const providerId = canonicalProviderId(provider.id);
     const hasEnvKey = Boolean(provider.envKey);
@@ -7717,6 +7738,15 @@ export class MilaidyApp extends LitElement {
       }
       this.pluginSettingsOpen = next;
     };
+    const focusPluginParamInput = (pluginId: string, paramKey: string) => {
+      requestAnimationFrame(() => {
+        const selector = `input[data-plugin-param="${pluginId}:${paramKey}"]`;
+        const input = this.shadowRoot?.querySelector<HTMLInputElement>(selector);
+        if (!input) return;
+        input.focus();
+        input.select();
+      });
+    };
     const focusPlugin = (pluginId: string) => {
       if (!this.pluginSettingsOpen.has(pluginId)) {
         toggleSettings(pluginId);
@@ -7924,7 +7954,12 @@ export class MilaidyApp extends LitElement {
                           ? html`
                               <button
                                 class="plugin-secondary-btn"
-                                @click=${() => focusPlugin(p.id)}
+                                @click=${() => {
+                                  focusPlugin(p.id);
+                                  if (p.id === "elizacloud") {
+                                    focusPluginParamInput("elizacloud", "ELIZAOS_CLOUD_API_KEY");
+                                  }
+                                }}
                               >Manage</button>
                             `
                           : ""}
@@ -7974,11 +8009,17 @@ export class MilaidyApp extends LitElement {
                                   <div class="elizacloud-cta-actions">
                                     <button
                                       class="elizacloud-cta-btn"
-                                      @click=${() => this.openExternalUrl("https://www.elizacloud.ai/login")}
+                                      @click=${async () => {
+                                        this.openExternalUrl("https://www.elizacloud.ai/login");
+                                        await this.promptAndSaveElizaCloudApiKey();
+                                      }}
                                     >Login</button>
                                     <button
                                       class="elizacloud-cta-btn"
-                                      @click=${() => this.openExternalUrl("https://www.elizacloud.ai/login?intent=signup")}
+                                      @click=${async () => {
+                                        this.openExternalUrl("https://www.elizacloud.ai/login?intent=signup");
+                                        await this.promptAndSaveElizaCloudApiKey();
+                                      }}
                                     >Get started</button>
                                   </div>
                                 </div>
@@ -8768,7 +8809,23 @@ export class MilaidyApp extends LitElement {
       // For non-sensitive fields, avoid no-op writes when value is unchanged.
       if (prev && !isSensitive && (prev.currentValue ?? "").trim() === value) continue;
 
-      config[key] = value;
+      let normalizedValue = value;
+      // Common paste artifact cleanup for API keys copied from env snippets:
+      // OPENAI_API_KEY=sk-... or quoted values.
+      if (isSensitive) {
+        if (normalizedValue.startsWith("=")) {
+          normalizedValue = normalizedValue.slice(1).trim();
+        }
+        if (
+          (normalizedValue.startsWith('"') && normalizedValue.endsWith('"')) ||
+          (normalizedValue.startsWith("'") && normalizedValue.endsWith("'"))
+        ) {
+          normalizedValue = normalizedValue.slice(1, -1).trim();
+        }
+      }
+
+      if (!normalizedValue) continue;
+      config[key] = normalizedValue;
       changedCount += 1;
     }
 
@@ -11604,12 +11661,16 @@ export class MilaidyApp extends LitElement {
               <div class="elizacloud-cta-actions">
                 <button
                   class="elizacloud-cta-btn"
-                  @click=${() => this.openExternalUrl("https://www.elizacloud.ai/login")}
+                  @click=${async () => {
+                    this.openExternalUrl("https://www.elizacloud.ai/login");
+                    await this.promptAndSaveElizaCloudApiKey();
+                  }}
                 >Login</button>
                 <button
                   class="elizacloud-cta-btn"
                   @click=${() => {
                     this.openExternalUrl("https://www.elizacloud.ai/login?intent=signup");
+                    void this.promptAndSaveElizaCloudApiKey();
                   }}
                 >Get started</button>
               </div>
