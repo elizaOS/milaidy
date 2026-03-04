@@ -9522,16 +9522,16 @@ export class MilaidyApp extends LitElement {
     if (has("browser")) return "https://www.google.com/s2/favicons?domain=google.com&sz=64";
     if (has("computeruse")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
     if (has("copilot")) return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
-    if (has("coding-agent", "codingagentswarms", "swarms")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("coding-agent", "codingagentswarms", "swarms")) return this.generatedConnectorIcon(appId);
     if (has("robot voice", "simple voice", "tts")) return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
-    if (has("trajectory logger")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
-    if (has("eliza classic")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("trajectory logger")) return this.generatedConnectorIcon(appId);
+    if (has("eliza classic")) return this.generatedConnectorIcon(appId);
     if (has("vision")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
-    if (has("mysticism", "prose", "social alpha", "rlm", "tee", "acp")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
-    if (has("iq")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("mysticism", "prose", "social alpha", "rlm", "tee", "acp")) return this.generatedConnectorIcon(appId);
+    if (has("iq")) return this.generatedConnectorIcon(appId);
     if (has("msteams", "microsoftteams", "teams")) return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
     if (has("mattermost")) return "/brands/mattermost.svg";
-    if (has("auto-trader", "autotrader")) return "/brands/generic-app.svg";
+    if (has("auto-trader", "autotrader")) return this.generatedConnectorIcon(appId);
     if (has("openai")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
     if (has("anthropic")) return "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
     if (has("google", "gemini")) return "https://www.google.com/s2/favicons?domain=ai.google.dev&sz=64";
@@ -9543,7 +9543,7 @@ export class MilaidyApp extends LitElement {
     if (has("ollama")) return "https://www.google.com/s2/favicons?domain=ollama.com&sz=64";
     if (has("local ai", "local-ai", "localai")) return "/brands/local-ai.svg";
     if (has("elizacloud", "eliza-cloud")) return "https://www.google.com/s2/favicons?domain=elizacloud.ai&sz=64";
-    if (has("elizaos")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
+    if (has("elizaos")) return this.generatedConnectorIcon(appId);
     if (has("xai")) return "https://www.google.com/s2/favicons?domain=x.ai&sz=64";
     if (has("pi-ai", "pi ai")) return "https://www.google.com/s2/favicons?domain=pi.ai&sz=64";
     if (has("zai", "z.ai")) return "https://www.google.com/s2/favicons?domain=z.ai&sz=64";
@@ -9552,7 +9552,27 @@ export class MilaidyApp extends LitElement {
     if (has("localdb")) return "/brands/localdb.svg";
     if (has("inmemorydb", "in-memory")) return "/brands/inmemorydb.svg";
     if (has("mcp")) return "https://www.google.com/s2/favicons?domain=modelcontextprotocol.io&sz=64";
-    return "/brands/generic-app.svg";
+    return this.generatedConnectorIcon(appId);
+  }
+
+  private generatedConnectorIcon(appId: string): string {
+    const raw = appId.trim();
+    const normalized = raw.replace(/[^a-z0-9]+/gi, " ").trim();
+    const words = normalized.length > 0 ? normalized.split(/\s+/) : ["app"];
+    const first = words[0]?.[0] ?? "A";
+    const second = words.length > 1 ? words[1]?.[0] ?? "" : words[0]?.[1] ?? "";
+    const initials = `${first}${second}`.toUpperCase();
+
+    let hash = 0;
+    for (const ch of raw) {
+      hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    }
+    const hue = hash % 360;
+    const bg = `hsl(${hue} 48% 42%)`;
+    const fg = "#ffffff";
+
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='${bg}'/><text x='50%' y='53%' dominant-baseline='middle' text-anchor='middle' font-family='system-ui,-apple-system,Segoe UI,sans-serif' font-size='24' font-weight='700' fill='${fg}'>${initials}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
 
   private pluginDescription(plugin: PluginInfo): string {
