@@ -48,7 +48,7 @@ export async function openPrivacySettings(
   const uri = settingsMap[id];
   if (uri) {
     try {
-      Bun.spawn(["cmd", "/c", "start", uri], {
+      Bun.spawn(["cmd", "/c", "start", "", uri], {
         stdout: "ignore",
         stderr: "ignore",
       });
