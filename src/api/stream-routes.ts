@@ -90,11 +90,30 @@ export interface StreamRouteState {
       endpoint?: string;
     }): Promise<void>;
   };
-  /** Active streaming destination (Retake, custom RTMP, etc.). */
-  destination?: StreamingDestination;
+  /** All configured streaming destinations keyed by platform ID. */
+  destinations: Map<string, StreamingDestination>;
+  /** Currently active destination ID (user-switchable). */
+  activeDestinationId?: string;
   /** Access to agent config for TTS settings. */
   config?: { messages?: { tts?: TtsConfig } };
 }
+
+/** Resolve the active streaming destination from the registry. */
+export function getActiveDestination(
+  state: StreamRouteState,
+): StreamingDestination | undefined {
+  if (state.activeDestinationId) {
+    return state.destinations.get(state.activeDestinationId);
+  }
+  // Fallback: first destination in map (backward compat for single-destination configs)
+  const first = state.destinations.values().next();
+  return first.done ? undefined : first.value;
+}
+
+let activeStreamSource: {
+  type: "stream-tab" | "game" | "custom-url";
+  url?: string;
+} = { type: "stream-tab" };
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -231,10 +250,11 @@ async function startStreamPipeline(
   }
 
   // Seed plugin-default overlay layout on first stream start
-  if (state.destination) {
-    seedOverlayDefaults(state.destination);
+  const activeDest = getActiveDestination(state);
+  if (activeDest) {
+    seedOverlayDefaults(activeDest);
   }
-  const destId = state.destination?.id ?? null;
+  const destId = activeDest?.id ?? null;
 
   const mode = detectCaptureMode();
 
@@ -478,26 +498,27 @@ export async function handleStreamRoute(
       return true;
     }
 
-    if (!state.destination) {
+    const dest = getActiveDestination(state);
+    if (!dest) {
       error(res, "No streaming destination configured", 400);
       return true;
     }
 
     try {
-      const { rtmpUrl, rtmpKey } = await state.destination.getCredentials();
+      const { rtmpUrl, rtmpKey } = await dest.getCredentials();
       const { inputMode, audioSource } = await startStreamPipeline(
         state,
         rtmpUrl,
         rtmpKey,
       );
-      await state.destination.onStreamStart?.();
+      await dest.onStreamStart?.();
       json(res, {
         ok: true,
         live: true,
         rtmpUrl,
         inputMode,
         audioSource,
-        destination: state.destination.id,
+        destination: dest.id,
       });
     } catch (err) {
       error(res, err instanceof Error ? err.message : "Failed to go live", 500);
@@ -523,7 +544,7 @@ export async function handleStreamRoute(
       }
       // Notify destination
       try {
-        await state.destination?.onStreamStop?.();
+        await getActiveDestination(state)?.onStreamStop?.();
       } catch {
         // Destination notification failure is non-fatal
       }
@@ -629,10 +650,11 @@ export async function handleStreamRoute(
   // ── GET /api/stream/status -- local stream health ────────────────────
   if (method === "GET" && pathname === "/api/stream/status") {
     const health = state.streamManager.getHealth();
-    const dest = state.destination
-      ? { id: state.destination.id, name: state.destination.name }
+    const activeDest = getActiveDestination(state);
+    const destInfo = activeDest
+      ? { id: activeDest.id, name: activeDest.name }
       : null;
-    json(res, { ok: true, ...health, destination: dest });
+    json(res, { ok: true, ...health, destination: destInfo });
     return true;
   }
 
@@ -699,17 +721,19 @@ export async function handleStreamRoute(
 
   // ── GET /api/streaming/destinations -- list configured destination ───
   if (method === "GET" && pathname === "/api/streaming/destinations") {
-    const destinations = state.destination
-      ? [{ id: state.destination.id, name: state.destination.name }]
-      : [];
+    const destinations = Array.from(state.destinations.values()).map((d) => ({
+      id: d.id,
+      name: d.name,
+      active:
+        d.id ===
+        (state.activeDestinationId ?? state.destinations.keys().next().value),
+    }));
     json(res, { ok: true, destinations });
     return true;
   }
 
   // ── POST /api/streaming/destination -- set active destination ────────
   if (method === "POST" && pathname === "/api/streaming/destination") {
-    // Placeholder for multi-destination future. Currently a no-op that
-    // validates the request shape but doesn't change state.
     try {
       const body = await readRequestBody(req);
       const parsed = typeof body === "string" ? JSON.parse(body) : body;
@@ -718,13 +742,12 @@ export async function handleStreamRoute(
         error(res, "destinationId is required", 400);
         return true;
       }
-      if (state.destination && state.destination.id === destinationId) {
+      const target = state.destinations.get(destinationId);
+      if (target) {
+        state.activeDestinationId = destinationId;
         json(res, {
           ok: true,
-          destination: {
-            id: state.destination.id,
-            name: state.destination.name,
-          },
+          destination: { id: target.id, name: target.name },
         });
       } else {
         error(res, `Unknown destination: ${destinationId}`, 404);
@@ -744,7 +767,7 @@ export async function handleStreamRoute(
   if (method === "GET" && pathname === "/api/stream/overlay-layout") {
     try {
       const destId = parseDestinationQuery(req.url);
-      const layout = readOverlayLayout(destId, state.destination);
+      const layout = readOverlayLayout(destId, getActiveDestination(state));
       json(res, { ok: true, layout, destinationId: destId ?? null });
     } catch (err) {
       error(

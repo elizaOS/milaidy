@@ -50,6 +50,7 @@ function mockState(
       mute: vi.fn(async () => {}),
       unmute: vi.fn(async () => {}),
     },
+    destinations: new Map(),
     port: 2138,
     ...overrides,
   };
@@ -395,13 +396,13 @@ describe("handleStreamRoute", () => {
         method: "GET",
         url: "/api/stream/status",
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(req, res, "/api/stream/status", "GET", state);
 
@@ -831,13 +832,13 @@ describe("handleStreamRoute", () => {
         method: "GET",
         url: "/api/streaming/destinations",
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(
         req,
@@ -849,7 +850,7 @@ describe("handleStreamRoute", () => {
 
       expect(getJson()).toEqual({
         ok: true,
-        destinations: [{ id: "retake", name: "Retake.tv" }],
+        destinations: [{ id: "retake", name: "Retake.tv", active: true }],
       });
     });
   });
@@ -902,13 +903,13 @@ describe("handleStreamRoute", () => {
         url: "/api/streaming/destination",
         body: JSON.stringify({ destinationId: "retake" }),
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(
         req,

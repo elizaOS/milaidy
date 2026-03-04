@@ -39,6 +39,8 @@ export const STREAMING_PLUGINS: Record<string, string> = {
   twitch: "@milady/plugin-twitch-streaming",
   youtube: "@milady/plugin-youtube-streaming",
   customRtmp: "@milady/plugin-custom-rtmp",
+  pumpfun: "@milady/plugin-pumpfun-streaming",
+  x: "@milady/plugin-x-streaming",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -219,6 +221,14 @@ export function isStreamingDestinationConfigured(
       return Boolean(config.streamKey || config.enabled === true);
     case "customRtmp":
       return Boolean(config.rtmpUrl && config.rtmpKey);
+    case "pumpfun":
+      return Boolean(
+        (config.streamKey && config.rtmpUrl) || config.enabled === true,
+      );
+    case "x":
+      return Boolean(
+        (config.streamKey && config.rtmpUrl) || config.enabled === true,
+      );
     default:
       return false;
   }
