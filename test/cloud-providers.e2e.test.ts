@@ -650,7 +650,66 @@ describe("Provider switch preserves cloud for RPC", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8. Live model call tests (only run with MILADY_LIVE_TEST=1)
+// 8. Pi AI + cloud RPC preservation
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Pi AI with cloud enabled for RPC (cloud inference byok)", () => {
+  it("loads pi-ai plugin when cloud is enabled but inferenceMode is byok", () => {
+    process.env.MILADY_USE_PI_AI = "1";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays loaded for RPC
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    // Pi AI handles inference
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+  });
+
+  it("pi-ai removes direct providers when cloud is in byok mode", () => {
+    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays for RPC, Pi AI handles inference
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+    // Direct providers should be removed — pi-ai handles upstream selection
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+  });
+
+  it("loads direct provider (not pi-ai) when cloud is byok and pi-ai is disabled", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays for RPC, direct provider handles inference
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Live model call tests (only run with MILADY_LIVE_TEST=1)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const isLive = process.env.MILADY_LIVE_TEST === "1";

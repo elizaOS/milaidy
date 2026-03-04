@@ -873,6 +873,17 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
       }
       // inferenceMode is "byok" or "local" — keep direct provider plugins.
       // Cloud plugin stays loaded for non-inference cloud services (RPC, media, etc.)
+      // Pi-ai takes priority over direct providers when cloud inference is disabled.
+      if (shouldEnablePiAi) {
+        pluginsToLoad.add(PI_AI_PLUGIN_PACKAGE);
+        // Remove direct provider plugins — pi-ai handles inference selection.
+        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
+        directProviders.delete(PI_AI_PLUGIN_PACKAGE);
+        directProviders.delete("@elizaos/plugin-elizacloud");
+        for (const p of directProviders) {
+          pluginsToLoad.delete(p);
+        }
+      }
       return;
     }
 
