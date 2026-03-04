@@ -7651,19 +7651,8 @@ export class MilaidyApp extends LitElement {
       : filtered;
     const metricScope = viewMode === "ai" ? aiCorePlugins : availableConnections;
     const enabledCount = metricScope.filter((p) => p.enabled).length;
-    const hasReadyAiProvider = viewMode === "ai" && metricScope.some(
-      (p) => this.isAiProviderPlugin(p) && p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0,
-    );
-    const configuredCount = metricScope.filter((p) => {
-      if (viewMode === "ai" && hasReadyAiProvider && this.isAiProviderPlugin(p)) return true;
-      return this.isPluginEffectivelyConfigured(p);
-    }).length;
-    const needsSetupCount = metricScope.filter(
-      (p) => {
-        if (hasReadyAiProvider && this.isAiProviderPlugin(p)) return false;
-        return p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p);
-      },
-    ).length;
+    const configuredCount = metricScope.filter((p) => this.isPluginUserReady(p)).length;
+    const needsSetupCount = metricScope.filter((p) => !this.isPluginUserReady(p)).length;
     const requiresSetup = metricScope.filter(
       (p) => p.enabled && (p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p)),
     );
@@ -8137,6 +8126,25 @@ export class MilaidyApp extends LitElement {
     }
 
     return this.isPluginEffectivelyConfigured(plugin);
+  }
+
+  private isPluginUserReady(plugin: PluginInfo): boolean {
+    if (!plugin.enabled) return false;
+    if (plugin.validationErrors.length > 0) return false;
+    if (this.isSubscriptionProvider(plugin)) {
+      return plugin.configured || this.isPluginEffectivelyConfigured(plugin);
+    }
+    if (plugin.parameters.length > 0) {
+      const requiredParams = plugin.parameters.filter((param) => param.required);
+      if (requiredParams.length > 0) {
+        const hasAllRequired = requiredParams.every((param) => param.isSet || Boolean(param.default));
+        if (!hasAllRequired) return false;
+      } else {
+        const hasAnyUserInput = plugin.parameters.some((param) => param.isSet);
+        if (!hasAnyUserInput) return false;
+      }
+    }
+    return plugin.configured || this.isPluginEffectivelyConfigured(plugin);
   }
 
   private isHiddenSystemPlugin(id: string): boolean {
