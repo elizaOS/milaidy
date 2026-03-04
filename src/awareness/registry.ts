@@ -161,7 +161,8 @@ export class AwarenessRegistry {
     }
 
     try {
-      return await contributor.detail(runtime, level);
+      const detail = await contributor.detail(runtime, level);
+      return contributor.trusted !== true ? sanitize(detail) : detail;
     } catch {
       return `[${contributor.id}: unavailable]`;
     }
@@ -259,7 +260,10 @@ export class AwarenessRegistry {
         continue;
       }
       try {
-        const detail = await contributor.detail(runtime, level);
+        let detail = await contributor.detail(runtime, level);
+        if (contributor.trusted !== true) {
+          detail = sanitize(detail);
+        }
         parts.push(detail);
       } catch {
         parts.push(`[${contributor.id}: unavailable]`);
