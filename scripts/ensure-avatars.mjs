@@ -96,6 +96,10 @@ export function runEnsureAvatars({
     return { cloned: false, reason: "already-present" };
   }
 
+  // SKIP_AVATAR_CLONE is a hard circuit-breaker for CI and restricted
+  // environments (e.g. sandboxed postinstall, air-gapped machines).
+  // It intentionally overrides --force so that automated pipelines can
+  // always prevent network I/O during install, regardless of invocation flags.
   const skipEnv = process.env.SKIP_AVATAR_CLONE;
   if (skipEnv === "1" || skipEnv === "true") {
     log(`${TAG} SKIP_AVATAR_CLONE set — skipping clone`);
