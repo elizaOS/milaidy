@@ -72,8 +72,7 @@ export function VrmViewer(props: VrmViewerProps) {
     }
 
     engine.setup(canvas, () => {
-      // Frame loop: guard all state-setting calls against unmount to avoid
-      // updates during the 100ms delayed dispose window.
+      // Frame loop: guard all state-setting calls against unmount.
       if (!mountedRef.current) return;
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
@@ -107,15 +106,10 @@ export function VrmViewer(props: VrmViewerProps) {
       mountedRef.current = false;
       window.removeEventListener("resize", resize);
 
-      const engineToDispose = engine;
-      setTimeout(() => {
-        if (!mountedRef.current) {
-          engineToDispose.dispose();
-          if (engineRef.current === engineToDispose) {
-            engineRef.current = null;
-          }
-        }
-      }, 100);
+      engine.dispose();
+      if (engineRef.current === engine) {
+        engineRef.current = null;
+      }
     };
   }, [props.onEngineReady, props.onEngineState]);
 

@@ -126,9 +126,14 @@ export function retargetMixamoFbxToVrm(
     }
   }
 
-  if (tracks.length < 10) {
+  const hasHipsTrack = tracks.some((track) =>
+    track.name.startsWith(
+      `${vrm.humanoid?.getNormalizedBoneNode("hips" as VRMHumanBoneName)?.name ?? "__missing__"}.`,
+    ),
+  );
+  if (!hasHipsTrack) {
     throw new Error(
-      `Idle FBX retargeting mapped too few tracks (${tracks.length}). ` +
+      `Idle FBX retargeting failed: no hips bone track found (mapped ${tracks.length} tracks). ` +
         "Expected Mixamo bone names like mixamorigHips/mixamorigSpine...",
     );
   }
