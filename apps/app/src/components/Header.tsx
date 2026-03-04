@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import { useBugReport } from "../hooks/useBugReport";
 import { createTranslator } from "../i18n";
@@ -115,7 +115,7 @@ export function Header() {
   } = useApp();
 
   const [copied, setCopied] = useState<string | null>(null);
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   useEffect(() => {
     void loadDropStatus();

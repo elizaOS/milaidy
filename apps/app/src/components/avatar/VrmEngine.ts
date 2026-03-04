@@ -417,29 +417,9 @@ export class VrmEngine {
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
 
-    const originalWarn = console.warn;
-    type ConsoleArg =
-      | string
-      | number
-      | boolean
-      | bigint
-      | symbol
-      | null
-      | undefined
-      | object;
-    console.warn = (...args: ConsoleArg[]) => {
-      const msg = args.map((a) => String(a)).join(" ");
-      if (msg.includes("VRMExpressionLoaderPlugin: An expression preset"))
-        return;
-      originalWarn(...args);
-    };
-
-    let gltf: Awaited<ReturnType<typeof loader.loadAsync>>;
-    try {
-      gltf = await loader.loadAsync(url);
-    } finally {
-      console.warn = originalWarn;
-    }
+    // Known VRM loader warnings about expression presets don't affect
+    // functionality — load without suppressing console.warn globally.
+    const gltf = await loader.loadAsync(url);
 
     if (
       this.loadingAborted ||
