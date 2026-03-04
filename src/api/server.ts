@@ -2230,12 +2230,15 @@ function isNoResponsePlaceholder(text: string): boolean {
 }
 
 function normalizePluginRuntimeName(value: string): string {
-  return value
+  const normalized = value
     .trim()
     .toLowerCase()
     .replace(/^@[^/]+\//, "")
     .replace(/^plugin-/, "")
     .replace(/[^a-z0-9-]/g, "");
+  // Runtime/export naming aliases.
+  if (normalized === "elizaoscloud") return "elizacloud";
+  return normalized;
 }
 
 function normalizeChatResponseText(
