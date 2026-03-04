@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the SDK module before importing client
 vi.mock("@opinion-labs/opinion-clob-sdk", () => {
@@ -6,7 +6,9 @@ vi.mock("@opinion-labs/opinion-clob-sdk", () => {
     getMarkets = vi.fn().mockResolvedValue({ result: { list: [] } });
     getMarket = vi.fn().mockResolvedValue({ result: {} });
     getCategoricalMarket = vi.fn().mockResolvedValue({ result: {} });
-    getOrderbook = vi.fn().mockResolvedValue({ result: { bids: [], asks: [] } });
+    getOrderbook = vi
+      .fn()
+      .mockResolvedValue({ result: { bids: [], asks: [] } });
     getLatestPrice = vi.fn().mockResolvedValue({ result: { price: "0.55" } });
     getMyPositions = vi.fn().mockResolvedValue({ result: [] });
     getMyOrders = vi.fn().mockResolvedValue({ result: { list: [] } });
@@ -55,8 +57,8 @@ describe("OpinionClient", () => {
   it("initializes in full mode with private key and multi-sig", async () => {
     await client.initialize({
       apiKey: "test-key",
-      privateKey: "0x" + "a".repeat(64),
-      multiSigAddress: "0x" + "b".repeat(40),
+      privateKey: `0x${"a".repeat(64)}`,
+      multiSigAddress: `0x${"b".repeat(40)}`,
       maxBetUsd: 500,
       rpcUrl: "https://bsc-dataseed.binance.org",
     });
@@ -93,8 +95,8 @@ describe("OpinionClient", () => {
   it("placeBet rejects amount exceeding max bet", async () => {
     await client.initialize({
       apiKey: "test-key",
-      privateKey: "0x" + "a".repeat(64),
-      multiSigAddress: "0x" + "b".repeat(40),
+      privateKey: `0x${"a".repeat(64)}`,
+      multiSigAddress: `0x${"b".repeat(40)}`,
       maxBetUsd: 50,
       rpcUrl: "https://bsc-dataseed.binance.org",
     });

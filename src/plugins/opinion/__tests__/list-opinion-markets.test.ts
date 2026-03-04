@@ -1,3 +1,4 @@
+import type { IAgentRuntime, Memory, State } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../client.js", () => ({
@@ -33,8 +34,10 @@ describe("LIST_OPINION_MARKETS", () => {
 
   it("handler returns formatted market list", async () => {
     const result = await listOpinionMarketsAction.handler(
-      {} as any, {} as any, {} as any,
-      { parameters: {} } as any,
+      {} as unknown as IAgentRuntime,
+      {} as unknown as Memory,
+      {} as unknown as State,
+      { parameters: {} } as unknown as Record<string, unknown>,
     );
     expect(result.success).toBe(true);
     expect(result.text).toContain("CPI");
@@ -42,7 +45,10 @@ describe("LIST_OPINION_MARKETS", () => {
   });
 
   it("validate returns true when client is ready", async () => {
-    const valid = await listOpinionMarketsAction.validate!({} as any, {} as any);
+    const valid = await listOpinionMarketsAction.validate?.(
+      {} as unknown as IAgentRuntime,
+      {} as unknown as Memory,
+    );
     expect(valid).toBe(true);
   });
 });

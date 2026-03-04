@@ -20,9 +20,7 @@ export const cancelOpinionOrderAction: Action = {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
       const orderId =
-        typeof params?.orderId === "string"
-          ? params.orderId.trim()
-          : undefined;
+        typeof params?.orderId === "string" ? params.orderId.trim() : undefined;
       if (orderId && !/^[a-zA-Z0-9_-]+$/.test(orderId)) {
         return { text: "Invalid order ID format.", success: false };
       }

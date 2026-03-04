@@ -1,4 +1,6 @@
+import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it } from "vitest";
+
 import { OpinionWsService } from "../services/opinion-ws.js";
 
 describe("OpinionWsService", () => {
@@ -10,7 +12,9 @@ describe("OpinionWsService", () => {
     const original = process.env.OPINION_API_KEY;
     delete process.env.OPINION_API_KEY;
     const service = new OpinionWsService();
-    await service.initialize({ logger: { warn: () => {} } } as any);
+    await service.initialize({
+      logger: { warn: () => {} },
+    } as unknown as IAgentRuntime);
     expect(service.isConnected).toBe(false);
     if (original) process.env.OPINION_API_KEY = original;
   });

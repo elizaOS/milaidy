@@ -21,16 +21,13 @@ export const opinionContributor: AwarenessContributor = {
       const response = await opinionClient.getPositions();
       const positions = response?.result;
       if (!positions?.length) return "Opinion: no positions";
-      const totalPnl = positions.reduce(
-        (sum: number, p: OpinionPosition) => {
-          return (
-            sum +
-            (Number(p.currentPrice || 0) - Number(p.avgEntryPrice || 0)) *
-              Number(p.shares || 0)
-          );
-        },
-        0,
-      );
+      const totalPnl = positions.reduce((sum: number, p: OpinionPosition) => {
+        return (
+          sum +
+          (Number(p.currentPrice || 0) - Number(p.avgEntryPrice || 0)) *
+            Number(p.shares || 0)
+        );
+      }, 0);
       const sign = totalPnl >= 0 ? "+" : "";
       const summary = `Opinion: ${positions.length} positions, ${sign}$${totalPnl.toFixed(2)} unrealized`;
       return summary.length <= SUMMARY_CHAR_LIMIT

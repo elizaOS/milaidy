@@ -6,9 +6,39 @@
  */
 import type { OpinionPluginConfig } from "./types.js";
 
-let SdkClient: any;
-let SdkOrderSide: any;
-let SdkOrderType: any;
+/** Local interfaces for the dynamically-loaded SDK to avoid `any`. */
+interface SdkClientInstance {
+  getMarkets(opts: Record<string, unknown>): Promise<unknown>;
+  getMarket(id: number): Promise<unknown>;
+  getCategoricalMarket(id: number): Promise<unknown>;
+  getOrderbook(tokenId: string): Promise<unknown>;
+  getLatestPrice(tokenId: string): Promise<unknown>;
+  getMyPositions(): Promise<unknown>;
+  getMyOrders(opts: Record<string, unknown>): Promise<unknown>;
+  placeOrder(opts: Record<string, unknown>): Promise<unknown>;
+  cancelOrder(id: string): Promise<unknown>;
+  cancelAllOrders(): Promise<unknown>;
+  enableTrading(): Promise<unknown>;
+  redeem(id: number): Promise<unknown[]>;
+}
+
+interface SdkOrderSideEnum {
+  BUY: number;
+  SELL: number;
+}
+
+interface SdkOrderTypeEnum {
+  MARKET_ORDER: number;
+  LIMIT_ORDER: number;
+}
+
+let SdkClient:
+  | (new (
+      opts: Record<string, unknown>,
+    ) => SdkClientInstance)
+  | undefined;
+let SdkOrderSide: SdkOrderSideEnum | undefined;
+let SdkOrderType: SdkOrderTypeEnum | undefined;
 let SDK_CHAIN_ID: number;
 let SDK_HOST: string;
 
@@ -28,7 +58,7 @@ async function loadSdk() {
 }
 
 export class OpinionClient {
-  private client: any = null;
+  private client: SdkClientInstance | null = null;
   private readOnly = true;
   private maxBetUsd = 500;
   private tradingEnabled = false;
@@ -41,7 +71,9 @@ export class OpinionClient {
     return this.isReady && !this.readOnly;
   }
 
-  async initialize(config: Omit<OpinionPluginConfig, "apiKey"> & { apiKey: string }) {
+  async initialize(
+    config: Omit<OpinionPluginConfig, "apiKey"> & { apiKey: string },
+  ) {
     await loadSdk();
 
     this.maxBetUsd = config.maxBetUsd;
@@ -60,6 +92,8 @@ export class OpinionClient {
       opts.multiSigAddress = config.multiSigAddress;
     }
 
+    // SdkClient is guaranteed defined after loadSdk() succeeds (it throws on failure)
+    if (!SdkClient) throw new Error("SDK not loaded");
     this.client = new SdkClient(opts);
   }
 
@@ -67,39 +101,39 @@ export class OpinionClient {
 
   async getMarkets(page = 1, limit = 10) {
     this.ensureReady();
-    return this.client.getMarkets({ page, limit, status: "activated" });
+    return this.client?.getMarkets({ page, limit, status: "activated" });
   }
 
   async getMarket(marketId: number) {
     this.ensureReady();
-    return this.client.getMarket(marketId);
+    return this.client?.getMarket(marketId);
   }
 
   async getCategoricalMarket(marketId: number) {
     this.ensureReady();
-    return this.client.getCategoricalMarket(marketId);
+    return this.client?.getCategoricalMarket(marketId);
   }
 
   async getOrderbook(tokenId: string) {
     this.ensureReady();
-    return this.client.getOrderbook(tokenId);
+    return this.client?.getOrderbook(tokenId);
   }
 
   async getLatestPrice(tokenId: string) {
     this.ensureReady();
-    return this.client.getLatestPrice(tokenId);
+    return this.client?.getLatestPrice(tokenId);
   }
 
   // ── User data ────────────────────────────────────────────
 
   async getPositions() {
     this.ensureReady();
-    return this.client.getMyPositions();
+    return this.client?.getMyPositions();
   }
 
   async getOrders(status?: string) {
     this.ensureReady();
-    return this.client.getMyOrders({ status });
+    return this.client?.getMyOrders({ status });
   }
 
   // ── Trading ──────────────────────────────────────────────
@@ -121,16 +155,18 @@ export class OpinionClient {
     }
 
     if (!this.tradingEnabled) {
-      await this.client.enableTrading();
+      await this.client?.enableTrading();
       this.tradingEnabled = true;
     }
 
     const isMarketOrder = !params.price;
-    return this.client.placeOrder({
+    return this.client?.placeOrder({
       marketId: params.marketId,
       tokenId: params.tokenId,
-      side: params.side === "buy" ? SdkOrderSide.BUY : SdkOrderSide.SELL,
-      orderType: isMarketOrder ? SdkOrderType.MARKET_ORDER : SdkOrderType.LIMIT_ORDER,
+      side: params.side === "buy" ? SdkOrderSide?.BUY : SdkOrderSide?.SELL,
+      orderType: isMarketOrder
+        ? SdkOrderType?.MARKET_ORDER
+        : SdkOrderType?.LIMIT_ORDER,
       price: params.price || "0",
       makerAmountInQuoteToken: params.amount,
     });
@@ -138,17 +174,17 @@ export class OpinionClient {
 
   async cancelOrder(orderId: string) {
     this.ensureCanTrade();
-    return this.client.cancelOrder(orderId);
+    return this.client?.cancelOrder(orderId);
   }
 
   async cancelAllOrders() {
     this.ensureCanTrade();
-    return this.client.cancelAllOrders();
+    return this.client?.cancelAllOrders();
   }
 
   async redeem(marketId: number) {
     this.ensureCanTrade();
-    return this.client.redeem(marketId);
+    return this.client?.redeem(marketId);
   }
 
   // ── Internal ─────────────────────────────────────────────
@@ -159,7 +195,10 @@ export class OpinionClient {
 
   private ensureCanTrade() {
     this.ensureReady();
-    if (!this.canTrade) throw new Error("Trading not enabled — set OPINION_PRIVATE_KEY and OPINION_MULTISIG_ADDRESS");
+    if (!this.canTrade)
+      throw new Error(
+        "Trading not enabled — set OPINION_PRIVATE_KEY and OPINION_MULTISIG_ADDRESS",
+      );
   }
 }
 

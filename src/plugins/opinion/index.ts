@@ -7,13 +7,13 @@
  * @see docs/plans/2026-03-01-opinion-trade-plugin-design.md
  */
 import type { Plugin, ServiceClass } from "@elizaos/core";
-import { opinionClient } from "./client.js";
-import { listOpinionMarketsAction } from "./actions/list-opinion-markets.js";
-import { getOpinionMarketAction } from "./actions/get-opinion-market.js";
-import { placeOpinionBetAction } from "./actions/place-opinion-bet.js";
-import { checkOpinionPositionsAction } from "./actions/check-opinion-positions.js";
 import { cancelOpinionOrderAction } from "./actions/cancel-opinion-order.js";
+import { checkOpinionPositionsAction } from "./actions/check-opinion-positions.js";
+import { getOpinionMarketAction } from "./actions/get-opinion-market.js";
+import { listOpinionMarketsAction } from "./actions/list-opinion-markets.js";
+import { placeOpinionBetAction } from "./actions/place-opinion-bet.js";
 import { redeemOpinionAction } from "./actions/redeem-opinion.js";
+import { opinionClient } from "./client.js";
 import { opinionContextProvider } from "./providers/opinion-context.js";
 import { OpinionWsService } from "./services/opinion-ws.js";
 

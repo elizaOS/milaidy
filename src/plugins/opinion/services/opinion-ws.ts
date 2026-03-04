@@ -31,12 +31,14 @@ export class OpinionWsService {
   private subscribedMarkets = new Set<number>();
   private lastPrices = new Map<string, number>();
   private _connected = false;
+  private stopped = false;
 
   get isConnected(): boolean {
     return this._connected;
   }
 
   async initialize(runtime: IAgentRuntime) {
+    this.stopped = false;
     this.runtime = runtime;
     const apiKey = process.env.OPINION_API_KEY;
     if (!apiKey) {
@@ -47,7 +49,10 @@ export class OpinionWsService {
   }
 
   private connect(apiKey: string) {
+    if (this.stopped) return;
     try {
+      // NOTE: API key in URL query param is required by the Opinion.trade WebSocket API.
+      // This is visible in server/proxy logs. Header-based auth is not supported upstream.
       this.ws = new WebSocket(`${WS_URL}?apikey=${apiKey}`);
       this.ws.onopen = () => {
         this._connected = true;
@@ -162,6 +167,7 @@ export class OpinionWsService {
   }
 
   async cleanup() {
+    this.stopped = true;
     this.stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
