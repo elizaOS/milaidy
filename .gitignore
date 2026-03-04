@@ -73,6 +73,9 @@ biome-report.json
 # Local audit outputs
 report/
 
+# Benchmark output & sandbox
+tmp/
+
 # Agent learning docs & knowledge base
 knowledge/
 scripts/knowledge-loop.mjs

@@ -1564,6 +1564,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pairingBusyRef = useRef(false);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
+  const fallbackNoticeShown = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
   /** Synchronous lock so same-tick chat submits cannot double-send. */
   const chatSendBusyRef = useRef(false);
@@ -5005,6 +5006,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Connect WebSocket
       client.connectWs();
+      client.onWsEvent("status", (data: Record<string, unknown>) => {
+        const status = data as unknown as AgentStatus;
+        setAgentStatus(status);
+
+        // Show one-time toast when subscription falls back to cloud
+        if (status.fallbackActive && !fallbackNoticeShown.current) {
+          fallbackNoticeShown.current = true;
+          setActionNotice(
+            "Subscription auth failed \u2014 using fallback provider. Check Config > Providers.",
+            "error",
+            10000,
+          );
+        }
+
+        // Reset notice flag when agent stops so toast can fire again on next start
+        if (
+          status.state === "not_started" ||
+          status.state === "stopped" ||
+          status.state === "error"
+        ) {
+          fallbackNoticeShown.current = false;
+        }
+      });
 
       // Re-hydrate PTY sessions on WS reconnect — events sent during
       // the disconnect gap are lost, so we reconcile from the server.

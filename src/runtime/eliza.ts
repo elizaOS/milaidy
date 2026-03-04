@@ -81,6 +81,10 @@ import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
 import * as pluginTwitch from "@elizaos/plugin-twitch";
 import {
+  configureAgentOrchestratorPlugin,
+  createSubAgentProvider,
+} from "@elizaos/plugin-agent-orchestrator";
+import {
   debugLogResolvedContext,
   validateRuntimeContext,
 } from "../api/plugin-validation";
@@ -112,7 +116,7 @@ import { SandboxAuditLog } from "../security/audit-log";
 import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
-import { createMiladyPlugin } from "./milady-plugin";
+import { createMiladyPlugin, enrichActionDescriptions } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
@@ -633,10 +637,12 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
  */
 const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   browser: "@elizaos/plugin-browser",
-  vision: "@elizaos/plugin-vision",
+  code: "@elizaos/plugin-code",
   cron: "@elizaos/plugin-cron",
   cua: "@elizaos/plugin-cua",
   computeruse: "@elizaos/plugin-computeruse",
+  knowledge: "@elizaos/plugin-knowledge",
+  vision: "@elizaos/plugin-vision",
   obsidian: "@elizaos/plugin-obsidian",
   repoprompt: "@elizaos/plugin-repoprompt",
   repoPrompt: "@elizaos/plugin-repoprompt",
@@ -2279,6 +2285,131 @@ async function registerSqlPluginWithRecovery(
  * database — not the config file — so we only provide sensible defaults
  * here for the initial bootstrap.
  */
+/**
+ * Custom message handler template that fixes ElizaOS's REPLY-gravity problem.
+ *
+ * The default ElizaOS template instructs the LLM to put REPLY first
+ * ("REPLY should come FIRST to acknowledge the user's request"), but when
+ * ACTION_PLANNING is disabled (the default), the runtime only keeps the
+ * first action — so "REPLY,EXECUTE_COMMAND" becomes just "REPLY" and the
+ * real action never fires.
+ *
+ * This template tells the LLM to use the specific action ALONE when a task
+ * is requested, falling back to REPLY only for pure conversation.
+ */
+const MILAIDY_MESSAGE_HANDLER_TEMPLATE = `<task>Generate dialog and actions for the character {{agentName}}.</task>
+
+<instructions>
+Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
+
+ACTION SELECTION — CRITICAL RULES:
+- You may ONLY select ONE action per response.
+- ALWAYS prefer a specific action over REPLY. Actions fetch real data and perform real work; REPLY only uses what you already know.
+- If you should not respond at all, select IGNORE.
+
+ACTION vs REPLY decision:
+1. IMPERATIVE requests ("run X", "create X", "install X", "send X", "cancel X") → match the verb to the most specific available action. If no action name matches the verb exactly, look for an action whose description covers the intent.
+2. INFORMATION-RETRIEVAL questions ("show my X", "list X", "what are my X", "tell me about X", "how do I use X") → use the action that retrieves that data, if an available action can provide it. These are NOT general conversation — they request specific information.
+3. GENERAL conversation with no matching action (greetings, opinions, jokes, open-ended questions about topics) → REPLY.
+4. Nothing to say → IGNORE.
+
+When multiple actions could match, prefer the one that matches the user's INTENT (what they want to happen) over the one that matches a keyword in their message.
+
+DISAMBIGUATION — safety-first routing:
+- FILE OPERATIONS: If the user mentions a file path or filename, ALWAYS use READ_FILE instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND for files if the user explicitly says "run", "execute", or "compile".
+- GIT OPERATIONS: If the user mentions git (commit, diff, log, status, branch, push, pull), ALWAYS use GIT instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND if the user explicitly says "run git ..." or GIT cannot handle the specific subcommand.
+- SKILLS vs FILES: "search for X in skills" or "find a skill" → SEARCH_SKILLS. "search for X in files" or "find X in code" → SEARCH_FILES. The word "skill" or "plugin" routes to skill actions, not file search.
+- SHELL SAFETY: EXECUTE_COMMAND is a last resort. If a more specific action exists for the task (READ_FILE, WRITE_FILE, GIT, SEARCH_FILES, LIST_FILES, MANAGE_PROCESS), ALWAYS use that instead.
+
+WRONG: User says "show my tasks" → actions: REPLY (describes tasks from memory)
+RIGHT: User says "show my tasks" → actions: LIST_TASKS (fetches real task data)
+
+WRONG: User says "run ls -la" → actions: REPLY (describes what it would do)
+RIGHT: User says "run ls -la" → actions: EXECUTE_COMMAND (actually runs the command)
+
+WRONG: User says "what do you think about AI?" → actions: SEARCH_SKILLS
+RIGHT: User says "what do you think about AI?" → actions: REPLY (general conversation, no action applies)
+
+WRONG: User says "read package.json" → actions: EXECUTE_COMMAND (cat package.json)
+RIGHT: User says "read package.json" → actions: READ_FILE (safe file read)
+
+WRONG: User says "show the git diff" → actions: EXECUTE_COMMAND (git diff)
+RIGHT: User says "show the git diff" → actions: GIT (dedicated git action)
+
+IMPORTANT ACTION PARAMETERS:
+- Some actions accept input parameters that you should extract from the conversation
+- When an action has parameters listed in its description, include a <params> block for that action
+- Extract parameter values from the user's message and conversation context
+- Required parameters MUST be provided; optional parameters can be omitted if not mentioned
+- If you cannot determine a required parameter value, ask the user for clarification in your <text>
+
+EXAMPLE (action parameters):
+User message: "Send a message to @dev_guru on telegram saying Hello!"
+Actions: SEND_MESSAGE
+Params:
+<params>
+    <SEND_MESSAGE>
+        <targetType>user</targetType>
+        <source>telegram</source>
+        <target>dev_guru</target>
+        <text>Hello!</text>
+    </SEND_MESSAGE>
+</params>
+
+IMPORTANT PROVIDER SELECTION RULES:
+- Only include providers if they are needed to respond accurately.
+- If the message mentions images, photos, pictures, attachments, or visual content, OR if you see "(Attachments:" in the conversation, you MUST include "ATTACHMENTS" in your providers list
+- If the message asks about or references specific people, include "ENTITIES" in your providers list
+- If the message asks about relationships or connections between people, include "RELATIONSHIPS" in your providers list
+- If the message asks about facts or specific information, include "FACTS" in your providers list
+- If the message asks about the environment or world context, include "WORLD" in your providers list
+- If no additional context is needed, you may leave the providers list empty.
+
+IMPORTANT CODE BLOCK FORMATTING RULES:
+- If {{agentName}} includes code examples, snippets, or multi-line code in the response, ALWAYS wrap the code with \`\`\` fenced code blocks (specify the language if known, e.g., \`\`\`python).
+- ONLY use fenced code blocks for actual code. Do NOT wrap non-code text, instructions, or single words in fenced code blocks.
+- If including inline code (short single words or function names), use single backticks (\`) as appropriate.
+- This ensures the user sees clearly formatted and copyable code when relevant.
+
+First, think about what you want to do next and plan your actions. Then, write the next message and include the action you plan to take.
+</instructions>
+
+<keys>
+"thought" should be a short description of what the agent is thinking about and planning.
+"actions" should be the SINGLE action {{agentName}} will take (if simply responding with text, use REPLY; if not responding, use IGNORE; otherwise use the specific action name)
+"providers" should be a comma-separated list of the providers that {{agentName}} will use to have the right context for responding and acting (NEVER use "IGNORE" as a provider - use specific provider names like ATTACHMENTS, ENTITIES, FACTS, KNOWLEDGE, etc.)
+"text" should be the text of the next message for {{agentName}} which they will send to the conversation.
+"params" (optional) should contain action parameters when actions require input. Format as nested XML with action name as wrapper.
+</keys>
+
+<output>
+Do NOT include any thinking, reasoning, or <think> sections in your response.
+Go directly to the XML response format without any preamble or explanation.
+
+Respond using XML format like this:
+<response>
+    <thought>Your thought here</thought>
+    <actions>ACTION_NAME</actions>
+    <providers>PROVIDER1,PROVIDER2</providers>
+    <text>Your response text here</text>
+    <params>
+        <ACTION_NAME>
+            <paramName1>value1</paramName1>
+            <paramName2>value2</paramName2>
+        </ACTION_NAME>
+    </params>
+</response>
+
+The <params> block is optional - only include when actions require input parameters.
+If an action has no parameters or you're only using REPLY/IGNORE, omit <params> entirely.
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
+</output>
+
+<providers>
+{{providers}}
+</providers>`;
+
 /** @internal Exported for testing. */
 export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // Resolve name: agents list → ui assistant → "Milady"
@@ -2404,6 +2535,16 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     ...(postExamples ? { postExamples } : {}),
     ...(mappedExamples ? { messageExamples: mappedExamples } : {}),
     secrets,
+    templates: {
+      messageHandlerTemplate: MILAIDY_MESSAGE_HANDLER_TEMPLATE,
+    },
+    settings: {
+      // Bypass the BM25 action filter entirely.  With ~52 actions the default
+      // threshold of 15 causes ActionFilterService to silently drop relevant
+      // actions.  At this scale, sending all validated actions to the LLM is
+      // fine — our custom messageHandlerTemplate provides routing guidance.
+      ACTION_FILTER_THRESHOLD: "100",
+    },
   });
 }
 
@@ -3121,7 +3262,9 @@ export async function startEliza(
     const { applySubscriptionCredentials } = await import("../auth/index");
     await applySubscriptionCredentials(config);
   } catch (err) {
-    logger.warn(`[milady] Failed to apply subscription credentials: ${err}`);
+    logger.error(
+      `[auth] Failed to apply subscription credentials: ${err}. Check Admin > Logs for details.`,
+    );
   }
 
   // 3. Build ElizaOS Character from Milady config
@@ -3267,6 +3410,101 @@ export async function startEliza(
 
   // Workspace skills directory (highest precedence for overrides)
   const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
+
+  // 7b. Configure plugin-agent-orchestrator before runtime init.
+  // The plugin is in CORE_PLUGINS but its service throws unless configured.
+  //
+  // We register a lazy provider that captures the runtime ref after init.
+  // executeTask is only called at task execution time, long after runtime exists.
+  // The provider uses the "eliza" sub-agent type by default (tool-calling loop
+  // using the runtime's LLM — no external SDK dependencies). Can be overridden
+  // via ELIZA_CODE_ACTIVE_SUB_AGENT env var (e.g. "claude-code", "codex").
+  let runtimeRef: AgentRuntime | null = null;
+  let cachedProvider: ReturnType<typeof createSubAgentProvider> | null = null;
+
+  const lazyElizaProvider = {
+    id: "eliza",
+    label: "Eliza (native tool-calling)",
+    description:
+      "Executes tasks using the runtime LLM with file/shell tools. " +
+      "No external SDK dependencies.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milady] executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedProvider) {
+        cachedProvider = createSubAgentProvider(
+          runtimeRef,
+          "eliza",
+          "eliza",
+          "Eliza (native tool-calling)",
+        );
+      }
+      return cachedProvider.executeTask(task, ctx);
+    },
+  };
+
+  // Codex provider — always registered. The upstream CodexSdkSubAgent
+  // lazy-imports @openai/codex-sdk at execution time, so it won't crash at
+  // startup if the package isn't installed. Auth is resolved by the SDK at
+  // runtime via: CODEX_API_KEY > OPENAI_API_KEY > ~/.codex/auth.json (CLI
+  // login tokens). Users with the Codex CLI installed get auth for free.
+  let cachedCodexProvider: ReturnType<typeof createSubAgentProvider> | null =
+    null;
+  const lazyCodexProvider = {
+    id: "codex" as const,
+    label: "Codex (OpenAI)",
+    description:
+      "Executes tasks using the OpenAI Codex SDK. " +
+      "Auth: CODEX_API_KEY, OPENAI_API_KEY, or ~/.codex/auth.json.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milady] codex executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedCodexProvider) {
+        cachedCodexProvider = createSubAgentProvider(
+          runtimeRef,
+          "codex",
+          "codex",
+          "Codex (OpenAI)",
+        );
+      }
+      return cachedCodexProvider.executeTask(task, ctx);
+    },
+  };
+
+  configureAgentOrchestratorPlugin({
+    providers: [lazyElizaProvider, lazyCodexProvider],
+    defaultProviderId: "eliza",
+    // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
+    // a security sandbox. Upstream tools use path.resolve() without containment
+    // checks. Shell access is also effectively unrestricted.
+    getWorkingDirectory: () => workspaceDir ?? process.cwd(),
+  });
 
   // ── Sandbox mode setup ──────────────────────────────────────────────────
   const sandboxConfig = config.agents?.defaults?.sandbox;
@@ -3429,6 +3667,7 @@ export async function startEliza(
         : {}),
     },
   });
+  runtimeRef = runtime;
   installRuntimeMethodBindings(runtime);
 
   // 7b. Pre-register plugin-sql so the adapter is ready before other plugins init.
@@ -3599,6 +3838,79 @@ export async function startEliza(
   }
 
   installActionAliases(runtime);
+
+  // 8b. Enrich action descriptions now that all plugins have registered their
+  //     actions.  Then rebuild the ActionFilterService index so the BM25 scores
+  //     reflect the enriched text (buildIndex() ran during initialize() with
+  //     the original descriptions).
+  enrichActionDescriptions(runtime);
+  const actionFilter = runtime.getService("action_filter") as
+    | { buildIndex(rt: typeof runtime): Promise<void> }
+    | undefined;
+  if (actionFilter?.buildIndex) {
+    await actionFilter.buildIndex(runtime);
+  }
+
+  // 8c. Wire task-result surfacing: when a task completes or fails, post
+  //     the result summary as a message in the originating room so the user
+  //     sees the outcome without having to run LIST_TASKS.
+  //     Returns a teardown function so hot-reload can clean up listeners.
+  function wireTaskResultSurfacing(rt: AgentRuntime): (() => void) | null {
+    try {
+      const svc = rt.getService("CODE_TASK") as
+        | import("@elizaos/plugin-agent-orchestrator").AgentOrchestratorService
+        | undefined;
+      if (!svc?.on) return null;
+
+      const handleTaskDone = async (event: { taskId: string; data?: Record<string, unknown> }) => {
+        try {
+          const task = await svc.getTask(event.taskId);
+          if (!task?.roomId) return;
+
+          const result = task.metadata?.result;
+          const status = task.metadata?.status;
+          const isSuccess = status === "completed" && result?.success === true;
+
+          const parts: string[] = [];
+          parts.push(isSuccess ? `Task completed: ${task.name}` : `Task failed: ${task.name}`);
+          if (result?.summary) parts.push(result.summary);
+          if (result?.error) parts.push(`Error: ${result.error}`);
+          if (result?.filesModified?.length) {
+            parts.push(`Files modified: ${result.filesModified.join(", ")}`);
+          }
+          if (result?.filesCreated?.length) {
+            parts.push(`Files created: ${result.filesCreated.join(", ")}`);
+          }
+
+          const text = parts.join("\n");
+          await rt.createMemory(
+            {
+              entityId: rt.agentId,
+              roomId: task.roomId,
+              content: { text, source: "orchestrator" },
+            },
+            "messages",
+          );
+          logger.info(`[milaidy] Task result posted to room ${task.roomId}: ${task.name}`);
+        } catch (err) {
+          logger.warn(`[milaidy] Failed to surface task result: ${formatError(err)}`);
+        }
+      };
+
+      svc.on("task:completed", handleTaskDone as any);
+      svc.on("task:failed", handleTaskDone as any);
+      logger.info("[milaidy] Task result surfacing enabled");
+
+      return () => {
+        svc.off("task:completed", handleTaskDone as any);
+        svc.off("task:failed", handleTaskDone as any);
+      };
+    } catch (err) {
+      logger.debug(`[milaidy] Could not wire task result surfacing: ${formatError(err)}`);
+      return null;
+    }
+  }
+  let teardownTaskSurfacing = wireTaskResultSurfacing(runtime);
 
   // 9. Graceful shutdown handler
   //
@@ -3802,6 +4114,8 @@ export async function startEliza(
           }
 
           await newRuntime.initialize();
+          teardownTaskSurfacing?.(); // clean up old listeners
+
           await waitForTrajectoryLoggerService(
             newRuntime,
             "hot-reload runtime.initialize()",
@@ -3824,6 +4138,10 @@ export async function startEliza(
 
           installActionAliases(newRuntime);
           runtime = newRuntime;
+          runtimeRef = newRuntime;
+          cachedProvider = null; // force re-creation with new runtime
+          cachedCodexProvider = null;
+          teardownTaskSurfacing = wireTaskResultSurfacing(newRuntime);
           logger.info("[milady] Hot-reload: Runtime restarted successfully");
           return newRuntime;
         } catch (err) {

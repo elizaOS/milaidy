@@ -169,6 +169,7 @@
     "@milady/plugin-pumpfun-streaming": "workspace:*",
     "@milady/plugin-x-streaming": "workspace:*",
     "@noble/curves": "^2.0.1",
+    "@openai/codex-sdk": "^0.104.0",
     "@opentelemetry/api": "1.9.0",
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow-models/mobilenet": "^2.1.0",

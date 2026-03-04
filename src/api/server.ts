@@ -44,7 +44,9 @@ import {
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
+import { resolvePrimaryModel } from "../runtime/eliza";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
+import { actionLog, clearActionLog } from "../runtime/milady-plugin";
 import {
   buildTestHandler,
   registerCustomActionLive,
@@ -252,6 +254,8 @@ interface ServerState {
     | "error";
   agentName: string;
   model: string | undefined;
+  activeProvider: "subscription" | "cloud" | "api-key" | "unknown";
+  fallbackActive: boolean;
   startedAt: number | undefined;
   startup: AgentStartupDiagnostics;
   plugins: PluginEntry[];
@@ -4501,6 +4505,71 @@ function tokenMatches(expected: string, provided: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
+/**
+ * Detect the active model, provider type, and fallback state from the current
+ * runtime plugins and subscription status. Mutates `state` in place.
+ */
+async function detectProviderState(state: ServerState): Promise<void> {
+  const configuredModel = resolvePrimaryModel(state.config);
+  const pluginMatch = state.runtime
+    ? state.runtime.plugins.find((p) => {
+        const n = p.name.toLowerCase();
+        return (
+          n.includes("anthropic") ||
+          n.includes("openai") ||
+          n.includes("groq") ||
+          n.includes("elizacloud") ||
+          n.includes("google")
+        );
+      })?.name
+    : undefined;
+  // Fall back to LARGE_MODEL env var which typically contains the model string
+  const envModel = process.env.LARGE_MODEL || undefined;
+  const cloudProxy = state.cloudManager?.getProxy();
+  state.model =
+    configuredModel ??
+    (cloudProxy ? cloudProxy.agentName || "cloud" : undefined) ??
+    envModel ??
+    pluginMatch ??
+    "unknown";
+
+  try {
+    const { getSubscriptionStatus } = await import("../auth/index");
+    const subStatus = getSubscriptionStatus();
+    const hasSubscription = subStatus.some(
+      (s: { configured: boolean }) => s.configured,
+    );
+    const hasValidSubscription = subStatus.some(
+      (s: { valid: boolean }) => s.valid,
+    );
+    const isCloudPlugin = pluginMatch?.includes("elizacloud") ?? false;
+
+    if (cloudProxy) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = hasSubscription && !hasValidSubscription;
+    } else if (hasSubscription && hasValidSubscription && !isCloudPlugin) {
+      state.activeProvider = "subscription";
+      state.fallbackActive = false;
+    } else if (hasSubscription && isCloudPlugin) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = true;
+    } else if (
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.GOOGLE_API_KEY
+    ) {
+      state.activeProvider = "api-key";
+      state.fallbackActive = false;
+    } else {
+      state.activeProvider = "unknown";
+      state.fallbackActive = false;
+    }
+  } catch {
+    state.activeProvider = "unknown";
+    state.fallbackActive = false;
+  }
+}
+
 function isLoopbackBindHost(host: string): boolean {
   let normalized = host.trim().toLowerCase();
 
@@ -6341,6 +6410,8 @@ async function handleRequest(
       uptime,
       startup: state.startup,
       cloud: cloudStatus,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
     });
@@ -6940,6 +7011,10 @@ async function handleRequest(
       json,
     })
   ) {
+    // Detect provider state after lifecycle changes (start/restart)
+    if (state.agentState === "running") {
+      await detectProviderState(state);
+    }
     return;
   }
 
@@ -11339,6 +11414,198 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/debug/context — Expose action & context info for benchmarking
+  if (method === "GET" && pathname === "/api/debug/context") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const rt = state.runtime;
+    const actions = rt.actions || [];
+    const actionDetails = actions.map((a) => ({
+      name: a.name,
+      descriptionLength: (a.description || "").length,
+      parameterCount: Array.isArray(a.parameters) ? a.parameters.length : 0,
+      exampleCount: Array.isArray(a.examples) ? a.examples.length : 0,
+      similes: Array.isArray((a as unknown as { similes?: string[] }).similes)
+        ? (a as unknown as { similes?: string[] }).similes
+        : [],
+    }));
+    const providers = rt.providers || [];
+    const plugins = rt.plugins || [];
+
+    // Measure real provider output sizes via composeState
+    let providerSizes: Record<string, number> = {};
+    let totalStateChars = 0;
+    try {
+      const fakeMessage = {
+        id: stringToUuid("benchmark"),
+        entityId: rt.agentId,
+        roomId: stringToUuid("benchmark-room"),
+        content: { text: "benchmark" },
+        createdAt: Date.now(),
+      };
+      const composedState = await rt.composeState(fakeMessage);
+      // Measure each value in state.values (provider outputs are strings)
+      if (composedState?.values) {
+        for (const [key, val] of Object.entries(composedState.values)) {
+          const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+          providerSizes[key] = str.length;
+          totalStateChars += str.length;
+        }
+      }
+    } catch (err) {
+      providerSizes = { error: String(err).length };
+    }
+
+    json(res, {
+      actionCount: actions.length,
+      actions: actionDetails,
+      providerCount: providers.length,
+      providers: providers.map((p: { name: string }) => p.name),
+      pluginCount: plugins.length,
+      plugins: plugins.map((p: { name: string }) => p.name),
+      providerOutputSizes: providerSizes,
+      totalStateChars,
+    });
+    return;
+  }
+
+  // ── POST /api/debug/prompt-preview — Show the full composed state for a message
+  // Returns the exact provider outputs the LLM would see, including formatted actions.
+  if (method === "POST" && pathname === "/api/debug/prompt-preview") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("prompt-preview"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("prompt-preview-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    try {
+      const composedState = await rt.composeState(fakeMessage);
+      // Extract state values — these are the template variables available to the prompt
+      const values = composedState?.values ?? {};
+      // Separate the key sections for readability
+      const sections: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(values)) {
+        const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+        sections[key] = {
+          chars: str.length,
+          tokens: Math.round(str.length / 4),
+          content: str,
+        };
+      }
+      // Also include the character system prompt (sent as separate system message)
+      const systemPrompt = rt.character?.system ?? "(none)";
+      json(res, {
+        text,
+        systemPrompt,
+        sectionCount: Object.keys(sections).length,
+        sections,
+        totalChars: Object.values(values).reduce(
+          (sum: number, v) =>
+            sum +
+            (typeof v === "string" ? v.length : JSON.stringify(v ?? "").length),
+          0 as number,
+        ),
+      });
+    } catch (err) {
+      error(res, `composeState failed: ${String(err)}`, 500);
+    }
+    return;
+  }
+
+  // ── POST /api/debug/validate-actions — Check which actions pass validate() for a message
+  if (method === "POST" && pathname === "/api/debug/validate-actions") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("validate-test"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("validate-test-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    const results: { name: string; valid: boolean; error?: string }[] = [];
+    for (const action of rt.actions || []) {
+      try {
+        const valid = await (
+          action as {
+            validate: (r: unknown, m: unknown, s: unknown) => Promise<boolean>;
+          }
+        ).validate(rt, fakeMessage, {});
+        results.push({ name: action.name, valid: !!valid });
+      } catch (err) {
+        results.push({
+          name: action.name,
+          valid: false,
+          error: String(err),
+        });
+      }
+    }
+    const passed = results.filter((r) => r.valid).map((r) => r.name);
+    const failed = results.filter((r) => !r.valid).map((r) => r.name);
+    json(res, {
+      text,
+      passedCount: passed.length,
+      passed,
+      failedCount: failed.length,
+      failed,
+    });
+    return;
+  }
+
+  // ── GET /api/debug/action-log — Return in-memory action log
+  if (method === "GET" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    json(res, { entries: actionLog, count: actionLog.length });
+    return;
+  }
+
+  // ── DELETE /api/debug/action-log — Clear in-memory action log
+  if (method === "DELETE" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    clearActionLog();
+    json(res, { ok: true });
+    return;
+  }
+
   // ── POST /api/chat/stream ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/chat/stream") {
     // Legacy cloud-proxy path — forwards messages to a remote sandbox and
@@ -13325,6 +13592,8 @@ export async function startApiServer(opts?: {
     agentState: initialAgentState,
     agentName,
     model: hasRuntime ? detectRuntimeModel(opts.runtime ?? null) : undefined,
+    activeProvider: "unknown",
+    fallbackActive: false,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     startup: initialStartup,
@@ -14252,6 +14521,8 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
       startup: state.startup,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
@@ -14385,6 +14656,17 @@ export async function startApiServer(opts?: {
       phase: "running",
       attempt: 0,
     };
+
+    // Detect model and provider (async — state updates before broadcast)
+    void detectProviderState(state).then(() => {
+      addLog(
+        state.fallbackActive ? "warn" : "info",
+        `[auth] Active provider: ${state.activeProvider}, model: ${state.model}${state.fallbackActive ? " (fallback)" : ""}`,
+        "auth",
+        ["auth"],
+      );
+      broadcastStatus();
+    });
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -14393,7 +14675,7 @@ export async function startApiServer(opts?: {
     // Restore conversations from DB so they survive restarts
     void restoreConversationsFromDb(rt);
 
-    // Broadcast status update immediately after restart
+    // Broadcast status update immediately (provider fields update async)
     broadcastStatus();
 
     // Wire coding-agent bridges (coordinator may not exist yet — retry)
