@@ -3,146 +3,19 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getVrmPreviewUrl, useApp, VRM_COUNT } from "../AppContext";
+import { useApp } from "../AppContext";
 import { type AgentSelfStatusSnapshot, client } from "../api-client";
 import { createTranslator } from "../i18n";
+import { ConversationListItem } from "./conversations/ConversationListItem";
+import { GameModalFooter } from "./conversations/GameModalFooter";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
 export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh";
-
-const BROWSER_CAPABILITY_PLUGIN_IDS = new Set([
-  "browser",
-  "browserbase",
-  "chrome-extension",
-]);
-
-const COMPUTER_CAPABILITY_PLUGIN_IDS = new Set(["computeruse", "computer-use"]);
 
 interface ConversationsSidebarProps {
   mobile?: boolean;
   onClose?: () => void;
   variant?: ConversationsSidebarVariant;
-}
-
-function formatRelativeTime(
-  dateString: string,
-  t: (
-    key: string,
-    vars?: Record<string, string | number | boolean | null | undefined>,
-  ) => string,
-): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return t("conversations.justNow");
-  if (diffMins < 60) return t("conversations.minutesAgo", { count: diffMins });
-  if (diffHours < 24) return t("conversations.hoursAgo", { count: diffHours });
-  if (diffDays < 7) return t("conversations.daysAgo", { count: diffDays });
-
-  return date.toLocaleDateString();
-}
-
-function avatarIndexFromConversationId(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  }
-  const normalized = Math.abs(hash) % VRM_COUNT;
-  return normalized + 1;
-}
-
-function resolveProviderLabel(model: string | undefined): string {
-  const value = (model ?? "").trim();
-  if (!value) return "";
-
-  const lower = value.toLowerCase();
-  const knownProviders: Array<{ match: string; label: string }> = [
-    { match: "elizacloud", label: "Eliza Cloud" },
-    { match: "openrouter", label: "OpenRouter" },
-    { match: "openai", label: "OpenAI" },
-    { match: "anthropic", label: "Anthropic" },
-    { match: "gemini", label: "Google" },
-    { match: "google", label: "Google" },
-    { match: "grok", label: "xAI" },
-    { match: "xai", label: "xAI" },
-    { match: "groq", label: "Groq" },
-    { match: "ollama", label: "Ollama" },
-    { match: "deepseek", label: "DeepSeek" },
-    { match: "mistral", label: "Mistral" },
-    { match: "together", label: "Together AI" },
-    { match: "zai", label: "z.ai" },
-    { match: "cohere", label: "Cohere" },
-    { match: "pi-ai", label: "Pi AI" },
-  ];
-  for (const provider of knownProviders) {
-    if (lower.includes(provider.match)) return provider.label;
-  }
-
-  if (lower.startsWith("gpt")) return "OpenAI";
-  if (lower.startsWith("claude")) return "Anthropic";
-  if (lower.startsWith("gemini")) return "Google";
-
-  const splitToken = value.split(/[/:|]/)[0]?.trim();
-  if (splitToken) return splitToken.toUpperCase();
-  return "";
-}
-
-function isNonChatModelLabel(model: string | undefined): boolean {
-  const value = (model ?? "").trim().toLowerCase();
-  if (!value) return false;
-  if (value === "text_embedding") return true;
-  if (value === "text_large") return true;
-  if (value === "text_small") return true;
-  if (value.includes("text_embedding")) return true;
-  if (value.includes("embedding")) return true;
-  if (value.includes("text_large") || value.includes("text_small")) return true;
-  if (/^text_[a-z0-9_]+$/.test(value)) return true;
-  return false;
-}
-
-function estimateTokenCost(
-  promptTokens: number,
-  completionTokens: number,
-  model: string | undefined,
-): string {
-  const normalizedModel = (model ?? "").toLowerCase();
-  const pricingByMillion: Record<string, [number, number]> = {
-    "gpt-5": [1.25, 10.0],
-    "gpt-4.1": [2.0, 8.0],
-    "gpt-4o": [2.5, 10.0],
-    "gpt-4": [30.0, 60.0],
-    "claude-4": [15.0, 75.0],
-    "claude-3.7": [3.0, 15.0],
-    "claude-3.5": [3.0, 15.0],
-    "gemini-2.5-pro": [1.25, 10.0],
-    "gemini-2.0-flash": [0.1, 0.4],
-    deepseek: [0.55, 2.19],
-    qwen: [0.35, 1.4],
-    kimi: [0.2, 0.8],
-    moonshot: [0.2, 0.8],
-  };
-
-  let inputCostPerMillion = 1.0;
-  let outputCostPerMillion = 3.0;
-  for (const [key, [inCost, outCost]] of Object.entries(pricingByMillion)) {
-    if (normalizedModel.includes(key)) {
-      inputCostPerMillion = inCost;
-      outputCostPerMillion = outCost;
-      break;
-    }
-  }
-
-  const estimated =
-    (promptTokens / 1_000_000) * inputCostPerMillion +
-    (completionTokens / 1_000_000) * outputCostPerMillion;
-  if (estimated <= 0) return "$0.0000";
-  if (estimated < 0.0001) return "<$0.0001";
-  if (estimated < 0.01) return `~$${estimated.toFixed(4)}`;
-  return `~$${estimated.toFixed(3)}`;
 }
 
 export function ConversationsSidebar({
@@ -232,7 +105,6 @@ export function ConversationsSidebar({
   };
 
   const isGameModal = variant === "game-modal";
-  const statusModelLabel = (agentStatus?.model ?? "").trim();
 
   // Self-status polling for game-modal variant
   useEffect(() => {
@@ -275,118 +147,6 @@ export function ConversationsSidebar({
       window.removeEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
     };
   }, [isGameModal]);
-
-  const selfModelLabel = (selfStatus?.model ?? "").trim();
-  const observedModelLabelRaw = (chatLastUsage?.model ?? "").trim();
-  const observedModelLabel = isNonChatModelLabel(observedModelLabelRaw)
-    ? ""
-    : observedModelLabelRaw;
-  const configuredModelRaw = (selfModelLabel || statusModelLabel).trim();
-  const configuredModelLabel = isNonChatModelLabel(configuredModelRaw)
-    ? ""
-    : configuredModelRaw;
-  const modelLabel = (observedModelLabel || configuredModelLabel).trim();
-  const modelProviderLabel = resolveProviderLabel(modelLabel);
-  const providerLabel = modelProviderLabel
-    ? modelProviderLabel
-    : selfStatusLoading
-      ? t("chat.modal.providerDetecting")
-      : "N/A";
-  const capabilityRows = useMemo(() => {
-    const activePlugins = new Set(selfStatus?.plugins?.active ?? []);
-    const hasBrowserPlugin = Array.from(BROWSER_CAPABILITY_PLUGIN_IDS).some(
-      (id) => activePlugins.has(id),
-    );
-    const hasComputerPlugin = Array.from(COMPUTER_CAPABILITY_PLUGIN_IDS).some(
-      (id) => activePlugins.has(id),
-    );
-
-    const tradeEnabled = Boolean(selfStatus?.capabilities?.canTrade);
-    const autoTradeEnabled = Boolean(selfStatus?.capabilities?.canAutoTrade);
-    const browserEnabled = Boolean(selfStatus?.capabilities?.canUseBrowser);
-    const computerEnabled = Boolean(selfStatus?.capabilities?.canUseComputer);
-    const terminalEnabled = Boolean(selfStatus?.capabilities?.canRunTerminal);
-
-    const tradeHint = tradeEnabled
-      ? null
-      : t("chat.modal.capHintNeedsEvmWallet");
-    const autoTradeHint = autoTradeEnabled
-      ? null
-      : !selfStatus?.wallet?.hasEvm
-        ? t("chat.modal.capHintNeedsEvmWallet")
-        : selfStatus.tradePermissionMode !== "agent-auto"
-          ? t("chat.modal.capHintNeedsAgentTradeMode")
-          : !selfStatus.wallet.localSignerAvailable
-            ? t("chat.modal.capHintNeedsLocalSigner")
-            : null;
-    const browserHint = browserEnabled
-      ? null
-      : !hasBrowserPlugin
-        ? t("chat.modal.capHintNeedsBrowserPlugin")
-        : null;
-    const computerHint = computerEnabled
-      ? null
-      : !hasComputerPlugin
-        ? t("chat.modal.capHintNeedsComputerPlugin")
-        : null;
-    const terminalHint = terminalEnabled
-      ? null
-      : selfStatus?.automationMode !== "full"
-        ? t("chat.modal.capHintNeedsFullAutomation")
-        : selfStatus?.shellEnabled === false
-          ? t("chat.modal.capHintEnableShell")
-          : null;
-
-    return [
-      {
-        key: "trade",
-        label: t("chat.modal.capTrade"),
-        enabled: tradeEnabled,
-        hint: tradeHint,
-      },
-      {
-        key: "autoTrade",
-        label: t("chat.modal.capAutoTrade"),
-        enabled: autoTradeEnabled,
-        hint: autoTradeHint,
-      },
-      {
-        key: "browser",
-        label: t("chat.modal.capBrowser"),
-        enabled: browserEnabled,
-        hint: browserHint,
-      },
-      {
-        key: "computer",
-        label: t("chat.modal.capComputer"),
-        enabled: computerEnabled,
-        hint: computerHint,
-      },
-      {
-        key: "terminal",
-        label: t("chat.modal.capTerminal"),
-        enabled: terminalEnabled,
-        hint: terminalHint,
-      },
-    ] as const;
-  }, [selfStatus, t]);
-  const walletLabel =
-    selfStatus?.wallet?.evmAddressShort ||
-    selfStatus?.wallet?.solanaAddressShort ||
-    t("chat.modal.walletUnknown");
-  const usageTotalLabel = chatLastUsage
-    ? chatLastUsage.totalTokens.toLocaleString()
-    : t("chat.modal.usageAwaiting");
-  const usageBreakdownLabel = chatLastUsage
-    ? `${chatLastUsage.promptTokens.toLocaleString()}\u2191 / ${chatLastUsage.completionTokens.toLocaleString()}\u2193`
-    : "\u2014";
-  const usageCostLabel = chatLastUsage
-    ? estimateTokenCost(
-        chatLastUsage.promptTokens,
-        chatLastUsage.completionTokens,
-        observedModelLabel || modelLabel,
-      )
-    : "\u2014";
 
   return (
     <aside
@@ -452,253 +212,46 @@ export function ConversationsSidebar({
             {t("conversations.none")}
           </div>
         ) : (
-          sortedConversations.map((conv) => {
-            const isActive = conv.id === activeConversationId;
-            const isEditing = editingId === conv.id;
-            const avatarSrc = getVrmPreviewUrl(
-              avatarIndexFromConversationId(conv.id),
-            );
-            const fallbackInitial =
-              conv.title.trim().charAt(0).toUpperCase() || "#";
-
-            return (
-              <div
-                key={conv.id}
-                data-testid="conv-item"
-                data-active={isActive || undefined}
-                className={`${
-                  isGameModal
-                    ? "chat-game-conv-item"
-                    : "flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px]"
-                } ${
-                  isActive
-                    ? isGameModal
-                      ? "is-active"
-                      : "bg-bg-hover border-l-accent"
-                    : isGameModal
-                      ? ""
-                      : "border-l-transparent hover:bg-bg-hover"
-                } group`}
-              >
-                {isEditing ? (
-                  <input
-                    ref={inputRef}
-                    className="w-full px-1.5 py-1 border border-accent rounded bg-card text-txt text-[13px] outline-none"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={() => void handleEditSubmit(conv.id)}
-                    onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={
-                        isGameModal
-                          ? "chat-game-conv-select-btn"
-                          : "flex items-center gap-2 flex-1 min-w-0 bg-transparent border-0 p-0 m-0 text-left cursor-pointer"
-                      }
-                      onClick={() => {
-                        setConfirmDeleteId(null);
-                        void handleSelectConversation(conv.id);
-                        onClose?.();
-                      }}
-                      onDoubleClick={() => handleDoubleClick(conv)}
-                    >
-                      {unreadConversations.has(conv.id) && (
-                        <span
-                          className={
-                            isGameModal
-                              ? "chat-game-conv-unread"
-                              : "w-2 h-2 rounded-full bg-accent shrink-0"
-                          }
-                        />
-                      )}
-                      {isGameModal && (
-                        <div className="chat-game-conv-avatar">
-                          <img
-                            src={avatarSrc}
-                            alt={conv.title}
-                            className="chat-game-conv-avatar-img"
-                          />
-                          <span className="chat-game-conv-avatar-initial">
-                            {fallbackInitial}
-                          </span>
-                        </div>
-                      )}
-                      <div
-                        className={
-                          isGameModal ? "chat-game-conv-body" : "flex-1 min-w-0"
-                        }
-                      >
-                        <div
-                          className={
-                            isGameModal
-                              ? "chat-game-conv-title"
-                              : "font-medium truncate text-txt"
-                          }
-                        >
-                          {conv.title}
-                        </div>
-                        <div
-                          className={
-                            isGameModal
-                              ? "chat-game-conv-time"
-                              : "text-[11px] text-muted mt-0.5"
-                          }
-                        >
-                          {formatRelativeTime(conv.updatedAt, t)}
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Rename button (game-modal always visible, default on hover) */}
-                    <button
-                      type="button"
-                      className={
-                        isGameModal
-                          ? "chat-game-conv-action"
-                          : "opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDoubleClick(conv);
-                      }}
-                      title={t("conversations.rename")}
-                    >
-                      &#x270E;
-                    </button>
-
-                    {/* Delete with confirm (default variant) or direct delete (game-modal) */}
-                    {isGameModal ? (
-                      <button
-                        type="button"
-                        data-testid="conv-delete"
-                        className="chat-game-conv-action chat-game-conv-action-danger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDeleteConversation(conv.id);
-                        }}
-                        title={t("conversations.delete")}
-                      >
-                        &times;
-                      </button>
-                    ) : confirmDeleteId === conv.id ? (
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="text-[10px] text-danger">
-                          {t("conversations.deleteConfirm")}
-                        </span>
-                        <button
-                          type="button"
-                          className="px-1.5 py-0.5 text-[10px] border border-danger bg-danger text-white cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => void handleConfirmDelete(conv.id)}
-                          disabled={deletingId === conv.id}
-                        >
-                          {deletingId === conv.id
-                            ? "..."
-                            : t("conversations.deleteYes")}
-                        </button>
-                        <button
-                          type="button"
-                          className="px-1.5 py-0.5 text-[10px] border border-border bg-card text-muted cursor-pointer hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => setConfirmDeleteId(null)}
-                          disabled={deletingId === conv.id}
-                        >
-                          {t("conversations.deleteNo")}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        data-testid="conv-delete"
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmDeleteId(conv.id);
-                        }}
-                        title={t("conversations.delete")}
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })
+          sortedConversations.map((conv) => (
+            <ConversationListItem
+              key={conv.id}
+              conv={conv}
+              isActive={conv.id === activeConversationId}
+              isEditing={editingId === conv.id}
+              isUnread={unreadConversations.has(conv.id)}
+              isGameModal={isGameModal}
+              editingTitle={editingTitle}
+              confirmDeleteId={confirmDeleteId}
+              deletingId={deletingId}
+              inputRef={inputRef}
+              t={t}
+              onSelect={(id) => {
+                setConfirmDeleteId(null);
+                void handleSelectConversation(id);
+                onClose?.();
+              }}
+              onDoubleClick={handleDoubleClick}
+              onEditingTitleChange={setEditingTitle}
+              onEditSubmit={(id) => void handleEditSubmit(id)}
+              onEditKeyDown={handleEditKeyDown}
+              onDelete={(id) => void handleDeleteConversation(id)}
+              onConfirmDelete={(id) => void handleConfirmDelete(id)}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              onSetConfirmDelete={setConfirmDeleteId}
+            />
+          ))
         )}
       </div>
 
       {/* Game-modal footer: AI provider, capabilities, token usage */}
       {isGameModal && (
-        <div
-          className="chat-game-sidebar-footer"
-          data-testid="chat-game-provider"
-        >
-          <div className="chat-game-sidebar-footer-label">
-            {t("chat.modal.aiProvider")}
-          </div>
-          <div className="chat-game-sidebar-footer-value">{providerLabel}</div>
-          <div
-            className="chat-game-sidebar-footer-model"
-            title={modelLabel || undefined}
-          >
-            {modelLabel || t("chat.modal.providerUnknown")}
-          </div>
-          <div className="chat-game-sidebar-capabilities">
-            <div className="chat-game-sidebar-footer-label">
-              {t("chat.modal.capabilities")}
-            </div>
-            <div className="chat-game-sidebar-cap-grid">
-              {capabilityRows.map((row) => (
-                <div className="chat-game-sidebar-cap-row" key={row.key}>
-                  <div className="chat-game-sidebar-cap-main">
-                    <span className="chat-game-sidebar-cap-name">
-                      {row.label}
-                    </span>
-                    {row.hint && (
-                      <span className="chat-game-sidebar-cap-hint">
-                        {row.hint}
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`chat-game-sidebar-cap-pill ${row.enabled ? "is-on" : "is-off"}`}
-                  >
-                    {row.enabled
-                      ? t("chat.modal.capEnabled")
-                      : t("chat.modal.capDisabled")}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {selfStatus && (
-              <div className="chat-game-sidebar-cap-meta">
-                <span>
-                  {t("chat.modal.tradeMode")}: {selfStatus.tradePermissionMode}
-                </span>
-                <span>
-                  {t("chat.modal.wallet")}: {walletLabel}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="chat-game-sidebar-usage">
-            <div className="chat-game-sidebar-footer-label">
-              {t("chat.modal.tokenUsage")}
-            </div>
-            <div className="chat-game-sidebar-usage-total">
-              {usageTotalLabel}
-            </div>
-            <div className="chat-game-sidebar-usage-breakdown">
-              {usageBreakdownLabel}
-            </div>
-            <div className="chat-game-sidebar-usage-cost">
-              {t("chat.modal.estimatedCost")}: {usageCostLabel}
-            </div>
-          </div>
-        </div>
+        <GameModalFooter
+          selfStatus={selfStatus}
+          selfStatusLoading={selfStatusLoading}
+          agentStatusModel={agentStatus?.model}
+          chatLastUsage={chatLastUsage}
+          t={t}
+        />
       )}
     </aside>
   );
