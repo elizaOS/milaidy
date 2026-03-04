@@ -11380,11 +11380,11 @@ export class MilaidyApp extends LitElement {
 
     const desiredOrder = [
       "elizacloud",
+      "anthropic",
       "anthropic-subscription",
+      "openai",
       "openai-subscription",
       "pi-ai",
-      "anthropic",
-      "openai",
       "openrouter",
       "google-genai",
       "xai",
