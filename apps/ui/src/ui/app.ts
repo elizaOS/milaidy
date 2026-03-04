@@ -15,6 +15,7 @@ import {
   type AgentStatus,
   type ChatMessage,
   type PluginInfo,
+  type PluginParamDef,
   type SkillInfo,
   type LogEntry,
   type OnboardingOptions,
@@ -134,6 +135,18 @@ const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> = 
     name: "Eliza Cloud",
     description: "Managed cloud models and services.",
   },
+  "anthropic-subscription": {
+    name: "Anthropic Subscription",
+    description: "Use your Claude subscription via OAuth or setup token.",
+  },
+  "openai-subscription": {
+    name: "OpenAI Subscription",
+    description: "Use your ChatGPT subscription via OAuth.",
+  },
+  "pi-ai": {
+    name: "Pi Credentials (pi-ai)",
+    description: "Use credentials from ~/.pi/agent/auth.json (API keys or OAuth).",
+  },
   anthropic: { name: "Anthropic", description: "Claude models." },
   openai: { name: "OpenAI", description: "GPT models." },
   openrouter: {
@@ -157,6 +170,10 @@ const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> = 
   ollama: {
     name: "Ollama (local)",
     description: "Local models, no API key needed. Requires Ollama running on this device.",
+  },
+  zai: {
+    name: "z.ai (GLM Coding Plan)",
+    description: "GLM models via z.ai Coding Plan.",
   },
 };
 
@@ -4279,7 +4296,11 @@ export class MilaidyApp extends LitElement {
   private async loadPlugins(): Promise<void> {
     try {
       const { plugins } = await client.getPlugins();
-      this.plugins = plugins;
+      this.plugins = plugins.map((plugin) =>
+        plugin.id === "elizacloud"
+          ? { ...plugin, category: "ai-provider" }
+          : plugin,
+      );
       this.pluginsLoadedAt = Date.now();
     } catch (err) {
       console.error("Failed to load plugins:", err);
@@ -5493,10 +5514,10 @@ export class MilaidyApp extends LitElement {
     return last?.at ?? null;
   }
 
-  private pluginStatusLabel(plugin: PluginInfo): "Loaded" | "Missing keys" | "Error" {
+  private pluginStatusLabel(plugin: PluginInfo): "Loaded" | "Missing keys" | "Disabled" {
     if (plugin.validationErrors.length > 0) return "Missing keys";
     if (plugin.enabled) return "Loaded";
-    return "Error";
+    return "Disabled";
   }
 
   private setPluginExecution(pluginId: string, enabled: boolean): void {
@@ -6387,7 +6408,8 @@ export class MilaidyApp extends LitElement {
   }
 
   private onboardingProviderCatalog(): ProviderOption[] {
-    return this.normalizeOnboardingOptions(this.defaultOnboardingOptions()).providers;
+    const source = this.onboardingOptions ?? this.defaultOnboardingOptions();
+    return this.normalizeOnboardingOptions(source).providers;
   }
 
   // --- Render ---
@@ -6699,7 +6721,10 @@ export class MilaidyApp extends LitElement {
   private renderContextRail() {
     const state = this.agentStatus?.state ?? "not_started";
     const stateLabel = this.formatAgentStateLabel(state);
-    const enabledPlugins = this.plugins.filter((p) => p.enabled).length;
+    const aiModuleCount = this.aiPluginCatalog().filter((plugin) =>
+      !this.isHiddenSystemPlugin(plugin.id)
+      && (this.isAiProviderPlugin(plugin) || plugin.category === "database"),
+    ).length;
     const activeProvider = this.getActiveAiProvider();
     const providerForChat = this.getPreferredAiProviderForChat();
     const configuredProvider = this.plugins.find((p) => this.isChatProviderReady(p)) ?? null;
@@ -6760,7 +6785,7 @@ export class MilaidyApp extends LitElement {
           <div class="rail-strong">Runtime · ${stateLabel}</div>
           <div class="status-badge-grid">
             <div class="status-badge ${providerReady ? "ok" : "warn"}">Model Provider<b>${providerReady ? "Ready" : "Not Ready"}</b></div>
-            <div class="status-badge ${enabledPlugins > 0 ? "ok" : "warn"}">Tools Loaded<b>${enabledPlugins}</b></div>
+            <div class="status-badge ${aiModuleCount > 0 ? "ok" : "warn"}">Tools Loaded<b>${aiModuleCount}</b></div>
             <div class="status-badge ${polymarketEnabled ? "ok" : "warn"}">Polymarket<b>${polymarketEnabled ? "Enabled" : "Disabled"}</b></div>
             <div class="status-badge ${solanaSigning ? "ok" : "warn"}">Solana Signing<b>${solanaSigning ? "Enabled" : "Disabled"}</b></div>
             <div class="status-badge ${spendExecClass}">Bet Execution<b>${spendExecLabel}</b></div>
@@ -6975,15 +7000,137 @@ export class MilaidyApp extends LitElement {
   private getSelectedAiProvider(): PluginInfo | null {
     const chosenProviderId = (this.onboardingProvider ?? "").trim();
     if (!chosenProviderId) return null;
-    return this.plugins.find((p) => p.id === chosenProviderId) ?? null;
+    const canonicalChosen = canonicalProviderId(chosenProviderId);
+    return this.plugins.find((p) => canonicalProviderId(p.id) === canonicalChosen) ?? null;
+  }
+
+  private aiProviderIdSet(): Set<string> {
+    return new Set(
+      this.onboardingProviderCatalog().map((provider) => canonicalProviderId(provider.id)),
+    );
+  }
+
+  private isAiProviderPlugin(plugin: PluginInfo): boolean {
+    if (plugin.category === "ai-provider") return true;
+    return this.aiProviderIdSet().has(canonicalProviderId(plugin.id));
   }
 
   private getActiveAiProvider(): PluginInfo | null {
-    return this.plugins.find((p) => p.category === "ai-provider" && p.enabled) ?? null;
+    return this.plugins.find((p) => this.isAiProviderPlugin(p) && p.enabled) ?? null;
   }
 
   private getPreferredAiProviderForChat(): PluginInfo | null {
     return this.getActiveAiProvider() ?? this.getSelectedAiProvider();
+  }
+
+  private isAnthropicSubscriptionProvider(plugin: PluginInfo): boolean {
+    return canonicalProviderId(plugin.id) === "anthropic-subscription";
+  }
+
+  private isOpenAiSubscriptionProvider(plugin: PluginInfo): boolean {
+    return canonicalProviderId(plugin.id) === "openai-subscription";
+  }
+
+  private isSubscriptionProvider(plugin: PluginInfo): boolean {
+    return this.isAnthropicSubscriptionProvider(plugin) || this.isOpenAiSubscriptionProvider(plugin);
+  }
+
+  private async startSubscriptionAuth(plugin: PluginInfo): Promise<void> {
+    try {
+      if (this.isAnthropicSubscriptionProvider(plugin)) {
+        const { authUrl } = await client.startAnthropicSubscription();
+        this.openExternalUrl(authUrl);
+        this.showUiNotice("Anthropic login opened. Complete login, then click Finish login.");
+        return;
+      }
+      if (this.isOpenAiSubscriptionProvider(plugin)) {
+        const { authUrl } = await client.startOpenAiSubscription();
+        this.openExternalUrl(authUrl);
+        this.showUiNotice("OpenAI login opened. Complete login, then click Finish login.");
+      }
+    } catch (err) {
+      this.showUiNotice(`Could not start subscription login: ${err instanceof Error ? err.message : "network error"}`);
+    }
+  }
+
+  private async finishSubscriptionAuth(plugin: PluginInfo): Promise<void> {
+    try {
+      if (this.isAnthropicSubscriptionProvider(plugin)) {
+        const code = window.prompt("Paste Anthropic auth code");
+        if (!code?.trim()) return;
+        await client.exchangeAnthropicSubscription(code.trim());
+      } else if (this.isOpenAiSubscriptionProvider(plugin)) {
+        try {
+          await client.exchangeOpenAiSubscription({ waitForCallback: true });
+        } catch {
+          const code = window.prompt("Paste OpenAI redirect URL or code");
+          if (!code?.trim()) return;
+          await client.exchangeOpenAiSubscription({ code: code.trim() });
+        }
+      } else {
+        return;
+      }
+      await this.loadPlugins();
+      this.showUiNotice(`${plugin.name} login completed.`);
+    } catch (err) {
+      this.showUiNotice(`Could not finish subscription login: ${err instanceof Error ? err.message : "network error"}`);
+    }
+  }
+
+  private async saveAnthropicSetupTokenFromPrompt(plugin: PluginInfo): Promise<void> {
+    if (!this.isAnthropicSubscriptionProvider(plugin)) return;
+    const token = window.prompt("Paste Anthropic setup token (sk-ant-...)");
+    if (!token?.trim()) return;
+    try {
+      await client.saveAnthropicSetupToken(token.trim());
+      await this.loadPlugins();
+      this.showUiNotice("Anthropic setup token saved.");
+    } catch (err) {
+      this.showUiNotice(`Could not save setup token: ${err instanceof Error ? err.message : "network error"}`);
+    }
+  }
+
+  private virtualAiProviderPlugin(provider: ProviderOption): PluginInfo {
+    const providerId = canonicalProviderId(provider.id);
+    const hasEnvKey = Boolean(provider.envKey);
+    const parameters: PluginParamDef[] = hasEnvKey
+      ? [{
+          key: provider.envKey as string,
+          type: "string",
+          description: `${provider.name} API key`,
+          required: true,
+          sensitive: true,
+          currentValue: null,
+          isSet: false,
+        }]
+      : [];
+    return {
+      id: providerId,
+      name: provider.name,
+      description: provider.description,
+      enabled: false,
+      configured: false,
+      envKey: provider.envKey,
+      category: "ai-provider",
+      parameters,
+      validationErrors: hasEnvKey
+        ? [{ field: provider.envKey as string, message: `${provider.envKey} is required but not set` }]
+        : [],
+      validationWarnings: [],
+    };
+  }
+
+  private aiPluginCatalog(): PluginInfo[] {
+    const byCanonical = new Map<string, PluginInfo>();
+    for (const plugin of this.plugins) {
+      byCanonical.set(canonicalProviderId(plugin.id), plugin);
+    }
+    for (const provider of this.onboardingProviderCatalog()) {
+      const canonical = canonicalProviderId(provider.id);
+      if (byCanonical.has(canonical)) continue;
+      byCanonical.set(canonical, this.virtualAiProviderPlugin(provider));
+    }
+    return [...byCanonical.values()];
   }
 
   private formatResponseModeLabel(mode: string): string {
@@ -7358,18 +7505,19 @@ export class MilaidyApp extends LitElement {
     const accountPlugins = this.plugins.filter((p) =>
       this.isAccountConnectionPlugin(p) && !this.isAppIntegrationPlugin(p),
     );
-    const aiSetupPluginsAll = this.plugins.filter((p) =>
+    const sourcePlugins = viewMode === "ai" ? this.aiPluginCatalog() : this.plugins;
+    const aiSetupPluginsAll = sourcePlugins.filter((p) =>
       !this.isHiddenSystemPlugin(p.id) &&
-      (p.category === "ai-provider" || p.category === "database" || p.category === "connector" || p.category === "feature"),
+      (this.isAiProviderPlugin(p) || p.category === "database" || p.category === "connector" || p.category === "feature"),
     );
-    const aiCorePlugins = aiSetupPluginsAll.filter((p) => p.category === "ai-provider" || p.category === "database");
+    const aiCorePlugins = aiSetupPluginsAll.filter((p) => this.isAiProviderPlugin(p) || p.category === "database");
     const availableConnections = viewMode === "accounts" ? accountPlugins : aiCorePlugins;
     const searchLower = this.pluginSearch.toLowerCase();
     const baseFiltered = availableConnections.filter((p) => {
       const matchesCategory = viewMode === "ai"
         ? (
-          (activeFilter === "all" && (p.category === "ai-provider" || p.category === "database"))
-          || p.category === activeFilter
+          (activeFilter === "all" && (this.isAiProviderPlugin(p) || p.category === "database"))
+          || (activeFilter === "ai-provider" ? this.isAiProviderPlugin(p) : p.category === activeFilter)
         )
         : (activeFilter === "all" || p.category === activeFilter);
       const matchesSearch = !searchLower
@@ -7380,7 +7528,7 @@ export class MilaidyApp extends LitElement {
     });
     const focusedIds = new Set<string>([
       ...CURATED_APPS.map((a) => a.id),
-      ...baseFiltered.filter((p) => p.category === "ai-provider" || p.id === "wallet").map((p) => p.id),
+      ...baseFiltered.filter((p) => this.isAiProviderPlugin(p) || p.id === "wallet").map((p) => p.id),
       ...baseFiltered.filter((p) => p.enabled || this.isPluginEffectivelyConfigured(p) || p.validationErrors.length > 0).map((p) => p.id),
     ]);
     const accountPrimaryIds = new Set<string>([
@@ -7404,7 +7552,7 @@ export class MilaidyApp extends LitElement {
     const selectedProviderHint = (this.onboardingProvider ?? "").trim().toLowerCase();
     const runtimeMatchedAiProvider = viewMode === "ai"
       ? filtered.find((p) => {
-        if (p.category !== "ai-provider") return false;
+        if (!this.isAiProviderPlugin(p)) return false;
         if (!p.enabled) return false;
         const id = p.id.toLowerCase();
         const name = p.name.toLowerCase();
@@ -7416,35 +7564,58 @@ export class MilaidyApp extends LitElement {
       : null;
     const selectedEnabledAiProvider = viewMode === "ai"
       ? filtered.find((p) =>
-        p.category === "ai-provider"
+        this.isAiProviderPlugin(p)
         && p.enabled
         && selectedProviderHint
-        && p.id.toLowerCase() === selectedProviderHint,
+        && canonicalProviderId(p.id) === canonicalProviderId(selectedProviderHint),
       ) ?? null
       : null;
     const activeAiProvider = viewMode === "ai"
       ? runtimeMatchedAiProvider
         ?? selectedEnabledAiProvider
-        ?? filtered.find((p) => p.category === "ai-provider" && p.enabled) ?? null
+        ?? filtered.find((p) => this.isAiProviderPlugin(p) && p.enabled) ?? null
       : null;
     const orderedFiltered = (viewMode === "ai" || activeFilter === "all")
       ? [...filtered].sort((a, b) => {
           if (viewMode === "ai") {
             const activeId = activeAiProvider?.id ?? null;
+            const providerOrder = new Map<string, number>([
+              ["elizacloud", 0],
+              ["anthropic", 1],
+              ["anthropic-subscription", 2],
+              ["openai", 3],
+              ["openai-subscription", 4],
+              ["vercel-ai-gateway", 5],
+              ["local-ai", 6],
+              ["openrouter", 7],
+              ["google-genai", 8],
+              ["xai", 9],
+              ["groq", 10],
+              ["deepseek", 11],
+              ["mistral", 12],
+              ["together", 13],
+              ["zai", 14],
+              ["ollama", 15],
+              ["pi-ai", 16],
+            ]);
             const rank = (p: PluginInfo): number => {
               if (activeId) {
                 if (p.id === activeId) return 0;
                 if (p.id === "elizacloud") return 1;
-                if (p.category === "ai-provider") return 2;
+                if (this.isAiProviderPlugin(p)) return 2;
                 return 3;
               }
               if (p.id === "elizacloud") return 0;
-              if (p.category === "ai-provider") return 1;
+              if (this.isAiProviderPlugin(p)) return 1;
               return 2;
             };
             const ar = rank(a);
             const br = rank(b);
             if (ar !== br) return ar - br;
+
+            const ao = providerOrder.get(canonicalProviderId(a.id));
+            const bo = providerOrder.get(canonicalProviderId(b.id));
+            if (ao != null && bo != null && ao !== bo) return ao - bo;
           }
 
           if (viewMode === "ai" && activeAiProvider) {
@@ -7481,15 +7652,15 @@ export class MilaidyApp extends LitElement {
     const metricScope = viewMode === "ai" ? aiCorePlugins : availableConnections;
     const enabledCount = metricScope.filter((p) => p.enabled).length;
     const hasReadyAiProvider = viewMode === "ai" && metricScope.some(
-      (p) => p.category === "ai-provider" && p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0,
+      (p) => this.isAiProviderPlugin(p) && p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0,
     );
     const configuredCount = metricScope.filter((p) => {
-      if (viewMode === "ai" && hasReadyAiProvider && p.category === "ai-provider") return true;
+      if (viewMode === "ai" && hasReadyAiProvider && this.isAiProviderPlugin(p)) return true;
       return this.isPluginEffectivelyConfigured(p);
     }).length;
     const needsSetupCount = metricScope.filter(
       (p) => {
-        if (hasReadyAiProvider && p.category === "ai-provider") return false;
+        if (hasReadyAiProvider && this.isAiProviderPlugin(p)) return false;
         return p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p);
       },
     ).length;
@@ -7501,7 +7672,7 @@ export class MilaidyApp extends LitElement {
         ? metricScope.find((p) => p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p))
         : metricScope.find(
           (p) =>
-            p.category === "ai-provider" &&
+            this.isAiProviderPlugin(p) &&
             p.enabled &&
             (p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p)),
         )) ??
@@ -7628,7 +7799,7 @@ export class MilaidyApp extends LitElement {
                         @click=${() => { this.pluginFilter = cat; }}
                       >${cat === "all"
                         ? `All (${aiCorePlugins.length})`
-                        : `${categoryLabels[cat]} (${availableConnections.filter((p) => p.category === cat).length})`}</button>
+                        : `${categoryLabels[cat]} (${availableConnections.filter((p) => cat === "ai-provider" ? this.isAiProviderPlugin(p) : p.category === cat).length})`}</button>
                     `,
                   )}
                 </div>
@@ -7673,11 +7844,12 @@ export class MilaidyApp extends LitElement {
                 const requiredKeys = p.parameters.filter((param) => param.required).map((param) => param.key);
                 const hasManageSurface =
                   hasParams ||
+                  this.isSubscriptionProvider(p) ||
                   risk === "CAN_SPEND" ||
                   (p.validationErrors?.length ?? 0) > 0 ||
                   (p.validationWarnings?.length ?? 0) > 0;
                 const categoryLabel =
-                  p.category === "ai-provider" ? "Model"
+                  this.isAiProviderPlugin(p) ? "Model"
                     : p.category === "database" ? "Memory"
                       : "Runtime";
 
@@ -7761,7 +7933,7 @@ export class MilaidyApp extends LitElement {
                       </div>
                     </div>
 
-                    ${hasParams
+                    ${hasParams || this.isSubscriptionProvider(p)
                       ? html`
                           ${p.id === "elizacloud" && !this.hasValidElizaCloudApiKeyConfigured(p)
                             ? html`
@@ -7791,9 +7963,11 @@ export class MilaidyApp extends LitElement {
                             @click=${() => toggleSettings(p.id)}
                           >
                             <span class="settings-chevron ${settingsOpen ? "open" : ""}">&#9654;</span>
-                            <span class="plugin-settings-dot ${allParamsSet ? "all-set" : "missing"}"></span>
+                            <span class="plugin-settings-dot ${(hasParams ? allParamsSet : p.enabled) ? "all-set" : "missing"}"></span>
                             <span>Settings</span>
-                            <span style="color:var(--muted);font-weight:400;">(${setCount}/${totalCount} configured)</span>
+                            <span style="color:var(--muted);font-weight:400;">
+                              ${hasParams ? `(${setCount}/${totalCount} configured)` : "(subscription auth)"}
+                            </span>
                           </div>
 
                           ${settingsOpen
@@ -7806,49 +7980,64 @@ export class MilaidyApp extends LitElement {
                                         </div>
                                       `
                                     : ""}
-                                  ${p.parameters.map(
-                                    (param) => html`
-                                      <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
-                                        <div style="display:flex;align-items:center;gap:6px;">
-                                          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${param.isSet ? "#2ecc71" : (param.required ? "#e74c3c" : "var(--muted)")};flex-shrink:0;"></span>
-                                          <code style="font-size:11px;font-weight:600;color:var(--text-strong);">${param.key}</code>
-                                          ${param.required ? html`<span style="font-size:10px;color:#e74c3c;">required</span>` : ""}
-                                          ${param.isSet ? html`<span style="font-size:10px;color:#2ecc71;">set</span>` : ""}
+                                  ${this.isSubscriptionProvider(p)
+                                    ? html`
+                                        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+                                          Complete subscription OAuth using backend auth flow.
                                         </div>
-                                        <div style="color:var(--muted);font-size:11px;padding-left:12px;">${param.description}${param.default ? ` (default: ${param.default})` : ""}</div>
-                                        <div class="secret-input-row">
-                                          <input
-                                            type="${param.sensitive
-                                              ? (this.isSensitiveFieldVisible(p.id, param.key) ? "text" : "password")
-                                              : "text"}"
-                                            .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : (param.isSet ? "" : (param.default ?? ""))}
-                                            placeholder="${param.sensitive && param.isSet ? "********  (already set, leave blank to keep)" : "Enter value..."}"
-                                            data-plugin-param="${p.id}:${param.key}"
-                                            data-plugin-dirty="0"
-                                            @input=${(e: Event) => {
-                                              (e.target as HTMLInputElement).setAttribute("data-plugin-dirty", "1");
-                                            }}
-                                          />
-                                          ${param.sensitive
-                                            ? html`
-                                                <button
-                                                  class="secret-toggle-btn"
-                                                  type="button"
-                                                  @click=${() => this.toggleSensitiveFieldVisibility(p.id, param.key)}
-                                                  title=${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide value" : "Show value"}
-                                                  aria-label=${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide value" : "Show value"}
-                                                >${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide" : "Show"}</button>
-                                              `
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                          <button class="btn plugin-pill-btn" @click=${() => void this.startSubscriptionAuth(p)}>Start login</button>
+                                          <button class="plugin-secondary-btn" @click=${() => void this.finishSubscriptionAuth(p)}>Finish login</button>
+                                          ${this.isAnthropicSubscriptionProvider(p)
+                                            ? html`<button class="plugin-secondary-btn" @click=${() => void this.saveAnthropicSetupTokenFromPrompt(p)}>Save setup token</button>`
                                             : ""}
                                         </div>
-                                      </div>
-                                    `,
-                                  )}
-                                  <button
-                                    class="btn"
-                                    style="align-self:flex-end;font-size:11px;padding:4px 14px;margin-top:4px;"
-                                    @click=${() => this.handlePluginConfigSave(p.id)}
-                                  >Save Settings</button>
+                                      `
+                                    : html`
+                                        ${p.parameters.map(
+                                          (param) => html`
+                                            <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
+                                              <div style="display:flex;align-items:center;gap:6px;">
+                                                <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${param.isSet ? "#2ecc71" : (param.required ? "#e74c3c" : "var(--muted)")};flex-shrink:0;"></span>
+                                                <code style="font-size:11px;font-weight:600;color:var(--text-strong);">${param.key}</code>
+                                                ${param.required ? html`<span style="font-size:10px;color:#e74c3c;">required</span>` : ""}
+                                                ${param.isSet ? html`<span style="font-size:10px;color:#2ecc71;">set</span>` : ""}
+                                              </div>
+                                              <div style="color:var(--muted);font-size:11px;padding-left:12px;">${param.description}${param.default ? ` (default: ${param.default})` : ""}</div>
+                                              <div class="secret-input-row">
+                                                <input
+                                                  type="${param.sensitive
+                                                    ? (this.isSensitiveFieldVisible(p.id, param.key) ? "text" : "password")
+                                                    : "text"}"
+                                                  .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : (param.isSet ? "" : (param.default ?? ""))}
+                                                  placeholder="${param.sensitive && param.isSet ? "********  (already set, leave blank to keep)" : "Enter value..."}"
+                                                  data-plugin-param="${p.id}:${param.key}"
+                                                  data-plugin-dirty="0"
+                                                  @input=${(e: Event) => {
+                                                    (e.target as HTMLInputElement).setAttribute("data-plugin-dirty", "1");
+                                                  }}
+                                                />
+                                                ${param.sensitive
+                                                  ? html`
+                                                      <button
+                                                        class="secret-toggle-btn"
+                                                        type="button"
+                                                        @click=${() => this.toggleSensitiveFieldVisibility(p.id, param.key)}
+                                                        title=${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide value" : "Show value"}
+                                                        aria-label=${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide value" : "Show value"}
+                                                      >${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide" : "Show"}</button>
+                                                    `
+                                                  : ""}
+                                              </div>
+                                            </div>
+                                          `,
+                                        )}
+                                        <button
+                                          class="btn"
+                                          style="align-self:flex-end;font-size:11px;padding:4px 14px;margin-top:4px;"
+                                          @click=${() => this.handlePluginConfigSave(p.id)}
+                                        >Save Settings</button>
+                                      `}
                                 </div>
                               `
                             : ""
@@ -7924,7 +8113,7 @@ export class MilaidyApp extends LitElement {
   }
 
   private isChatProviderReady(plugin: PluginInfo): boolean {
-    if (plugin.category !== "ai-provider") return false;
+    if (!this.isAiProviderPlugin(plugin)) return false;
     if (!plugin.enabled) return false;
     if (plugin.validationErrors.length > 0) return false;
 
@@ -7987,8 +8176,36 @@ export class MilaidyApp extends LitElement {
 
   private isAppIntegrationPlugin(plugin: PluginInfo): boolean {
     if (CURATED_APP_ID_SET.has(plugin.id)) return true;
+    const id = plugin.id.toLowerCase();
+    const infraDenyIds = new Set([
+      "wallet",
+      "solana",
+      "evm",
+      "memory",
+      "sql",
+      "local-embedding",
+    ]);
+    if (infraDenyIds.has(id)) return false;
+    if (plugin.category === "connector") return true;
     const key = `${plugin.id} ${plugin.name}`.toLowerCase();
-    return key.includes("telegram") || key.includes("discord") || key.includes("polymarket");
+    return (
+      key.includes("telegram")
+      || key.includes("discord")
+      || key.includes("slack")
+      || key.includes("signal")
+      || key.includes("whatsapp")
+      || key.includes("google chat")
+      || key.includes("googlechat")
+      || key.includes("twitter")
+      || key.includes("xai")
+      || key.includes("polymarket")
+      || key.includes("market")
+      || key.includes("exchange")
+      || key.includes("farcaster")
+      || key.includes("tiktok")
+      || key.includes("youtube")
+      || key.includes("reddit")
+    );
   }
 
   private isUserFacingConnection(plugin: PluginInfo): boolean {
@@ -8013,16 +8230,17 @@ export class MilaidyApp extends LitElement {
     for (const app of CURATED_APPS) byId.set(app.id, app);
     const pluginById = new Map(this.plugins.map((plugin) => [plugin.id, plugin] as const));
 
-    // Auto-add enabled user-facing connections as assistant-driven apps.
+    // Auto-add backend user-facing connections as assistant-driven apps.
     for (const plugin of this.plugins) {
-      if (!plugin.enabled) continue;
       if (!this.isUserFacingConnection(plugin)) continue;
+      if (!this.isAppIntegrationPlugin(plugin)) continue;
       if (byId.has(plugin.id)) continue;
+      const normalizedName = plugin.id.toLowerCase() === "twitter" ? "X" : plugin.name;
       byId.set(plugin.id, {
         id: plugin.id,
-        name: plugin.name,
-        description: plugin.description || `Use ${plugin.name} through Chat.`,
-        actionMode: "assistant",
+        name: normalizedName,
+        description: plugin.description || `Use ${normalizedName} through Chat.`,
+        actionMode: plugin.id === "polymarket" ? "polymarket-bet" : "assistant",
       });
     }
 
@@ -8191,18 +8409,30 @@ export class MilaidyApp extends LitElement {
         return;
       }
 
-      if (latest.validationErrors.length > 0) {
+      if (latest.validationErrors.length > 0 || !latest.configured) {
         const missing = latest.validationErrors.map((e) => e.field).join(", ");
-        this.appActionStatus = `Missing required settings: ${missing}`;
+        this.appActionStatus = missing
+          ? `Missing required settings: ${missing}`
+          : `Complete ${latest.name} auth/setup before connecting.`;
         return;
       }
 
       await this.handlePluginToggle(plugin.id, true);
       await this.loadPlugins();
-      const enabledNow = this.plugins.find((p) => p.id === plugin.id)?.enabled === true;
-      this.appActionStatus = enabledNow
+      const latestNow = this.plugins.find((p) => p.id === plugin.id) ?? null;
+      const enabledNow = latestNow?.enabled === true;
+      const readyNow = Boolean(
+        latestNow
+        && latestNow.enabled
+        && latestNow.configured
+        && this.isPluginEffectivelyConfigured(latestNow)
+        && latestNow.validationErrors.length === 0,
+      );
+      this.appActionStatus = readyNow
         ? `${plugin.name} connected.`
-        : `${plugin.name} could not be enabled yet.`;
+        : enabledNow
+          ? `${plugin.name} enabled. Complete auth/setup to finish connecting.`
+          : `${plugin.name} could not be enabled yet.`;
     } catch (err) {
       this.appActionStatus = `Connect failed: ${err instanceof Error ? err.message : "network error"}`;
     } finally {
@@ -8212,17 +8442,27 @@ export class MilaidyApp extends LitElement {
 
   private renderApps() {
     const curatedApps = this.getCuratedApps();
-    const coreAppIds = new Set(["polymarket", "telegram", "discord", "slack"]);
+    const coreAppIds = new Set([
+      "polymarket",
+      "telegram",
+      "discord",
+      "slack",
+      "twitter",
+      "farcaster",
+      "bluesky",
+      "google-chat",
+      "gmail-watch",
+    ]);
     const activeEntry =
       curatedApps.find((x) => x.app.id === this.activeAppPluginId) ??
       curatedApps[0] ??
       null;
     const coreVisible = curatedApps.filter(({ app }) => coreAppIds.has(app.id));
-    const extraEnabled = curatedApps
-      .filter(({ app, plugin }) => !coreAppIds.has(app.id) && Boolean(plugin?.enabled))
-      .slice(0, 6);
+    const extraVisible = curatedApps
+      .filter(({ app }) => !coreAppIds.has(app.id))
+      .slice(0, 8);
     const dedup = new Map<string, { app: AppEntry; plugin: PluginInfo | null }>();
-    for (const row of [...coreVisible, ...extraEnabled]) dedup.set(row.app.id, row);
+    for (const row of [...coreVisible, ...extraVisible]) dedup.set(row.app.id, row);
     const defaultVisible = [...dedup.values()];
     const collapsedVisible = defaultVisible.length > 0 ? defaultVisible : curatedApps.slice(0, 4);
     const isActiveHidden = activeEntry ? !collapsedVisible.some((x) => x.app.id === activeEntry.app.id) : false;
@@ -8288,8 +8528,12 @@ export class MilaidyApp extends LitElement {
                             @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
                           />
                           <div class="plugin-name">${activeApp.name}</div>
-                          <span class="plugin-state-tag ${active?.enabled ? "ok" : ""}">
-                            ${active?.enabled ? "Ready" : "Pending Setup"}
+                          <span class="plugin-state-tag ${active && active.enabled && active.configured && this.isPluginEffectivelyConfigured(active) && active.validationErrors.length === 0 ? "ok" : ""}>
+                            ${active && active.enabled && active.configured && this.isPluginEffectivelyConfigured(active) && active.validationErrors.length === 0
+                              ? "Ready"
+                              : active?.enabled
+                                ? "Enabled"
+                                : "Pending Setup"}
                           </span>
                         </div>
                         <div class="plugin-desc">${activeApp.description}</div>
@@ -8303,7 +8547,7 @@ export class MilaidyApp extends LitElement {
                               This app is not enabled in this build yet.
                             </div>
                             <div style="display:flex;justify-content:flex-end;">
-                              <button class="plugin-secondary-btn" @click=${() => this.setTab("ai-setup")}>Open AI Settings</button>
+                              <button class="plugin-secondary-btn" @click=${() => this.setTab("accounts")}>Open Account</button>
                             </div>
                           </div>
                         `
@@ -8364,7 +8608,6 @@ export class MilaidyApp extends LitElement {
                                 `
                               : ""}
                             <div style="display:flex;gap:8px;justify-content:flex-end;">
-                              <button class="plugin-secondary-btn" @click=${() => this.setTab("ai-setup")}>AI Settings</button>
                               <button
                                 class="btn plugin-pill-btn"
                                 ?disabled=${this.appActionBusy}
@@ -9131,6 +9374,24 @@ export class MilaidyApp extends LitElement {
     if (key.includes("imessage") || key.includes("bluebubbles")) return "https://www.google.com/s2/favicons?domain=bluebubbles.app&sz=64";
     if (key.includes("bluesky")) return "https://www.google.com/s2/favicons?domain=bsky.app&sz=64";
     if (key.includes("blooio")) return "https://www.google.com/s2/favicons?domain=bloo.io&sz=64";
+    if (key.includes("farcaster")) return "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=64";
+    if (key.includes("feishu")) return "https://www.google.com/s2/favicons?domain=feishu.cn&sz=64";
+    if (key.includes("github")) return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
+    if (key.includes("gmail")) return "https://www.google.com/s2/favicons?domain=gmail.com&sz=64";
+    if (key.includes("google chat") || key.includes("googlechat")) return "https://www.google.com/s2/favicons?domain=chat.google.com&sz=64";
+    if (key.includes("instagram")) return "https://www.google.com/s2/favicons?domain=instagram.com&sz=64";
+    if (key.includes("line")) return "https://www.google.com/s2/favicons?domain=line.me&sz=64";
+    if (key.includes("matrix")) return "https://www.google.com/s2/favicons?domain=matrix.org&sz=64";
+    if (key.includes("nextcloud")) return "https://www.google.com/s2/favicons?domain=nextcloud.com&sz=64";
+    if (key.includes("nostr")) return "https://www.google.com/s2/favicons?domain=nostr.com&sz=64";
+    if (key.includes("retake.tv") || key.includes("retake")) return "https://www.google.com/s2/favicons?domain=retake.tv&sz=64";
+    if (key.includes("tlon")) return "https://www.google.com/s2/favicons?domain=tlon.io&sz=64";
+    if (key.includes("twilio")) return "https://www.google.com/s2/favicons?domain=twilio.com&sz=64";
+    if (key.includes("twitch")) return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
+    if (key.includes("twitter")) return "https://www.google.com/s2/favicons?domain=x.com&sz=64";
+    if (key.includes("zalo")) return "/brands/zalo.svg";
+    if (key.includes("zalouser")) return "/brands/zalo.svg";
+    if (key.includes("iq")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (key.includes("msteams") || key.includes("teams")) return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
     if (key.includes("mattermost")) return "/brands/mattermost.svg";
     if (key.includes("auto-trader")) return "https://www.google.com/s2/favicons?domain=jup.ag&sz=64";
@@ -9138,12 +9399,17 @@ export class MilaidyApp extends LitElement {
     if (key.includes("anthropic")) return "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
     if (key.includes("google") || key.includes("gemini")) return "https://www.google.com/s2/favicons?domain=ai.google.dev&sz=64";
     if (key.includes("groq")) return "https://www.google.com/s2/favicons?domain=groq.com&sz=64";
+    if (key.includes("deepseek")) return "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
+    if (key.includes("mistral")) return "https://www.google.com/s2/favicons?domain=mistral.ai&sz=64";
+    if (key.includes("together")) return "https://www.google.com/s2/favicons?domain=together.ai&sz=64";
     if (key.includes("openrouter")) return "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
     if (key.includes("ollama")) return "https://www.google.com/s2/favicons?domain=ollama.com&sz=64";
     if (key.includes("local ai") || key.includes("local-ai") || key.includes("localai")) return "/brands/local-ai.svg";
     if (key.includes("elizacloud") || key.includes("eliza-cloud")) return "https://www.google.com/s2/favicons?domain=elizacloud.ai&sz=64";
     if (key.includes("elizaos")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (key.includes("xai")) return "https://www.google.com/s2/favicons?domain=x.ai&sz=64";
+    if (key.includes("pi-ai") || key.includes("pi ai")) return "https://www.google.com/s2/favicons?domain=pi.ai&sz=64";
+    if (key.includes("zai") || key.includes("z.ai")) return "https://www.google.com/s2/favicons?domain=z.ai&sz=64";
     if (key.includes("vercel")) return "https://www.google.com/s2/favicons?domain=vercel.com&sz=64";
     if (key.includes("sql")) return "https://www.google.com/s2/favicons?domain=sqlite.org&sz=64";
     if (key.includes("localdb")) return "/brands/localdb.svg";
@@ -10771,6 +11037,30 @@ export class MilaidyApp extends LitElement {
           description: AI_PROVIDER_COPY.elizacloud.description,
         },
         {
+          id: "anthropic-subscription",
+          name: AI_PROVIDER_COPY["anthropic-subscription"].name,
+          envKey: null,
+          pluginName: "@elizaos/plugin-anthropic",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY["anthropic-subscription"].description,
+        },
+        {
+          id: "openai-subscription",
+          name: AI_PROVIDER_COPY["openai-subscription"].name,
+          envKey: null,
+          pluginName: "@elizaos/plugin-openai",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY["openai-subscription"].description,
+        },
+        {
+          id: "pi-ai",
+          name: AI_PROVIDER_COPY["pi-ai"].name,
+          envKey: null,
+          pluginName: "@elizaos/plugin-pi-ai",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY["pi-ai"].description,
+        },
+        {
           id: "anthropic",
           name: AI_PROVIDER_COPY.anthropic.name,
           envKey: "ANTHROPIC_API_KEY",
@@ -10866,6 +11156,14 @@ export class MilaidyApp extends LitElement {
           keyPrefix: null,
           description: AI_PROVIDER_COPY.ollama.description,
         },
+        {
+          id: "zai",
+          name: AI_PROVIDER_COPY.zai.name,
+          envKey: "ZAI_API_KEY",
+          pluginName: "@homunculuslabs/plugin-zai",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY.zai.description,
+        },
       ],
       sharedStyleRules: "Be clear and concise.",
     };
@@ -10890,6 +11188,18 @@ export class MilaidyApp extends LitElement {
         pluginName: "@elizaos/plugin-elizacloud",
         keyPrefix: null,
         description: AI_PROVIDER_COPY.elizacloud.description,
+      },
+      "anthropic-subscription": {
+        name: AI_PROVIDER_COPY["anthropic-subscription"].name,
+        description: AI_PROVIDER_COPY["anthropic-subscription"].description,
+      },
+      "openai-subscription": {
+        name: AI_PROVIDER_COPY["openai-subscription"].name,
+        description: AI_PROVIDER_COPY["openai-subscription"].description,
+      },
+      "pi-ai": {
+        name: AI_PROVIDER_COPY["pi-ai"].name,
+        description: AI_PROVIDER_COPY["pi-ai"].description,
       },
       anthropic: {
         name: AI_PROVIDER_COPY.anthropic.name,
@@ -10947,6 +11257,10 @@ export class MilaidyApp extends LitElement {
         name: AI_PROVIDER_COPY.ollama.name,
         description: AI_PROVIDER_COPY.ollama.description,
       },
+      zai: {
+        name: AI_PROVIDER_COPY.zai.name,
+        description: AI_PROVIDER_COPY.zai.description,
+      },
     };
     for (const [id, patch] of Object.entries(canonical)) {
       const current = byId.get(id);
@@ -10956,6 +11270,9 @@ export class MilaidyApp extends LitElement {
 
     const desiredOrder = [
       "elizacloud",
+      "anthropic-subscription",
+      "openai-subscription",
+      "pi-ai",
       "anthropic",
       "openai",
       "openrouter",
@@ -10968,6 +11285,7 @@ export class MilaidyApp extends LitElement {
       "mistral",
       "together",
       "ollama",
+      "zai",
     ];
     const ordered = desiredOrder
       .map((id) => byId.get(id))
