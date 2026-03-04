@@ -6,7 +6,11 @@
  * Web Speech API in the renderer can serve as a fallback.
  */
 
-import { isWhisperAvailable } from "./whisper";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { isWhisperAvailable, transcribe } from "./whisper";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -20,6 +24,7 @@ interface SwabbleConfig {
 export class SwabbleManager {
   private sendToWebview: SendToWebview | null = null;
   private listening = false;
+  private processing = false;
   private config: SwabbleConfig = {
     triggers: ["hey milady", "milady"],
     minPostTriggerGap: 0.45,
@@ -66,9 +71,51 @@ export class SwabbleManager {
     return { available: isWhisperAvailable() };
   }
 
-  async audioChunk(_options: { data: string }): Promise<void> {
-    // Process audio chunk through Whisper if available
-    // For now, this is a no-op until Whisper integration is confirmed
+  async audioChunk(options: { data: string }): Promise<void> {
+    if (!this.listening || !isWhisperAvailable() || this.processing) return;
+
+    this.processing = true;
+    try {
+      // Write base64 audio to temp file for transcription
+      const tmpFile = path.join(
+        os.tmpdir(),
+        `milady-swabble-${Date.now()}.wav`,
+      );
+      const audioBuffer = Buffer.from(options.data, "base64");
+      fs.writeFileSync(tmpFile, audioBuffer);
+
+      const result = await transcribe(tmpFile);
+      // Clean up temp file
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {}
+
+      if (!result?.text) return;
+
+      // Check for wake word triggers
+      const text = result.text.toLowerCase().trim();
+      for (const trigger of this.config.triggers) {
+        if (text.includes(trigger.toLowerCase())) {
+          // Extract command after the trigger
+          const idx = text.indexOf(trigger.toLowerCase());
+          const command = text.slice(idx + trigger.length).trim();
+
+          this.sendToWebview?.("swabbleWakeWord", {
+            trigger,
+            command:
+              command.length >= this.config.minCommandLength
+                ? command
+                : undefined,
+            transcript: result.text,
+          });
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("[Swabble] Audio chunk processing failed:", err);
+    } finally {
+      this.processing = false;
+    }
   }
 
   dispose(): void {

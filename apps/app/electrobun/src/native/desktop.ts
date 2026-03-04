@@ -14,15 +14,17 @@
  * Key differences from Electron version:
  * - No ipcMain — methods are called directly from rpc-handlers.ts
  * - Uses sendToWebview callback instead of mainWindow.webContents.send()
- * - No powerMonitor — returns stubs
+ * - Power monitor: macOS uses IOKit/CoreGraphics FFI, Linux uses sysfs
  * - No nativeImage — tray icons use file paths directly
- * - No setOpacity on BrowserWindow — no-op
- * - No hide() on BrowserWindow — uses minimize() as fallback
+ * - setOpacity: uses native Obj-C bridge (libwindowbridge.dylib) when available
+ * - hideWindow: uses native Obj-C bridge (orderOut:) when available, minimize() fallback
  * - No app.setLoginItemSettings — stubbed
  * - No shell.beep — no-op
  */
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   type BrowserWindow,
@@ -44,6 +46,243 @@ import type {
   WindowBounds,
   WindowOptions,
 } from "../rpc-schema";
+
+// ============================================================================
+// Power Monitor FFI (macOS: IOKit + CoreGraphics)
+//
+// Uses bun:ffi cc() to compile inline C that calls IOKit power source APIs
+// and CoreGraphics idle/lock detection. All CF object lifecycle management
+// (CFRelease) is handled inside the compiled C code, ensuring no leaks on
+// any code path including early returns (null checks before CFRelease).
+//
+// Does NOT use IOServiceGetMatchingService / IORegistryEntryCreateCFProperties
+// directly — uses the higher-level IOPSCopyPowerSourcesInfo API instead.
+//
+// Falls back to CLI tools (pmset, ioreg) when FFI initialization fails.
+// ============================================================================
+
+interface PowerFFISymbols {
+  get_power_source: () => number;
+  get_idle_seconds: () => number;
+  is_screen_locked: () => number;
+}
+
+let powerSymbols: PowerFFISymbols | null = null;
+let powerInitAttempted = false;
+
+async function initPowerFFI(): Promise<boolean> {
+  if (powerInitAttempted) return powerSymbols !== null;
+  powerInitAttempted = true;
+  if (process.platform !== "darwin") return false;
+
+  try {
+    const { cc } = await import("bun:ffi");
+    const compiled = cc({
+      source: `
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/ps/IOPSKeys.h>
+
+int get_power_source(void) {
+    CFTypeRef info = IOPSCopyPowerSourcesInfo();
+    if (!info) return -1;
+    CFStringRef type = IOPSGetProvidingPowerSourceType(info);
+    int result = 0;
+    if (type && CFStringCompare(type, CFSTR("Battery Power"), 0) == kCFCompareEqualTo) {
+        result = 1;
+    }
+    CFRelease(info);
+    return result;
+}
+
+double get_idle_seconds(void) {
+    return CGEventSourceSecondsSinceLastEventType(1, 0xFFFFFFFF);
+}
+
+int is_screen_locked(void) {
+    CFDictionaryRef dict = CGSessionCopyCurrentDictionary();
+    if (!dict) return -1;
+    const void* val = CFDictionaryGetValue(dict, CFSTR("CGSSessionScreenIsLocked"));
+    int result = (val == kCFBooleanTrue) ? 1 : 0;
+    CFRelease(dict);
+    return result;
+}
+      `,
+      flags: [
+        "-framework CoreFoundation",
+        "-framework CoreGraphics",
+        "-framework IOKit",
+      ],
+      symbols: {
+        get_power_source: { args: [], returns: "i32" },
+        get_idle_seconds: { args: [], returns: "f64" },
+        is_screen_locked: { args: [], returns: "i32" },
+      },
+    });
+    powerSymbols = compiled.symbols as unknown as PowerFFISymbols;
+    console.log("[DesktopManager] Power monitor FFI initialized");
+    return true;
+  } catch (err) {
+    console.warn("[DesktopManager] Power monitor FFI failed:", err);
+    return false;
+  }
+}
+
+/** CLI fallback for power state when FFI is unavailable. */
+async function getPowerStateCLI(): Promise<PowerState> {
+  const state: PowerState = {
+    onBattery: false,
+    idleState: "unknown",
+    idleTime: 0,
+  };
+
+  if (process.platform === "darwin") {
+    try {
+      const pmset = Bun.spawn(["pmset", "-g", "batt"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const out = await new Response(pmset.stdout).text();
+      await pmset.exited;
+      state.onBattery = !out.includes("AC Power");
+    } catch {}
+
+    try {
+      const ioreg = Bun.spawn(["ioreg", "-c", "IOHIDSystem", "-d", "4"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const out = await new Response(ioreg.stdout).text();
+      await ioreg.exited;
+      const match = out.match(/"HIDIdleTime"\s*=\s*(\d+)/);
+      if (match) {
+        state.idleTime = Math.floor(parseInt(match[1], 10) / 1_000_000_000);
+        state.idleState = state.idleTime > 300 ? "idle" : "active";
+      }
+    } catch {}
+  } else if (process.platform === "linux") {
+    try {
+      const supplyBase = "/sys/class/power_supply";
+      for (const name of ["AC", "AC0", "ACAD"]) {
+        const onlinePath = path.join(supplyBase, name, "online");
+        if (fs.existsSync(onlinePath)) {
+          state.onBattery = fs.readFileSync(onlinePath, "utf8").trim() !== "1";
+          break;
+        }
+      }
+    } catch {}
+  }
+
+  return state;
+}
+
+// ============================================================================
+// Window Bridge (macOS: Obj-C dylib for hide/setOpacity)
+//
+// Dylib path resolution: Uses import.meta.dir (Bun equivalent of __dirname)
+// to resolve paths relative to THIS script, not process.cwd(). This ensures
+// the dylib is found regardless of the working directory at runtime.
+//
+// Load order:
+// 1. Pre-compiled dylib at {scriptDir}/../../assets/libwindowbridge.dylib
+// 2. On-the-fly compilation from {scriptDir}/darwin/window_bridge.m -> tmpdir
+// 3. Graceful degradation (minimize() fallback for hide, no-op for opacity)
+// ============================================================================
+
+interface WindowBridgeSymbols {
+  milady_hide_window: () => void;
+  milady_show_window: () => void;
+  milady_set_opacity: (alpha: number) => void;
+}
+
+let windowBridge: WindowBridgeSymbols | null = null;
+let bridgeInitPromise: Promise<boolean> | null = null;
+
+async function initWindowBridge(): Promise<boolean> {
+  if (process.platform !== "darwin") return false;
+
+  try {
+    const { dlopen, FFIType } = await import("bun:ffi");
+
+    const bridgeSymbols = {
+      milady_hide_window: { args: [], returns: FFIType.void },
+      milady_show_window: { args: [], returns: FFIType.void },
+      milady_set_opacity: { args: [FFIType.f64], returns: FFIType.void },
+    } as const;
+
+    // 1. Try pre-compiled dylib in assets
+    // Path resolved via import.meta.dir (script-relative, not CWD-relative)
+    const assetPath = path.join(
+      import.meta.dir,
+      "../../assets/libwindowbridge.dylib",
+    );
+    if (fs.existsSync(assetPath)) {
+      try {
+        const lib = dlopen(assetPath, bridgeSymbols);
+        windowBridge = lib.symbols;
+        console.log("[DesktopManager] Window bridge loaded from assets");
+        return true;
+      } catch (loadErr) {
+        console.warn(
+          "[DesktopManager] Failed to load pre-compiled bridge, trying compilation fallback:",
+          loadErr,
+        );
+      }
+    }
+
+    // 2. Try to compile on-the-fly (requires Xcode CLI tools)
+    const srcPath = path.join(import.meta.dir, "darwin/window_bridge.m");
+    if (!fs.existsSync(srcPath)) return false;
+
+    // Cache filename includes a content hash of the Obj-C source so that
+    // app updates with changed bridge code will recompile automatically
+    // instead of loading a stale dylib from a previous version.
+    const objcSource = fs.readFileSync(srcPath, "utf8");
+    const sourceHash = createHash("md5")
+      .update(objcSource)
+      .digest("hex")
+      .slice(0, 8);
+    const cachePath = path.join(
+      os.tmpdir(),
+      `milady-window-bridge-${sourceHash}.dylib`,
+    );
+    if (!fs.existsSync(cachePath)) {
+      const proc = Bun.spawn(
+        [
+          "clang",
+          "-dynamiclib",
+          "-framework",
+          "Cocoa",
+          "-o",
+          cachePath,
+          srcPath,
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      await proc.exited;
+      if (proc.exitCode !== 0) {
+        console.warn("[DesktopManager] Window bridge compilation failed");
+        return false;
+      }
+    }
+
+    const lib = dlopen(cachePath, bridgeSymbols);
+    windowBridge = lib.symbols;
+    console.log("[DesktopManager] Window bridge compiled and loaded");
+    return true;
+  } catch (err) {
+    console.warn("[DesktopManager] Window bridge not available:", err);
+    return false;
+  }
+}
+
+function ensureBridge(): Promise<boolean> {
+  if (!bridgeInitPromise) {
+    bridgeInitPromise = initWindowBridge();
+  }
+  return bridgeInitPromise;
+}
 
 // ============================================================================
 // Types
@@ -366,9 +605,8 @@ export class DesktopManager {
       win.setFullScreen(options.fullscreen);
     }
 
-    // opacity — no setOpacity in Electrobun (no-op)
     if (options.opacity !== undefined) {
-      // No-op: Electrobun BrowserWindow does not support setOpacity
+      await this.setOpacity({ opacity: options.opacity });
     }
 
     if (options.title !== undefined) {
@@ -409,12 +647,22 @@ export class DesktopManager {
   }
 
   async showWindow(): Promise<void> {
-    this.getWindow().show();
+    await ensureBridge();
+    if (windowBridge) {
+      windowBridge.milady_show_window();
+    } else {
+      this.getWindow().show();
+    }
   }
 
   async hideWindow(): Promise<void> {
-    // No hide() in Electrobun — use minimize() as fallback
-    this.getWindow().minimize();
+    await ensureBridge();
+    if (windowBridge) {
+      windowBridge.milady_hide_window();
+    } else {
+      // No hide() in Electrobun — use minimize() as fallback
+      this.getWindow().minimize();
+    }
   }
 
   async focusWindow(): Promise<void> {
@@ -449,8 +697,14 @@ export class DesktopManager {
     this.getWindow().setFullScreen(options.flag);
   }
 
-  async setOpacity(_options: SetOpacityOptions): Promise<void> {
-    // No-op: Electrobun BrowserWindow does not support setOpacity
+  async setOpacity(options: SetOpacityOptions): Promise<void> {
+    await ensureBridge();
+    if (windowBridge) {
+      windowBridge.milady_set_opacity(
+        Math.max(0, Math.min(1, options.opacity)),
+      );
+    }
+    // No-op if bridge unavailable — Electrobun has no native setOpacity
   }
 
   private setupWindowEvents(): void {
@@ -511,12 +765,29 @@ export class DesktopManager {
   // MARK: - Power Monitor
 
   async getPowerState(): Promise<PowerState> {
-    // No powerMonitor equivalent in Electrobun — return stub
-    return {
-      onBattery: false,
-      idleState: "unknown",
-      idleTime: 0,
-    };
+    await initPowerFFI();
+
+    if (powerSymbols) {
+      const powerSrc = powerSymbols.get_power_source();
+      const idleSec = powerSymbols.get_idle_seconds();
+      const locked = powerSymbols.is_screen_locked();
+
+      let idleState: PowerState["idleState"] = "active";
+      if (locked === 1) {
+        idleState = "locked";
+      } else if (idleSec > 300) {
+        idleState = "idle";
+      }
+
+      return {
+        onBattery: powerSrc === 1,
+        idleState,
+        idleTime: Math.floor(idleSec),
+      };
+    }
+
+    // Fallback to CLI tools
+    return getPowerStateCLI();
   }
 
   // MARK: - App
