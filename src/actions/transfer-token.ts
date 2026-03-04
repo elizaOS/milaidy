@@ -84,6 +84,10 @@ export const transferTokenAction: Action = {
         };
       }
 
+      if (assetSymbol && !/^[A-Za-z0-9]{1,20}$/.test(assetSymbol)) {
+        return { text: "Invalid asset symbol format.", success: false };
+      }
+
       // ── Optional tokenAddress ──────────────────────────────────────────
       const tokenAddress =
         typeof params?.tokenAddress === "string" &&

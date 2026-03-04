@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths.js";
 import type {
   BscTradeSide,
@@ -312,6 +313,9 @@ export function readWalletTradeLedgerStore(
   } catch {
     try {
       const corruptPath = `${filePath}.corrupt-${Date.now()}.json`;
+      logger.warn(
+        `[wallet-trading-profile] Ledger file corrupt, renaming to ${corruptPath}`,
+      );
       fs.renameSync(filePath, corruptPath);
     } catch {
       // Best effort backup; continue with empty store.

@@ -14,6 +14,7 @@
  */
 
 import type { Action, HandlerOptions, Memory } from "@elizaos/core";
+import { logger } from "@elizaos/core";
 
 /** API port for posting trade requests. */
 const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
@@ -106,17 +107,13 @@ export const executeTradeAction: Action = {
   handler: async (_runtime, message, _state, options) => {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
-      console.log(
-        `[EXECUTE_TRADE] handler called with params:`,
-        JSON.stringify(params ?? {}),
-      );
+      logger.debug("[EXECUTE_TRADE] handler called", {
+        hasParams: Boolean(params),
+      });
 
       // Fallback: extract from message text when structured params are missing.
       const textParams = extractParamsFromText(message as Memory | undefined);
-      console.log(
-        `[EXECUTE_TRADE] text-extracted params:`,
-        JSON.stringify(textParams),
-      );
+      logger.debug("[EXECUTE_TRADE] text-extracted params resolved");
 
       // ── Resolve side (prefer structured, fallback to text) ───────────
       const rawSide = isValidParam(params?.side as string)
@@ -181,9 +178,10 @@ export const executeTradeAction: Action = {
         };
       }
 
-      console.log(
-        `[EXECUTE_TRADE] resolved: side=${side} token=${tokenAddress} amount=${amountRaw} slippage=${slippageBps}`,
-      );
+      logger.debug("[EXECUTE_TRADE] resolved trade parameters", {
+        side,
+        hasToken: Boolean(tokenAddress),
+      });
 
       // ── POST to trade execution API ──────────────────────────────────
       const response = await fetch(
@@ -233,18 +231,9 @@ export const executeTradeAction: Action = {
         error?: string;
       };
 
-      console.log(
-        `[EXECUTE_TRADE] API response:`,
-        JSON.stringify({
-          ok: result.ok,
-          side: result.side,
-          mode: result.mode,
-          executed: result.executed,
-          requiresUserSignature: result.requiresUserSignature,
-          hasExecution: !!result.execution,
-          error: result.error,
-        }),
-      );
+      logger.debug("[EXECUTE_TRADE] trade API responded", {
+        status: result.ok ? "ok" : "error",
+      });
 
       if (!result.ok) {
         return {

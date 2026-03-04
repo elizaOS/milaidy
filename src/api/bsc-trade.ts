@@ -533,7 +533,10 @@ export async function buildBscTradeQuote(
   if (typeof amountOutWei !== "bigint") {
     throw new Error("Router quote output type is invalid.");
   }
-  const minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
+  let minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
+  if (minReceiveWei === 0n && amountOutWei > 0n) {
+    minReceiveWei = 1n; // Prevent zero-slippage execution for small amounts
+  }
   const outDecimals = side === "buy" ? tokenDecimals : 18;
   const inSymbol = side === "buy" ? "BNB" : tokenSymbol;
   const outSymbol = side === "buy" ? tokenSymbol : "BNB";
@@ -661,7 +664,14 @@ export function buildBscApproveUnsignedTx(
   if (!normalizedSpender) {
     throw new Error("Spender address is invalid for approval payload.");
   }
-  const amount = BigInt(amountWei);
+  let amount: bigint;
+  try {
+    amount = BigInt(amountWei);
+  } catch {
+    throw new Error(
+      `Invalid approval amount: expected integer string, got "${String(amountWei).slice(0, 20)}"`,
+    );
+  }
   if (amount <= 0n) {
     throw new Error("Approval amount must be greater than zero.");
   }
