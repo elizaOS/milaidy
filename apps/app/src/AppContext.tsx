@@ -1120,7 +1120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [restartBannerDismissed, setRestartBannerDismissed] = useState(false);
 
   // --- Backend connection state (for crash handling) ---
-  const [_backendConnection, setBackendConnection] = useState<{
+  const [backendConnection, setBackendConnection] = useState<{
     state: "connected" | "disconnected" | "reconnecting" | "failed";
     reconnectAttempt: number;
     maxReconnectAttempts: number;
@@ -1132,7 +1132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showDisconnectedUI: false,
   });
   const [
-    _backendDisconnectedBannerDismissed,
+    backendDisconnectedBannerDismissed,
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
 
@@ -2327,16 +2327,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [handleRestart]);
 
   // Backend disconnection banner actions
-  const _dismissBackendDisconnectedBanner = useCallback(() => {
+  const dismissBackendDisconnectedBanner = useCallback(() => {
     setBackendDisconnectedBannerDismissed(true);
   }, []);
 
-  const _retryBackendConnection = useCallback(() => {
+  const retryBackendConnection = useCallback(() => {
     setBackendDisconnectedBannerDismissed(false);
     client.resetConnection();
   }, []);
 
-  const _restartBackend = useCallback(async () => {
+  const restartBackend = useCallback(async () => {
     const electron = (
       window as {
         electron?: {
@@ -5635,6 +5635,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     retryStartup,
     dismissRestartBanner,
     triggerRestart,
+    backendConnection,
+    backendDisconnectedBannerDismissed,
+    dismissBackendDisconnectedBanner,
+    retryBackendConnection,
+    restartBackend,
     handleChatSend,
     handleChatStop,
     handleChatClear,

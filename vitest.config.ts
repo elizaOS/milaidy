@@ -196,6 +196,7 @@ export default defineConfig({
       "test/trigger-execution-flow.e2e.test.ts",
       "test/terminal-execution.e2e.test.ts",
       "test/config-hot-reload.e2e.test.ts",
+      "test/health-endpoint.e2e.test.ts",
     ],
     setupFiles: ["test/setup.ts"],
     exclude: ["dist/**", "**/node_modules/**", "**/*.live.test.ts"],

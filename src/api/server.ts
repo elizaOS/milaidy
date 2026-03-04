@@ -6347,6 +6347,56 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/health ──────────────────────────────────────────────────────
+  // Structured health check endpoint returning subsystem status.
+  if (method === "GET" && pathname === "/api/health") {
+    const runtime = state.runtime;
+    const uptime = state.startedAt
+      ? Math.floor((Date.now() - state.startedAt) / 1000)
+      : 0;
+
+    const loadedPlugins = state.plugins.filter((p) => p.enabled);
+    const failedPlugins = state.plugins.filter(
+      (p) => !p.enabled && !p.configured,
+    );
+
+    let coordinatorStatus: "ok" | "not_wired" = "not_wired";
+    try {
+      if (runtime?.getService("SWARM_COORDINATOR")) {
+        coordinatorStatus = "ok";
+      }
+    } catch {
+      // not available
+    }
+
+    const connectors: Record<string, string> = {};
+    if (state.config.connectors) {
+      for (const [name, cfg] of Object.entries(state.config.connectors)) {
+        if (
+          cfg &&
+          typeof cfg === "object" &&
+          (cfg as Record<string, unknown>).enabled !== false
+        ) {
+          connectors[name] = "configured";
+        }
+      }
+    }
+
+    json(res, {
+      runtime: runtime ? "ok" : "not_initialized",
+      database: runtime ? "ok" : "unknown",
+      plugins: {
+        loaded: loadedPlugins.length,
+        failed: failedPlugins.length,
+      },
+      coordinator: coordinatorStatus,
+      connectors,
+      uptime,
+      agentState: state.agentState,
+    });
+    return;
+  }
+
   // ── GET /api/runtime ───────────────────────────────────────────────────
   // Deep runtime introspection endpoint for advanced debugging UI.
   if (method === "GET" && pathname === "/api/runtime") {
@@ -13964,8 +14014,25 @@ export async function startApiServer(opts?: {
         chatOk = chatOk || wireCodingAgentChatBridge(state);
         wsOk = wsOk || wireCodingAgentWsBridge(state);
         eventOk = eventOk || wireCoordinatorEventRouting(state);
-        if ((chatOk && wsOk && eventOk) || wireAttempts >= 15) {
+        if (chatOk && wsOk && eventOk) {
           clearInterval(wireInterval);
+        } else if (wireAttempts >= 15) {
+          clearInterval(wireInterval);
+          const missing = [
+            !chatOk && "chat",
+            !wsOk && "ws",
+            !eventOk && "event-routing",
+          ]
+            .filter(Boolean)
+            .join(", ");
+          logger.warn(
+            `[milady-api] Coordinator wiring exhausted after 15 attempts (missing: ${missing})`,
+          );
+          state.broadcastWs?.({
+            type: "system-warning",
+            message: `Coordinator wiring failed after 15 attempts. Coding agent features may not work. Missing bridges: ${missing}`,
+            ts: Date.now(),
+          });
         }
       }, 1000);
     }
@@ -14341,8 +14408,25 @@ export async function startApiServer(opts?: {
           chatOk = chatOk || wireCodingAgentChatBridge(state);
           wsOk = wsOk || wireCodingAgentWsBridge(state);
           eventOk = eventOk || wireCoordinatorEventRouting(state);
-          if ((chatOk && wsOk && eventOk) || wireAttempts >= 15) {
+          if (chatOk && wsOk && eventOk) {
             clearInterval(wireInterval);
+          } else if (wireAttempts >= 15) {
+            clearInterval(wireInterval);
+            const missing = [
+              !chatOk && "chat",
+              !wsOk && "ws",
+              !eventOk && "event-routing",
+            ]
+              .filter(Boolean)
+              .join(", ");
+            logger.warn(
+              `[milady-api] Coordinator wiring exhausted after restart (15 attempts, missing: ${missing})`,
+            );
+            state.broadcastWs?.({
+              type: "system-warning",
+              message: `Coordinator wiring failed after restart. Coding agent features may not work. Missing bridges: ${missing}`,
+              ts: Date.now(),
+            });
           }
         }, 1000);
       }
