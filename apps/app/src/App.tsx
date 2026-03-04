@@ -33,6 +33,7 @@ import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
 import { StartupFailureView } from "./components/StartupFailureView";
 import { StreamView } from "./components/StreamView";
+import { SystemWarningBanner } from "./components/SystemWarningBanner";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
@@ -448,6 +449,7 @@ export function App() {
       />
       <RestartBanner />
       <ConnectionFailedBanner />
+      <SystemWarningBanner />
       <MemoryDebugPanel />
       <BugReportModal />
       {actionNotice && (

@@ -675,6 +675,9 @@ export interface AppState {
   };
   backendDisconnectedBannerDismissed: boolean;
 
+  // System warnings
+  systemWarnings: string[];
+
   // Pairing
   pairingEnabled: boolean;
   pairingExpiresAt: number | null;
@@ -951,6 +954,7 @@ export interface AppActions {
   dismissBackendDisconnectedBanner: () => void;
   retryBackendConnection: () => void;
   restartBackend: () => Promise<void>;
+  dismissSystemWarning: (index: number) => void;
 
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
@@ -1136,6 +1140,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     backendDisconnectedBannerDismissed,
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
+  const [systemWarnings, setSystemWarnings] = useState<string[]>([]);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -2335,6 +2340,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const retryBackendConnection = useCallback(() => {
     setBackendDisconnectedBannerDismissed(false);
     client.resetConnection();
+  }, []);
+
+  const dismissSystemWarning = useCallback((index: number) => {
+    setSystemWarnings((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const restartBackend = useCallback(async () => {
@@ -5062,6 +5071,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hydratePtySessions();
       });
 
+      // Surface system-level warnings (connector failures, wiring exhaustion, etc.)
+      client.onWsEvent("system-warning", (data: Record<string, unknown>) => {
+        const message = typeof data.message === "string" ? data.message : "";
+        if (message) {
+          setSystemWarnings((prev) =>
+            prev.includes(message) ? prev : [...prev, message],
+          );
+        }
+      });
+
       // Re-hydrate when the tab becomes visible — browsers may throttle
       // or drop WS messages for background tabs.
       handleVisibilityRef = () => {
@@ -5690,6 +5709,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dismissBackendDisconnectedBanner,
     retryBackendConnection,
     restartBackend,
+    systemWarnings,
+    dismissSystemWarning,
     handleChatSend,
     handleChatStop,
     handleChatRetry,
