@@ -6,8 +6,11 @@
  */
 
 import type { HandlerOptions } from "@elizaos/core";
-import { describe, expect, it, vi } from "vitest";
-import { AwarenessRegistry } from "../awareness/registry";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  AwarenessRegistry,
+  setGlobalAwarenessRegistry,
+} from "../awareness/registry";
 import { getSelfStatusAction } from "./get-self-status";
 
 function mockRuntime(registry: AwarenessRegistry) {
@@ -20,6 +23,10 @@ function mockRuntime(registry: AwarenessRegistry) {
 }
 
 describe("GET_SELF_STATUS action", () => {
+  beforeEach(() => {
+    setGlobalAwarenessRegistry(null as never);
+  });
+
   it("has correct name", () => {
     expect(getSelfStatusAction.name).toBe("GET_SELF_STATUS");
   });
