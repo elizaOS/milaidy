@@ -43,6 +43,21 @@ function isEvmDisabled(): boolean {
   );
 }
 
+function resolveEffectiveAddresses(
+  derived: { evmAddress: string | null; solanaAddress: string | null },
+  opts?: { evmDisabled?: boolean },
+): { evmAddress: string | null; solanaAddress: string | null } {
+  const evmDisabled = opts?.evmDisabled ?? false;
+  const configuredEvm = configuredAddressFromEnv("EVM_ADDRESS");
+  const configuredSolana = configuredAddressFromEnv("SOLANA_ADDRESS");
+  return {
+    // Prefer explicitly configured addresses (wallet-connect/read-only mode)
+    // before derived signing addresses.
+    evmAddress: evmDisabled ? null : (configuredEvm ?? derived.evmAddress),
+    solanaAddress: configuredSolana ?? derived.solanaAddress,
+  };
+}
+
 async function fetchSolanaBalancePublic(address: string): Promise<{
   solBalance: string;
   solValueUsd: string;
@@ -146,14 +161,13 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/addresses
   if (method === "GET" && pathname === "/api/wallet/addresses") {
-    const addresses = deps.getWalletAddresses();
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled: isEvmDisabled(),
+    });
     const evmDisabled = isEvmDisabled();
     json(res, {
-      evmAddress: evmDisabled
-        ? null
-        : (addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS")),
-      solanaAddress:
-        addresses.solanaAddress ?? configuredAddressFromEnv("SOLANA_ADDRESS"),
+      evmAddress: evmDisabled ? null : addresses.evmAddress,
+      solanaAddress: addresses.solanaAddress,
     });
     return true;
   }
@@ -161,7 +175,9 @@ export async function handleWalletRoutes(
   // GET /api/wallet/balances
   if (method === "GET" && pathname === "/api/wallet/balances") {
     const evmDisabled = isEvmDisabled();
-    const addresses = deps.getWalletAddresses();
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
@@ -210,7 +226,9 @@ export async function handleWalletRoutes(
   // GET /api/wallet/nfts
   if (method === "GET" && pathname === "/api/wallet/nfts") {
     const evmDisabled = isEvmDisabled();
-    const addresses = deps.getWalletAddresses();
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
@@ -361,13 +379,13 @@ export async function handleWalletRoutes(
   // GET /api/wallet/config
   if (method === "GET" && pathname === "/api/wallet/config") {
     const evmDisabled = isEvmDisabled();
-    const addresses = deps.getWalletAddresses();
     const evmConfiguredAddress = configuredAddressFromEnv("EVM_ADDRESS");
     const solanaConfiguredAddress = configuredAddressFromEnv("SOLANA_ADDRESS");
-    const effectiveEvmAddress = evmDisabled
-      ? null
-      : (addresses.evmAddress ?? evmConfiguredAddress);
-    const effectiveSolanaAddress = addresses.solanaAddress ?? solanaConfiguredAddress;
+    const effectiveAddresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
+    const effectiveEvmAddress = effectiveAddresses.evmAddress;
+    const effectiveSolanaAddress = effectiveAddresses.solanaAddress;
     const walletConnectionLocked =
       process.env.MILADY_WALLET_CONNECTION_LOCKED === "1";
 
@@ -502,14 +520,9 @@ export async function handleWalletRoutes(
   // GET /api/wallet/connected-data
   if (method === "GET" && pathname === "/api/wallet/connected-data") {
     const evmDisabled = isEvmDisabled();
-    const addresses = deps.getWalletAddresses();
-    const effectiveAddresses = {
-      evmAddress: evmDisabled
-        ? null
-        : (addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS")),
-      solanaAddress:
-        addresses.solanaAddress ?? configuredAddressFromEnv("SOLANA_ADDRESS"),
-    };
+    const effectiveAddresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
 
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
