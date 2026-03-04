@@ -2229,6 +2229,15 @@ function isNoResponsePlaceholder(text: string): boolean {
   return trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed);
 }
 
+function normalizePluginRuntimeName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^@[^/]+\//, "")
+    .replace(/^plugin-/, "")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
 function normalizeChatResponseText(
   text: string,
   logBuffer: LogEntry[],
@@ -6948,18 +6957,29 @@ async function handleRequest(
     const loadedNames = state.runtime
       ? state.runtime.plugins.map((p) => p.name)
       : [];
+    const normalizedLoadedNames = loadedNames.map((name) =>
+      normalizePluginRuntimeName(name),
+    );
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
+      const normalizedId = normalizePluginRuntimeName(plugin.id);
+      const normalizedSuffix = normalizePluginRuntimeName(suffix);
+      const normalizedPackage = normalizePluginRuntimeName(packageName);
       const isLoaded =
         loadedNames.length > 0 &&
-        loadedNames.some((name) => {
+        loadedNames.some((name, idx) => {
+          const normalizedName = normalizedLoadedNames[idx];
           return (
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
             name.endsWith(`/${suffix}`) ||
-            name.includes(plugin.id)
+            name.includes(plugin.id) ||
+            normalizedName === normalizedId ||
+            normalizedName === normalizedSuffix ||
+            normalizedName === normalizedPackage ||
+            normalizedName.includes(normalizedId)
           );
         });
       plugin.isActive = isLoaded;
@@ -7326,7 +7346,7 @@ async function handleRequest(
       // Find the plugin in the runtime
       const allPlugins = state.runtime?.plugins ?? [];
       const normalizePluginId = (value: string): string =>
-        value.replace(/^@[^/]+\//, "").replace(/^plugin-/, "");
+        normalizePluginRuntimeName(value);
 
       const normalizedPluginId = normalizePluginId(pluginId);
 
