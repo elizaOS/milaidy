@@ -124,13 +124,21 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
   // ── Auto-detect game source ─────────────────────────────────────────
   useEffect(() => {
     if (!streamLive) return;
+    let cancelled = false;
     if (activeGameViewerUrl.trim() && streamSource.type !== "game") {
-      client.setStreamSource("game", activeGameViewerUrl).catch(() => {});
-      setStreamSource({ type: "game", url: activeGameViewerUrl });
+      client.setStreamSource("game", activeGameViewerUrl).then((result) => {
+        if (!cancelled && result.ok) {
+          setStreamSource({ type: "game", url: activeGameViewerUrl });
+        }
+      }).catch(() => {});
     } else if (!activeGameViewerUrl.trim() && streamSource.type === "game") {
-      client.setStreamSource("stream-tab").catch(() => {});
-      setStreamSource({ type: "stream-tab" });
+      client.setStreamSource("stream-tab").then((result) => {
+        if (!cancelled && result.ok) {
+          setStreamSource({ type: "stream-tab" });
+        }
+      }).catch(() => {});
     }
+    return () => { cancelled = true; };
   }, [activeGameViewerUrl, streamLive, streamSource.type]);
 
   const toggleStream = useCallback(async () => {

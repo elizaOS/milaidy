@@ -394,12 +394,12 @@ function CloudServicesSection() {
       </p>
       <div className="space-y-2">
         {CLOUD_SERVICE_DEFS.map(({ key, label, description }) => (
-          <label
+          <div
             key={key}
             className="flex items-center justify-between p-2.5 border border-[var(--border)] rounded cursor-pointer hover:border-[var(--accent)] transition-colors"
           >
             <div className="flex-1 min-w-0 mr-3">
-              <div className="text-[13px] font-medium">{label}</div>
+              <div className="text-[13px] font-medium" id={`cloud-service-${key}`}>{label}</div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
                 {description}
               </div>
@@ -408,6 +408,7 @@ function CloudServicesSection() {
               type="button"
               role="switch"
               aria-checked={services[key]}
+              aria-labelledby={`cloud-service-${key}`}
               disabled={saving}
               onClick={() => void handleToggle(key)}
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${
@@ -420,7 +421,7 @@ function CloudServicesSection() {
                 }`}
               />
             </button>
-          </label>
+          </div>
         ))}
       </div>
     </div>

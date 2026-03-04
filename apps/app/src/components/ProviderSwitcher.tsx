@@ -291,6 +291,7 @@ export function ProviderSwitcher({
             env: { vars: { MILADY_USE_PI_AI: "" } },
           });
           setPiAiEnabled(false);
+          setCloudHandlesInference(false);
           if (!willTogglePlugins) {
             await client.restartAgent();
           }

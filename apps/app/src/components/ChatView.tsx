@@ -547,7 +547,8 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             type="button"
             className="chat-game-emote-btn"
             onClick={openEmotePicker}
-            aria-label="Open emote picker"
+            disabled={isComposerLocked}
+            aria-label={t("chat.openEmotePicker")}
             title="Emotes (⌘E)"
           >
             <Smile className="w-4 h-4" />
@@ -658,7 +659,8 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             type="button"
             className="h-[38px] w-[38px] shrink-0 flex items-center justify-center border border-border bg-card text-muted rounded cursor-pointer transition-all duration-200 hover:border-accent hover:text-accent hover:shadow-sm self-end"
             onClick={openEmotePicker}
-            aria-label="Open emote picker"
+            disabled={isComposerLocked}
+            aria-label={t("chat.openEmotePicker")}
             title="Emotes (⌘E)"
           >
             <Smile className="w-4 h-4" />

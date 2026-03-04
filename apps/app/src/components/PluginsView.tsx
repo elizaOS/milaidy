@@ -2382,6 +2382,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             src={icon}
                             alt=""
                             className="w-5 h-5 rounded-sm object-contain"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display =
+                                "none";
+                            }}
                           />
                         ) : (
                           <span className="text-sm">{icon}</span>
