@@ -98,6 +98,11 @@ import {
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
 } from "./compat-utils";
+import { ConnectorHealthMonitor } from "./connector-health";
+import {
+  isInsufficientCreditsError,
+  isInsufficientCreditsMessage,
+} from "./credit-detection";
 import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 import { DropService } from "./drop-service";
@@ -309,6 +314,8 @@ interface ServerState {
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
   connectorRouteHandlers: ConnectorRouteHandler[];
+  /** Connector health monitor for detecting dead connectors. */
+  connectorHealthMonitor: ConnectorHealthMonitor | null;
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
@@ -2192,9 +2199,6 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
-const INSUFFICIENT_CREDITS_RE =
-  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
-
 const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
   "Sorry, we're out of credits right now. Please top up your credits and try again.",
   "No model credits left in the tank. Time to top up your credits.",
@@ -2210,10 +2214,6 @@ function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return fallback;
-}
-
-function isInsufficientCreditsMessage(message: string): boolean {
-  return INSUFFICIENT_CREDITS_RE.test(message);
 }
 
 function pickInsufficientCreditsChatReply(): string {
@@ -2246,8 +2246,7 @@ function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
 }
 
 function getInsufficientCreditsReplyFromError(err: unknown): string | null {
-  const msg = getErrorMessage(err, "");
-  return isInsufficientCreditsMessage(msg)
+  return isInsufficientCreditsError(err)
     ? pickInsufficientCreditsChatReply()
     : null;
 }
@@ -6369,8 +6368,10 @@ async function handleRequest(
       // not available
     }
 
-    const connectors: Record<string, string> = {};
-    if (state.config.connectors) {
+    const connectors: Record<string, string> = state.connectorHealthMonitor
+      ? state.connectorHealthMonitor.getConnectorStatuses()
+      : {};
+    if (Object.keys(connectors).length === 0 && state.config.connectors) {
       for (const [name, cfg] of Object.entries(state.config.connectors)) {
         if (
           cfg &&
@@ -13355,6 +13356,7 @@ export async function startApiServer(opts?: {
     shellEnabled: config.features?.shellEnabled !== false,
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
+    connectorHealthMonitor: null,
   };
 
   // Closure-captured refs for auto-TTS triggering in the event pipeline.
@@ -13786,6 +13788,16 @@ export async function startApiServer(opts?: {
         logger.warn({ err }, "Failed to initialize ERC-8004 registry service");
       }
     })();
+
+    // ── Connector health monitoring ──────────────────────────────────────────
+    if (state.runtime && state.config.connectors) {
+      state.connectorHealthMonitor = new ConnectorHealthMonitor({
+        runtime: state.runtime,
+        config: state.config,
+        broadcastWs,
+      });
+      state.connectorHealthMonitor.start();
+    }
 
     // ── Dynamic streaming + connector route loading ────────────────────────
     // Always register generic stream routes. If a streaming destination is
@@ -14515,6 +14527,10 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
+            if (state.connectorHealthMonitor) {
+              state.connectorHealthMonitor.stop();
+              state.connectorHealthMonitor = null;
+            }
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;

@@ -955,6 +955,7 @@ export interface AppActions {
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
   handleChatStop: () => void;
+  handleChatRetry: (assistantMsgId: string) => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
   setChatPendingImages: React.Dispatch<React.SetStateAction<ImageAttachment[]>>;
@@ -2817,6 +2818,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
               return changed ? next : prev;
             });
           }
+
+          // Mark interrupted if stream ended without a "done" event
+          if (!data.completed && streamedAssistantText.trim()) {
+            setConversationMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMsgId
+                  ? { ...message, interrupted: true }
+                  : message,
+              ),
+            );
+          }
+
           void loadConversations();
         } catch (err) {
           const abortError = err as Error;
@@ -3016,6 +3029,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       client.stopCodingAgent(session.sessionId).catch(() => {});
     }
   }, [ptySessions]);
+
+  const handleChatRetry = useCallback(
+    (assistantMsgId: string) => {
+      setConversationMessages((prev) => {
+        // Find the interrupted assistant message
+        const assistantIdx = prev.findIndex(
+          (m) => m.id === assistantMsgId && m.role === "assistant",
+        );
+        if (assistantIdx < 0) return prev;
+
+        // Find the preceding user message
+        let userMsg: ConversationMessage | null = null;
+        for (let i = assistantIdx - 1; i >= 0; i--) {
+          if (prev[i].role === "user") {
+            userMsg = prev[i];
+            break;
+          }
+        }
+        if (!userMsg) return prev;
+
+        // Remove the interrupted assistant message
+        const next = prev.filter((m) => m.id !== assistantMsgId);
+
+        // Re-send the user's text by setting the input and triggering send
+        // (done outside setConversationMessages via queueMicrotask to avoid nested updates)
+        const retryText = userMsg.text;
+        queueMicrotask(() => {
+          setChatInput(retryText);
+          // Small delay to let state settle before triggering send
+          setTimeout(() => handleChatSend(), 50);
+        });
+
+        return next;
+      });
+    },
+    [handleChatSend],
+  );
 
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
@@ -5642,6 +5692,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     restartBackend,
     handleChatSend,
     handleChatStop,
+    handleChatRetry,
     handleChatClear,
     handleNewConversation,
     setChatPendingImages,

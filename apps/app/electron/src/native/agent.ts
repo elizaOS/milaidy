@@ -153,6 +153,9 @@ interface AgentStatus {
 // ---------------------------------------------------------------------------
 
 export class AgentManager {
+  /** Testable wrapper around `dynamicImport`. Tests can spy on this. */
+  static dynamicImport = dynamicImport;
+
   private mainWindow: BrowserWindow | null = null;
   private status: AgentStatus = {
     state: "not_started",
@@ -310,7 +313,7 @@ export class AgentManager {
       // WHY .catch(): Keep API server step independent. If server.js fails we
       // still try to load eliza.js and set error state; do not let one throw
       // kill the whole startup (see file-level comment).
-      const serverModule = await dynamicImport(
+      const serverModule = await AgentManager.dynamicImport(
         pathToFileURL(path.join(miladyDist, "server.js")).href,
       ).catch((err: unknown) => {
         const errMsg =
@@ -435,7 +438,7 @@ export class AgentManager {
         `[Agent] Loading eliza.js from: ${path.join(miladyDist, "eliza.js")}`,
       );
       let elizaLoadError: string | null = null;
-      const elizaModule = await dynamicImport(
+      const elizaModule = await AgentManager.dynamicImport(
         pathToFileURL(path.join(miladyDist, "eliza.js")).href,
       ).catch((err: unknown) => {
         const errMsg =
