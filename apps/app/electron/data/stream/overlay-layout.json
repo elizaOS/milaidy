@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "name": "Default",
+  "widgets": [
+    {
+      "id": "wmm54c86pa",
+      "type": "thought-bubble",
+      "enabled": true,
+      "position": {
+        "x": 15,
+        "y": 75,
+        "width": 70,
+        "height": 20
+      },
+      "zIndex": 15,
+      "config": {
+        "fadeDuration": 8000,
+        "maxLength": 200
+      }
+    },
+    {
+      "id": "wmm54c86pb",
+      "type": "action-ticker",
+      "enabled": false,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 4
+      },
+      "zIndex": 12,
+      "config": {
+        "maxItems": 8
+      }
+    },
+    {
+      "id": "wmm54c86pc",
+      "type": "alert-popup",
+      "enabled": false,
+      "position": {
+        "x": 65,
+        "y": 5,
+        "width": 33,
+        "height": 15
+      },
+      "zIndex": 40,
+      "config": {
+        "displayDuration": 5000
+      }
+    },
+    {
+      "id": "wmm54c86pd",
+      "type": "viewer-count",
+      "enabled": false,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 6
+      },
+      "zIndex": 14,
+      "config": {}
+    },
+    {
+      "id": "wmm54c86pe",
+      "type": "branding",
+      "enabled": true,
+      "position": {
+        "x": 78,
+        "y": 90,
+        "width": 20,
+        "height": 8
+      },
+      "zIndex": 11,
+      "config": {
+        "opacity": 0.6,
+        "showLabel": true
+      }
+    },
+    {
+      "id": "wmm54c86pf",
+      "type": "custom-html",
+      "enabled": false,
+      "position": {
+        "x": 10,
+        "y": 10,
+        "width": 30,
+        "height": 30
+      },
+      "zIndex": 20,
+      "config": {
+        "mode": "inline",
+        "html": "",
+        "css": "",
+        "js": "",
+        "url": ""
+      }
+    },
+    {
+      "id": "wmm54c86pg",
+      "type": "peon-hud",
+      "enabled": false,
+      "position": {
+        "x": 82,
+        "y": 10,
+        "width": 16,
+        "height": 30
+      },
+      "zIndex": 12,
+      "config": {
+        "accentColor": "#00e5ff",
+        "showLabel": true,
+        "showEventCount": true
+      }
+    },
+    {
+      "id": "wmm54c86ph",
+      "type": "peon-glass",
+      "enabled": false,
+      "position": {
+        "x": 2,
+        "y": 2,
+        "width": 32,
+        "height": 40
+      },
+      "zIndex": 16,
+      "config": {
+        "accentColor": "#a78bfa",
+        "maxItems": 4,
+        "displayDuration": 6000
+      }
+    },
+    {
+      "id": "wmm54c86pi",
+      "type": "peon-sakura",
+      "enabled": false,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 25,
+        "height": 50
+      },
+      "zIndex": 3,
+      "config": {
+        "petalDensity": 12,
+        "showStatus": true,
+        "accentColor": "#f9a8d4"
+      }
+    }
+  ]
+}

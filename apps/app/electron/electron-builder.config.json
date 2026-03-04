@@ -10,11 +10,21 @@
     "tsc-out/**/*",
     "build/**/*",
     "capacitor.config.*",
+    "plugins.json",
     "app/**/*",
-    "milady-dist/**/*",
+    "milady-dist/**/*.js",
+    "milady-dist/plugins.json",
+    "milady-dist/package.json",
     "*.tar.gz"
   ],
   "asarUnpack": ["milady-dist/**/*", "node_modules/**/*", "*.tar.gz"],
+  "extraResources": [
+    {
+      "from": "app",
+      "to": "app",
+      "filter": ["**/*"]
+    }
+  ],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
@@ -43,10 +53,17 @@
     "gatekeeperAssess": false,
     "entitlements": "entitlements.mac.plist",
     "entitlementsInherit": "entitlements.mac.plist",
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "Milady needs microphone access for voice input and talk mode.",
+      "NSCameraUsageDescription": "Milady needs camera access for vision and video capture.",
+      "NSScreenCaptureUsageDescription": "Milady needs screen recording access for screenshots and on-screen analysis.",
+      "NSAppleEventsUsageDescription": "Milady uses automation to interact with other apps when you enable computer control."
+    },
     "notarize": true
   },
   "dmg": {
     "format": "UDZO",
+    "size": "4g",
     "background": "assets/dmg-background.png",
     "iconSize": 80,
     "window": {

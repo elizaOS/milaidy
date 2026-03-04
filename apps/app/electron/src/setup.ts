@@ -564,11 +564,11 @@ export class ElectronCapacitorApp {
         // Switch stream capture to the popout window
         const scm = (
           globalThis as unknown as {
-            __miladyScreenCaptureManager?: {
+            __miladyScreenCapture?: {
               setCaptureTarget(w: BrowserWindow | null): void;
             };
           }
-        ).__miladyScreenCaptureManager;
+        ).__miladyScreenCapture;
 
         if (scm) {
           scm.setCaptureTarget(childWindow);

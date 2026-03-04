@@ -32,7 +32,11 @@ async function spawnElectron() {
     child = null;
     await runBuild();
   }
-  child = cp.spawn(electron, ["--inspect=5858", "./"]);
+  const electronEnv = { ...process.env };
+  delete electronEnv.ELECTRON_RUN_AS_NODE;
+  child = cp.spawn(electron, ["--inspect=5858", "./"], {
+    env: electronEnv,
+  });
   child.on("exit", () => {
     if (!reloadWatcher.restarting) {
       process.exit(0);
