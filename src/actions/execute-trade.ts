@@ -1,3 +1,5 @@
+// TODO: Add unit tests for trade execution (bsc-trade, execute-trade, wallet-trading-profile)
+
 /**
  * EXECUTE_TRADE action — executes a BSC token trade (buy or sell).
  *

@@ -257,7 +257,7 @@ async function readWrappedNativeAddress(rpcUrls: string[]): Promise<string> {
   }
 }
 
-async function readTokenDecimals(
+export async function readTokenDecimals(
   rpcUrls: string[],
   tokenAddress: string,
 ): Promise<number> {
