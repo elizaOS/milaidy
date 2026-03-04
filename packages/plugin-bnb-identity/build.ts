@@ -1,5 +1,6 @@
-import { build } from "bun";
+import { execSync } from "node:child_process";
 import { rmSync } from "node:fs";
+import { build } from "bun";
 
 rmSync("dist", { recursive: true, force: true });
 
@@ -12,5 +13,13 @@ await build({
   sourcemap: "external",
   external: ["@elizaos/core"],
 });
+
+console.log("Generating type declarations...");
+execSync(
+  "npx tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist",
+  {
+    stdio: "inherit",
+  },
+);
 
 console.log("@milady/plugin-bnb-identity built successfully.");

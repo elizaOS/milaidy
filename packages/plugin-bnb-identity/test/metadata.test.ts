@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
   buildAgentMetadata,
   metadataToDataUri,
@@ -101,23 +101,16 @@ describe("metadataToDataUri", () => {
 describe("metadataToHostedUri", () => {
   it("appends /agent-metadata.json to the base URL", () => {
     const meta = buildAgentMetadata(baseConfig, "mila", []);
-    const uri = metadataToHostedUri(
-      meta,
-      "https://milady-ai.github.io/milady"
-    );
-    expect(uri).toBe(
-      "https://milady-ai.github.io/milady/agent-metadata.json"
-    );
+    const uri = metadataToHostedUri(meta, "https://milady-ai.github.io/milady");
+    expect(uri).toBe("https://milady-ai.github.io/milady/agent-metadata.json");
   });
 
   it("strips trailing slash before appending", () => {
     const meta = buildAgentMetadata(baseConfig, "mila", []);
     const uri = metadataToHostedUri(
       meta,
-      "https://milady-ai.github.io/milady/"
+      "https://milady-ai.github.io/milady/",
     );
-    expect(uri).toBe(
-      "https://milady-ai.github.io/milady/agent-metadata.json"
-    );
+    expect(uri).toBe("https://milady-ai.github.io/milady/agent-metadata.json");
   });
 });

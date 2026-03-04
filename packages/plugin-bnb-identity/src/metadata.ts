@@ -6,7 +6,11 @@
  * discovery agents can understand what Milady can actually do.
  */
 
-import type { AgentMetadata, AgentService, BnbIdentityConfig } from "./types.js";
+import type {
+  AgentMetadata,
+  AgentService,
+  BnbIdentityConfig,
+} from "./types.js";
 
 const MILADY_VERSION = "0.1.0";
 const MILADY_IMAGE =
@@ -20,7 +24,7 @@ const MILADY_IMAGE =
 export function buildAgentMetadata(
   config: BnbIdentityConfig,
   agentName: string,
-  installedPlugins: string[] = []
+  installedPlugins: string[] = [],
 ): AgentMetadata {
   const gatewayUrl = `ws://localhost:${config.gatewayPort}/ws`;
   const mcpUrl = `http://localhost:${config.gatewayPort}/mcp`;
@@ -78,7 +82,7 @@ export function metadataToDataUri(metadata: AgentMetadata): string {
  */
 export function metadataToHostedUri(
   metadata: AgentMetadata,
-  base: string
+  base: string,
 ): string {
   void metadata; // used by caller for the upload step
   return `${base.replace(/\/$/, "")}/agent-metadata.json`;

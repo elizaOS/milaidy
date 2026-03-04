@@ -8,7 +8,7 @@
   "types": "dist/index.d.ts",
   "packageType": "plugin",
   "platform": "node",
-  "license": "VPL-1.0",
+  "license": "MIT",
   "keywords": [
     "elizaos",
     "elizaos-plugin",
@@ -33,7 +33,10 @@
       }
     }
   },
-  "files": ["dist", "package.json"],
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "dependencies": {
     "@elizaos/core": "next"
   },

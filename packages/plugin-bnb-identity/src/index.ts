@@ -18,37 +18,33 @@
 import type { Plugin } from "@elizaos/core";
 import {
   registerAction,
-  updateIdentityAction,
   resolveIdentityAction,
+  updateIdentityAction,
 } from "./actions.js";
 
-export { BnbIdentityService } from "./service.js";
 export {
   buildAgentMetadata,
   metadataToDataUri,
   metadataToHostedUri,
 } from "./metadata.js";
-export { readIdentity, writeIdentity, patchIdentity } from "./store.js";
+export { BnbIdentityService } from "./service.js";
+export { patchIdentity, readIdentity, writeIdentity } from "./store.js";
 export type {
   AgentMetadata,
   AgentService,
-  IdentityRecord,
   BnbIdentityConfig,
-  RegisterResult,
-  SetUriResult,
   GetAgentResult,
   GetAgentWalletResult,
+  IdentityRecord,
+  RegisterResult,
+  SetUriResult,
 } from "./types.js";
 
 export const bnbIdentityPlugin: Plugin = {
   name: "@milady/plugin-bnb-identity",
   description:
     "ERC-8004 on-chain agent identity for Milady — registers her on BNB Chain and keeps her agentURI in sync with her current capabilities and MCP endpoint.",
-  actions: [
-    registerAction,
-    updateIdentityAction,
-    resolveIdentityAction,
-  ],
+  actions: [registerAction, updateIdentityAction, resolveIdentityAction],
   evaluators: [],
   providers: [],
 };

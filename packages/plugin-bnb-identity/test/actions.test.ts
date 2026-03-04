@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  extractAgentIdFromText,
-  normalizeBnbNetwork,
-} from "../src/actions.js";
+import { extractAgentIdFromText, normalizeBnbNetwork } from "../src/actions.js";
 
 describe("normalizeBnbNetwork", () => {
   it("keeps supported networks unchanged", () => {
@@ -28,17 +25,19 @@ describe("normalizeBnbNetwork", () => {
   it("normalizes common testnet aliases", () => {
     expect(normalizeBnbNetwork("testnet")).toEqual({
       network: "bsc-testnet",
-      warning: 'Normalized BNB_NETWORK "testnet" to "bsc-testnet" for compatibility.',
+      warning:
+        'Normalized BNB_NETWORK "testnet" to "bsc-testnet" for compatibility.',
     });
     expect(normalizeBnbNetwork("bnb_testnet")).toEqual({
       network: "bsc-testnet",
-      warning: 'Normalized BNB_NETWORK "bnb_testnet" to "bsc-testnet" for compatibility.',
+      warning:
+        'Normalized BNB_NETWORK "bnb_testnet" to "bsc-testnet" for compatibility.',
     });
   });
 
   it("rejects unsupported networks", () => {
     expect(() => normalizeBnbNetwork("polygon")).toThrow(
-      'Unsupported BNB_NETWORK "polygon". Supported values: bsc, bsc-testnet.'
+      'Unsupported BNB_NETWORK "polygon". Supported values: bsc, bsc-testnet.',
     );
   });
 });

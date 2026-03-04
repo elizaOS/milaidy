@@ -5,9 +5,9 @@
  * and can be read by other plugins (e.g. a future payment plugin).
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import type { IdentityRecord } from "./types.js";
 
 const MILADY_DIR = join(homedir(), ".milady");
@@ -31,12 +31,12 @@ export async function writeIdentity(record: IdentityRecord): Promise<void> {
 
 /** Updates specific fields on the existing record, or throws if none exists. */
 export async function patchIdentity(
-  patch: Partial<IdentityRecord>
+  patch: Partial<IdentityRecord>,
 ): Promise<IdentityRecord> {
   const existing = await readIdentity();
   if (!existing) {
     throw new Error(
-      "No identity record found. Register first with /bnb-identity register."
+      "No identity record found. Register first with /bnb-identity register.",
     );
   }
   const updated: IdentityRecord = {

@@ -19,14 +19,13 @@ import type {
   Memory,
   State,
 } from "@elizaos/core";
-
-import { BnbIdentityService } from "./service.js";
 import {
   buildAgentMetadata,
   metadataToDataUri,
   metadataToHostedUri,
 } from "./metadata.js";
-import { readIdentity, writeIdentity, patchIdentity } from "./store.js";
+import { BnbIdentityService } from "./service.js";
+import { patchIdentity, readIdentity, writeIdentity } from "./store.js";
 import type { BnbIdentityConfig } from "./types.js";
 
 type ResolvedBnbIdentityConfig = BnbIdentityConfig & {
@@ -37,7 +36,7 @@ type ResolvedBnbIdentityConfig = BnbIdentityConfig & {
 
 function loadConfig(runtime: IAgentRuntime): ResolvedBnbIdentityConfig {
   const { network, warning } = normalizeBnbNetwork(
-    runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet"
+    runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet",
   );
 
   return {
@@ -46,23 +45,27 @@ function loadConfig(runtime: IAgentRuntime): ResolvedBnbIdentityConfig {
     agentUriBase: runtime.getSetting("BNB_AGENT_URI_BASE") ?? undefined,
     gatewayPort: parseInt(
       runtime.getSetting("MILADY_GATEWAY_PORT") ?? "18789",
-      10
+      10,
     ),
     ...(warning ? { networkWarning: warning } : {}),
   };
 }
 
 function resolveScanBase(network: string): string {
-  return network === "bsc" ? "https://www.8004scan.io" : "https://testnet.8004scan.io";
+  return network === "bsc"
+    ? "https://www.8004scan.io"
+    : "https://testnet.8004scan.io";
 }
 
 function networkLabelForDisplay(network: string): string {
-  return network === "bsc" ? "BSC Mainnet 🔴 REAL MONEY" : `${network} (testnet)`;
+  return network === "bsc"
+    ? "BSC Mainnet 🔴 REAL MONEY"
+    : `${network} (testnet)`;
 }
 
 function userConfirmed(message: Memory): boolean {
   const userText = message.content?.text?.toLowerCase() ?? "";
-  return userText.includes("confirm") || userText.includes("yes");
+  return /\b(confirm|yes)\b/.test(userText);
 }
 
 // ── Action: BNB_IDENTITY_REGISTER ──────────────────────────────────────────
@@ -80,7 +83,10 @@ export const registerAction: Action = {
   description:
     "Registers Milady as an ERC-8004 agent on BNB Chain. Mints an on-chain identity NFT with a metadata URI describing her capabilities and MCP endpoint. Requires BNB_PRIVATE_KEY.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     // Valid if not already registered, or user explicitly wants to re-register.
     // We allow re-registration so the action is always callable — the handler
     // will warn if an identity already exists.
@@ -92,7 +98,7 @@ export const registerAction: Action = {
     message: Memory,
     state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     let config: ResolvedBnbIdentityConfig;
     try {
@@ -157,10 +163,17 @@ export const registerAction: Action = {
 
     // Wait for confirmation — ElizaOS will call handler again with user reply.
     // We detect the confirmation via state flag set below on retry.
+    if (!state) {
+      await callback({
+        text: "Action state unavailable. Cannot process identity registration.",
+      });
+      return;
+    }
+
     const pendingKey = "bnb_identity_register_pending";
-    if (!state?.[pendingKey]) {
+    if (!state[pendingKey]) {
       // First call: set pending flag and return — wait for user confirmation.
-      if (state) state[pendingKey] = { agentURI, metadata };
+      state[pendingKey] = { agentURI, metadata };
       return;
     }
 
@@ -244,7 +257,10 @@ export const updateIdentityAction: Action = {
   description:
     "Updates Milady's ERC-8004 agentURI on-chain to reflect her current capabilities, plugins, and MCP endpoint. Use after installing new plugins or changing gateway config.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     const existing = await readIdentity();
     return existing !== null;
   },
@@ -254,7 +270,7 @@ export const updateIdentityAction: Action = {
     message: Memory,
     state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     let config: ResolvedBnbIdentityConfig;
     try {
@@ -308,9 +324,16 @@ export const updateIdentityAction: Action = {
         `Reply **confirm** to send the update transaction.`,
     });
 
+    if (!state) {
+      await callback({
+        text: "Action state unavailable. Cannot process identity update.",
+      });
+      return;
+    }
+
     const pendingKey = "bnb_identity_update_pending";
-    if (!state?.[pendingKey]) {
-      if (state) state[pendingKey] = { newURI };
+    if (!state[pendingKey]) {
+      state[pendingKey] = { newURI };
       return;
     }
 
@@ -332,7 +355,8 @@ export const updateIdentityAction: Action = {
       const onchainURI = verification ?? newURI;
       await patchIdentity({ agentURI: onchainURI });
 
-      let verificationText = "Her on-chain profile now reflects the latest capabilities.";
+      let verificationText =
+        "Her on-chain profile now reflects the latest capabilities.";
       if (verification === null) {
         verificationText =
           "⚠️ Could not verify the on-chain agentURI immediately after update. " +
@@ -393,7 +417,10 @@ export const resolveIdentityAction: Action = {
   description:
     "Resolves an ERC-8004 agent ID to its owner, metadata URI, and payment wallet. Works read-only — no private key needed. If no ID given, shows Milady's own identity.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     return true;
   },
 
@@ -402,7 +429,7 @@ export const resolveIdentityAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     let config: ResolvedBnbIdentityConfig;
     try {
@@ -438,7 +465,9 @@ export const resolveIdentityAction: Action = {
       agentId = own.agentId;
     }
 
-    await callback({ text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…` });
+    await callback({
+      text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…`,
+    });
 
     try {
       const [agentInfo, walletInfo] = await Promise.all([
@@ -457,7 +486,9 @@ export const resolveIdentityAction: Action = {
         lines.push(`**Payment Wallet:** \`${walletInfo.agentWallet}\``);
       }
 
-      lines.push(`**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`);
+      lines.push(
+        `**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`,
+      );
 
       await callback({ text: lines.join("\n") });
     } catch (err) {
@@ -506,15 +537,20 @@ const SUPPORTED_NETWORKS = new Set(["bsc", "bsc-testnet"]);
  * Normalizes requested BNB network values and rejects unsupported values.
  * Also accepts common aliases (mainnet/testnet) to reduce operator mistakes.
  */
-export function normalizeBnbNetwork(
-  value: string
-): { network: string; warning?: string } {
+export function normalizeBnbNetwork(value: string): {
+  network: string;
+  warning?: string;
+} {
   const normalized = value.trim().toLowerCase();
   if (SUPPORTED_NETWORKS.has(normalized)) {
     return { network: normalized };
   }
 
-  if (normalized === "mainnet" || normalized === "bnb" || normalized === "bnb-mainnet") {
+  if (
+    normalized === "mainnet" ||
+    normalized === "bnb" ||
+    normalized === "bnb-mainnet"
+  ) {
     return {
       network: "bsc",
       warning: `Normalized BNB_NETWORK "${value}" to "bsc" for compatibility.`,
@@ -535,7 +571,7 @@ export function normalizeBnbNetwork(
   }
 
   throw new Error(
-    `Unsupported BNB_NETWORK "${value}". Supported values: bsc, bsc-testnet.`
+    `Unsupported BNB_NETWORK "${value}". Supported values: bsc, bsc-testnet.`,
   );
 }
 
@@ -545,7 +581,7 @@ export function normalizeBnbNetwork(
 async function getInstalledPlugins(runtime: IAgentRuntime): Promise<string[]> {
   // ElizaOS runtime exposes plugins on the character config
   const characterPlugins: string[] =
-    (runtime.character as any)?.plugins ?? [];
+    (runtime.character as unknown as { plugins?: string[] })?.plugins ?? [];
   if (characterPlugins.length > 0) return characterPlugins;
 
   // Fallback: read plugins.json from the Milady root

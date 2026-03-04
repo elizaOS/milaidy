@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  clearIdentity,
+  patchIdentity,
   readIdentity,
   writeIdentity,
-  patchIdentity,
-  clearIdentity,
 } from "../src/store.js";
 import type { IdentityRecord } from "../src/types.js";
 
@@ -70,7 +70,7 @@ describe("identity store", () => {
 
   it("throws on patchIdentity when no record exists", async () => {
     expect(patchIdentity({ agentURI: "ipfs://Qm" })).rejects.toThrow(
-      "No identity record found"
+      "No identity record found",
     );
   });
 

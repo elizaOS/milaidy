@@ -13,12 +13,12 @@
 
 import type { IAgentRuntime } from "@elizaos/core";
 import type {
+  AddressResult,
   BnbIdentityConfig,
-  RegisterResult,
-  SetUriResult,
   GetAgentResult,
   GetAgentWalletResult,
-  AddressResult,
+  RegisterResult,
+  SetUriResult,
 } from "./types.js";
 
 export type McpToolResponse = {
@@ -105,12 +105,15 @@ export function parseMcpTextPayload<T>(text: string, toolName: string): T {
     return JSON.parse(trimmed) as T;
   } catch {
     throw new Error(
-      `MCP tool ${toolName} returned non-JSON text response: ${trimmed.slice(0, 180)}`
+      `MCP tool ${toolName} returned non-JSON text response: ${trimmed.slice(0, 180)}`,
     );
   }
 }
 
-export function parseMcpResult<T>(result: McpToolResponse, toolName: string): T {
+export function parseMcpResult<T>(
+  result: McpToolResponse,
+  toolName: string,
+): T {
   const payload = extractMcpPayload(result);
   if (payload === null || payload === undefined) {
     throw new Error(`MCP tool ${toolName} returned empty payload.`);
@@ -125,10 +128,15 @@ export function parseMcpResult<T>(result: McpToolResponse, toolName: string): T 
   ) {
     return payload as T;
   }
-  throw new Error(`Unexpected MCP payload type from ${toolName}: ${typeof payload}`);
+  throw new Error(
+    `Unexpected MCP payload type from ${toolName}: ${typeof payload}`,
+  );
 }
 
-export function assertMcpToolSuccess(toolName: string, result: McpToolResponse): void {
+export function assertMcpToolSuccess(
+  toolName: string,
+  result: McpToolResponse,
+): void {
   if (!result) {
     throw new Error(`MCP tool ${toolName} returned an empty response.`);
   }
@@ -136,7 +144,7 @@ export function assertMcpToolSuccess(toolName: string, result: McpToolResponse):
     const text = extractMcpTextPayload(result);
     const message = text || result.error || result.message;
     throw new Error(
-      `MCP tool ${toolName} error: ${message || MCP_TOOL_GENERIC_ERROR_MESSAGE}`
+      `MCP tool ${toolName} error: ${message || MCP_TOOL_GENERIC_ERROR_MESSAGE}`,
     );
   }
 }
@@ -172,10 +180,7 @@ export class BnbIdentityService {
    * Calls set_erc8004_agent_uri to update the metadata URI on-chain.
    * Caller must own the agent NFT (same private key used at registration).
    */
-  async updateAgentUri(
-    agentId: string,
-    newURI: string
-  ): Promise<SetUriResult> {
+  async updateAgentUri(agentId: string, newURI: string): Promise<SetUriResult> {
     this.assertPrivateKey();
     return this.callMcpTool<SetUriResult>("set_erc8004_agent_uri", {
       privateKey: this.config.privateKey,
@@ -197,7 +202,7 @@ export class BnbIdentityService {
         {
           privateKey: this.config.privateKey,
           network: this.config.network,
-        }
+        },
       );
       return this.normalizeAddress(result.address ?? result.result);
     } catch {
@@ -229,7 +234,7 @@ export class BnbIdentityService {
     if (!this.config.privateKey) {
       throw new Error(
         "BNB_PRIVATE_KEY is required for write operations. " +
-          "Add it to ~/.milady/.env or milady.json plugin parameters."
+          "Add it to ~/.milady/.env or milady.json plugin parameters.",
       );
     }
   }
@@ -244,12 +249,24 @@ export class BnbIdentityService {
    */
   private async callMcpTool<T>(
     toolName: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<T> {
     // Try runtime MCP client first
-    const mcpClient = (this.runtime as any).mcpClient;
+    const mcpClient = (
+      this.runtime as unknown as {
+        mcpClient?: {
+          callTool: (
+            name: string,
+            params: Record<string, unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).mcpClient;
     if (mcpClient?.callTool) {
-      const result = (await mcpClient.callTool({ name: toolName, arguments: params })) as McpToolResponse;
+      const result = (await mcpClient.callTool({
+        name: toolName,
+        arguments: params,
+      })) as McpToolResponse;
       assertMcpToolSuccess(toolName, result);
       return parseMcpResult<T>(result, toolName);
     }
