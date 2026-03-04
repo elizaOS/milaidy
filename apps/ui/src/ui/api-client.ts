@@ -302,7 +302,9 @@ export class MilaidyClient {
     const makeRequest = async (token: string | null) => {
       const isChatRoute =
         path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
-      const timeoutMs = isChatRoute ? 8000 : 12000;
+      // Chat/provider calls can legitimately take longer (cold starts, model queueing).
+      // Keep chat timeout higher than generic API routes to avoid false timeouts.
+      const timeoutMs = isChatRoute ? 45000 : 12000;
       const timeoutPromise = new Promise<never>((_, reject) => {
         const t = setTimeout(() => {
           clearTimeout(t);
