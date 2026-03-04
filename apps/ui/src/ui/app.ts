@@ -8259,7 +8259,12 @@ export class MilaidyApp extends LitElement {
   private isAccountConnectionPlugin(plugin: PluginInfo): boolean {
     if (this.isHiddenSystemPlugin(plugin.id)) return false;
     if (CURATED_APP_ID_SET.has(plugin.id)) return true;
-    return plugin.category === "connector" || plugin.category === "feature";
+    return (
+      plugin.category === "connector" ||
+      plugin.category === "feature" ||
+      plugin.category === "app" ||
+      plugin.category === "streaming"
+    );
   }
 
   private isAppIntegrationPlugin(plugin: PluginInfo): boolean {
@@ -8274,6 +8279,8 @@ export class MilaidyApp extends LitElement {
       "local-embedding",
     ]);
     if (infraDenyIds.has(id)) return false;
+    if (plugin.category === "app") return true;
+    if (plugin.category === "streaming") return id !== "streaming-base";
     if (plugin.category === "connector") return true;
     if (plugin.category === "feature") {
       const integrationSignals = plugin.parameters.some((param) =>
