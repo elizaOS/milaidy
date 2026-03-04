@@ -809,7 +809,6 @@ async function saveTrajectory(
 
   const sql = `INSERT INTO trajectories (
       id,
-      trajectory_id,
       agent_id,
       source,
       status,
@@ -828,7 +827,6 @@ async function saveTrajectory(
       updated_at,
       episode_length
     ) VALUES (
-      ${sqlQuote(trajectory.id)},
       ${sqlQuote(trajectory.id)},
       ${sqlQuote(runtime.agentId)},
       ${sqlQuote(trajectory.source)},
@@ -849,7 +847,6 @@ async function saveTrajectory(
       ${sqlNumber(trajectory.steps.length)}
     )
     ON CONFLICT (id) DO UPDATE SET
-      trajectory_id = EXCLUDED.trajectory_id,
       agent_id = EXCLUDED.agent_id,
       source = EXCLUDED.source,
       status = EXCLUDED.status,
