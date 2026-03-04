@@ -311,7 +311,8 @@ jobs:
 
           $config = Get-Content "./electron-builder.ci.json" -Raw | ConvertFrom-Json
           if (-not $config.win -or -not $config.win.azureSignOptions) {
-            throw "Missing win.azureSignOptions in electron-builder.ci.json"
+            Write-Host "No win.azureSignOptions found — skipping Azure Trusted Signing preflight (unsigned build)"
+            exit 0
           }
 
           $opts = $config.win.azureSignOptions
