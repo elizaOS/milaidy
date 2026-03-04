@@ -126,17 +126,23 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     if (!streamLive) return;
     let cancelled = false;
     if (activeGameViewerUrl.trim() && streamSource.type !== "game") {
-      client.setStreamSource("game", activeGameViewerUrl).then((result) => {
-        if (!cancelled && result.ok) {
-          setStreamSource({ type: "game", url: activeGameViewerUrl });
-        }
-      }).catch(() => {});
+      client
+        .setStreamSource("game", activeGameViewerUrl)
+        .then((result) => {
+          if (!cancelled && result.ok) {
+            setStreamSource({ type: "game", url: activeGameViewerUrl });
+          }
+        })
+        .catch(() => {});
     } else if (!activeGameViewerUrl.trim() && streamSource.type === "game") {
-      client.setStreamSource("stream-tab").then((result) => {
-        if (!cancelled && result.ok) {
-          setStreamSource({ type: "stream-tab" });
-        }
-      }).catch(() => {});
+      client
+        .setStreamSource("stream-tab")
+        .then((result) => {
+          if (!cancelled && result.ok) {
+            setStreamSource({ type: "stream-tab" });
+          }
+        })
+        .catch(() => {});
     }
     return () => { cancelled = true; };
   }, [activeGameViewerUrl, streamLive, streamSource.type]);
