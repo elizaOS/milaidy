@@ -28,7 +28,9 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
+import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
   configFileExists,
@@ -37,7 +39,10 @@ import {
   saveMiladyConfig,
 } from "../config/config";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
-import { isConnectorConfigured } from "../config/plugin-auto-enable";
+import {
+  isConnectorConfigured,
+  isStreamingDestinationConfigured,
+} from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
@@ -63,6 +68,10 @@ import {
   isPluginManagerLike,
   type PluginManagerLike,
 } from "../services/plugin-manager-types";
+import {
+  ensurePrivyWalletsForCustomUser,
+  isPrivyWalletProvisioningEnabled,
+} from "../services/privy-wallets";
 import type { SandboxManager } from "../services/sandbox-manager";
 import {
   installMarketplaceSkill,
@@ -79,12 +88,20 @@ import {
 import { parseClampedInteger } from "../utils/number-parsing";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
-import { detectRuntimeModel } from "./agent-model";
+import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
 import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
 import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import {
+  buildBscApproveUnsignedTx,
+  buildBscBuyUnsignedTx,
+  buildBscSellUnsignedTx,
+  buildBscTradePreflight,
+  buildBscTradeQuote,
+  resolvePrimaryBscRpcUrl,
+} from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -151,6 +168,11 @@ import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
 import {
+  loadWalletTradingProfile,
+  recordWalletTradeLedgerEntry,
+  updateWalletTradeLedgerEntryStatus,
+} from "./wallet-trading-profile";
+import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
@@ -197,6 +219,60 @@ function isUuidLike(value: string): value is UUID {
 }
 
 const OG_FILENAME = ".og";
+const DELETED_CONVERSATIONS_FILENAME = "deleted-conversations.v1.json";
+const MAX_DELETED_CONVERSATION_IDS = 5000;
+
+interface DeletedConversationsStateFile {
+  version: 1;
+  updatedAt: string;
+  ids: string[];
+}
+
+function readDeletedConversationIdsFromState(): Set<string> {
+  const filePath = path.join(resolveStateDir(), DELETED_CONVERSATIONS_FILENAME);
+  if (!fs.existsSync(filePath)) return new Set();
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<DeletedConversationsStateFile>;
+    const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+    return new Set(
+      ids
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter((id) => id.length > 0),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to read deleted conversations state: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return new Set();
+  }
+}
+
+function persistDeletedConversationIdsToState(ids: Set<string>): void {
+  const dir = resolveStateDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+
+  const normalized = Array.from(ids)
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0)
+    .slice(-MAX_DELETED_CONVERSATION_IDS);
+
+  const filePath = path.join(dir, DELETED_CONVERSATIONS_FILENAME);
+  const tmpFilePath = `${filePath}.${process.pid}.tmp`;
+  const payload: DeletedConversationsStateFile = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ids: normalized,
+  };
+
+  fs.writeFileSync(tmpFilePath, `${JSON.stringify(payload, null, 2)}\n`, {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  fs.renameSync(tmpFilePath, filePath);
+}
 
 function readOGCodeFromState(): string | null {
   const filePath = path.join(resolveStateDir(), OG_FILENAME);
@@ -262,6 +338,8 @@ interface ServerState {
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
+  /** Tombstones for conversation IDs explicitly deleted by the user. */
+  deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
@@ -301,6 +379,10 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
+  /** Agent automation permission mode for self-directed config changes. */
+  agentAutomationMode?: AgentAutomationMode;
+  /** Wallet trade execution permission mode (user-sign/manual/agent-auto). */
+  tradePermissionMode?: TradePermissionMode;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
@@ -360,6 +442,8 @@ interface PluginEntry {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, Record<string, unknown>>;
+  /** Optional icon URL or emoji for the plugin card header. */
+  icon?: string | null;
 }
 
 interface SkillEntry {
@@ -580,7 +664,7 @@ function _extractResponseBlocks(
 // ---------------------------------------------------------------------------
 
 export function findOwnPackageRoot(startDir: string): string {
-  const KNOWN_NAMES = new Set(["milady", "milaidy", "miladyai"]);
+  const KNOWN_NAMES = new Set(["milady", "milady", "miladyai"]);
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -623,6 +707,8 @@ interface PluginIndexEntry {
   version?: string;
   pluginDeps?: string[];
   configUiHints?: Record<string, Record<string, unknown>>;
+  logoUrl?: string;
+  icon?: string;
 }
 
 interface PluginIndex {
@@ -1080,6 +1166,8 @@ function discoverInstalledPlugins(
     let pluginConfigKeys: string[] = [];
     let pluginParameters: PluginParamDef[] = [];
 
+    let pluginIcon: string | null = null;
+
     if (installPath) {
       // Check npm layout first, then direct layout
       const candidates = [
@@ -1101,7 +1189,10 @@ function discoverInstalledPlugins(
                 displayName?: string;
                 configKeys?: string[];
                 configDefaults?: Record<string, string>;
+                logoUrl?: string;
               };
+              logoUrl?: string;
+              icon?: string;
             };
             if (pkg.name) name = pkg.name;
             if (pkg.description) description = pkg.description;
@@ -1123,6 +1214,9 @@ function discoverInstalledPlugins(
                 currentValue: null,
               }));
             }
+            // Map logoUrl or icon from package.json if available
+            pluginIcon =
+              pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? null;
             break;
           }
         } catch {
@@ -1134,6 +1228,7 @@ function discoverInstalledPlugins(
     entries.push({
       id,
       name,
+      npmName: packageName,
       description,
       enabled: false, // Will be updated against the runtime below
       configured:
@@ -1145,6 +1240,7 @@ function discoverInstalledPlugins(
       parameters: pluginParameters,
       validationErrors: [],
       validationWarnings: [],
+      icon: pluginIcon,
     });
   }
 
@@ -1226,6 +1322,10 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
+            icon:
+              ((p as unknown as Record<string, string | undefined>).logoUrl ??
+                (p as unknown as Record<string, string | undefined>).icon) ||
+              null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -1991,6 +2091,8 @@ function error(res: http.ServerResponse, message: string, status = 400): void {
 const STATIC_MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
+  ".glb": "model/gltf-binary",
+  ".gltf": "model/gltf+json",
   ".html": "text/html; charset=utf-8",
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
@@ -1999,11 +2101,15 @@ const STATIC_MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".map": "application/json",
   ".mjs": "application/javascript; charset=utf-8",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
+  ".vrm": "model/gltf-binary",
   ".wasm": "application/wasm",
+  ".wav": "audio/wav",
   ".webp": "image/webp",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
@@ -2133,8 +2239,14 @@ function serveStaticUi(
       return true;
     }
   } catch {
-    // Missing file falls through to SPA index fallback.
+    // Missing file falls through to SPA index fallback below.
   }
+
+  // Only serve the SPA index.html for navigation-like requests (no file extension
+  // or .html). Asset requests (.vrm, .js, .png, etc.) that miss on disk should 404
+  // rather than silently returning HTML — which breaks binary loaders like GLTFLoader.
+  const reqExt = path.extname(decodedPath).toLowerCase();
+  if (reqExt && reqExt !== ".html") return false;
 
   if (!uiIndexHtml) return false;
   sendStaticResponse(
@@ -2154,6 +2266,12 @@ function serveStaticUi(
 interface ChatGenerationResult {
   text: string;
   agentName: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    model?: string;
+  };
 }
 
 interface ChatGenerateOptions {
@@ -2475,9 +2593,20 @@ async function generateChatResponse(
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
 
+  // Estimate token usage from text lengths (~4 chars per token)
+  const promptText = extractCompatTextContent(message.content) ?? "";
+  const estPromptTokens = Math.ceil(promptText.length / 4);
+  const estCompletionTokens = Math.ceil(finalText.length / 4);
+
   return {
     text: finalText,
     agentName,
+    usage: {
+      promptTokens: estPromptTokens,
+      completionTokens: estCompletionTokens,
+      totalTokens: estPromptTokens + estCompletionTokens,
+      model: detectRuntimeModel(runtime, undefined) ?? undefined,
+    },
   };
 }
 
@@ -4170,6 +4299,197 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Trade permission helpers (exported for use by awareness contributors)
+// ---------------------------------------------------------------------------
+
+export type TradePermissionMode =
+  | "user-sign-only"
+  | "manual-local-key"
+  | "agent-auto";
+
+/**
+ * Resolve the active trade permission mode from config.
+ * Falls back to "user-sign-only" when not configured.
+ */
+export function resolveTradePermissionMode(
+  config: MiladyConfig,
+): TradePermissionMode {
+  const raw = (config.features as Record<string, unknown> | undefined)
+    ?.tradePermissionMode;
+  if (
+    raw === "user-sign-only" ||
+    raw === "manual-local-key" ||
+    raw === "agent-auto"
+  ) {
+    return raw;
+  }
+  return "user-sign-only";
+}
+
+/**
+ * Returns true if local-key execution is permitted for the given actor.
+ * @param mode    The resolved trade permission mode.
+ * @param isAgent True when the caller is the agent (autonomous), false for user-initiated flows.
+ */
+export function canUseLocalTradeExecution(
+  mode: TradePermissionMode,
+  isAgent: boolean,
+): boolean {
+  if (mode === "agent-auto") return true;
+  if (mode === "manual-local-key") return !isAgent;
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Automation & agent permission helpers
+// ---------------------------------------------------------------------------
+
+type AgentAutomationMode = "connectors-only" | "full";
+
+const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
+const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
+  "user-sign-only",
+  "manual-local-key",
+  "agent-auto",
+]);
+const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
+  "connectors-only",
+  "full",
+]);
+
+function parseAgentAutomationMode(value: unknown): AgentAutomationMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!AGENT_AUTOMATION_MODES.has(normalized as AgentAutomationMode)) {
+    return null;
+  }
+  return normalized as AgentAutomationMode;
+}
+
+function resolveAgentAutomationModeFromConfig(
+  config: MiladyConfig,
+): AgentAutomationMode {
+  const features =
+    config.features && typeof config.features === "object"
+      ? (config.features as Record<string, unknown>)
+      : null;
+  const agentAutomation =
+    features?.agentAutomation &&
+    typeof features.agentAutomation === "object" &&
+    !Array.isArray(features.agentAutomation)
+      ? (features.agentAutomation as Record<string, unknown>)
+      : null;
+  return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
+}
+
+function _parseTradePermissionMode(value: unknown): TradePermissionMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
+    return null;
+  }
+  return normalized as TradePermissionMode;
+}
+
+function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
+  const raw = req.headers[AGENT_AUTOMATION_HEADER];
+  if (typeof raw !== "string") return false;
+  return /^(1|true|yes|agent)$/i.test(raw.trim());
+}
+
+function persistAgentAutomationMode(
+  state: ServerState,
+  mode: AgentAutomationMode,
+): void {
+  state.agentAutomationMode = mode;
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.agentAutomation;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  features.agentAutomation = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+}
+
+function _persistTradePermissionMode(
+  state: ServerState,
+  mode: TradePermissionMode,
+): void {
+  state.tradePermissionMode = mode;
+  process.env.MILADY_TRADE_PERMISSION_MODE = mode;
+
+  if (!state.config.features) {
+    state.config.features = {};
+  }
+  const features = state.config.features as Record<
+    string,
+    boolean | { enabled?: boolean; [k: string]: unknown }
+  >;
+  const current = features.tradeExecution;
+  const currentObject =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  features.tradeExecution = {
+    ...currentObject,
+    enabled: true,
+    mode,
+  };
+
+  if (!state.config.env || typeof state.config.env !== "object") {
+    state.config.env = {};
+  }
+  (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
+    mode;
+
+  const bscEnabled = mode === "agent-auto" ? "true" : "false";
+  process.env.MILADY_BSC_EXECUTION_ENABLED = bscEnabled;
+  (state.config.env as Record<string, string>).MILADY_BSC_EXECUTION_ENABLED =
+    bscEnabled;
+}
+
+function _rejectAgentMutation(
+  req: http.IncomingMessage,
+  state: ServerState,
+  target:
+    | { kind: "connectors" }
+    | { kind: "plugins"; pluginNameOrId: string }
+    | { kind: "config" },
+): string | null {
+  if (!isAgentAutomationRequest(req)) return null;
+  const mode = state.agentAutomationMode ?? "full";
+  if (mode === "full") return null;
+
+  if (target.kind === "connectors") return null;
+
+  if (target.kind === "plugins") {
+    const shortId = target.pluginNameOrId
+      .trim()
+      .replace(/^@[^/]+\/plugin-/, "")
+      .replace(/^@[^/]+\//, "")
+      .replace(/^plugin-/, "");
+    const known = state.plugins.find((entry) => entry.id === shortId);
+    const category = known?.category ?? "feature";
+    if (category === "connector") return null;
+    return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+  }
+
+  return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
+}
+
+// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
@@ -4319,7 +4639,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token, X-Milady-UI-Language",
     );
   }
 
@@ -6015,34 +6335,41 @@ async function handleRequest(
     if (!config.env) config.env = {};
     const envCfg = config.env as Record<string, string>;
 
-    // Helper: clear cloud config & env vars
-    const clearCloud = () => {
-      (config.cloud as Record<string, unknown>).enabled = false;
-      delete (config.cloud as Record<string, unknown>).apiKey;
-      delete process.env.ELIZAOS_CLOUD_API_KEY;
-      delete process.env.ELIZAOS_CLOUD_ENABLED;
-      delete envCfg.ELIZAOS_CLOUD_API_KEY;
-      delete envCfg.ELIZAOS_CLOUD_ENABLED;
-      // Also clear from runtime character secrets if available
-      if (state.runtime?.character?.secrets) {
-        const secrets = state.runtime.character.secrets as Record<
-          string,
-          unknown
-        >;
-        delete secrets.ELIZAOS_CLOUD_API_KEY;
-        delete secrets.ELIZAOS_CLOUD_ENABLED;
+    // Helper: disable cloud inference while preserving cloud connection
+    // for RPC and other services.  Does NOT delete cloud.apiKey or
+    // cloud.enabled — only toggles inference off.
+    const disableCloudInference = () => {
+      const cloudCfg = config.cloud as Record<string, unknown>;
+      cloudCfg.inferenceMode = "byok";
+      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
+        cloudCfg.services = {};
       }
+      (cloudCfg.services as Record<string, unknown>).inference = false;
+      // Clean cloud model env vars so the cloud plugin doesn't intercept
+      // model calls — user's own keys handle models.
+      delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+      delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+    };
+
+    // Helper: enable cloud inference (switching TO cloud)
+    const enableCloudInference = () => {
+      const cloudCfg = config.cloud as Record<string, unknown>;
+      cloudCfg.inferenceMode = "cloud";
+      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
+        cloudCfg.services = {};
+      }
+      (cloudCfg.services as Record<string, unknown>).inference = true;
     };
 
     // Helper: clear pi-ai mode
     const clearPiAi = () => {
-      delete process.env.MILAIDY_USE_PI_AI;
-      delete envCfg.MILAIDY_USE_PI_AI;
+      delete process.env.MILADY_USE_PI_AI;
+      delete envCfg.MILADY_USE_PI_AI;
 
       const envRoot = config.env as Record<string, unknown>;
       const vars = envRoot.vars;
       if (vars && typeof vars === "object" && !Array.isArray(vars)) {
-        delete (vars as Record<string, unknown>).MILAIDY_USE_PI_AI;
+        delete (vars as Record<string, unknown>).MILADY_USE_PI_AI;
       }
 
       if (state.runtime?.character?.secrets) {
@@ -6050,7 +6377,7 @@ async function handleRequest(
           string,
           unknown
         >;
-        delete secrets.MILAIDY_USE_PI_AI;
+        delete secrets.MILADY_USE_PI_AI;
       }
     };
 
@@ -6117,14 +6444,14 @@ async function handleRequest(
       }
 
       if (provider === "elizacloud") {
-        // Switching TO elizacloud
+        // Switching TO elizacloud for inference
         clearPiAi();
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
-        // Restore cloud config — the actual API key should already be in
-        // config.cloud.apiKey from the original cloud login.  If it was
-        // wiped, the user will need to re-login via cloud.
+        enableCloudInference();
+        // Ensure cloud is enabled — the actual API key should already be in
+        // config.cloud.apiKey from the original cloud login.
         (config.cloud as Record<string, unknown>).enabled = true;
         if (config.cloud.apiKey) {
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
@@ -6132,11 +6459,11 @@ async function handleRequest(
         }
       } else if (provider === "pi-ai") {
         // Switching TO pi-ai credentials mode
-        clearCloud();
+        disableCloudInference();
         await clearSubscriptions();
         clearOtherApiKeys();
-        process.env.MILAIDY_USE_PI_AI = "1";
-        envCfg.MILAIDY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
+        envCfg.MILADY_USE_PI_AI = "1";
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6145,15 +6472,15 @@ async function handleRequest(
           !Array.isArray(envRoot.vars)
             ? (envRoot.vars as Record<string, unknown>)
             : {};
-        vars.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
         envRoot.vars = vars;
       } else if (
         provider === "openai-codex" ||
         provider === "openai-subscription"
       ) {
-        // Switching TO OpenAI subscription
+        // Switching TO OpenAI subscription — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         clearOtherApiKeys("OPENAI_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete Anthropic subscription but keep OpenAI
@@ -6177,9 +6504,9 @@ async function handleRequest(
           );
         }
       } else if (provider === "anthropic-subscription") {
-        // Switching TO Anthropic subscription
+        // Switching TO Anthropic subscription — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         clearOtherApiKeys("ANTHROPIC_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete OpenAI subscription but keep Anthropic
@@ -6203,9 +6530,9 @@ async function handleRequest(
           );
         }
       } else if (PROVIDER_ENV_KEYS[provider]) {
-        // Switching TO a direct API key provider
+        // Switching TO a direct API key provider — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
         const envKey = PROVIDER_ENV_KEYS[provider];
@@ -6630,14 +6957,14 @@ async function handleRequest(
       (envCfg as Record<string, unknown>).vars = vars;
 
       const clearPiAiFlag = () => {
-        delete vars.MILAIDY_USE_PI_AI;
-        delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
-        delete process.env.MILAIDY_USE_PI_AI;
+        delete vars.MILADY_USE_PI_AI;
+        delete (config.env as Record<string, string>).MILADY_USE_PI_AI;
+        delete process.env.MILADY_USE_PI_AI;
       };
 
       if (runMode === "local" && providerId === "pi-ai") {
-        vars.MILAIDY_USE_PI_AI = "1";
-        process.env.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
 
         // Optional primary model override (provider/model).
         if (!config.agents) config.agents = {};
@@ -7056,6 +7383,7 @@ async function handleRequest(
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
+      const npmPkgName = plugin.npmName;
       const isLoaded =
         loadedNames.length > 0 &&
         loadedNames.some((name) => {
@@ -7063,6 +7391,7 @@ async function handleRequest(
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
+            (npmPkgName != null && name === npmPkgName) ||
             name.endsWith(`/${suffix}`) ||
             name.includes(plugin.id)
           );
@@ -7165,7 +7494,25 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    const plugin = state.plugins.find((p) => p.id === pluginId);
+    // Search both bundled plugins AND store-installed plugins
+    let plugin = state.plugins.find((p) => p.id === pluginId);
+    if (!plugin) {
+      // Check store-installed plugins from config
+      let freshCfg: MiladyConfig;
+      try {
+        freshCfg = loadMiladyConfig();
+      } catch {
+        freshCfg = state.config;
+      }
+      const bundledIds = new Set(state.plugins.map((p) => p.id));
+      const installed = discoverInstalledPlugins(freshCfg, bundledIds);
+      const found = installed.find((p) => p.id === pluginId);
+      if (found) {
+        // Temporarily add to state.plugins so toggle logic works the same way
+        state.plugins.push(found);
+        plugin = found;
+      }
+    }
     if (!plugin) {
       error(res, `Plugin "${pluginId}" not found`, 404);
       return;
@@ -7519,6 +7866,28 @@ async function handleRequest(
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
         return;
+      }
+
+      // Auto-enable the newly installed plugin so the runtime loads it after restart.
+      const installedId = (result.pluginName ?? pluginName)
+        .replace(/^@[^/]+\/plugin-/, "")
+        .replace(/^@[^/]+\//, "")
+        .replace(/^plugin-/, "");
+      if (!state.config.plugins) {
+        state.config.plugins = {};
+      }
+      if (!state.config.plugins.entries) {
+        (state.config.plugins as Record<string, unknown>).entries = {};
+      }
+      const pluginEntries = (state.config.plugins as Record<string, unknown>)
+        .entries as Record<string, Record<string, unknown>>;
+      pluginEntries[installedId] = { enabled: true };
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[milady-api] Failed to save config after install: ${err instanceof Error ? err.message : err}`,
+        );
       }
 
       // If autoRestart is not explicitly false, restart the agent
@@ -9795,6 +10164,104 @@ async function handleRequest(
     return;
   }
 
+  // ── POST /api/avatar/background ──────────────────────────────────────────
+  // Upload a custom background image. Saved to ~/.milady/avatars/custom-background.<ext>.
+  if (method === "POST" && pathname === "/api/avatar/background") {
+    const MAX_BG_BYTES = 10 * 1024 * 1024; // 10 MB
+    const rawBody = await readRequestBodyBuffer(req, {
+      maxBytes: MAX_BG_BYTES,
+      returnNullOnTooLarge: true,
+    });
+    if (!rawBody || rawBody.length === 0) {
+      error(res, "Request body is empty or exceeds 10 MB", 400);
+      return;
+    }
+    // Detect image format from magic bytes
+    let ext = "";
+    if (
+      rawBody[0] === 0x89 &&
+      rawBody[1] === 0x50 &&
+      rawBody[2] === 0x4e &&
+      rawBody[3] === 0x47
+    ) {
+      ext = "png";
+    } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
+      ext = "jpg";
+    } else if (
+      rawBody[0] === 0x52 &&
+      rawBody[1] === 0x49 &&
+      rawBody[2] === 0x46 &&
+      rawBody[3] === 0x46 &&
+      rawBody.length >= 12 &&
+      rawBody[8] === 0x57 &&
+      rawBody[9] === 0x45 &&
+      rawBody[10] === 0x42 &&
+      rawBody[11] === 0x50
+    ) {
+      ext = "webp";
+    } else {
+      error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
+      return;
+    }
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    // Remove any previous custom background (may have a different extension)
+    for (const old of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${old}`);
+      try {
+        fs.unlinkSync(p);
+      } catch {}
+    }
+    const bgPath = path.join(avatarDir, `custom-background.${ext}`);
+    fs.writeFileSync(bgPath, rawBody);
+    json(res, { ok: true, size: rawBody.length });
+    return;
+  }
+
+  // ── GET /api/avatar/background ─────────────────────────────────────────────
+  // Serve the user's custom background image if it exists.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname === "/api/avatar/background"
+  ) {
+    const avatarDir = path.join(resolveStateDir(), "avatars");
+    const MIME: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      webp: "image/webp",
+    };
+    let found = "";
+    for (const ext of ["png", "jpg", "webp"]) {
+      const p = path.join(avatarDir, `custom-background.${ext}`);
+      try {
+        if (fs.statSync(p).isFile()) {
+          found = p;
+          break;
+        }
+      } catch {}
+    }
+    if (!found) {
+      error(res, "No custom background found", 404);
+      return;
+    }
+    const stat = fs.statSync(found);
+    const fileExt = path.extname(found).slice(1);
+    const headers: Record<string, string | number> = {
+      "Content-Type": MIME[fileExt] || "application/octet-stream",
+      "Content-Length": stat.size,
+      "Cache-Control": "no-cache",
+    };
+    if (method === "HEAD") {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    const body = fs.readFileSync(found);
+    res.writeHead(200, headers);
+    res.end(body);
+    return;
+  }
+
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
     const { buildConfigSchema } = await import("../config/schema");
@@ -10017,6 +10484,93 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/permissions/automation-mode ──────────────────────────────
+  // Return agent automation permission mode for self-directed config actions.
+  if (method === "GET" && pathname === "/api/permissions/automation-mode") {
+    const mode = state.agentAutomationMode ?? "full";
+    json(res, {
+      mode,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/automation-mode ──────────────────────────────
+  // Update agent automation permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
+    const body = await readJsonBody<{ mode?: unknown }>(req, res);
+    if (!body) return;
+    const parsed = parseAgentAutomationMode(body.mode);
+    if (!parsed) {
+      error(res, 'Invalid mode. Expected "connectors-only" or "full".', 400);
+      return;
+    }
+
+    persistAgentAutomationMode(state, parsed);
+    saveMiladyConfig(state.config);
+
+    json(res, {
+      mode: parsed,
+      options: ["connectors-only", "full"] as AgentAutomationMode[],
+    });
+    return;
+  }
+
+  // ── GET /api/permissions/trade-mode ────────────────────────────────────
+  // Returns the current trade permission mode (must be before handlePermissionRoutes).
+  if (method === "GET" && pathname === "/api/permissions/trade-mode") {
+    const mode = resolveTradePermissionMode(state.config);
+    json(res, {
+      tradePermissionMode: mode,
+      canUserLocalExecute: canUseLocalTradeExecution(mode, false),
+      canAgentAutoTrade: canUseLocalTradeExecution(mode, true),
+    });
+    return;
+  }
+
+  // ── PUT /api/permissions/trade-mode ────────────────────────────────────
+  // Update the trade permission mode.
+  if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
+    const body = await readJsonBody<{ mode?: string }>(req, res);
+    if (!body) return;
+
+    const newMode = body.mode;
+    if (
+      newMode !== "user-sign-only" &&
+      newMode !== "manual-local-key" &&
+      newMode !== "agent-auto"
+    ) {
+      error(
+        res,
+        'mode must be "user-sign-only", "manual-local-key", or "agent-auto"',
+        400,
+      );
+      return;
+    }
+
+    if (!state.config.features) {
+      state.config.features = {};
+    }
+    (state.config.features as Record<string, unknown>).tradePermissionMode =
+      newMode;
+
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[api] Trade-mode config save failed: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+
+    json(res, {
+      ok: true,
+      tradePermissionMode: newMode,
+      canUserLocalExecute: canUseLocalTradeExecution(newMode, false),
+      canAgentAutoTrade: canUseLocalTradeExecution(newMode, true),
+    });
+    return;
+  }
+
   if (
     await handlePermissionRoutes({
       req,
@@ -10031,6 +10585,790 @@ async function handleRequest(
       scheduleRuntimeRestart,
     })
   ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Agent self-status route
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/agent/self-status ──────────────────────────────────────────
+  // Returns a snapshot of the agent's current capabilities and status,
+  // used by action handlers (can-i, etc.) to evaluate permissions.
+  if (method === "GET" && pathname === "/api/agent/self-status") {
+    const addrs = getWalletAddresses();
+    const evmAddress = addrs.evmAddress ?? null;
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const bscRpcReady = Boolean(
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+        process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+        process.env.BSC_RPC_URL?.trim(),
+    );
+    const canLocalTrade = canUseLocalTradeExecution(tradePermissionMode, false);
+    const canAgentAutoTrade = canUseLocalTradeExecution(
+      tradePermissionMode,
+      true,
+    );
+    const canTrade = Boolean(evmAddress) && bscRpcReady;
+    const automationMode: "connectors-only" | "full" =
+      (state.config.features as Record<string, unknown> | undefined)
+        ?.automationMode === "full"
+        ? "full"
+        : "connectors-only";
+
+    // Include registry snapshot summary if available
+    let registrySummary: string | null = null;
+    const registry = getGlobalAwarenessRegistry();
+    if (registry && state.runtime) {
+      try {
+        registrySummary = await registry.composeSummary(state.runtime);
+      } catch {
+        // Non-fatal: registry may not be initialized yet
+      }
+    }
+
+    // Resolve model from multiple sources (state.model → config → env)
+    const resolvedModel =
+      state.model ??
+      detectRuntimeModel(state.runtime ?? null, state.config) ??
+      null;
+
+    // Derive provider label from model string
+    const resolvedProvider = resolvedModel
+      ? resolveProviderFromModel(resolvedModel)
+      : null;
+
+    // Gather plugin info from the runtime
+    const pluginNames: string[] = [];
+    const aiProviderNames: string[] = [];
+    const connectorNames: string[] = [];
+    const BROWSER_PLUGIN_IDS = new Set([
+      "browser",
+      "browserbase",
+      "chrome-extension",
+    ]);
+    const COMPUTER_PLUGIN_IDS = new Set(["computeruse", "computer-use"]);
+    let hasBrowserPlugin = false;
+    let hasComputerPlugin = false;
+
+    if (state.runtime && Array.isArray(state.runtime.plugins)) {
+      for (const plugin of state.runtime.plugins) {
+        const name = typeof plugin?.name === "string" ? plugin.name.trim() : "";
+        if (!name) continue;
+        pluginNames.push(name);
+        const lower = name.toLowerCase();
+        if (
+          lower.includes("openai") ||
+          lower.includes("anthropic") ||
+          lower.includes("groq") ||
+          lower.includes("gemini") ||
+          lower.includes("openrouter") ||
+          lower.includes("deepseek") ||
+          lower.includes("ollama")
+        ) {
+          aiProviderNames.push(name);
+        }
+        if (
+          lower.includes("discord") ||
+          lower.includes("telegram") ||
+          lower.includes("twitter") ||
+          lower.includes("slack")
+        ) {
+          connectorNames.push(name);
+        }
+        if (BROWSER_PLUGIN_IDS.has(lower)) hasBrowserPlugin = true;
+        if (COMPUTER_PLUGIN_IDS.has(lower)) hasComputerPlugin = true;
+      }
+    }
+
+    json(res, {
+      generatedAt: new Date().toISOString(),
+      state: state.agentState,
+      agentName: state.agentName,
+      model: resolvedModel,
+      provider: resolvedProvider,
+      automationMode,
+      tradePermissionMode,
+      shellEnabled: state.shellEnabled !== false,
+      wallet: {
+        hasWallet: Boolean(evmAddress || addrs.solanaAddress),
+        hasEvm: Boolean(evmAddress),
+        hasSolana: Boolean(addrs.solanaAddress),
+        evmAddress,
+        evmAddressShort:
+          evmAddress && evmAddress.length >= 12
+            ? `${evmAddress.slice(0, 6)}...${evmAddress.slice(-4)}`
+            : evmAddress,
+        solanaAddress: addrs.solanaAddress ?? null,
+        solanaAddressShort:
+          addrs.solanaAddress && addrs.solanaAddress.length >= 12
+            ? `${addrs.solanaAddress.slice(0, 4)}...${addrs.solanaAddress.slice(-4)}`
+            : (addrs.solanaAddress ?? null),
+        localSignerAvailable: localSigner,
+        managedBscRpcReady: bscRpcReady,
+      },
+      plugins: {
+        totalActive: pluginNames.length,
+        active: pluginNames,
+        aiProviders: aiProviderNames,
+        connectors: connectorNames,
+      },
+      capabilities: {
+        canTrade,
+        canLocalTrade: canTrade && localSigner && canLocalTrade,
+        canAutoTrade: canTrade && localSigner && canAgentAutoTrade,
+        canUseBrowser: hasBrowserPlugin,
+        canUseComputer: hasComputerPlugin,
+        canRunTerminal: state.shellEnabled !== false,
+        canInstallPlugins: true,
+        canConfigurePlugins: true,
+        canConfigureConnectors: true,
+      },
+      ...(registrySummary !== null ? { registrySummary } : {}),
+    });
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Privy wallet routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/privy/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/privy/status") {
+    const enabled = isPrivyWalletProvisioningEnabled();
+    json(res, { enabled, configured: enabled });
+    return;
+  }
+
+  // ── POST /api/privy/login ───────────────────────────────────────────────
+  // Provisions Privy wallets for a custom user ID (agent identifier).
+  if (method === "POST" && pathname === "/api/privy/login") {
+    if (!isPrivyWalletProvisioningEnabled()) {
+      error(res, "Privy wallet provisioning is not configured.", 503);
+      return;
+    }
+    const body = await readJsonBody<{ userId?: string }>(req, res);
+    if (!body) return;
+
+    const userId = (body.userId ?? "").trim();
+    if (!userId) {
+      error(res, "userId is required", 400);
+      return;
+    }
+
+    try {
+      const result = await ensurePrivyWalletsForCustomUser(userId);
+      json(res, { ok: true, ...result });
+    } catch (err) {
+      logger.error(
+        `[api] Privy login failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Privy login failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/privy/logout ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/privy/logout") {
+    // No-op for server-side managed wallets; Privy sessions are stateless.
+    json(res, { ok: true });
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Subscription status route
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/subscription/status (direct handler fallback) ─────────────
+  // Note: subscription-routes.ts handles /api/subscription/* but this is
+  // kept here in case the prefix routing is not active.
+  // (handleSubscriptionRoutes already covers this, so no duplicate needed.)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BSC trade routes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── POST /api/wallet/trade/preflight ───────────────────────────────────
+  // Check BSC trade readiness (wallet, RPC, chain, gas).
+  if (method === "POST" && pathname === "/api/wallet/trade/preflight") {
+    const body = await readJsonBody<{ tokenAddress?: string }>(req, res);
+    if (!body) return;
+
+    const addrs = getWalletAddresses();
+    try {
+      const result = await buildBscTradePreflight({
+        walletAddress: addrs.evmAddress ?? null,
+        tokenAddress: body.tokenAddress,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+      });
+      json(res, result);
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade preflight failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade preflight failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/quote ────────────────────────────────────────
+  // Produce a BSC trade quote (unsigned transaction data).
+  if (method === "POST" && pathname === "/api/wallet/trade/quote") {
+    const body = await readJsonBody<{
+      side?: string;
+      tokenAddress?: string;
+      amount?: string;
+      slippageBps?: number;
+    }>(req, res);
+    if (!body) return;
+
+    if (!body.side || !body.tokenAddress || !body.amount) {
+      error(res, "side, tokenAddress, and amount are required", 400);
+      return;
+    }
+
+    const addrs = getWalletAddresses();
+    try {
+      const result = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress ?? null,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+        request: {
+          side: body.side as "buy" | "sell",
+          tokenAddress: body.tokenAddress,
+          amount: body.amount,
+          slippageBps: body.slippageBps,
+        },
+      });
+      json(res, result);
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade quote failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade quote failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/trade/execute ─────────────────────────────────────
+  // Execute or prepare a BSC trade. In "user-sign-only" mode, returns an
+  // unsigned transaction for the user to sign. In local-key modes, executes
+  // using the server-side EVM private key.
+  if (method === "POST" && pathname === "/api/wallet/trade/execute") {
+    const body = await readJsonBody<{
+      side?: string;
+      tokenAddress?: string;
+      amount?: string;
+      slippageBps?: number;
+      deadlineSeconds?: number;
+      confirm?: boolean;
+      source?: "agent" | "manual";
+    }>(req, res);
+    if (!body) return;
+
+    if (!body.side || !body.tokenAddress || !body.amount) {
+      error(res, "side, tokenAddress, and amount are required", 400);
+      return;
+    }
+
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const isAgentRequest = body.source === "agent";
+    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const canExecuteLocally = canUseLocalTradeExecution(
+      tradePermissionMode,
+      isAgentRequest,
+    );
+    const addrs = getWalletAddresses();
+
+    try {
+      const quote = await buildBscTradeQuote({
+        walletAddress: addrs.evmAddress ?? null,
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+        request: {
+          side: body.side as "buy" | "sell",
+          tokenAddress: body.tokenAddress,
+          amount: body.amount,
+          slippageBps: body.slippageBps,
+        },
+      });
+
+      const walletAddress = addrs.evmAddress ?? null;
+
+      // Build the unsigned trade transaction
+      const unsignedTx =
+        quote.side === "buy"
+          ? buildBscBuyUnsignedTx(quote, walletAddress, body.deadlineSeconds)
+          : buildBscSellUnsignedTx(quote, walletAddress, body.deadlineSeconds);
+
+      // Build approval tx for sell (if needed)
+      let unsignedApprovalTx:
+        | import("../contracts/wallet").BscUnsignedApprovalTx
+        | undefined;
+      let requiresApproval = false;
+      if (quote.side === "sell" && walletAddress) {
+        unsignedApprovalTx = buildBscApproveUnsignedTx(
+          quote.tokenAddress,
+          walletAddress,
+          quote.routerAddress,
+          quote.quoteIn.amountWei,
+        );
+        requiresApproval = true;
+      }
+
+      // If local execution is not permitted or no private key, return unsigned tx
+      if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
+        json(res, {
+          ok: true,
+          side: quote.side,
+          mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
+          quote,
+          executed: false,
+          requiresUserSignature: true,
+          unsignedTx,
+          unsignedApprovalTx,
+          requiresApproval,
+        });
+        return;
+      }
+
+      // Execute locally with EVM private key
+      const rpcUrl = resolvePrimaryBscRpcUrl({
+        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+      });
+
+      if (!rpcUrl) {
+        error(res, "BSC RPC not configured for local execution.", 503);
+        return;
+      }
+
+      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const wallet = new ethers.Wallet(
+        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
+        provider,
+      );
+
+      const nonce = await provider.getTransactionCount(
+        wallet.address,
+        "pending",
+      );
+
+      // Execute approval first if needed
+      let approvalHash: string | undefined;
+      if (requiresApproval && unsignedApprovalTx) {
+        const approvalTxReq: ethers.TransactionRequest = {
+          to: unsignedApprovalTx.to,
+          data: unsignedApprovalTx.data,
+          value: BigInt(unsignedApprovalTx.valueWei),
+          chainId: unsignedApprovalTx.chainId,
+          nonce,
+        };
+        const approvalResponse = await wallet.sendTransaction(approvalTxReq);
+        approvalHash = approvalResponse.hash;
+        // Wait for approval to be mined before submitting trade
+        await approvalResponse.wait(1);
+      }
+
+      const tradeTxReq: ethers.TransactionRequest = {
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: BigInt(unsignedTx.valueWei),
+        chainId: unsignedTx.chainId,
+        nonce: requiresApproval ? nonce + 1 : nonce,
+      };
+
+      const tradeTxResponse = await wallet.sendTransaction(tradeTxReq);
+      const tradeNonce = requiresApproval ? nonce + 1 : nonce;
+
+      const executionResult = {
+        hash: tradeTxResponse.hash,
+        nonce: tradeNonce,
+        gasLimit: tradeTxResponse.gasLimit?.toString() ?? "0",
+        valueWei: unsignedTx.valueWei,
+        explorerUrl: `https://bscscan.com/tx/${tradeTxResponse.hash}`,
+        blockNumber: null as number | null,
+        status: "pending" as "pending" | "success",
+        approvalHash,
+      };
+
+      // Record in ledger
+      const source = body.source ?? "manual";
+      try {
+        recordWalletTradeLedgerEntry({
+          hash: tradeTxResponse.hash,
+          source,
+          side: quote.side,
+          tokenAddress: quote.tokenAddress,
+          slippageBps: quote.slippageBps,
+          route: quote.route,
+          quoteIn: {
+            symbol: quote.quoteIn.symbol,
+            amount: quote.quoteIn.amount,
+            amountWei: quote.quoteIn.amountWei,
+          },
+          quoteOut: {
+            symbol: quote.quoteOut.symbol,
+            amount: quote.quoteOut.amount,
+            amountWei: quote.quoteOut.amountWei,
+          },
+          status: "pending",
+          confirmations: 0,
+          nonce: tradeNonce,
+          blockNumber: null,
+          gasUsed: null,
+          effectiveGasPriceWei: null,
+          explorerUrl: executionResult.explorerUrl,
+        });
+      } catch (ledgerErr) {
+        logger.warn(
+          `[api] Failed to record trade ledger entry: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
+        );
+      }
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        side: quote.side,
+        mode: "local-key",
+        quote,
+        executed: true,
+        requiresUserSignature: false,
+        unsignedTx,
+        unsignedApprovalTx,
+        requiresApproval,
+        execution: executionResult,
+      });
+    } catch (err) {
+      logger.error(
+        `[api] BSC trade execute failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trade execution failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/wallet/trade/tx-status ────────────────────────────────────
+  // Check the on-chain status of a BSC transaction by hash.
+  if (method === "GET" && pathname === "/api/wallet/trade/tx-status") {
+    const hash = url.searchParams.get("hash");
+    if (!hash?.trim()) {
+      error(res, "hash query parameter is required", 400);
+      return;
+    }
+
+    const rpcUrl = resolvePrimaryBscRpcUrl({
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    });
+
+    if (!rpcUrl) {
+      error(res, "BSC RPC not configured.", 503);
+      return;
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const receipt = await provider.getTransactionReceipt(hash);
+
+      let txStatus: "pending" | "success" | "reverted" | "not_found";
+      let blockNumber: number | null = null;
+      let gasUsed: string | null = null;
+      let effectiveGasPriceWei: string | null = null;
+      let confirmations = 0;
+      let nonce: number | null = null;
+
+      if (!receipt) {
+        // Check if tx is in mempool
+        const tx = await provider.getTransaction(hash);
+        txStatus = tx ? "pending" : "not_found";
+        if (tx) nonce = tx.nonce;
+      } else {
+        txStatus = receipt.status === 1 ? "success" : "reverted";
+        blockNumber = receipt.blockNumber ?? null;
+        gasUsed = receipt.gasUsed?.toString() ?? null;
+        effectiveGasPriceWei = receipt.gasPrice?.toString() ?? null;
+        const currentBlock = await provider.getBlockNumber();
+        confirmations =
+          blockNumber !== null ? Math.max(0, currentBlock - blockNumber) : 0;
+        const tx = await provider.getTransaction(hash);
+        if (tx) nonce = tx.nonce;
+      }
+
+      // Update ledger if we have a definitive status
+      if (txStatus === "success" || txStatus === "reverted") {
+        try {
+          updateWalletTradeLedgerEntryStatus(hash, {
+            status: txStatus,
+            confirmations,
+            nonce,
+            blockNumber,
+            gasUsed,
+            effectiveGasPriceWei,
+            explorerUrl: `https://bscscan.com/tx/${hash}`,
+          });
+        } catch (ledgerErr) {
+          logger.warn(
+            `[api] Failed to update trade ledger: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
+          );
+        }
+      }
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        hash,
+        status: txStatus,
+        explorerUrl: `https://bscscan.com/tx/${hash}`,
+        chainId: 56,
+        blockNumber,
+        confirmations,
+        nonce,
+        gasUsed,
+        effectiveGasPriceWei,
+      });
+    } catch (err) {
+      logger.error(
+        `[api] BSC tx-status failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `TX status check failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── GET /api/wallet/trading/profile ────────────────────────────────────
+  // Returns trading P&L profile from the local ledger.
+  if (method === "GET" && pathname === "/api/wallet/trading/profile") {
+    const windowParam = url.searchParams.get("window");
+    const sourceParam = url.searchParams.get("source");
+
+    const window =
+      windowParam === "7d" || windowParam === "30d" || windowParam === "all"
+        ? windowParam
+        : "30d";
+    const source =
+      sourceParam === "agent" ||
+      sourceParam === "manual" ||
+      sourceParam === "all"
+        ? sourceParam
+        : "all";
+
+    try {
+      const profile = loadWalletTradingProfile({ window, source });
+      json(res, profile);
+    } catch (err) {
+      logger.error(
+        `[api] Wallet trading profile failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Trading profile fetch failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/transfer/execute ──────────────────────────────────
+  // Execute or prepare a BNB/ERC-20 token transfer.
+  if (method === "POST" && pathname === "/api/wallet/transfer/execute") {
+    const body = await readJsonBody<{
+      toAddress?: string;
+      amount?: string;
+      assetSymbol?: string;
+      tokenAddress?: string;
+      confirm?: boolean;
+    }>(req, res);
+    if (!body) return;
+
+    if (
+      !body.toAddress?.trim() ||
+      !body.amount?.trim() ||
+      !body.assetSymbol?.trim()
+    ) {
+      error(res, "toAddress, amount, and assetSymbol are required", 400);
+      return;
+    }
+
+    const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
+    const canExecuteLocally = canUseLocalTradeExecution(
+      tradePermissionMode,
+      false,
+    );
+    const addrs = getWalletAddresses();
+
+    let toAddress: string;
+    try {
+      toAddress = ethers.getAddress(body.toAddress.trim());
+    } catch {
+      error(res, "Invalid toAddress — must be a valid EVM address", 400);
+      return;
+    }
+
+    const isBnb = body.assetSymbol.toUpperCase() === "BNB";
+
+    // Build unsigned transfer tx for user-sign mode
+    const unsignedTx = {
+      chainId: 56,
+      from: addrs.evmAddress ?? null,
+      to: isBnb ? toAddress : (body.tokenAddress ?? toAddress),
+      data: isBnb
+        ? "0x"
+        : (() => {
+            const iface = new ethers.Interface([
+              "function transfer(address to, uint256 amount) returns (bool)",
+            ]);
+            const decimals = 18; // default; token-specific decimals not fetched here
+            return iface.encodeFunctionData("transfer", [
+              toAddress,
+              ethers.parseUnits(body.amount?.trim(), decimals),
+            ]);
+          })(),
+      valueWei: isBnb ? ethers.parseEther(body.amount.trim()).toString() : "0",
+      explorerUrl: "https://bscscan.com",
+      assetSymbol: body.assetSymbol,
+      amount: body.amount.trim(),
+      tokenAddress: body.tokenAddress,
+    };
+
+    if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
+      json(res, {
+        ok: true,
+        mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
+        executed: false,
+        requiresUserSignature: true,
+        toAddress,
+        amount: body.amount.trim(),
+        assetSymbol: body.assetSymbol,
+        tokenAddress: body.tokenAddress,
+        unsignedTx,
+      });
+      return;
+    }
+
+    // Execute locally
+    const rpcUrl = resolvePrimaryBscRpcUrl({
+      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+    });
+
+    if (!rpcUrl) {
+      error(res, "BSC RPC not configured for local execution.", 503);
+      return;
+    }
+
+    try {
+      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const wallet = new ethers.Wallet(
+        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
+        provider,
+      );
+
+      const txReq: ethers.TransactionRequest = {
+        to: unsignedTx.to,
+        data: unsignedTx.data,
+        value: BigInt(unsignedTx.valueWei),
+        chainId: unsignedTx.chainId,
+      };
+
+      const txResponse = await wallet.sendTransaction(txReq);
+      const nonce = txResponse.nonce;
+
+      provider.destroy();
+
+      json(res, {
+        ok: true,
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        toAddress,
+        amount: body.amount.trim(),
+        assetSymbol: body.assetSymbol,
+        tokenAddress: body.tokenAddress,
+        unsignedTx,
+        execution: {
+          hash: txResponse.hash,
+          nonce,
+          gasLimit: txResponse.gasLimit?.toString() ?? "0",
+          valueWei: unsignedTx.valueWei,
+          explorerUrl: `https://bscscan.com/tx/${txResponse.hash}`,
+          blockNumber: null,
+          status: "pending",
+        },
+      });
+    } catch (err) {
+      logger.error(
+        `[api] Transfer execute failed: ${err instanceof Error ? err.message : err}`,
+      );
+      error(
+        res,
+        `Transfer failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        500,
+      );
+    }
+    return;
+  }
+
+  // ── POST /api/wallet/production-defaults ───────────────────────────────
+  // Apply opinionated production wallet configuration defaults.
+  // Sets sensible BSC RPC and trade permission defaults when not already
+  // configured.
+  if (method === "POST" && pathname === "/api/wallet/production-defaults") {
+    const changed: string[] = [];
+
+    if (!state.config.features) {
+      state.config.features = {};
+    }
+    const features = state.config.features as Record<string, unknown>;
+
+    // Default trade permission mode: user-sign-only (safe default)
+    if (!features.tradePermissionMode) {
+      features.tradePermissionMode = "user-sign-only";
+      changed.push("tradePermissionMode=user-sign-only");
+    }
+
+    if (changed.length > 0) {
+      try {
+        saveMiladyConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[api] production-defaults config save failed: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    json(res, {
+      ok: true,
+      applied: changed,
+      tradePermissionMode: resolveTradePermissionMode(state.config),
+    });
     return;
   }
 
@@ -10114,6 +11452,51 @@ async function handleRequest(
     }
     if (needsUpdate) {
       await runtime.updateWorld(world);
+    }
+  };
+
+  const markConversationDeleted = (conversationId: string): void => {
+    const normalizedId = conversationId.trim();
+    if (!normalizedId) return;
+    if (state.deletedConversationIds.has(normalizedId)) return;
+
+    state.deletedConversationIds.add(normalizedId);
+    while (state.deletedConversationIds.size > MAX_DELETED_CONVERSATION_IDS) {
+      const oldest = state.deletedConversationIds.values().next().value;
+      if (!oldest) break;
+      state.deletedConversationIds.delete(oldest);
+    }
+
+    try {
+      persistDeletedConversationIdsToState(state.deletedConversationIds);
+    } catch (err) {
+      logger.warn(
+        `[conversations] Failed to persist deleted conversation tombstones: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const deleteConversationRoomData = async (
+    runtime: AgentRuntime,
+    roomId: UUID,
+  ): Promise<void> => {
+    const runtimeWithDelete = runtime as AgentRuntime & {
+      deleteRoom?: (id: UUID) => Promise<unknown>;
+      adapter?: {
+        db?: {
+          deleteRoom?: (id: UUID) => Promise<unknown>;
+        };
+      };
+    };
+
+    if (typeof runtimeWithDelete.deleteRoom === "function") {
+      await runtimeWithDelete.deleteRoom(roomId);
+      return;
+    }
+
+    const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
+    if (typeof dbDeleteRoom === "function") {
+      await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
     }
   };
 
@@ -10790,10 +12173,12 @@ async function handleRequest(
 
   // ── GET /api/conversations ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/conversations") {
-    const convos = Array.from(state.conversations.values()).sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    const convos = Array.from(state.conversations.values())
+      .filter((c) => !state.deletedConversationIds.has(c.id))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
     json(res, { conversations: convos });
     return;
   }
@@ -10975,10 +12360,11 @@ async function handleRequest(
           turnStartedAt,
         );
         conv.updatedAt = new Date().toISOString();
-        writeSse(res, {
+        writeSseJson(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          ...(result.usage ? { usage: result.usage } : {}),
         });
 
         // Background chat renaming
@@ -11247,7 +12633,18 @@ async function handleRequest(
     !pathname.endsWith("/messages")
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
+    const conv = state.conversations.get(convId);
+    if (conv?.roomId && state.runtime) {
+      try {
+        await deleteConversationRoomData(state.runtime, conv.roomId);
+      } catch (err) {
+        logger.debug(
+          `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
     state.conversations.delete(convId);
+    markConversationDeleted(convId);
     json(res, { ok: true });
     return;
   }
@@ -11324,10 +12721,11 @@ async function handleRequest(
       );
 
       if (!aborted) {
-        writeSse(res, {
+        writeSseJson(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
+          ...(result.usage ? { usage: result.usage } : {}),
         });
       }
     } catch (err) {
@@ -11480,20 +12878,40 @@ async function handleRequest(
     // Try to dynamically load the route handler from the local plugin first
     let handled = false;
 
+    // Try @elizaos/plugin-coding-agent first (local workspace plugin)
     try {
-      const orchestratorPlugin = await import(
-        "@elizaos/plugin-agent-orchestrator"
-      );
-      if (orchestratorPlugin.createCodingAgentRouteHandler) {
-        const coordinator = orchestratorPlugin.getCoordinator?.(state.runtime);
-        const handler = orchestratorPlugin.createCodingAgentRouteHandler(
+      const codingAgentPlugin = await import("@elizaos/plugin-coding-agent");
+      if (codingAgentPlugin.createCodingAgentRouteHandler) {
+        const coordinator = codingAgentPlugin.getCoordinator?.(state.runtime);
+        const handler = codingAgentPlugin.createCodingAgentRouteHandler(
           state.runtime,
           coordinator,
         );
         handled = await handler(req, res, pathname);
       }
     } catch {
-      // Plugin doesn't export these functions - skip routing
+      // Local plugin not available, try npm plugin
+    }
+
+    // Fallback to @elizaos/plugin-agent-orchestrator (npm)
+    if (!handled) {
+      try {
+        const orchestratorPlugin = await import(
+          "@elizaos/plugin-agent-orchestrator"
+        );
+        if (orchestratorPlugin.createCodingAgentRouteHandler) {
+          const coordinator = orchestratorPlugin.getCoordinator?.(
+            state.runtime,
+          );
+          const handler = orchestratorPlugin.createCodingAgentRouteHandler(
+            state.runtime,
+            coordinator,
+          );
+          handled = await handler(req, res, pathname);
+        }
+      } catch {
+        // Plugin doesn't export these functions - skip routing
+      }
     }
 
     // Final fallback: Handle coding-agents routes using AgentOrchestratorService
@@ -13232,12 +14650,16 @@ export async function startApiServer(opts?: {
       config.ui?.assistant?.name ??
       "Milady");
 
+  const deletedConversationIds = readDeletedConversationIdsFromState();
+
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
     config,
     agentState: initialAgentState,
     agentName,
-    model: hasRuntime ? detectRuntimeModel(opts.runtime ?? null) : undefined,
+    model: hasRuntime
+      ? detectRuntimeModel(opts.runtime ?? null, config)
+      : undefined,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     startup: initialStartup,
@@ -13253,6 +14675,7 @@ export async function startApiServer(opts?: {
     chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
+    deletedConversationIds,
     cloudManager: null,
     sandboxManager: null,
     appManager: new AppManager(),
@@ -13266,6 +14689,8 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
+    agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
+    tradePermissionMode: resolveTradePermissionMode(config),
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
   };
@@ -13722,21 +15147,28 @@ export async function startApiServer(opts?: {
             }
           | undefined;
 
-        // Determine active streaming destination
-        let destination:
-          | import("./stream-routes.js").StreamingDestination
-          | undefined;
-
-        // Check connectors.retake (primary retake config location)
+        // Build destination registry — all configured destinations
         const connectors = state.config.connectors ?? {};
+        const streaming = (state.config as Record<string, unknown>).streaming as
+          | Record<string, unknown>
+          | undefined;
+        const destinations = new Map<
+          string,
+          import("./stream-routes.js").StreamingDestination
+        >();
+
+        // Retake (API-driven, full integration)
         if (isConnectorConfigured("retake", connectors.retake)) {
           try {
             const retakeMod = "@milady/plugin-retake";
             const { createRetakeDestination } = await import(retakeMod);
-            destination = createRetakeDestination(
-              connectors.retake as
-                | { accessToken?: string; apiUrl?: string }
-                | undefined,
+            destinations.set(
+              "retake",
+              createRetakeDestination(
+                connectors.retake as
+                  | { accessToken?: string; apiUrl?: string }
+                  | undefined,
+              ),
             );
           } catch (err) {
             logger.warn(
@@ -13745,23 +15177,19 @@ export async function startApiServer(opts?: {
           }
         }
 
-        // Check streaming.customRtmp
-        const streaming = (state.config as Record<string, unknown>).streaming as
-          | Record<string, unknown>
-          | undefined;
-        if (
-          !destination &&
-          streaming?.customRtmp &&
-          typeof streaming.customRtmp === "object"
-        ) {
+        // Custom RTMP
+        if (streaming?.customRtmp && typeof streaming.customRtmp === "object") {
           const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
           if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
             try {
               const { createCustomRtmpDestination } = await import(
                 "../plugins/custom-rtmp/index.js"
               );
-              destination = createCustomRtmpDestination(
-                rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+              destinations.set(
+                "custom-rtmp",
+                createCustomRtmpDestination(
+                  rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+                ),
               );
             } catch (err) {
               logger.warn(
@@ -13771,49 +15199,84 @@ export async function startApiServer(opts?: {
           }
         }
 
-        // Check streaming.twitch
-        if (
-          !destination &&
-          streaming?.twitch &&
-          typeof streaming.twitch === "object"
-        ) {
-          const twitchConfig = streaming.twitch as Record<string, unknown>;
-          if (twitchConfig.streamKey) {
-            try {
-              const twitchMod = "@milady/plugin-twitch-streaming";
-              const { createTwitchDestination } = await import(twitchMod);
-              destination = createTwitchDestination(
-                twitchConfig as { streamKey?: string },
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        // Twitch
+        if (isStreamingDestinationConfigured("twitch", streaming?.twitch)) {
+          try {
+            const twitchMod = "@milady/plugin-twitch-streaming";
+            const { createTwitchDestination } = await import(twitchMod);
+            destinations.set(
+              "twitch",
+              createTwitchDestination(
+                streaming?.twitch as { streamKey?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
 
-        // Check streaming.youtube
-        if (
-          !destination &&
-          streaming?.youtube &&
-          typeof streaming.youtube === "object"
-        ) {
-          const ytConfig = streaming.youtube as Record<string, unknown>;
-          if (ytConfig.streamKey) {
-            try {
-              const youtubeMod = "@milady/plugin-youtube-streaming";
-              const { createYoutubeDestination } = await import(youtubeMod);
-              destination = createYoutubeDestination(
-                ytConfig as { streamKey?: string; rtmpUrl?: string },
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        // YouTube
+        if (isStreamingDestinationConfigured("youtube", streaming?.youtube)) {
+          try {
+            const youtubeMod = "@milady/plugin-youtube-streaming";
+            const { createYoutubeDestination } = await import(youtubeMod);
+            destinations.set(
+              "youtube",
+              createYoutubeDestination(
+                streaming?.youtube as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
+
+        // pump.fun
+        if (isStreamingDestinationConfigured("pumpfun", streaming?.pumpfun)) {
+          try {
+            const pumpfunMod = "@milady/plugin-pumpfun-streaming";
+            const { createPumpfunDestination } = await import(pumpfunMod);
+            destinations.set(
+              "pumpfun",
+              createPumpfunDestination(
+                streaming?.pumpfun as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load pumpfun destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
+        // X (Twitter)
+        if (isStreamingDestinationConfigured("x", streaming?.x)) {
+          try {
+            const xMod = "@milady/plugin-x-streaming";
+            const { createXStreamDestination } = await import(xMod);
+            destinations.set(
+              "x",
+              createXStreamDestination(
+                streaming?.x as { streamKey?: string; rtmpUrl?: string },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load x destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
+        // Active destination: config preference → first available
+        const activeDestinationId =
+          (streaming?.activeDestination as string | undefined) ??
+          (destinations.size > 0
+            ? destinations.keys().next().value
+            : undefined);
 
         const streamState = {
           streamManager,
@@ -13821,7 +15284,9 @@ export async function startApiServer(opts?: {
           screenCapture,
           captureUrl: (connectors.retake as Record<string, unknown> | undefined)
             ?.captureUrl as string | undefined,
-          destination,
+          destinations,
+          activeDestinationId,
+          activeStreamSource: { type: "stream-tab" as const },
           get config() {
             const cfg = state.config as Record<string, unknown> | undefined;
             const msgs = cfg?.messages as Record<string, unknown> | undefined;
@@ -13842,9 +15307,13 @@ export async function startApiServer(opts?: {
           handleStreamRoute(req, res, pathname, method, streamState),
         );
 
-        const destLabel = destination
-          ? `destination: ${destination.name}`
-          : "no destination";
+        const destNames = Array.from(destinations.values())
+          .map((d) => d.name)
+          .join(", ");
+        const destLabel =
+          destinations.size > 0
+            ? `destinations: ${destNames}`
+            : "no destinations";
         addLog("info", `Stream routes registered (${destLabel})`, "system", [
           "system",
           "streaming",
@@ -13871,17 +15340,17 @@ export async function startApiServer(opts?: {
 
   // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
   if (opts?.runtime) {
-    let chatOk = wireCodingAgentChatBridge(state);
-    let wsOk = wireCodingAgentWsBridge(state);
-    let eventOk = wireCoordinatorEventRouting(state);
+    const chatOk = wireCodingAgentChatBridge(state);
+    const wsOk = wireCodingAgentWsBridge(state);
+    const eventOk = wireCoordinatorEventRouting(state);
     if (!chatOk || !wsOk || !eventOk) {
       let wireAttempts = 0;
       const wireInterval = setInterval(() => {
         wireAttempts++;
-        chatOk = chatOk || wireCodingAgentChatBridge(state);
-        wsOk = wsOk || wireCodingAgentWsBridge(state);
-        eventOk = eventOk || wireCoordinatorEventRouting(state);
-        if ((chatOk && wsOk && eventOk) || wireAttempts >= 15) {
+        const chatDone = chatOk || wireCodingAgentChatBridge(state);
+        const wsDone = wsOk || wireCodingAgentWsBridge(state);
+        const eventDone = eventOk || wireCoordinatorEventRouting(state);
+        if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
           clearInterval(wireInterval);
         }
       }, 1000);
@@ -14173,6 +15642,7 @@ export async function startApiServer(opts?: {
         if (!channelId.startsWith("web-conv-")) continue;
         const convId = channelId.replace("web-conv-", "");
         if (!convId || state.conversations.has(convId)) continue;
+        if (state.deletedConversationIds.has(convId)) continue;
 
         // Peek at the latest message to get a timestamp
         let updatedAt = new Date().toISOString();
@@ -14229,7 +15699,7 @@ export async function startApiServer(opts?: {
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
-    state.model = detectRuntimeModel(rt);
+    state.model = detectRuntimeModel(rt, state.config);
     state.startedAt = Date.now();
     state.startup = {
       phase: "running",
@@ -14248,17 +15718,17 @@ export async function startApiServer(opts?: {
 
     // Wire coding-agent bridges (coordinator may not exist yet — retry)
     {
-      let chatOk = wireCodingAgentChatBridge(state);
-      let wsOk = wireCodingAgentWsBridge(state);
-      let eventOk = wireCoordinatorEventRouting(state);
+      const chatOk = wireCodingAgentChatBridge(state);
+      const wsOk = wireCodingAgentWsBridge(state);
+      const eventOk = wireCoordinatorEventRouting(state);
       if (!chatOk || !wsOk || !eventOk) {
         let wireAttempts = 0;
         const wireInterval = setInterval(() => {
           wireAttempts++;
-          chatOk = chatOk || wireCodingAgentChatBridge(state);
-          wsOk = wsOk || wireCodingAgentWsBridge(state);
-          eventOk = eventOk || wireCoordinatorEventRouting(state);
-          if ((chatOk && wsOk && eventOk) || wireAttempts >= 15) {
+          const chatDone = chatOk || wireCodingAgentChatBridge(state);
+          const wsDone = wsOk || wireCodingAgentWsBridge(state);
+          const eventDone = eventOk || wireCoordinatorEventRouting(state);
+          if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
             clearInterval(wireInterval);
           }
         }, 1000);

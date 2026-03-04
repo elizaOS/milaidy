@@ -39,6 +39,8 @@ export const STREAMING_PLUGINS: Record<string, string> = {
   twitch: "@milady/plugin-twitch-streaming",
   youtube: "@milady/plugin-youtube-streaming",
   customRtmp: "@milady/plugin-custom-rtmp",
+  pumpfun: "@milady/plugin-pumpfun-streaming",
+  x: "@milady/plugin-x-streaming",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -84,7 +86,7 @@ export const AUTH_PROVIDER_PLUGINS: Record<string, string> = {
   PERPLEXITY_API_KEY: "@elizaos/plugin-perplexity",
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
-  MILAIDY_USE_PI_AI: "@elizaos/plugin-pi-ai",
+  MILADY_USE_PI_AI: "@elizaos/plugin-pi-ai",
   CUA_API_KEY: "@elizaos/plugin-cua",
   CUA_HOST: "@elizaos/plugin-cua",
   OBSIDIAN_VAULT_PATH: "@elizaos/plugin-obsidian",
@@ -219,6 +221,14 @@ export function isStreamingDestinationConfigured(
       return Boolean(config.streamKey || config.enabled === true);
     case "customRtmp":
       return Boolean(config.rtmpUrl && config.rtmpKey);
+    case "pumpfun":
+      return Boolean(
+        (config.streamKey && config.rtmpUrl) || config.enabled === true,
+      );
+    case "x":
+      return Boolean(
+        (config.streamKey && config.rtmpUrl) || config.enabled === true,
+      );
     default:
       return false;
   }
