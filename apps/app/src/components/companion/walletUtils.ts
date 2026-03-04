@@ -27,6 +27,7 @@ export function mapWalletTradeError(
 export const BSC_GAS_READY_THRESHOLD = 0.005;
 export const BSC_SWAP_GAS_RESERVE = 0.002;
 export const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 export const MILADY_BSC_TOKEN_ADDRESS =
   "0xc20e45e49e0e79f0fc81e71f05fd2772d6587777";
 export const BSC_USDT_TOKEN_ADDRESS =
@@ -113,20 +114,21 @@ export function formatRouteAddress(address: string): string {
 
 export function getTokenExplorerUrl(row: WalletTokenRow): string | null {
   if (!row.assetAddress) return null;
-  if (row.chainKey === "solana")
-    return `https://solscan.io/token/${row.assetAddress}`;
+  const addr = row.assetAddress.trim();
+  if (row.chainKey === "solana") {
+    if (!SOLANA_ADDRESS_RE.test(addr)) return null;
+    return `https://solscan.io/token/${addr}`;
+  }
+  if (!HEX_ADDRESS_RE.test(addr)) return null;
   const chain = row.chain.trim().toLowerCase();
-  if (isBscChainName(row.chain))
-    return `https://bscscan.com/token/${row.assetAddress}`;
+  if (isBscChainName(row.chain)) return `https://bscscan.com/token/${addr}`;
   if (chain === "ethereum" || chain === "mainnet")
-    return `https://etherscan.io/token/${row.assetAddress}`;
-  if (chain === "base") return `https://basescan.org/token/${row.assetAddress}`;
-  if (chain === "arbitrum")
-    return `https://arbiscan.io/token/${row.assetAddress}`;
+    return `https://etherscan.io/token/${addr}`;
+  if (chain === "base") return `https://basescan.org/token/${addr}`;
+  if (chain === "arbitrum") return `https://arbiscan.io/token/${addr}`;
   if (chain === "optimism")
-    return `https://optimistic.etherscan.io/token/${row.assetAddress}`;
-  if (chain === "polygon")
-    return `https://polygonscan.com/token/${row.assetAddress}`;
+    return `https://optimistic.etherscan.io/token/${addr}`;
+  if (chain === "polygon") return `https://polygonscan.com/token/${addr}`;
   return null;
 }
 
@@ -216,13 +218,15 @@ export async function fetchBscTokenMetadata(
   contractAddress: string,
 ): Promise<TokenMetadata | null> {
   if (typeof fetch !== "function") return null;
+  const trimmed = contractAddress.trim();
+  if (!HEX_ADDRESS_RE.test(trimmed)) return null;
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 3500);
-  const normalized = contractAddress.trim().toLowerCase();
+  const normalized = trimmed.toLowerCase();
 
   try {
     const response = await fetch(
-      `https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`,
+      `https://api.dexscreener.com/latest/dex/tokens/${trimmed}`,
       {
         signal: controller.signal,
       },
