@@ -314,7 +314,7 @@ describe("Skills Marketplace E2E", () => {
       await expect(fs.access(installRoot)).rejects.toThrow();
     });
 
-    it("blocks skill without SKILL.md", async () => {
+    it("blocks skill without SKILL.md and cleans up (rollback)", async () => {
       gitFixtureRef.files = {
         "skills/no-manifest/index.ts": "export default {};",
         "skills/no-manifest/README.md": "# No skill manifest",
@@ -331,6 +331,15 @@ describe("Skills Marketplace E2E", () => {
           name: "no-manifest",
         }),
       ).rejects.toThrow(/does not contain SKILL\.md/i);
+
+      // Verify directory was cleaned up (rollback)
+      const installRoot = path.join(
+        workspaceDir,
+        "skills",
+        ".marketplace",
+        "no-manifest",
+      );
+      await expect(fs.access(installRoot)).rejects.toThrow();
     });
 
     it("blocks skill with symlink escape and cleans up (rollback)", async () => {
