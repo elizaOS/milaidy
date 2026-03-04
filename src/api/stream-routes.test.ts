@@ -2328,6 +2328,65 @@ describe("POST /api/stream/source", () => {
     expect(body.error).toContain("customUrl required");
   });
 
+  it("rejects game source with file:// URL (scheme injection guard)", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "game",
+        customUrl: "file:///etc/passwd",
+      }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("http:// or https://");
+  });
+
+  it("rejects custom-url source with javascript: URI (scheme injection guard)", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "custom-url",
+        customUrl: "javascript:alert(1)",
+      }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("http:// or https://");
+  });
+
+  it("accepts custom-url with http:// scheme", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "custom-url",
+        customUrl: "http://localhost:3000",
+      }),
+    });
+    const { res, getStatus } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(200);
+    expect(state.activeStreamSource).toEqual({
+      type: "custom-url",
+      url: "http://localhost:3000",
+    });
+  });
+
   it("stops frame capture and restarts when stream is running", async () => {
     const stopCapture = vi.fn();
     const startCapture = vi.fn(async () => {});

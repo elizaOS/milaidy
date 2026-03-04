@@ -889,6 +889,17 @@ export async function handleStreamRoute(
         return true;
       }
 
+      // Validate URL scheme to prevent file:// or javascript: URI injection.
+      // Only http/https are permitted as capture targets.
+      if (
+        (sourceType === "game" || sourceType === "custom-url") &&
+        customUrl &&
+        !/^https?:\/\//i.test(customUrl)
+      ) {
+        error(res, "customUrl must use http:// or https:// scheme", 400);
+        return true;
+      }
+
       // Stop current frame capture if active
       if (state.screenCapture?.isFrameCaptureActive()) {
         state.screenCapture.stopFrameCapture?.();
