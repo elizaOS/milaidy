@@ -181,6 +181,33 @@ describe("createPhettaCompanionPlugin", () => {
     };
   }
 
+  // ---- opts.enabled gate ----
+
+  describe("opts.enabled gate", () => {
+    it("returns a no-op plugin when enabled is false", () => {
+      const plugin = createPhettaCompanionPlugin(
+        defaultOpts({ enabled: false }),
+      );
+      expect(plugin.name).toBe("plugin-phetta-companion");
+      expect(plugin.actions).toEqual([]);
+      expect(Object.keys(plugin.events ?? {})).toHaveLength(0);
+    });
+
+    it("does not register event handlers when enabled is false even if forwarding flags are true", () => {
+      const plugin = createPhettaCompanionPlugin(
+        defaultOpts({
+          enabled: false,
+          forwardUserMessages: true,
+          forwardAssistantMessages: true,
+          forwardRuns: true,
+          forwardActions: true,
+        }),
+      );
+      expect(plugin.actions).toEqual([]);
+      expect(Object.keys(plugin.events ?? {})).toHaveLength(0);
+    });
+  });
+
   // ---- Plugin registration shape ----
 
   describe("plugin registration", () => {

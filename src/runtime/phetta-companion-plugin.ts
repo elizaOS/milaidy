@@ -197,6 +197,20 @@ function createHttpClient(opts: { baseUrl: string; timeoutMs: number }): {
 export function createPhettaCompanionPlugin(
   opts: PhettaCompanionPluginOptions,
 ): Plugin {
+  // When the master enable flag is off, return a no-op plugin.
+  if (!opts.enabled) {
+    return {
+      name: "plugin-phetta-companion",
+      description:
+        "Bridge Milady runtime events to the Phetta Companion VRM desktop pet (disabled).",
+      init: async () => {
+        logger.debug("[phetta-companion] Plugin disabled via opts.enabled");
+      },
+      actions: [],
+      events: {},
+    };
+  }
+
   const client = createHttpClient({
     baseUrl: opts.httpUrl,
     timeoutMs: opts.timeoutMs,
