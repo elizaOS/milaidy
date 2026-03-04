@@ -90,23 +90,39 @@ export function BscTradePanel({
 
   const handleQuickBuy = useCallback(async () => {
     if (!getBscTradeQuote) return;
-    const result = await getBscTradeQuote({
-      side: "buy",
-      tokenAddress: quickTokenAddress,
-      amount: quickAmount,
-    });
-    setLatestQuote(result);
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount]);
+    try {
+      const result = await getBscTradeQuote({
+        side: "buy",
+        tokenAddress: quickTokenAddress,
+        amount: quickAmount,
+      });
+      setLatestQuote(result);
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error ? err.message : String(err),
+        "error",
+        4600,
+      );
+    }
+  }, [getBscTradeQuote, quickTokenAddress, quickAmount, setActionNotice]);
 
   const handleQuickSell = useCallback(async () => {
     if (!getBscTradeQuote) return;
-    const result = await getBscTradeQuote({
-      side: "sell",
-      tokenAddress: quickTokenAddress,
-      amount: quickAmount,
-    });
-    setLatestQuote(result);
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount]);
+    try {
+      const result = await getBscTradeQuote({
+        side: "sell",
+        tokenAddress: quickTokenAddress,
+        amount: quickAmount,
+      });
+      setLatestQuote(result);
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error ? err.message : String(err),
+        "error",
+        4600,
+      );
+    }
+  }, [getBscTradeQuote, quickTokenAddress, quickAmount, setActionNotice]);
 
   const handleRequestExecute = useCallback(() => {
     if (!latestQuote) return;
@@ -120,18 +136,26 @@ export function BscTradePanel({
   const handleConfirmExecute = useCallback(async () => {
     if (!executeBscTrade || !pendingTrade || !latestQuote) return;
     setPendingTrade(null);
-    const result = await executeBscTrade({
-      side: latestQuote.side,
-      tokenAddress: pendingTrade.token,
-      amount: pendingTrade.amount,
-    });
-    setLatestExecution(result);
-    if (result?.executed && result?.execution) {
-      // Already executed on-chain
-    } else if (result?.requiresUserSignature) {
+    try {
+      const result = await executeBscTrade({
+        side: latestQuote.side,
+        tokenAddress: pendingTrade.token,
+        amount: pendingTrade.amount,
+      });
+      setLatestExecution(result);
+      if (result?.executed && result?.execution) {
+        // Already executed on-chain
+      } else if (result?.requiresUserSignature) {
+        setActionNotice(
+          "Sign swap transaction in your wallet to complete the trade.",
+          "info",
+          4600,
+        );
+      }
+    } catch (err) {
       setActionNotice(
-        "Sign swap transaction in your wallet to complete the trade.",
-        "info",
+        err instanceof Error ? err.message : String(err),
+        "error",
         4600,
       );
     }
