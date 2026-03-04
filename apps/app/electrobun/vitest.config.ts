@@ -11,5 +11,13 @@ export default defineConfig({
     environment: "node",
     testTimeout: 30_000,
     globals: true,
+    coverage: {
+      thresholds: {
+        lines: 25,
+        functions: 25,
+        statements: 25,
+        branches: 15,
+      },
+    },
   },
 });

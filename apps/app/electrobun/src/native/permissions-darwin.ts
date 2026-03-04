@@ -107,6 +107,7 @@ export async function openPrivacySettings(
 
   const url = paneMap[id];
   if (url) {
-    await runCommand(`open "${url}"`);
+    const proc = Bun.spawn(["open", url], { stdout: "pipe", stderr: "pipe" });
+    await proc.exited;
   }
 }
