@@ -144,7 +144,9 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         })
         .catch(() => {});
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeGameViewerUrl, streamLive, streamSource.type]);
 
   const toggleStream = useCallback(async () => {

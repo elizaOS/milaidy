@@ -399,7 +399,12 @@ function CloudServicesSection() {
             className="flex items-center justify-between p-2.5 border border-[var(--border)] rounded cursor-pointer hover:border-[var(--accent)] transition-colors"
           >
             <div className="flex-1 min-w-0 mr-3">
-              <div className="text-[13px] font-medium" id={`cloud-service-${key}`}>{label}</div>
+              <div
+                className="text-[13px] font-medium"
+                id={`cloud-service-${key}`}
+              >
+                {label}
+              </div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
                 {description}
               </div>

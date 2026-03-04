@@ -62,11 +62,9 @@
         "@mariozechner/pi-ai": "0.52.12",
         "@mariozechner/pi-tui": "0.54.0",
         "@milady/plugin-bnb-identity": "workspace:*",
-        "@milady/plugin-pumpfun-streaming": "workspace:*",
         "@milady/plugin-retake": "workspace:*",
         "@milady/plugin-streaming-base": "workspace:*",
         "@milady/plugin-twitch-streaming": "workspace:*",
-        "@milady/plugin-x-streaming": "workspace:*",
         "@milady/plugin-youtube-streaming": "workspace:*",
         "@noble/curves": "^2.0.1",
         "@opentelemetry/api": "1.9.0",
@@ -406,17 +404,6 @@
         "typescript": "^5.9.3",
       },
     },
-    "packages/plugin-pumpfun": {
-      "name": "@milady/plugin-pumpfun-streaming",
-      "version": "0.1.0",
-      "dependencies": {
-        "@elizaos/core": "next",
-        "@milady/plugin-streaming-base": "workspace:*",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.3",
-      },
-    },
     "packages/plugin-retake": {
       "name": "@milady/plugin-retake",
       "version": "0.1.0",
@@ -440,17 +427,6 @@
     },
     "packages/plugin-twitch": {
       "name": "@milady/plugin-twitch-streaming",
-      "version": "0.1.0",
-      "dependencies": {
-        "@elizaos/core": "next",
-        "@milady/plugin-streaming-base": "workspace:*",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.3",
-      },
-    },
-    "packages/plugin-x-streaming": {
-      "name": "@milady/plugin-x-streaming",
       "version": "0.1.0",
       "dependencies": {
         "@elizaos/core": "next",
@@ -1095,15 +1071,11 @@
 
     "@milady/plugin-bnb-identity": ["@milady/plugin-bnb-identity@workspace:packages/plugin-bnb-identity"],
 
-    "@milady/plugin-pumpfun-streaming": ["@milady/plugin-pumpfun-streaming@workspace:packages/plugin-pumpfun"],
-
     "@milady/plugin-retake": ["@milady/plugin-retake@workspace:packages/plugin-retake"],
 
     "@milady/plugin-streaming-base": ["@milady/plugin-streaming-base@workspace:packages/plugin-streaming-base"],
 
     "@milady/plugin-twitch-streaming": ["@milady/plugin-twitch-streaming@workspace:packages/plugin-twitch"],
-
-    "@milady/plugin-x-streaming": ["@milady/plugin-x-streaming@workspace:packages/plugin-x-streaming"],
 
     "@milady/plugin-youtube-streaming": ["@milady/plugin-youtube-streaming@workspace:packages/plugin-youtube"],
 
