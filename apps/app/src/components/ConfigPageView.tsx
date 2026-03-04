@@ -6,8 +6,9 @@
  *   2. Secrets (modal)
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
+import { client } from "../api-client";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
@@ -33,6 +34,12 @@ const EVM_RPC_OPTIONS = [
   { id: "alchemy", label: "Alchemy" },
   { id: "infura", label: "Infura" },
   { id: "ankr", label: "Ankr" },
+] as const;
+
+const BSC_RPC_OPTIONS = [
+  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "nodereal", label: "NodeReal" },
+  { id: "quicknode", label: "QuickNode" },
 ] as const;
 
 const SOLANA_RPC_OPTIONS = [
@@ -266,6 +273,161 @@ function renderRpcProviderButtons<T extends string>(
   );
 }
 
+/* ── Cloud services toggle section ───────────────────────────────────── */
+
+type CloudServiceKey = "inference" | "rpc" | "media" | "tts" | "embeddings";
+
+const CLOUD_SERVICE_DEFS: {
+  key: CloudServiceKey;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: "inference",
+    label: "Model Inference",
+    description:
+      "Use ElizaCloud for LLM calls. Turn off to use your own API keys (Anthropic, OpenAI, etc.)",
+  },
+  {
+    key: "rpc",
+    label: "Blockchain RPC",
+    description: "Use ElizaCloud RPC endpoints for EVM, BSC, and Solana",
+  },
+  {
+    key: "media",
+    label: "Media Generation",
+    description: "Use ElizaCloud for image, video, audio, and vision",
+  },
+  {
+    key: "tts",
+    label: "Text-to-Speech",
+    description: "Use ElizaCloud for TTS voice synthesis",
+  },
+  {
+    key: "embeddings",
+    label: "Embeddings",
+    description: "Use ElizaCloud for text embedding generation",
+  },
+];
+
+function CloudServicesSection() {
+  const [services, setServices] = useState<Record<CloudServiceKey, boolean>>({
+    inference: true,
+    rpc: true,
+    media: true,
+    tts: true,
+    embeddings: true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [needsRestart, setNeedsRestart] = useState(false);
+
+  // Load current config on mount
+  useEffect(() => {
+    let cancelled = false;
+    client
+      .getConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        const cloud = cfg.cloud as
+          | { services?: Record<string, boolean> }
+          | undefined;
+        if (cloud?.services) {
+          setServices((prev) => ({
+            ...prev,
+            ...Object.fromEntries(
+              Object.entries(cloud.services ?? {}).filter(
+                ([, v]) => typeof v === "boolean",
+              ),
+            ),
+          }));
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggle = useCallback(
+    async (key: CloudServiceKey) => {
+      const newValue = !services[key];
+      const updated = { ...services, [key]: newValue };
+      setServices(updated);
+      setSaving(true);
+
+      // Also set inferenceMode based on inference toggle
+      const inferenceMode = updated.inference ? "cloud" : "byok";
+
+      try {
+        await client.updateConfig({
+          cloud: { services: updated, inferenceMode },
+        });
+        setNeedsRestart(true);
+      } catch (err) {
+        // Revert on error
+        setServices(services);
+        console.error("[config] Failed to save cloud services:", err);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [services],
+  );
+
+  if (!loaded) return null;
+
+  return (
+    <div className="p-4 border border-[var(--border)] bg-[var(--card)] mt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-bold text-sm">Cloud Services</div>
+        {needsRestart && (
+          <span className="text-[11px] text-[var(--warning,#f59e0b)] font-medium">
+            Restart required for changes to take effect
+          </span>
+        )}
+      </div>
+      <p className="text-[12px] text-[var(--muted)] mb-4">
+        Choose which ElizaCloud services to use. Disable inference to use your
+        own AI provider keys instead.
+      </p>
+      <div className="space-y-2">
+        {CLOUD_SERVICE_DEFS.map(({ key, label, description }) => (
+          <div
+            key={key}
+            className="flex items-center justify-between p-2.5 border border-[var(--border)] rounded cursor-pointer hover:border-[var(--accent)] transition-colors"
+          >
+            <div className="flex-1 min-w-0 mr-3">
+              <div className="text-[13px] font-medium" id={`cloud-service-${key}`}>{label}</div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                {description}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={services[key]}
+              aria-labelledby={`cloud-service-${key}`}
+              disabled={saving}
+              onClick={() => void handleToggle(key)}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${
+                services[key] ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  services[key] ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── ConfigPageView ──────────────────────────────────────────────────── */
 
 export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
@@ -305,6 +467,9 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   const [selectedEvmRpc, setSelectedEvmRpc] = useState<
     "eliza-cloud" | "alchemy" | "infura" | "ankr"
   >("eliza-cloud");
+  const [selectedBscRpc, setSelectedBscRpc] = useState<
+    "eliza-cloud" | "nodereal" | "quicknode"
+  >("eliza-cloud");
   const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<
     "eliza-cloud" | "helius-birdeye"
   >("eliza-cloud");
@@ -329,6 +494,23 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         configKey: "ANKR_API_KEY",
         label: "Ankr API Key",
         isSet: walletConfig?.ankrKeySet ?? false,
+      },
+    ],
+  };
+
+  const bscRpcConfigs: RpcSectionConfigMap = {
+    nodereal: [
+      {
+        configKey: "NODEREAL_BSC_RPC_URL",
+        label: "NodeReal BSC RPC URL",
+        isSet: walletConfig?.nodeRealBscRpcSet ?? false,
+      },
+    ],
+    quicknode: [
+      {
+        configKey: "QUICKNODE_BSC_RPC_URL",
+        label: "QuickNode BSC RPC URL",
+        isSet: walletConfig?.quickNodeBscRpcSet ?? false,
       },
     ],
   };
@@ -399,7 +581,21 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* BSC */}
+          <RpcConfigSection
+            title="BSC"
+            description="BNB Smart Chain — trading and market feed"
+            options={BSC_RPC_OPTIONS}
+            selectedProvider={selectedBscRpc}
+            onSelect={setSelectedBscRpc}
+            providerConfigs={bscRpcConfigs}
+            rpcFieldValues={rpcFieldValues}
+            onRpcFieldChange={handleRpcFieldChange}
+            cloud={cloudStatusProps}
+            containerClassName="grid grid-cols-3 gap-1.5"
+          />
+
           {/* EVM */}
           <RpcConfigSection
             title="EVM"
@@ -440,6 +636,11 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           </button>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          2. CLOUD SERVICES
+          ═══════════════════════════════════════════════════════════════ */}
+      {cloudConnected && <CloudServicesSection />}
 
       {/* ── Secrets modal ── */}
       {secretsOpen && (
