@@ -601,6 +601,8 @@ function DocumentDetailModal({
 
 export function KnowledgeView() {
   const { setActionNotice } = useApp();
+  const setActionNoticeRef = useRef(setActionNotice);
+  setActionNoticeRef.current = setActionNotice;
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [searchResults, setSearchResults] = useState<
@@ -641,12 +643,12 @@ export function KnowledgeView() {
         const msg =
           err instanceof Error ? err.message : "Failed to load knowledge data";
         setLoadError(msg);
-        setActionNotice({ type: "error", message: msg });
+        setActionNoticeRef.current({ type: "error", message: msg });
       }
     } finally {
       setLoading(false);
     }
-  }, [setActionNotice]);
+  }, []);
 
   useEffect(() => {
     loadData().catch((err) => {
