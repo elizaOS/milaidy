@@ -255,10 +255,10 @@ export class BnbIdentityService {
     const mcpClient = (
       this.runtime as unknown as {
         mcpClient?: {
-          callTool: (
-            name: string,
-            params: Record<string, unknown>,
-          ) => Promise<unknown>;
+          callTool: (request: {
+            name: string;
+            arguments: Record<string, unknown>;
+          }) => Promise<unknown>;
         };
       }
     ).mcpClient;
@@ -284,12 +284,13 @@ export class BnbIdentityService {
       throw new Error(`bnbchain-mcp HTTP ${res.status}: ${body}`);
     }
 
+    const bodyText = await res.text();
     let raw: unknown;
     try {
-      raw = await res.json();
+      raw = JSON.parse(bodyText);
     } catch {
       raw = {
-        content: await res.text(),
+        content: bodyText,
       } as McpToolResponse;
     }
 

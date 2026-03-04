@@ -6,6 +6,7 @@
  * discovery agents can understand what Milady can actually do.
  */
 
+import { logger } from "@elizaos/core";
 import type {
   AgentMetadata,
   AgentService,
@@ -26,6 +27,12 @@ export function buildAgentMetadata(
   agentName: string,
   installedPlugins: string[] = [],
 ): AgentMetadata {
+  if (!config.agentUriBase) {
+    logger.warn(
+      "BNB Identity: No BNB_AGENT_URI_BASE configured — on-chain metadata will contain localhost URLs, unusable for external agent discovery",
+    );
+  }
+
   const gatewayUrl = `ws://localhost:${config.gatewayPort}/ws`;
   const mcpUrl = `http://localhost:${config.gatewayPort}/mcp`;
 

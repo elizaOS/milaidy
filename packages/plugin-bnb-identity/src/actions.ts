@@ -151,6 +151,15 @@ export const registerAction: Action = {
       ? metadataToHostedUri(metadata, config.agentUriBase)
       : metadataToDataUri(metadata);
 
+    // Wait for confirmation — ElizaOS will call handler again with user reply.
+    // We detect the confirmation via state flag set below on retry.
+    if (!state) {
+      await callback({
+        text: "Action state unavailable. Cannot process identity registration.",
+      });
+      return;
+    }
+
     await callback({
       text:
         `Ready to register **${agentName}** on **${networkLabelForDisplay(config.network)}**.\n\n` +
@@ -160,15 +169,6 @@ export const registerAction: Action = {
         `**MCP endpoint:** ${metadata.services[0]?.url}\n\n` +
         `This will send a transaction from your wallet. Reply **confirm** to proceed.`,
     });
-
-    // Wait for confirmation — ElizaOS will call handler again with user reply.
-    // We detect the confirmation via state flag set below on retry.
-    if (!state) {
-      await callback({
-        text: "Action state unavailable. Cannot process identity registration.",
-      });
-      return;
-    }
 
     const pendingKey = "bnb_identity_register_pending";
     if (!state[pendingKey]) {
@@ -316,6 +316,13 @@ export const updateIdentityAction: Action = {
       ? metadataToHostedUri(metadata, config.agentUriBase)
       : metadataToDataUri(metadata);
 
+    if (!state) {
+      await callback({
+        text: "Action state unavailable. Cannot process identity update.",
+      });
+      return;
+    }
+
     await callback({
       text:
         `Ready to update Agent ID \`${existing.agentId}\` on **${existing.network}**.\n\n` +
@@ -323,13 +330,6 @@ export const updateIdentityAction: Action = {
         `**New platforms:** ${metadata.platforms.join(", ")}\n\n` +
         `Reply **confirm** to send the update transaction.`,
     });
-
-    if (!state) {
-      await callback({
-        text: "Action state unavailable. Cannot process identity update.",
-      });
-      return;
-    }
 
     const pendingKey = "bnb_identity_update_pending";
     if (!state[pendingKey]) {
