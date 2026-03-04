@@ -31,7 +31,8 @@ export const redeemOpinionAction: Action = {
       ) {
         return { text: "I need a market ID to redeem.", success: false };
       }
-      const [txHash] = await opinionClient.redeem(marketId);
+      const redeemResult = await opinionClient.redeem(marketId);
+      const txHash = String(redeemResult?.[0] ?? "unknown");
       return {
         text: `Redeemed market #${marketId}!\nTX: ${txHash}`,
         success: true,

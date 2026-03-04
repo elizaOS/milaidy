@@ -8,13 +8,6 @@ const { mockPlaceBet } = vi.hoisted(() => ({
 vi.mock("../client.js", () => ({
   opinionClient: { isReady: true, canTrade: true, placeBet: mockPlaceBet },
 }));
-vi.mock("../../../config/config.js", () => ({
-  loadMiladyConfig: vi.fn().mockReturnValue({}),
-}));
-vi.mock("../../../api/server.js", () => ({
-  resolveTradePermissionMode: vi.fn().mockReturnValue("agent-auto"),
-  canUseLocalTradeExecution: vi.fn().mockReturnValue(true),
-}));
 
 import { placeOpinionBetAction } from "../actions/place-opinion-bet.js";
 

@@ -48,7 +48,7 @@ export const listOpinionMarketsAction: Action = {
         return `#${m.id} ${m.title}\n  YES: ${yesPrice} | NO: ${noPrice} | Ends: ${end}`;
       });
 
-      const total = response.result.total ?? markets.length;
+      const total = response?.result?.total ?? markets.length;
       const header = `Prediction Markets (page ${page}, ${total} total):\n`;
       return { text: header + lines.join("\n\n"), success: true };
     } catch (err) {

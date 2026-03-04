@@ -4,21 +4,36 @@
  * Handles initialization, read-only vs full trading modes,
  * and bet safety cap enforcement.
  */
-import type { OpinionPluginConfig } from "./types.js";
+import type {
+  MarketResult,
+  MarketsResult,
+  OpinionPluginConfig,
+  OpinionPosition,
+  OrderbookResult,
+  OrdersResult,
+  PlaceOrderResult,
+  SdkResponse,
+} from "./types.js";
 
 /** Local interfaces for the dynamically-loaded SDK to avoid `any`. */
 interface SdkClientInstance {
-  getMarkets(opts: Record<string, unknown>): Promise<unknown>;
-  getMarket(id: number): Promise<unknown>;
-  getCategoricalMarket(id: number): Promise<unknown>;
-  getOrderbook(tokenId: string): Promise<unknown>;
-  getLatestPrice(tokenId: string): Promise<unknown>;
-  getMyPositions(): Promise<unknown>;
-  getMyOrders(opts: Record<string, unknown>): Promise<unknown>;
-  placeOrder(opts: Record<string, unknown>): Promise<unknown>;
-  cancelOrder(id: string): Promise<unknown>;
-  cancelAllOrders(): Promise<unknown>;
-  enableTrading(): Promise<unknown>;
+  getMarkets(
+    opts: Record<string, unknown>,
+  ): Promise<SdkResponse<MarketsResult>>;
+  getMarket(id: number): Promise<SdkResponse<MarketResult>>;
+  getCategoricalMarket(id: number): Promise<SdkResponse<MarketResult>>;
+  getOrderbook(tokenId: string): Promise<SdkResponse<OrderbookResult>>;
+  getLatestPrice(tokenId: string): Promise<SdkResponse<{ price: string }>>;
+  getMyPositions(): Promise<SdkResponse<OpinionPosition[]>>;
+  getMyOrders(
+    opts: Record<string, unknown>,
+  ): Promise<SdkResponse<OrdersResult>>;
+  placeOrder(
+    opts: Record<string, unknown>,
+  ): Promise<SdkResponse<PlaceOrderResult>>;
+  cancelOrder(id: string): Promise<SdkResponse>;
+  cancelAllOrders(): Promise<SdkResponse>;
+  enableTrading(): Promise<SdkResponse>;
   redeem(id: number): Promise<unknown[]>;
 }
 
@@ -45,7 +60,11 @@ let SDK_HOST: string;
 async function loadSdk() {
   try {
     const sdk = await import("@opinion-labs/opinion-clob-sdk");
-    SdkClient = sdk.Client;
+    SdkClient = sdk.Client as unknown as
+      | (new (
+          opts: Record<string, unknown>,
+        ) => SdkClientInstance)
+      | undefined;
     SdkOrderSide = sdk.OrderSide;
     SdkOrderType = sdk.OrderType;
     SDK_CHAIN_ID = sdk.CHAIN_ID_BNB_MAINNET;

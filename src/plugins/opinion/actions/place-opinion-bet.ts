@@ -2,11 +2,6 @@
  * PLACE_OPINION_BET — places a prediction market bet on Opinion.trade.
  */
 import type { Action, HandlerOptions } from "@elizaos/core";
-import {
-  canUseLocalTradeExecution,
-  resolveTradePermissionMode,
-} from "../../../api/server.js";
-import { loadMiladyConfig } from "../../../config/config.js";
 import { opinionClient } from "../client.js";
 
 export const placeOpinionBetAction: Action = {
@@ -69,22 +64,6 @@ export const placeOpinionBetAction: Action = {
         Number(amountRaw) <= 0
       ) {
         return { text: "I need a positive USDT amount.", success: false };
-      }
-      const config = loadMiladyConfig();
-      const tradeMode = resolveTradePermissionMode(config);
-      const canExecute = canUseLocalTradeExecution(tradeMode, true);
-      if (!canExecute) {
-        return {
-          text: `Bet prepared: ${side.toUpperCase()} $${amountRaw} on market #${marketId}.\nCurrent trade mode is "${tradeMode}" — manual confirmation required.\nToken: ${tokenId}`,
-          success: true,
-          data: {
-            marketId,
-            tokenId,
-            side,
-            amount: amountRaw,
-            requiresConfirmation: true,
-          },
-        };
       }
       const price =
         typeof params?.price === "string" && params.price.trim()

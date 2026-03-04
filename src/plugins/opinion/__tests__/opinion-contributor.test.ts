@@ -1,7 +1,7 @@
 import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
 
-import { SUMMARY_CHAR_LIMIT } from "../../../contracts/awareness.js";
+import { SUMMARY_CHAR_LIMIT } from "../types.js";
 
 const mockGetPositions = vi.fn();
 const mockIsReady = { value: true };

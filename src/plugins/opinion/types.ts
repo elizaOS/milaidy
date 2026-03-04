@@ -85,4 +85,58 @@ export interface OpinionMarket {
   volume?: number;
   endTime?: string;
   endDate?: string;
+  status?: number;
 }
+
+// ── SDK response wrappers ────────────────────────────────
+
+/** Generic SDK response envelope. */
+export interface SdkResponse<T = unknown> {
+  result: T;
+}
+
+/** Shape returned by getMarkets(). */
+export interface MarketsResult {
+  list: OpinionMarket[];
+  total: number;
+}
+
+/** Shape returned by getMarket(). */
+export interface MarketResult {
+  id?: number;
+  title?: string;
+  status?: number;
+  childMarkets?: ChildMarket[];
+  endTime?: string;
+}
+
+/** Shape returned by getOrderbook(). */
+export interface OrderbookResult {
+  bids: OrderBookEntry[];
+  asks: OrderBookEntry[];
+}
+
+/** Shape returned by getMyOrders(). */
+export interface OrdersResult {
+  list: OpinionOrder[];
+}
+
+/** Shape returned by placeOrder(). */
+export interface PlaceOrderResult {
+  orderId?: string;
+}
+
+/** Awareness contributor contract — defined locally since the
+ *  contracts/awareness module may not exist yet. */
+export interface AwarenessContributor {
+  id: string;
+  position: number;
+  cacheTtl?: number;
+  invalidateOn?: string[];
+  trusted?: boolean;
+  summary(runtime: unknown): Promise<string>;
+  detail?(runtime: unknown, level: "brief" | "full"): Promise<string>;
+}
+
+/** Max summary length for awareness contributors. */
+export const SUMMARY_CHAR_LIMIT = 280;

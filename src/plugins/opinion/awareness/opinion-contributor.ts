@@ -3,10 +3,12 @@
  * Position 35 — between wallet(30) and provider(40).
  */
 import type { IAgentRuntime } from "@elizaos/core";
-import type { AwarenessContributor } from "../../../contracts/awareness.js";
-import { SUMMARY_CHAR_LIMIT } from "../../../contracts/awareness.js";
 import { opinionClient } from "../client.js";
-import type { OpinionPosition } from "../types.js";
+import {
+  type AwarenessContributor,
+  type OpinionPosition,
+  SUMMARY_CHAR_LIMIT,
+} from "../types.js";
 
 export const opinionContributor: AwarenessContributor = {
   id: "opinion",
