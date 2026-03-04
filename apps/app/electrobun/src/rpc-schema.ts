@@ -230,18 +230,18 @@ export type MiladyRPCSchema = {
   bun: RPCSchema<{
     requests: {
       // ---- Agent ----
-      agentStart: { params: void; response: AgentStatus };
-      agentStop: { params: void; response: { ok: boolean } };
-      agentRestart: { params: void; response: AgentStatus };
-      agentStatus: { params: void; response: AgentStatus };
+      agentStart: { params: undefined; response: AgentStatus };
+      agentStop: { params: undefined; response: { ok: boolean } };
+      agentRestart: { params: undefined; response: AgentStatus };
+      agentStatus: { params: undefined; response: AgentStatus };
 
       // ---- Desktop: Tray ----
-      desktopCreateTray: { params: TrayOptions; response: void };
-      desktopUpdateTray: { params: Partial<TrayOptions>; response: void };
-      desktopDestroyTray: { params: void; response: void };
+      desktopCreateTray: { params: TrayOptions; response: undefined };
+      desktopUpdateTray: { params: Partial<TrayOptions>; response: undefined };
+      desktopDestroyTray: { params: undefined; response: undefined };
       desktopSetTrayMenu: {
         params: { menu: TrayMenuItem[] };
-        response: void;
+        response: undefined;
       };
 
       // ---- Desktop: Shortcuts ----
@@ -249,8 +249,11 @@ export type MiladyRPCSchema = {
         params: ShortcutOptions;
         response: { success: boolean };
       };
-      desktopUnregisterShortcut: { params: { id: string }; response: void };
-      desktopUnregisterAllShortcuts: { params: void; response: void };
+      desktopUnregisterShortcut: {
+        params: { id: string };
+        response: undefined;
+      };
+      desktopUnregisterAllShortcuts: { params: undefined; response: undefined };
       desktopIsShortcutRegistered: {
         params: { accelerator: string };
         response: { registered: boolean };
@@ -259,89 +262,98 @@ export type MiladyRPCSchema = {
       // ---- Desktop: Auto Launch ----
       desktopSetAutoLaunch: {
         params: { enabled: boolean; openAsHidden?: boolean };
-        response: void;
+        response: undefined;
       };
       desktopGetAutoLaunchStatus: {
-        params: void;
+        params: undefined;
         response: { enabled: boolean; openAsHidden: boolean };
       };
 
       // ---- Desktop: Window ----
-      desktopSetWindowOptions: { params: WindowOptions; response: void };
-      desktopGetWindowBounds: { params: void; response: WindowBounds };
-      desktopSetWindowBounds: { params: WindowBounds; response: void };
-      desktopMinimizeWindow: { params: void; response: void };
-      desktopMaximizeWindow: { params: void; response: void };
-      desktopUnmaximizeWindow: { params: void; response: void };
-      desktopCloseWindow: { params: void; response: void };
-      desktopShowWindow: { params: void; response: void };
-      desktopHideWindow: { params: void; response: void };
-      desktopFocusWindow: { params: void; response: void };
+      desktopSetWindowOptions: { params: WindowOptions; response: undefined };
+      desktopGetWindowBounds: { params: undefined; response: WindowBounds };
+      desktopSetWindowBounds: { params: WindowBounds; response: undefined };
+      desktopMinimizeWindow: { params: undefined; response: undefined };
+      desktopMaximizeWindow: { params: undefined; response: undefined };
+      desktopUnmaximizeWindow: { params: undefined; response: undefined };
+      desktopCloseWindow: { params: undefined; response: undefined };
+      desktopShowWindow: { params: undefined; response: undefined };
+      desktopHideWindow: { params: undefined; response: undefined };
+      desktopFocusWindow: { params: undefined; response: undefined };
       desktopIsWindowMaximized: {
-        params: void;
+        params: undefined;
         response: { maximized: boolean };
       };
       desktopIsWindowMinimized: {
-        params: void;
+        params: undefined;
         response: { minimized: boolean };
       };
-      desktopIsWindowVisible: { params: void; response: { visible: boolean } };
-      desktopIsWindowFocused: { params: void; response: { focused: boolean } };
+      desktopIsWindowVisible: {
+        params: undefined;
+        response: { visible: boolean };
+      };
+      desktopIsWindowFocused: {
+        params: undefined;
+        response: { focused: boolean };
+      };
       desktopSetAlwaysOnTop: {
         params: { flag: boolean; level?: string };
-        response: void;
+        response: undefined;
       };
-      desktopSetFullscreen: { params: { flag: boolean }; response: void };
-      desktopSetOpacity: { params: { opacity: number }; response: void };
+      desktopSetFullscreen: { params: { flag: boolean }; response: undefined };
+      desktopSetOpacity: { params: { opacity: number }; response: undefined };
 
       // ---- Desktop: Notifications ----
       desktopShowNotification: {
         params: NotificationOptions;
         response: { id: string };
       };
-      desktopCloseNotification: { params: { id: string }; response: void };
+      desktopCloseNotification: { params: { id: string }; response: undefined };
 
       // ---- Desktop: Power ----
-      desktopGetPowerState: { params: void; response: PowerState };
+      desktopGetPowerState: { params: undefined; response: PowerState };
 
       // ---- Desktop: App ----
-      desktopQuit: { params: void; response: void };
-      desktopRelaunch: { params: void; response: void };
-      desktopGetVersion: { params: void; response: VersionInfo };
-      desktopIsPackaged: { params: void; response: { packaged: boolean } };
+      desktopQuit: { params: undefined; response: undefined };
+      desktopRelaunch: { params: undefined; response: undefined };
+      desktopGetVersion: { params: undefined; response: VersionInfo };
+      desktopIsPackaged: { params: undefined; response: { packaged: boolean } };
       desktopGetPath: {
         params: { name: string };
         response: { path: string };
       };
-      desktopBeep: { params: void; response: void };
+      desktopBeep: { params: undefined; response: undefined };
 
       // ---- Desktop: Clipboard ----
       desktopWriteToClipboard: {
         params: ClipboardWriteOptions;
-        response: void;
+        response: undefined;
       };
       desktopReadFromClipboard: {
-        params: void;
+        params: undefined;
         response: ClipboardReadResult;
       };
-      desktopClearClipboard: { params: void; response: void };
+      desktopClearClipboard: { params: undefined; response: undefined };
 
       // ---- Desktop: Shell ----
-      desktopOpenExternal: { params: { url: string }; response: void };
-      desktopShowItemInFolder: { params: { path: string }; response: void };
+      desktopOpenExternal: { params: { url: string }; response: undefined };
+      desktopShowItemInFolder: {
+        params: { path: string };
+        response: undefined;
+      };
 
       // ---- Gateway ----
       gatewayStartDiscovery: {
-        params: DiscoveryOptions | void;
+        params: DiscoveryOptions | undefined;
         response: DiscoveryResult;
       };
-      gatewayStopDiscovery: { params: void; response: void };
+      gatewayStopDiscovery: { params: undefined; response: undefined };
       gatewayIsDiscovering: {
-        params: void;
+        params: undefined;
         response: { isDiscovering: boolean };
       };
       gatewayGetDiscoveredGateways: {
-        params: void;
+        params: undefined;
         response: { gateways: GatewayEndpoint[] };
       };
 
@@ -362,21 +374,21 @@ export type MiladyRPCSchema = {
         params: { forceRefresh?: boolean };
         response: AllPermissionsState;
       };
-      permissionsGetPlatform: { params: void; response: string };
-      permissionsIsShellEnabled: { params: void; response: boolean };
+      permissionsGetPlatform: { params: undefined; response: string };
+      permissionsIsShellEnabled: { params: undefined; response: boolean };
       permissionsSetShellEnabled: {
         params: { enabled: boolean };
         response: PermissionState;
       };
-      permissionsClearCache: { params: void; response: void };
+      permissionsClearCache: { params: undefined; response: undefined };
       permissionsOpenSettings: {
         params: { id: SystemPermissionId };
-        response: void;
+        response: undefined;
       };
 
       // ---- Location ----
       locationGetCurrentPosition: {
-        params: void;
+        params: undefined;
         response: {
           latitude: number;
           longitude: number;
@@ -388,9 +400,9 @@ export type MiladyRPCSchema = {
         params: { interval?: number };
         response: { watchId: string };
       };
-      locationClearWatch: { params: { watchId: string }; response: void };
+      locationClearWatch: { params: { watchId: string }; response: undefined };
       locationGetLastKnownLocation: {
-        params: void;
+        params: undefined;
         response: {
           latitude: number;
           longitude: number;
@@ -401,40 +413,40 @@ export type MiladyRPCSchema = {
 
       // ---- Camera (graceful stubs) ----
       cameraGetDevices: {
-        params: void;
+        params: undefined;
         response: { devices: CameraDevice[]; available: boolean };
       };
       cameraStartPreview: {
         params: { deviceId?: string };
         response: { available: boolean; reason?: string };
       };
-      cameraStopPreview: { params: void; response: void };
+      cameraStopPreview: { params: undefined; response: undefined };
       cameraSwitchCamera: {
         params: { deviceId: string };
         response: { available: boolean };
       };
       cameraCapturePhoto: {
-        params: void;
+        params: undefined;
         response: { available: boolean; data?: string };
       };
       cameraStartRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
       cameraStopRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean; path?: string };
       };
       cameraGetRecordingState: {
-        params: void;
+        params: undefined;
         response: { recording: boolean; duration: number };
       };
       cameraCheckPermissions: {
-        params: void;
+        params: undefined;
         response: { status: string };
       };
       cameraRequestPermissions: {
-        params: void;
+        params: undefined;
         response: { status: string };
       };
 
@@ -443,10 +455,10 @@ export type MiladyRPCSchema = {
         params: CanvasWindowOptions;
         response: { id: string };
       };
-      canvasDestroyWindow: { params: { id: string }; response: void };
+      canvasDestroyWindow: { params: { id: string }; response: undefined };
       canvasNavigate: {
         params: { id: string; url: string };
-        response: void;
+        response: undefined;
       };
       canvasEval: {
         params: { id: string; script: string };
@@ -458,36 +470,36 @@ export type MiladyRPCSchema = {
       };
       canvasA2uiPush: {
         params: { id: string; payload: unknown };
-        response: void;
+        response: undefined;
       };
-      canvasA2uiReset: { params: { id: string }; response: void };
-      canvasShow: { params: { id: string }; response: void };
-      canvasHide: { params: { id: string }; response: void };
+      canvasA2uiReset: { params: { id: string }; response: undefined };
+      canvasShow: { params: { id: string }; response: undefined };
+      canvasHide: { params: { id: string }; response: undefined };
       canvasResize: {
         params: { id: string; width: number; height: number };
-        response: void;
+        response: undefined;
       };
-      canvasFocus: { params: { id: string }; response: void };
+      canvasFocus: { params: { id: string }; response: undefined };
       canvasGetBounds: {
         params: { id: string };
         response: WindowBounds;
       };
       canvasSetBounds: {
         params: { id: string } & WindowBounds;
-        response: void;
+        response: undefined;
       };
       canvasListWindows: {
-        params: void;
+        params: undefined;
         response: { windows: CanvasWindowInfo[] };
       };
 
       // ---- Screencapture (graceful stubs) ----
       screencaptureGetSources: {
-        params: void;
+        params: undefined;
         response: { sources: ScreenSource[]; available: boolean };
       };
       screencaptureTakeScreenshot: {
-        params: void;
+        params: undefined;
         response: { available: boolean; data?: string };
       };
       screencaptureCaptureWindow: {
@@ -495,23 +507,23 @@ export type MiladyRPCSchema = {
         response: { available: boolean; data?: string };
       };
       screencaptureStartRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean; reason?: string };
       };
       screencaptureStopRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean; path?: string };
       };
       screencapturePauseRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
       screencaptureResumeRecording: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
       screencaptureGetRecordingState: {
-        params: void;
+        params: undefined;
         response: { recording: boolean; duration: number; paused: boolean };
       };
       screencaptureStartFrameCapture: {
@@ -525,11 +537,11 @@ export type MiladyRPCSchema = {
         response: { available: boolean; reason?: string };
       };
       screencaptureStopFrameCapture: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
       screencaptureIsFrameCaptureActive: {
-        params: void;
+        params: undefined;
         response: { active: boolean };
       };
       screencaptureSaveScreenshot: {
@@ -543,78 +555,85 @@ export type MiladyRPCSchema = {
 
       // ---- Swabble (wake word) ----
       swabbleStart: {
-        params: void;
+        params: undefined;
         response: { available: boolean; reason?: string };
       };
-      swabbleStop: { params: void; response: void };
-      swabbleIsListening: { params: void; response: { listening: boolean } };
-      swabbleGetConfig: { params: void; response: Record<string, unknown> };
+      swabbleStop: { params: undefined; response: undefined };
+      swabbleIsListening: {
+        params: undefined;
+        response: { listening: boolean };
+      };
+      swabbleGetConfig: {
+        params: undefined;
+        response: Record<string, unknown>;
+      };
       swabbleUpdateConfig: {
         params: Record<string, unknown>;
-        response: void;
+        response: undefined;
       };
       swabbleIsWhisperAvailable: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
-      swabbleAudioChunk: { params: { data: string }; response: void };
+      swabbleAudioChunk: { params: { data: string }; response: undefined };
 
       // ---- TalkMode ----
       talkmodeStart: {
-        params: void;
+        params: undefined;
         response: { available: boolean; reason?: string };
       };
-      talkmodeStop: { params: void; response: void };
+      talkmodeStop: { params: undefined; response: undefined };
       talkmodeSpeak: {
         params: { text: string; directive?: Record<string, unknown> };
-        response: void;
+        response: undefined;
       };
-      talkmodeStopSpeaking: { params: void; response: void };
-      talkmodeGetState: { params: void; response: { state: TalkModeState } };
-      talkmodeIsEnabled: { params: void; response: { enabled: boolean } };
-      talkmodeIsSpeaking: { params: void; response: { speaking: boolean } };
+      talkmodeStopSpeaking: { params: undefined; response: undefined };
+      talkmodeGetState: {
+        params: undefined;
+        response: { state: TalkModeState };
+      };
+      talkmodeIsEnabled: { params: undefined; response: { enabled: boolean } };
+      talkmodeIsSpeaking: {
+        params: undefined;
+        response: { speaking: boolean };
+      };
       talkmodeGetWhisperInfo: {
-        params: void;
+        params: undefined;
         response: { available: boolean; modelSize?: string };
       };
       talkmodeIsWhisperAvailable: {
-        params: void;
+        params: undefined;
         response: { available: boolean };
       };
-      talkmodeUpdateConfig: { params: TalkModeConfig; response: void };
-      talkmodeAudioChunk: { params: { data: string }; response: void };
+      talkmodeUpdateConfig: { params: TalkModeConfig; response: undefined };
+      talkmodeAudioChunk: { params: { data: string }; response: undefined };
 
       // ---- Context Menu ----
       contextMenuAskAgent: {
         params: { text: string };
-        response: void;
+        response: undefined;
       };
       contextMenuCreateSkill: {
         params: { text: string };
-        response: void;
+        response: undefined;
       };
       contextMenuQuoteInChat: {
         params: { text: string };
-        response: void;
+        response: undefined;
       };
       contextMenuSaveAsCommand: {
         params: { text: string };
-        response: void;
+        response: undefined;
       };
 
       // ---- LIFO (PiP) ----
-      lifoGetPipState: { params: void; response: PipState };
-      lifoSetPip: { params: PipState; response: void };
+      lifoGetPipState: { params: undefined; response: PipState };
+      lifoSetPip: { params: PipState; response: undefined };
     };
-    messages: {
-      // Messages the webview sends TO bun (rare - most communication
-      // is request/response). Audio chunks for streaming could go here.
-    };
+    messages: Record<string, never>;
   }>;
   webview: RPCSchema<{
-    requests: {
-      // Built-in: evaluateJavascriptWithResponse is added by Electroview
-    };
+    requests: Record<string, never>;
     messages: {
       // Push events FROM bun TO webview
 
@@ -640,13 +659,13 @@ export type MiladyRPCSchema = {
       desktopShortcutPressed: { id: string; accelerator: string };
 
       // Desktop: Window events
-      desktopWindowFocus: void;
-      desktopWindowBlur: void;
-      desktopWindowMaximize: void;
-      desktopWindowUnmaximize: void;
-      desktopWindowMinimize: void;
-      desktopWindowRestore: void;
-      desktopWindowClose: void;
+      desktopWindowFocus: undefined;
+      desktopWindowBlur: undefined;
+      desktopWindowMaximize: undefined;
+      desktopWindowUnmaximize: undefined;
+      desktopWindowMinimize: undefined;
+      desktopWindowRestore: undefined;
+      desktopWindowClose: undefined;
 
       // Desktop: Notification events
       desktopNotificationClick: { id: string };
@@ -654,10 +673,10 @@ export type MiladyRPCSchema = {
       desktopNotificationReply: { id: string; reply: string };
 
       // Desktop: Power events
-      desktopPowerSuspend: void;
-      desktopPowerResume: void;
-      desktopPowerOnAC: void;
-      desktopPowerOnBattery: void;
+      desktopPowerSuspend: undefined;
+      desktopPowerResume: undefined;
+      desktopPowerOnAC: undefined;
+      desktopPowerOnBattery: undefined;
 
       // Canvas: Window events
       canvasWindowEvent: {
@@ -669,7 +688,7 @@ export type MiladyRPCSchema = {
       // TalkMode: Audio/state push events
       talkmodeAudioChunkPush: { data: string };
       talkmodeStateChanged: { state: TalkModeState };
-      talkmodeSpeakComplete: void;
+      talkmodeSpeakComplete: undefined;
 
       // Swabble: Wake word detection
       swabbleWakeWord: {

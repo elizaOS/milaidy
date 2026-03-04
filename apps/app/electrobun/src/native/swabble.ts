@@ -6,10 +6,11 @@
  * Web Speech API in the renderer can serve as a fallback.
  */
 
-import { isWhisperAvailable, transcribe } from "./whisper";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import { isWhisperAvailable, transcribe } from "./whisper";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -101,9 +102,10 @@ export class SwabbleManager {
 
           this.sendToWebview?.("swabbleWakeWord", {
             trigger,
-            command: command.length >= this.config.minCommandLength
-              ? command
-              : undefined,
+            command:
+              command.length >= this.config.minCommandLength
+                ? command
+                : undefined,
             transcript: result.text,
           });
           break;

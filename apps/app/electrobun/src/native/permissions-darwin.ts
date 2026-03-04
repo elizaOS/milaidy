@@ -4,7 +4,10 @@
  * Uses AppleScript and system_profiler to check TCC permission status.
  */
 
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 async function runCommand(cmd: string): Promise<string> {
   try {
@@ -26,7 +29,7 @@ export async function checkPermission(
   switch (id) {
     case "accessibility": {
       const result = await runCommand(
-        'osascript -e \'tell application "System Events" to return name of first process\' 2>&1',
+        "osascript -e 'tell application \"System Events\" to return name of first process' 2>&1",
       );
       const granted = !result.includes("error") && result.length > 0;
       return { status: granted ? "granted" : "denied", canRequest: true };
@@ -46,7 +49,10 @@ export async function checkPermission(
         'osascript -e \'tell application "System Events" to return "ok"\' 2>&1',
       );
       // Microphone permission is managed by the WebView at runtime
-      return { status: result ? "granted" : "not-determined", canRequest: true };
+      return {
+        status: result ? "granted" : "not-determined",
+        canRequest: true,
+      };
     }
 
     case "camera": {

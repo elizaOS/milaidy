@@ -5,8 +5,8 @@
  * and speech-to-text via Whisper (if available) or Web Speech API fallback.
  */
 
+import type { TalkModeConfig, TalkModeState } from "../rpc-schema";
 import { isWhisperAvailable } from "./whisper";
-import type { TalkModeState, TalkModeConfig } from "../rpc-schema";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -78,10 +78,10 @@ export class TalkModeManager {
           },
           body: JSON.stringify({
             text: options.text,
-            model_id: (options.directive?.modelId as string) ?? "eleven_turbo_v2",
+            model_id:
+              (options.directive?.modelId as string) ?? "eleven_turbo_v2",
             voice_settings: {
-              stability:
-                (options.directive?.stability as number) ?? 0.5,
+              stability: (options.directive?.stability as number) ?? 0.5,
               similarity_boost:
                 (options.directive?.similarity as number) ?? 0.75,
             },

@@ -50,9 +50,7 @@ export class LocationManager {
         };
         this.lastKnown = position;
         return position;
-      } catch {
-        continue;
-      }
+      } catch {}
     }
     return null;
   }

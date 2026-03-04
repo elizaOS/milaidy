@@ -9,8 +9,6 @@
  */
 
 import type { BrowserView } from "electrobun/bun";
-import type { MiladyRPCSchema, PipState } from "./rpc-schema";
-
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
@@ -21,6 +19,7 @@ import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
 import { getSwabbleManager } from "./native/swabble";
 import { getTalkModeManager } from "./native/talkmode";
+import type { MiladyRPCSchema, PipState } from "./rpc-schema";
 
 // PiP state (simple in-memory store — no dedicated manager needed)
 let pipState: PipState = { enabled: false };
@@ -31,9 +30,7 @@ let pipState: PipState = { enabled: false };
  * Each handler receives typed params and must return the typed response
  * matching MiladyRPCSchema.bun.requests[method].
  */
-export function registerRpcHandlers(
-  view: BrowserView<MiladyRPCSchema>,
-): void {
+export function registerRpcHandlers(view: BrowserView<MiladyRPCSchema>): void {
   const rpc = view.rpc;
   if (!rpc) {
     console.error("[RPC] No RPC instance on BrowserView");
@@ -61,10 +58,16 @@ export function registerRpcHandlers(
   rpc.handleRequest.agentStatus(async () => agent.getStatus());
 
   // ---- Desktop: Tray ----
-  rpc.handleRequest.desktopCreateTray(async (params) => desktop.createTray(params));
-  rpc.handleRequest.desktopUpdateTray(async (params) => desktop.updateTray(params));
+  rpc.handleRequest.desktopCreateTray(async (params) =>
+    desktop.createTray(params),
+  );
+  rpc.handleRequest.desktopUpdateTray(async (params) =>
+    desktop.updateTray(params),
+  );
   rpc.handleRequest.desktopDestroyTray(async () => desktop.destroyTray());
-  rpc.handleRequest.desktopSetTrayMenu(async (params) => desktop.setTrayMenu(params));
+  rpc.handleRequest.desktopSetTrayMenu(async (params) =>
+    desktop.setTrayMenu(params),
+  );
 
   // ---- Desktop: Shortcuts ----
   rpc.handleRequest.desktopRegisterShortcut(async (params) =>
@@ -92,13 +95,17 @@ export function registerRpcHandlers(
   rpc.handleRequest.desktopSetWindowOptions(async (params) =>
     desktop.setWindowOptions(params),
   );
-  rpc.handleRequest.desktopGetWindowBounds(async () => desktop.getWindowBounds());
+  rpc.handleRequest.desktopGetWindowBounds(async () =>
+    desktop.getWindowBounds(),
+  );
   rpc.handleRequest.desktopSetWindowBounds(async (params) =>
     desktop.setWindowBounds(params),
   );
   rpc.handleRequest.desktopMinimizeWindow(async () => desktop.minimizeWindow());
   rpc.handleRequest.desktopMaximizeWindow(async () => desktop.maximizeWindow());
-  rpc.handleRequest.desktopUnmaximizeWindow(async () => desktop.unmaximizeWindow());
+  rpc.handleRequest.desktopUnmaximizeWindow(async () =>
+    desktop.unmaximizeWindow(),
+  );
   rpc.handleRequest.desktopCloseWindow(async () => desktop.closeWindow());
   rpc.handleRequest.desktopShowWindow(async () => desktop.showWindow());
   rpc.handleRequest.desktopHideWindow(async () => desktop.hideWindow());
@@ -109,15 +116,21 @@ export function registerRpcHandlers(
   rpc.handleRequest.desktopIsWindowMinimized(async () =>
     desktop.isWindowMinimized(),
   );
-  rpc.handleRequest.desktopIsWindowVisible(async () => desktop.isWindowVisible());
-  rpc.handleRequest.desktopIsWindowFocused(async () => desktop.isWindowFocused());
+  rpc.handleRequest.desktopIsWindowVisible(async () =>
+    desktop.isWindowVisible(),
+  );
+  rpc.handleRequest.desktopIsWindowFocused(async () =>
+    desktop.isWindowFocused(),
+  );
   rpc.handleRequest.desktopSetAlwaysOnTop(async (params) =>
     desktop.setAlwaysOnTop(params),
   );
   rpc.handleRequest.desktopSetFullscreen(async (params) =>
     desktop.setFullscreen(params),
   );
-  rpc.handleRequest.desktopSetOpacity(async (params) => desktop.setOpacity(params));
+  rpc.handleRequest.desktopSetOpacity(async (params) =>
+    desktop.setOpacity(params),
+  );
 
   // ---- Desktop: Notifications ----
   rpc.handleRequest.desktopShowNotification(async (params) =>

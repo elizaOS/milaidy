@@ -26,25 +26,24 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  Tray,
-  GlobalShortcut,
-  Utils,
-  BrowserWindow,
+  type BrowserWindow,
   Electrobun,
+  GlobalShortcut,
+  Tray,
   Updater,
+  Utils,
 } from "electrobun/bun";
 import type {
-  TrayOptions,
-  TrayMenuItem,
-  ShortcutOptions,
+  ClipboardReadResult,
+  ClipboardWriteOptions,
   NotificationOptions,
+  PowerState,
+  ShortcutOptions,
+  TrayMenuItem,
+  TrayOptions,
+  VersionInfo,
   WindowBounds,
   WindowOptions,
-  ClipboardWriteOptions,
-  ClipboardReadResult,
-  VersionInfo,
-  PowerState,
-  TrayClickEvent,
 } from "../rpc-schema";
 
 // ============================================================================
@@ -312,10 +311,6 @@ export class DesktopManager {
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
 
-  constructor() {
-    // No powerMonitor equivalent in Electrobun — skip setup
-  }
-
   // MARK: - Configuration
 
   /**
@@ -554,10 +549,7 @@ export class DesktopManager {
 
     if (options.width !== undefined || options.height !== undefined) {
       const [currentW, currentH] = win.getSize();
-      win.setSize(
-        options.width ?? currentW,
-        options.height ?? currentH,
-      );
+      win.setSize(options.width ?? currentW, options.height ?? currentH);
     }
 
     if (options.x !== undefined || options.y !== undefined) {
@@ -795,7 +787,8 @@ export class DesktopManager {
     // In Electrobun, check if running from a built bundle
     // DEV mode typically has specific env flags
     return {
-      packaged: process.env.NODE_ENV === "production" || !process.env.ELECTROBUN_DEV,
+      packaged:
+        process.env.NODE_ENV === "production" || !process.env.ELECTROBUN_DEV,
     };
   }
 

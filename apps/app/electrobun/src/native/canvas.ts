@@ -8,7 +8,11 @@
  */
 
 import { BrowserWindow } from "electrobun/bun";
-import type { CanvasWindowOptions, CanvasWindowInfo, WindowBounds } from "../rpc-schema";
+import type {
+  CanvasWindowInfo,
+  CanvasWindowOptions,
+  WindowBounds,
+} from "../rpc-schema";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -29,9 +33,7 @@ export class CanvasManager {
     this.sendToWebview = fn;
   }
 
-  async createWindow(
-    options: CanvasWindowOptions,
-  ): Promise<{ id: string }> {
+  async createWindow(options: CanvasWindowOptions): Promise<{ id: string }> {
     const id = `canvas_${++canvasCounter}`;
 
     const win = new BrowserWindow({
@@ -89,16 +91,14 @@ export class CanvasManager {
     }
   }
 
-  async eval(options: {
-    id: string;
-    script: string;
-  }): Promise<unknown> {
+  async eval(options: { id: string; script: string }): Promise<unknown> {
     const canvas = this.windows.get(options.id);
     if (!canvas) return null;
 
     try {
-      return await canvas.window.webview.rpc?.requestProxy
-        .evaluateJavascriptWithResponse({ script: options.script });
+      return await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
+        { script: options.script },
+      );
     } catch (err) {
       console.error(`[Canvas] eval error in ${options.id}:`, err);
       return null;
@@ -125,8 +125,9 @@ export class CanvasManager {
       }
     `;
     try {
-      await canvas.window.webview.rpc?.requestProxy
-        .evaluateJavascriptWithResponse({ script });
+      await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
+        { script },
+      );
     } catch {
       // Window may have been destroyed
     }
@@ -142,8 +143,9 @@ export class CanvasManager {
       }
     `;
     try {
-      await canvas.window.webview.rpc?.requestProxy
-        .evaluateJavascriptWithResponse({ script });
+      await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
+        { script },
+      );
     } catch {
       // Window may have been destroyed
     }
@@ -178,9 +180,7 @@ export class CanvasManager {
     return { x: pos.x, y: pos.y, width: size.width, height: size.height };
   }
 
-  async setBounds(
-    options: { id: string } & WindowBounds,
-  ): Promise<void> {
+  async setBounds(options: { id: string } & WindowBounds): Promise<void> {
     const win = this.windows.get(options.id)?.window;
     if (!win) return;
     win.setPosition(options.x, options.y);

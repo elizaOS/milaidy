@@ -107,10 +107,8 @@ const char* list_windows(void) {
 // ============================================================================
 
 export class ScreenCaptureManager {
-  private sendToWebview: SendToWebview | null = null;
-
-  setSendToWebview(fn: SendToWebview): void {
-    this.sendToWebview = fn;
+  setSendToWebview(_fn: SendToWebview): void {
+    // Retained for interface compatibility; no webview push needed yet
   }
 
   async getSources() {
@@ -162,17 +160,16 @@ export class ScreenCaptureManager {
         os.tmpdir(),
         `milady-screenshot-${Date.now()}.png`,
       );
-      const proc = Bun.spawn(
-        [SCREENCAPTURE_BIN, "-x", "-t", "png", tmpFile],
-        { stdout: "pipe", stderr: "pipe" },
-      );
+      const proc = Bun.spawn([SCREENCAPTURE_BIN, "-x", "-t", "png", tmpFile], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
       await proc.exited;
 
       if (proc.exitCode !== 0 || !fs.existsSync(tmpFile)) {
         return {
           available: false,
-          reason:
-            "screencapture failed — check Screen Recording permission",
+          reason: "screencapture failed — check Screen Recording permission",
         };
       }
 
@@ -193,10 +190,7 @@ export class ScreenCaptureManager {
     }
 
     try {
-      const tmpFile = path.join(
-        os.tmpdir(),
-        `milady-window-${Date.now()}.png`,
-      );
+      const tmpFile = path.join(os.tmpdir(), `milady-window-${Date.now()}.png`);
       const args = [SCREENCAPTURE_BIN, "-x", "-t", "png"];
       if (options?.windowId) {
         args.push("-l", options.windowId);
@@ -289,7 +283,7 @@ export class ScreenCaptureManager {
   }
 
   dispose(): void {
-    this.sendToWebview = null;
+    // No-op; retained for interface compatibility
   }
 }
 

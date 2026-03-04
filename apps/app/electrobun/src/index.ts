@@ -9,17 +9,17 @@ import path from "node:path";
 import {
   BrowserWindow,
   Electrobun,
-  Updater,
   setApplicationMenu,
+  Updater,
 } from "electrobun/bun";
-import { registerRpcHandlers } from "./rpc-handlers";
-import { initializeNativeModules, disposeNativeModules } from "./native/index";
+import {
+  createApiBaseInjectionScript,
+  resolveExternalApiBase,
+} from "./api-base";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
-import {
-  resolveExternalApiBase,
-  createApiBaseInjectionScript,
-} from "./api-base";
+import { disposeNativeModules, initializeNativeModules } from "./native/index";
+import { registerRpcHandlers } from "./rpc-handlers";
 
 // ============================================================================
 // App Menu
@@ -134,7 +134,10 @@ function wireRpcAndModules(win: BrowserWindow): void {
   initializeNativeModules(win, sendToWebview);
 
   // Register RPC handlers on the webview
-  registerRpcHandlers(view as any);
+  // Type assertion needed: BrowserWindow.webview doesn't carry the RPC schema generic
+  registerRpcHandlers(
+    view as unknown as Parameters<typeof registerRpcHandlers>[0],
+  );
 }
 
 // ============================================================================

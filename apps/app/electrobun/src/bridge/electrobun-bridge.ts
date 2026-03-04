@@ -244,16 +244,17 @@ const listenersByRpcMessage: Record<string, Set<IpcListener>> = {};
 const listenersByChannel: Record<string, Set<IpcListener>> = {};
 
 // Expose the registry globally so the Bun side can dispatch to it
-(window as any).__MILADY_RPC_LISTENERS__ = new Proxy(
-  {},
-  {
-    get(_target, prop: string) {
-      const listeners = listenersByRpcMessage[prop];
-      if (!listeners || listeners.size === 0) return undefined;
-      return Array.from(listeners);
+(window as unknown as Record<string, unknown>).__MILADY_RPC_LISTENERS__ =
+  new Proxy(
+    {},
+    {
+      get(_target, prop: string) {
+        const listeners = listenersByRpcMessage[prop];
+        if (!listeners || listeners.size === 0) return undefined;
+        return Array.from(listeners);
+      },
     },
-  },
-);
+  );
 
 // ============================================================================
 // RPC Proxy (Electroview)
@@ -263,8 +264,17 @@ const listenersByChannel: Record<string, Set<IpcListener>> = {};
  * Get the Electroview RPC proxy for making requests to the Bun side.
  * In Electrobun, the webview context has access to `electroview` global.
  */
-function getRpcProxy(): Record<string, (params: unknown) => Promise<unknown>> | null {
-  const ev = (window as any).electroview;
+function getRpcProxy(): Record<
+  string,
+  (params: unknown) => Promise<unknown>
+> | null {
+  const ev = (window as unknown as Record<string, unknown>).electroview as
+    | {
+        rpc?: {
+          request?: Record<string, (params: unknown) => Promise<unknown>>;
+        };
+      }
+    | undefined;
   if (!ev?.rpc?.request) return null;
   return ev.rpc.request;
 }
@@ -298,7 +308,8 @@ const electronAPI = {
       // Electron invoke passes args as separate params.
       // Our RPC expects a single params object (or void).
       // Most channels pass a single object arg or no args.
-      const params = args.length === 0 ? undefined : args.length === 1 ? args[0] : args[0];
+      const params =
+        args.length === 0 ? undefined : args.length === 1 ? args[0] : args[0];
 
       try {
         return await proxy[rpcMethod](params);
@@ -375,13 +386,14 @@ const electronAPI = {
    * Desktop Capturer — returns empty sources (graceful degradation)
    */
   desktopCapturer: {
-    getSources: async (
-      _options: { types: string[]; thumbnailSize?: { width: number; height: number } },
-    ) => {
+    getSources: async (_options: {
+      types: string[];
+      thumbnailSize?: { width: number; height: number };
+    }) => {
       const result = await electronAPI.ipcRenderer.invoke(
         "screencapture:getSources",
       );
-      return (result as any)?.sources ?? [];
+      return (result as { sources?: unknown[] })?.sources ?? [];
     },
   },
 
@@ -412,10 +424,11 @@ electronAPI.ipcRenderer
 // ============================================================================
 
 // Expose as window.electron for backward compatibility
-(window as any).electron = electronAPI;
+const win = window as unknown as Record<string, unknown>;
+win.electron = electronAPI;
 
 // Also expose detection flag
-(window as any).__ELECTROBUN__ = true;
-(window as any).__MILADY_RUNTIME__ = "electrobun";
+win.__ELECTROBUN__ = true;
+win.__MILADY_RUNTIME__ = "electrobun";
 
 export {};

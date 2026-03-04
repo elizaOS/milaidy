@@ -5,7 +5,10 @@
  * Camera/microphone are handled by PipeWire/PulseAudio at runtime.
  */
 
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 export async function checkPermission(
   id: SystemPermissionId,

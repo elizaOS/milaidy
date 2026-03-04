@@ -6,7 +6,11 @@
  */
 
 import { EventEmitter } from "node:events";
-import type { GatewayEndpoint, DiscoveryOptions, DiscoveryResult } from "../rpc-schema";
+import type {
+  DiscoveryOptions,
+  DiscoveryResult,
+  GatewayEndpoint,
+} from "../rpc-schema";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -39,9 +43,7 @@ async function loadDiscoveryModule(): Promise<boolean> {
       bonjourModule = (await import(pkg)) as BonjourModuleProvider;
       console.log(`[Gateway] Loaded ${pkg} module`);
       return true;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   console.warn(
@@ -127,9 +129,7 @@ export class GatewayDiscovery extends EventEmitter {
     const stableId =
       txt.id ?? `${service.name}-${service.host}:${service.port}`;
     const tlsEnabled =
-      txt.protocol === "wss" ||
-      txt.tlsEnabled === "true" ||
-      txt.tls === "true";
+      txt.protocol === "wss" || txt.tlsEnabled === "true" || txt.tls === "true";
     const gatewayPort = this.parseNumber(txt.gatewayPort) ?? service.port;
     const canvasPort = this.parseNumber(txt.canvasPort);
 

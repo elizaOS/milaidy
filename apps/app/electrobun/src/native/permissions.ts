@@ -13,7 +13,10 @@ import type {
   PermissionState,
   SystemPermissionId,
 } from "./permissions-shared";
-import { isPermissionApplicable, SYSTEM_PERMISSIONS } from "./permissions-shared";
+import {
+  isPermissionApplicable,
+  SYSTEM_PERMISSIONS,
+} from "./permissions-shared";
 import * as win32 from "./permissions-win32";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
@@ -78,7 +81,8 @@ export class PermissionManager {
     }
 
     if (!forceRefresh && this.isCacheValid(id)) {
-      return this.cache.get(id)!;
+      const cached = this.cache.get(id);
+      if (cached) return cached;
     }
 
     let result: PermissionCheckResult;
@@ -112,13 +116,10 @@ export class PermissionManager {
     const results = await Promise.all(
       SYSTEM_PERMISSIONS.map((p) => this.checkPermission(p.id, forceRefresh)),
     );
-    return results.reduce(
-      (acc, state) => {
-        acc[state.id] = state;
-        return acc;
-      },
-      {} as AllPermissionsState,
-    );
+    return results.reduce((acc, state) => {
+      acc[state.id] = state;
+      return acc;
+    }, {} as AllPermissionsState);
   }
 
   async requestPermission(id: SystemPermissionId): Promise<PermissionState> {
