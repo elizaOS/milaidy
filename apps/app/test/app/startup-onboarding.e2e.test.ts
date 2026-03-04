@@ -319,6 +319,9 @@ function createHarnessState(): AppHarnessState {
     cloudLoginBusy: false,
     cloudLoginError: "",
     cloudUserId: "",
+    uiShellMode: "native",
+    uiLanguage: "en",
+    plugins: [],
   };
 }
 

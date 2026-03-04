@@ -209,52 +209,55 @@ describe("Global LocalModelManager Instance", () => {
 // INTEGRATION TESTS (require network)
 // ============================================================================
 
-describe.skip("LocalModelManager Integration (requires network)", () => {
-  let manager: LocalModelManager;
-  let testCacheDir: string;
+describe.skipIf(!process.env.REAL_API_TEST)(
+  "LocalModelManager Integration (requires network)",
+  () => {
+    let manager: LocalModelManager;
+    let testCacheDir: string;
 
-  beforeEach(() => {
-    testCacheDir = join(tmpdir(), `milady-integration-${Date.now()}`);
-    mkdirSync(testCacheDir, { recursive: true });
-    manager = new LocalModelManager({ cacheDir: testCacheDir });
-  });
-
-  afterEach(() => {
-    if (existsSync(testCacheDir)) {
-      rmSync(testCacheDir, { recursive: true, force: true });
-    }
-  });
-
-  it("should download a small model from HuggingFace", async () => {
-    // Use a very small model for testing
-    const modelId = "sentence-transformers/all-MiniLM-L6-v2";
-
-    let _progressCalled = false;
-    const path = await manager.downloadModel(modelId, (progress) => {
-      _progressCalled = true;
-      expect(progress.percent).toBeGreaterThanOrEqual(0);
-      expect(progress.percent).toBeLessThanOrEqual(100);
+    beforeEach(() => {
+      testCacheDir = join(tmpdir(), `milady-integration-${Date.now()}`);
+      mkdirSync(testCacheDir, { recursive: true });
+      manager = new LocalModelManager({ cacheDir: testCacheDir });
     });
 
-    expect(path).toBeDefined();
-    expect(existsSync(path)).toBe(true);
-    expect(manager.isModelDownloaded(modelId)).toBe(true);
-  }, 120000);
+    afterEach(() => {
+      if (existsSync(testCacheDir)) {
+        rmSync(testCacheDir, { recursive: true, force: true });
+      }
+    });
 
-  it("should check Ollama status", async () => {
-    const isRunning = await manager.isOllamaRunning();
-    // Just verify it doesn't throw and returns a boolean
-    expect(typeof isRunning).toBe("boolean");
-  });
+    it("should download a small model from HuggingFace", async () => {
+      // Use a very small model for testing
+      const modelId = "sentence-transformers/all-MiniLM-L6-v2";
 
-  it("should list Ollama models if running", async () => {
-    const isRunning = await manager.isOllamaRunning();
-    if (isRunning) {
-      const models = await manager.listOllamaModels();
-      expect(Array.isArray(models)).toBe(true);
-    }
-  });
-});
+      let _progressCalled = false;
+      const path = await manager.downloadModel(modelId, (progress) => {
+        _progressCalled = true;
+        expect(progress.percent).toBeGreaterThanOrEqual(0);
+        expect(progress.percent).toBeLessThanOrEqual(100);
+      });
+
+      expect(path).toBeDefined();
+      expect(existsSync(path)).toBe(true);
+      expect(manager.isModelDownloaded(modelId)).toBe(true);
+    }, 120000);
+
+    it("should check Ollama status", async () => {
+      const isRunning = await manager.isOllamaRunning();
+      // Just verify it doesn't throw and returns a boolean
+      expect(typeof isRunning).toBe("boolean");
+    });
+
+    it("should list Ollama models if running", async () => {
+      const isRunning = await manager.isOllamaRunning();
+      if (isRunning) {
+        const models = await manager.listOllamaModels();
+        expect(Array.isArray(models)).toBe(true);
+      }
+    });
+  },
+);
 
 // ============================================================================
 // ERROR HANDLING TESTS

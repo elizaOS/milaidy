@@ -290,7 +290,7 @@ describe("training routes", () => {
       method: "POST",
       pathname: "/api/training/models/model-1/import-ollama",
       body: {
-        modelName: "milaidy-ft-model",
+        modelName: "milady-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://169.254.169.254:11434",
       },

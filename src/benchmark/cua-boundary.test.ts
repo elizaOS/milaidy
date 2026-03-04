@@ -4,7 +4,7 @@
  * resolveHost(), resolvePort(), parseBooleanValue(), compactCuaStep/Result(),
  * handleCuaRoute(), and CUA permission mapping.
  *
- * @see https://github.com/milady-ai/milaidy/issues/590
+ * @see https://github.com/milady-ai/milady/issues/590
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

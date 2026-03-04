@@ -48,8 +48,8 @@ function hasContractArtifacts(): boolean {
         __dirname,
         "contracts",
         "out",
-        "MockMilaidyAgentRegistry.sol",
-        "MockMilaidyAgentRegistry.json",
+        "MockMiladyAgentRegistry.sol",
+        "MockMiladyAgentRegistry.json",
       ),
     ],
     [
@@ -64,8 +64,8 @@ function hasContractArtifacts(): boolean {
         __dirname,
         "contracts",
         "out",
-        "MockMilaidyCollection.sol",
-        "MockMilaidyCollection.json",
+        "MockMiladyCollection.sol",
+        "MockMiladyCollection.json",
       ),
     ],
   ];
@@ -316,7 +316,7 @@ describeAnvil("Anvil Contract E2E Tests", () => {
       expect(owner.toLowerCase()).toBe(TEST_ADDRESS.toLowerCase());
 
       const uri = await collectionContract.tokenURI(1);
-      expect(["ipfs://QmMiladyMetadata", "ipfs://QmMilaidyMetadata"]).toContain(
+      expect(["ipfs://QmMiladyMetadata", "ipfs://QmMiladyMetadata"]).toContain(
         uri,
       );
     });
@@ -375,7 +375,7 @@ describeAnvil("Anvil Contract E2E Tests", () => {
       const uri = await collectionContract.tokenURI(2);
       expect([
         "ipfs://QmShinyMiladyMetadata",
-        "ipfs://QmShinyMilaidyMetadata",
+        "ipfs://QmShinyMiladyMetadata",
       ]).toContain(uri);
     });
   });

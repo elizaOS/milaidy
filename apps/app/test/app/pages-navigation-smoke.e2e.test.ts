@@ -259,6 +259,8 @@ describe("pages navigation smoke (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       plugins: [],
+      uiShellMode: "native",
+      uiLanguage: "en",
       setTab: (tab: Tab) => {
         state.tab = tab;
       },
@@ -280,7 +282,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByPrimaryTab: Record<Tab, string> = {
       chat: "ChatView Ready",
-      companion: "ChatView Ready", // falls back to ChatView when feature flag is off
+      companion: "CompanionView Ready",
       stream: "StreamView Ready",
       character: "CharacterView Ready",
       wallets: "InventoryView Ready",
@@ -390,7 +392,7 @@ describe("pages navigation smoke (e2e)", () => {
 
     const expectedByTab: Array<{ tab: Tab; token: string }> = [
       { tab: "chat", token: "ChatView Ready" },
-      { tab: "companion", token: "ChatView Ready" }, // falls back to ChatView when feature flag is off
+      { tab: "companion", token: "CompanionView Ready" },
       { tab: "apps", token: "AppsPageView Ready" },
       { tab: "character", token: "CharacterView Ready" },
       { tab: "wallets", token: "InventoryView Ready" },
@@ -485,6 +487,8 @@ describe("pages navigation smoke (e2e)", () => {
         tab: "chat",
         actionNotice: null,
         plugins: [],
+        uiShellMode: "native",
+        uiLanguage: "en",
         setTab: (tab: Tab) => {
           state.tab = tab;
         },

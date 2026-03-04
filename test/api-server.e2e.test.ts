@@ -305,8 +305,8 @@ function createRuntimeForStreamTests(options: {
       }
       if (serviceType === "AUTONOMY") {
         return {
-          enableAutonomy: async () => { },
-          disableAutonomy: async () => { },
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
           isLoopRunning: () => options.loopRunning ?? false,
         } as never;
       }
@@ -315,7 +315,7 @@ function createRuntimeForStreamTests(options: {
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
   return runtimeSubset as AgentRuntime;
 }
@@ -390,8 +390,8 @@ function createRuntimeForAutonomySurfaceTests(options: {
           typeof (message.content as Record<string, unknown> | undefined)
             ?.text === "string"
             ? String(
-              (message.content as Record<string, unknown> | undefined)?.text,
-            )
+                (message.content as Record<string, unknown> | undefined)?.text,
+              )
             : "autonomy";
         return {
           didRespond: true,
@@ -417,16 +417,16 @@ function createRuntimeForAutonomySurfaceTests(options: {
       }
       if (serviceType === "AUTONOMY") {
         return {
-          enableAutonomy: async () => { },
-          disableAutonomy: async () => { },
+          enableAutonomy: async () => {},
+          disableAutonomy: async () => {},
           isLoopRunning: () => options.loopRunning ?? true,
         } as never;
       }
       return null;
     },
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     createMemory: async (memory: Record<string, unknown>) => {
       const roomId = String(memory.roomId ?? "");
       if (!roomId) return;
@@ -459,7 +459,7 @@ function createRuntimeForAutonomySurfaceTests(options: {
       tasks = tasks.filter((task) => task.id !== taskId);
     },
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -520,15 +520,15 @@ function createRuntimeForWorkbenchCrudTests(options?: {
       tasks = tasks.map((task) =>
         task.id === taskId
           ? {
-            ...task,
-            ...update,
-            metadata: {
-              ...((task.metadata as Record<string, unknown> | undefined) ??
-                {}),
-              ...((update.metadata as Record<string, unknown> | undefined) ??
-                {}),
-            } as Task["metadata"],
-          }
+              ...task,
+              ...update,
+              metadata: {
+                ...((task.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+                ...((update.metadata as Record<string, unknown> | undefined) ??
+                  {}),
+              } as Task["metadata"],
+            }
           : task,
       );
     },
@@ -610,9 +610,9 @@ function createRuntimeForChatSseTests(options?: {
           };
         })()),
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     createMemory: async (memory: Record<string, unknown>) => {
       const roomId = String(memory.roomId ?? "");
       if (!roomId) return;
@@ -662,7 +662,7 @@ function createRuntimeForChatSseTests(options?: {
       >;
     },
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -703,14 +703,14 @@ function createRuntimeForCompatEndpointTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -718,10 +718,10 @@ function createRuntimeForCompatEndpointTests(): AgentRuntime {
 
 function createRuntimeForCreditNoResponseTests(): AgentRuntime {
   const runtimeLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: () => { },
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
   } as AgentRuntime["logger"];
 
   const runtimeSubset: Pick<
@@ -755,14 +755,14 @@ function createRuntimeForCreditNoResponseTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -770,10 +770,10 @@ function createRuntimeForCreditNoResponseTests(): AgentRuntime {
 
 function createRuntimeForCreditLiteralNoResponseTests(): AgentRuntime {
   const runtimeLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: () => { },
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
   } as AgentRuntime["logger"];
 
   const runtimeSubset: Pick<
@@ -807,14 +807,14 @@ function createRuntimeForCreditLiteralNoResponseTests(): AgentRuntime {
         };
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -844,14 +844,14 @@ function createRuntimeForCreditErrorTests(): AgentRuntime {
         );
       },
     } as AgentRuntime["messageService"],
-    ensureConnection: async () => { },
+    ensureConnection: async () => {},
     getWorld: async () => null,
-    updateWorld: async () => { },
+    updateWorld: async () => {},
     getService: () => null,
     getRoomsByWorld: async () => [],
     getMemories: async () => [],
     getCache: async () => null,
-    setCache: async () => { },
+    setCache: async () => {},
   };
 
   return runtimeSubset as AgentRuntime;
@@ -871,13 +871,13 @@ describe("API Server E2E (no runtime)", () => {
     lastErrorAt?: number;
     nextRetryAt?: number;
     state?:
-    | "not_started"
-    | "starting"
-    | "running"
-    | "paused"
-    | "stopped"
-    | "restarting"
-    | "error";
+      | "not_started"
+      | "starting"
+      | "running"
+      | "paused"
+      | "stopped"
+      | "restarting"
+      | "error";
   }) => void;
 
   beforeAll(async () => {
@@ -1757,7 +1757,7 @@ describe("API Server E2E (no runtime)", () => {
 
       const trajectoryLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -1866,7 +1866,7 @@ describe("API Server E2E (no runtime)", () => {
 
       const trajectoryLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -2062,7 +2062,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it.skip("persists core trajectory rows to DB and loads them after restart", async () => {
+    it("persists core trajectory rows to DB and loads them after restart", async () => {
       type RawSqlQuery = {
         queryChunks?: Array<{
           value?: string[];
@@ -2190,76 +2190,15 @@ describe("API Server E2E (no runtime)", () => {
         }
       }
 
+      const {
+        startTrajectoryStepInDatabase,
+        completeTrajectoryStepInDatabase,
+      } = await import("../src/runtime/trajectory-persistence");
+
       const db = new InMemoryTrajectoryDb();
 
-      const createCoreLogger = () => {
-        const llmCalls: Array<Record<string, unknown>> = [];
-        const providerAccess: Array<Record<string, unknown>> = [];
-        return {
-          logLlmCall: (params: Record<string, unknown>) => {
-            llmCalls.push({
-              ...params,
-              timestamp:
-                typeof params.timestamp === "number"
-                  ? params.timestamp
-                  : Date.now(),
-            });
-          },
-          logProviderAccess: (params: Record<string, unknown>) => {
-            providerAccess.push({
-              ...params,
-              timestamp:
-                typeof params.timestamp === "number"
-                  ? params.timestamp
-                  : Date.now(),
-            });
-          },
-          getLlmCallLogs: () => llmCalls,
-          getProviderAccessLogs: () => providerAccess,
-        };
-      };
-
       const createRuntime = () => {
-        const coreLogger = createCoreLogger();
-        const runtime = createRuntimeForChatSseTests({
-          getService: (serviceType) =>
-            serviceType === "trajectory_logger" ? coreLogger : null,
-          getServicesByType: (serviceType) =>
-            serviceType === "trajectory_logger" ? [coreLogger] : [],
-          handleMessage: async (runtimeArg, message, onResponse) => {
-            const metadata =
-              message && typeof message === "object" && "metadata" in message
-                ? (message as { metadata?: { trajectoryStepId?: string } })
-                  .metadata
-                : undefined;
-            const stepId = metadata?.trajectoryStepId;
-            if (stepId) {
-              const logger = runtimeArg.getService("trajectory_logger") as {
-                logLlmCall?: (params: Record<string, unknown>) => void;
-              } | null;
-              logger?.logLlmCall?.({
-                stepId,
-                model: "unit-test-model",
-                systemPrompt: "system",
-                userPrompt: "persist me",
-                response: "persisted",
-                temperature: 0,
-                maxTokens: 32,
-                purpose: "response",
-                actionType: "test",
-                promptTokens: 3,
-                completionTokens: 4,
-                latencyMs: 10,
-              });
-            }
-            await onResponse({ text: "persisted" } as Content);
-            return {
-              responseContent: {
-                text: "persisted",
-              },
-            };
-          },
-        }) as AgentRuntime & {
+        const runtime = createRuntimeForChatSseTests() as AgentRuntime & {
           adapter?: {
             db: { execute: (query: RawSqlQuery) => Promise<unknown> };
           };
@@ -2268,15 +2207,23 @@ describe("API Server E2E (no runtime)", () => {
         return runtime;
       };
 
+      // Server A: write a trajectory via the persistence layer, read via API
       const runtimeA = createRuntime();
       const serverA = await startApiServer({ port: 0, runtime: runtimeA });
       let firstTrajectoryId: string | null = null;
       try {
-        const chat = await req(serverA.port, "POST", "/api/chat", {
-          text: "persist this trajectory",
-          mode: "simple",
+        const stepId = `test-step-${Date.now()}`;
+        await startTrajectoryStepInDatabase({
+          runtime: runtimeA,
+          stepId,
+          source: "test",
         });
-        expect(chat.status).toBe(200);
+        await completeTrajectoryStepInDatabase({
+          runtime: runtimeA,
+          stepId,
+          status: "completed",
+          source: "test",
+        });
 
         const list = await req(serverA.port, "GET", "/api/trajectories");
         expect(list.status).toBe(200);
@@ -2289,6 +2236,7 @@ describe("API Server E2E (no runtime)", () => {
         await serverA.close();
       }
 
+      // Server B: same DB, fresh runtime — trajectory should persist
       const runtimeB = createRuntime();
       const serverB = await startApiServer({ port: 0, runtime: runtimeB });
       try {
@@ -2396,12 +2344,12 @@ describe("API Server E2E (no runtime)", () => {
 
     it("GET /api/trajectories prefers route-compatible logger when byType contains core logger", async () => {
       const coreLogger = {
-        logLlmCall: () => { },
+        logLlmCall: () => {},
       };
 
       const fullLogger = {
         isEnabled: () => true,
-        setEnabled: () => { },
+        setEnabled: () => {},
         listTrajectories: async () => ({
           trajectories: [
             {
@@ -2472,9 +2420,9 @@ describe("API Server E2E (no runtime)", () => {
     it("GET /api/trajectories returns 503 when no route-compatible logger is available", async () => {
       const runtime = createRuntimeForChatSseTests({
         getServicesByType: (serviceType) =>
-          serviceType === "trajectory_logger" ? [{ logLlmCall: () => { } }] : [],
+          serviceType === "trajectory_logger" ? [{ logLlmCall: () => {} }] : [],
         getService: (serviceType) =>
-          serviceType === "trajectory_logger" ? { logLlmCall: () => { } } : null,
+          serviceType === "trajectory_logger" ? { logLlmCall: () => {} } : null,
       }) as AgentRuntime & { adapter?: unknown };
       runtime.adapter = {};
 
@@ -2570,7 +2518,7 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "training_event" &&
             ((message.payload as Record<string, unknown>)?.kind as string) ===
-            "dataset_built",
+              "dataset_built",
         );
 
         const response = await req(
@@ -2727,8 +2675,8 @@ describe("API Server E2E (no runtime)", () => {
         getTasks: async () => [],
         getTask: async () => null,
         createTask: async () => crypto.randomUUID() as UUID,
-        updateTask: async () => { },
-        deleteTask: async () => { },
+        updateTask: async () => {},
+        deleteTask: async () => {},
       } as unknown as AgentRuntime;
 
       const streamServer = await startApiServer({ port: 0, runtime });
@@ -2894,7 +2842,7 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "ws-stream-check",
+              "ws-stream-check",
         );
 
         eventService.emit({
@@ -2952,14 +2900,14 @@ describe("API Server E2E (no runtime)", () => {
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "autonomy-thought",
+              "autonomy-thought",
         );
         const waitForAction = waitForWsMessage(
           ws,
           (message) =>
             message.type === "agent_event" &&
             ((message.payload as Record<string, unknown>)?.text as string) ===
-            "autonomy-action",
+              "autonomy-action",
         );
         const waitForProactive = waitForWsMessage(
           ws,
@@ -4225,11 +4173,10 @@ describe("API Server E2E (chat SSE)", () => {
     expect(String(headers["content-type"])).toContain("text/event-stream");
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
-    });
+    const chatDone = events.find((e: Record<string, unknown>) => e.type === "done");
+    expect(chatDone).toBeDefined();
+    expect(chatDone?.fullText).toBe("Hello world");
+    expect(chatDone?.agentName).toBe("ChatStreamAgent");
   });
 
   it("POST /api/conversations/:id/messages/stream emits token and done events", async () => {
@@ -4253,10 +4200,367 @@ describe("API Server E2E (chat SSE)", () => {
     expect(status).toBe(200);
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
+    const doneEvent = events.find((e: Record<string, unknown>) => e.type === "done");
+    expect(doneEvent).toBeDefined();
+    expect(doneEvent?.fullText).toBe("Hello world");
+    expect(doneEvent?.agentName).toBe("ChatStreamAgent");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Binary upload helper — sends raw Buffer body with octet-stream content type
+// ---------------------------------------------------------------------------
+
+function reqBinaryUpload(
+  port: number,
+  method: string,
+  p: string,
+  body: Buffer,
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  data: Record<string, unknown>;
+}> {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": body.length,
+        },
+      },
+      (res) => {
+        const ch: Buffer[] = [];
+        res.on("data", (c: Buffer) => ch.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(ch).toString("utf-8");
+          let data: Record<string, unknown> = {};
+          try {
+            data = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            data = { _raw: raw };
+          }
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, data });
+        });
+      },
+    );
+    r.on("error", reject);
+    r.write(body);
+    r.end();
+  });
+}
+
+function reqBinaryDownload(
+  port: number,
+  method: string,
+  p: string,
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  data: Buffer;
+}> {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: p,
+        method,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            data: Buffer.concat(chunks),
+          });
+        });
+      },
+    );
+    r.on("error", reject);
+    r.end();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Custom avatar & background endpoints
+// ---------------------------------------------------------------------------
+
+describe("API Server E2E (custom avatar & background)", () => {
+  let port: number;
+  let close: () => Promise<void>;
+
+  beforeAll(async () => {
+    const server = await startApiServer({ port: 0 });
+    port = server.port;
+    close = server.close;
+  }, 30_000);
+
+  afterAll(async () => {
+    await close();
+  });
+
+  // -- VRM upload --
+
+  describe("POST /api/avatar/vrm", () => {
+    it("rejects an empty body", async () => {
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        Buffer.alloc(0),
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/empty|exceeds/i);
+    });
+
+    it("rejects a non-GLB file (wrong magic bytes)", async () => {
+      const notGlb = Buffer.from("This is not a glTF file at all");
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        notGlb,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*vrm/i);
+    });
+
+    it("accepts a valid GLB file (correct magic header)", async () => {
+      // GLB magic: glTF (0x67 0x6c 0x54 0x46) + version 2 + length
+      const glbHeader = Buffer.alloc(12);
+      glbHeader[0] = 0x67; // g
+      glbHeader[1] = 0x6c; // l
+      glbHeader[2] = 0x54; // T
+      glbHeader[3] = 0x46; // F
+      glbHeader.writeUInt32LE(2, 4); // version
+      glbHeader.writeUInt32LE(12, 8); // length
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/vrm",
+        glbHeader,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(12);
     });
   });
+
+  describe("GET /api/avatar/vrm", () => {
+    it("serves the uploaded VRM file", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/vrm",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("model/gltf-binary");
+      expect(headers["cache-control"]).toBe("no-cache");
+      // The file we uploaded was 12 bytes
+      expect(data.length).toBe(12);
+      // Verify GLB magic bytes round-tripped correctly
+      expect(data[0]).toBe(0x67);
+      expect(data[1]).toBe(0x6c);
+      expect(data[2]).toBe(0x54);
+      expect(data[3]).toBe(0x46);
+    });
+  });
+
+  describe("HEAD /api/avatar/vrm", () => {
+    it("returns 200 with correct headers and no body", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "HEAD",
+        "/api/avatar/vrm",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("model/gltf-binary");
+      expect(Number(headers["content-length"])).toBe(12);
+      expect(data.length).toBe(0); // HEAD returns no body
+    });
+  });
+
+  // -- Background upload --
+
+  describe("POST /api/avatar/background", () => {
+    it("rejects an empty body", async () => {
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        Buffer.alloc(0),
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/empty|exceeds/i);
+    });
+
+    it("rejects a file with invalid magic bytes", async () => {
+      const invalidImg = Buffer.from("This is definitely not an image file!!");
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        invalidImg,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*image/i);
+    });
+
+    it("rejects a GLB file (not an image)", async () => {
+      const glb = Buffer.alloc(12);
+      glb[0] = 0x67;
+      glb[1] = 0x6c;
+      glb[2] = 0x54;
+      glb[3] = 0x46;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        glb,
+      );
+      expect(status).toBe(400);
+      expect(data.error).toMatch(/invalid.*image/i);
+    });
+
+    it("accepts a valid PNG file", async () => {
+      // Minimal PNG: magic bytes + IHDR + IEND
+      const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      const pngBody = Buffer.alloc(64);
+      pngMagic.copy(pngBody);
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        pngBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(64);
+    });
+
+    it("accepts a valid JPEG file", async () => {
+      const jpegBody = Buffer.alloc(32);
+      jpegBody[0] = 0xff;
+      jpegBody[1] = 0xd8;
+      jpegBody[2] = 0xff;
+      jpegBody[3] = 0xe0;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        jpegBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(32);
+    });
+
+    it("accepts a valid WebP file", async () => {
+      // WebP: RIFF....WEBP
+      const webpBody = Buffer.alloc(32);
+      webpBody[0] = 0x52; // R
+      webpBody[1] = 0x49; // I
+      webpBody[2] = 0x46; // F
+      webpBody[3] = 0x46; // F
+      webpBody.writeUInt32LE(24, 4); // file size - 8
+      webpBody[8] = 0x57;  // W
+      webpBody[9] = 0x45;  // E
+      webpBody[10] = 0x42; // B
+      webpBody[11] = 0x50; // P
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        webpBody,
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.size).toBe(32);
+    });
+
+    it("replaces previous background on re-upload with different format", async () => {
+      // First upload a PNG
+      const png = Buffer.alloc(32);
+      png[0] = 0x89;
+      png[1] = 0x50;
+      png[2] = 0x4e;
+      png[3] = 0x47;
+      await reqBinaryUpload(port, "POST", "/api/avatar/background", png);
+
+      // Then upload a JPEG — the previous PNG should be cleaned up
+      const jpeg = Buffer.alloc(48);
+      jpeg[0] = 0xff;
+      jpeg[1] = 0xd8;
+      const { status, data } = await reqBinaryUpload(
+        port,
+        "POST",
+        "/api/avatar/background",
+        jpeg,
+      );
+      expect(status).toBe(200);
+      expect(data.size).toBe(48);
+
+      // Verify GET serves the JPEG, not the PNG
+      const { status: getStatus, headers } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/background",
+      );
+      expect(getStatus).toBe(200);
+      expect(headers["content-type"]).toBe("image/jpeg");
+    });
+  });
+
+  describe("GET /api/avatar/background", () => {
+    it("serves the uploaded background image with correct content-type", async () => {
+      // Upload a PNG first
+      const png = Buffer.alloc(100);
+      png[0] = 0x89;
+      png[1] = 0x50;
+      png[2] = 0x4e;
+      png[3] = 0x47;
+      png[4] = 0x0d;
+      png[5] = 0x0a;
+      png[6] = 0x1a;
+      png[7] = 0x0a;
+      await reqBinaryUpload(port, "POST", "/api/avatar/background", png);
+
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "GET",
+        "/api/avatar/background",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("image/png");
+      expect(headers["cache-control"]).toBe("no-cache");
+      expect(data.length).toBe(100);
+      // Verify PNG magic bytes round-tripped
+      expect(data[0]).toBe(0x89);
+      expect(data[1]).toBe(0x50);
+      expect(data[2]).toBe(0x4e);
+      expect(data[3]).toBe(0x47);
+    });
+  });
+
+  describe("HEAD /api/avatar/background", () => {
+    it("returns 200 with correct headers and no body", async () => {
+      const { status, headers, data } = await reqBinaryDownload(
+        port,
+        "HEAD",
+        "/api/avatar/background",
+      );
+      expect(status).toBe(200);
+      expect(headers["content-type"]).toBe("image/png");
+      expect(Number(headers["content-length"])).toBe(100);
+      expect(data.length).toBe(0); // HEAD returns no body
+    });
+  });
+
 });
