@@ -216,6 +216,7 @@ export class MilaidyClient {
   private wsHandlers = new Map<string, Set<WsEventHandler>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = 500;
+  private fallbackConversationId: string | null = null;
 
   constructor(baseUrl?: string, token?: string) {
     this._explicitBase = baseUrl != null;
@@ -701,7 +702,7 @@ export class MilaidyClient {
       }
     }
 
-    return this.fetch<{ text: string; agentName: string }>("/api/chat", {
+    const legacy = await this.fetch<{ text: string; agentName: string }>("/api/chat", {
       method: "POST",
       body: JSON.stringify({
         text,
@@ -709,6 +710,62 @@ export class MilaidyClient {
       }),
       signal,
     });
+    if (this.isLegacyNoResponseText(legacy.text)) {
+      return this.sendChatViaConversation(text, securityContext, signal);
+    }
+    return legacy;
+  }
+
+  private isLegacyNoResponseText(text: string | null | undefined): boolean {
+    const value = (text ?? "").trim().toLowerCase();
+    return (
+      value === "sorry, i couldn't generate a response right now. please try again." ||
+      value === "provider timed out. try again."
+    );
+  }
+
+  private async getOrCreateFallbackConversationId(): Promise<string> {
+    if (this.fallbackConversationId) return this.fallbackConversationId;
+
+    const conv = await this.fetch<{
+      conversation: { id: string };
+    }>("/api/conversations", {
+      method: "POST",
+      body: JSON.stringify({ title: "Runtime Chat" }),
+    });
+    this.fallbackConversationId = conv.conversation.id;
+    return conv.conversation.id;
+  }
+
+  private async sendChatViaConversation(
+    text: string,
+    securityContext?: ChatSecurityContext,
+    signal?: AbortSignal,
+  ): Promise<{ text: string; agentName: string }> {
+    let conversationId = await this.getOrCreateFallbackConversationId();
+    const send = async (id: string) =>
+      this.fetch<{ text: string; agentName: string }>(
+        `/api/conversations/${encodeURIComponent(id)}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            text,
+            ...(securityContext ? { securityContext } : {}),
+          }),
+          signal,
+        },
+      );
+
+    try {
+      return await send(conversationId);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status !== 404) throw err;
+      // Server conversation registry is in-memory; recreate after runtime restarts.
+      this.fallbackConversationId = null;
+      conversationId = await this.getOrCreateFallbackConversationId();
+      return send(conversationId);
+    }
   }
 
   /** @deprecated Prefer {@link sendChatRest} — WebSocket chat may silently drop messages. */
