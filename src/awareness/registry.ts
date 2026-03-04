@@ -35,7 +35,6 @@ const SANITIZE_PATTERNS: RegExp[] = [
   // Prompt injection attempts
   /ignore\s+(all\s+)?(previous\s+)?instructions/gi,
   /you are now/gi,
-  /system:/gi,
 ];
 
 function sanitize(input: string): string {

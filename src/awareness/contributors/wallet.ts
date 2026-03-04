@@ -3,13 +3,20 @@
  * signer mode, and trade permissions. Never exposes private keys.
  */
 import type { IAgentRuntime } from "@elizaos/core";
-import {
-  canUseLocalTradeExecution,
-  resolveTradePermissionMode,
-} from "../../api/server.js";
 import { getWalletAddresses } from "../../api/wallet.js";
 import { loadMiladyConfig } from "../../config/config.js";
 import type { AwarenessContributor } from "../../contracts/awareness.js";
+
+// Stub until server.ts exports these (deferred to integration PR)
+function resolveTradePermissionMode(_config?: unknown): string {
+  return process.env.MILADY_TRADE_PERMISSION_MODE ?? "disabled";
+}
+function canUseLocalTradeExecution(
+  _mode?: string,
+  _isAgent?: boolean,
+): boolean {
+  return resolveTradePermissionMode() !== "disabled";
+}
 
 function shorten(address: string | null): string | null {
   if (!address) return null;

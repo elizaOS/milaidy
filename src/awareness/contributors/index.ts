@@ -1,5 +1,5 @@
 import type { AwarenessContributor } from "../../contracts/awareness";
-import { opinionContributor } from "../../plugins/opinion/awareness/opinion-contributor";
+// opinion contributor deferred to feat/bsc-opinion-markets PR
 import { cloudContributor } from "./cloud";
 import { connectorsContributor } from "./connectors";
 import { featuresContributor } from "./features";
@@ -13,7 +13,6 @@ export const builtinContributors: AwarenessContributor[] = [
   runtimeContributor,
   permissionsContributor,
   walletContributor,
-  opinionContributor,
   providerContributor,
   pluginHealthContributor,
   connectorsContributor,
