@@ -217,6 +217,7 @@
     "puppeteer-core": "^24.37.5",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
+    "tar": "^6.1.11",
     "telegraf": "^4.16.3",
     "tesseract.js": "^6.0.1",
     "unique-names-generator": "^4.7.1",
@@ -245,7 +246,6 @@
   "overrides": {
     "drizzle-orm": "0.45.1",
     "ai": "6.0.30",
-    "tar": "^7.5.7",
     "@elizaos/core": "next",
     "@elizaos/prompts": "next",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
