@@ -7052,7 +7052,7 @@ export class MilaidyApp extends LitElement {
           <div class="rail-strong">Runtime · ${stateLabel}</div>
           <div class="status-badge-grid">
             <div class="status-badge ${providerReady ? "ok" : "warn"}">Model Provider<b>${providerReady ? "Ready" : "Not Ready"}</b></div>
-            <div class="status-badge ${aiModuleCount > 0 ? "ok" : "warn"}">Tools Loaded<b>${aiModuleCount}</b></div>
+            <div class="status-badge ${aiModuleCount > 0 ? "ok" : "warn"}">AI Modules<b>${aiModuleCount}</b></div>
             <div class="status-badge ${polymarketEnabled ? "ok" : "warn"}">Polymarket<b>${polymarketEnabled ? "Enabled" : "Disabled"}</b></div>
             <div class="status-badge ${solanaSigning ? "ok" : "warn"}">Solana Signing<b>${solanaSigning ? "Enabled" : "Disabled"}</b></div>
             <div class="status-badge ${spendExecClass}">Bet Execution<b>${spendExecLabel}</b></div>
@@ -7828,6 +7828,7 @@ export class MilaidyApp extends LitElement {
       (this.isAiProviderPlugin(p) || p.category === "database" || p.category === "connector" || p.category === "feature"),
     );
     const aiCorePlugins = aiSetupPluginsAll.filter((p) => this.isAiProviderPlugin(p) || p.category === "database");
+    const aiExtendedPlugins = aiSetupPluginsAll.filter((p) => !(this.isAiProviderPlugin(p) || p.category === "database"));
     const availableConnections = viewMode === "accounts" ? accountPlugins : aiCorePlugins;
     const searchLower = this.pluginSearch.toLowerCase();
     const baseFiltered = availableConnections.filter((p) => {
@@ -8132,6 +8133,47 @@ export class MilaidyApp extends LitElement {
               `
             : ""}
         </div>
+
+        ${viewMode === "ai" && aiExtendedPlugins.length > 0
+          ? html`
+              <details style="margin-top:10px;border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+                <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-strong);">
+                  Full module scope (${aiSetupPluginsAll.length}) · Runtime/connector modules (${aiExtendedPlugins.length})
+                </summary>
+                <div style="margin-top:8px;display:grid;gap:8px;">
+                  ${aiSetupPluginsAll.map((plugin) => {
+                    const statusLabel = this.pluginStatusLabel(plugin);
+                    const ready = this.isPluginUserReady(plugin);
+                    const risk = this.pluginRisk(plugin);
+                    return html`
+                      <div style="border:1px solid var(--border-soft);border-radius:8px;padding:8px;background:rgba(255,255,255,0.88);display:grid;gap:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <img
+                            src=${this.appIconPath(plugin.id)}
+                            alt=${`${plugin.name} icon`}
+                            style="width:18px;height:18px;border-radius:5px;border:1px solid var(--border-soft);object-fit:cover;"
+                            @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                          />
+                          <span style="font-size:12px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
+                          <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
+                          <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
+                          <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
+                            ${statusLabel}
+                          </span>
+                          <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
+                            ${risk}
+                          </span>
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);">
+                          ${this.autonomyPolicyLabel(plugin)}
+                        </div>
+                      </div>
+                    `;
+                  })}
+                </div>
+              </details>
+            `
+          : ""}
       </div>
 
       ${baseFiltered.length === 0
@@ -11027,6 +11069,138 @@ export class MilaidyApp extends LitElement {
     return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  private autonomyScopePlugins(): PluginInfo[] {
+    const byKey = new Map<string, PluginInfo>();
+    const pushPlugin = (plugin: PluginInfo): void => {
+      if (this.isHiddenSystemPlugin(plugin.id)) return;
+      const key = this.isAiProviderPlugin(plugin)
+        ? `ai:${canonicalProviderId(plugin.id)}`
+        : `id:${plugin.id.toLowerCase()}`;
+      if (!byKey.has(key)) byKey.set(key, plugin);
+    };
+
+    for (const plugin of this.plugins) pushPlugin(plugin);
+    for (const plugin of this.aiPluginCatalog()) pushPlugin(plugin);
+
+    const categoryRank = (plugin: PluginInfo): number => {
+      if (this.isAiProviderPlugin(plugin)) return 0;
+      if (plugin.category === "database") return 1;
+      if (plugin.category === "feature") return 2;
+      if (plugin.category === "connector") return 3;
+      if (CURATED_APP_ID_SET.has(plugin.id) || this.isAppIntegrationPlugin(plugin)) return 4;
+      return 5;
+    };
+
+    return [...byKey.values()].sort((a, b) => {
+      const ar = categoryRank(a);
+      const br = categoryRank(b);
+      if (ar !== br) return ar - br;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  private autonomyCategoryLabel(plugin: PluginInfo): string {
+    if (this.isAiProviderPlugin(plugin)) return "Model";
+    if (plugin.category === "database") return "Memory";
+    if (CURATED_APP_ID_SET.has(plugin.id) || this.isAppIntegrationPlugin(plugin)) return "App";
+    if (plugin.category === "connector") return "Connector";
+    return "Runtime";
+  }
+
+  private autonomyPolicyLabel(plugin: PluginInfo): string {
+    const risk = this.pluginRisk(plugin);
+    if (risk === "CAN_SPEND") {
+      return this.pluginExecutionToggles[plugin.id] === true
+        ? "Spend execution: allowed"
+        : "Spend execution: blocked";
+    }
+    if (risk === "CAN_EXECUTE") {
+      return this.securityRequireExecuteConfirm
+        ? "Execution requires confirm"
+        : "Execution runs immediately";
+    }
+    return "Safe mode";
+  }
+
+  private renderAutonomySection() {
+    const autonomyPlugins = this.autonomyScopePlugins();
+    const totalModules = autonomyPlugins.length;
+    const enabledModules = autonomyPlugins.filter((plugin) => plugin.enabled).length;
+    const readyModules = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
+    const riskyModules = autonomyPlugins.filter((plugin) => this.pluginRisk(plugin) !== "SAFE").length;
+    const spendEnabledModules = autonomyPlugins.filter(
+      (plugin) => this.pluginRisk(plugin) === "CAN_SPEND" && this.pluginExecutionToggles[plugin.id] === true,
+    ).length;
+
+    return html`
+      <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
+        <div style="font-weight:bold;font-size:14px;margin-bottom:8px;">Agent autonomy</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+          Full module scope and execution posture. This includes model, memory, runtime, connector, and app modules.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px;">
+          <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+            <div style="font-size:11px;color:var(--muted);">Modules discovered</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${totalModules}</div>
+          </div>
+          <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+            <div style="font-size:11px;color:var(--muted);">Enabled</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${enabledModules}</div>
+          </div>
+          <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+            <div style="font-size:11px;color:var(--muted);">Ready</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${readyModules}</div>
+          </div>
+          <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+            <div style="font-size:11px;color:var(--muted);">Risk modules</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${riskyModules}</div>
+          </div>
+          <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+            <div style="font-size:11px;color:var(--muted);">Spend enabled</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${spendEnabledModules}</div>
+          </div>
+        </div>
+
+        <details style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-strong);">
+            Module matrix (${totalModules})
+          </summary>
+          <div style="margin-top:8px;display:grid;gap:8px;">
+            ${autonomyPlugins.map((plugin) => {
+              const statusLabel = this.pluginStatusLabel(plugin);
+              const ready = this.isPluginUserReady(plugin);
+              const risk = this.pluginRisk(plugin);
+              return html`
+                <div style="border:1px solid var(--border-soft);border-radius:8px;padding:8px;background:rgba(255,255,255,0.88);display:grid;gap:6px;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <img
+                      src=${this.appIconPath(plugin.id)}
+                      alt=${`${plugin.name} icon`}
+                      style="width:18px;height:18px;border-radius:5px;border:1px solid var(--border-soft);object-fit:cover;"
+                      @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                    />
+                    <span style="font-size:12px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
+                    <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
+                    <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
+                    <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
+                      ${statusLabel}
+                    </span>
+                    <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
+                      ${risk}
+                    </span>
+                  </div>
+                  <div style="font-size:11px;color:var(--muted);">
+                    ${this.autonomyPolicyLabel(plugin)}
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        </details>
+      </div>
+    `;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // Config
   // ═══════════════════════════════════════════════════════════════════════
@@ -11096,6 +11270,8 @@ export class MilaidyApp extends LitElement {
     return html`
       <h2>Security</h2>
       <p class="subtitle">Protect spend and execution actions with confirmations, wallet safeguards, and audit history.</p>
+
+      ${this.renderAutonomySection()}
 
       <div style="margin-top:12px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="font-weight:bold;font-size:14px;margin-bottom:8px;">Action confirmations</div>
