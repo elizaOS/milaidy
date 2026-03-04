@@ -9500,6 +9500,7 @@ export class MilaidyApp extends LitElement {
     if (has("gmail watch", "gmailwatch", "gmail")) return "https://www.google.com/s2/favicons?domain=gmail.com&sz=64";
     if (has("google chat", "googlechat", "google-chat")) return "https://www.google.com/s2/favicons?domain=chat.google.com&sz=64";
     if (has("instagram")) return "https://www.google.com/s2/favicons?domain=instagram.com&sz=64";
+    if (has("linear")) return "https://www.google.com/s2/favicons?domain=linear.app&sz=64";
     if (has("line")) return "https://www.google.com/s2/favicons?domain=line.me&sz=64";
     if (has("matrix")) return "https://www.google.com/s2/favicons?domain=matrix.org&sz=64";
     if (has("nextcloud talk", "nextcloudtalk", "nextcloud")) return "https://www.google.com/s2/favicons?domain=nextcloud.com&sz=64";
