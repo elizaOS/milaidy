@@ -283,15 +283,15 @@ describe("runEnsureAvatars", () => {
     });
     expect(result.cloned).toBe(true);
     expect((result as { reason?: string }).reason).toBeUndefined();
-    expect(
-      (result as { vrmsOk?: boolean; animsOk?: boolean }).vrmsOk,
-    ).toBe(true);
-    expect(
-      (result as { vrmsOk?: boolean; animsOk?: boolean }).animsOk,
-    ).toBe(true);
-    expect(
-      logs.some((m: string) => m.includes("installed successfully")),
-    ).toBe(true);
+    expect((result as { vrmsOk?: boolean; animsOk?: boolean }).vrmsOk).toBe(
+      true,
+    );
+    expect((result as { vrmsOk?: boolean; animsOk?: boolean }).animsOk).toBe(
+      true,
+    );
+    expect(logs.some((m: string) => m.includes("installed successfully"))).toBe(
+      true,
+    );
   });
 });
 
