@@ -432,38 +432,31 @@ export function App() {
       isStream ||
       isWallets;
 
-    const accentColor = isSkills
-      ? "#00e1ff"
-      : isApps
-        ? "#10b981"
-        : isPluginsLike
-          ? "#f0b232"
-          : isKnowledge
-            ? "#a78bfa"
-            : isWallets
-              ? "#f0b90b"
-              : isStream
-                ? "#ef4444"
-                : isLifo
-                  ? "#8b5cf6"
-                  : "#d4af37";
-    const topBarColor = isSkills
-      ? "#00e1ff"
-      : isWallets
-        ? "rgba(240, 185, 11, 0.7)"
-        : isLifo
-          ? "rgba(139, 92, 246, 0.7)"
-          : isStream
-            ? "rgba(239, 68, 68, 0.7)"
-            : isSettings || isAdvancedOverlay
-              ? "rgba(210, 205, 200, 0.7)"
-              : isPluginsLike
-                ? "#f0b232"
-                : isApps
-                  ? "rgba(16, 185, 129, 0.7)"
-                  : isKnowledge
-                    ? "rgba(167, 139, 250, 0.7)"
-                    : "#d4af37";
+    const ACCENT_COLORS: Record<string, string> = {
+      skills: "#00e1ff",
+      apps: "#10b981",
+      plugins: "#f0b232",
+      connectors: "#f0b232",
+      knowledge: "#a78bfa",
+      wallets: "#f0b90b",
+      stream: "#ef4444",
+      lifo: "#8b5cf6",
+    };
+    const TOP_BAR_COLORS: Record<string, string> = {
+      skills: "#00e1ff",
+      wallets: "rgba(240, 185, 11, 0.7)",
+      lifo: "rgba(139, 92, 246, 0.7)",
+      stream: "rgba(239, 68, 68, 0.7)",
+      plugins: "#f0b232",
+      connectors: "#f0b232",
+      apps: "rgba(16, 185, 129, 0.7)",
+      knowledge: "rgba(167, 139, 250, 0.7)",
+    };
+    const accentColor = ACCENT_COLORS[effectiveTab] ?? "#d4af37";
+    const topBarColor =
+      isSettings || isAdvancedOverlay
+        ? "rgba(210, 205, 200, 0.7)"
+        : (TOP_BAR_COLORS[effectiveTab] ?? "#d4af37");
     const cardColor = isSkills
       ? "rgba(20, 24, 38, 0.85)"
       : "rgba(10, 12, 16, 0.75)";
