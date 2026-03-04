@@ -22,6 +22,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -52,6 +55,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -79,6 +85,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -105,6 +114,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache Bun install
         uses: actions/cache@v4
