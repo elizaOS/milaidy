@@ -460,6 +460,12 @@ export type MiladyRPCSchema = {
         params: { id: string; url: string };
         response: undefined;
       };
+      /**
+       * PRIVILEGED: Executes arbitrary JavaScript in a canvas BrowserWindow.
+       * This is intentionally unrestricted for agent computer-use capabilities.
+       * Security relies on canvas windows being isolated from user-facing content.
+       * Any XSS in the main webview could invoke this on canvas windows.
+       */
       canvasEval: {
         params: { id: string; script: string };
         response: unknown;

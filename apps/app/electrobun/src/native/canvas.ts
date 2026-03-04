@@ -91,6 +91,14 @@ export class CanvasManager {
     }
   }
 
+  /**
+   * PRIVILEGED: Executes arbitrary JavaScript in a canvas BrowserWindow
+   * via evaluateJavascriptWithResponse. This is intentionally unrestricted
+   * for agent computer-use capabilities. Security relies on:
+   *   1. Canvas windows being isolated from user-facing content
+   *   2. URL allowlist check below (localhost/file/blank only)
+   * Any XSS in the main webview could invoke this on canvas windows.
+   */
   async eval(options: { id: string; script: string }): Promise<unknown> {
     const canvas = this.windows.get(options.id);
     if (!canvas) return null;

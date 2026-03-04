@@ -325,7 +325,7 @@ const electronAPI = {
       // Our RPC expects a single params object (or void).
       // Most channels pass a single object arg or no args.
       const params =
-        args.length === 0 ? undefined : args.length === 1 ? args[0] : args[0];
+        args.length === 0 ? undefined : args.length === 1 ? args[0] : args;
 
       try {
         return await proxy[rpcMethod](params);
