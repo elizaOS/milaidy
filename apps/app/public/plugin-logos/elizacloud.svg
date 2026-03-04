@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="hsl(68 40% 28%)"/><stop offset="100%" stop-color="hsl(104 46% 18%)"/></linearGradient></defs>
-<rect x="4" y="4" width="56" height="56" rx="12" fill="url(#g)"/>
-<path d="M4 20 L20 4 H60 V44 L44 60 H4 Z" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
-<text x="32" y="39" text-anchor="middle" font-size="21" font-family="Inter,Arial,sans-serif" font-weight="700" fill="rgba(244,246,255,0.92)">EL</text>
-</svg>
