@@ -1,5 +1,5 @@
 import type { IAgentRuntime, Memory, State } from "@elizaos/core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetPositions = vi.fn();
 const mockIsReady = { value: true };
@@ -14,8 +14,12 @@ vi.mock("../client.js", () => ({
 }));
 
 import { opinionContextProvider } from "../providers/opinion-context.js";
+import { _resetPositionCache } from "../providers/opinion-context.js";
 
 describe("opinionContextProvider", () => {
+  beforeEach(() => {
+    _resetPositionCache();
+  });
   it("returns empty text when no positions", async () => {
     mockGetPositions.mockResolvedValue({ result: [] });
     const result = await opinionContextProvider.get(

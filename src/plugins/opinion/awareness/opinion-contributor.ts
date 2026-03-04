@@ -10,6 +10,11 @@ import {
   SUMMARY_CHAR_LIMIT,
 } from "../types.js";
 
+/** Strip control characters and newlines from external API strings. */
+function sanitizeMarketText(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f]/g, "").trim();
+}
+
 export const opinionContributor: AwarenessContributor = {
   id: "opinion",
   position: 35,
@@ -59,8 +64,9 @@ export const opinionContributor: AwarenessContributor = {
           Number(p.shares || 0)
         ).toFixed(2);
         const sign = Number(pnl) >= 0 ? "+" : "";
+        const title = sanitizeMarketText(p.marketTitle ?? "");
         lines.push(
-          `- ${p.marketTitle}: ${(p.side ?? "").toUpperCase()} ${p.shares} @ ${p.avgEntryPrice} \u2192 ${p.currentPrice} (${sign}$${pnl})`,
+          `- ${title}: ${(p.side ?? "").toUpperCase()} ${p.shares} @ ${p.avgEntryPrice} \u2192 ${p.currentPrice} (${sign}$${pnl})`,
         );
       }
       if (level === "full") {

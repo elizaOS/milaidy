@@ -5,6 +5,11 @@ import type { Action, HandlerOptions } from "@elizaos/core";
 import { opinionClient } from "../client.js";
 import type { ChildMarket, OrderBookEntry } from "../types.js";
 
+/** Strip control characters and newlines from external API strings. */
+function sanitizeMarketText(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f]/g, "").trim();
+}
+
 export const getOpinionMarketAction: Action = {
   name: "GET_OPINION_MARKET",
   similes: [
@@ -67,7 +72,8 @@ export const getOpinionMarketAction: Action = {
       const end = market.endTime
         ? new Date(market.endTime).toLocaleDateString()
         : "TBD";
-      const text = `Market #${market.id}: ${market.title}\nYES: ${yesChild?.lastPrice ?? "\u2014"} (token: ${yesChild?.tokenId ?? "\u2014"})\nNO: ${noChild?.lastPrice ?? "\u2014"} (token: ${noChild?.tokenId ?? "\u2014"})\nEnds: ${end}${orderbookText}`;
+      const title = sanitizeMarketText(market.title ?? "");
+      const text = `Market #${market.id}: ${title}\nYES: ${yesChild?.lastPrice ?? "\u2014"} (token: ${yesChild?.tokenId ?? "\u2014"})\nNO: ${noChild?.lastPrice ?? "\u2014"} (token: ${noChild?.tokenId ?? "\u2014"})\nEnds: ${end}${orderbookText}`;
       return {
         text,
         success: true,

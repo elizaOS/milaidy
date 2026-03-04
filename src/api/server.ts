@@ -860,6 +860,9 @@ const BLOCKED_ENV_KEYS = new Set([
   // Wallet private keys — writable via API would enable key theft / replacement
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
+  // Opinion Trade plugin secrets
+  "OPINION_PRIVATE_KEY",
+  "OPINION_API_KEY",
   // Third-party auth tokens
   "GITHUB_TOKEN",
   // Database connection strings

@@ -5,6 +5,11 @@ import type { Action, HandlerOptions } from "@elizaos/core";
 import { opinionClient } from "../client.js";
 import type { ChildMarket, OpinionMarket } from "../types.js";
 
+/** Strip control characters and newlines from external API strings. */
+function sanitizeMarketText(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f]/g, "").trim();
+}
+
 export const listOpinionMarketsAction: Action = {
   name: "LIST_OPINION_MARKETS",
 
@@ -45,7 +50,8 @@ export const listOpinionMarketsAction: Action = {
         const end = m.endTime
           ? new Date(m.endTime).toLocaleDateString()
           : "TBD";
-        return `#${m.id} ${m.title}\n  YES: ${yesPrice} | NO: ${noPrice} | Ends: ${end}`;
+        const title = sanitizeMarketText(m.title ?? "");
+        return `#${m.id} ${title}\n  YES: ${yesPrice} | NO: ${noPrice} | Ends: ${end}`;
       });
 
       const total = response?.result?.total ?? markets.length;

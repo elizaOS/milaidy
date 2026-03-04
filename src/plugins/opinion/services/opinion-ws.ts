@@ -1,7 +1,7 @@
 /**
  * Opinion WebSocket service — monitors prices for position-held markets.
  */
-import type { IAgentRuntime } from "@elizaos/core";
+import type { IAgentRuntime, Service } from "@elizaos/core";
 import { opinionClient } from "../client.js";
 import type { OpinionPosition } from "../types.js";
 
@@ -35,6 +35,14 @@ export class OpinionWsService {
 
   get isConnected(): boolean {
     return this._connected;
+  }
+
+  // -- ServiceClass static interface -----------------------------------------
+
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    const service = new OpinionWsService();
+    await service.initialize(runtime);
+    return service as unknown as Service;
   }
 
   async initialize(runtime: IAgentRuntime) {

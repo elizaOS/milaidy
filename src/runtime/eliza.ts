@@ -954,6 +954,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     pluginsToLoad.add("@elizaos/plugin-x402");
   }
 
+  // Opinion plugin — auto-load when API key is present.
+  // NOT in PROVIDER_PLUGIN_MAP because it is a feature plugin, not a model
+  // provider, and would be incorrectly removed during provider precedence.
+  if (process.env.OPINION_API_KEY?.trim()) {
+    pluginsToLoad.add("@milady/plugin-opinion");
+  }
+
   // User-installed plugins from config.plugins.installs
   // These are plugins that were installed via the plugin-manager at runtime
   // and tracked in milady.json so they persist across restarts.
