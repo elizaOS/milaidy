@@ -529,83 +529,66 @@ describe("InventoryView BSC-first", () => {
     expect(text(tree?.root)).not.toContain("TKN-1111");
   });
 
-  it("executes latest quote via execute action", async () => {
+  it("executes latest quote via inline confirmation", async () => {
     const ctx = createContext({
       walletBalances: createWalletBalances("0.02", null),
     });
     mockUseApp.mockImplementation(() => ctx);
 
-    const confirmMock = vi.fn(() => true);
-    const originalWindow = globalThis.window;
-    const originalConfirm =
-      originalWindow && typeof originalWindow.confirm === "function"
-        ? originalWindow.confirm
-        : undefined;
-    if (originalWindow) {
-      Object.defineProperty(originalWindow, "confirm", {
-        value: confirmMock,
-        configurable: true,
-      });
-    } else {
-      Object.defineProperty(globalThis, "window", {
-        value: { confirm: confirmMock },
-        configurable: true,
-      });
-    }
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
 
-    try {
-      let tree: TestRenderer.ReactTestRenderer;
-      await act(async () => {
-        tree = TestRenderer.create(React.createElement(InventoryView));
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
+    )[0];
+    await act(async () => {
+      tokenInput.props.onChange({
+        target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
       });
+    });
 
-      const tokenInput = tree?.root.findAll(
-        (node) =>
-          node.type === "input" &&
-          node.props["data-testid"] === "wallet-quick-token-input",
-      )[0];
-      await act(async () => {
-        tokenInput.props.onChange({
-          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
-        });
-      });
+    const quickBuy = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-buy",
+    )[0];
+    await act(async () => {
+      quickBuy.props.onClick();
+      await flushAsync();
+    });
 
-      const quickBuy = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quick-buy",
-      )[0];
-      await act(async () => {
-        quickBuy.props.onClick();
-        await flushAsync();
-      });
+    // Click Execute Trade to show inline confirmation
+    const executeButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-execute",
+    )[0];
+    await act(async () => {
+      executeButton.props.onClick();
+      await flushAsync();
+    });
 
-      const executeButton = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quote-execute",
-      )[0];
-      await act(async () => {
-        executeButton.props.onClick();
-        await flushAsync();
-      });
+    // Inline confirmation should appear
+    expect(text(tree?.root)).toContain("Confirm buy trade?");
 
-      expect(confirmMock).toHaveBeenCalledTimes(1);
-      expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
-      expect(text(tree?.root)).toContain("View tx 0xaaaaaaaa");
-    } finally {
-      if (originalWindow) {
-        Object.defineProperty(originalWindow, "confirm", {
-          value: originalConfirm,
-          configurable: true,
-        });
-      } else {
-        Object.defineProperty(globalThis, "window", {
-          value: undefined,
-          configurable: true,
-        });
-      }
-    }
+    // Click the Confirm button
+    const confirmButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-confirm",
+    )[0];
+    expect(confirmButton).toBeDefined();
+    await act(async () => {
+      confirmButton.props.onClick();
+      await flushAsync();
+    });
+
+    expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
+    expect(text(tree?.root)).toContain("View tx 0xaaaaaaaa");
   });
 
   it("shows two-step notice for sell in user-sign mode", async () => {
@@ -617,102 +600,83 @@ describe("InventoryView BSC-first", () => {
     );
     mockUseApp.mockImplementation(() => ctx);
 
-    const originalWindow = globalThis.window;
-    const originalConfirm =
-      originalWindow && typeof originalWindow.confirm === "function"
-        ? originalWindow.confirm
-        : undefined;
-    const confirmMock = vi.fn(() => true);
-    if (originalWindow) {
-      Object.defineProperty(originalWindow, "confirm", {
-        value: confirmMock,
-        configurable: true,
-      });
-    } else {
-      Object.defineProperty(globalThis, "window", {
-        value: { confirm: confirmMock },
-        configurable: true,
-      });
-    }
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
 
-    try {
-      let tree: TestRenderer.ReactTestRenderer;
-      await act(async () => {
-        tree = TestRenderer.create(React.createElement(InventoryView));
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
+    )[0];
+    await act(async () => {
+      tokenInput.props.onChange({
+        target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
       });
+    });
 
-      const tokenInput = tree?.root.findAll(
-        (node) =>
-          node.type === "input" &&
-          node.props["data-testid"] === "wallet-quick-token-input",
-      )[0];
-      await act(async () => {
-        tokenInput.props.onChange({
-          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
-        });
-      });
+    const quickSell = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-sell",
+    )[0];
+    await act(async () => {
+      quickSell.props.onClick();
+      await flushAsync();
+    });
 
-      const quickSell = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quick-sell",
-      )[0];
-      await act(async () => {
-        quickSell.props.onClick();
-        await flushAsync();
-      });
+    // Click Execute Trade to show inline confirmation
+    const executeButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-execute",
+    )[0];
+    await act(async () => {
+      executeButton.props.onClick();
+      await flushAsync();
+    });
 
-      const executeButton = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quote-execute",
-      )[0];
-      await act(async () => {
-        executeButton.props.onClick();
-        await flushAsync();
-      });
+    // Click the Confirm button
+    const confirmButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-confirm",
+    )[0];
+    expect(confirmButton).toBeDefined();
+    await act(async () => {
+      confirmButton.props.onClick();
+      await flushAsync();
+    });
 
-      expect(ctx.executeBscTrade).toHaveBeenCalledWith(
-        expect.objectContaining({ side: "sell" }),
-      );
-      expect(ctx.setActionNotice).toHaveBeenCalledWith(
-        expect.stringContaining("Sign swap transaction"),
-        "info",
-        4600,
-      );
+    expect(ctx.executeBscTrade).toHaveBeenCalledWith(
+      expect.objectContaining({ side: "sell" }),
+    );
+    expect(ctx.setActionNotice).toHaveBeenCalledWith(
+      expect.stringContaining("Sign swap transaction"),
+      "info",
+      4600,
+    );
 
-      const approveCopy = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-copy-approve-tx",
-      )[0];
-      const swapCopy = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-copy-swap-tx",
-      )[0];
-      expect(approveCopy).toBeDefined();
-      expect(swapCopy).toBeDefined();
+    const approveCopy = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-copy-approve-tx",
+    )[0];
+    const swapCopy = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-copy-swap-tx",
+    )[0];
+    expect(approveCopy).toBeDefined();
+    expect(swapCopy).toBeDefined();
 
-      await act(async () => {
-        approveCopy.props.onClick();
-        swapCopy.props.onClick();
-        await flushAsync();
-      });
-      expect(ctx.copyToClipboard).toHaveBeenCalledTimes(2);
-    } finally {
-      if (originalWindow) {
-        Object.defineProperty(originalWindow, "confirm", {
-          value: originalConfirm,
-          configurable: true,
-        });
-      } else {
-        Object.defineProperty(globalThis, "window", {
-          value: undefined,
-          configurable: true,
-        });
-      }
-    }
+    await act(async () => {
+      approveCopy.props.onClick();
+      swapCopy.props.onClick();
+      await flushAsync();
+    });
+    expect(ctx.copyToClipboard).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes pending tx status after execute", async () => {
@@ -724,89 +688,70 @@ describe("InventoryView BSC-first", () => {
     );
     mockUseApp.mockImplementation(() => ctx);
 
-    const confirmMock = vi.fn(() => true);
-    const originalWindow = globalThis.window;
-    const originalConfirm =
-      originalWindow && typeof originalWindow.confirm === "function"
-        ? originalWindow.confirm
-        : undefined;
-    if (originalWindow) {
-      Object.defineProperty(originalWindow, "confirm", {
-        value: confirmMock,
-        configurable: true,
-      });
-    } else {
-      Object.defineProperty(globalThis, "window", {
-        value: { confirm: confirmMock },
-        configurable: true,
-      });
-    }
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
 
-    try {
-      let tree: TestRenderer.ReactTestRenderer;
-      await act(async () => {
-        tree = TestRenderer.create(React.createElement(InventoryView));
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
+    )[0];
+    await act(async () => {
+      tokenInput.props.onChange({
+        target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
       });
+    });
 
-      const tokenInput = tree?.root.findAll(
-        (node) =>
-          node.type === "input" &&
-          node.props["data-testid"] === "wallet-quick-token-input",
-      )[0];
-      await act(async () => {
-        tokenInput.props.onChange({
-          target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
-        });
-      });
+    const quickBuy = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quick-buy",
+    )[0];
+    await act(async () => {
+      quickBuy.props.onClick();
+      await flushAsync();
+    });
 
-      const quickBuy = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quick-buy",
-      )[0];
-      await act(async () => {
-        quickBuy.props.onClick();
-        await flushAsync();
-      });
+    // Click Execute Trade to show inline confirmation
+    const executeButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-execute",
+    )[0];
+    await act(async () => {
+      executeButton.props.onClick();
+      await flushAsync();
+    });
 
-      const executeButton = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-quote-execute",
-      )[0];
-      await act(async () => {
-        executeButton.props.onClick();
-        await flushAsync();
-      });
+    // Click the Confirm button to execute
+    const confirmButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-quote-confirm",
+    )[0];
+    expect(confirmButton).toBeDefined();
+    await act(async () => {
+      confirmButton.props.onClick();
+      await flushAsync();
+    });
 
-      const refreshButton = tree?.root.findAll(
-        (node) =>
-          node.type === "button" &&
-          node.props["data-testid"] === "wallet-tx-refresh",
-      )[0];
-      expect(refreshButton).toBeDefined();
+    const refreshButton = tree?.root.findAll(
+      (node) =>
+        node.type === "button" &&
+        node.props["data-testid"] === "wallet-tx-refresh",
+    )[0];
+    expect(refreshButton).toBeDefined();
 
-      await act(async () => {
-        refreshButton.props.onClick();
-        await flushAsync();
-      });
+    await act(async () => {
+      refreshButton.props.onClick();
+      await flushAsync();
+    });
 
-      expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      );
-      expect(text(tree?.root)).toContain("Confirmations");
-    } finally {
-      if (originalWindow) {
-        Object.defineProperty(originalWindow, "confirm", {
-          value: originalConfirm,
-          configurable: true,
-        });
-      } else {
-        Object.defineProperty(globalThis, "window", {
-          value: undefined,
-          configurable: true,
-        });
-      }
-    }
+    expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(text(tree?.root)).toContain("Confirmations");
   });
 });

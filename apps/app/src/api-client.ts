@@ -25,6 +25,11 @@ import type { DropStatus, MintResult } from "../../../src/contracts/drop";
 import type { StylePreset } from "../../../src/contracts/onboarding";
 import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
+  BscTradeExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -62,6 +67,11 @@ export type {
 };
 export type { StylePreset };
 export type {
+  BscTradeExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,

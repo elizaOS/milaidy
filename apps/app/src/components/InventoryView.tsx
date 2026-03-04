@@ -4,7 +4,13 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import type { EvmChainBalance } from "../api-client";
+import type {
+  BscTradeExecuteResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  EvmChainBalance,
+} from "../api-client";
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 
@@ -123,13 +129,26 @@ function CopyableAddress({
   );
 }
 
+/* ── BSC trading context extensions ─────────────────────────────────── */
+
+/**
+ * BSC trading functions are dynamically injected into the app context
+ * but not yet part of the core AppState/AppActions interfaces.
+ * This local interface provides type-safe access without casting to `any`.
+ */
+interface BscTradingContext {
+  inventoryChainFocus?: "bsc" | "all";
+  getBscTradePreflight?: () => Promise<void>;
+  getBscTradeQuote?: (request?: Partial<BscTradeQuoteRequest>) => Promise<BscTradeQuoteResponse>;
+  executeBscTrade?: (request?: Partial<BscTradeQuoteRequest>) => Promise<BscTradeExecuteResponse>;
+  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
+}
+
 /* ── Component ───────────────────────────────────────────────────────── */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AppContext = Record<string, any>;
-
 export function InventoryView() {
-  const ctx = useApp() as AppContext;
+  const appCtx = useApp();
+  const bscCtx = appCtx as unknown as BscTradingContext;
   const {
     walletConfig,
     walletAddresses,
@@ -139,7 +158,6 @@ export function InventoryView() {
     walletNftsLoading,
     inventoryView,
     inventorySort,
-    inventoryChainFocus,
     walletError,
     loadBalances,
     loadNfts,
@@ -148,19 +166,23 @@ export function InventoryView() {
     setState,
     copyToClipboard,
     setActionNotice,
+  } = appCtx;
+  const {
+    inventoryChainFocus,
     getBscTradePreflight,
     getBscTradeQuote,
     executeBscTrade,
     getBscTradeTxStatus,
-  } = ctx;
+  } = bscCtx;
 
   // ── BSC quick trade state ─────────────────────────────────────────
   const [quickTokenAddress, setQuickTokenAddress] = useState("");
   const [quickAmount, setQuickAmount] = useState("");
-  const [latestQuote, setLatestQuote] = useState<Record<string, unknown> | null>(null);
-  const [latestExecution, setLatestExecution] = useState<Record<string, unknown> | null>(null);
-  const [txStatus, setTxStatus] = useState<Record<string, unknown> | null>(null);
+  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
+  const [latestExecution, setLatestExecution] = useState<BscTradeExecuteResponse | null>(null);
+  const [txStatus, setTxStatus] = useState<BscTradeTxStatusResponse | null>(null);
   const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() => loadTrackedTokens());
+  const [pendingTrade, setPendingTrade] = useState<{ side: string; amount: string; token: string } | null>(null);
 
   // ── Setup detection ──────────────────────────────────────────────────
   const cfg = walletConfig;
@@ -349,36 +371,42 @@ export function InventoryView() {
     setLatestQuote(result);
   }, [getBscTradeQuote, quickTokenAddress, quickAmount]);
 
-  const handleExecute = useCallback(async () => {
-    if (!executeBscTrade || !latestQuote) return;
-    const confirmed = window.confirm(
-      `Execute ${(latestQuote as Record<string, unknown>).side} trade?`,
-    );
-    if (!confirmed) return;
-    const result = await executeBscTrade({
-      side: (latestQuote as Record<string, unknown>).side,
-      tokenAddress: quickTokenAddress,
+  const handleRequestExecute = useCallback(() => {
+    if (!latestQuote) return;
+    setPendingTrade({
+      side: latestQuote.side,
       amount: quickAmount,
+      token: quickTokenAddress,
+    });
+  }, [latestQuote, quickAmount, quickTokenAddress]);
+
+  const handleConfirmExecute = useCallback(async () => {
+    if (!executeBscTrade || !pendingTrade || !latestQuote) return;
+    setPendingTrade(null);
+    const result = await executeBscTrade({
+      side: latestQuote.side,
+      tokenAddress: pendingTrade.token,
+      amount: pendingTrade.amount,
     });
     setLatestExecution(result);
     if (result?.executed && result?.execution) {
       // Already executed on-chain
     } else if (result?.requiresUserSignature) {
-      if (setActionNotice) {
-        setActionNotice(
-          "Sign swap transaction in your wallet to complete the trade.",
-          "info",
-          4600,
-        );
-      }
+      setActionNotice(
+        "Sign swap transaction in your wallet to complete the trade.",
+        "info",
+        4600,
+      );
     }
-  }, [executeBscTrade, latestQuote, quickTokenAddress, quickAmount, setActionNotice]);
+  }, [executeBscTrade, pendingTrade, latestQuote, setActionNotice]);
+
+  const handleCancelExecute = useCallback(() => {
+    setPendingTrade(null);
+  }, []);
 
   const handleRefreshTxStatus = useCallback(async () => {
     if (!getBscTradeTxStatus || !latestExecution) return;
-    const exec = latestExecution as Record<string, unknown>;
-    const execution = exec.execution as Record<string, unknown> | undefined;
-    const hash = execution?.hash as string | undefined;
+    const hash = latestExecution.execution?.hash;
     if (!hash) return;
     const status = await getBscTradeTxStatus(hash);
     setTxStatus(status);
@@ -789,18 +817,42 @@ export function InventoryView() {
           <div className="border border-border p-2 text-xs">
             <div className="font-bold mb-1">Latest quote</div>
             <div className="text-muted">
-              {(latestQuote as Record<string, unknown>).side === "buy" ? "Buy" : "Sell"}
-              {" "}{String((latestQuote as Record<string, Record<string, string>>).quoteOut?.amount ?? "")}
-              {" "}{String((latestQuote as Record<string, Record<string, string>>).quoteOut?.symbol ?? "")}
+              {latestQuote.side === "buy" ? "Buy" : "Sell"}
+              {" "}{latestQuote.quoteOut?.amount ?? ""}
+              {" "}{latestQuote.quoteOut?.symbol ?? ""}
             </div>
-            <button
-              type="button"
-              data-testid="wallet-quote-execute"
-              className="mt-1 px-3 py-1 border border-accent bg-accent text-accent-fg text-[10px] font-mono cursor-pointer"
-              onClick={handleExecute}
-            >
-              Execute Trade
-            </button>
+            {pendingTrade ? (
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-yellow-500 font-bold">
+                  Confirm {pendingTrade.side} trade?
+                </span>
+                <button
+                  type="button"
+                  data-testid="wallet-quote-confirm"
+                  className="px-3 py-1 border border-green-500 text-green-500 text-[10px] font-mono cursor-pointer hover:bg-green-500 hover:text-white"
+                  onClick={handleConfirmExecute}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  data-testid="wallet-quote-cancel"
+                  className="px-3 py-1 border border-border text-muted text-[10px] font-mono cursor-pointer hover:border-danger hover:text-danger"
+                  onClick={handleCancelExecute}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid="wallet-quote-execute"
+                className="mt-1 px-3 py-1 border border-accent bg-accent text-accent-fg text-[10px] font-mono cursor-pointer"
+                onClick={handleRequestExecute}
+              >
+                Execute Trade
+              </button>
+            )}
           </div>
         )}
 
@@ -814,23 +866,16 @@ export function InventoryView() {
 
   function renderExecutionResult() {
     if (!latestExecution) return null;
-    const exec = latestExecution as Record<string, unknown>;
-    const executed = exec.executed as boolean;
-    const execution = exec.execution as Record<string, unknown> | undefined;
-    const requiresUserSignature = exec.requiresUserSignature as boolean;
-    const unsignedTx = exec.unsignedTx as Record<string, unknown> | undefined;
-    const unsignedApprovalTx = exec.unsignedApprovalTx as Record<string, unknown> | undefined;
 
-    if (executed && execution) {
-      const hash = execution.hash as string;
-      const status = execution.status as string;
+    if (latestExecution.executed && latestExecution.execution) {
+      const { hash, status, explorerUrl } = latestExecution.execution;
       const shortHash = hash ? `${hash.slice(0, 10)}` : "";
 
       return (
         <div className="border border-border p-2 text-xs space-y-1">
           <div>
             <a
-              href={execution.explorerUrl as string}
+              href={explorerUrl}
               target="_blank"
               rel="noopener"
               className="text-accent"
@@ -853,35 +898,35 @@ export function InventoryView() {
           )}
           {txStatus && (
             <div className="text-muted">
-              Confirmations: {String((txStatus as Record<string, unknown>).confirmations ?? 0)}
+              Confirmations: {txStatus.confirmations ?? 0}
             </div>
           )}
         </div>
       );
     }
 
-    if (requiresUserSignature) {
+    if (latestExecution.requiresUserSignature) {
       return (
         <div className="border border-border p-2 text-xs space-y-1">
           <div className="text-yellow-500">
             Requires wallet signature to complete.
           </div>
-          {unsignedApprovalTx && (
+          {latestExecution.unsignedApprovalTx && (
             <button
               type="button"
               data-testid="wallet-copy-approve-tx"
               className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() => copyToClipboard(JSON.stringify(unsignedApprovalTx))}
+              onClick={() => copyToClipboard(JSON.stringify(latestExecution.unsignedApprovalTx))}
             >
               Copy Approval TX
             </button>
           )}
-          {unsignedTx && (
+          {latestExecution.unsignedTx && (
             <button
               type="button"
               data-testid="wallet-copy-swap-tx"
               className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() => copyToClipboard(JSON.stringify(unsignedTx))}
+              onClick={() => copyToClipboard(JSON.stringify(latestExecution.unsignedTx))}
             >
               Copy Swap TX
             </button>
