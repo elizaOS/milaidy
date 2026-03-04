@@ -8415,7 +8415,8 @@ export class MilaidyApp extends LitElement {
         return;
       }
 
-      if (latest.validationErrors.length > 0 || !latest.configured) {
+      const hasRequiredParams = latest.parameters.some((param) => param.required);
+      if (latest.validationErrors.length > 0 || (!latest.configured && hasRequiredParams)) {
         const missing = latest.validationErrors.map((e) => e.field).join(", ");
         this.appActionStatus = missing
           ? `Missing required settings: ${missing}`
