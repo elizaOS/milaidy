@@ -72,10 +72,12 @@ export function VrmViewer(props: VrmViewerProps) {
     }
 
     engine.setup(canvas, () => {
-      // Frame loop: only update transient animation state here.
+      // Frame loop: guard all state-setting calls against unmount to avoid
+      // updates during the 100ms delayed dispose window.
+      if (!mountedRef.current) return;
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
-      if (props.onEngineState && mountedRef.current) {
+      if (props.onEngineState) {
         const now = performance.now();
         if (now - lastStateEmitMsRef.current >= 250) {
           lastStateEmitMsRef.current = now;

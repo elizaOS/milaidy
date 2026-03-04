@@ -25,7 +25,7 @@ interface NavProps {
 
 export function Nav({ mobileLeft }: NavProps) {
   const { tab, setTab, plugins, uiLanguage } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const streamingEnabled = useMemo(
