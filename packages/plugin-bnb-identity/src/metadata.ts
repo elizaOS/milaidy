@@ -26,6 +26,7 @@ export function buildAgentMetadata(
   config: BnbIdentityConfig,
   agentName: string,
   installedPlugins: string[] = [],
+  existingCreated?: string,
 ): AgentMetadata {
   if (!config.agentUriBase) {
     logger.warn(
@@ -66,7 +67,7 @@ export function buildAgentMetadata(
     description: `${agentName} is a privacy-first local AI agent built on ElizaOS and Milady. Runs on the owner's machine. Connects to Telegram, Discord, and WebChat. Powered by Claude/GPT/Ollama. On-chain identity registered via ERC-8004 on BNB Chain.`,
     image: MILADY_IMAGE,
     version: MILADY_VERSION,
-    created: new Date().toISOString(),
+    created: existingCreated ?? new Date().toISOString(),
     services,
     capabilities,
     platforms: detectPlatforms(installedPlugins),

@@ -271,8 +271,16 @@ export class BnbIdentityService {
       return parseMcpResult<T>(result, toolName);
     }
 
-    // Fallback: direct SSE HTTP call to local bnbchain-mcp dev server
+    // Fallback: direct SSE HTTP call to local bnbchain-mcp dev server.
+    // SECURITY: The HTTP fallback transmits the private key in the request
+    // body, so we restrict to localhost to prevent accidental exfiltration.
     const baseUrl = process.env.BNB_MCP_URL ?? "http://localhost:3001";
+    const parsedUrl = new URL(baseUrl);
+    if (!["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname)) {
+      throw new Error(
+        `BNB_MCP_URL must be localhost when transmitting private keys. Got: ${parsedUrl.hostname}`,
+      );
+    }
     const res = await fetch(`${baseUrl}/tools/${toolName}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
