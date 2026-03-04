@@ -10,7 +10,7 @@
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
 
 export interface KnowledgeServiceLike {
-  addKnowledge?(options: {
+  addKnowledge(options: {
     agentId?: UUID;
     worldId: UUID;
     roomId: UUID;
@@ -48,7 +48,7 @@ export interface KnowledgeServiceLike {
     roomId?: UUID;
     unique?: boolean;
   }): Promise<number>;
-  deleteMemory?(memoryId: UUID): Promise<void>;
+  deleteMemory(memoryId: UUID): Promise<void>;
 }
 
 export type KnowledgeLoadFailReason =
