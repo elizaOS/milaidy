@@ -15,13 +15,12 @@
         "@clack/prompts": "^1.0.0",
         "@electric-sql/pglite": "^0.3.3",
         "@elizaos/core": "next",
-        "@elizaos/plugin-agent-orchestrator": "next",
+        "@elizaos/plugin-agent-orchestrator": "0.3.3",
         "@elizaos/plugin-agent-skills": "next",
         "@elizaos/plugin-anthropic": "next",
         "@elizaos/plugin-browser": "next",
         "@elizaos/plugin-claude-code-workbench": "next",
         "@elizaos/plugin-cli": "next",
-        "@elizaos/plugin-coding-agent": "next",
         "@elizaos/plugin-computeruse": "next",
         "@elizaos/plugin-cron": "next",
         "@elizaos/plugin-discord": "next",
@@ -735,7 +734,7 @@
 
     "@elizaos/core": ["@elizaos/core@2.0.0-alpha.12", "", { "dependencies": { "@bufbuild/protobuf": "^2.10.2", "@elizaos/prompts": "file:../prompts", "@langchain/core": "^1.1.12", "@langchain/textsplitters": "^1.0.1", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dedent": "^1.7.1", "dotenv": "^17.2.3", "fast-redact": "^3.5.0", "file-type": "^21.3.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "markdown-it": "^14.1.0", "pdfjs-dist": "^5.4.530", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "zod": "^4.3.6" } }, "sha512-I95hzSf4MpTd+xfEQZC+4mBWx0bT53MgM2GJs5AaTq9VtJCNSI7um00ZXkhdQSa3WGNecTbdPc1Wirang9ghog=="],
 
-    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@0.2.0", "", { "dependencies": { "coding-agent-adapters": "0.8.1", "pty-console": "0.3.1" }, "peerDependencies": { "@elizaos/core": ">=2.0.0-alpha.0", "git-workspace-service": "0.4.4", "pty-manager": ">=1.8.0" } }, "sha512-h5LFGyI/EYepyeSODdFBlf0bUlR6na2CLyWD0d8x2R6na6/9P+8aCHFdRNCpdEVVhX9xeOclApWAbXdzcAL6gw=="],
+    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@0.3.3", "", { "dependencies": { "coding-agent-adapters": "0.8.6", "pty-console": "0.3.1" }, "peerDependencies": { "@elizaos/core": ">=2.0.0-alpha.0", "git-workspace-service": "0.4.4", "pty-manager": ">=1.8.0" } }, "sha512-uXw6V3v+cndLeG795KW00relJZO4wdHf8FZloZsh7Q05XXqlb04HssEP5aUN7orBSZjWphSccWc78VytzpnHrw=="],
 
     "@elizaos/plugin-agent-skills": ["@elizaos/plugin-agent-skills@2.0.0-alpha.11", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "fflate": "^0.8.2" } }, "sha512-trFM3i/J+DSmhwVgnt0muWMSToNxbwKq3Su1f9ZnNAnm+H2Fidptsy0OkX78mwqJBfCXIbvnsCFuLNtszjYMqw=="],
 
@@ -3823,7 +3822,7 @@
 
     "@elevenlabs/elevenlabs-js/node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
 
-    "@elizaos/plugin-agent-orchestrator/coding-agent-adapters": ["coding-agent-adapters@0.8.1", "", { "peerDependencies": { "agent-adapter-monitor": "^0.3.0", "pty-manager": "^1.9.1" }, "optionalPeers": ["agent-adapter-monitor"] }, "sha512-ZdMv2kQ6B4ZOSCPrWt8sRAKFcyY8MRsnXWwx7WFoXUKBWfMGvs0oKXLj0KBSkbAshYPAc3tPPNu8EbMvmvPrXA=="],
+    "@elizaos/plugin-agent-orchestrator/coding-agent-adapters": ["coding-agent-adapters@0.8.6", "", { "peerDependencies": { "agent-adapter-monitor": "^0.3.0", "pty-manager": "^1.9.2" }, "optionalPeers": ["agent-adapter-monitor"] }, "sha512-BVtNkZqyq0XJjaHD6i6AM6/FOpanIqD5K+gNpdt17ShtTg9GodR2cm2ESDnAg+xGbO9/oTZtXq4PtLIxch4ndA=="],
 
     "@elizaos/plugin-browser/@elizaos/plugin-cli": ["@elizaos/plugin-cli@2.0.0-alpha.3", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "commander": "^12.1.0" } }, "sha512-akqSGar/chWdMBG0RS+YDIZsfqJdAMq+KS9VxSYN6p2BX1ULKum0h+uFXfkdfMIVfOV12RQk074xqiRStjrzeA=="],
 

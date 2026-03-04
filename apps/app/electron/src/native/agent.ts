@@ -250,7 +250,7 @@ export class AgentManager {
 
       // NODE_PATH so eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
       // WHY: Node does not search repo root when the entry is under apps/app/electron/;
-      // without this, import("@elizaos/plugin-coding-agent") fails. Packaged: use ASAR's
+      // without this, import("@elizaos/plugin-agent-orchestrator") fails. Packaged: use ASAR's
       // node_modules (unpacked deps live there). Dev: walk up from __dirname until we
       // find node_modules so we don't depend on a fixed ../ depth (tsc-out vs build/).
       // _initPaths() below: Node caches resolution paths at startup; we set NODE_PATH at
