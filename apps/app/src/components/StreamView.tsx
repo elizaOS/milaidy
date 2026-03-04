@@ -45,7 +45,7 @@ import { StreamVoiceConfig } from "./stream/StreamVoiceConfig";
 // StreamView
 // ---------------------------------------------------------------------------
 
-export function StreamView() {
+export function StreamView({ inModal }: { inModal?: boolean } = {}) {
   const {
     agentStatus,
     autonomousEvents,
@@ -349,7 +349,9 @@ export function StreamView() {
   return (
     <div
       data-stream-view
-      className={`flex flex-col bg-bg text-txt font-body ${isPip ? "" : "h-full w-full"}`}
+      className={`flex flex-col text-txt font-body ${
+        inModal ? "bg-transparent" : "bg-bg"
+      } ${isPip ? "" : "h-full w-full"}`}
       style={pipStyle}
     >
       <StatusBar
@@ -378,7 +380,13 @@ export function StreamView() {
 
       {/* Stream voice config — TTS toggle and status */}
       {!isPip && (
-        <div className="flex items-center px-4 py-1 border-b border-border bg-bg">
+        <div
+          className={`flex items-center px-4 py-1 border-b ${
+            inModal
+              ? "border-[var(--border)] bg-[rgba(255,255,255,0.03)]"
+              : "border-border bg-bg"
+          }`}
+        >
           <StreamVoiceConfig streamLive={streamLive} />
         </div>
       )}
