@@ -193,6 +193,12 @@ export interface UiConfigResponse {
   };
 }
 
+export interface SubscriptionStatusEntry {
+  id: string;
+  authenticated?: boolean;
+  expiresAt?: number | null;
+}
+
 // WebSocket
 
 export type WsEventHandler = (data: Record<string, unknown>) => void;
@@ -457,6 +463,40 @@ export class MilaidyClient {
 
   async getExtensionStatus(): Promise<ExtensionStatus> {
     return this.fetch("/api/extension/status");
+  }
+
+  // Subscription auth
+  async getSubscriptionStatus(): Promise<{ providers: SubscriptionStatusEntry[] }> {
+    return this.fetch("/api/subscription/status");
+  }
+
+  async startAnthropicSubscription(): Promise<{ authUrl: string }> {
+    return this.fetch("/api/subscription/anthropic/start", { method: "POST" });
+  }
+
+  async exchangeAnthropicSubscription(code: string): Promise<{ success: boolean; expiresAt?: number | null }> {
+    return this.fetch("/api/subscription/anthropic/exchange", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  async saveAnthropicSetupToken(token: string): Promise<{ success: boolean }> {
+    return this.fetch("/api/subscription/anthropic/setup-token", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async startOpenAiSubscription(): Promise<{ authUrl: string; state?: string; instructions?: string }> {
+    return this.fetch("/api/subscription/openai/start", { method: "POST" });
+  }
+
+  async exchangeOpenAiSubscription(body: { code?: string; waitForCallback?: boolean }): Promise<{ success: boolean; expiresAt?: number | null }> {
+    return this.fetch("/api/subscription/openai/exchange", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   }
 
   // Wallet
