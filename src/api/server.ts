@@ -363,6 +363,8 @@ interface PluginEntry {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, Record<string, unknown>>;
+  /** Optional icon URL or emoji for the plugin card header. */
+  icon?: string | null;
 }
 
 interface SkillEntry {
@@ -626,6 +628,8 @@ interface PluginIndexEntry {
   version?: string;
   pluginDeps?: string[];
   configUiHints?: Record<string, Record<string, unknown>>;
+  logoUrl?: string;
+  icon?: string;
 }
 
 interface PluginIndex {
@@ -1083,6 +1087,8 @@ function discoverInstalledPlugins(
     let pluginConfigKeys: string[] = [];
     let pluginParameters: PluginParamDef[] = [];
 
+    let pluginIcon: string | null = null;
+
     if (installPath) {
       // Check npm layout first, then direct layout
       const candidates = [
@@ -1104,7 +1110,10 @@ function discoverInstalledPlugins(
                 displayName?: string;
                 configKeys?: string[];
                 configDefaults?: Record<string, string>;
+                logoUrl?: string;
               };
+              logoUrl?: string;
+              icon?: string;
             };
             if (pkg.name) name = pkg.name;
             if (pkg.description) description = pkg.description;
@@ -1126,6 +1135,9 @@ function discoverInstalledPlugins(
                 currentValue: null,
               }));
             }
+            // Map logoUrl or icon from package.json if available
+            pluginIcon =
+              pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? null;
             break;
           }
         } catch {
@@ -1148,6 +1160,7 @@ function discoverInstalledPlugins(
       parameters: pluginParameters,
       validationErrors: [],
       validationWarnings: [],
+      icon: pluginIcon,
     });
   }
 
@@ -1229,6 +1242,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
+            icon: p.logoUrl ?? p.icon ?? null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -6018,34 +6032,41 @@ async function handleRequest(
     if (!config.env) config.env = {};
     const envCfg = config.env as Record<string, string>;
 
-    // Helper: clear cloud config & env vars
-    const clearCloud = () => {
-      (config.cloud as Record<string, unknown>).enabled = false;
-      delete (config.cloud as Record<string, unknown>).apiKey;
-      delete process.env.ELIZAOS_CLOUD_API_KEY;
-      delete process.env.ELIZAOS_CLOUD_ENABLED;
-      delete envCfg.ELIZAOS_CLOUD_API_KEY;
-      delete envCfg.ELIZAOS_CLOUD_ENABLED;
-      // Also clear from runtime character secrets if available
-      if (state.runtime?.character?.secrets) {
-        const secrets = state.runtime.character.secrets as Record<
-          string,
-          unknown
-        >;
-        delete secrets.ELIZAOS_CLOUD_API_KEY;
-        delete secrets.ELIZAOS_CLOUD_ENABLED;
+    // Helper: disable cloud inference while preserving cloud connection
+    // for RPC and other services.  Does NOT delete cloud.apiKey or
+    // cloud.enabled — only toggles inference off.
+    const disableCloudInference = () => {
+      const cloudCfg = config.cloud as Record<string, unknown>;
+      cloudCfg.inferenceMode = "byok";
+      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
+        cloudCfg.services = {};
       }
+      (cloudCfg.services as Record<string, unknown>).inference = false;
+      // Clean cloud model env vars so the cloud plugin doesn't intercept
+      // model calls — user's own keys handle models.
+      delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+      delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+    };
+
+    // Helper: enable cloud inference (switching TO cloud)
+    const enableCloudInference = () => {
+      const cloudCfg = config.cloud as Record<string, unknown>;
+      cloudCfg.inferenceMode = "cloud";
+      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
+        cloudCfg.services = {};
+      }
+      (cloudCfg.services as Record<string, unknown>).inference = true;
     };
 
     // Helper: clear pi-ai mode
     const clearPiAi = () => {
-      delete process.env.MILAIDY_USE_PI_AI;
-      delete envCfg.MILAIDY_USE_PI_AI;
+      delete process.env.MILADY_USE_PI_AI;
+      delete envCfg.MILADY_USE_PI_AI;
 
       const envRoot = config.env as Record<string, unknown>;
       const vars = envRoot.vars;
       if (vars && typeof vars === "object" && !Array.isArray(vars)) {
-        delete (vars as Record<string, unknown>).MILAIDY_USE_PI_AI;
+        delete (vars as Record<string, unknown>).MILADY_USE_PI_AI;
       }
 
       if (state.runtime?.character?.secrets) {
@@ -6053,7 +6074,7 @@ async function handleRequest(
           string,
           unknown
         >;
-        delete secrets.MILAIDY_USE_PI_AI;
+        delete secrets.MILADY_USE_PI_AI;
       }
     };
 
@@ -6120,14 +6141,14 @@ async function handleRequest(
       }
 
       if (provider === "elizacloud") {
-        // Switching TO elizacloud
+        // Switching TO elizacloud for inference
         clearPiAi();
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
-        // Restore cloud config — the actual API key should already be in
-        // config.cloud.apiKey from the original cloud login.  If it was
-        // wiped, the user will need to re-login via cloud.
+        enableCloudInference();
+        // Ensure cloud is enabled — the actual API key should already be in
+        // config.cloud.apiKey from the original cloud login.
         (config.cloud as Record<string, unknown>).enabled = true;
         if (config.cloud.apiKey) {
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
@@ -6135,11 +6156,11 @@ async function handleRequest(
         }
       } else if (provider === "pi-ai") {
         // Switching TO pi-ai credentials mode
-        clearCloud();
+        disableCloudInference();
         await clearSubscriptions();
         clearOtherApiKeys();
-        process.env.MILAIDY_USE_PI_AI = "1";
-        envCfg.MILAIDY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
+        envCfg.MILADY_USE_PI_AI = "1";
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6148,15 +6169,15 @@ async function handleRequest(
           !Array.isArray(envRoot.vars)
             ? (envRoot.vars as Record<string, unknown>)
             : {};
-        vars.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
         envRoot.vars = vars;
       } else if (
         provider === "openai-codex" ||
         provider === "openai-subscription"
       ) {
-        // Switching TO OpenAI subscription
+        // Switching TO OpenAI subscription — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         clearOtherApiKeys("OPENAI_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete Anthropic subscription but keep OpenAI
@@ -6180,9 +6201,9 @@ async function handleRequest(
           );
         }
       } else if (provider === "anthropic-subscription") {
-        // Switching TO Anthropic subscription
+        // Switching TO Anthropic subscription — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         clearOtherApiKeys("ANTHROPIC_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete OpenAI subscription but keep Anthropic
@@ -6206,9 +6227,9 @@ async function handleRequest(
           );
         }
       } else if (PROVIDER_ENV_KEYS[provider]) {
-        // Switching TO a direct API key provider
+        // Switching TO a direct API key provider — keep cloud for RPC
         clearPiAi();
-        clearCloud();
+        disableCloudInference();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
         const envKey = PROVIDER_ENV_KEYS[provider];
@@ -6633,14 +6654,14 @@ async function handleRequest(
       (envCfg as Record<string, unknown>).vars = vars;
 
       const clearPiAiFlag = () => {
-        delete vars.MILAIDY_USE_PI_AI;
-        delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
-        delete process.env.MILAIDY_USE_PI_AI;
+        delete vars.MILADY_USE_PI_AI;
+        delete (config.env as Record<string, string>).MILADY_USE_PI_AI;
+        delete process.env.MILADY_USE_PI_AI;
       };
 
       if (runMode === "local" && providerId === "pi-ai") {
-        vars.MILAIDY_USE_PI_AI = "1";
-        process.env.MILAIDY_USE_PI_AI = "1";
+        vars.MILADY_USE_PI_AI = "1";
+        process.env.MILADY_USE_PI_AI = "1";
 
         // Optional primary model override (provider/model).
         if (!config.agents) config.agents = {};

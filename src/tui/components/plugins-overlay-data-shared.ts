@@ -26,6 +26,7 @@ export type ApiPluginEntry = {
   npmName?: string;
   parameters?: ApiPluginParameter[];
   configUiHints?: Record<string, { label?: string; options?: unknown[] }>;
+  logoUrl?: string;
 };
 
 export type ApiInstalledPluginInfo = {
