@@ -26,8 +26,8 @@ describe("opinionContributor", () => {
     expect(opinionContributor.position).toBe(35);
   });
 
-  it("is marked trusted", () => {
-    expect(opinionContributor.trusted).toBe(true);
+  it("is marked untrusted (external data source)", () => {
+    expect(opinionContributor.trusted).toBe(false);
   });
 
   it("summary stays within char limit", async () => {

@@ -93,6 +93,11 @@ export class OpinionClient {
   async initialize(
     config: Omit<OpinionPluginConfig, "apiKey"> & { apiKey: string },
   ) {
+    // Reset state so re-initialization (e.g. after key rotation) works correctly.
+    this.tradingEnabled = false;
+    this.client = null;
+    this.readOnly = true;
+
     await loadSdk();
 
     this.maxBetUsd = config.maxBetUsd;

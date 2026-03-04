@@ -1,6 +1,11 @@
 /**
  * Opinion awareness contributor — reports prediction market positions.
  * Position 35 — between wallet(30) and provider(40).
+ *
+ * NOTE: This contributor is not yet registered with the awareness system.
+ * It will be wired up when `src/awareness/contributors/index.ts` lands
+ * via PR #799 (bsc-awareness-system). The contributor interface defined in
+ * `../types.ts` mirrors the contract from `src/contracts/awareness.ts`.
  */
 import type { IAgentRuntime } from "@elizaos/core";
 import { opinionClient } from "../client.js";
@@ -20,7 +25,8 @@ export const opinionContributor: AwarenessContributor = {
   position: 35,
   cacheTtl: 30_000,
   invalidateOn: ["opinion-updated", "config-changed"],
-  trusted: true,
+  // Data comes from Opinion.trade's external API; market titles are third-party strings.
+  trusted: false,
 
   async summary(_runtime: IAgentRuntime): Promise<string> {
     if (!opinionClient.isReady) return "Opinion: not connected";
