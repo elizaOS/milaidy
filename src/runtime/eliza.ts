@@ -76,7 +76,6 @@ import * as pluginShell from "@elizaos/plugin-shell";
 // statically to enable TypeScript type checking. Plugins without types or not
 // installed will fall back to dynamic import at runtime.
 import * as pluginSql from "@elizaos/plugin-sql";
-import * as pluginTelegram from "@elizaos/plugin-telegram";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
@@ -155,7 +154,6 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-twitch": pluginTwitch,
   "@elizaos/plugin-computeruse": pluginComputeruse,
   "@elizaos/plugin-cli": pluginCli,
-  "@elizaos/plugin-telegram": pluginTelegram,
   "@elizaos/plugin-elevenlabs": pluginElevenlabs,
   "@elizaos/plugin-edge-tts": pluginEdgeTts,
   "@elizaos/plugin-todo": pluginTodo,
