@@ -132,7 +132,7 @@ describe("trigger scheduling helpers", () => {
       triggerType: "interval",
       instructions: "Summarize PRs",
       intervalMs: 60000,
-      wakeMode: "full_wake",
+      wakeMode: "next_autonomy_cycle",
     });
     expect(a).not.toBe(b);
   });

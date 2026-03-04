@@ -6,9 +6,15 @@ import { useApp } from "../AppContext";
  * broadcast via WebSocket `system-warning` events.
  */
 export function SystemWarningBanner() {
-  const { systemWarnings, dismissSystemWarning } = useApp();
+  const { systemWarnings, dismissSystemWarning, backendConnection } = useApp();
 
   if (!systemWarnings?.length) return null;
+
+  // Offset below the connection banner (36px) when it's visible
+  const connectionBannerVisible =
+    backendConnection?.state === "reconnecting" ||
+    backendConnection?.state === "failed";
+  const baseTop = connectionBannerVisible ? 36 : 0;
 
   return (
     <>
@@ -16,7 +22,7 @@ export function SystemWarningBanner() {
         <div
           key={message}
           className="fixed left-0 right-0 z-[9998] flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-[13px] font-medium text-white shadow-lg"
-          style={{ top: `${index * 36}px` }}
+          style={{ top: `${baseTop + index * 36}px` }}
         >
           <span className="truncate">{message}</span>
           <button
