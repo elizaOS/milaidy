@@ -85,14 +85,10 @@ export function metadataToDataUri(metadata: AgentMetadata): string {
 }
 
 /**
- * Converts metadata to a hosted URL — caller is responsible for
- * uploading the file to agentUriBase first.
+ * Converts a base URL to a hosted agentURI — caller is responsible for
+ * uploading the metadata JSON to agentUriBase first.
  */
-export function metadataToHostedUri(
-  metadata: AgentMetadata,
-  base: string,
-): string {
-  void metadata; // used by caller for the upload step
+export function metadataToHostedUri(base: string): string {
   return `${base.replace(/\/$/, "")}/agent-metadata.json`;
 }
 

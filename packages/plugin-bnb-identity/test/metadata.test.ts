@@ -100,15 +100,12 @@ describe("metadataToDataUri", () => {
 
 describe("metadataToHostedUri", () => {
   it("appends /agent-metadata.json to the base URL", () => {
-    const meta = buildAgentMetadata(baseConfig, "mila", []);
-    const uri = metadataToHostedUri(meta, "https://milady-ai.github.io/milady");
+    const uri = metadataToHostedUri("https://milady-ai.github.io/milady");
     expect(uri).toBe("https://milady-ai.github.io/milady/agent-metadata.json");
   });
 
   it("strips trailing slash before appending", () => {
-    const meta = buildAgentMetadata(baseConfig, "mila", []);
     const uri = metadataToHostedUri(
-      meta,
       "https://milady-ai.github.io/milady/",
     );
     expect(uri).toBe("https://milady-ai.github.io/milady/agent-metadata.json");

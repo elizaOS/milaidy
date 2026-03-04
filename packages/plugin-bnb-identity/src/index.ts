@@ -10,6 +10,7 @@
  *
  * Actions exposed in chat:
  *   - "register milady on bnb chain"  → BNB_IDENTITY_REGISTER
+ *   - "confirm"/"yes"                 → BNB_IDENTITY_CONFIRM
  *   - "update bnb identity"           → BNB_IDENTITY_UPDATE
  *   - "what is my agent id"           → BNB_IDENTITY_RESOLVE
  *   - "look up agent <id>"            → BNB_IDENTITY_RESOLVE
@@ -17,6 +18,7 @@
 
 import type { Plugin } from "@elizaos/core";
 import {
+  confirmAction,
   registerAction,
   resolveIdentityAction,
   updateIdentityAction,
@@ -39,12 +41,22 @@ export type {
   RegisterResult,
   SetUriResult,
 } from "./types.js";
+export {
+  extractAgentIdFromText,
+  getInstalledPlugins,
+  normalizeBnbNetwork,
+} from "./utils.js";
 
 export const bnbIdentityPlugin: Plugin = {
   name: "@milady/plugin-bnb-identity",
   description:
     "ERC-8004 on-chain agent identity for Milady — registers her on BNB Chain and keeps her agentURI in sync with her current capabilities and MCP endpoint.",
-  actions: [registerAction, updateIdentityAction, resolveIdentityAction],
+  actions: [
+    registerAction,
+    confirmAction,
+    updateIdentityAction,
+    resolveIdentityAction,
+  ],
   evaluators: [],
   providers: [],
 };

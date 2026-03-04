@@ -1,14 +1,17 @@
 /**
  * ElizaOS Actions for @milady/plugin-bnb-identity.
  *
- * Three actions surface in Milady's chat interface:
+ * Four actions surface in Milady's chat interface:
  *
- *   BNB_IDENTITY_REGISTER  — first-time on-chain registration
- *   BNB_IDENTITY_UPDATE    — refresh agentURI after config changes
- *   BNB_IDENTITY_RESOLVE   — look up any agent by ID (read-only)
+ *   BNB_IDENTITY_REGISTER  -- first-time on-chain registration (sets pending)
+ *   BNB_IDENTITY_CONFIRM   -- confirms a pending register or update operation
+ *   BNB_IDENTITY_UPDATE    -- refresh agentURI after config changes (sets pending)
+ *   BNB_IDENTITY_RESOLVE   -- look up any agent by ID (read-only)
  *
- * All write operations surface a confirmation message before calling
- * the MCP tool. The user must reply "yes" / "confirm" to proceed.
+ * Write operations use a two-step confirmation flow:
+ *   1. The REGISTER/UPDATE action builds the data and stores it as pending.
+ *   2. The user's "confirm" / "yes" reply routes to BNB_IDENTITY_CONFIRM,
+ *      which validates pending state and executes.
  */
 
 import type {
@@ -26,54 +29,28 @@ import {
 } from "./metadata.js";
 import { BnbIdentityService } from "./service.js";
 import { patchIdentity, readIdentity, writeIdentity } from "./store.js";
-import type { AgentMetadata, BnbIdentityConfig } from "./types.js";
+import {
+  decodeAgentMetadata,
+  deletePending,
+  extractAgentIdFromText,
+  getInstalledPlugins,
+  getPending,
+  loadConfig,
+  networkLabelForDisplay,
+  registerPendingKey,
+  resolveScanBase,
+  setPending,
+  updatePendingKey,
+  userConfirmed,
+} from "./utils.js";
 
-// ── Pending-confirmation cache ──────────────────────────────────────────────
-// ElizaOS action handlers receive a fresh `state` object per invocation, so
-// storing pending confirmation data on `state` doesn't survive across calls.
-// We use a module-level Map keyed by a deterministic cache key so the second
-// invocation (user's "confirm" reply) can retrieve the pending data.
-const pendingConfirmations = new Map<string, Record<string, unknown>>();
-
-type ResolvedBnbIdentityConfig = BnbIdentityConfig & {
-  networkWarning?: string;
-};
-
-// ── Shared config loader ────────────────────────────────────────────────────
-
-function loadConfig(runtime: IAgentRuntime): ResolvedBnbIdentityConfig {
-  const { network, warning } = normalizeBnbNetwork(
-    runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet",
-  );
-
-  return {
-    privateKey: runtime.getSetting("BNB_PRIVATE_KEY") ?? undefined,
-    network,
-    agentUriBase: runtime.getSetting("BNB_AGENT_URI_BASE") ?? undefined,
-    gatewayPort: parseInt(
-      runtime.getSetting("MILADY_GATEWAY_PORT") ?? "18789",
-      10,
-    ),
-    ...(warning ? { networkWarning: warning } : {}),
-  };
-}
-
-function resolveScanBase(network: string): string {
-  return network === "bsc"
-    ? "https://www.8004scan.io"
-    : "https://testnet.8004scan.io";
-}
-
-function networkLabelForDisplay(network: string): string {
-  return network === "bsc"
-    ? "BSC Mainnet 🔴 REAL MONEY"
-    : `${network} (testnet)`;
-}
-
-function userConfirmed(message: Memory): boolean {
-  const userText = message.content?.text?.toLowerCase() ?? "";
-  return /\b(confirm|yes)\b/.test(userText);
-}
+// Re-export helpers that existing tests import from actions.ts
+export {
+  extractAgentIdFromText,
+  normalizeBnbNetwork,
+  registerPendingKey,
+  updatePendingKey,
+} from "./utils.js";
 
 // ── Action: BNB_IDENTITY_REGISTER ──────────────────────────────────────────
 
@@ -90,42 +67,27 @@ export const registerAction: Action = {
   description:
     "Registers Milady as an ERC-8004 agent on BNB Chain. Mints an on-chain identity NFT with a metadata URI describing her capabilities and MCP endpoint. Requires BNB_PRIVATE_KEY.",
 
-  validate: async (
-    _runtime: IAgentRuntime,
-    _message: Memory,
-  ): Promise<boolean> => {
-    // Valid if not already registered, or user explicitly wants to re-register.
-    // We allow re-registration so the action is always callable — the handler
-    // will warn if an identity already exists.
-    return true;
-  },
+  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => true,
 
   handler: async (
     runtime: IAgentRuntime,
-    message: Memory,
+    _message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
     callback: HandlerCallback,
   ): Promise<void> => {
-    let config: ResolvedBnbIdentityConfig;
+    let config;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
-        text: `❌ Network error: ${(err as Error).message}`,
-      });
+      await callback({ text: `❌ Network error: ${(err as Error).message}` });
       return;
     }
 
-    const svc = new BnbIdentityService(runtime, config);
-
     if (config.networkWarning) {
-      await callback({
-        text: `⚠️ Network notice: ${config.networkWarning}`,
-      });
+      await callback({ text: `⚠️ Network notice: ${config.networkWarning}` });
     }
 
-    // Check for existing identity
     const existing = await readIdentity();
     if (existing) {
       await callback({
@@ -149,102 +111,190 @@ export const registerAction: Action = {
       return;
     }
 
-    // Build the metadata + URI
     const agentName = runtime.character?.name ?? "Milady";
     const installedPlugins = await getInstalledPlugins(runtime);
     const metadata = buildAgentMetadata(config, agentName, installedPlugins);
-
     const agentURI = config.agentUriBase
-      ? metadataToHostedUri(metadata, config.agentUriBase)
+      ? metadataToHostedUri(config.agentUriBase)
       : metadataToDataUri(metadata);
 
-    // Two-step confirmation flow. We persist pending data in a module-level
-    // Map because ElizaOS creates a fresh `state` per handler invocation.
-    const pendingKey = `bnb_identity_register_pending_${runtime.agentId}`;
-    const pending = pendingConfirmations.get(pendingKey);
+    setPending(registerPendingKey(runtime.agentId), {
+      action: "register",
+      agentURI,
+      metadata: metadata as unknown as Record<string, unknown>,
+    });
 
-    if (!pending) {
-      // First call: show confirmation prompt and stash pending data.
-      pendingConfirmations.set(pendingKey, {
-        agentURI,
-        metadata: metadata as unknown as Record<string, unknown>,
-      });
-
-      await callback({
-        text:
-          `Ready to register **${agentName}** on **${networkLabelForDisplay(config.network)}**.\n\n` +
-          `**agentURI:** \`${agentURI.slice(0, 80)}${agentURI.length > 80 ? "…" : ""}\`\n\n` +
-          `**Capabilities:** ${metadata.capabilities.join(", ")}\n` +
-          `**Platforms:** ${metadata.platforms.join(", ")}\n` +
-          `**MCP endpoint:** ${metadata.services[0]?.url}\n\n` +
-          `This will send a transaction from your wallet. Reply **confirm** to proceed.`,
-      });
-      return;
-    }
-
-    // Second call: check user confirmation.
-    if (!userConfirmed(message)) {
-      pendingConfirmations.delete(pendingKey);
-      await callback({ text: "Registration cancelled." });
-      return;
-    }
-
-    // Retrieve stashed values and clear pending state.
-    const confirmedURI = pending.agentURI as string;
-    pendingConfirmations.delete(pendingKey);
-
-    // Execute registration
-    await callback({ text: "⏳ Sending registration transaction…" });
-
-    try {
-      const result = await svc.registerAgent(confirmedURI);
-      const ownerAddress =
-        (await svc.getOwnerAddressFromPrivateKey()) ||
-        (await svc
-          .getAgent(result.agentId)
-          .then((agent) => agent.owner)
-          .catch(() => undefined)) ||
-        "";
-
-      const record = {
-        agentId: result.agentId,
-        network: result.network,
-        txHash: result.txHash,
-        ownerAddress,
-        agentURI: confirmedURI,
-        registeredAt: new Date().toISOString(),
-        lastUpdatedAt: new Date().toISOString(),
-      };
-      await writeIdentity(record);
-
-      await callback({
-        text:
-          `✅ **${agentName}** is now on-chain!\n\n` +
-          `**Agent ID:** \`${result.agentId}\`\n` +
-          `**Network:** ${result.network}\n` +
-          `**Tx:** \`${result.txHash}\`\n` +
-          `**Verify:** ${resolveScanBase(result.network)}/agent/${result.agentId}\n\n` +
-          `Other agents can now discover and interact with her via ERC-8004. she's real now fren.`,
-      });
-    } catch (err) {
-      await callback({
-        text: `❌ Registration failed: ${(err as Error).message}`,
-      });
-    }
+    await callback({
+      text:
+        `Ready to register **${agentName}** on **${networkLabelForDisplay(config.network)}**.\n\n` +
+        `**agentURI:** \`${agentURI.slice(0, 80)}${agentURI.length > 80 ? "…" : ""}\`\n\n` +
+        `**Capabilities:** ${metadata.capabilities.join(", ")}\n` +
+        `**Platforms:** ${metadata.platforms.join(", ")}\n` +
+        `**MCP endpoint:** ${metadata.services[0]?.url}\n\n` +
+        `This will send a transaction from your wallet. Reply **confirm** to proceed.`,
+    });
   },
 
   examples: [
     [
-      {
-        user: "{{user1}}",
-        content: { text: "register milady on bnb chain" },
-      },
+      { user: "{{user1}}", content: { text: "register milady on bnb chain" } },
       {
         user: "{{agentName}}",
         content: {
           text: "Ready to register Milady on bsc-testnet. Reply confirm to proceed.",
           action: "BNB_IDENTITY_REGISTER",
         },
+      },
+    ],
+  ] as ActionExample[][],
+};
+
+// ── Action: BNB_IDENTITY_CONFIRM ───────────────────────────────────────────
+
+export const confirmAction: Action = {
+  name: "BNB_IDENTITY_CONFIRM",
+  similes: [
+    "confirm bnb registration",
+    "confirm identity registration",
+    "confirm bnb update",
+    "confirm identity update",
+    "yes register on bnb",
+    "yes update bnb identity",
+    "confirm on-chain",
+    "yes go on-chain",
+  ],
+  description:
+    "Confirms a pending BNB identity registration or update. Only works when there is a pending confirmation from a prior BNB_IDENTITY_REGISTER or BNB_IDENTITY_UPDATE action.",
+
+  validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+    if (!userConfirmed(message)) return false;
+    const regPending = getPending(registerPendingKey(runtime.agentId));
+    const updPending = getPending(updatePendingKey(runtime.agentId));
+    return regPending !== undefined || updPending !== undefined;
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state: State | undefined,
+    _options: Record<string, unknown>,
+    callback: HandlerCallback,
+  ): Promise<void> => {
+    let config;
+    try {
+      config = loadConfig(runtime);
+    } catch (err) {
+      await callback({ text: `❌ Network error: ${(err as Error).message}` });
+      return;
+    }
+
+    const svc = new BnbIdentityService(runtime, config);
+    const regKey = registerPendingKey(runtime.agentId);
+    const updKey = updatePendingKey(runtime.agentId);
+    const regPending = getPending(regKey);
+    const updPending = getPending(updKey);
+
+    if (!regPending && !updPending) {
+      await callback({
+        text: "No pending BNB identity operation to confirm. Start with **register milady on bnb chain** or **update bnb identity** first.",
+      });
+      return;
+    }
+
+    if (!userConfirmed(message)) {
+      if (regPending) deletePending(regKey);
+      if (updPending) deletePending(updKey);
+      await callback({
+        text: regPending ? "Registration cancelled." : "Update cancelled.",
+      });
+      return;
+    }
+
+    if (regPending) {
+      const confirmedURI = regPending.agentURI as string;
+      deletePending(regKey);
+      await callback({ text: "⏳ Sending registration transaction…" });
+
+      try {
+        const result = await svc.registerAgent(confirmedURI);
+        const ownerAddress =
+          (await svc.getOwnerAddressFromPrivateKey()) ||
+          (await svc.getAgent(result.agentId).then((a) => a.owner).catch(() => undefined)) ||
+          "";
+
+        const agentName = runtime.character?.name ?? "Milady";
+        await writeIdentity({
+          agentId: result.agentId,
+          network: result.network,
+          txHash: result.txHash,
+          ownerAddress,
+          agentURI: confirmedURI,
+          registeredAt: new Date().toISOString(),
+          lastUpdatedAt: new Date().toISOString(),
+        });
+
+        await callback({
+          text:
+            `✅ **${agentName}** is now on-chain!\n\n` +
+            `**Agent ID:** \`${result.agentId}\`\n` +
+            `**Network:** ${result.network}\n` +
+            `**Tx:** \`${result.txHash}\`\n` +
+            `**Verify:** ${resolveScanBase(result.network)}/agent/${result.agentId}\n\n` +
+            `Other agents can now discover and interact with her via ERC-8004. she's real now fren.`,
+        });
+      } catch (err) {
+        await callback({ text: `❌ Registration failed: ${(err as Error).message}` });
+      }
+      return;
+    }
+
+    if (updPending) {
+      const confirmedURI = updPending.newURI as string;
+      const existingAgentId = updPending.agentId as string;
+      deletePending(updKey);
+      await callback({ text: "⏳ Sending update transaction…" });
+
+      try {
+        const result = await svc.updateAgentUri(existingAgentId, confirmedURI);
+        const verification = await svc
+          .getAgent(existingAgentId).then((a) => a.tokenURI).catch(() => null);
+
+        await patchIdentity({ agentURI: verification ?? confirmedURI });
+
+        let verificationText = "Her on-chain profile now reflects the latest capabilities.";
+        if (verification === null) {
+          verificationText =
+            "⚠️ Could not verify the on-chain agentURI immediately after update. " +
+            "If this persists, check again in a few seconds.";
+        } else if (verification !== confirmedURI) {
+          verificationText =
+            `⚠️ On-chain URI verification mismatch.\nExpected: \`${confirmedURI}\`\nObserved: \`${verification}\``;
+        }
+
+        await callback({
+          text:
+            `✅ agentURI updated!\n\n**Agent ID:** \`${result.agentId}\`\n**Tx:** \`${result.txHash}\`\n` +
+            verificationText,
+        });
+      } catch (err) {
+        await callback({ text: `❌ Update failed: ${(err as Error).message}` });
+      }
+    }
+  },
+
+  examples: [
+    [
+      { user: "{{user1}}", content: { text: "confirm" } },
+      {
+        user: "{{agentName}}",
+        content: { text: "Sending registration transaction...", action: "BNB_IDENTITY_CONFIRM" },
+      },
+    ],
+    [
+      { user: "{{user1}}", content: { text: "yes" } },
+      {
+        user: "{{agentName}}",
+        content: { text: "Sending update transaction...", action: "BNB_IDENTITY_CONFIRM" },
       },
     ],
   ] as ActionExample[][],
@@ -264,37 +314,30 @@ export const updateIdentityAction: Action = {
   description:
     "Updates Milady's ERC-8004 agentURI on-chain to reflect her current capabilities, plugins, and MCP endpoint. Use after installing new plugins or changing gateway config.",
 
-  validate: async (
-    _runtime: IAgentRuntime,
-    _message: Memory,
-  ): Promise<boolean> => {
+  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
     const existing = await readIdentity();
     return existing !== null;
   },
 
   handler: async (
     runtime: IAgentRuntime,
-    message: Memory,
+    _message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
     callback: HandlerCallback,
   ): Promise<void> => {
-    let config: ResolvedBnbIdentityConfig;
+    let config;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
-        text: `❌ Network error: ${(err as Error).message}`,
-      });
+      await callback({ text: `❌ Network error: ${(err as Error).message}` });
       return;
     }
 
     const svc = new BnbIdentityService(runtime, config);
 
     if (config.networkWarning) {
-      await callback({
-        text: `⚠️ Network notice: ${config.networkWarning}`,
-      });
+      await callback({ text: `⚠️ Network notice: ${config.networkWarning}` });
     }
 
     const existing = await readIdentity();
@@ -315,106 +358,38 @@ export const updateIdentityAction: Action = {
     const agentName = runtime.character?.name ?? "Milady";
     const installedPlugins = await getInstalledPlugins(runtime);
 
-    // Retrieve existing on-chain metadata to preserve the original created date
     let existingCreated: string | undefined;
     try {
       const onchainAgent = await svc.getAgent(existing.agentId);
       if (onchainAgent.tokenURI) {
-        const existingMeta = decodeAgentMetadata(onchainAgent.tokenURI);
-        existingCreated = existingMeta?.created;
+        existingCreated = decodeAgentMetadata(onchainAgent.tokenURI)?.created;
       }
     } catch {
-      // Best-effort — fall through to use current timestamp
+      // Best-effort -- fall through to use current timestamp
     }
 
-    const metadata = buildAgentMetadata(
-      config,
-      agentName,
-      installedPlugins,
-      existingCreated,
-    );
-    // Carry forward the existing agentId in the metadata
+    const metadata = buildAgentMetadata(config, agentName, installedPlugins, existingCreated);
     metadata.agentId = existing.agentId;
     metadata.network = existing.network;
 
     const newURI = config.agentUriBase
-      ? metadataToHostedUri(metadata, config.agentUriBase)
+      ? metadataToHostedUri(config.agentUriBase)
       : metadataToDataUri(metadata);
 
-    // Two-step confirmation flow using module-level Map.
-    const pendingKey = `bnb_identity_update_pending_${runtime.agentId}`;
-    const pending = pendingConfirmations.get(pendingKey);
+    setPending(updatePendingKey(runtime.agentId), { newURI, agentId: existing.agentId });
 
-    if (!pending) {
-      // First call: show confirmation prompt and stash pending data.
-      pendingConfirmations.set(pendingKey, { newURI });
-
-      await callback({
-        text:
-          `Ready to update Agent ID \`${existing.agentId}\` on **${existing.network}**.\n\n` +
-          `**New capabilities:** ${metadata.capabilities.join(", ")}\n` +
-          `**New platforms:** ${metadata.platforms.join(", ")}\n\n` +
-          `Reply **confirm** to send the update transaction.`,
-      });
-      return;
-    }
-
-    // Second call: check user confirmation.
-    if (!userConfirmed(message)) {
-      pendingConfirmations.delete(pendingKey);
-      await callback({ text: "Update cancelled." });
-      return;
-    }
-
-    // Retrieve stashed URI and clear pending state.
-    const confirmedURI = pending.newURI as string;
-    pendingConfirmations.delete(pendingKey);
-
-    await callback({ text: "⏳ Sending update transaction…" });
-
-    try {
-      const result = await svc.updateAgentUri(existing.agentId, confirmedURI);
-      const verification = await svc
-        .getAgent(existing.agentId)
-        .then((agent) => agent.tokenURI)
-        .catch(() => null);
-
-      const onchainURI = verification ?? confirmedURI;
-      await patchIdentity({ agentURI: onchainURI });
-
-      let verificationText =
-        "Her on-chain profile now reflects the latest capabilities.";
-      if (verification === null) {
-        verificationText =
-          "⚠️ Could not verify the on-chain agentURI immediately after update. " +
-          "If this persists, check again in a few seconds.";
-      } else if (verification !== confirmedURI) {
-        verificationText =
-          `⚠️ On-chain URI verification mismatch.\n` +
-          `Expected: \`${confirmedURI}\`\n` +
-          `Observed: \`${verification}\``;
-      }
-
-      await callback({
-        text:
-          `✅ agentURI updated!\n\n` +
-          `**Agent ID:** \`${result.agentId}\`\n` +
-          `**Tx:** \`${result.txHash}\`\n` +
-          verificationText,
-      });
-    } catch (err) {
-      await callback({
-        text: `❌ Update failed: ${(err as Error).message}`,
-      });
-    }
+    await callback({
+      text:
+        `Ready to update Agent ID \`${existing.agentId}\` on **${existing.network}**.\n\n` +
+        `**New capabilities:** ${metadata.capabilities.join(", ")}\n` +
+        `**New platforms:** ${metadata.platforms.join(", ")}\n\n` +
+        `Reply **confirm** to send the update transaction.`,
+    });
   },
 
   examples: [
     [
-      {
-        user: "{{user1}}",
-        content: { text: "update my agent profile on bnb" },
-      },
+      { user: "{{user1}}", content: { text: "update my agent profile on bnb" } },
       {
         user: "{{agentName}}",
         content: {
@@ -442,12 +417,7 @@ export const resolveIdentityAction: Action = {
   description:
     "Resolves an ERC-8004 agent ID to its owner, metadata URI, and payment wallet. Works read-only — no private key needed. If no ID given, shows Milady's own identity.",
 
-  validate: async (
-    _runtime: IAgentRuntime,
-    _message: Memory,
-  ): Promise<boolean> => {
-    return true;
-  },
+  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => true,
 
   handler: async (
     runtime: IAgentRuntime,
@@ -456,28 +426,22 @@ export const resolveIdentityAction: Action = {
     _options: Record<string, unknown>,
     callback: HandlerCallback,
   ): Promise<void> => {
-    let config: ResolvedBnbIdentityConfig;
+    let config;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
-        text: `❌ Network error: ${(err as Error).message}`,
-      });
+      await callback({ text: `❌ Network error: ${(err as Error).message}` });
       return;
     }
 
     const svc = new BnbIdentityService(runtime, config);
-
-    // Try to extract an agentId from the message text
     const text = message.content?.text ?? "";
     const explicitAgentId = extractAgentIdFromText(text);
-
     let agentId: string;
 
     if (explicitAgentId) {
       agentId = explicitAgentId;
     } else {
-      // Default to Milady's own identity
       const own = await readIdentity();
       if (!own) {
         await callback({
@@ -490,14 +454,12 @@ export const resolveIdentityAction: Action = {
       agentId = own.agentId;
     }
 
-    await callback({
-      text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…`,
-    });
+    await callback({ text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…` });
 
     try {
       const [agentInfo, walletInfo] = await Promise.all([
         svc.getAgent(agentId),
-        svc.getAgentWallet(agentId).catch(() => null), // wallet lookup is best-effort
+        svc.getAgentWallet(agentId).catch(() => null),
       ]);
 
       const lines = [
@@ -506,14 +468,8 @@ export const resolveIdentityAction: Action = {
         `**Owner:** \`${agentInfo.owner}\``,
         `**agentURI:** \`${agentInfo.tokenURI.slice(0, 100)}${agentInfo.tokenURI.length > 100 ? "…" : ""}\``,
       ];
-
-      if (walletInfo) {
-        lines.push(`**Payment Wallet:** \`${walletInfo.agentWallet}\``);
-      }
-
-      lines.push(
-        `**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`,
-      );
+      if (walletInfo) lines.push(`**Payment Wallet:** \`${walletInfo.agentWallet}\``);
+      lines.push(`**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`);
 
       await callback({ text: lines.join("\n") });
     } catch (err) {
@@ -525,139 +481,18 @@ export const resolveIdentityAction: Action = {
 
   examples: [
     [
-      {
-        user: "{{user1}}",
-        content: { text: "what is my agent id" },
-      },
+      { user: "{{user1}}", content: { text: "what is my agent id" } },
       {
         user: "{{agentName}}",
-        content: {
-          text: "Agent ID: `42` on bsc-testnet. Owner: `0x...`",
-          action: "BNB_IDENTITY_RESOLVE",
-        },
+        content: { text: "Agent ID: `42` on bsc-testnet. Owner: `0x...`", action: "BNB_IDENTITY_RESOLVE" },
       },
     ],
     [
-      {
-        user: "{{user1}}",
-        content: { text: "look up agent 7" },
-      },
+      { user: "{{user1}}", content: { text: "look up agent 7" } },
       {
         user: "{{agentName}}",
-        content: {
-          text: "Resolving agent `7` on bsc-testnet…",
-          action: "BNB_IDENTITY_RESOLVE",
-        },
+        content: { text: "Resolving agent `7` on bsc-testnet…", action: "BNB_IDENTITY_RESOLVE" },
       },
     ],
   ] as ActionExample[][],
 };
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Best-effort decode of an agentURI (data: URI or hosted JSON) back into
- * AgentMetadata. Returns null on any failure.
- */
-function decodeAgentMetadata(agentURI: string): AgentMetadata | null {
-  try {
-    if (agentURI.startsWith("data:application/json;base64,")) {
-      const b64 = agentURI.slice("data:application/json;base64,".length);
-      const json = Buffer.from(b64, "base64").toString("utf8");
-      return JSON.parse(json) as AgentMetadata;
-    }
-    // Hosted URIs would need a fetch; not worth blocking on here.
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/** Supported and normalized networks for ERC-8004/BSC flows. */
-const SUPPORTED_NETWORKS = new Set(["bsc", "bsc-testnet"]);
-
-/**
- * Normalizes requested BNB network values and rejects unsupported values.
- * Also accepts common aliases (mainnet/testnet) to reduce operator mistakes.
- */
-export function normalizeBnbNetwork(value: string): {
-  network: string;
-  warning?: string;
-} {
-  const normalized = value.trim().toLowerCase();
-  if (SUPPORTED_NETWORKS.has(normalized)) {
-    return { network: normalized };
-  }
-
-  if (
-    normalized === "mainnet" ||
-    normalized === "bnb" ||
-    normalized === "bnb-mainnet"
-  ) {
-    return {
-      network: "bsc",
-      warning: `Normalized BNB_NETWORK "${value}" to "bsc" for compatibility.`,
-    };
-  }
-
-  if (
-    normalized === "testnet" ||
-    normalized === "bsc-test" ||
-    normalized === "bsctestnet" ||
-    normalized === "bnb-testnet" ||
-    normalized === "bnb_testnet"
-  ) {
-    return {
-      network: "bsc-testnet",
-      warning: `Normalized BNB_NETWORK "${value}" to "bsc-testnet" for compatibility.`,
-    };
-  }
-
-  throw new Error(
-    `Unsupported BNB_NETWORK "${value}". Supported values: bsc, bsc-testnet.`,
-  );
-}
-
-/**
- * Reads installed plugin names from the runtime or falls back to plugins.json.
- */
-async function getInstalledPlugins(runtime: IAgentRuntime): Promise<string[]> {
-  // ElizaOS runtime exposes plugins on the character config
-  const characterPlugins: string[] =
-    (runtime.character as unknown as { plugins?: string[] })?.plugins ?? [];
-  if (characterPlugins.length > 0) return characterPlugins;
-
-  // Fallback: read plugins.json from the Milady root
-  try {
-    const { readFile } = await import("node:fs/promises");
-    const { join } = await import("node:path");
-    const { homedir } = await import("node:os");
-    const pluginsPath = join(homedir(), ".milady", "plugins.json");
-    const raw = await readFile(pluginsPath, "utf8");
-    const data = JSON.parse(raw) as { plugins?: string[] };
-    return data.plugins ?? [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Extracts agentId when the message contains a resolvable agent reference.
- */
-export function extractAgentIdFromText(text: string): string | undefined {
-  const patterns = [
-    /\b(?:agent\s*id|agentid)\s*(?:[:#]|is|=)?\s*(\d+)\b/i,
-    /\blook\s*up\s*agent\s*(?:id\s*)?(\d+)\b/i,
-    /\bresolve\s+agent\s*(?:id\s*)?(\d+)\b/i,
-    /\bagent\s+(?:id\s*)?(?:is\s*)?#?(\d+)\b/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return undefined;
-}
