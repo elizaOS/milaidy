@@ -357,6 +357,39 @@ async function ensureTrajectoriesTable(
         archetype TEXT
       )`,
     );
+
+    // Backfill legacy installations where the table already existed with an
+    // older column set. CREATE TABLE IF NOT EXISTS does not add missing columns.
+    const requiredColumns: Array<[name: string, definition: string]> = [
+      ["trajectory_id", "TEXT"],
+      ["agent_id", "TEXT NOT NULL DEFAULT ''"],
+      ["source", "TEXT NOT NULL DEFAULT 'runtime'"],
+      ["status", "TEXT NOT NULL DEFAULT 'completed'"],
+      ["start_time", "BIGINT NOT NULL DEFAULT 0"],
+      ["end_time", "BIGINT"],
+      ["duration_ms", "BIGINT"],
+      ["step_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["llm_call_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["provider_access_count", "INTEGER NOT NULL DEFAULT 0"],
+      ["total_prompt_tokens", "INTEGER NOT NULL DEFAULT 0"],
+      ["total_completion_tokens", "INTEGER NOT NULL DEFAULT 0"],
+      ["total_reward", "REAL NOT NULL DEFAULT 0"],
+      ["steps_json", "TEXT NOT NULL DEFAULT '[]'"],
+      ["metadata", "TEXT NOT NULL DEFAULT '{}'"],
+      ["created_at", "TEXT NOT NULL DEFAULT ''"],
+      ["updated_at", "TEXT NOT NULL DEFAULT ''"],
+      ["episode_length", "INTEGER"],
+      ["ai_judge_reward", "REAL"],
+      ["ai_judge_reasoning", "TEXT"],
+      ["archetype", "TEXT"],
+    ];
+    for (const [columnName, columnDef] of requiredColumns) {
+      await executeRawSql(
+        runtime,
+        `ALTER TABLE trajectories ADD COLUMN IF NOT EXISTS ${columnName} ${columnDef}`,
+      );
+    }
+
     initializedRuntimes.add(key);
     return true;
   } catch (err) {
