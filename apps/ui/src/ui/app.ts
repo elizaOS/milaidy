@@ -4534,6 +4534,8 @@ export class MilaidyApp extends LitElement {
   private async handleChatSend(): Promise<void> {
     const text = this.chatInput.trim();
     if (!text || this.chatSending) return;
+    const runtimeReady = await this.ensureAgentRunningForChat();
+    if (!runtimeReady) return;
     const providerForChat = this.getPreferredAiProviderForChat();
     const providerReady = Boolean(providerForChat && this.isChatProviderReady(providerForChat));
     if (!providerReady) {
@@ -4695,6 +4697,63 @@ export class MilaidyApp extends LitElement {
     }
 
     // Keep fixed-size/scrolling composer for consistent responsiveness.
+  }
+
+  private async ensureAgentRunningForChat(): Promise<boolean> {
+    const currentState = this.agentStatus?.state ?? "not_started";
+    if (currentState === "running") return true;
+
+    try {
+      const latest = await client.getStatus();
+      this.setAgentStatus(latest);
+      if (latest.state === "running") return true;
+    } catch {
+      // Best-effort status refresh.
+    }
+
+    try {
+      this.showUiNotice("Runtime is stopped. Starting agent...");
+      const started = await client.startAgent();
+      this.setAgentStatus(started);
+      if (started.state === "running") return true;
+    } catch (err) {
+      this.showUiNotice(
+        `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
+      );
+      this.chatMessages = [
+        ...this.chatMessages,
+        {
+          role: "assistant",
+          text: "Runtime is not running. Open Config and start the agent, then retry.",
+          timestamp: Date.now(),
+        },
+      ];
+      this.saveChatMessages();
+      return false;
+    }
+
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const polled = await client.getStatus();
+        this.setAgentStatus(polled);
+        if (polled.state === "running") return true;
+      } catch {
+        // Keep polling through transient restart windows.
+      }
+    }
+
+    this.chatMessages = [
+      ...this.chatMessages,
+      {
+        role: "assistant",
+        text: "Runtime is still not running after start attempt. Open Config to check startup errors.",
+        timestamp: Date.now(),
+      },
+    ];
+    this.saveChatMessages();
+    return false;
   }
 
   private isChatNearBottom(container: HTMLElement, threshold = 96): boolean {
