@@ -146,6 +146,7 @@
               "plugins/overview",
               "plugins/architecture",
               "plugins/registry",
+              "guides/registry",
               "plugins/create-a-plugin",
               "plugins/development",
               "plugins/local-plugins",
