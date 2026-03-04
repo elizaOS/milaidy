@@ -3,6 +3,7 @@
  */
 import type { Action, HandlerOptions } from "@elizaos/core";
 import { opinionClient } from "../client.js";
+import type { ChildMarket, OpinionMarket } from "../types.js";
 
 export const listOpinionMarketsAction: Action = {
   name: "LIST_OPINION_MARKETS",
@@ -32,15 +33,15 @@ export const listOpinionMarketsAction: Action = {
         return { text: "No active prediction markets found.", success: true };
       }
 
-      const lines = markets.map((m: any) => {
-        const yes = m.childMarkets?.find((c: any) =>
-          c.outcomeName?.toLowerCase() === "yes",
+      const lines = markets.map((m: OpinionMarket) => {
+        const yes = m.childMarkets?.find(
+          (c: ChildMarket) => c.outcomeName?.toLowerCase() === "yes",
         );
-        const no = m.childMarkets?.find((c: any) =>
-          c.outcomeName?.toLowerCase() === "no",
+        const no = m.childMarkets?.find(
+          (c: ChildMarket) => c.outcomeName?.toLowerCase() === "no",
         );
-        const yesPrice = yes?.lastPrice ?? "—";
-        const noPrice = no?.lastPrice ?? "—";
+        const yesPrice = yes?.lastPrice ?? "\u2014";
+        const noPrice = no?.lastPrice ?? "\u2014";
         const end = m.endTime
           ? new Date(m.endTime).toLocaleDateString()
           : "TBD";

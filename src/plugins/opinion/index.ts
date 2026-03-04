@@ -6,7 +6,7 @@
  *
  * @see docs/plans/2026-03-01-opinion-trade-plugin-design.md
  */
-import type { Plugin } from "@elizaos/core";
+import type { Plugin, ServiceClass } from "@elizaos/core";
 import { opinionClient } from "./client.js";
 import { listOpinionMarketsAction } from "./actions/list-opinion-markets.js";
 import { getOpinionMarketAction } from "./actions/get-opinion-market.js";
@@ -24,7 +24,9 @@ export const opinionPlugin: Plugin = {
   init: async (_config, runtime) => {
     const apiKey = process.env.OPINION_API_KEY;
     if (!apiKey) {
-      runtime.logger?.warn?.("Opinion plugin: OPINION_API_KEY not set, skipping init");
+      runtime.logger?.warn?.(
+        "Opinion plugin: OPINION_API_KEY not set, skipping init",
+      );
       return;
     }
 
@@ -65,7 +67,7 @@ export const opinionPlugin: Plugin = {
 
   providers: [opinionContextProvider],
 
-  services: [OpinionWsService as any],
+  services: [OpinionWsService as unknown as ServiceClass],
 };
 
 export default opinionPlugin;
