@@ -13,10 +13,11 @@
  * @module actions/transfer-token
  */
 
-import type { Action, HandlerOptions } from "@elizaos/core";
-
-/** API port for posting transfer requests. */
-const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
+import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
+import {
+  WALLET_ACTION_API_PORT,
+  buildAuthHeaders,
+} from "./wallet-action-shared.js";
 
 /** Timeout for the transfer API call (includes on-chain confirmation). */
 const TRANSFER_TIMEOUT_MS = 60_000;
@@ -33,7 +34,12 @@ export const transferTokenAction: Action = {
     "Transfer tokens or native BNB to another address. Use this when a user " +
     "asks to send, transfer, or pay tokens to a recipient address on BSC.",
 
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime) => {
+    const hasWallet =
+      runtime.getSetting("EVM_PRIVATE_KEY") ||
+      runtime.getSetting("PRIVY_APP_ID");
+    return Boolean(hasWallet);
+  },
 
   handler: async (_runtime, _message, _state, options) => {
     try {
@@ -108,12 +114,13 @@ export const transferTokenAction: Action = {
       }
 
       const response = await fetch(
-        `http://127.0.0.1:${API_PORT}/api/wallet/transfer/execute`,
+        `http://127.0.0.1:${WALLET_ACTION_API_PORT}/api/wallet/transfer/execute`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Milady-Agent-Action": "1",
+            ...buildAuthHeaders(),
           },
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS),

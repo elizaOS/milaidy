@@ -575,6 +575,18 @@ export async function buildBscTradeQuote(
   };
 }
 
+/**
+ * Assert that the quote's routerAddress matches the expected PancakeSwap V2 router.
+ * Prevents a compromised or tampered quote from directing funds to an arbitrary address.
+ */
+function assertRouterAddress(quote: BscTradeQuoteResponse): void {
+  if (quote.routerAddress !== PANCAKE_SWAP_V2_ROUTER) {
+    throw new Error(
+      `Unexpected router address in quote: ${quote.routerAddress}. Expected PancakeSwap V2 router ${PANCAKE_SWAP_V2_ROUTER}.`,
+    );
+  }
+}
+
 export function buildBscBuyUnsignedTx(
   quote: BscTradeQuoteResponse,
   recipientAddress: string | null,
@@ -583,6 +595,7 @@ export function buildBscBuyUnsignedTx(
   if (quote.side !== "buy") {
     throw new Error("Only buy execution is currently supported.");
   }
+  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");
@@ -618,6 +631,7 @@ export function buildBscSellUnsignedTx(
   if (quote.side !== "sell") {
     throw new Error("Only sell execution is supported for this payload.");
   }
+  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");

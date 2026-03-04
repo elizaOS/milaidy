@@ -97,13 +97,17 @@ function makeFullResponse() {
 
 describe("CHECK_BALANCE action", () => {
   const originalFetch = globalThis.fetch;
+  const originalToken = process.env.MILADY_API_TOKEN;
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
+    delete process.env.MILADY_API_TOKEN;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env.MILADY_API_TOKEN;
+    else process.env.MILADY_API_TOKEN = originalToken;
   });
 
   // ── Metadata ─────────────────────────────────────────────────────────────
@@ -495,6 +499,40 @@ describe("CHECK_BALANCE action", () => {
     expect(text).not.toContain("TOKEN14");
     // Should show overflow message
     expect(text).toContain("... and 5 more");
+  });
+
+  // ── Auth header ─────────────────────────────────────────────────────────
+
+  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
+    process.env.MILADY_API_TOKEN = "balance-secret";
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => makeFullResponse(),
+    });
+
+    await callHandler();
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
+      "Bearer balance-secret",
+    );
+  });
+
+  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
+    delete process.env.MILADY_API_TOKEN;
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => makeFullResponse(),
+    });
+
+    await callHandler();
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(
+      (opts.headers as Record<string, string>)?.Authorization,
+    ).toBeUndefined();
   });
 
   // ── API error handling ───────────────────────────────────────────────────

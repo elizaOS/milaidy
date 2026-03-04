@@ -2,7 +2,8 @@
  * Unit tests for the TRANSFER_TOKEN action.
  *
  * Verifies parameter validation, API call handling, response formatting,
- * and action metadata (name, similes, parameters).
+ * action metadata (name, similes, parameters), precondition checks,
+ * and auth header inclusion.
  */
 
 import type { HandlerOptions } from "@elizaos/core";
@@ -23,17 +24,27 @@ function callHandler(params: Record<string, unknown>) {
   );
 }
 
+function makeRuntime(settings: Record<string, string | null> = {}) {
+  return {
+    getSetting: (key: string) => settings[key] ?? null,
+  } as never;
+}
+
 // ── Test suite ───────────────────────────────────────────────────────────────
 
 describe("TRANSFER_TOKEN action", () => {
   const originalFetch = globalThis.fetch;
+  const originalToken = process.env.MILADY_API_TOKEN;
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
+    delete process.env.MILADY_API_TOKEN;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env.MILADY_API_TOKEN;
+    else process.env.MILADY_API_TOKEN = originalToken;
   });
 
   // ── Metadata ─────────────────────────────────────────────────────────────
@@ -70,13 +81,36 @@ describe("TRANSFER_TOKEN action", () => {
     expect(tokenAddr?.required).toBe(false);
   });
 
-  it("validates successfully", async () => {
+  // ── Validate precondition checks ──────────────────────────────────────
+
+  it("validates true when EVM_PRIVATE_KEY is set", async () => {
+    const runtime = makeRuntime({ EVM_PRIVATE_KEY: "0xdeadbeef" });
     const result = await transferTokenAction.validate(
-      {} as never,
+      runtime,
       {} as never,
       {} as never,
     );
     expect(result).toBe(true);
+  });
+
+  it("validates true when PRIVY_APP_ID is set", async () => {
+    const runtime = makeRuntime({ PRIVY_APP_ID: "app-123" });
+    const result = await transferTokenAction.validate(
+      runtime,
+      {} as never,
+      {} as never,
+    );
+    expect(result).toBe(true);
+  });
+
+  it("validates false when no wallet is configured", async () => {
+    const runtime = makeRuntime({});
+    const result = await transferTokenAction.validate(
+      runtime,
+      {} as never,
+      {} as never,
+    );
+    expect(result).toBe(false);
   });
 
   // ── Parameter validation: toAddress ────────────────────────────────────
@@ -415,6 +449,76 @@ describe("TRANSFER_TOKEN action", () => {
       (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
     );
     expect(body.tokenAddress).toBeUndefined();
+  });
+
+  // ── Auth header ─────────────────────────────────────────────────────────
+
+  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
+    process.env.MILADY_API_TOKEN = "transfer-secret";
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        toAddress: VALID_ADDRESS,
+        amount: "1",
+        assetSymbol: "BNB",
+        execution: {
+          hash: "0xauth",
+          explorerUrl: "https://bscscan.com/tx/0xauth",
+          status: "success",
+          blockNumber: 1,
+        },
+      }),
+    });
+
+    await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1",
+      assetSymbol: "BNB",
+    });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
+      "Bearer transfer-secret",
+    );
+  });
+
+  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
+    delete process.env.MILADY_API_TOKEN;
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        toAddress: VALID_ADDRESS,
+        amount: "1",
+        assetSymbol: "BNB",
+        execution: {
+          hash: "0xnoauth",
+          explorerUrl: "https://bscscan.com/tx/0xnoauth",
+          status: "success",
+          blockNumber: 1,
+        },
+      }),
+    });
+
+    await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1",
+      assetSymbol: "BNB",
+    });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(
+      (opts.headers as Record<string, string>).Authorization,
+    ).toBeUndefined();
   });
 
   // ── Error handling ───────────────────────────────────────────────────────
