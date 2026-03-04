@@ -7,6 +7,7 @@
 
 import path from "node:path";
 import {
+  type BrowserView,
   BrowserWindow,
   Electrobun,
   setApplicationMenu,
@@ -17,6 +18,10 @@ import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
 import { disposeNativeModules, initializeNativeModules } from "./native/index";
 import { registerRpcHandlers } from "./rpc-handlers";
+import {
+  type MiladyRPCSchema,
+  PUSH_CHANNEL_TO_RPC_MESSAGE,
+} from "./rpc-schema";
 
 // ============================================================================
 // App Menu
@@ -109,29 +114,30 @@ function wireRpcAndModules(win: BrowserWindow): void {
   const view = win.webview;
 
   // Create the sendToWebview callback that native modules use to push events.
-  // Dispatches to the listener registry in the renderer via JS evaluation.
+  // Uses typed RPC push messages instead of JS evaluation.
   const sendToWebview = (message: string, payload?: unknown): void => {
-    const payloadJson = JSON.stringify(payload ?? null);
-    const messageJson = JSON.stringify(message);
-    const script = `
-      if (window.__MILADY_RPC_LISTENERS__) {
-        var listeners = window.__MILADY_RPC_LISTENERS__[${messageJson}];
-        if (listeners) {
-          var p = ${payloadJson};
-          listeners.forEach(function(fn) { try { fn(p); } catch(e) { console.error(e); } });
-        }
+    const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message];
+    if (rpcMessage && view.rpc?.sendMessage) {
+      const sender = (
+        view.rpc.sendMessage as Record<
+          string,
+          ((p: unknown) => void) | undefined
+        >
+      )[rpcMessage];
+      if (sender) {
+        sender(payload ?? null);
+        return;
       }
-    `;
-    view.rpc?.requestProxy
-      .evaluateJavascriptWithResponse({ script })
-      .catch(() => {});
+    }
+    // If no RPC mapping exists, log a warning instead of falling back to eval
+    console.warn(`[sendToWebview] No RPC mapping for message: ${message}`);
   };
 
   // Initialize native modules with window + sendToWebview
   initializeNativeModules(win, sendToWebview);
 
   // Register RPC handlers on the webview
-  registerRpcHandlers(view as any);
+  registerRpcHandlers(view as unknown as BrowserView<MiladyRPCSchema>);
 }
 
 // ============================================================================
@@ -208,18 +214,9 @@ function setupDeepLinks(win: BrowserWindow): void {
   // Electrobun handles urlSchemes from config automatically.
   // Listen for open-url events to route deep links to the renderer.
   Electrobun.events.on("open-url", (url: string) => {
-    const payload = JSON.stringify({ url });
-    const script = `
-      if (window.__MILADY_RPC_LISTENERS__) {
-        var listeners = window.__MILADY_RPC_LISTENERS__["shareTargetReceived"];
-        if (listeners) {
-          listeners.forEach(function(fn) { try { fn(${payload}); } catch(e) {} });
-        }
-      }
-    `;
-    win.webview.rpc?.requestProxy
-      .evaluateJavascriptWithResponse({ script })
-      .catch(() => {});
+    if (win.webview.rpc?.sendMessage?.shareTargetReceived) {
+      win.webview.rpc.sendMessage.shareTargetReceived({ url });
+    }
   });
 }
 
@@ -227,9 +224,10 @@ function setupDeepLinks(win: BrowserWindow): void {
 // Shutdown
 // ============================================================================
 
-function setupShutdown(): void {
+function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
   Electrobun.events.on("will-quit", () => {
     console.log("[Main] App quitting, disposing native modules...");
+    clearInterval(apiBaseInterval);
     disposeNativeModules();
   });
 }
@@ -259,7 +257,7 @@ async function main(): Promise<void> {
     injectApiBase(win);
   });
 
-  setInterval(() => {
+  const apiBaseInterval = setInterval(() => {
     injectApiBase(win);
   }, 5_000);
 
@@ -298,7 +296,7 @@ async function main(): Promise<void> {
   setupUpdater();
 
   // Set up clean shutdown
-  setupShutdown();
+  setupShutdown(apiBaseInterval);
 
   console.log("[Main] Milady started successfully");
 }
