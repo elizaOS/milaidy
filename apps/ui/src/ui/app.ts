@@ -4589,11 +4589,25 @@ export class MilaidyApp extends LitElement {
         abort.signal,
       );
       if (this.inFlightChatAbort !== abort) return;
+      let assistantText = data.text;
+      if (this.isGenericAssistantFailureText(assistantText)) {
+        const diagnosis = await this.diagnoseChatFailureFromLogs();
+        if (diagnosis) {
+          assistantText = diagnosis.message;
+          this.setProviderHealthState(
+            diagnosis.label,
+            diagnosis.tone,
+            diagnosis.detail,
+          );
+        }
+      }
       this.chatMessages = [
         ...this.chatMessages,
-        { role: "assistant", text: data.text, timestamp: Date.now() },
+        { role: "assistant", text: assistantText, timestamp: Date.now() },
       ];
-      this.setProviderHealthState("Healthy", "ok", "Provider responding");
+      if (!this.isGenericAssistantFailureText(assistantText)) {
+        this.setProviderHealthState("Healthy", "ok", "Provider responding");
+      }
       this.scrollChatToLatest("smooth", true);
       this.saveChatMessages();
       this.activeChatRequestText = null;
@@ -4922,6 +4936,110 @@ export class MilaidyApp extends LitElement {
     }
 
     return fallback;
+  }
+
+  private isGenericAssistantFailureText(text: string | null | undefined): boolean {
+    const value = (text ?? "").trim().toLowerCase();
+    return (
+      value === "sorry, i couldn't generate a response right now. please try again." ||
+      value === "provider timed out. try again."
+    );
+  }
+
+  private async diagnoseChatFailureFromLogs(): Promise<{
+    message: string;
+    label: string;
+    tone: "ok" | "warn" | "risk";
+    detail: string;
+  } | null> {
+    try {
+      const data = await client.getLogs();
+      const recent = (data.entries ?? [])
+        .slice(-120)
+        .map((entry) => `${entry.level} ${entry.message}`.toLowerCase())
+        .reverse();
+      const joined = recent.join("\n");
+
+      if (
+        joined.includes("invalid or expired api key") ||
+        joined.includes("invalid api key") ||
+        joined.includes("unauthorized")
+      ) {
+        return {
+          message: "Provider authentication failed. Your API key looks invalid or expired. Update it in AI Settings, save, then restart agent.",
+          label: "Auth issue",
+          tone: "risk",
+          detail: "Invalid or expired API key",
+        };
+      }
+      if (
+        joined.includes("insufficient_quota") ||
+        joined.includes("quota") ||
+        joined.includes("rate limit") ||
+        joined.includes("http 429")
+      ) {
+        return {
+          message: "Provider quota or rate limit reached. Check billing/usage limits, then retry.",
+          label: "Quota issue",
+          tone: "warn",
+          detail: "Rate limit or quota reached",
+        };
+      }
+      if (
+        joined.includes("column \"trajectory_id\"") ||
+        joined.includes("failed query") ||
+        joined.includes("create schema if not exists migrations") ||
+        joined.includes("select \"id\", \"agent_id\", \"name\"") && joined.includes("from \"worlds\"")
+      ) {
+        return {
+          message: "Runtime database state is inconsistent. Open Config and run wipe/reset data, then start agent again.",
+          label: "DB issue",
+          tone: "risk",
+          detail: "Database schema/state mismatch",
+        };
+      }
+      if (joined.includes("agent is not running")) {
+        return {
+          message: "Runtime is not running. Start the agent in Config, then retry chat.",
+          label: "Agent stopped",
+          tone: "warn",
+          detail: "Agent runtime is stopped",
+        };
+      }
+      if (
+        joined.includes("cannot find module") ||
+        joined.includes("module not found")
+      ) {
+        return {
+          message: "Runtime failed to load a required plugin/module. This is a backend dependency issue, not your prompt.",
+          label: "Module issue",
+          tone: "risk",
+          detail: "Missing runtime module/plugin",
+        };
+      }
+      if (
+        joined.includes("eaddrinuse") ||
+        joined.includes("failed to start server. is port")
+      ) {
+        return {
+          message: "Runtime failed to bind its API port because it is already in use.",
+          label: "Port conflict",
+          tone: "warn",
+          detail: "Backend port already in use",
+        };
+      }
+      if (joined.includes("timed out") || joined.includes("timeout")) {
+        return {
+          message: "Provider timed out. Retry with a shorter prompt or switch provider.",
+          label: "Timeout",
+          tone: "warn",
+          detail: "Provider response timeout",
+        };
+      }
+    } catch {
+      // Best-effort diagnosis only.
+    }
+    return null;
   }
 
   private async handleChatStop(): Promise<void> {
