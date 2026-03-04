@@ -5987,6 +5987,35 @@ async function handleRequest(
       openrouter: "OPENROUTER_API_KEY",
     };
 
+    const PROVIDER_PRIMARY_MODEL_MAP: Record<string, string> = {
+      elizacloud: "@elizaos/plugin-elizacloud",
+      "pi-ai": "@elizaos/plugin-pi-ai",
+      openai: "@elizaos/plugin-openai",
+      anthropic: "@elizaos/plugin-anthropic",
+      deepseek: "@elizaos/plugin-deepseek",
+      google: "@elizaos/plugin-google-genai",
+      groq: "@elizaos/plugin-groq",
+      xai: "@elizaos/plugin-xai",
+      openrouter: "@elizaos/plugin-openrouter",
+    };
+
+    const setPrimaryModelForProvider = (providerId: string): void => {
+      const primary = PROVIDER_PRIMARY_MODEL_MAP[providerId];
+      if (!primary) return;
+      if (!config.agents) config.agents = {};
+      if (!config.agents.defaults) config.agents.defaults = {};
+      const defaults = config.agents.defaults as Record<string, unknown>;
+      const model =
+        defaults.model && typeof defaults.model === "object"
+          ? ({ ...(defaults.model as Record<string, unknown>) } as Record<
+              string,
+              unknown
+            >)
+          : {};
+      model.primary = primary;
+      defaults.model = model;
+    };
+
     // Helper: clear all direct API keys from env (except the one we're switching to)
     const clearOtherApiKeys = (keepKey?: string) => {
       for (const [, envKey] of Object.entries(PROVIDER_ENV_KEYS)) {
@@ -6029,6 +6058,7 @@ async function handleRequest(
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
+        setPrimaryModelForProvider("elizacloud");
         // Restore cloud config — the actual API key should already be in
         // config.cloud.apiKey from the original cloud login.  If it was
         // wiped, the user will need to re-login via cloud.
@@ -6044,6 +6074,7 @@ async function handleRequest(
         clearOtherApiKeys();
         process.env.MILAIDY_USE_PI_AI = "1";
         envCfg.MILAIDY_USE_PI_AI = "1";
+        setPrimaryModelForProvider("pi-ai");
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6115,6 +6146,7 @@ async function handleRequest(
         clearCloud();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
+        setPrimaryModelForProvider(provider);
         const envKey = PROVIDER_ENV_KEYS[provider];
         clearOtherApiKeys(envKey);
         const apiKey = body.apiKey;
