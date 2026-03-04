@@ -4585,11 +4585,33 @@ export class MilaidyApp extends LitElement {
         didTimeout = true;
         abort.abort();
       }, 60_000);
-      const data = await client.sendChatRest(
-        payloadText,
-        this.buildChatSecurityContext(),
-        abort.signal,
-      );
+      let data;
+      try {
+        data = await client.sendChatRest(
+          payloadText,
+          this.buildChatSecurityContext(),
+          abort.signal,
+        );
+      } catch (firstErr) {
+        const firstMsg =
+          firstErr instanceof Error
+            ? firstErr.message.toLowerCase()
+            : (typeof firstErr === "string" ? firstErr.toLowerCase() : "");
+        if (firstMsg.includes("agent is not running")) {
+          const readyAfterRetry = await this.ensureAgentRunningForChat();
+          if (readyAfterRetry) {
+            data = await client.sendChatRest(
+              payloadText,
+              this.buildChatSecurityContext(),
+              abort.signal,
+            );
+          } else {
+            throw firstErr;
+          }
+        } else {
+          throw firstErr;
+        }
+      }
       if (this.inFlightChatAbort !== abort) return;
       let assistantText = data.text;
       if (this.isGenericAssistantFailureText(assistantText)) {
