@@ -225,6 +225,74 @@ describe("runEnsureAvatars", () => {
     expect(result.cloned).toBe(false);
     expect(result.reason).toBe("skipped-by-env");
   });
+
+  it("returns clone-failed when exec throws", () => {
+    const errors: string[] = [];
+    const result = runEnsureAvatars({
+      force: true,
+      log: () => {},
+      logError: (msg: string) => errors.push(msg),
+      _hasValidVrm: presentVrm,
+      _hasValidAnimations: presentAnims,
+      _gitAvailable: () => true,
+      _exec: () => {
+        throw new Error("git clone failed: connection refused");
+      },
+    });
+    expect(result.cloned).toBe(false);
+    expect(result.reason).toBe("clone-failed");
+    expect((result as { error?: string }).error).toContain(
+      "git clone failed: connection refused",
+    );
+    expect(errors.some((m: string) => m.includes("Failed to clone"))).toBe(
+      true,
+    );
+  });
+
+  it("returns verify-failed when copy succeeds but validators return false", () => {
+    // _exec is a no-op (clone never creates files) so existsSync(tmpDir/vrms)
+    // returns false — no cpSync is called.  With _hasValidVrm returning false,
+    // the post-clone verification fails with "verify-failed".
+    const errors: string[] = [];
+    const result = runEnsureAvatars({
+      force: true,
+      log: () => {},
+      logError: (msg: string) => errors.push(msg),
+      _hasValidVrm: absentVrm,
+      _hasValidAnimations: absentAnims,
+      _gitAvailable: () => true,
+      _exec: () => {},
+    });
+    expect(result.cloned).toBe(true);
+    expect((result as { reason?: string }).reason).toBe("verify-failed");
+    expect(errors.some((m: string) => m.includes("verification failed"))).toBe(
+      true,
+    );
+  });
+
+  it("returns success when clone and verification succeed", () => {
+    const logs: string[] = [];
+    const result = runEnsureAvatars({
+      force: true,
+      log: (msg: string) => logs.push(msg),
+      logError: () => {},
+      _hasValidVrm: presentVrm,
+      _hasValidAnimations: presentAnims,
+      _gitAvailable: () => true,
+      _exec: () => {},
+    });
+    expect(result.cloned).toBe(true);
+    expect((result as { reason?: string }).reason).toBeUndefined();
+    expect(
+      (result as { vrmsOk?: boolean; animsOk?: boolean }).vrmsOk,
+    ).toBe(true);
+    expect(
+      (result as { vrmsOk?: boolean; animsOk?: boolean }).animsOk,
+    ).toBe(true);
+    expect(
+      logs.some((m: string) => m.includes("installed successfully")),
+    ).toBe(true);
+  });
 });
 
 // ── Module exports ───────────────────────────────────────────────────

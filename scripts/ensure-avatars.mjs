@@ -89,6 +89,7 @@ export function runEnsureAvatars({
   _hasValidVrm = hasValidVrm,
   _hasValidAnimations = hasValidAnimations,
   _gitAvailable = gitAvailable,
+  _exec = execSync,
 } = {}) {
   if (!force && _hasValidVrm(VRMS_DIR) && _hasValidAnimations(ANIMATIONS_DIR)) {
     log(`${TAG} Avatar assets already present — skipping`);
@@ -124,15 +125,15 @@ export function runEnsureAvatars({
     //       shallow clone fetches a known ref instead of the current default
     //       branch HEAD.  The checkout below still locks to AVATARS_COMMIT,
     //       so correctness is unaffected — a tag would just save one fetch.
-    execSync(`git clone --depth 1 ${AVATARS_REPO} "${tmpDir}"`, {
+    _exec(`git clone --depth 1 ${AVATARS_REPO} "${tmpDir}"`, {
       cwd: ROOT,
       stdio: "inherit",
     });
-    execSync(`git -C "${tmpDir}" fetch --depth 1 origin ${AVATARS_COMMIT}`, {
+    _exec(`git -C "${tmpDir}" fetch --depth 1 origin ${AVATARS_COMMIT}`, {
       cwd: ROOT,
       stdio: "inherit",
     });
-    execSync(`git -C "${tmpDir}" checkout ${AVATARS_COMMIT}`, {
+    _exec(`git -C "${tmpDir}" checkout ${AVATARS_COMMIT}`, {
       cwd: ROOT,
       stdio: "inherit",
     });
@@ -158,9 +159,9 @@ export function runEnsureAvatars({
       log(`${TAG} Copied ${glbCount} emotes + ${fbxCount} mixamo animations`);
     }
 
-    // Verify the copy produced valid assets
-    const vrmsOk = hasValidVrm(VRMS_DIR);
-    const animsOk = hasValidAnimations(ANIMATIONS_DIR);
+    // Verify the copy produced valid assets (use injected validators for testability)
+    const vrmsOk = _hasValidVrm(VRMS_DIR);
+    const animsOk = _hasValidAnimations(ANIMATIONS_DIR);
 
     if (!vrmsOk || !animsOk) {
       logError(
