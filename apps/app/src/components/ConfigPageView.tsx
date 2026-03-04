@@ -381,13 +381,14 @@ function CloudServicesSection() {
       <div className="flex items-center justify-between mb-3">
         <div className="font-bold text-sm">Cloud Services</div>
         {needsRestart && (
-          <span
-            className="text-[11px] text-[var(--warning,#f59e0b)] font-medium cursor-pointer"
+          <button
+            type="button"
+            className="text-[11px] text-[var(--warning,#f59e0b)] font-medium cursor-pointer bg-transparent border-none p-0"
             onClick={() => setNeedsRestart(false)}
             title="Dismiss"
           >
             Restart required for changes to take effect &times;
-          </span>
+          </button>
         )}
       </div>
       <p className="text-[12px] text-[var(--muted)] mb-4">
