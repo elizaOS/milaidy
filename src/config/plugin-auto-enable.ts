@@ -222,13 +222,9 @@ export function isStreamingDestinationConfigured(
     case "customRtmp":
       return Boolean(config.rtmpUrl && config.rtmpKey);
     case "pumpfun":
-      return Boolean(
-        (config.streamKey && config.rtmpUrl) || config.enabled === true,
-      );
+      return Boolean(config.streamKey && config.rtmpUrl);
     case "x":
-      return Boolean(
-        (config.streamKey && config.rtmpUrl) || config.enabled === true,
-      );
+      return Boolean(config.streamKey && config.rtmpUrl);
     default:
       return false;
   }

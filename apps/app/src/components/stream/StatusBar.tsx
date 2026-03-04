@@ -62,7 +62,23 @@ export function StatusBar({
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
   const [sourceOpen, setSourceOpen] = useState(false);
+  const sourceDropdownRef = useRef<HTMLSpanElement>(null);
   const [customUrlInput, setCustomUrlInput] = useState("");
+
+  // Close source picker on click outside
+  useEffect(() => {
+    if (!sourceOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        sourceDropdownRef.current &&
+        !sourceDropdownRef.current.contains(e.target as Node)
+      ) {
+        setSourceOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sourceOpen]);
   const popoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Cleanup popout polling interval on unmount to prevent memory leaks
@@ -129,7 +145,7 @@ export function StatusBar({
 
         {/* Stream source picker — live only */}
         {!isPip && isLive && (
-          <span className="relative flex items-center">
+          <span ref={sourceDropdownRef} className="relative flex items-center">
             <button
               type="button"
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer text-[11px]"

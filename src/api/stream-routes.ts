@@ -884,6 +884,10 @@ export async function handleStreamRoute(
         error(res, "customUrl required for custom-url source", 400);
         return true;
       }
+      if (sourceType === "game" && !customUrl) {
+        error(res, "customUrl required for game source", 400);
+        return true;
+      }
 
       // Stop current frame capture if active
       if (state.screenCapture?.isFrameCaptureActive()) {

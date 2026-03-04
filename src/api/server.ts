@@ -13756,24 +13756,26 @@ export async function startApiServer(opts?: {
         }
 
         // Custom RTMP
-        if (streaming?.customRtmp && typeof streaming.customRtmp === "object") {
-          const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
-          if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
-            try {
-              const { createCustomRtmpDestination } = await import(
-                "../plugins/custom-rtmp/index.js"
-              );
-              destinations.set(
-                "custom-rtmp",
-                createCustomRtmpDestination(
-                  rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
-                ),
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        if (
+          isStreamingDestinationConfigured("customRtmp", streaming?.customRtmp)
+        ) {
+          try {
+            const { createCustomRtmpDestination } = await import(
+              "../plugins/custom-rtmp/index.js"
+            );
+            destinations.set(
+              "custom-rtmp",
+              createCustomRtmpDestination(
+                streaming?.customRtmp as {
+                  rtmpUrl?: string;
+                  rtmpKey?: string;
+                },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
 
