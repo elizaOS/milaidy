@@ -43,11 +43,7 @@ let whisperModuleName: string | null = null;
 
 async function tryLoadWhisper(): Promise<boolean> {
   // Tier 1: N-API native modules (best for Bun runtime)
-  const nativePackages = [
-    "sherpa-onnx",
-    "smart-whisper",
-    "whisper-node-addon",
-  ];
+  const nativePackages = ["sherpa-onnx", "smart-whisper", "whisper-node-addon"];
 
   for (const pkg of nativePackages) {
     try {
@@ -56,9 +52,7 @@ async function tryLoadWhisper(): Promise<boolean> {
       console.log(`[Whisper] Loaded native module: ${pkg}`);
       whisperAvailable = true;
       return true;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   // Tier 2: Transformers.js (ONNX runtime, confirmed Bun support)
@@ -145,7 +139,9 @@ export async function transcribe(
       (whisperModule as { default?: unknown }).default ?? whisperModule;
     if (typeof (whisper as { whisper?: unknown }).whisper === "function") {
       const result = await (
-        whisper as { whisper: (path: string, opts?: unknown) => Promise<unknown> }
+        whisper as {
+          whisper: (path: string, opts?: unknown) => Promise<unknown>;
+        }
       ).whisper(audioPath, options);
       return result as WhisperResult;
     }

@@ -636,15 +636,10 @@ export type MiladyRPCSchema = {
       lifoGetPipState: { params: undefined; response: PipState };
       lifoSetPip: { params: PipState; response: undefined };
     };
-    messages: {
-      // Messages the webview sends TO bun (rare - most communication
-      // is request/response). Audio chunks for streaming could go here.
-    };
+    messages: Record<string, never>;
   }>;
   webview: RPCSchema<{
-    requests: {
-      // Built-in: evaluateJavascriptWithResponse is added by Electroview
-    };
+    requests: Record<string, never>;
     messages: {
       // Push events FROM bun TO webview
 
