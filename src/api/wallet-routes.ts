@@ -369,7 +369,6 @@ export async function handleWalletRoutes(
       : (addresses.evmAddress ?? evmConfiguredAddress);
     const effectiveSolanaAddress = addresses.solanaAddress ?? solanaConfiguredAddress;
     const walletConnectionLocked =
-      process.env.WALLET_DISCONNECT === "1" ||
       process.env.MILADY_WALLET_CONNECTION_LOCKED === "1";
 
     const configStatus = {
