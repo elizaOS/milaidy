@@ -2,7 +2,7 @@
  * Boot progress event system for reporting startup phase progression.
  *
  * Used by the TUI loading screen to show animated progress during
- * the ElizaOS runtime boot sequence.
+ * the elizaOS runtime boot sequence.
  *
  * @module boot-progress
  */

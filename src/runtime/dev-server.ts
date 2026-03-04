@@ -3,7 +3,7 @@ const SCRIPT_START = Date.now();
 console.log(`[milady] Script starting...`);
 
 /**
- * Combined dev server — starts the ElizaOS runtime in headless mode and
+ * Combined dev server — starts the elizaOS runtime in headless mode and
  * wires it into the API server so the Control UI has a live agent to talk to.
  *
  * The MILADY_HEADLESS env var tells startEliza() to skip the interactive
@@ -323,7 +323,7 @@ async function main() {
     `[milady] API server ready on port ${actualPort} (${apiReady - apiStart}ms)`,
   );
 
-  // 2. Boot the ElizaOS agent runtime without blocking server readiness.
+  // 2. Boot the elizaOS agent runtime without blocking server readiness.
   scheduleRuntimeBootstrap(0, "startup");
 
   console.log(

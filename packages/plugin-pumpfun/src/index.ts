@@ -1,7 +1,7 @@
 /**
  * @milady/plugin-pumpfun -- pump.fun RTMP streaming destination plugin.
  *
- * An ElizaOS plugin that provides pump.fun streaming capability via RTMP.
+ * An elizaOS plugin that provides pump.fun streaming capability via RTMP.
  * pump.fun provides unique RTMP URLs per stream session — users must paste
  * both URL and key from the pump.fun UI into config.
  */

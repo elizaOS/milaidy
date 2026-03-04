@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Post-install script to set up local ElizaOS and plugins for development.
+ * Post-install script to set up local elizaOS and plugins for development.
  *
  * Clones the repositories to ~/.milady/ (if not present) and sets up the
  * environment to use local source code instead of npm packages.
  *
  * Repositories:
- *   - ~/.milady/eliza    - ElizaOS monorepo (next branch)
+ *   - ~/.milady/eliza    - elizaOS monorepo (next branch)
  *   - ~/.milady/plugins  - Plugins collection (next branch, fallback to main)
  *
  * Features:
@@ -42,7 +42,7 @@ const root = resolve(__dirname, "..");
 // Repository configurations
 const REPOS = {
   eliza: {
-    name: "ElizaOS",
+    name: "elizaOS",
     gitUrl: "https://github.com/elizaos/eliza.git",
     branch: "next",
     localDir: "eliza",
@@ -440,7 +440,7 @@ function checkPrereqs() {
 }
 
 async function main() {
-  console.log("[setup] Setting up local ElizaOS development environment...");
+  console.log("[setup] Setting up local elizaOS development environment...");
 
   checkPrereqs();
 
@@ -460,7 +460,7 @@ async function main() {
       elizaBranch = result.branch;
     }
   } else {
-    console.log("\n[setup] Skipping ElizaOS setup (--skip-eliza)");
+    console.log("\n[setup] Skipping elizaOS setup (--skip-eliza)");
   }
 
   if (!skipPlugins) {
@@ -483,7 +483,7 @@ async function main() {
   console.log("[setup] Setup complete!");
   console.log("[setup] ========================================");
   console.log(
-    `[setup] ElizaOS:      ${join(MILADY_DIR, "eliza")} (${elizaBranch})`,
+    `[setup] elizaOS:      ${join(MILADY_DIR, "eliza")} (${elizaBranch})`,
   );
   console.log(
     `[setup] Plugins:      ${join(MILADY_DIR, "plugins")} (${pluginsBranch})`,

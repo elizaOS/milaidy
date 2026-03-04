@@ -4,7 +4,7 @@ sidebarTitle: "Runtime & Lifecycle"
 description: "Boot sequence, initialization steps, plugin loading order, service startup, and restart behavior for the Milady agent runtime."
 ---
 
-This page documents how Milady initializes and manages the ElizaOS `AgentRuntime`, from process startup through graceful shutdown.
+This page documents how Milady initializes and manages the elizaOS `AgentRuntime`, from process startup through graceful shutdown.
 
 ## Entry Points
 
@@ -74,7 +74,7 @@ Immediately after config is loaded and before onboarding, several environment va
 
 ### Step 4: Environment Variable Population
 
-Several helper functions push config values into `process.env` so that ElizaOS plugins can read them:
+Several helper functions push config values into `process.env` so that elizaOS plugins can read them:
 
 | Function | Purpose |
 |---|---|
@@ -86,7 +86,7 @@ Several helper functions push config values into `process.env` so that ElizaOS p
 
 ### Step 5: Build Character
 
-`buildCharacterFromConfig()` assembles the ElizaOS `Character` from `milady.json`, resolving the agent name, personality fields, and secrets from environment variables.
+`buildCharacterFromConfig()` assembles the elizaOS `Character` from `milady.json`, resolving the agent name, personality fields, and secrets from environment variables.
 
 ### Step 6: Ensure Workspace
 

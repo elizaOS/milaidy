@@ -4,7 +4,7 @@ sidebarTitle: "Memory & State"
 description: "Memory types, state composition, vector search configuration, and embedding model setup for Milady agents."
 ---
 
-Milady uses the ElizaOS memory system backed by `@elizaos/plugin-sql` for persistence and `@elizaos/plugin-local-embedding` for vector embeddings. Memory is composed into agent state at each conversation turn.
+Milady uses the elizaOS memory system backed by `@elizaos/plugin-sql` for persistence and `@elizaos/plugin-local-embedding` for vector embeddings. Memory is composed into agent state at each conversation turn.
 
 ## Memory Backend
 
@@ -220,7 +220,7 @@ When conversation context approaches token limits, the compaction system summari
 
 | Mode | Behaviour |
 |---|---|
-| `"default"` | Standard compaction via ElizaOS core auto-compaction |
+| `"default"` | Standard compaction via elizaOS core auto-compaction |
 | `"safeguard"` | More aggressive pruning, caps history at `maxHistoryShare` of the context window |
 
 ## Context Pruning

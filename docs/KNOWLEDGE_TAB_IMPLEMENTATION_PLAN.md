@@ -147,7 +147,7 @@ export const CORE_PLUGINS: readonly string[] = [
 
 **File:** `/plugins/plugin-knowledge/typescript/provider.ts`
 
-**Finding:** ElizaOS runtime (`runtime.ts:2870-2879`) automatically filters out providers that return empty/whitespace text:
+**Finding:** elizaOS runtime (`runtime.ts:2870-2879`) automatically filters out providers that return empty/whitespace text:
 ```typescript
 if (result?.text && typeof result.text === "string" && result.text.trim() !== "") {
   orderedTexts.push(result.text);
@@ -170,7 +170,7 @@ if (!knowledgeData || knowledgeData.length === 0) {
 // ... rest of knowledge formatting
 ```
 
-**No ElizaOS core changes required** - the skip mechanism already exists.
+**No elizaOS core changes required** - the skip mechanism already exists.
 
 ### Phase 3: API Endpoints in Milady
 
@@ -416,7 +416,7 @@ Based on user feedback:
 | Phase | Scope | Dependencies |
 |-------|-------|--------------|
 | Phase 1 | Default plugin installation | None |
-| Phase 2 | Provider skip logic | May need ElizaOS core change |
+| Phase 2 | Provider skip logic | May need elizaOS core change |
 | Phase 3 | API endpoints | Phase 1 |
 | Phase 4 | UI implementation | Phase 3 |
 | Phase 5 | Video transcription | Phase 3 |

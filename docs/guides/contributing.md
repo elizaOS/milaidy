@@ -116,7 +116,7 @@ milady/
 │   ├── permissions/         # Permission system
 │   ├── plugins/             # Built-in plugins
 │   ├── providers/           # Context providers
-│   ├── runtime/             # ElizaOS runtime wrapper
+│   ├── runtime/             # elizaOS runtime wrapper
 │   ├── security/            # Security utilities
 │   ├── services/            # Background services
 │   ├── shared/              # Shared utilities
@@ -139,7 +139,7 @@ milady/
 |------|---------|
 | `src/entry.ts` | CLI entry point |
 | `src/index.ts` | Library exports |
-| `src/runtime/eliza.ts` | ElizaOS runtime initialization |
+| `src/runtime/eliza.ts` | elizaOS runtime initialization |
 | `src/runtime/milady-plugin.ts` | Main Milady plugin |
 | `milady.mjs` | npm bin entry |
 

@@ -1,10 +1,10 @@
 ---
 title: "Plugins & Registry API"
 sidebarTitle: "Plugins"
-description: "REST API endpoints for plugin management, the ElizaOS plugin registry, and core plugin operations."
+description: "REST API endpoints for plugin management, the elizaOS plugin registry, and core plugin operations."
 ---
 
-The plugins API manages the agent's plugin system. It covers three areas: **plugin management** (listing, configuring, enabling/disabling installed plugins), **plugin installation** (install, uninstall, eject, sync from npm), and the **plugin registry** (browsing the ElizaOS community catalog).
+The plugins API manages the agent's plugin system. It covers three areas: **plugin management** (listing, configuring, enabling/disabling installed plugins), **plugin installation** (install, uninstall, eject, sync from npm), and the **plugin registry** (browsing the elizaOS community catalog).
 
 ## Endpoints
 
@@ -326,7 +326,7 @@ Toggle an optional core plugin on or off.
 
 ### GET /api/registry/plugins
 
-List all plugins from the ElizaOS registry with installation and load status.
+List all plugins from the elizaOS registry with installation and load status.
 
 **Response**
 
@@ -383,7 +383,7 @@ Get details for a specific registry plugin. The `name` parameter should be URL-e
       "package": "@elizaos/plugin-twitter",
       "version": "1.2.0"
     },
-    "author": "ElizaOS Team",
+    "author": "elizaOS Team",
     "repository": "https://github.com/elizaos/eliza",
     "tags": ["social", "twitter"],
     "installed": false,
@@ -428,7 +428,7 @@ Search the plugin registry by keyword.
 
 ### POST /api/registry/refresh
 
-Force refresh the local registry cache from the upstream ElizaOS registry.
+Force refresh the local registry cache from the upstream elizaOS registry.
 
 **Response**
 
@@ -459,7 +459,7 @@ Get the agent's registry connection status.
 
 ### POST /api/registry/register
 
-Register the agent with the ElizaOS registry.
+Register the agent with the elizaOS registry.
 
 **Response**
 

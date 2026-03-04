@@ -8,7 +8,7 @@ Milady agent personality is composed from several layers at runtime. The Charact
 
 ## How Personality Is Composed
 
-At startup, `buildCharacterFromConfig()` assembles a Character object and passes it to `AgentRuntime`. The ElizaOS core then constructs the system prompt from these fields:
+At startup, `buildCharacterFromConfig()` assembles a Character object and passes it to `AgentRuntime`. The elizaOS core then constructs the system prompt from these fields:
 
 1. **`character.system`** — The base system prompt template. The `{{name}}` placeholder is replaced with the agent's actual name.
 2. **`character.bio`** — Each string in the bio array is appended to the prompt to fill out the agent's identity.
@@ -21,13 +21,13 @@ At startup, `buildCharacterFromConfig()` assembles a Character object and passes
 When no `system` field is set in the agent config, the runtime uses:
 
 ```
-You are {{name}}, an autonomous AI agent powered by ElizaOS.
+You are {{name}}, an autonomous AI agent powered by elizaOS.
 ```
 
 After template resolution this becomes:
 
 ```
-You are Luna, an autonomous AI agent powered by ElizaOS.
+You are Luna, an autonomous AI agent powered by elizaOS.
 ```
 
 ### Onboarding-Generated Prompts

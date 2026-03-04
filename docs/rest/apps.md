@@ -4,7 +4,7 @@ sidebarTitle: "Apps"
 description: "REST API endpoints for browsing, launching, and managing apps, plus Hyperscape embedded agent integration."
 ---
 
-The apps API manages installable applications (which are backed by ElizaOS plugins). Apps can be browsed from the registry, launched (which installs their plugin if needed), and stopped. The Hyperscape integration provides control of embedded AI agents in the Hyperscape virtual environment.
+The apps API manages installable applications (which are backed by elizaOS plugins). Apps can be browsed from the registry, launched (which installs their plugin if needed), and stopped. The Hyperscape integration provides control of embedded AI agents in the Hyperscape virtual environment.
 
 ## Apps
 

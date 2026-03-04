@@ -1,5 +1,5 @@
 /**
- * WhatsApp Baileys service for ElizaOS runtime.
+ * WhatsApp Baileys service for elizaOS runtime.
  *
  * Manages a persistent Baileys socket using QR-auth credentials saved to disk
  * by the pairing service (`src/services/whatsapp-pairing.ts`).

@@ -105,7 +105,7 @@ const DEFAULT_MEMORY_ALT_FILENAME = "memory.md";
 const WORKSPACE_TEMPLATES: Record<string, string> = {
   [DEFAULT_AGENTS_FILENAME]: `# Agents
 
-You are an autonomous AI agent powered by ElizaOS.
+You are an autonomous AI agent powered by elizaOS.
 
 ## Capabilities
 

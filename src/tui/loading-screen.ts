@@ -116,7 +116,7 @@ export class LoadingScreen {
     const nameLine = `${sl}  ${nameText}  ${sr}`;
 
     // ── Subtitle ──────────────────────────────────────────────────
-    const subtitle = chalk.hex(DIM)("powered by ElizaOS");
+    const subtitle = chalk.hex(DIM)("powered by elizaOS");
 
     // ── Progress bar ──────────────────────────────────────────────
     const barWidth = Math.min(40, Math.max(20, cols - 20));

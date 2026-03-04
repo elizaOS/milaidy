@@ -244,7 +244,7 @@ All got real structured reviews with visible comments. Pipeline costs: ~$0.17-$0
 
 ### Bug 8: CI Test Plugin Load Thresholds
 **Symptom:** Tests workflow failing since overnight — 2/28 plugins load in CI, test expects 21.  
-**Root cause:** Plugin stress test hardcodes 28 ElizaOS plugins as "core" but most need native deps (better-sqlite3 etc.) unavailable in CI.  
+**Root cause:** Plugin stress test hardcodes 28 elizaOS plugins as "core" but most need native deps (better-sqlite3 etc.) unavailable in CI.  
 **Fix:** CI-aware thresholds: minimum 2 in CI (sanity), original 75% locally.
 
 ---
@@ -347,7 +347,7 @@ Current v1 is naive — 5 approved PRs maxes out score. Redesign in progress wit
 `codex review` output format isn't as structured as Claude's. May need prompt tuning or post-processing to ensure consistent Decision line parsing.
 
 ### 5. No Benchmark Gating
-ElizaOS has a benchmark suite (`elizaos/benchmarks`) but it's not yet wired as a CI check.
+elizaOS has a benchmark suite (`elizaos/benchmarks`) but it's not yet wired as a CI check.
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * WhatsApp actions for the ElizaOS agent.
+ * WhatsApp actions for the elizaOS agent.
  *
  * Provides a SEND_WHATSAPP_MESSAGE action so the agent can proactively
  * send messages to WhatsApp contacts by phone number.

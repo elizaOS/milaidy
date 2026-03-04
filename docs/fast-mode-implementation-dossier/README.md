@@ -1,6 +1,6 @@
 # Fast Mode Implementation Dossier
 
-This dossier is a deep implementation and risk analysis for adding **per-message fast mode** to Milady + ElizaOS while preserving autonomous/full mode behavior.
+This dossier is a deep implementation and risk analysis for adding **per-message fast mode** to Milady + elizaOS while preserving autonomous/full mode behavior.
 
 The goal is not just a feature spec. It is an execution blueprint:
 

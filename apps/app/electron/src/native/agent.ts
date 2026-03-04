@@ -1,7 +1,7 @@
 /**
  * Agent Native Module for Electron
  *
- * Embeds the Milady agent runtime (ElizaOS) directly in the Electron main
+ * Embeds the Milady agent runtime (elizaOS) directly in the Electron main
  * process and exposes it to the renderer via IPC.
  *
  * On startup the module:

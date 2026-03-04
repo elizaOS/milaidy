@@ -3907,7 +3907,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     const systemPrompt = style?.system
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
-      : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
+      : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
 
     const isLocalMode =
       onboardingRunMode === "local-rawdog" ||

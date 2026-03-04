@@ -8,7 +8,7 @@ Connect your agent to Discord servers and DMs.
 
 ## Overview
 
-The Discord connector is an external ElizaOS plugin that bridges your agent to Discord. It is auto-enabled by the runtime when a valid token is detected in your connector configuration.
+The Discord connector is an external elizaOS plugin that bridges your agent to Discord. It is auto-enabled by the runtime when a valid token is detected in your connector configuration.
 
 ## Package Info
 
