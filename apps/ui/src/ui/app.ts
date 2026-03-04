@@ -20,6 +20,7 @@ import {
   type LogEntry,
   type OnboardingOptions,
   type ProviderOption,
+  type SubscriptionStatusEntry,
   type ExtensionStatus,
   type UiConfigResponse,
   type WalletAddresses,
@@ -301,6 +302,7 @@ export class MilaidyApp extends LitElement {
   // Chrome extension state
   @state() extensionStatus: ExtensionStatus | null = null;
   @state() extensionChecking = false;
+  @state() subscriptionStatusById: Record<string, SubscriptionStatusEntry> = {};
 
   // Wallet / Inventory state
   @state() walletAddresses: WalletAddresses | null = null;
@@ -411,6 +413,7 @@ export class MilaidyApp extends LitElement {
   private logsLoadedAt = 0;
   private walletConfigLoadedAt = 0;
   private inventoryLoadedAt = 0;
+  private subscriptionStatusLoadedAt = 0;
   private extensionCheckedAt = 0;
   private tabDataLoadRaf: number | null = null;
 
@@ -4116,6 +4119,7 @@ export class MilaidyApp extends LitElement {
     // Prime sidebar/context metrics so layout cards are useful on first load.
     await Promise.all([
       this.loadPlugins().catch(() => {}),
+      this.loadSubscriptionStatus().catch(() => {}),
       this.loadWalletConfig().catch(() => {}),
       this.loadLogs().catch(() => {}),
     ]);
@@ -4228,6 +4232,7 @@ export class MilaidyApp extends LitElement {
       const EXTENSION_TTL_MS = 30_000;
       const LOGS_TTL_MS = 20_000;
       const SKILLS_TTL_MS = 60_000;
+      const SUBSCRIPTION_TTL_MS = 45_000;
 
       if (tab === "inventory") {
         if (isStale(this.inventoryLoadedAt, INVENTORY_TTL_MS)) void this.loadInventory();
@@ -4240,6 +4245,7 @@ export class MilaidyApp extends LitElement {
       }
       if (tab === "ai-setup") {
         if (isStale(this.pluginsLoadedAt, PLUGINS_TTL_MS)) void this.loadPlugins();
+        if (isStale(this.subscriptionStatusLoadedAt, SUBSCRIPTION_TTL_MS)) void this.loadSubscriptionStatus();
         return;
       }
       if (tab === "apps") {
@@ -4302,6 +4308,7 @@ export class MilaidyApp extends LitElement {
           : plugin,
       );
       this.pluginsLoadedAt = Date.now();
+      void this.loadSubscriptionStatus();
     } catch (err) {
       console.error("Failed to load plugins:", err);
       this.showUiNotice("Could not load AI/app settings. Retry in a moment.");
@@ -5514,7 +5521,8 @@ export class MilaidyApp extends LitElement {
     return last?.at ?? null;
   }
 
-  private pluginStatusLabel(plugin: PluginInfo): "Loaded" | "Missing keys" | "Disabled" {
+  private pluginStatusLabel(plugin: PluginInfo): "Loaded" | "Missing keys" | "Missing auth" | "Disabled" {
+    if (this.isSubscriptionProvider(plugin) && !this.isSubscriptionAuthenticated(plugin)) return "Missing auth";
     if (plugin.validationErrors.length > 0) return "Missing keys";
     if (plugin.enabled) return "Loaded";
     return "Disabled";
@@ -7035,6 +7043,33 @@ export class MilaidyApp extends LitElement {
     return this.isAnthropicSubscriptionProvider(plugin) || this.isOpenAiSubscriptionProvider(plugin);
   }
 
+  private canonicalSubscriptionProviderId(id: string): string {
+    const canonical = canonicalProviderId(id);
+    if (canonical === "openai-codex") return "openai-subscription";
+    return canonical;
+  }
+
+  private isSubscriptionAuthenticated(plugin: PluginInfo): boolean {
+    if (!this.isSubscriptionProvider(plugin)) return false;
+    const id = this.canonicalSubscriptionProviderId(plugin.id);
+    return this.subscriptionStatusById[id]?.authenticated === true;
+  }
+
+  private async loadSubscriptionStatus(): Promise<void> {
+    try {
+      const { providers } = await client.getSubscriptionStatus();
+      const byId: Record<string, SubscriptionStatusEntry> = {};
+      for (const provider of providers ?? []) {
+        const key = this.canonicalSubscriptionProviderId(provider.id);
+        byId[key] = provider;
+      }
+      this.subscriptionStatusById = byId;
+      this.subscriptionStatusLoadedAt = Date.now();
+    } catch {
+      // non-fatal; subscription routes may be unavailable on some builds
+    }
+  }
+
   private async startSubscriptionAuth(plugin: PluginInfo): Promise<void> {
     try {
       if (this.isAnthropicSubscriptionProvider(plugin)) {
@@ -7071,6 +7106,7 @@ export class MilaidyApp extends LitElement {
         return;
       }
       await this.loadPlugins();
+      await this.loadSubscriptionStatus();
       this.showUiNotice(`${plugin.name} login completed.`);
     } catch (err) {
       this.showUiNotice(`Could not finish subscription login: ${err instanceof Error ? err.message : "network error"}`);
@@ -7084,6 +7120,7 @@ export class MilaidyApp extends LitElement {
     try {
       await client.saveAnthropicSetupToken(token.trim());
       await this.loadPlugins();
+      await this.loadSubscriptionStatus();
       this.showUiNotice("Anthropic setup token saved.");
     } catch (err) {
       this.showUiNotice(`Could not save setup token: ${err instanceof Error ? err.message : "network error"}`);
@@ -7722,7 +7759,7 @@ export class MilaidyApp extends LitElement {
             </div>
             <div class="plugin-kpi">
               <div class="plugin-kpi-value">${configuredCount}</div>
-              <div class="plugin-kpi-label">${viewMode === "ai" ? "Configured (all)" : "Configured"}</div>
+              <div class="plugin-kpi-label">Configured</div>
             </div>
             <div class="plugin-kpi">
               <div class="plugin-kpi-value">${viewMode === "ai" ? needsSetupCount : requiresSetup.length}</div>
@@ -7860,7 +7897,7 @@ export class MilaidyApp extends LitElement {
                           </span>
                           ${viewMode === "ai"
                             ? html`
-                                <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" ? "warn" : ""}">
+                                <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
                                   ${statusLabel}
                                 </span>
                               `
@@ -8104,6 +8141,7 @@ export class MilaidyApp extends LitElement {
   private isChatProviderReady(plugin: PluginInfo): boolean {
     if (!this.isAiProviderPlugin(plugin)) return false;
     if (!plugin.enabled) return false;
+    if (this.isSubscriptionProvider(plugin)) return this.isSubscriptionAuthenticated(plugin);
     if (plugin.validationErrors.length > 0) return false;
 
     // For providers that require an API key, never trust `configured` alone.
@@ -8132,7 +8170,7 @@ export class MilaidyApp extends LitElement {
     if (!plugin.enabled) return false;
     if (plugin.validationErrors.length > 0) return false;
     if (this.isSubscriptionProvider(plugin)) {
-      return plugin.configured || this.isPluginEffectivelyConfigured(plugin);
+      return this.isSubscriptionAuthenticated(plugin);
     }
     if (plugin.parameters.length > 0) {
       const requiredParams = plugin.parameters.filter((param) => param.required);
