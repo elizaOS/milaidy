@@ -7092,6 +7092,25 @@ async function handleRequest(
           (state.config.env as Record<string, unknown>)[key] = value;
         }
       }
+
+      // Keep ElizaCloud plugin saves aligned with runtime cloud source-of-truth.
+      // Runtime provider precedence reads config.cloud, not just config.env.
+      if (pluginId === "elizacloud") {
+        if (!state.config.cloud) {
+          state.config.cloud = {} as NonNullable<typeof state.config.cloud>;
+        }
+
+        const cloudApiKey = body.config.ELIZAOS_CLOUD_API_KEY;
+        if (typeof cloudApiKey === "string" && cloudApiKey.trim()) {
+          state.config.cloud.apiKey = cloudApiKey.trim();
+          state.config.cloud.enabled = true;
+        }
+
+        const cloudBaseUrl = body.config.ELIZAOS_CLOUD_BASE_URL;
+        if (typeof cloudBaseUrl === "string" && cloudBaseUrl.trim()) {
+          state.config.cloud.baseUrl = cloudBaseUrl.trim();
+        }
+      }
       plugin.configured = true;
 
       // Save config even when only config values changed (no enable toggle)
@@ -7102,6 +7121,11 @@ async function handleRequest(
           logger.warn(
             `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
+        }
+
+        // Apply cloud model/provider updates cleanly after settings saves.
+        if (pluginId === "elizacloud") {
+          scheduleRuntimeRestart("Eliza Cloud configuration updated");
         }
       }
     }
