@@ -872,6 +872,33 @@ async function saveTrajectory(
     await executeRawSql(runtime, sql);
     return true;
   } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : (typeof err === "string" ? err : String(err));
+    const missingTrajectoryIdColumn =
+      message.includes('column "trajectory_id"') &&
+      message.includes("does not exist");
+
+    // Legacy DB recovery: some installs have an older trajectories schema.
+    // If trajectory_id is missing, add it and retry once.
+    if (missingTrajectoryIdColumn) {
+      try {
+        await executeRawSql(
+          runtime,
+          "ALTER TABLE trajectories ADD COLUMN IF NOT EXISTS trajectory_id TEXT",
+        );
+        await executeRawSql(runtime, sql);
+        return true;
+      } catch (retryErr) {
+        console.error(
+          "[trajectory-persistence] saveTrajectory retry after column migration failed:",
+          retryErr,
+        );
+        return false;
+      }
+    }
+
     console.error("[trajectory-persistence] saveTrajectory error:", err);
     return false;
   }
