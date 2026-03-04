@@ -18,7 +18,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { type OnboardingStep, THEMES, useApp } from "../AppContext";
+import {
+  getVrmPreviewUrl,
+  getVrmUrl,
+  type OnboardingStep,
+  THEMES,
+  useApp,
+} from "../AppContext";
 import {
   type CloudProviderOption,
   client,
@@ -31,7 +37,8 @@ import {
   type SandboxPlatformStatus,
   type StylePreset,
 } from "../api-client";
-import { resolveApiUrl } from "../asset-url";
+import { resolveApiUrl, resolveAppAssetUrl } from "../asset-url";
+import { createTranslator } from "../i18n";
 import { getProviderLogo } from "../provider-logos";
 import { AvatarSelector } from "./AvatarSelector";
 import { PermissionsOnboardingSection } from "./PermissionsSection";
@@ -82,11 +89,39 @@ try {
   }
 }
 
+type OnboardingVrmAvatarProps = {
+  vrmPath: string;
+  fallbackPreviewUrl: string;
+  pulse?: boolean;
+};
+
+function OnboardingVrmAvatar({
+  vrmPath: _vrmPath,
+  fallbackPreviewUrl: _fallbackPreviewUrl,
+  pulse = false,
+}: OnboardingVrmAvatarProps) {
+  return (
+    <div
+      className={`relative w-[140px] h-[140px] rounded-full border-[3px] border-border mx-auto mb-5 overflow-hidden bg-card ${
+        pulse ? "animate-pulse" : ""
+      }`}
+    >
+      <img
+        src={resolveAppAssetUrl("apple-touch-icon.png")}
+        alt="Milady"
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
 export function OnboardingWizard() {
   const {
     onboardingStep,
     onboardingOptions,
     onboardingName,
+    onboardingOwnerName,
+    onboardingSetupMode,
     onboardingStyle,
     onboardingTheme,
     onboardingRunMode,
@@ -111,11 +146,13 @@ export function OnboardingWizard() {
     onboardingRpcSelections,
     onboardingRpcKeys,
     onboardingAvatar,
+    customVrmUrl,
     onboardingRestarting,
     cloudConnected,
     cloudLoginBusy,
     cloudLoginError,
     cloudUserId,
+    uiLanguage,
     handleOnboardingNext,
     handleOnboardingBack,
     setState,
@@ -123,7 +160,9 @@ export function OnboardingWizard() {
     handleCloudLogin,
     mintFromDrop,
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
+  const [_showAllProviders, _setShowAllProviders] = useState(false);
   const [openaiOAuthStarted, setOpenaiOAuthStarted] = useState(false);
   const [openaiCallbackUrl, setOpenaiCallbackUrl] = useState("");
   const [openaiConnected, setOpenaiConnected] = useState(false);
@@ -134,6 +173,83 @@ export function OnboardingWizard() {
   const [anthropicError, setAnthropicError] = useState("");
   const [customNameText, setCustomNameText] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+  const [_apiKeyFormatWarning, setApiKeyFormatWarning] = useState("");
+
+  // ── Step progress helpers ────────────────────────────────────────────
+  const QUICK_STEPS: OnboardingStep[] = [
+    "welcome",
+    "name",
+    "ownerName",
+    "avatar",
+    "style",
+    "theme",
+    "setupMode",
+    "llmProvider",
+    "permissions",
+  ];
+  const FULL_STEPS: OnboardingStep[] = [
+    "welcome",
+    "name",
+    "ownerName",
+    "avatar",
+    "style",
+    "theme",
+    "setupMode",
+    "runMode",
+    "cloudProvider",
+    "modelSelection",
+    "cloudLogin",
+    "llmProvider",
+    "inventorySetup",
+    "connectors",
+    "permissions",
+  ];
+
+  const getStepIndex = (): number => {
+    const list = onboardingSetupMode === "advanced" ? FULL_STEPS : QUICK_STEPS;
+    const idx = list.indexOf(onboardingStep as OnboardingStep);
+    return idx === -1 ? 1 : idx + 1;
+  };
+
+  const getTotalSteps = (): number | null => {
+    if (!onboardingSetupMode) return null;
+    return onboardingSetupMode === "advanced"
+      ? FULL_STEPS.length
+      : QUICK_STEPS.length;
+  };
+
+  const stepIndex = getStepIndex();
+  const totalSteps = getTotalSteps();
+  const progressPct =
+    totalSteps != null
+      ? Math.round((stepIndex / totalSteps) * 100)
+      : Math.round((stepIndex / QUICK_STEPS.length) * 100);
+
+  // ── API key format validation ────────────────────────────────────────
+  const validateApiKeyFormat = (key: string, providerId: string): string => {
+    if (!key || key.trim().length === 0) return "";
+    const trimmed = key.trim();
+    if (providerId === "openai" && !trimmed.startsWith("sk-")) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    if (providerId === "anthropic" && !trimmed.startsWith("sk-ant-")) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    if (trimmed.length < 20) {
+      return "Key format looks incorrect. Double-check and try again.";
+    }
+    return "";
+  };
+
+  // ── VRM avatar path ─────────────────────────────────────────────────
+  const avatarVrmPath =
+    onboardingAvatar === 0 && customVrmUrl
+      ? customVrmUrl
+      : getVrmUrl(onboardingAvatar || 1);
+  const avatarFallbackPreviewUrl =
+    onboardingAvatar > 0
+      ? getVrmPreviewUrl(onboardingAvatar)
+      : getVrmPreviewUrl(1);
 
   // ── Agent import during onboarding ──────────────────────────────────
   const [showImport, setShowImport] = useState(false);
@@ -221,7 +337,9 @@ export function OnboardingWizard() {
   };
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setState("onboardingApiKey", e.target.value);
+    const newKey = e.target.value;
+    setState("onboardingApiKey", newKey);
+    setApiKeyFormatWarning(validateApiKeyFormat(newKey, onboardingProvider));
   };
 
   const handleOpenRouterModelSelect = (modelId: string) => {
@@ -328,16 +446,15 @@ export function OnboardingWizard() {
       case "welcome":
         return (
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">
-              ohhh uhhhh hey there!
+              {t("onboarding.welcomeLine1")}
             </h1>
             <h1 className="text-[28px] font-normal mb-1 text-txt-strong">
-              welcome to milady!
+              {t("onboarding.welcomeLine2")}
             </h1>
 
             {!showImport ? (
@@ -420,15 +537,17 @@ export function OnboardingWizard() {
       case "name":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                ohhh... what's my name again?
+                {t("onboarding.nameQuestion")}
               </h2>
+              <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-accent border border-accent/40 px-1.5 py-0.5 rounded mt-1">
+                * {t("onboarding.required")}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
               {onboardingOptions?.names.slice(0, 6).map((name: string) => (
@@ -470,24 +589,82 @@ export function OnboardingWizard() {
                     setState("onboardingName", customNameText);
                   }}
                   className="border-none bg-transparent text-sm font-bold w-full p-0 outline-none text-txt text-center placeholder:text-muted"
-                  placeholder="enter custom name..."
+                  placeholder={t("onboarding.customNamePlaceholder")}
                 />
               </div>
             </div>
           </div>
         );
 
-      case "avatar":
+      case "ownerName": {
+        const ownerPresets = ["anon", "master", "senpai", "bestie", "boss"];
+        const isOwnerCustom = ownerPresets.indexOf(onboardingOwnerName) === -1;
         return (
-          <div className="mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+          <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                what body should i, uhhh, use?
+                {t("onboarding.ownerQuestion")}
+              </h2>
+              <p className="text-[13px] opacity-60 mt-1">
+                {t("onboarding.optionalOwnerHint")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center mx-auto mb-3">
+              {ownerPresets.map((preset) => (
+                <button
+                  type="button"
+                  key={preset}
+                  className={`px-5 py-2 border cursor-pointer bg-card transition-colors rounded-full text-sm font-bold ${
+                    onboardingOwnerName === preset
+                      ? "border-accent !bg-accent !text-accent-fg"
+                      : "border-border hover:border-accent"
+                  }`}
+                  onClick={() => setState("onboardingOwnerName", preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <div className="max-w-[260px] mx-auto">
+              <div
+                className={`px-4 py-2.5 border cursor-text bg-card transition-colors rounded-full ${
+                  isOwnerCustom && onboardingOwnerName
+                    ? "border-accent ring-2 ring-accent/30"
+                    : "border-border hover:border-accent"
+                }`}
+              >
+                <input
+                  type="text"
+                  value={isOwnerCustom ? onboardingOwnerName : ""}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setState("onboardingOwnerName", e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (!isOwnerCustom) setState("onboardingOwnerName", "");
+                  }}
+                  className="border-none bg-transparent text-sm font-bold w-full p-0 outline-none text-txt text-center placeholder:text-muted"
+                  placeholder={t("onboarding.customOwnerPlaceholder")}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case "avatar":
+        return (
+          <div className="mx-auto mt-10 text-center font-body">
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
+            />
+            <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
+                {t("onboarding.avatarQuestion")}
               </h2>
             </div>
             <div className="mx-auto">
@@ -522,14 +699,13 @@ export function OnboardingWizard() {
       case "style":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                whats my vibe?
+                {t("onboarding.styleQuestion")}
               </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mx-auto max-w-[480px]">
@@ -563,14 +739,13 @@ export function OnboardingWizard() {
       case "theme":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                what colors do u like?
+                {t("onboarding.themeQuestion")}
               </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-[600px] mx-auto">
@@ -592,13 +767,66 @@ export function OnboardingWizard() {
           </div>
         );
 
+      case "setupMode":
+        return (
+          <div className="max-w-[480px] mx-auto mt-10 text-center font-body">
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
+            />
+            <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
+              <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
+                {t("onboarding.howMuchSetup")}
+              </h2>
+              <p className="text-muted text-sm">{t("onboarding.choosePath")}</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[420px] mx-auto">
+              <button
+                type="button"
+                className={`p-5 border-[1.5px] rounded-lg cursor-pointer transition-all text-left ${
+                  onboardingSetupMode === "quick"
+                    ? "border-accent bg-accent text-accent-fg shadow-md"
+                    : "border-border bg-card hover:border-border-hover hover:bg-bg-hover"
+                }`}
+                onClick={() => setState("onboardingSetupMode", "quick")}
+              >
+                <div className="font-semibold text-sm mb-1">
+                  {t("onboarding.quickSetup")}
+                </div>
+                <div
+                  className={`text-xs ${onboardingSetupMode === "quick" ? "opacity-80" : "text-muted"}`}
+                >
+                  {t("onboarding.quickSetupHint")}
+                </div>
+              </button>
+              <button
+                type="button"
+                className={`p-5 border-[1.5px] rounded-lg cursor-pointer transition-all text-left ${
+                  onboardingSetupMode === "advanced"
+                    ? "border-accent bg-accent text-accent-fg shadow-md"
+                    : "border-border bg-card hover:border-border-hover hover:bg-bg-hover"
+                }`}
+                onClick={() => setState("onboardingSetupMode", "advanced")}
+              >
+                <div className="font-semibold text-sm mb-1">
+                  {t("onboarding.fullSetup")}
+                </div>
+                <div
+                  className={`text-xs ${onboardingSetupMode === "advanced" ? "opacity-80" : "text-muted"}`}
+                >
+                  {t("onboarding.fullSetupHint")}
+                </div>
+              </button>
+            </div>
+          </div>
+        );
+
       case "mint":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -638,10 +866,9 @@ export function OnboardingWizard() {
           }
           return (
             <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-              <img
-                src="/android-chrome-512x512.png"
-                alt="Avatar"
-                className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+              <OnboardingVrmAvatar
+                vrmPath={avatarVrmPath}
+                fallbackPreviewUrl={avatarFallbackPreviewUrl}
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -668,17 +895,16 @@ export function OnboardingWizard() {
 
         return (
           <div className="max-w-[580px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                where should i live?
+                {t("onboarding.whereShouldILive")}
               </h2>
               <p className="text-[13px] text-txt mt-1 opacity-70">
-                pick how u want me to run bb
+                {t("onboarding.pickHowToRun")}
               </p>
             </div>
             <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
@@ -738,15 +964,19 @@ export function OnboardingWizard() {
         );
 
       case "dockerSetup":
-        return <DockerSetupStep />;
+        return (
+          <DockerSetupStep
+            avatarVrmPath={avatarVrmPath}
+            avatarFallbackPreviewUrl={avatarFallbackPreviewUrl}
+          />
+        );
 
       case "cloudProvider":
         return (
           <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -1037,10 +1267,9 @@ export function OnboardingWizard() {
         if (!onboardingProvider) {
           return (
             <div className="w-full mx-auto mt-10 text-center font-body">
-              <img
-                src="/android-chrome-512x512.png"
-                alt="Avatar"
-                className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+              <OnboardingVrmAvatar
+                vrmPath={avatarVrmPath}
+                fallbackPreviewUrl={avatarFallbackPreviewUrl}
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-4 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -1563,10 +1792,9 @@ export function OnboardingWizard() {
       case "inventorySetup": {
         return (
           <div className="w-full mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -1714,10 +1942,9 @@ export function OnboardingWizard() {
       case "connectors":
         return (
           <div className="w-full mx-auto mt-10 text-center font-body">
-            <img
-              src="/android-chrome-512x512.png"
-              alt="Avatar"
-              className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+            <OnboardingVrmAvatar
+              vrmPath={avatarVrmPath}
+              fallbackPreviewUrl={avatarFallbackPreviewUrl}
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
@@ -1968,12 +2195,16 @@ export function OnboardingWizard() {
         return true;
       case "name":
         return onboardingName.trim().length > 0;
+      case "ownerName":
+        return true; // optional — user can skip
       case "avatar":
         return true; // always valid — defaults to 1
       case "style":
         return onboardingStyle.length > 0;
       case "theme":
         return true;
+      case "setupMode":
+        return onboardingSetupMode !== "";
       case "runMode":
         return onboardingRunMode !== "";
       case "dockerSetup":
@@ -2033,6 +2264,21 @@ export function OnboardingWizard() {
 
   return (
     <div className="mx-auto px-4 pb-16 text-center font-body h-full overflow-y-auto">
+      {/* Progress bar */}
+      <div className="w-full h-1 bg-border rounded-full overflow-hidden mb-1">
+        <div
+          className="h-full bg-accent rounded-full transition-all duration-300"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+      {/* Step counter */}
+      <div className="text-[11px] text-muted text-center mb-1 tracking-wide">
+        {t("onboarding.stepLabel", {
+          current: stepIndex,
+          total: totalSteps != null ? totalSteps : "?",
+        })}
+      </div>
+
       {renderStep(onboardingStep)}
       <div className="flex gap-2 mt-8 justify-center">
         {canGoBack && (
@@ -2042,7 +2288,7 @@ export function OnboardingWizard() {
             onClick={handleBack}
             disabled={onboardingRestarting}
           >
-            back
+            {t("common.back")}
           </button>
         )}
         {showPrimaryNext && (
@@ -2052,7 +2298,9 @@ export function OnboardingWizard() {
             onClick={() => void handleOnboardingNext()}
             disabled={!canGoNext() || onboardingRestarting}
           >
-            {onboardingRestarting ? "restarting..." : "next"}
+            {onboardingRestarting
+              ? t("onboarding.restarting")
+              : t("common.next")}
           </button>
         )}
       </div>
@@ -2064,7 +2312,13 @@ export function OnboardingWizard() {
 // Docker Setup Step — checks Docker availability and guides installation
 // ═══════════════════════════════════════════════════════════════════════════
 
-function DockerSetupStep() {
+function DockerSetupStep({
+  avatarVrmPath,
+  avatarFallbackPreviewUrl,
+}: {
+  avatarVrmPath: string;
+  avatarFallbackPreviewUrl: string;
+}) {
   const [checking, setChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [startMessage, setStartMessage] = useState("");
@@ -2170,10 +2424,10 @@ function DockerSetupStep() {
   if (checking) {
     return (
       <div className="max-w-[520px] mx-auto mt-10 text-center font-body">
-        <img
-          src="/android-chrome-512x512.png"
-          alt="Avatar"
-          className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block animate-pulse"
+        <OnboardingVrmAvatar
+          vrmPath={avatarVrmPath}
+          fallbackPreviewUrl={avatarFallbackPreviewUrl}
+          pulse
         />
         <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
           <p>checking ur machine for sandbox stuff...</p>
@@ -2189,10 +2443,9 @@ function DockerSetupStep() {
 
   return (
     <div className="max-w-[540px] mx-auto mt-10 text-center font-body">
-      <img
-        src="/android-chrome-512x512.png"
-        alt="Avatar"
-        className="w-[140px] h-[140px] rounded-full object-cover border-[3px] border-border mx-auto mb-5 block"
+      <OnboardingVrmAvatar
+        vrmPath={avatarVrmPath}
+        fallbackPreviewUrl={avatarFallbackPreviewUrl}
       />
       <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
         {isReady ? (

@@ -5,10 +5,16 @@
  * Autonomous Loop sidebar). Voice controls are managed externally.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getVrmPreviewUrl, getVrmUrl, useApp } from "../AppContext";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getVrmNeedsFlip,
+  getVrmPreviewUrl,
+  getVrmUrl,
+  useApp,
+} from "../AppContext";
 import { client } from "../api-client";
 import { resolveAppAssetUrl } from "../asset-url";
+import { resolveCompanionAnimationIntent } from "./avatar/companionAnimationIntent";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import { VrmViewer } from "./avatar/VrmViewer";
 
@@ -34,11 +40,35 @@ export function ChatAvatar({
     selectedVrmIndex > 0
       ? getVrmPreviewUrl(selectedVrmIndex)
       : getVrmPreviewUrl(1);
+  const needsFlip = selectedVrmIndex > 0 && getVrmNeedsFlip(selectedVrmIndex);
 
   const vrmEngineRef = useRef<VrmEngine | null>(null);
+  const currentAmbientIntentIdRef = useRef<string | null>(null);
+  const ambientBlockedUntilMsRef = useRef(0);
+  const ambientLoopOverrideActiveRef = useRef(false);
   const [engineReady, setEngineReady] = useState(false);
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
+
+  const ambientIntent = useMemo(
+    () => resolveCompanionAnimationIntent({ moodTier: "neutral" }),
+    [],
+  );
+
+  const applyAmbientIntent = useCallback(() => {
+    const engine = vrmEngineRef.current;
+    if (!engine || !ambientIntent) return;
+    if (ambientLoopOverrideActiveRef.current) return;
+    if (Date.now() < ambientBlockedUntilMsRef.current) return;
+    if (currentAmbientIntentIdRef.current === ambientIntent.id) return;
+
+    currentAmbientIntentIdRef.current = ambientIntent.id;
+    void engine.playEmote(
+      ambientIntent.url,
+      ambientIntent.durationSec,
+      ambientIntent.loop,
+    );
+  }, [ambientIntent]);
 
   const avatarVisible = engineReady || vrmLoaded || showFallback;
 
@@ -47,22 +77,34 @@ export function ChatAvatar({
     setEngineReady(true);
   }, []);
 
-  const handleEngineState = useCallback((state: VrmEngineState) => {
-    if (state.vrmLoaded) {
-      setVrmLoaded(true);
-      setShowFallback(false);
-    }
-  }, []);
+  const handleEngineState = useCallback(
+    (state: VrmEngineState) => {
+      if (state.vrmLoaded) {
+        setVrmLoaded(true);
+        setShowFallback(false);
+        applyAmbientIntent();
+      }
+    },
+    [applyAmbientIntent],
+  );
 
   // If a VRM fails to load, show the selected static preview in the sidebar.
   useEffect(() => {
     setVrmLoaded(false);
     setShowFallback(false);
+    currentAmbientIntentIdRef.current = null;
+    ambientBlockedUntilMsRef.current = 0;
+    ambientLoopOverrideActiveRef.current = false;
     const timer = window.setTimeout(() => {
       setShowFallback(true);
     }, 4000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!engineReady) return;
+    applyAmbientIntent();
+  }, [engineReady, applyAmbientIntent]);
 
   // Subscribe to WebSocket emote events and trigger avatar animations.
   useEffect(() => {
@@ -74,24 +116,44 @@ export function ChatAvatar({
       // in both http:// and Electron file:// contexts.
       const rawPath = data.glbPath as string;
       const resolvedPath = resolveAppAssetUrl(rawPath);
-      void engine.playEmote(
-        resolvedPath,
-        data.duration as number,
-        data.loop as boolean,
-      );
+      const duration =
+        typeof data.duration === "number" && Number.isFinite(data.duration)
+          ? data.duration
+          : 3;
+      const isLoop = data.loop === true;
+
+      currentAmbientIntentIdRef.current = null;
+      if (isLoop) {
+        ambientLoopOverrideActiveRef.current = true;
+      } else {
+        ambientBlockedUntilMsRef.current =
+          Date.now() + Math.max(1800, Math.round(duration * 1000) + 700);
+      }
+
+      void engine.playEmote(resolvedPath, duration, isLoop);
     });
   }, [engineReady]);
 
   // Listen for stop-emote events from the EmotePicker control panel.
   useEffect(() => {
     if (!engineReady) return;
-    const handler = () => vrmEngineRef.current?.stopEmote();
+    const handler = () => {
+      const engine = vrmEngineRef.current;
+      if (!engine) return;
+      ambientLoopOverrideActiveRef.current = false;
+      ambientBlockedUntilMsRef.current = 0;
+      currentAmbientIntentIdRef.current = null;
+      engine.stopEmote();
+      window.setTimeout(() => {
+        applyAmbientIntent();
+      }, 80);
+    };
     document.addEventListener("milady:stop-emote", handler);
     return () => document.removeEventListener("milady:stop-emote", handler);
-  }, [engineReady]);
+  }, [engineReady, applyAmbientIntent]);
 
   return (
-    <div className="relative h-full w-full pointer-events-none">
+    <div className="relative h-full w-full">
       <div
         className="absolute inset-0"
         style={{
@@ -107,14 +169,18 @@ export function ChatAvatar({
             style={{
               opacity: vrmLoaded ? 1 : 0,
               transition: "opacity 0.45s ease",
-              transform: "scale(1.22) translateY(-8%)",
-              transformOrigin: "50% 28%",
+              // Keep a stable full-body framing in the narrow chat sidebar.
+              transform: "scale(1.02) translateY(1%)",
+              transformOrigin: "50% 42%",
             }}
           >
             <VrmViewer
               vrmPath={vrmPath}
               mouthOpen={mouthOpen}
               isSpeaking={isSpeaking}
+              interactive
+              interactiveMode="orbitZoom"
+              forceFaceCameraFlip={needsFlip}
               onEngineReady={handleEngineReady}
               onEngineState={handleEngineState}
             />

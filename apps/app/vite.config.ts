@@ -32,7 +32,7 @@ function electronCorsPlugin(): Plugin {
         );
         res.setHeader(
           "Access-Control-Allow-Headers",
-          "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
+          "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token, X-Milady-UI-Language",
         );
 
         if (req.method === "OPTIONS") {
