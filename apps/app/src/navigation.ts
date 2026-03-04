@@ -21,7 +21,10 @@ export const APPS_ENABLED = import.meta.env.DEV;
 
 /** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
 export const STREAM_ENABLED = import.meta.env.DEV;
-/** Companion tab — enabled by default, can be disabled with VITE_ENABLE_COMPANION_MODE=false. */
+/**
+ * Companion tab — enabled by default since the VRM companion UI launch.
+ * Previously opt-in; now opt-out via VITE_ENABLE_COMPANION_MODE=false.
+ */
 export const COMPANION_ENABLED =
   String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "true").toLowerCase() !==
   "false";
