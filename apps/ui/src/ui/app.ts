@@ -4698,7 +4698,10 @@ export class MilaidyApp extends LitElement {
           this.setTab("ai-setup");
         }
         this.setProviderHealthFromError(err);
-        const errorText = this.chatErrorMessage(err);
+        let errorText = this.chatErrorMessage(err);
+        if (lower.includes("agent is not running")) {
+          errorText = await this.diagnoseAgentNotRunningMessage();
+        }
         this.chatMessages = [
           ...this.chatMessages,
           { role: "assistant", text: errorText, timestamp: Date.now() },
@@ -5017,6 +5020,54 @@ export class MilaidyApp extends LitElement {
     }
 
     return fallback;
+  }
+
+  private async diagnoseAgentNotRunningMessage(): Promise<string> {
+    let startupDetail = "";
+    try {
+      const status = await client.getStatus();
+      this.setAgentStatus(status);
+      const extra = status as unknown as {
+        startup?: { phase?: string; attempt?: number };
+        pendingRestart?: boolean;
+        pendingRestartReasons?: string[];
+      };
+      const phase = extra.startup?.phase;
+      const pendingReason =
+        Array.isArray(extra.pendingRestartReasons) && extra.pendingRestartReasons.length > 0
+          ? extra.pendingRestartReasons[0]
+          : null;
+      if (phase && phase !== "running") {
+        startupDetail += ` Startup phase: ${phase}.`;
+      }
+      if (pendingReason) {
+        startupDetail += ` Pending restart reason: ${pendingReason}.`;
+      }
+    } catch {
+      // ignore and continue to logs probe
+    }
+
+    try {
+      const data = await client.getLogs();
+      const entries = data.entries ?? [];
+      const latest = [...entries].reverse().find((entry) =>
+        entry.level === "error" || entry.level === "warn",
+      );
+      if (latest?.message) {
+        const msg = latest.message.trim();
+        if (msg.length > 0) {
+          startupDetail += ` Last runtime issue: ${msg}`;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const trimmed = startupDetail.trim();
+    if (trimmed.length > 0) {
+      return `Runtime is not running. ${trimmed}`;
+    }
+    return "Runtime is not running. Open Config to view startup errors, then restart the agent.";
   }
 
   private isGenericAssistantFailureText(text: string | null | undefined): boolean {
