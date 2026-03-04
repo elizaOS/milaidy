@@ -56,13 +56,28 @@ export function resolveExternalApiBase(
   return { base: null, source: null, invalidSources };
 }
 
-export function createApiBaseInjectionScript(
+/**
+ * Push the API base URL (and optional token) to the renderer via typed
+ * RPC message instead of evaluating arbitrary JS (CSP-safe).
+ *
+ * The renderer-side bridge registers a handler for `apiBaseUpdate`
+ * that writes the values to `window.__MILADY_API_BASE__` and
+ * `window.__MILADY_API_TOKEN__`.
+ */
+export function pushApiBaseToRenderer(
+  win: {
+    webview: {
+      rpc?: { sendMessage?: Record<string, (payload: unknown) => void> };
+    };
+  },
   base: string,
   apiToken?: string,
-): string {
+): void {
   const trimmedToken = apiToken?.trim();
-  const tokenSnippet = trimmedToken
-    ? `window.__MILADY_API_TOKEN__ = ${JSON.stringify(trimmedToken)};`
-    : "";
-  return `window.__MILADY_API_BASE__ = ${JSON.stringify(base)};${tokenSnippet}`;
+  const payload = { base, token: trimmedToken || undefined };
+  try {
+    win.webview.rpc?.sendMessage?.apiBaseUpdate?.(payload);
+  } catch {
+    // Webview not ready yet -- will be retried on next poll cycle
+  }
 }

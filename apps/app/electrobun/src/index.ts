@@ -9,17 +9,14 @@ import path from "node:path";
 import {
   BrowserWindow,
   Electrobun,
-  Updater,
   setApplicationMenu,
+  Updater,
 } from "electrobun/bun";
-import { registerRpcHandlers } from "./rpc-handlers";
-import { initializeNativeModules, disposeNativeModules } from "./native/index";
+import { pushApiBaseToRenderer, resolveExternalApiBase } from "./api-base";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
-import {
-  resolveExternalApiBase,
-  createApiBaseInjectionScript,
-} from "./api-base";
+import { disposeNativeModules, initializeNativeModules } from "./native/index";
+import { registerRpcHandlers } from "./rpc-handlers";
 
 // ============================================================================
 // App Menu
@@ -152,18 +149,17 @@ function injectApiBase(win: BrowserWindow): void {
     );
   }
 
-  // If we have an external API base, inject it. Otherwise, the agent's
-  // embedded server URL will be injected once the agent starts.
+  // If we have an external API base, push it to the renderer.
   if (resolution.base) {
-    const script = createApiBaseInjectionScript(
-      resolution.base,
-      process.env.MILADY_API_TOKEN,
-    );
-    win.webview.rpc?.requestProxy
-      .evaluateJavascriptWithResponse({ script })
-      .catch(() => {
-        // Window not ready
-      });
+    pushApiBaseToRenderer(win, resolution.base, process.env.MILADY_API_TOKEN);
+    return;
+  }
+
+  // Otherwise fall back to the agent's local server URL.
+  const agent = getAgentManager();
+  const port = agent.getPort();
+  if (port) {
+    pushApiBaseToRenderer(win, `http://localhost:${port}`);
   }
 }
 
@@ -178,17 +174,13 @@ async function startAgent(win: BrowserWindow): Promise<void> {
     const status = await agent.start();
 
     // If agent started and no external API base is configured,
-    // inject the agent's local API base
+    // push the agent's local API base to the renderer.
     if (status.state === "running" && status.port) {
       const resolution = resolveExternalApiBase(
         process.env as Record<string, string | undefined>,
       );
       if (!resolution.base) {
-        const localBase = `http://localhost:${status.port}`;
-        const script = createApiBaseInjectionScript(localBase);
-        win.webview.rpc?.requestProxy
-          .evaluateJavascriptWithResponse({ script })
-          .catch(() => {});
+        pushApiBaseToRenderer(win, `http://localhost:${status.port}`);
       }
     }
   } catch (err) {
@@ -261,10 +253,15 @@ async function main(): Promise<void> {
   // Set up deep link handling
   setupDeepLinks(win);
 
-  // Inject API base on dom-ready
+  // Inject API base on dom-ready and re-inject periodically so reloads
+  // always receive the current value (the push message is idempotent).
   win.webview.on("dom-ready", () => {
     injectApiBase(win);
   });
+
+  setInterval(() => {
+    injectApiBase(win);
+  }, 5_000);
 
   // Set up system tray with default icon
   const desktop = getDesktopManager();

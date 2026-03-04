@@ -263,7 +263,10 @@ const listenersByChannel: Record<string, Set<IpcListener>> = {};
  * Get the Electroview RPC proxy for making requests to the Bun side.
  * In Electrobun, the webview context has access to `electroview` global.
  */
-function getRpcProxy(): Record<string, (params: unknown) => Promise<unknown>> | null {
+function getRpcProxy(): Record<
+  string,
+  (params: unknown) => Promise<unknown>
+> | null {
   const ev = (window as any).electroview;
   if (!ev?.rpc?.request) return null;
   return ev.rpc.request;
@@ -298,7 +301,8 @@ const electronAPI = {
       // Electron invoke passes args as separate params.
       // Our RPC expects a single params object (or void).
       // Most channels pass a single object arg or no args.
-      const params = args.length === 0 ? undefined : args.length === 1 ? args[0] : args[0];
+      const params =
+        args.length === 0 ? undefined : args.length === 1 ? args[0] : args[0];
 
       try {
         return await proxy[rpcMethod](params);
@@ -375,9 +379,10 @@ const electronAPI = {
    * Desktop Capturer — returns empty sources (graceful degradation)
    */
   desktopCapturer: {
-    getSources: async (
-      _options: { types: string[]; thumbnailSize?: { width: number; height: number } },
-    ) => {
+    getSources: async (_options: {
+      types: string[];
+      thumbnailSize?: { width: number; height: number };
+    }) => {
       const result = await electronAPI.ipcRenderer.invoke(
         "screencapture:getSources",
       );
@@ -406,6 +411,36 @@ electronAPI.ipcRenderer
     }
   })
   .catch(() => {});
+
+// ============================================================================
+// API Base Push Channel Handler
+// ============================================================================
+
+/**
+ * Listen for apiBaseUpdate push messages from the Bun side.
+ * Replaces eval-based injection of window.__MILADY_API_BASE__ with
+ * a typed RPC message (CSP-safe).
+ */
+function setupApiBasePushHandler(): void {
+  const ev = (window as any).electroview;
+  if (ev?.rpc?.handleMessage?.apiBaseUpdate) {
+    ev.rpc.handleMessage.apiBaseUpdate(
+      (payload: { base: string; token?: string }) => {
+        (window as any).__MILADY_API_BASE__ = payload.base;
+        if (payload.token) {
+          (window as any).__MILADY_API_TOKEN__ = payload.token;
+        }
+      },
+    );
+  }
+}
+
+try {
+  setupApiBasePushHandler();
+} catch {
+  // Electroview may not be ready yet; retry once after a short delay
+  setTimeout(setupApiBasePushHandler, 100);
+}
 
 // ============================================================================
 // Expose to Window
