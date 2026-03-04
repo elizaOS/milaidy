@@ -11,12 +11,11 @@ import type {
   BscTradeTxStatusResponse,
   EvmChainBalance,
 } from "../api-client";
+import { BscTradePanel, type TrackedToken } from "./BscTradePanel";
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 
 const BSC_GAS_THRESHOLD = 0.005;
-const BSC_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
-const AMOUNT_PRESETS = [0.05, 0.1, 0.2, 0.5];
 const LS_TRACKED_TOKENS_KEY = "wt_tracked_bsc_tokens";
 
 /* ── Chain icon helper ─────────────────────────────────────────────── */
@@ -64,12 +63,6 @@ interface NftItem {
   name: string;
   imageUrl: string;
   collectionName: string;
-}
-
-interface TrackedToken {
-  address: string;
-  symbol: string;
-  addedAt: number;
 }
 
 /* ── localStorage helpers for tracked tokens ──────────────────────── */
@@ -179,25 +172,10 @@ export function InventoryView() {
     getBscTradeTxStatus,
   } = bscCtx;
 
-  // ── BSC quick trade state ─────────────────────────────────────────
-  const [quickTokenAddress, setQuickTokenAddress] = useState("");
-  const [quickAmount, setQuickAmount] = useState("");
-  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
-    null,
-  );
-  const [latestExecution, setLatestExecution] =
-    useState<BscTradeExecuteResponse | null>(null);
-  const [txStatus, setTxStatus] = useState<BscTradeTxStatusResponse | null>(
-    null,
-  );
+  // ── Tracked tokens state ────────────────────────────────────────────
   const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
     loadTrackedTokens(),
   );
-  const [pendingTrade, setPendingTrade] = useState<{
-    side: string;
-    amount: string;
-    token: string;
-  } | null>(null);
 
   // ── Setup detection ──────────────────────────────────────────────────
   const cfg = walletConfig;
@@ -376,82 +354,16 @@ export function InventoryView() {
     return items;
   }, [walletNfts]);
 
-  // ── BSC trade handlers ───────────────────────────────────────────
-  const handleQuickBuy = useCallback(async () => {
-    if (!getBscTradeQuote) return;
-    const result = await getBscTradeQuote({
-      side: "buy",
-      tokenAddress: quickTokenAddress,
-      amount: quickAmount,
-    });
-    setLatestQuote(result);
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount]);
+  // ── Tracked token handlers ──────────────────────────────────────────
 
-  const handleQuickSell = useCallback(async () => {
-    if (!getBscTradeQuote) return;
-    const result = await getBscTradeQuote({
-      side: "sell",
-      tokenAddress: quickTokenAddress,
-      amount: quickAmount,
-    });
-    setLatestQuote(result);
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount]);
-
-  const handleRequestExecute = useCallback(() => {
-    if (!latestQuote) return;
-    setPendingTrade({
-      side: latestQuote.side,
-      amount: quickAmount,
-      token: quickTokenAddress,
-    });
-  }, [latestQuote, quickAmount, quickTokenAddress]);
-
-  const handleConfirmExecute = useCallback(async () => {
-    if (!executeBscTrade || !pendingTrade || !latestQuote) return;
-    setPendingTrade(null);
-    const result = await executeBscTrade({
-      side: latestQuote.side,
-      tokenAddress: pendingTrade.token,
-      amount: pendingTrade.amount,
-    });
-    setLatestExecution(result);
-    if (result?.executed && result?.execution) {
-      // Already executed on-chain
-    } else if (result?.requiresUserSignature) {
-      setActionNotice(
-        "Sign swap transaction in your wallet to complete the trade.",
-        "info",
-        4600,
-      );
-    }
-  }, [executeBscTrade, pendingTrade, latestQuote, setActionNotice]);
-
-  const handleCancelExecute = useCallback(() => {
-    setPendingTrade(null);
-  }, []);
-
-  const handleRefreshTxStatus = useCallback(async () => {
-    if (!getBscTradeTxStatus || !latestExecution) return;
-    const hash = latestExecution.execution?.hash;
-    if (!hash) return;
-    const status = await getBscTradeTxStatus(hash);
-    setTxStatus(status);
-  }, [getBscTradeTxStatus, latestExecution]);
-
-  const handleAddToken = useCallback(() => {
-    if (!BSC_ADDRESS_RE.test(quickTokenAddress)) return;
-    const newToken: TrackedToken = {
-      address: quickTokenAddress,
-      symbol: `TKN-${quickTokenAddress.slice(2, 6)}`,
-      addedAt: Date.now(),
-    };
-    const updated = [...trackedTokens, newToken];
-    setTrackedTokens(updated);
-    saveTrackedTokens(updated);
-    if (setActionNotice) {
-      setActionNotice("Token added to watchlist.", "success", 2600);
-    }
-  }, [quickTokenAddress, trackedTokens, setActionNotice]);
+  const handleAddToken = useCallback(
+    (token: TrackedToken) => {
+      const updated = [...trackedTokens, token];
+      setTrackedTokens(updated);
+      saveTrackedTokens(updated);
+    },
+    [trackedTokens],
+  );
 
   const handleUntrackToken = useCallback(
     (address: string) => {
@@ -671,8 +583,21 @@ export function InventoryView() {
 
     return (
       <div className="mt-3 space-y-3">
-        {/* BSC trade status bar */}
-        {chainFocus === "bsc" && renderBscStatusBar()}
+        {/* BSC trade panel (BSC focus) */}
+        {chainFocus === "bsc" && !bscHasError && (
+          <BscTradePanel
+            tradeReady={tradeReady}
+            bnbBalance={bnbBalance}
+            trackedTokens={trackedTokens}
+            onAddToken={handleAddToken}
+            copyToClipboard={copyToClipboard}
+            setActionNotice={setActionNotice}
+            getBscTradePreflight={getBscTradePreflight}
+            getBscTradeQuote={getBscTradeQuote}
+            executeBscTrade={executeBscTrade}
+            getBscTradeTxStatus={getBscTradeTxStatus}
+          />
+        )}
 
         {/* BSC chain error */}
         {bscHasError && (
@@ -680,9 +605,6 @@ export function InventoryView() {
             Feed Offline
           </div>
         )}
-
-        {/* Quick trade panel (BSC focus) */}
-        {chainFocus === "bsc" && !bscHasError && renderQuickTradePanel()}
 
         {evmAddr &&
           renderChainSection(
@@ -742,234 +664,6 @@ export function InventoryView() {
         )}
       </div>
     );
-  }
-
-  /* ── BSC status bar ────────────────────────────────────────────────── */
-
-  function renderBscStatusBar() {
-    return (
-      <div className="flex items-center gap-2 text-xs">
-        <span className={tradeReady ? "text-green-500" : "text-yellow-500"}>
-          {tradeReady ? "Trade Ready" : "Trade Not Ready"}
-        </span>
-        <span className="text-muted">
-          BNB: {formatBalance(String(bnbBalance))}
-        </span>
-        {getBscTradePreflight && (
-          <button
-            type="button"
-            data-testid="wallet-token-preflight"
-            className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-            onClick={() => getBscTradePreflight()}
-          >
-            Preflight
-          </button>
-        )}
-        {getBscTradeQuote && (
-          <button
-            type="button"
-            data-testid="wallet-token-quote"
-            className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-            onClick={() => getBscTradeQuote()}
-          >
-            Quote
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  /* ── Quick trade panel ─────────────────────────────────────────────── */
-
-  function renderQuickTradePanel() {
-    return (
-      <div className="border border-border bg-card p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            data-testid="wallet-quick-token-input"
-            placeholder="Token contract address (0x...)"
-            value={quickTokenAddress}
-            onChange={(e) => setQuickTokenAddress(e.target.value)}
-            className="flex-1 px-2 py-1 border border-border bg-bg text-xs font-mono"
-          />
-          <button
-            type="button"
-            data-testid="wallet-quick-add-token"
-            className="px-2 py-1 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-            onClick={handleAddToken}
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {AMOUNT_PRESETS.map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              data-testid={`wallet-quick-amount-${amt}`}
-              className={`px-2 py-0.5 border text-[10px] font-mono cursor-pointer ${
-                quickAmount === String(amt)
-                  ? "border-accent text-accent"
-                  : "border-border bg-bg hover:border-accent"
-              }`}
-              onClick={() => setQuickAmount(String(amt))}
-            >
-              {amt} BNB
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="wallet-quick-buy"
-            className="px-3 py-1 border border-green-500 text-green-500 text-xs font-mono cursor-pointer hover:bg-green-500 hover:text-white"
-            onClick={handleQuickBuy}
-          >
-            Buy
-          </button>
-          <button
-            type="button"
-            data-testid="wallet-quick-sell"
-            className="px-3 py-1 border border-red-500 text-red-500 text-xs font-mono cursor-pointer hover:bg-red-500 hover:text-white"
-            onClick={handleQuickSell}
-          >
-            Sell
-          </button>
-        </div>
-
-        {/* Latest quote display */}
-        {latestQuote && (
-          <div className="border border-border p-2 text-xs">
-            <div className="font-bold mb-1">Latest quote</div>
-            <div className="text-muted">
-              {latestQuote.side === "buy" ? "Buy" : "Sell"}{" "}
-              {latestQuote.quoteOut?.amount ?? ""}{" "}
-              {latestQuote.quoteOut?.symbol ?? ""}
-            </div>
-            {pendingTrade ? (
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-yellow-500 font-bold">
-                  Confirm {pendingTrade.side} trade?
-                </span>
-                <button
-                  type="button"
-                  data-testid="wallet-quote-confirm"
-                  className="px-3 py-1 border border-green-500 text-green-500 text-[10px] font-mono cursor-pointer hover:bg-green-500 hover:text-white"
-                  onClick={handleConfirmExecute}
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  data-testid="wallet-quote-cancel"
-                  className="px-3 py-1 border border-border text-muted text-[10px] font-mono cursor-pointer hover:border-danger hover:text-danger"
-                  onClick={handleCancelExecute}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                data-testid="wallet-quote-execute"
-                className="mt-1 px-3 py-1 border border-accent bg-accent text-accent-fg text-[10px] font-mono cursor-pointer"
-                onClick={handleRequestExecute}
-              >
-                Execute Trade
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Execution result */}
-        {latestExecution && renderExecutionResult()}
-      </div>
-    );
-  }
-
-  /* ── Execution result ─────────────────────────────────────────────── */
-
-  function renderExecutionResult() {
-    if (!latestExecution) return null;
-
-    if (latestExecution.executed && latestExecution.execution) {
-      const { hash, status, explorerUrl } = latestExecution.execution;
-      const shortHash = hash ? `${hash.slice(0, 10)}` : "";
-
-      return (
-        <div className="border border-border p-2 text-xs space-y-1">
-          <div>
-            <a
-              href={explorerUrl}
-              target="_blank"
-              rel="noopener"
-              className="text-accent"
-            >
-              View tx {shortHash}
-            </a>
-          </div>
-          {status === "pending" && (
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-500">Pending...</span>
-              <button
-                type="button"
-                data-testid="wallet-tx-refresh"
-                className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-                onClick={handleRefreshTxStatus}
-              >
-                Refresh Status
-              </button>
-            </div>
-          )}
-          {txStatus && (
-            <div className="text-muted">
-              Confirmations: {txStatus.confirmations ?? 0}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (latestExecution.requiresUserSignature) {
-      return (
-        <div className="border border-border p-2 text-xs space-y-1">
-          <div className="text-yellow-500">
-            Requires wallet signature to complete.
-          </div>
-          {latestExecution.unsignedApprovalTx && (
-            <button
-              type="button"
-              data-testid="wallet-copy-approve-tx"
-              className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() =>
-                copyToClipboard(
-                  JSON.stringify(latestExecution.unsignedApprovalTx),
-                )
-              }
-            >
-              Copy Approval TX
-            </button>
-          )}
-          {latestExecution.unsignedTx && (
-            <button
-              type="button"
-              data-testid="wallet-copy-swap-tx"
-              className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() =>
-                copyToClipboard(JSON.stringify(latestExecution.unsignedTx))
-              }
-            >
-              Copy Swap TX
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    return null;
   }
 
   /* ── Single chain section ───────────────────────────────────────── */
