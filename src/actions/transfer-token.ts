@@ -110,6 +110,11 @@ export const transferTokenAction: Action = {
       };
 
       if (tokenAddress) {
+        if (!EVM_ADDRESS_RE.test(tokenAddress)) {
+          return {
+            text: "Token address must be a valid EVM address (0x-prefixed, 40 hex chars).",
+          };
+        }
         body.tokenAddress = tokenAddress;
       }
 

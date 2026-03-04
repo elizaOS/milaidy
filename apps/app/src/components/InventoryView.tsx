@@ -139,8 +139,12 @@ function CopyableAddress({
 interface BscTradingContext {
   inventoryChainFocus?: "bsc" | "all";
   getBscTradePreflight?: () => Promise<void>;
-  getBscTradeQuote?: (request?: Partial<BscTradeQuoteRequest>) => Promise<BscTradeQuoteResponse>;
-  executeBscTrade?: (request?: Partial<BscTradeQuoteRequest>) => Promise<BscTradeExecuteResponse>;
+  getBscTradeQuote?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeQuoteResponse>;
+  executeBscTrade?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeExecuteResponse>;
   getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 }
 
@@ -178,25 +182,47 @@ export function InventoryView() {
   // ── BSC quick trade state ─────────────────────────────────────────
   const [quickTokenAddress, setQuickTokenAddress] = useState("");
   const [quickAmount, setQuickAmount] = useState("");
-  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(null);
-  const [latestExecution, setLatestExecution] = useState<BscTradeExecuteResponse | null>(null);
-  const [txStatus, setTxStatus] = useState<BscTradeTxStatusResponse | null>(null);
-  const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() => loadTrackedTokens());
-  const [pendingTrade, setPendingTrade] = useState<{ side: string; amount: string; token: string } | null>(null);
+  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
+    null,
+  );
+  const [latestExecution, setLatestExecution] =
+    useState<BscTradeExecuteResponse | null>(null);
+  const [txStatus, setTxStatus] = useState<BscTradeTxStatusResponse | null>(
+    null,
+  );
+  const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
+    loadTrackedTokens(),
+  );
+  const [pendingTrade, setPendingTrade] = useState<{
+    side: string;
+    amount: string;
+    token: string;
+  } | null>(null);
 
   // ── Setup detection ──────────────────────────────────────────────────
   const cfg = walletConfig;
-  const hasBscRpc = cfg?.nodeRealBscRpcSet || cfg?.quickNodeBscRpcSet || cfg?.managedBscRpcReady;
-  const hasGeneralRpc = cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet;
+  const hasBscRpc =
+    cfg?.nodeRealBscRpcSet ||
+    cfg?.quickNodeBscRpcSet ||
+    cfg?.managedBscRpcReady;
+  const hasGeneralRpc =
+    cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet;
   const needsSetup =
-    !cloudConnected && (!cfg || (!hasGeneralRpc && !hasBscRpc && !cfg.alchemyKeySet && !cfg.heliusKeySet));
+    !cloudConnected &&
+    (!cfg ||
+      (!hasGeneralRpc &&
+        !hasBscRpc &&
+        !cfg.alchemyKeySet &&
+        !cfg.heliusKeySet));
 
   // ── BSC chain data ────────────────────────────────────────────────
   const bscChain = useMemo(() => {
     if (!walletBalances?.evm?.chains) return null;
-    return walletBalances.evm.chains.find(
-      (c: EvmChainBalance) => c.chain === "BSC" || c.chain === "bsc",
-    ) ?? null;
+    return (
+      walletBalances.evm.chains.find(
+        (c: EvmChainBalance) => c.chain === "BSC" || c.chain === "bsc",
+      ) ?? null
+    );
   }, [walletBalances]);
 
   const bnbBalance = useMemo(() => {
@@ -462,9 +488,9 @@ export function InventoryView() {
       <div className="mt-6 border border-border bg-card p-6 text-center">
         <div className="text-sm font-bold mb-2">Wallet keys not configured</div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          To view balances and trade on BSC you need RPC provider keys.
-          Connect to <strong>Eliza Cloud</strong> for managed RPC access, or
-          configure <strong>NodeReal / QuickNode</strong> endpoints manually in{" "}
+          To view balances and trade on BSC you need RPC provider keys. Connect
+          to <strong>Eliza Cloud</strong> for managed RPC access, or configure{" "}
+          <strong>NodeReal / QuickNode</strong> endpoints manually in{" "}
           <strong>Settings</strong>.
         </p>
         <button
@@ -667,7 +693,8 @@ export function InventoryView() {
             evmRows,
             chainFocus !== "bsc",
           )}
-        {chainFocus !== "bsc" && solAddr &&
+        {chainFocus !== "bsc" &&
+          solAddr &&
           renderChainSection(
             "Solana",
             "S",
@@ -678,7 +705,8 @@ export function InventoryView() {
           )}
 
         {/* Per-chain RPC errors (non-BSC) */}
-        {chainErrors.filter((c: EvmChainBalance) => c.chain !== "BSC").length > 0 && (
+        {chainErrors.filter((c: EvmChainBalance) => c.chain !== "BSC").length >
+          0 && (
           <div className="text-[11px] text-muted">
             {chainErrors
               .filter((c: EvmChainBalance) => c.chain !== "BSC")
@@ -817,9 +845,9 @@ export function InventoryView() {
           <div className="border border-border p-2 text-xs">
             <div className="font-bold mb-1">Latest quote</div>
             <div className="text-muted">
-              {latestQuote.side === "buy" ? "Buy" : "Sell"}
-              {" "}{latestQuote.quoteOut?.amount ?? ""}
-              {" "}{latestQuote.quoteOut?.symbol ?? ""}
+              {latestQuote.side === "buy" ? "Buy" : "Sell"}{" "}
+              {latestQuote.quoteOut?.amount ?? ""}{" "}
+              {latestQuote.quoteOut?.symbol ?? ""}
             </div>
             {pendingTrade ? (
               <div className="mt-1 flex items-center gap-2">
@@ -916,7 +944,11 @@ export function InventoryView() {
               type="button"
               data-testid="wallet-copy-approve-tx"
               className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() => copyToClipboard(JSON.stringify(latestExecution.unsignedApprovalTx))}
+              onClick={() =>
+                copyToClipboard(
+                  JSON.stringify(latestExecution.unsignedApprovalTx),
+                )
+              }
             >
               Copy Approval TX
             </button>
@@ -926,7 +958,9 @@ export function InventoryView() {
               type="button"
               data-testid="wallet-copy-swap-tx"
               className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-              onClick={() => copyToClipboard(JSON.stringify(latestExecution.unsignedTx))}
+              onClick={() =>
+                copyToClipboard(JSON.stringify(latestExecution.unsignedTx))
+              }
             >
               Copy Swap TX
             </button>
@@ -975,9 +1009,13 @@ export function InventoryView() {
             <tbody>
               {rows.map((row, idx) => {
                 const subIcon = showSubChain ? chainIcon(row.chain) : null;
-                const isTrackedRow = row.isTracked || trackedTokens.some(
-                  (t) => t.address.toLowerCase() === row.contractAddress?.toLowerCase(),
-                );
+                const isTrackedRow =
+                  row.isTracked ||
+                  trackedTokens.some(
+                    (t) =>
+                      t.address.toLowerCase() ===
+                      row.contractAddress?.toLowerCase(),
+                  );
                 return (
                   <tr
                     key={`${row.chain}-${row.symbol}-${idx}`}
@@ -1015,7 +1053,9 @@ export function InventoryView() {
                           type="button"
                           data-testid="wallet-token-untrack"
                           className="ml-2 px-1.5 py-0 border border-border text-[9px] text-muted font-mono cursor-pointer hover:border-danger hover:text-danger"
-                          onClick={() => handleUntrackToken(row.contractAddress!)}
+                          onClick={() =>
+                            handleUntrackToken(row.contractAddress!)
+                          }
                         >
                           untrack
                         </button>

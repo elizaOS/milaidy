@@ -685,17 +685,6 @@ function parseTokenDecimals(value: unknown, fallback = 18): number {
   return Math.trunc(num);
 }
 
-function _parseUsdString(value: unknown): string {
-  const num =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseFloat(value)
-        : Number.NaN;
-  if (!Number.isFinite(num) || num <= 0) return "0";
-  return num.toFixed(2);
-}
-
 function parseAnkrBalance(asset: AnkrTokenAsset, decimals: number): string {
   const tokenBalance = asString(asset.tokenBalance);
   if (tokenBalance) {
