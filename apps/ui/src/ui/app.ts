@@ -5879,6 +5879,7 @@ export class MilaidyApp extends LitElement {
     name: string,
     opts?: { allowOfflineFallback?: boolean },
   ): Promise<boolean> {
+    const allowOfflineFallback = opts?.allowOfflineFallback ?? true;
     const normalized = this.normalizeUserHandle(name);
     if (!normalized) {
       this.nameValidationMessage = "Choose an @name with letters, numbers, or underscores.";
@@ -5957,7 +5958,7 @@ export class MilaidyApp extends LitElement {
         this.nameValidationMessage = `${normalized} is already taken. Choose another @name.`;
         return false;
       }
-      if (!opts?.allowOfflineFallback) {
+      if (!allowOfflineFallback) {
         this.nameValidationMessage = "Could not save @name right now. Try again.";
         return false;
       }
