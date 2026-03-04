@@ -149,7 +149,7 @@ jobs:
             ## Review Protocol
 
             ### 1. Scope Check
-            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+            Milady is a personal AI assistant built on elizaOS. Contributions MUST be in scope:
 
             **IN SCOPE (welcome):**
             - Bug fixes (connector issues, crashes, regressions, error handling)
@@ -258,7 +258,7 @@ jobs:
             ## Review Protocol
 
             ### 1. Scope Check
-            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+            Milady is a personal AI assistant built on elizaOS. Contributions MUST be in scope:
 
             **IN SCOPE (welcome):**
             - Bug fixes (connector issues, crashes, regressions, error handling)

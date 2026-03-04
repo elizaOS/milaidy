@@ -2,7 +2,7 @@
  * REST API server for the Milady Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
- * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
+ * elizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
  * dev server proxies /api and /ws here (see scripts/dev-ui.mjs).
  */
 
@@ -269,7 +269,7 @@ interface ServerState {
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
-  /** App manager for launching and managing ElizaOS apps. */
+  /** App manager for launching and managing elizaOS apps. */
   appManager: AppManager;
   /** Fine-tuning/training orchestration service. */
   trainingService: TrainingServiceLike | null;
@@ -2723,7 +2723,7 @@ export function validateChatImages(images: unknown): string | null {
  * action handlers (e.g. POST_TWEET) while the message is in-memory. The
  * extra fields are intentionally stripped before the message is persisted.
  *
- * Note: `_data`/`_mimeType` survive only because ElizaOS passes the
+ * Note: `_data`/`_mimeType` survive only because elizaOS passes the
  * `userMessage` object reference directly to action handlers without
  * deep-cloning or serializing it. If that ever changes, action handlers
  * that read these fields will silently receive `undefined`.
@@ -5503,7 +5503,7 @@ import { parseActionBlock } from "./parse-action-block";
 /**
  * Wire the SwarmCoordinator's agentDecisionCallback so coordinator events
  * (blocked prompts, turn completions) route through Milaidy's full
- * ElizaOS pipeline (memory, personality, actions) so she has conversation
+ * elizaOS pipeline (memory, personality, actions) so she has conversation
  * context to make informed decisions. The pipeline's model size is
  * The pipeline's model size is temporarily overridden to TEXT_SMALL
  * via the private `runtime.llmModeOption` (no public setter exists).
@@ -11444,7 +11444,7 @@ async function handleRequest(
   }
 
   // ── POST /api/chat (legacy — routes to default conversation) ───────
-  // Routes messages through the full ElizaOS message pipeline so the agent
+  // Routes messages through the full elizaOS message pipeline so the agent
   // has conversation memory, context, and always responds (DM + client_chat
   // bypass the shouldRespond LLM evaluation).
   //
@@ -13147,7 +13147,7 @@ async function handleRequest(
   // connectorRouteHandlers below). Endpoints: /api/stream/*
 
   // ── LTCG Autonomy routes ─────────────────────────────────────────────
-  // The LTCG plugin registers these as ElizaOS plugin routes, but Milady's
+  // The LTCG plugin registers these as elizaOS plugin routes, but Milady's
   // server doesn't dispatch plugin routes. Wire them up directly here.
   if (pathname.startsWith("/api/ltcg/autonomy")) {
     try {

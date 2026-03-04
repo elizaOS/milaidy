@@ -25,7 +25,7 @@ The registry has two layers:
 
 ### Bundled Registry (`plugins.json`)
 
-A local JSON file shipped with Milady containing metadata for ~97 plugins from the ElizaOS ecosystem. Each entry includes the plugin's id, npm package name, category, environment variables, version, dependencies, and detailed parameter definitions. This file follows the `plugin-index-v1` schema.
+A local JSON file shipped with Milady containing metadata for ~97 plugins from the elizaOS ecosystem. Each entry includes the plugin's id, npm package name, category, environment variables, version, dependencies, and detailed parameter definitions. This file follows the `plugin-index-v1` schema.
 
 ```json
 {
@@ -38,7 +38,7 @@ A local JSON file shipped with Milady containing metadata for ~97 plugins from t
       "dirName": "plugin-telegram",
       "name": "Telegram",
       "npmName": "@elizaos/plugin-telegram",
-      "description": "Telegram bot connector for ElizaOS agents",
+      "description": "Telegram bot connector for elizaOS agents",
       "category": "connector",
       "envKey": "TELEGRAM_BOT_TOKEN",
       "configKeys": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_USERNAME"],
@@ -176,7 +176,7 @@ Results show a match percentage based on scoring across name, description, and t
 
 ### `milady plugins info <name>`
 
-Show detailed information about a specific plugin: repository, homepage, language, stars, topics, npm versions, and supported ElizaOS versions.
+Show detailed information about a specific plugin: repository, homepage, language, stars, topics, npm versions, and supported elizaOS versions.
 
 ```bash
 milady plugins info telegram
@@ -315,10 +315,10 @@ Entries in the remote enriched registry use a different shape:
 | Field | Type | Description |
 |-------|------|-------------|
 | `git.repo` | `string` | GitHub `owner/repo` path |
-| `git.v0` / `v1` / `v2` | `{ branch: string \| null }` | Git branch for each ElizaOS version |
+| `git.v0` / `v1` / `v2` | `{ branch: string \| null }` | Git branch for each elizaOS version |
 | `npm.repo` | `string` | npm package name |
-| `npm.v0` / `v1` / `v2` | `string \| null` | Published npm version per ElizaOS version |
-| `supports` | `{ v0, v1, v2: boolean }` | Which ElizaOS versions are supported |
+| `npm.v0` / `v1` / `v2` | `string \| null` | Published npm version per elizaOS version |
+| `supports` | `{ v0, v1, v2: boolean }` | Which elizaOS versions are supported |
 | `description` | `string` | Plugin description |
 | `homepage` | `string \| null` | Homepage URL |
 | `topics` | `string[]` | GitHub topics / tags |

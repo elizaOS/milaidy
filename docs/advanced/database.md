@@ -80,7 +80,7 @@ The Vectors view browses agent memories and vector embeddings with three visuali
 
 ### Embedding Support
 
-The viewer detects ElizaOS embedding tables with dimension columns (`dim_384`, `dim_512`, `dim_768`, `dim_1024`, `dim_1536`, `dim_3072`). When the `memories` table is selected and an `embeddings` table exists, the viewer performs a LEFT JOIN to attach embedding vectors to memory records.
+The viewer detects elizaOS embedding tables with dimension columns (`dim_384`, `dim_512`, `dim_768`, `dim_1024`, `dim_1536`, `dim_3072`). When the `memories` table is selected and an `embeddings` table exists, the viewer performs a LEFT JOIN to attach embedding vectors to memory records.
 
 ### List View
 

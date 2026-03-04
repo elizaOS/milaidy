@@ -1,16 +1,16 @@
 {
   "repo_notes": [
     {
-      "content": "Milady AI is a personal AI assistant powered by ElizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps ElizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 18789 with WebSocket support. The web UI runs on port 2138."
+      "content": "Milady AI is a personal AI assistant powered by elizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps elizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 18789 with WebSocket support. The web UI runs on port 2138."
     }
   ],
   "pages": [
     {
       "title": "Overview",
-      "purpose": "Introduce Milady AI, its purpose as a personal AI assistant powered by ElizaOS, and provide a high-level overview of the system architecture, supported platforms, and core capabilities",
+      "purpose": "Introduce Milady AI, its purpose as a personal AI assistant powered by elizaOS, and provide a high-level overview of the system architecture, supported platforms, and core capabilities",
       "page_notes": [
         {
-          "content": "Cover: what Milady is (ElizaOS-powered personal AI), privacy-first local execution, supported platforms (Desktop, Mobile, Chrome Extension, Web, TUI, CLI), key capabilities (chat, plugins, wallet, knowledge, autonomy, connectors). Include a system architecture diagram showing: CLI/Desktop/Web → API Server (port 18789) → ElizaOS AgentRuntime → Plugins/Providers/Connectors. Mention the tech stack: TypeScript, Bun, Electron, Capacitor, React/Vite for UI."
+          "content": "Cover: what Milady is (elizaOS-powered personal AI), privacy-first local execution, supported platforms (Desktop, Mobile, Chrome Extension, Web, TUI, CLI), key capabilities (chat, plugins, wallet, knowledge, autonomy, connectors). Include a system architecture diagram showing: CLI/Desktop/Web → API Server (port 18789) → elizaOS AgentRuntime → Plugins/Providers/Connectors. Mention the tech stack: TypeScript, Bun, Electron, Capacitor, React/Vite for UI."
         }
       ]
     },
@@ -78,7 +78,7 @@
       "parent": "User Guide",
       "page_notes": [
         {
-          "content": "TUI: `milady tui` command, live activity feed, keyboard shortcuts/hotkeys, terminal styling, bridge to ElizaOS TUI. Reference `src/tui/` and `src/terminal/`. CLI commands from `src/cli/`: `milady start` (aliases: `milady`), `milady setup`, `milady configure`, `milady config get/set`, `milady models`, `milady plugins list/add/remove`, `milady dashboard`, `milady doctor`, `milady tui`. For each: syntax, flags, examples, common use cases."
+          "content": "TUI: `milady tui` command, live activity feed, keyboard shortcuts/hotkeys, terminal styling, bridge to elizaOS TUI. Reference `src/tui/` and `src/terminal/`. CLI commands from `src/cli/`: `milady start` (aliases: `milady`), `milady setup`, `milady configure`, `milady config get/set`, `milady models`, `milady plugins list/add/remove`, `milady dashboard`, `milady doctor`, `milady tui`. For each: syntax, flags, examples, common use cases."
         }
       ]
     },
@@ -157,17 +157,17 @@
       "parent": "Core Concepts",
       "page_notes": [
         {
-          "content": "Architectural diagrams: how Milady wraps ElizaOS, CLI → API Server → AgentRuntime → Plugins. Request flow (user input → API → runtime → LLM → response), data storage (PGlite/PostgreSQL via Drizzle ORM), workspace structure (`~/.milady/`), build system (tsdown + Vite), process architecture. Tech stack: TypeScript, Bun, Electron, Capacitor, React, Vite, Drizzle."
+          "content": "Architectural diagrams: how Milady wraps elizaOS, CLI → API Server → AgentRuntime → Plugins. Request flow (user input → API → runtime → LLM → response), data storage (PGlite/PostgreSQL via Drizzle ORM), workspace structure (`~/.milady/`), build system (tsdown + Vite), process architecture. Tech stack: TypeScript, Bun, Electron, Capacitor, React, Vite, Drizzle."
         }
       ]
     },
     {
       "title": "Agent Runtime",
-      "purpose": "Explain the ElizaOS AgentRuntime, its lifecycle, initialization, and role in the system",
+      "purpose": "Explain the elizaOS AgentRuntime, its lifecycle, initialization, and role in the system",
       "parent": "Core Concepts",
       "page_notes": [
         {
-          "content": "Runtime lifecycle: initialization → plugin loading → provider setup → ready state. `src/runtime/eliza.ts` as main entry point, runtime configuration, agent lifecycle states (starting, running, paused, stopped), context management, custom actions registration (`src/runtime/custom-actions.ts`). How Milady extends the base ElizaOS runtime."
+          "content": "Runtime lifecycle: initialization → plugin loading → provider setup → ready state. `src/runtime/eliza.ts` as main entry point, runtime configuration, agent lifecycle states (starting, running, paused, stopped), context management, custom actions registration (`src/runtime/custom-actions.ts`). How Milady extends the base elizaOS runtime."
         }
       ]
     },
@@ -285,7 +285,7 @@
       "parent": "Plugin Development",
       "page_notes": [
         {
-          "content": "Architecture: Plugin interface definition, lifecycle (discovery → validation → loading → initialization → running → cleanup), service/action/provider registration. Reference ElizaOS plugin contracts. Creation walkthrough: project scaffolding, directory structure, implementing the plugin interface, defining actions (reference `src/actions/`), defining providers (reference `src/providers/`), testing locally, configuring in milady.json, minimal working example. Actions: interface (name, description, handler, validation). Providers: interface (name, get, context injection). Examples: workspace provider (`src/providers/workspace.ts`), media provider, terminal action, emote actions. Hooks: registration from plugins, available hook points, trigger/cron registration, custom trigger handlers. Reference `src/hooks/` and `src/triggers/`."
+          "content": "Architecture: Plugin interface definition, lifecycle (discovery → validation → loading → initialization → running → cleanup), service/action/provider registration. Reference elizaOS plugin contracts. Creation walkthrough: project scaffolding, directory structure, implementing the plugin interface, defining actions (reference `src/actions/`), defining providers (reference `src/providers/`), testing locally, configuring in milady.json, minimal working example. Actions: interface (name, description, handler, validation). Providers: interface (name, get, context injection). Examples: workspace provider (`src/providers/workspace.ts`), media provider, terminal action, emote actions. Hooks: registration from plugins, available hook points, trigger/cron registration, custom trigger handlers. Reference `src/hooks/` and `src/triggers/`."
         }
       ]
     },

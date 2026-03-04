@@ -1,12 +1,12 @@
-# ElizaOS Version Pinning Strategy
+# elizaOS Version Pinning Strategy
 
 ## Why We Pin Specific Packages
 
-Milady uses ElizaOS as its AI agent runtime. During the 2.0.0 alpha release cycle, we've discovered version compatibility issues that require careful dependency management.
+Milady uses elizaOS as its AI agent runtime. During the 2.0.0 alpha release cycle, we've discovered version compatibility issues that require careful dependency management.
 
 ## The Problem with `"next"` Tag
 
-The `"next"` npm dist-tag is intended to point to the latest pre-release version. However, in the ElizaOS ecosystem, we encountered several issues:
+The `"next"` npm dist-tag is intended to point to the latest pre-release version. However, in the elizaOS ecosystem, we encountered several issues:
 
 ### Issue 1: Mismatched Plugin Versions
 
@@ -55,14 +55,14 @@ We pin the following packages to specific alpha versions that are known to work 
 
 ### Other Packages Stay on `"next"`
 
-Most other ElizaOS plugins can safely remain on `"next"` because:
+Most other elizaOS plugins can safely remain on `"next"` because:
 1. They don't have the same version skew issues
 2. They're updated more frequently and maintain compatibility
 3. We want to automatically pick up bugfixes and improvements
 
 ## How to Update Pinned Versions
 
-When updating to newer ElizaOS versions:
+When updating to newer elizaOS versions:
 
 1. **Check available versions:**
    ```bash
@@ -103,16 +103,16 @@ These tests will fail if you accidentally revert to `"next"` for critical packag
 
 We can switch back to `"next"` when:
 
-1. **ElizaOS reaches stable 2.0.0 release** - stable releases guarantee API compatibility
+1. **elizaOS reaches stable 2.0.0 release** - stable releases guarantee API compatibility
 2. **Plugin releases catch up to core** - if all plugins publish `alpha.10+` in sync
-3. **ElizaOS adopts semantic versioning strictly** - ensuring alpha releases don't introduce breaking changes
+3. **elizaOS adopts semantic versioning strictly** - ensuring alpha releases don't introduce breaking changes
 
 Until then, **pinning is safer and more predictable** for production deployments.
 
 ## Related Issues
 
 - GitHub Issue #10: Version skew causing "MAX_EMBEDDING_TOKENS not found" errors
-- ElizaOS 2.0.0-alpha.4+ introduces breaking changes without clear migration docs
+- elizaOS 2.0.0-alpha.4+ introduces breaking changes without clear migration docs
 - Plugin ecosystem lags behind core releases by several alpha versions
 
 ---

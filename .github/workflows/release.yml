@@ -397,11 +397,11 @@ jobs:
           npx electron-builder build ${{ matrix.platform.electron-args }} -c ./electron-builder.ci.json -p never || {
             echo "ELECTRON BUILDER CRASHED. DUMPING ASAR CONTENTS:"
             if [ "${MATRIX_OS:-}" = "linux" ]; then
-              npx asar list dist/linux-unpacked/resources/app.asar || echo "NO ASAR"
+              npx @electron/asar list dist/linux-unpacked/resources/app.asar || echo "NO ASAR"
             elif [ "${MATRIX_OS:-}" = "macos" ]; then
-              npx asar list dist/mac*/Milady.app/Contents/Resources/app.asar || echo "NO ASAR"
+              npx @electron/asar list dist/mac*/Milady.app/Contents/Resources/app.asar || echo "NO ASAR"
             else
-              npx asar list dist/win-unpacked/resources/app.asar || echo "NO ASAR"
+              npx @electron/asar list dist/win-unpacked/resources/app.asar || echo "NO ASAR"
             fi
             exit 1
           }

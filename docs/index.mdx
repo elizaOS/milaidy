@@ -4,9 +4,9 @@ sidebarTitle: "Introduction"
 description: "Your personal AI assistant that runs on YOUR machine. Local-first, multi-provider, extensible."
 ---
 
-**Milady** is a local-first AI assistant built on [ElizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
+**Milady** is a local-first AI assistant built on [elizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
 
-It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by ElizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
+It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by elizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
@@ -57,7 +57,7 @@ Switch providers mid-conversation with `/model <id>`. No lock-in.
 
 ### Plugin Ecosystem
 
-Milady ships with 25+ first-party ElizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
+Milady ships with 25+ first-party elizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
 
 ### Skills Marketplace
 
@@ -107,7 +107,7 @@ Milady is structured as a layered system:
                          |
                    Gateway (:18789)
                          |
-                  ElizaOS Runtime
+                  elizaOS Runtime
                     |         |
             Milady Plugin    Other Plugins
             (personality,     (knowledge, browser,
@@ -118,10 +118,10 @@ Milady is structured as a layered system:
          (Telegram, Discord, WebChat, ...)
 ```
 
-- **ElizaOS Runtime** -- the core agent framework that handles memory, message processing, action dispatch, and provider abstraction.
-- **Milady Plugin** -- a first-party ElizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
+- **elizaOS Runtime** -- the core agent framework that handles memory, message processing, action dispatch, and provider abstraction.
+- **Milady Plugin** -- a first-party elizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
 - **Gateway** -- a WebSocket + HTTP multiplexed server that bridges the runtime to all connected clients and connectors.
-- **Plugin System** -- standard ElizaOS plugins that add capabilities (knowledge, browser, TTS, etc.).
+- **Plugin System** -- standard elizaOS plugins that add capabilities (knowledge, browser, TTS, etc.).
 - **Connector Layer** -- platform-specific adapters for Telegram, Discord, and the web chat UI.
 
 All configuration lives in `~/.milady/milady.json`. Secrets can go in `~/.milady/.env`.

@@ -246,7 +246,7 @@ describe.skipIf(!canRun)(
     });
 
     // ── Step 8: Chat with auth (requires live LLM runtime) ─────────────────
-    // Chat requires a full ElizaOS runtime with model plugins. When the server
+    // Chat requires a full elizaOS runtime with model plugins. When the server
     // is started via startApiServer() without a runtime, the agent "runs" in
     // a lightweight state-machine mode and chat returns 503. We verify auth
     // is enforced (no 401) and accept 200 or 503 depending on runtime.

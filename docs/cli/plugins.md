@@ -1,10 +1,10 @@
 ---
 title: "milady plugins"
 sidebarTitle: "plugins"
-description: "Browse, search, install, and manage ElizaOS plugins from the registry."
+description: "Browse, search, install, and manage elizaOS plugins from the registry."
 ---
 
-Browse, search, install, and manage ElizaOS plugins from the registry. The `plugins` command group provides 12 subcommands covering the full plugin lifecycle: discovery, installation, configuration, and custom drop-in plugin management.
+Browse, search, install, and manage elizaOS plugins from the registry. The `plugins` command group provides 12 subcommands covering the full plugin lifecycle: discovery, installation, configuration, and custom drop-in plugin management.
 
 Plugin names support shorthand resolution: `twitter` resolves to `@elizaos/plugin-twitter`. You can pin to a specific version or dist-tag using `name@version` syntax (e.g. `twitter@1.2.3` or `@custom/plugin-x@next`).
 
@@ -35,7 +35,7 @@ milady plugins <subcommand> [options]
 
 ## `milady plugins list`
 
-List all plugins from the ElizaOS registry, alphabetically sorted.
+List all plugins from the elizaOS registry, alphabetically sorted.
 
 ### Usage
 
@@ -114,7 +114,7 @@ milady plugins info twitter
 milady plugins info @elizaos/plugin-twitter
 ```
 
-The info view includes: GitHub repository URL, homepage, programming language, star count, topics, npm version availability across ElizaOS versions (v0/v1/v2), and the install command.
+The info view includes: GitHub repository URL, homepage, programming language, star count, topics, npm version availability across elizaOS versions (v0/v1/v2), and the install command.
 
 ---
 
@@ -347,7 +347,7 @@ milady plugins open ~/my-custom-plugins/my-plugin
 
 ## Custom Drop-In Plugins
 
-Milady supports custom plugins that do not need to come from the ElizaOS registry. Place a plugin directory in `~/.milady/plugins/custom/` and it will be automatically loaded at startup.
+Milady supports custom plugins that do not need to come from the elizaOS registry. Place a plugin directory in `~/.milady/plugins/custom/` and it will be automatically loaded at startup.
 
 A valid drop-in plugin directory must:
 
