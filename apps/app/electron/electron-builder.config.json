@@ -17,7 +17,8 @@
   ],
   "asarUnpack": [
     "milady-dist/**/*",
-    "*.tar.gz"
+    "*.tar.gz",
+    "node_modules/@tensorflow/tfjs-node/lib/**"
   ],
   "publish": {
     "provider": "github",
@@ -26,13 +27,14 @@
   },
   "compression": "normal",
   "nsis": {
-    "oneClick": true,
+    "oneClick": false,
     "perMachine": false,
     "allowElevation": true,
-    "allowToChangeInstallationDirectory": false,
+    "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Milady"
+    "shortcutName": "Milady",
+    "include": "resources/windows-long-paths.nsh"
   },
   "win": {
     "target": "nsis",
