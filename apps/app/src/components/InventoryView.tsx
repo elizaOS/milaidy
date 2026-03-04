@@ -4,13 +4,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import type {
-  BscTradeExecuteResponse,
-  BscTradeQuoteRequest,
-  BscTradeQuoteResponse,
-  BscTradeTxStatusResponse,
-  EvmChainBalance,
-} from "../api-client";
+import type { EvmChainBalance } from "../api-client";
 import { BscTradePanel, type TrackedToken } from "./BscTradePanel";
 
 /* ── Constants ─────────────────────────────────────────────────────── */
@@ -122,30 +116,9 @@ function CopyableAddress({
   );
 }
 
-/* ── BSC trading context extensions ─────────────────────────────────── */
-
-/**
- * BSC trading functions are dynamically injected into the app context
- * but not yet part of the core AppState/AppActions interfaces.
- * This local interface provides type-safe access without casting to `any`.
- */
-interface BscTradingContext {
-  inventoryChainFocus?: "bsc" | "all";
-  getBscTradePreflight?: () => Promise<void>;
-  getBscTradeQuote?: (
-    request?: Partial<BscTradeQuoteRequest>,
-  ) => Promise<BscTradeQuoteResponse>;
-  executeBscTrade?: (
-    request?: Partial<BscTradeQuoteRequest>,
-  ) => Promise<BscTradeExecuteResponse>;
-  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
-}
-
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export function InventoryView() {
-  const appCtx = useApp();
-  const bscCtx = appCtx as unknown as BscTradingContext;
   const {
     walletConfig,
     walletAddresses,
@@ -155,6 +128,7 @@ export function InventoryView() {
     walletNftsLoading,
     inventoryView,
     inventorySort,
+    inventoryChainFocus,
     walletError,
     loadBalances,
     loadNfts,
@@ -163,14 +137,11 @@ export function InventoryView() {
     setState,
     copyToClipboard,
     setActionNotice,
-  } = appCtx;
-  const {
-    inventoryChainFocus,
     getBscTradePreflight,
     getBscTradeQuote,
     executeBscTrade,
     getBscTradeTxStatus,
-  } = bscCtx;
+  } = useApp();
 
   // ── Tracked tokens state ────────────────────────────────────────────
   const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
@@ -648,7 +619,7 @@ export function InventoryView() {
                         <a
                           href="https://dashboard.alchemy.com/"
                           target="_blank"
-                          rel="noopener"
+                          rel="noopener noreferrer"
                           className="text-accent"
                         >
                           enable it

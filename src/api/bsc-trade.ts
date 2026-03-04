@@ -80,6 +80,11 @@ function normalizeRpcUrl(url: string | null | undefined): string | null {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
       return null;
+    if (parsed.protocol === "http:") {
+      logger.warn(
+        `BSC RPC URL uses http: (${parsed.host}) — MITM risk for trade execution. Use https: in production.`,
+      );
+    }
     return parsed.toString();
   } catch {
     return null;

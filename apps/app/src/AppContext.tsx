@@ -17,6 +17,10 @@ import {
   type AgentStartupDiagnostics,
   type AgentStatus,
   type AppViewerAuthMessage,
+  type BscTradeExecuteResponse,
+  type BscTradeQuoteRequest,
+  type BscTradeQuoteResponse,
+  type BscTradeTxStatusResponse,
   type CatalogSkill,
   type CharacterData,
   type CodingAgentSession,
@@ -756,6 +760,7 @@ export interface AppState {
   walletExportVisible: boolean;
   walletApiKeySaving: boolean;
   inventorySort: "chain" | "symbol" | "value";
+  inventoryChainFocus?: "bsc" | "all";
   walletError: string | null;
 
   // ERC-8004 Registry
@@ -1012,6 +1017,16 @@ export interface AppActions {
   loadNfts: () => Promise<void>;
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
+
+  // BSC Trading (optional — dynamically injected)
+  getBscTradePreflight?: () => Promise<void>;
+  getBscTradeQuote?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeQuoteResponse>;
+  executeBscTrade?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeExecuteResponse>;
+  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 
   // Registry / Drop
   loadRegistryStatus: () => Promise<void>;

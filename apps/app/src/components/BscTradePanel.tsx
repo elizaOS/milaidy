@@ -175,7 +175,7 @@ export function BscTradePanel({
             <a
               href={explorerUrl}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               className="text-accent"
             >
               View tx {shortHash}
