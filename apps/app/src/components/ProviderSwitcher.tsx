@@ -271,6 +271,7 @@ export function ProviderSwitcher({
           });
           setState("cloudEnabled", false);
           setPiAiEnabled(false);
+          setCloudHandlesInference(false);
           if (!willTogglePlugins) {
             await client.restartAgent();
           }

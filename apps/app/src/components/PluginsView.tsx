@@ -2146,6 +2146,10 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                             alt=""
                             className="w-4 h-4 rounded-sm object-cover"
                             loading="lazy"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display =
+                                "none";
+                            }}
                           />
                         ) : (
                           <span className="text-sm">{icon}</span>
