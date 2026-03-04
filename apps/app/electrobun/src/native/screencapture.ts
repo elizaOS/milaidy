@@ -119,10 +119,8 @@ const char* list_windows(void) {
 // ============================================================================
 
 export class ScreenCaptureManager {
-  private sendToWebview: SendToWebview | null = null;
-
-  setSendToWebview(fn: SendToWebview): void {
-    this.sendToWebview = fn;
+  setSendToWebview(_fn: SendToWebview): void {
+    // Retained for interface compatibility; no webview push needed yet
   }
 
   async getSources() {
