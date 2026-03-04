@@ -22,6 +22,7 @@
  * - No shell.beep — no-op
  */
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -234,10 +235,18 @@ async function initWindowBridge(): Promise<boolean> {
     const srcPath = path.join(import.meta.dir, "darwin/window_bridge.m");
     if (!fs.existsSync(srcPath)) return false;
 
-    // NOTE: Cache filename has no version tag. If the Obj-C source changes,
-    // stale dylib may be loaded until /tmp is cleaned or filename is updated.
-    // Consider appending a source hash or version tag for cache invalidation.
-    const cachePath = path.join(os.tmpdir(), "milady-window-bridge.dylib");
+    // Cache filename includes a content hash of the Obj-C source so that
+    // app updates with changed bridge code will recompile automatically
+    // instead of loading a stale dylib from a previous version.
+    const objcSource = fs.readFileSync(srcPath, "utf8");
+    const sourceHash = createHash("md5")
+      .update(objcSource)
+      .digest("hex")
+      .slice(0, 8);
+    const cachePath = path.join(
+      os.tmpdir(),
+      `milady-window-bridge-${sourceHash}.dylib`,
+    );
     if (!fs.existsSync(cachePath)) {
       const proc = Bun.spawn(
         [

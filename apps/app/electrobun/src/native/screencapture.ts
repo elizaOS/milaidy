@@ -140,7 +140,9 @@ export class ScreenCaptureManager {
     await initCoreGraphicsFFI();
     if (cgSymbols) {
       try {
-        const raw = cgSymbols.list_windows();
+        // Bun FFI cstring returns a CString object, not a JS string.
+        // Wrap with String() so .split() works correctly.
+        const raw = String(cgSymbols.list_windows());
         if (raw) {
           const seen = new Set<string>();
           for (const line of raw.split("\n")) {

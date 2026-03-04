@@ -244,6 +244,8 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "talkmode:speakComplete": "talkmodeSpeakComplete",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChanged": "swabbleStateChanged",
+  // Sent by LocationManager.watchPosition() in native/location.ts when
+  // periodic IP-geolocation polling produces a new position fix.
   "location:update": "locationUpdate",
 };
 
