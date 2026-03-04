@@ -128,6 +128,7 @@ export async function verifyTweet(
   }
 
   if (!data.tweet?.text) {
+    verifySpan.failure({ statusCode: response.status, errorKind: "empty_content" });
     return {
       verified: false,
       error: "Could not read tweet content",
@@ -174,7 +175,12 @@ export function loadWhitelist(): WhitelistData {
   const filePath = whitelistPath();
   if (!fs.existsSync(filePath)) return { verified: {} };
   const raw = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(raw) as WhitelistData;
+  try {
+    return JSON.parse(raw) as WhitelistData;
+  } catch {
+    logger.warn(`[twitter-verify] Corrupt whitelist file, resetting: ${filePath}`);
+    return { verified: {} };
+  }
 }
 
 function saveWhitelist(data: WhitelistData): void {

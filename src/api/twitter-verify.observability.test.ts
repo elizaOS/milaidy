@@ -101,6 +101,46 @@ describe("twitter-verify observability", () => {
     });
   });
 
+  it("records failure when tweet content is empty (no orphaned span)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ tweet: {} }),
+      }),
+    );
+
+    const result = await verifyTweet(VALID_TWEET_URL, WALLET);
+
+    expect(result.verified).toBe(false);
+    expect(result.error).toBe("Could not read tweet content");
+    expect(spanFailureMock).toHaveBeenCalledWith({
+      statusCode: 200,
+      errorKind: "empty_content",
+    });
+    expect(spanSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it("records failure when tweet object is missing entirely (no orphaned span)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ code: 200 }),
+      }),
+    );
+
+    const result = await verifyTweet(VALID_TWEET_URL, WALLET);
+
+    expect(result.verified).toBe(false);
+    expect(spanFailureMock).toHaveBeenCalledWith({
+      statusCode: 200,
+      errorKind: "empty_content",
+    });
+  });
+
   it("does not create span for invalid tweet URL", async () => {
     const result = await verifyTweet("https://example.com/bad", WALLET);
 
