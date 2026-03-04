@@ -162,7 +162,7 @@ export function ConversationsSidebar({
     handleRenameConversation,
     uiLanguage,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");

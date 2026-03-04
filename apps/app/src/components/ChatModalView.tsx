@@ -69,7 +69,7 @@ export function ChatModalView({
     setTab,
     uiLanguage,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);

@@ -439,7 +439,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     getBscTradeTxStatus,
     uiLanguage,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [quickTokenInput, setQuickTokenInput] = useState("");
   const [quickBnbAmount, setQuickBnbAmount] = useState("0.1");

@@ -65,7 +65,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     uiLanguage,
     openEmotePicker,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

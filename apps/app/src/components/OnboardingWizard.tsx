@@ -15,6 +15,7 @@ import {
   type ChangeEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -160,7 +161,7 @@ export function OnboardingWizard() {
     handleCloudLogin,
     mintFromDrop,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [_showAllProviders, _setShowAllProviders] = useState(false);
   const [openaiOAuthStarted, setOpenaiOAuthStarted] = useState(false);

@@ -31,7 +31,7 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
 import { createTranslator } from "../i18n";
 import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
@@ -196,7 +196,7 @@ function SettingsSidebar({
   onSearchChange: (query: string) => void;
 }) {
   const { uiLanguage } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const filteredSections = SETTINGS_SECTIONS.filter(
     (section) =>
@@ -281,7 +281,7 @@ function SettingsSidebar({
 function UpdatesSection() {
   const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } =
     useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   useEffect(() => {
     void loadUpdateStatus();
@@ -334,7 +334,7 @@ function UpdatesSection() {
 
 function AdvancedSection() {
   const { handleReset, uiLanguage } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   return (
     <div className="space-y-6">
@@ -451,7 +451,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     setState,
     setActionNotice,
   } = useApp();
-  const t = createTranslator(uiLanguage);
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   useEffect(() => {
     void loadPlugins();
