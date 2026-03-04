@@ -129,6 +129,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "canvas:createWindow": "canvasCreateWindow",
   "canvas:destroyWindow": "canvasDestroyWindow",
   "canvas:navigate": "canvasNavigate",
+  // canvasEval RPC handler is registered in rpc-handlers.ts → canvas.eval()
   "canvas:eval": "canvasEval",
   "canvas:snapshot": "canvasSnapshot",
   "canvas:a2uiPush": "canvasA2uiPush",
@@ -439,7 +440,16 @@ try {
   setupApiBasePushHandler();
 } catch {
   // Electroview may not be ready yet; retry once after a short delay
-  setTimeout(setupApiBasePushHandler, 100);
+  setTimeout(() => {
+    try {
+      setupApiBasePushHandler();
+    } catch (retryErr) {
+      console.warn(
+        "[electrobun-bridge] Failed to set up API base push handler after retry:",
+        retryErr,
+      );
+    }
+  }, 100);
 }
 
 // ============================================================================
