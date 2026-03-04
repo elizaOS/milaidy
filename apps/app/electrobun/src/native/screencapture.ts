@@ -30,6 +30,15 @@ const SEP = String.fromCharCode(31); // ASCII Unit Separator
 
 // ============================================================================
 // CoreGraphics FFI (window listing)
+//
+// FFI approach: Window listing uses bun:ffi cc() to compile inline C that
+// calls CGWindowListCopyWindowInfo. All CoreGraphics struct access (CGRect,
+// CGPoint, CGSize) is handled inside the compiled C code — no Buffer.alloc
+// in JS. This avoids buffer sizing pitfalls (CGRect = 4 doubles = 32 bytes,
+// CGPoint = 2 doubles = 16 bytes on 64-bit macOS).
+//
+// Screenshots use the /usr/sbin/screencapture CLI (array-form Bun.spawn),
+// NOT CoreGraphics FFI for image capture.
 // ============================================================================
 
 interface CGSymbols {
@@ -160,6 +169,7 @@ export class ScreenCaptureManager {
         os.tmpdir(),
         `milady-screenshot-${Date.now()}.png`,
       );
+      // SAFE: array-form Bun.spawn — no shell interpolation
       const proc = Bun.spawn([SCREENCAPTURE_BIN, "-x", "-t", "png", tmpFile], {
         stdout: "pipe",
         stderr: "pipe",
@@ -191,9 +201,18 @@ export class ScreenCaptureManager {
 
     try {
       const tmpFile = path.join(os.tmpdir(), `milady-window-${Date.now()}.png`);
+      // SAFE: array-form Bun.spawn — no shell interpolation
       const args = [SCREENCAPTURE_BIN, "-x", "-t", "png"];
       if (options?.windowId) {
-        args.push("-l", options.windowId);
+        // Sanitize windowId: CGWindowID is a numeric value — reject non-numeric input
+        const sanitizedId = options.windowId.replace(/[^0-9]/g, "");
+        if (!sanitizedId) {
+          return {
+            available: false,
+            reason: "Invalid windowId — must be numeric",
+          };
+        }
+        args.push("-l", sanitizedId);
       }
       args.push(tmpFile);
 
@@ -259,8 +278,11 @@ export class ScreenCaptureManager {
 
   async saveScreenshot(options: { data: string; filename?: string }) {
     try {
-      const filename =
-        options.filename ?? `milady-screenshot-${Date.now()}.png`;
+      // Sanitize filename: strip path separators and restrict to safe characters
+      const rawName = options.filename ?? `milady-screenshot-${Date.now()}.png`;
+      const baseName = path.basename(rawName);
+      const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filename = safeName || `milady-screenshot-${Date.now()}.png`;
       const savePath = path.join(os.homedir(), "Pictures", filename);
       const dir = path.dirname(savePath);
       if (!fs.existsSync(dir)) {

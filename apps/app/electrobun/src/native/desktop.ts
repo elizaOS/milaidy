@@ -48,6 +48,16 @@ import type {
 
 // ============================================================================
 // Power Monitor FFI (macOS: IOKit + CoreGraphics)
+//
+// Uses bun:ffi cc() to compile inline C that calls IOKit power source APIs
+// and CoreGraphics idle/lock detection. All CF object lifecycle management
+// (CFRelease) is handled inside the compiled C code, ensuring no leaks on
+// any code path including early returns (null checks before CFRelease).
+//
+// Does NOT use IOServiceGetMatchingService / IORegistryEntryCreateCFProperties
+// directly — uses the higher-level IOPSCopyPowerSourcesInfo API instead.
+//
+// Falls back to CLI tools (pmset, ioreg) when FFI initialization fails.
 // ============================================================================
 
 interface PowerFFISymbols {
@@ -168,6 +178,15 @@ async function getPowerStateCLI(): Promise<PowerState> {
 
 // ============================================================================
 // Window Bridge (macOS: Obj-C dylib for hide/setOpacity)
+//
+// Dylib path resolution: Uses import.meta.dir (Bun equivalent of __dirname)
+// to resolve paths relative to THIS script, not process.cwd(). This ensures
+// the dylib is found regardless of the working directory at runtime.
+//
+// Load order:
+// 1. Pre-compiled dylib at {scriptDir}/../../assets/libwindowbridge.dylib
+// 2. On-the-fly compilation from {scriptDir}/darwin/window_bridge.m -> tmpdir
+// 3. Graceful degradation (minimize() fallback for hide, no-op for opacity)
 // ============================================================================
 
 interface WindowBridgeSymbols {
@@ -185,23 +204,33 @@ async function initWindowBridge(): Promise<boolean> {
   try {
     const { dlopen, FFIType } = await import("bun:ffi");
 
-    // Try pre-compiled dylib in assets
+    const bridgeSymbols = {
+      milady_hide_window: { args: [], returns: FFIType.void },
+      milady_show_window: { args: [], returns: FFIType.void },
+      milady_set_opacity: { args: [FFIType.f64], returns: FFIType.void },
+    } as const;
+
+    // 1. Try pre-compiled dylib in assets
+    // Path resolved via import.meta.dir (script-relative, not CWD-relative)
     const assetPath = path.join(
       import.meta.dir,
       "../../assets/libwindowbridge.dylib",
     );
     if (fs.existsSync(assetPath)) {
-      const lib = dlopen(assetPath, {
-        milady_hide_window: { args: [], returns: FFIType.void },
-        milady_show_window: { args: [], returns: FFIType.void },
-        milady_set_opacity: { args: [FFIType.f64], returns: FFIType.void },
-      });
-      windowBridge = lib.symbols;
-      console.log("[DesktopManager] Window bridge loaded from assets");
-      return true;
+      try {
+        const lib = dlopen(assetPath, bridgeSymbols);
+        windowBridge = lib.symbols;
+        console.log("[DesktopManager] Window bridge loaded from assets");
+        return true;
+      } catch (loadErr) {
+        console.warn(
+          "[DesktopManager] Failed to load pre-compiled bridge, trying compilation fallback:",
+          loadErr,
+        );
+      }
     }
 
-    // Try to compile on-the-fly (requires Xcode CLI tools)
+    // 2. Try to compile on-the-fly (requires Xcode CLI tools)
     const srcPath = path.join(import.meta.dir, "darwin/window_bridge.m");
     if (!fs.existsSync(srcPath)) return false;
 
@@ -226,11 +255,7 @@ async function initWindowBridge(): Promise<boolean> {
       }
     }
 
-    const lib = dlopen(cachePath, {
-      milady_hide_window: { args: [], returns: FFIType.void },
-      milady_show_window: { args: [], returns: FFIType.void },
-      milady_set_opacity: { args: [FFIType.f64], returns: FFIType.void },
-    });
+    const lib = dlopen(cachePath, bridgeSymbols);
     windowBridge = lib.symbols;
     console.log("[DesktopManager] Window bridge compiled and loaded");
     return true;

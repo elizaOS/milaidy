@@ -9,7 +9,15 @@ import type {
   SystemPermissionId,
 } from "./permissions-shared";
 
-async function runCommand(cmd: string): Promise<string> {
+/**
+ * Run an osascript command and return stdout.
+ *
+ * SAFETY: All commands passed to runOsascript are hardcoded strings defined
+ * in checkPermission() — no user input is interpolated. The sh -c form is
+ * needed because osascript's quoting requirements make array-form impractical
+ * for inline AppleScript with shell redirects (2>&1).
+ */
+async function runOsascript(cmd: string): Promise<string> {
   try {
     const proc = Bun.spawn(["sh", "-c", cmd], {
       stdout: "pipe",
@@ -28,7 +36,7 @@ export async function checkPermission(
 ): Promise<PermissionCheckResult> {
   switch (id) {
     case "accessibility": {
-      const result = await runCommand(
+      const result = await runOsascript(
         "osascript -e 'tell application \"System Events\" to return name of first process' 2>&1",
       );
       const granted = !result.includes("error") && result.length > 0;
@@ -37,7 +45,7 @@ export async function checkPermission(
 
     case "screen-recording": {
       // Check if screen recording permission is granted via CGWindowListCopyWindowInfo
-      const result = await runCommand(
+      const result = await runOsascript(
         "osascript -e 'tell application \"System Events\" to return (count of (every window of every process))' 2>&1",
       );
       const granted = !result.includes("error");
@@ -45,7 +53,7 @@ export async function checkPermission(
     }
 
     case "microphone": {
-      const result = await runCommand(
+      const result = await runOsascript(
         'osascript -e \'tell application "System Events" to return "ok"\' 2>&1',
       );
       // Microphone permission is managed by the WebView at runtime
@@ -107,6 +115,15 @@ export async function openPrivacySettings(
 
   const url = paneMap[id];
   if (url) {
-    await runCommand(`open "${url}"`);
+    // SAFE: array-form Bun.spawn — URL comes from hardcoded paneMap, not user input
+    try {
+      const proc = Bun.spawn(["open", url], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      await proc.exited;
+    } catch {
+      // Settings pane unavailable
+    }
   }
 }
