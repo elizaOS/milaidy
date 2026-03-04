@@ -9365,9 +9365,12 @@ export class MilaidyApp extends LitElement {
   }
 
   private hasConnectedWallet(): boolean {
-    return Boolean(this.walletConfig?.walletConnectionLocked)
-      || Boolean(this.walletConfig?.evmConfiguredAddress)
-      || Boolean(this.walletConfig?.solanaConfiguredAddress);
+    return Boolean(this.walletConfig?.evmConfiguredAddress)
+      || Boolean(this.walletConfig?.solanaConfiguredAddress)
+      || Boolean(this.walletConfig?.evmAddress)
+      || Boolean(this.walletConfig?.solanaAddress)
+      || Boolean(this.walletAddresses?.evmAddress)
+      || Boolean(this.walletAddresses?.solanaAddress);
   }
 
   private async handleWalletDisconnect(): Promise<void> {
@@ -9376,6 +9379,17 @@ export class MilaidyApp extends LitElement {
     this.walletError = null;
     try {
       await client.disconnectWallet();
+      if (this.walletConfig) {
+        this.walletConfig = {
+          ...this.walletConfig,
+          walletConnectionLocked: false,
+          evmConfiguredAddress: null,
+          solanaConfiguredAddress: null,
+          evmAddress: null,
+          solanaAddress: null,
+        };
+      }
+      this.walletAddresses = { evmAddress: null, solanaAddress: null };
       this.walletBalances = null;
       this.walletNfts = null;
       this.polymarketPortfolio = null;
