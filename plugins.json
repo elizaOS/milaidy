@@ -30,7 +30,9 @@
         "ACP_AGENT_ID"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "ACP_GATEWAY_URL": {
           "type": "string",
@@ -211,7 +213,8 @@
           "group": "Client Identity",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/antdesign/white"
     },
     {
       "id": "agent-orchestrator",
@@ -221,7 +224,9 @@
       "description": "Agent orchestration plugin for ElizaOS (task lifecycle + agent providers)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ORCHESTRATOR_ACTIVE_PROVIDER"],
+      "configKeys": [
+        "ORCHESTRATOR_ACTIVE_PROVIDER"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ORCHESTRATOR_ACTIVE_PROVIDER": {
@@ -237,7 +242,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "agent-skills",
@@ -316,7 +322,8 @@
           "advanced": true,
           "help": "Legacy setting for Otto bundled skills"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "anthropic",
@@ -325,6 +332,7 @@
       "npmName": "@elizaos/plugin-anthropic",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://cdn.simpleicons.org/anthropic/white",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
         "ANTHROPIC_API_KEY",
@@ -429,7 +437,9 @@
         "ZEROEX_API_KEY"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["solana"],
+      "pluginDeps": [
+        "solana"
+      ],
       "pluginParameters": {
         "BIRDEYE_API_KEY": {
           "type": "string",
@@ -676,7 +686,8 @@
           "min": 0,
           "max": 10000
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/tradingview/white"
     },
     {
       "id": "babylon",
@@ -877,7 +888,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/babylonchain/brand-kit/main/Logos/SVG/Babylon_Logo_White.svg"
     },
     {
       "id": "blooio",
@@ -993,7 +1005,8 @@
           "group": "Webhook",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "bluebubbles",
@@ -1119,7 +1132,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/BlueBubblesApp/BlueBubbles-App/master/assets/icon/icon_white.png"
     },
     {
       "id": "bluesky",
@@ -1128,6 +1142,7 @@
       "npmName": "@elizaos/plugin-bluesky",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/bluesky/white",
       "envKey": null,
       "configKeys": [
         "BLUESKY_ENABLED",
@@ -1360,7 +1375,9 @@
         "CAPSOLVER_API_KEY"
       ],
       "version": "2.0.0-alpha.6",
-      "pluginDeps": ["cli"],
+      "pluginDeps": [
+        "cli"
+      ],
       "pluginParameters": {
         "BROWSERBASE_API_KEY": {
           "type": "string",
@@ -1424,7 +1441,8 @@
           "group": "Authentication",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlechrome/white"
     },
     {
       "id": "cli",
@@ -1434,7 +1452,10 @@
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CLI_NAME", "CLI_VERSION"],
+      "configKeys": [
+        "CLI_NAME",
+        "CLI_VERSION"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "CLI_NAME": {
@@ -1461,7 +1482,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "clawbal",
@@ -1522,7 +1544,8 @@
           "description": "Path to milady-image-generator assets for unique PFP generation",
           "required": false
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "coding-agent",
@@ -1533,7 +1556,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "logoUrl": "https://cdn.simpleicons.org/visualstudiocode/white"
     },
     {
       "id": "code",
@@ -1550,7 +1574,9 @@
         "CODER_FORBIDDEN_COMMANDS"
       ],
       "version": "2.0.0-alpha.5",
-      "pluginDeps": ["shell"],
+      "pluginDeps": [
+        "shell"
+      ],
       "pluginParameters": {
         "CODER_ENABLED": {
           "type": "boolean",
@@ -1601,7 +1627,8 @@
           "width": "full",
           "help": "Comma-separated list of forbidden shell commands"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/visualstudiocode/white"
     },
     {
       "id": "commands",
@@ -1685,7 +1712,8 @@
           "group": "Commands",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "computeruse",
@@ -1735,7 +1763,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/virtualbox/white"
     },
     {
       "id": "copilot-proxy",
@@ -1854,7 +1883,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/githubcopilot/white"
     },
     {
       "id": "cron",
@@ -1863,10 +1893,13 @@
       "npmName": "@elizaos/plugin-cron",
       "description": "Cron scheduling plugin for ElizaOS agents - schedule recurring or one-time jobs that execute actions, run prompts, or trigger events",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Clock_Icon_White.svg",
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["cli"]
+      "pluginDeps": [
+        "cli"
+      ]
     },
     {
       "id": "directives",
@@ -1937,7 +1970,8 @@
           "width": "half",
           "help": "Enables shell configuration via directives"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "discord",
@@ -1946,6 +1980,7 @@
       "npmName": "@elizaos/plugin-discord",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/discord/white",
       "envKey": "DISCORD_API_TOKEN",
       "configKeys": [
         "DISCORD_API_TOKEN",
@@ -2180,7 +2215,8 @@
           "unit": "ms",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/microsoftedge/white"
     },
     {
       "id": "elevenlabs",
@@ -2412,7 +2448,8 @@
           "group": "Speech-to-Text",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "eliza-classic",
@@ -2423,7 +2460,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "elizacloud",
@@ -2701,7 +2739,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/eliza/main/docs/static/img/logo.png"
     },
     {
       "id": "evm",
@@ -2710,6 +2749,7 @@
       "npmName": "@elizaos/plugin-evm",
       "description": "",
       "category": "feature",
+      "logoUrl": "https://cdn.simpleicons.org/ethereum/white",
       "envKey": "ALCHEMY_API_KEY",
       "configKeys": [
         "EVM_PRIVATE_KEY",
@@ -2888,7 +2928,9 @@
       "description": "Experience learning plugin for ElizaOS - records and recalls transferable agent learnings",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["AUTO_RECORD_THRESHOLD"],
+      "configKeys": [
+        "AUTO_RECORD_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "AUTO_RECORD_THRESHOLD": {
@@ -2905,7 +2947,8 @@
           "width": "half",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "farcaster",
@@ -2914,6 +2957,7 @@
       "npmName": "@elizaos/plugin-farcaster",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/farcaster/white",
       "envKey": "FARCASTER_NEYNAR_API_KEY",
       "configKeys": [
         "FARCASTER_DRY_RUN",
@@ -3203,7 +3247,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/flathub/cn.feishu.Feishu/master/cn.feishu.Feishu.svg"
     },
     {
       "id": "form",
@@ -3214,7 +3259,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "logoUrl": "https://cdn.simpleicons.org/googleforms/white"
     },
     {
       "id": "github",
@@ -3223,6 +3269,7 @@
       "npmName": "@elizaos/plugin-github",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/github/white",
       "envKey": "GITHUB_API_TOKEN",
       "configKeys": [
         "GITHUB_API_TOKEN",
@@ -3338,7 +3385,8 @@
       "category": "connector",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg"
     },
     {
       "id": "goals",
@@ -3430,7 +3478,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/lighthouse/white"
     },
     {
       "id": "google-chat",
@@ -3566,7 +3615,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlechat/white"
     },
     {
       "id": "google-genai",
@@ -3575,6 +3625,7 @@
       "npmName": "@elizaos/plugin-google-genai",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://cdn.simpleicons.org/googlegemini/white",
       "envKey": "GOOGLE_GENERATIVE_AI_API_KEY",
       "configKeys": [
         "GOOGLE_GENERATIVE_AI_API_KEY",
@@ -3694,6 +3745,7 @@
       "npmName": "@elizaos/plugin-groq",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://cdn.simpleicons.org/groq/white",
       "envKey": "GROQ_API_KEY",
       "configKeys": [
         "GROQ_API_KEY",
@@ -3875,7 +3927,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/imessage/white"
     },
     {
       "id": "inmemorydb",
@@ -3886,7 +3939,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "instagram",
@@ -3895,6 +3949,7 @@
       "npmName": "@elizaos/plugin-instagram",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/instagram/white",
       "envKey": null,
       "configKeys": [
         "INSTAGRAM_USERNAME",
@@ -4062,7 +4117,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaos-plugins/plugin-iq/main/assets/logo.svg"
     },
     {
       "id": "knowledge",
@@ -4071,6 +4127,7 @@
       "npmName": "@elizaos/plugin-knowledge",
       "description": "Knowledge and RAG plugin for elizaOS - provides retrieval augmented generation capabilities",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Search_Icon.svg",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
         "CTX_KNOWLEDGE_ENABLED",
@@ -4500,7 +4557,8 @@
           "group": "General",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/line/white"
     },
     {
       "id": "linear",
@@ -4509,6 +4567,7 @@
       "npmName": "@elizaos/plugin-linear",
       "description": "Linear integration plugin for ElizaOS (TypeScript)",
       "category": "feature",
+      "logoUrl": "https://cdn.simpleicons.org/linear/white",
       "envKey": "LINEAR_API_KEY",
       "configKeys": [
         "LINEAR_API_KEY",
@@ -4658,7 +4717,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "local-embedding",
@@ -4764,7 +4824,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/expertcity/white"
     },
     {
       "id": "localdb",
@@ -4775,7 +4836,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "lp-manager",
@@ -4803,7 +4865,12 @@
         "LP_EVM_DEXES"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic", "discord", "telegram", "evm"],
+      "pluginDeps": [
+        "anthropic",
+        "discord",
+        "telegram",
+        "evm"
+      ],
       "pluginParameters": {
         "SOLANA_RPC_URL": {
           "type": "string",
@@ -4972,7 +5039,8 @@
           "group": "DEX Config",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/uniswap/white"
     },
     {
       "id": "matrix",
@@ -5084,7 +5152,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/matrix/white"
     },
     {
       "id": "mattermost",
@@ -5220,7 +5289,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/mattermost/white"
     },
     {
       "id": "mcp",
@@ -5230,7 +5300,10 @@
       "description": "elizaOS plugin to integrate with MCP (Model Context Protocol) servers",
       "category": "connector",
       "envKey": null,
-      "configKeys": ["PATH", "mcp"],
+      "configKeys": [
+        "PATH",
+        "mcp"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "PATH": {
@@ -5258,7 +5331,8 @@
           "group": "Configuration",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/23/Model_Context_Protocol_logo.svg"
     },
     {
       "id": "memory",
@@ -5269,7 +5343,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/database/white"
     },
     {
       "id": "minecraft",
@@ -5361,7 +5436,8 @@
           "group": "Configuration",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/minecraft/white"
     },
     {
       "id": "moltbook",
@@ -5464,7 +5540,8 @@
           "group": "Autonomy",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://www.moltbook.fans/favicon.ico"
     },
     {
       "id": "msteams",
@@ -5594,7 +5671,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/microsoftteams/white"
     },
     {
       "id": "mysticism",
@@ -5610,7 +5688,9 @@
         "MYSTICISM_PRICE_ASTROLOGY"
       ],
       "version": "2.0.0-alpha.1",
-      "pluginDeps": ["form"],
+      "pluginDeps": [
+        "form"
+      ],
       "pluginParameters": {
         "MYSTICISM_PRICE_TAROT": {
           "type": "number",
@@ -5653,7 +5733,8 @@
           "unit": "SOL",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/vlc/white"
     },
     {
       "id": "n8n",
@@ -5728,7 +5809,8 @@
           "group": "n8n Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/n8n/white"
     },
     {
       "id": "nextcloud-talk",
@@ -5842,7 +5924,8 @@
           "group": "Policies",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/nextcloud/white"
     },
     {
       "id": "nostr",
@@ -5851,6 +5934,7 @@
       "npmName": "@elizaos/plugin-nostr",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Nostr_Logo.svg/100px-Nostr_Logo.svg.png",
       "envKey": null,
       "configKeys": [
         "NOSTR_PRIVATE_KEY",
@@ -6027,7 +6111,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/ollama/white"
     },
     {
       "id": "openai",
@@ -6036,6 +6121,7 @@
       "npmName": "@elizaos/plugin-openai",
       "description": "",
       "category": "ai-provider",
+      "logoUrl": "https://cdn.simpleicons.org/openai/white",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
         "OPENAI_API_KEY",
@@ -6526,7 +6612,8 @@
           "min": 1,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://openrouter.ai/static/favicon.png"
     },
     {
       "id": "pdf",
@@ -6537,7 +6624,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/adobeacrobatreader/white"
     },
     {
       "id": "personality",
@@ -6547,7 +6635,9 @@
       "description": "ElizaOS plugin for agent self-modification and character evolution",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["ADMIN_USERS"],
+      "configKeys": [
+        "ADMIN_USERS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ADMIN_USERS": {
@@ -6563,7 +6653,8 @@
           "width": "full",
           "placeholder": "user1,user2,user3"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "plugin-manager",
@@ -6574,7 +6665,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://raw.githubusercontent.com/elizaOS/brandkit/main/Logos/RGB/Logo_ElizaOS_White_RGB.svg"
     },
     {
       "id": "polymarket",
@@ -6593,7 +6685,9 @@
         "CLOB_API_PASSPHRASE"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["evm"],
+      "pluginDeps": [
+        "evm"
+      ],
       "pluginParameters": {
         "POLYMARKET_PRIVATE_KEY": {
           "type": "string",
@@ -6665,7 +6759,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/polymarket/white"
     },
     {
       "id": "prose",
@@ -6708,7 +6803,8 @@
           "label": "Skills Directory",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/codefactor/white"
     },
     {
       "id": "rlm",
@@ -6719,7 +6815,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/codefactor/white"
     },
     {
       "id": "roblox",
@@ -6824,7 +6921,8 @@
           "group": "Connection",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/roblox/white"
     },
     {
       "id": "robot-voice",
@@ -6835,7 +6933,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "rolodex",
@@ -6846,7 +6945,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/googlecontacts/white"
     },
     {
       "id": "rss",
@@ -6855,6 +6955,7 @@
       "npmName": "@elizaos/plugin-rss",
       "description": "RSS and Atom feed integration plugin for elizaOS - enables agents to fetch and monitor news feeds",
       "category": "feature",
+      "logoUrl": "https://cdn.simpleicons.org/rss/white",
       "envKey": null,
       "configKeys": [
         "RSS_FEEDS",
@@ -7026,7 +7127,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/amazons3/white"
     },
     {
       "id": "scheduling",
@@ -7035,8 +7137,11 @@
       "npmName": "@elizaos/plugin-scheduling",
       "description": "Scheduling and calendar coordination plugin for ElizaOS agents",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/1/15/Calendar_icon.svg",
       "envKey": null,
-      "configKeys": ["DEFAULT_TIMEZONE"],
+      "configKeys": [
+        "DEFAULT_TIMEZONE"
+      ],
       "version": "2.0.0-alpha.6",
       "pluginParameters": {
         "DEFAULT_TIMEZONE": {
@@ -7062,7 +7167,10 @@
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
+      "configKeys": [
+        "SCRATCHPAD_BASE_PATH",
+        "SCRATCHPAD_MAX_FILE_SIZE"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "SCRATCHPAD_BASE_PATH": {
@@ -7090,7 +7198,8 @@
           "unit": "bytes",
           "min": 0
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlekeep/white"
     },
     {
       "id": "secrets-manager",
@@ -7140,7 +7249,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/keepassxc/white"
     },
     {
       "id": "shell",
@@ -7253,7 +7363,8 @@
           "min": 0,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/gnuterminal/white"
     },
     {
       "id": "signal",
@@ -7316,7 +7427,8 @@
           "label": "Ignore Group Messages",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/signal/white"
     },
     {
       "id": "simple-voice",
@@ -7327,7 +7439,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "slack",
@@ -7336,6 +7449,7 @@
       "npmName": "@elizaos/plugin-slack",
       "description": "Slack integration plugin for ElizaOS agents with Socket Mode support",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/slack/white",
       "envKey": "SLACK_BOT_TOKEN",
       "configKeys": [
         "SLACK_BOT_TOKEN",
@@ -7512,7 +7626,8 @@
           "label": "Moralis API Key",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/activitypub/white"
     },
     {
       "id": "solana",
@@ -7521,6 +7636,7 @@
       "npmName": "@elizaos/plugin-solana",
       "description": "",
       "category": "feature",
+      "logoUrl": "https://cdn.simpleicons.org/solana/white",
       "envKey": "HELIUS_API_KEY",
       "configKeys": [
         "SOL_ADDRESS",
@@ -7675,7 +7791,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "logoUrl": "https://cdn.simpleicons.org/postgresql/white"
     },
     {
       "id": "tee",
@@ -7685,7 +7802,11 @@
       "description": "Trusted Execution Environment (TEE) integration plugin for elizaOS - Multi-language support (TypeScript, Python, Rust)",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
+      "configKeys": [
+        "TEE_MODE",
+        "TEE_VENDOR",
+        "WALLET_SECRET_SALT"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "TEE_MODE": {
@@ -7723,13 +7844,15 @@
           "label": "Wallet Secret Salt",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/Phala-Network/phala-brand-kit/master/Logo/Logo-Phala-Network-White.svg"
     },
     {
       "id": "telegram",
       "dirName": "plugin-telegram",
       "name": "Telegram",
       "npmName": "@elizaos/plugin-telegram",
+      "logoUrl": "https://cdn.simpleicons.org/telegram/white",
       "description": "",
       "category": "connector",
       "envKey": "TELEGRAM_BOT_TOKEN",
@@ -7886,7 +8009,8 @@
           "group": "Behavior",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/urbit/white"
     },
     {
       "id": "twitter",
@@ -7895,6 +8019,7 @@
       "npmName": "@elizaos/plugin-twitter",
       "description": "Twitter/X social media connector with posting, mentions, and DMs",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/x/white",
       "envKey": "TWITTER_API_KEY",
       "configKeys": [
         "TWITTER_API_KEY",
@@ -8083,8 +8208,12 @@
       "npmName": "@elizaos/plugin-todo",
       "description": "Multi-language Todo list plugin for elizaOS with TypeScript, Python, and Rust implementations",
       "category": "feature",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/0/07/Clipboard_icon.svg",
       "envKey": null,
-      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
+      "configKeys": [
+        "ENABLE_REMINDERS",
+        "REMINDER_INTERVAL_MS"
+      ],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ENABLE_REMINDERS": {
@@ -8124,7 +8253,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/lighthouse/white"
     },
     {
       "id": "trust",
@@ -8134,9 +8264,14 @@
       "description": "Trust and permission management plugin for ElizaOS",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
+      "configKeys": [
+        "OWNER_ENTITY_ID",
+        "WORLD_ID"
+      ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic"],
+      "pluginDeps": [
+        "anthropic"
+      ],
       "pluginParameters": {
         "OWNER_ENTITY_ID": {
           "type": "string",
@@ -8160,7 +8295,8 @@
           "label": "World ID",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/elizaos-plugins/plugin-trust/main/assets/logo.svg"
     },
     {
       "id": "tts",
@@ -8244,7 +8380,8 @@
           "width": "half",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/elevenlabs/white"
     },
     {
       "id": "twilio",
@@ -8472,7 +8609,8 @@
           "group": "Advanced",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/twilio/white"
     },
     {
       "id": "twitch",
@@ -8481,6 +8619,7 @@
       "npmName": "@elizaos/plugin-twitch",
       "description": "",
       "category": "connector",
+      "logoUrl": "https://cdn.simpleicons.org/twitch/white",
       "envKey": "TWITCH_ACCESS_TOKEN",
       "configKeys": [
         "TWITCH_USERNAME",
@@ -8597,11 +8736,26 @@
           "width": "full",
           "type": "multiselect",
           "options": [
-            { "value": "broadcaster", "label": "Broadcaster" },
-            { "value": "moderator", "label": "Moderator" },
-            { "value": "vip", "label": "VIP" },
-            { "value": "subscriber", "label": "Subscriber" },
-            { "value": "viewer", "label": "Viewer" }
+            {
+              "value": "broadcaster",
+              "label": "Broadcaster"
+            },
+            {
+              "value": "moderator",
+              "label": "Moderator"
+            },
+            {
+              "value": "vip",
+              "label": "VIP"
+            },
+            {
+              "value": "subscriber",
+              "label": "Subscriber"
+            },
+            {
+              "value": "viewer",
+              "label": "Viewer"
+            }
           ]
         }
       }
@@ -8655,7 +8809,8 @@
           "group": "Connection",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "streaming-base",
@@ -8666,7 +8821,8 @@
       "category": "streaming",
       "envKey": null,
       "configKeys": [],
-      "pluginParameters": {}
+      "pluginParameters": {},
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "twitch-streaming",
@@ -8693,7 +8849,8 @@
           "group": "Authentication",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/twitch/white"
     },
     {
       "id": "youtube-streaming",
@@ -8732,7 +8889,8 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/youtube/white"
     },
     {
       "id": "custom-rtmp",
@@ -8771,7 +8929,8 @@
           "group": "Authentication",
           "width": "full"
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/obsstudio/white"
     },
     {
       "id": "vercel-ai-gateway",
@@ -8920,7 +9079,8 @@
           "max": 300000,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/vercel/white"
     },
     {
       "id": "vision",
@@ -8930,7 +9090,10 @@
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
       "category": "feature",
       "envKey": null,
-      "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
+      "configKeys": [
+        "CAMERA_NAME",
+        "PIXEL_CHANGE_THRESHOLD"
+      ],
       "version": "2.0.0-alpha.5",
       "pluginParameters": {
         "CAMERA_NAME": {
@@ -8954,7 +9117,8 @@
           "min": 0,
           "max": 100
         }
-      }
+      },
+      "logoUrl": "https://cdn.simpleicons.org/googlelens/white"
     },
     {
       "id": "webhooks",
@@ -8965,13 +9129,15 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "logoUrl": "https://cdn.simpleicons.org/make/white"
     },
     {
       "id": "whatsapp",
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
-      "npmName": "@milady/plugin-whatsapp",
+      "npmName": "@elizaos/plugin-whatsapp",
+      "logoUrl": "https://cdn.simpleicons.org/whatsapp/white",
       "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
@@ -9205,7 +9371,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://raw.githubusercontent.com/coinbase/x402/main/assets/logo.svg"
     },
     {
       "id": "xai",
@@ -9451,7 +9618,8 @@
           "max": 4000,
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/20/XAI-Logo.svg"
     },
     {
       "id": "zalo",
@@ -9592,7 +9760,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Zalo_logo.svg"
     },
     {
       "id": "zalouser",
@@ -9730,7 +9899,8 @@
           "group": "Policies",
           "width": "half"
         }
-      }
+      },
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Zalo_logo.svg"
     }
   ]
 }
