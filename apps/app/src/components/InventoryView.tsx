@@ -1,29 +1,19 @@
 /**
- * Inventory view — BSC-first wallet balances and NFTs.
+ * Inventory view — BSC-first wallet balances, NFTs, and BSC trading.
  * Terminal-style layout inspired by GMGN / degen trading tools.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import type {
-  BscTradeQuoteResponse,
-  BscTradeTxStatusResponse,
-  EvmChainBalance,
-} from "../api-client";
+import type { EvmChainBalance } from "../api-client";
 import { createTranslator } from "../i18n";
-import {
-  buildWalletPreflightNotice,
-  getWalletPreflightChecks,
-  getWalletTxStatusLabel,
-  mapWalletTradeError,
-} from "./wallet-trade-helpers";
+import { BscTradePanel, type TrackedToken } from "./BscTradePanel";
 
 const BSC_GAS_READY_THRESHOLD = 0.005;
-const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-const RECENTS_KEY = "wt_recent_contracts";
-const MAX_RECENTS = 5;
+const BSC_GAS_THRESHOLD = 0.005;
 const TRACKED_BSC_TOKENS_KEY = "wt_tracked_bsc_tokens";
 const MAX_TRACKED_BSC_TOKENS = 30;
+const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 /* ── Chain icon helper ─────────────────────────────────────────────── */
 
@@ -32,6 +22,7 @@ function chainIcon(chain: string): { code: string; cls: string } {
   if (c === "ethereum" || c === "mainnet")
     return { code: "E", cls: "bg-chain-eth" };
   if (c === "base") return { code: "B", cls: "bg-chain-base" };
+  if (c === "bsc") return { code: "B", cls: "bg-chain-bsc" };
   if (c === "arbitrum") return { code: "A", cls: "bg-chain-arb" };
   if (c === "optimism") return { code: "O", cls: "bg-chain-op" };
   if (c === "polygon") return { code: "P", cls: "bg-chain-pol" };
@@ -60,33 +51,6 @@ function formatBalance(balance: string): string {
   if (num < 1) return num.toFixed(6);
   if (num < 1000) return num.toFixed(4);
   return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
-
-/* ── Recent contracts helpers ─────────────────────────────────────── */
-
-function loadRecents(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((x: unknown) => typeof x === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecent(addr: string, prev: string[]): string[] {
-  const next = [
-    addr,
-    ...prev.filter((a) => a.toLowerCase() !== addr.toLowerCase()),
-  ].slice(0, MAX_RECENTS);
-  try {
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
-  } catch {
-    /* ignore */
-  }
-  return next;
 }
 
 interface TrackedBscToken {
@@ -122,112 +86,12 @@ function loadTrackedBscTokens(): TrackedBscToken[] {
   }
 }
 
-interface DexScreenerTokenRef {
-  address?: string;
-  symbol?: string;
-  name?: string;
-}
-
-interface DexScreenerPair {
-  chainId?: string;
-  baseToken?: DexScreenerTokenRef;
-  quoteToken?: DexScreenerTokenRef;
-  info?: {
-    imageUrl?: string;
-  };
-}
-
-interface DexScreenerTokenResponse {
-  pairs?: DexScreenerPair[];
-}
-
-interface DexScreenerTokenMetadata {
-  symbol?: string;
-  name?: string;
-  logoUrl?: string;
-}
-
-async function fetchDexScreenerBscTokenMetadata(
-  contractAddress: string,
-): Promise<DexScreenerTokenMetadata | null> {
-  if (typeof window === "undefined" || typeof fetch !== "function") return null;
-
-  const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), 3500);
-  const normalized = toNormalizedAddress(contractAddress);
-
-  try {
-    const response = await fetch(
-      `https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`,
-      {
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as DexScreenerTokenResponse;
-    const pairs = Array.isArray(data.pairs) ? data.pairs : [];
-    const bscPairs = pairs.filter(
-      (pair) => pair.chainId?.toLowerCase() === "bsc",
-    );
-    const byBase = bscPairs.find(
-      (pair) =>
-        toNormalizedAddress(pair.baseToken?.address ?? "") === normalized,
-    );
-    const byQuote = bscPairs.find(
-      (pair) =>
-        toNormalizedAddress(pair.quoteToken?.address ?? "") === normalized,
-    );
-    const picked = byBase ?? byQuote ?? bscPairs[0] ?? pairs[0];
-    if (!picked) return null;
-
-    const baseMatches =
-      toNormalizedAddress(picked.baseToken?.address ?? "") === normalized;
-    const quoteMatches =
-      toNormalizedAddress(picked.quoteToken?.address ?? "") === normalized;
-    const token = baseMatches
-      ? picked.baseToken
-      : quoteMatches
-        ? picked.quoteToken
-        : picked.baseToken;
-    const symbol = token?.symbol?.trim();
-    const name = token?.name?.trim();
-    const logoUrl = picked.info?.imageUrl?.trim();
-
-    return {
-      symbol: symbol || undefined,
-      name: name || undefined,
-      logoUrl: logoUrl || undefined,
-    };
-  } catch {
-    return null;
-  } finally {
-    globalThis.clearTimeout(timeout);
-  }
-}
-
 function saveTrackedBscTokens(next: TrackedBscToken[]): void {
   try {
     localStorage.setItem(TRACKED_BSC_TOKENS_KEY, JSON.stringify(next));
   } catch {
     /* ignore */
   }
-}
-
-function upsertTrackedBscToken(
-  token: TrackedBscToken,
-  prev: TrackedBscToken[],
-): TrackedBscToken[] {
-  const normalized = toNormalizedAddress(token.contractAddress);
-  const rest = prev.filter(
-    (item) => toNormalizedAddress(item.contractAddress) !== normalized,
-  );
-  const next = [
-    { ...token, contractAddress: token.contractAddress.trim() },
-    ...rest,
-  ].slice(0, MAX_TRACKED_BSC_TOKENS);
-  saveTrackedBscTokens(next);
-  return next;
 }
 
 function removeTrackedBscToken(
@@ -240,6 +104,26 @@ function removeTrackedBscToken(
   );
   saveTrackedBscTokens(next);
   return next;
+}
+
+/* ── localStorage helpers for tracked tokens (develop) ──────────── */
+
+function loadTrackedTokens(): TrackedToken[] {
+  try {
+    const raw = localStorage.getItem(TRACKED_BSC_TOKENS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as TrackedToken[];
+  } catch {
+    return [];
+  }
+}
+
+function saveTrackedTokens(tokens: TrackedToken[]): void {
+  try {
+    localStorage.setItem(TRACKED_BSC_TOKENS_KEY, JSON.stringify(tokens));
+  } catch {
+    // ignore in non-browser test runtime
+  }
 }
 
 /* ── Row types ─────────────────────────────────────────────────────── */
@@ -262,28 +146,6 @@ interface NftItem {
   name: string;
   imageUrl: string;
   collectionName: string;
-}
-
-interface UserSignPlanState {
-  side: "buy" | "sell";
-  requiresApproval: boolean;
-  unsignedTx: {
-    chainId: number;
-    to: string;
-    data: string;
-    valueWei: string;
-    deadline: number;
-    explorerUrl: string;
-  };
-  unsignedApprovalTx?: {
-    chainId: number;
-    to: string;
-    data: string;
-    valueWei: string;
-    explorerUrl: string;
-    spender: string;
-    amountWei: string;
-  };
 }
 
 /* ── Token logo with CDN + fallback ──────────────────────────────── */
@@ -441,48 +303,16 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
-  const [quickTokenInput, setQuickTokenInput] = useState("");
-  const [quickBnbAmount, setQuickBnbAmount] = useState("0.1");
-  const [slippageBps, setSlippageBps] = useState(500);
-  const [customSlippageInput, setCustomSlippageInput] = useState("");
-  const [tradeBusy, setTradeBusy] = useState(false);
-  const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
-    null,
+  // ── Tracked tokens state (develop's BscTradePanel approach) ──────
+  const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
+    loadTrackedTokens(),
   );
-  const [executeBusy, setExecuteBusy] = useState(false);
-  const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
-  const [latestTxStatus, setLatestTxStatus] =
-    useState<BscTradeTxStatusResponse | null>(null);
-  const [txStatusBusy, setTxStatusBusy] = useState(false);
-  const [userSignPlan, setUserSignPlan] = useState<UserSignPlanState | null>(
-    null,
-  );
-  const [recentContracts, setRecentContracts] = useState<string[]>(loadRecents);
+
+  // ── Tracked BSC tokens state (companion's enrichment approach) ───
   const [trackedBscTokens, setTrackedBscTokens] =
     useState<TrackedBscToken[]>(loadTrackedBscTokens);
-  const [showRecents, setShowRecents] = useState(false);
-  const recentsRef = useRef<HTMLDivElement>(null);
 
-  // Close recents dropdown on outside click
-  useEffect(() => {
-    if (
-      typeof document === "undefined" ||
-      typeof document.addEventListener !== "function"
-    ) {
-      return;
-    }
-    const handler = (e: MouseEvent) => {
-      if (
-        recentsRef.current &&
-        !recentsRef.current.contains(e.target as Node)
-      ) {
-        setShowRecents(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
+  // ── Setup detection ──────────────────────────────────────────────────
   const cfg = walletConfig;
   const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
   const hasLegacyEvmProviders = Boolean(
@@ -508,19 +338,25 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     }, 150);
   }, [setTab]);
 
-  const isValidAddress = HEX_ADDRESS_RE.test(quickTokenInput.trim());
-  const hasInput = quickTokenInput.trim().length > 0;
+  // ── BSC chain data ────────────────────────────────────────────────
+  const bscChain = useMemo(() => {
+    if (!walletBalances?.evm?.chains) return null;
+    return (
+      walletBalances.evm.chains.find(
+        (c: EvmChainBalance) => c.chain === "BSC" || c.chain === "bsc",
+      ) ?? null
+    );
+  }, [walletBalances]);
 
-  // Effective slippage: custom input takes priority if valid
-  const effectiveSlippageBps = useMemo(() => {
-    if (customSlippageInput) {
-      const parsed = Number.parseFloat(customSlippageInput);
-      if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 50) {
-        return Math.round(parsed * 100);
-      }
-    }
-    return slippageBps;
-  }, [slippageBps, customSlippageInput]);
+  const bnbBalance = useMemo(() => {
+    if (!bscChain) return 0;
+    return Number.parseFloat(bscChain.nativeBalance) || 0;
+  }, [bscChain]);
+
+  const tradeReady = bnbBalance >= BSC_GAS_THRESHOLD;
+
+  // ── Flatten & sort token rows ────────────────────────────────────
+  const chainFocus = inventoryChainFocus ?? "all";
 
   const tokenRows = useMemo((): TokenRow[] => {
     const rows: TokenRow[] = [];
@@ -534,7 +370,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       let hasBsc = false;
       for (const chain of walletBalances.evm.chains) {
         if (isBscChainName(chain.chain)) hasBsc = true;
-        // Always include native token row — even when chain has an error,
+        if (chainFocus === "bsc" && !isBscChainName(chain.chain)) continue;
+        // Always include native token row -- even when chain has an error,
         // so BNB always appears when the wallet is connected.
         rows.push({
           chain: chain.chain,
@@ -549,16 +386,16 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         });
         // Skip ERC-20 tokens when chain data errored
         if (chain.error) continue;
-        for (const t of chain.tokens) {
+        for (const tk of chain.tokens) {
           rows.push({
             chain: chain.chain,
-            symbol: t.symbol,
-            name: t.name,
-            contractAddress: t.contractAddress ?? null,
-            logoUrl: t.logoUrl ?? null,
-            balance: t.balance,
-            valueUsd: Number.parseFloat(t.valueUsd) || 0,
-            balanceRaw: Number.parseFloat(t.balance) || 0,
+            symbol: tk.symbol,
+            name: tk.name,
+            contractAddress: tk.contractAddress ?? null,
+            logoUrl: tk.logoUrl ?? null,
+            balance: tk.balance,
+            valueUsd: Number.parseFloat(tk.valueUsd) || 0,
+            balanceRaw: Number.parseFloat(tk.balance) || 0,
             isNative: false,
             isTracked: false,
           });
@@ -579,7 +416,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         });
       }
     } else if (knownEvmAddr) {
-      // evm is null (RPC not connected yet) — always show BNB row as placeholder
+      // evm is null (RPC not connected yet) -- always show BNB row as placeholder
       rows.push({
         chain: "BSC",
         symbol: "BNB",
@@ -593,7 +430,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       });
     }
 
-    if (walletBalances?.solana) {
+    if (chainFocus !== "bsc" && walletBalances?.solana) {
       rows.push({
         chain: "Solana",
         symbol: "SOL",
@@ -605,45 +442,75 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         balanceRaw: Number.parseFloat(walletBalances.solana.solBalance) || 0,
         isNative: true,
       });
-      for (const t of walletBalances.solana.tokens) {
+      for (const tk of walletBalances.solana.tokens) {
         rows.push({
           chain: "Solana",
-          symbol: t.symbol,
-          name: t.name,
-          contractAddress: t.mint ?? null,
-          logoUrl: t.logoUrl ?? null,
-          balance: t.balance,
-          valueUsd: Number.parseFloat(t.valueUsd) || 0,
-          balanceRaw: Number.parseFloat(t.balance) || 0,
+          symbol: tk.symbol,
+          name: tk.name,
+          contractAddress: tk.mint ?? null,
+          logoUrl: tk.logoUrl ?? null,
+          balance: tk.balance,
+          valueUsd: Number.parseFloat(tk.valueUsd) || 0,
+          balanceRaw: Number.parseFloat(tk.balance) || 0,
           isNative: false,
         });
       }
     }
 
-    const knownBscContracts = new Set(
-      rows
-        .filter((row) => isBscChainName(row.chain) && row.contractAddress)
-        .map((row) => toNormalizedAddress(row.contractAddress!)),
-    );
-    for (const tracked of trackedBscTokens) {
-      const normalized = toNormalizedAddress(tracked.contractAddress);
-      if (knownBscContracts.has(normalized)) continue;
-      rows.push({
-        chain: "BSC",
-        symbol: tracked.symbol,
-        name: tracked.name,
-        contractAddress: tracked.contractAddress,
-        logoUrl: tracked.logoUrl ?? null,
-        balance: "0",
-        valueUsd: 0,
-        balanceRaw: 0,
-        isNative: false,
-        isTracked: true,
-      });
+    // Add tracked tokens not already in the list
+    if (chainFocus === "bsc" || chainFocus === "all") {
+      const knownBscContracts = new Set(
+        rows
+          .filter((row) => isBscChainName(row.chain) && row.contractAddress)
+          .map((row) => toNormalizedAddress(row.contractAddress!)),
+      );
+      for (const tracked of trackedBscTokens) {
+        const normalized = toNormalizedAddress(tracked.contractAddress);
+        if (knownBscContracts.has(normalized)) continue;
+        rows.push({
+          chain: "BSC",
+          symbol: tracked.symbol,
+          name: tracked.name,
+          contractAddress: tracked.contractAddress,
+          logoUrl: tracked.logoUrl ?? null,
+          balance: "0",
+          valueUsd: 0,
+          balanceRaw: 0,
+          isNative: false,
+          isTracked: true,
+        });
+      }
+      for (const tracked of trackedTokens) {
+        const exists = rows.some(
+          (r) =>
+            r.contractAddress?.toLowerCase() === tracked.address.toLowerCase(),
+        );
+        if (!exists) {
+          rows.push({
+            chain: "BSC",
+            symbol: `TKN-${tracked.address.slice(2, 6)}`,
+            name: tracked.symbol || `Token ${tracked.address.slice(0, 10)}...`,
+            contractAddress: tracked.address,
+            logoUrl: null,
+            balance: "0",
+            valueUsd: 0,
+            balanceRaw: 0,
+            isNative: false,
+            isTracked: true,
+          });
+        }
+      }
     }
 
     return rows;
-  }, [walletBalances, walletAddresses, walletConfig, trackedBscTokens]);
+  }, [
+    walletBalances,
+    walletAddresses,
+    walletConfig,
+    trackedBscTokens,
+    chainFocus,
+    trackedTokens,
+  ]);
 
   const sortedRows = useMemo(() => {
     const sorted = [...tokenRows];
@@ -672,6 +539,13 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       ),
     [walletBalances],
   );
+
+  const bscHasError = useMemo(
+    () => chainErrors.some((c: EvmChainBalance) => c.chain === "BSC"),
+    [chainErrors],
+  );
+
+  // ── Flatten all NFTs into a single list ──────────────────────────────
 
   const allNfts = useMemo((): NftItem[] => {
     if (!walletNfts) return [];
@@ -704,13 +578,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const evmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
   const solAddr = walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
 
-  const bscChain = useMemo(
-    () =>
-      (walletBalances?.evm?.chains ?? []).find((chain) =>
-        isBscChainName(chain.chain),
-      ) ?? null,
-    [walletBalances],
-  );
   const bscChainError =
     bscChain?.error ??
     chainErrors.find((chain) => isBscChainName(chain.chain))?.error ??
@@ -742,327 +609,34 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       ? chainErrors.filter((chain) => isBscChainName(chain.chain))
       : chainErrors;
 
-  const refreshTxStatus = useCallback(
-    async (hash: string, silent = false) => {
-      if (!hash) return;
-      setTxStatusBusy(true);
-      try {
-        const status = await getBscTradeTxStatus(hash);
-        setLatestTxStatus(status);
-        if (!silent && status.status !== "pending") {
-          setActionNotice(
-            getWalletTxStatusLabel(status.status, t),
-            status.status === "success" ? "success" : "info",
-            2400,
-          );
-        }
-      } catch (err) {
-        if (!silent) {
-          setActionNotice(
-            mapWalletTradeError(err, t, "wallet.txStatusFetchFailed"),
-            "error",
-            3200,
-          );
-        }
-      } finally {
-        setTxStatusBusy(false);
-      }
+  // ── Tracked token handlers (develop's BscTradePanel approach) ─────
+
+  const handleAddToken = useCallback(
+    (token: TrackedToken) => {
+      const updated = [...trackedTokens, token];
+      setTrackedTokens(updated);
+      saveTrackedTokens(updated);
     },
-    [getBscTradeTxStatus, setActionNotice, t],
+    [trackedTokens],
   );
 
-  const runTradePreflight = async (tokenAddress: string) => {
-    const result = await getBscTradePreflight(tokenAddress);
-    const notice = buildWalletPreflightNotice(result, t);
-    setActionNotice(notice.text, notice.tone, result.ok ? 2400 : 3200);
-    if (!result.ok) {
-      setLatestQuote(null);
-      setLatestTxHash(null);
-      setLatestTxStatus(null);
-    }
-    return result;
-  };
-
-  const runTradeQuote = async (
-    side: "buy" | "sell",
-    tokenAddress: string,
-    amount: string,
-  ) => {
-    setTradeBusy(true);
-    setLatestTxHash(null);
-    setLatestTxStatus(null);
-    try {
-      const preflight = await runTradePreflight(tokenAddress);
-      if (!preflight.ok) return;
-
-      const quote = await getBscTradeQuote({
-        side,
-        tokenAddress,
-        amount,
-        slippageBps: effectiveSlippageBps,
-      });
-      setLatestQuote(quote);
-      setUserSignPlan(null);
-      setActionNotice(
-        t("wallet.quoteReady", {
-          inAmount: quote.quoteIn.amount,
-          inSymbol: quote.quoteIn.symbol,
-          outAmount: quote.quoteOut.amount,
-          outSymbol: quote.quoteOut.symbol,
-        }),
-        "success",
-        3200,
+  const handleUntrackToken = useCallback(
+    (address: string) => {
+      // Remove from both tracked token stores
+      const updated = trackedTokens.filter(
+        (tk) => tk.address.toLowerCase() !== address.toLowerCase(),
       );
-      // Save to recents on successful quote
-      setRecentContracts((prev) => saveRecent(tokenAddress, prev));
-    } catch (err) {
-      const message = mapWalletTradeError(err, t, "wallet.failedFetchQuote");
-      setActionNotice(message, "error", 3400);
-    } finally {
-      setTradeBusy(false);
-    }
-  };
+      setTrackedTokens(updated);
+      saveTrackedTokens(updated);
+      setTrackedBscTokens((prev) => removeTrackedBscToken(address, prev));
+      setActionNotice(t("wallet.tokenRemovedManual"), "info", 2200);
+    },
+    [trackedTokens, setActionNotice, t],
+  );
 
-  const handleRowAction = async (
-    mode: "preflight" | "quote",
-    row: TokenRow,
-  ) => {
-    if (row.isNative || !row.contractAddress) {
-      setActionNotice(t("wallet.nativeNoQuote"), "info", 2200);
-      return;
-    }
-    if (!isBscChainName(row.chain)) {
-      setActionNotice(t("wallet.bscOnlyAction"), "info", 2400);
-      return;
-    }
-    if (!HEX_ADDRESS_RE.test(row.contractAddress)) {
-      setActionNotice(t("wallet.invalidRowContract"), "error", 2600);
-      return;
-    }
-    if (mode === "preflight") {
-      try {
-        setTradeBusy(true);
-        await runTradePreflight(row.contractAddress);
-      } catch (err) {
-        setActionNotice(
-          mapWalletTradeError(err, t, "wallet.preflightFailed"),
-          "error",
-          3200,
-        );
-      } finally {
-        setTradeBusy(false);
-      }
-      return;
-    }
-    await runTradeQuote("buy", row.contractAddress, quickBnbAmount);
-  };
-
-  const handleQuickTrade = async (mode: "buy" | "sell") => {
-    const token = quickTokenInput.trim();
-    if (!token) {
-      setActionNotice(t("wallet.pasteBscContractFirst"), "error", 2600);
-      return;
-    }
-    if (!HEX_ADDRESS_RE.test(token)) {
-      setActionNotice(t("wallet.contractMustBeHex"), "error", 2600);
-      return;
-    }
-    await runTradeQuote(mode, token, quickBnbAmount);
-  };
-
-  const handleTrackToken = () => {
-    const tokenAddress = quickTokenInput.trim();
-    if (!tokenAddress) {
-      setActionNotice(t("wallet.pasteContractFirst"), "error", 2400);
-      return;
-    }
-    if (!HEX_ADDRESS_RE.test(tokenAddress)) {
-      setActionNotice(t("wallet.contractMustBeHex"), "error", 2600);
-      return;
-    }
-
-    const normalized = toNormalizedAddress(tokenAddress);
-    const matchedRow = tokenRows.find(
-      (row) =>
-        Boolean(row.contractAddress) &&
-        toNormalizedAddress(row.contractAddress!) === normalized,
-    );
-    const matchedQuote =
-      latestQuote &&
-      toNormalizedAddress(latestQuote.tokenAddress) === normalized
-        ? latestQuote
-        : null;
-    const symbolFallback =
-      matchedRow?.symbol ??
-      (matchedQuote
-        ? matchedQuote.side === "buy"
-          ? matchedQuote.quoteOut.symbol
-          : matchedQuote.quoteIn.symbol
-        : `TKN-${tokenAddress.slice(2, 6).toUpperCase()}`);
-    const nameFallback = matchedRow?.name ?? `${symbolFallback} token`;
-    const logoFallback = matchedRow?.logoUrl ?? null;
-    const alreadyTracked = trackedBscTokens.some(
-      (item) => toNormalizedAddress(item.contractAddress) === normalized,
-    );
-
-    setTrackedBscTokens((prev) =>
-      upsertTrackedBscToken(
-        {
-          contractAddress: tokenAddress,
-          symbol: symbolFallback,
-          name: nameFallback,
-          logoUrl: logoFallback ?? undefined,
-        },
-        prev,
-      ),
-    );
-    setActionNotice(
-      alreadyTracked
-        ? t("wallet.tokenUpdatedManual")
-        : t("wallet.tokenAddedManual"),
-      "success",
-      2600,
-    );
-
-    // Enrich asynchronously from DexScreener so add action stays instant.
-    void (async () => {
-      const dexMetadata = await fetchDexScreenerBscTokenMetadata(tokenAddress);
-      if (!dexMetadata) return;
-      setTrackedBscTokens((prev) =>
-        upsertTrackedBscToken(
-          {
-            contractAddress: tokenAddress,
-            symbol: dexMetadata.symbol ?? symbolFallback,
-            name: dexMetadata.name ?? nameFallback,
-            logoUrl: dexMetadata.logoUrl ?? logoFallback ?? undefined,
-          },
-          prev,
-        ),
-      );
-    })();
-  };
-
-  const handleUntrackToken = (contractAddress: string) => {
-    setTrackedBscTokens((prev) => removeTrackedBscToken(contractAddress, prev));
-    setActionNotice(t("wallet.tokenRemovedManual"), "info", 2200);
-  };
-
-  const handleExecuteLatestQuote = async () => {
-    if (!latestQuote) {
-      setActionNotice(t("wallet.createQuoteFirst"), "info", 2200);
-      return;
-    }
-    const sideLabel = latestQuote.side.toUpperCase();
-    const sideAction = latestQuote.side === "buy" ? "Spend" : "Sell";
-    const confirmFn =
-      typeof window !== "undefined" && typeof window.confirm === "function"
-        ? window.confirm.bind(window)
-        : () => true;
-    const confirmed = confirmFn(
-      t("wallet.confirmExecute", {
-        sideLabel,
-        sideAction,
-        inAmount: latestQuote.quoteIn.amount,
-        inSymbol: latestQuote.quoteIn.symbol,
-        outAmount: latestQuote.quoteOut.amount,
-        outSymbol: latestQuote.quoteOut.symbol,
-        minAmount: latestQuote.minReceive.amount,
-        minSymbol: latestQuote.minReceive.symbol,
-      }),
-    );
-    if (!confirmed) return;
-
-    setExecuteBusy(true);
-    try {
-      const result = await executeBscTrade({
-        side: latestQuote.side,
-        tokenAddress: latestQuote.tokenAddress,
-        amount: latestQuote.quoteIn.amount,
-        slippageBps: latestQuote.slippageBps,
-        confirm: true,
-      });
-      if (result.executed && result.execution) {
-        setLatestTxHash(result.execution.hash);
-        setLatestTxStatus({
-          ok: true,
-          hash: result.execution.hash,
-          status: result.execution.status,
-          explorerUrl: result.execution.explorerUrl,
-          chainId: 56,
-          blockNumber: result.execution.blockNumber,
-          confirmations: result.execution.blockNumber ? 1 : 0,
-          nonce: result.execution.nonce,
-          gasUsed: result.execution.gasLimit,
-          effectiveGasPriceWei: null,
-        });
-        setUserSignPlan(null);
-        setActionNotice(
-          result.execution.status === "pending"
-            ? t("wallet.tradePending")
-            : t("wallet.tradeSent", { tx: result.execution.hash.slice(0, 10) }),
-          result.execution.status === "pending" ? "info" : "success",
-          result.execution.status === "pending" ? 4200 : 3600,
-        );
-        if (result.execution.status === "pending") {
-          void refreshTxStatus(result.execution.hash, true);
-        }
-        return;
-      }
-      setLatestTxHash(null);
-      setLatestTxStatus(null);
-      if (result.requiresUserSignature) {
-        setUserSignPlan({
-          side: result.side,
-          requiresApproval: Boolean(result.requiresApproval),
-          unsignedTx: result.unsignedTx,
-          unsignedApprovalTx: result.unsignedApprovalTx,
-        });
-        if (latestQuote.side === "sell" && result.requiresApproval) {
-          setActionNotice(t("wallet.userSignSellTwoStep"), "info", 4600);
-        } else {
-          setActionNotice(
-            latestQuote.side === "sell"
-              ? t("wallet.userSignSellOneStep")
-              : t("wallet.executionSwitchedUserSign"),
-            "info",
-            4200,
-          );
-        }
-      } else {
-        setActionNotice(t("wallet.executionDidNotComplete"), "error", 3200);
-      }
-    } catch (err) {
-      const message = mapWalletTradeError(
-        err,
-        t,
-        "wallet.tradeExecutionFailed",
-      );
-      setActionNotice(message, "error", 4200);
-    } finally {
-      setExecuteBusy(false);
-    }
-  };
-
-  const handleCopyTxPayload = async (
-    tx:
-      | UserSignPlanState["unsignedTx"]
-      | NonNullable<UserSignPlanState["unsignedApprovalTx"]>,
-    label: string,
-  ) => {
-    await copyToClipboard(JSON.stringify(tx, null, 2));
-    setActionNotice(t("wallet.payloadCopied", { label }), "success", 2200);
-  };
-
-  useEffect(() => {
-    if (!latestTxHash) return;
-    if (latestTxStatus?.status !== "pending") return;
-    const timer = globalThis.setInterval(() => {
-      void refreshTxStatus(latestTxHash, true);
-    }, 12_000);
-    return () => {
-      globalThis.clearInterval(timer);
-    };
-  }, [latestTxHash, latestTxStatus?.status, refreshTxStatus]);
+  // ════════════════════════════════════════════════════════════════════════
+  // Render
+  // ════════════════════════════════════════════════════════════════════════
 
   return (
     <div
@@ -1090,8 +664,10 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           {t("wallet.setup.rpcNotConfigured")}
         </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          Connect via Eliza Cloud or configure a custom BSC RPC provider
-          (NodeReal / QuickNode) to enable market feed and trading.
+          To view balances and trade on BSC you need RPC provider keys. Connect
+          to <strong>Eliza Cloud</strong> for managed RPC access, or configure{" "}
+          <strong>NodeReal / QuickNode</strong> endpoints manually in{" "}
+          <strong>Settings</strong>.
         </p>
         <button
           type="button"
@@ -1260,7 +836,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             </div>
           )}
 
-          {/* BSC trade requires a dedicated RPC endpoint (local desktop builds do not inherit Railway env). */}
+          {/* BSC trade requires a dedicated RPC endpoint */}
           {evmAddr && !hasManagedBscRpc && (
             <div className="mt-2 px-3 py-2 border border-[rgba(184,134,11,0.55)] bg-[rgba(184,134,11,0.08)] text-[11px]">
               <div className="font-bold mb-1">
@@ -1283,345 +859,23 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           )}
         </div>
 
-        {/* ── Block 2: Quick Trade (hero) ───────────────────────── */}
-        <div className="wt__quick">
-          <div className="wt__quick-row">
-            <div className="wt__input-wrap" ref={recentsRef}>
-              <input
-                data-testid="wallet-quick-token-input"
-                value={quickTokenInput}
-                onChange={(e) => {
-                  setQuickTokenInput(e.target.value);
-                  setShowRecents(false);
-                }}
-                onFocus={() => {
-                  if (!quickTokenInput && recentContracts.length > 0)
-                    setShowRecents(true);
-                }}
-                placeholder={t("wallet.pasteTokenContract")}
-                className={`wt__quick-input${hasInput ? (isValidAddress ? " is-valid" : " is-invalid") : ""}`}
-              />
-              {recentContracts.length > 0 && (
-                <button
-                  type="button"
-                  className="wt__recents-toggle"
-                  title={t("wallet.recentContracts")}
-                  onClick={() => setShowRecents((v) => !v)}
-                  tabIndex={-1}
-                >
-                  ▾
-                </button>
-              )}
-              {showRecents && recentContracts.length > 0 && (
-                <div className="wt__recents">
-                  {recentContracts.map((addr) => (
-                    <button
-                      type="button"
-                      key={addr}
-                      className="wt__recents-item"
-                      onClick={() => {
-                        setQuickTokenInput(addr);
-                        setShowRecents(false);
-                      }}
-                    >
-                      <span className="wt__recents-addr">
-                        {addr.slice(0, 10)}...{addr.slice(-6)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="wt__presets">
-              {["0.05", "0.1", "0.2", "0.5", "1"].map((amount) => (
-                <button
-                  type="button"
-                  key={amount}
-                  data-testid={`wallet-quick-amount-${amount}`}
-                  className={`wt__preset ${quickBnbAmount === amount ? "is-active" : ""}`}
-                  onClick={() => setQuickBnbAmount(amount)}
-                >
-                  {amount}
-                </button>
-              ))}
-              <span className="text-[10px] text-muted self-center font-mono">
-                BNB
-              </span>
-            </div>
-            <div className="wt__quick-actions">
-              <button
-                type="button"
-                data-testid="wallet-quick-add-token"
-                className="wt__btn is-track"
-                onClick={handleTrackToken}
-                disabled={tradeBusy}
-              >
-                {t("wallet.add")}
-              </button>
-              <button
-                type="button"
-                data-testid="wallet-quick-buy"
-                className="wt__btn is-buy"
-                onClick={() => void handleQuickTrade("buy")}
-                disabled={tradeBusy}
-              >
-                {tradeBusy ? "..." : t("wallet.buy")}
-              </button>
-              <button
-                type="button"
-                data-testid="wallet-quick-sell"
-                className="wt__btn is-sell"
-                onClick={() => void handleQuickTrade("sell")}
-                disabled={tradeBusy}
-              >
-                {t("wallet.sell")}
-              </button>
-            </div>
-          </div>
-
-          {/* Slippage selector */}
-          <div className="wt__slip">
-            <span className="wt__slip-label">{t("wallet.slippage")}:</span>
-            {([100, 300, 500] as const).map((bps) => (
-              <button
-                type="button"
-                key={bps}
-                className={`wt__slip-btn${slippageBps === bps && !customSlippageInput ? " is-active" : ""}`}
-                onClick={() => {
-                  setSlippageBps(bps);
-                  setCustomSlippageInput("");
-                }}
-              >
-                {bps / 100}%
-              </button>
-            ))}
-            <input
-              className={`wt__slip-input${customSlippageInput ? " is-active" : ""}`}
-              placeholder={t("wallet.customPercent")}
-              value={customSlippageInput}
-              onChange={(e) => {
-                setCustomSlippageInput(e.target.value);
-              }}
-            />
-            {customSlippageInput && (
-              <span className="text-[10px] text-muted font-mono self-center">
-                = {effectiveSlippageBps} bps
-              </span>
-            )}
-          </div>
-        </div>
-
-        {latestQuote && (
-          <div className="wt__quote" data-testid="wallet-quote-card">
-            <div className="wt__quote-head">
-              <span className="wt__quote-title">{t("wallet.latestQuote")}</span>
-              <span className="wt__quote-route">
-                {t("wallet.route")}: {latestQuote.route[0]?.slice(0, 6)}...
-                {latestQuote.route[0]?.slice(-4)} →{" "}
-                {latestQuote.route.at(-1)?.slice(0, 6)}...
-                {latestQuote.route.at(-1)?.slice(-4)}
-              </span>
-            </div>
-            <div className="wt__quote-grid">
-              <div>
-                <div className="wt__quote-k">{t("wallet.quote.input")}</div>
-                <div className="wt__quote-v">
-                  {latestQuote.quoteIn.amount} {latestQuote.quoteIn.symbol}
-                </div>
-              </div>
-              <div>
-                <div className="wt__quote-k">{t("wallet.quote.expected")}</div>
-                <div className="wt__quote-v">
-                  {latestQuote.quoteOut.amount} {latestQuote.quoteOut.symbol}
-                </div>
-              </div>
-              <div>
-                <div className="wt__quote-k">
-                  {t("wallet.quote.minReceive")} (
-                  {latestQuote.slippageBps / 100}%)
-                </div>
-                <div className="wt__quote-v">
-                  {latestQuote.minReceive.amount}{" "}
-                  {latestQuote.minReceive.symbol}
-                </div>
-              </div>
-              <div>
-                <div className="wt__quote-k">{t("wallet.quote.price")}</div>
-                <div className="wt__quote-v">{latestQuote.price}</div>
-              </div>
-            </div>
-            <div
-              className="wt__preflight"
-              data-testid="wallet-preflight-summary"
-            >
-              <div className="wt__quote-k">{t("wallet.preflightTitle")}</div>
-              <div className="wt__preflight-checks">
-                {getWalletPreflightChecks(latestQuote.preflight, t).map(
-                  (check) => (
-                    <span
-                      key={check.key}
-                      className={`wt__preflight-chip ${check.passed ? "is-pass" : "is-fail"}`}
-                    >
-                      {check.label}
-                    </span>
-                  ),
-                )}
-              </div>
-              {latestQuote.preflight.reasons.length > 0 && (
-                <div className="wt__preflight-reasons">
-                  {latestQuote.preflight.reasons.join(" | ")}
-                </div>
-              )}
-            </div>
-            <div className="wt__quote-actions">
-              <button
-                type="button"
-                data-testid="wallet-quote-execute"
-                className="wt__btn is-buy"
-                onClick={() => void handleExecuteLatestQuote()}
-                disabled={executeBusy}
-              >
-                {executeBusy
-                  ? t("wallet.executing")
-                  : t("wallet.executeSide", {
-                      side: latestQuote.side.toUpperCase(),
-                    })}
-              </button>
-              {latestTxHash && (
-                <a
-                  href={`https://bscscan.com/tx/${latestTxHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="wt__quote-link"
-                >
-                  {t("wallet.viewTx")} {latestTxHash.slice(0, 10)}...
-                </a>
-              )}
-            </div>
-            {latestTxHash && (
-              <div
-                className="wt__tx-status-row"
-                data-testid="wallet-tx-status-row"
-              >
-                <span
-                  className={`wt__tx-pill is-${latestTxStatus?.status ?? "pending"}`}
-                >
-                  {getWalletTxStatusLabel(
-                    latestTxStatus?.status ?? "pending",
-                    t,
-                  )}
-                </span>
-                {latestTxStatus && (
-                  <>
-                    <span className="wt__tx-meta">
-                      {t("wallet.txStatus.confirmations", {
-                        count: latestTxStatus.confirmations,
-                      })}
-                    </span>
-                    {typeof latestTxStatus.nonce === "number" && (
-                      <span className="wt__tx-meta">
-                        {t("wallet.txStatus.nonce", {
-                          nonce: latestTxStatus.nonce,
-                        })}
-                      </span>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  data-testid="wallet-tx-refresh"
-                  className="wt__row-btn is-preflight"
-                  onClick={() => {
-                    void refreshTxStatus(latestTxHash);
-                  }}
-                  disabled={txStatusBusy}
-                >
-                  {txStatusBusy ? "..." : t("wallet.txStatusRefresh")}
-                </button>
-              </div>
-            )}
-            {latestTxStatus?.status === "reverted" && latestTxStatus.reason && (
-              <div className="wt__error-inline mt-2">
-                <span className="wt__error-inline-text">
-                  {latestTxStatus.reason}
-                </span>
-              </div>
-            )}
-            {userSignPlan && (
-              <div
-                className="wt__quote-usersign"
-                data-testid="wallet-usersign-plan"
-              >
-                <div className="wt__quote-k">{t("wallet.userSignPlan")}</div>
-                {userSignPlan.side === "sell" &&
-                userSignPlan.requiresApproval ? (
-                  <div className="wt__usersign-steps">
-                    <div className="wt__usersign-step">
-                      {t("wallet.usersign.approveStep", {
-                        symbol: latestQuote.quoteIn.symbol,
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      className="wt__row-btn is-preflight"
-                      data-testid="wallet-copy-approve-tx"
-                      onClick={() => {
-                        if (userSignPlan.unsignedApprovalTx) {
-                          void handleCopyTxPayload(
-                            userSignPlan.unsignedApprovalTx,
-                            t("wallet.usersign.approvalTxLabel"),
-                          );
-                        }
-                      }}
-                    >
-                      {t("wallet.usersign.copyApproveTx")}
-                    </button>
-                    <div className="wt__usersign-step">
-                      {t("wallet.usersign.signSellStep")}
-                    </div>
-                    <button
-                      type="button"
-                      className="wt__row-btn is-quote"
-                      data-testid="wallet-copy-swap-tx"
-                      onClick={() =>
-                        void handleCopyTxPayload(
-                          userSignPlan.unsignedTx,
-                          t("wallet.usersign.swapTxLabel"),
-                        )
-                      }
-                    >
-                      {t("wallet.usersign.copySwapTx")}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="wt__usersign-steps">
-                    <div className="wt__usersign-step">
-                      {t("wallet.usersign.signSwapStep", {
-                        side: latestQuote.side.toUpperCase(),
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      className="wt__row-btn is-quote"
-                      data-testid="wallet-copy-swap-tx"
-                      onClick={() =>
-                        void handleCopyTxPayload(
-                          userSignPlan.unsignedTx,
-                          t("wallet.usersign.swapTxLabel"),
-                        )
-                      }
-                    >
-                      {t("wallet.usersign.copySwapTx")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        {/* ── BSC trade panel (from develop's BscTradePanel) ──── */}
+        {chainFocus === "bsc" && !bscHasError && (
+          <BscTradePanel
+            tradeReady={tradeReady}
+            bnbBalance={bnbBalance}
+            trackedTokens={trackedTokens}
+            onAddToken={handleAddToken}
+            copyToClipboard={copyToClipboard}
+            setActionNotice={setActionNotice}
+            getBscTradePreflight={getBscTradePreflight}
+            getBscTradeQuote={getBscTradeQuote}
+            executeBscTrade={executeBscTrade}
+            getBscTradeTxStatus={getBscTradeTxStatus}
+          />
         )}
 
-        {/* ── Block 3: Toolbar + content ────────────────────────── */}
+        {/* ── Block 2: Toolbar + content ────────────────────────── */}
         <div>
           <div className="wt__toolbar">
             <button
@@ -1807,47 +1061,16 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                 </td>
                 {/* Actions */}
                 <td className="pl-2 pr-3 py-3 align-middle whitespace-nowrap text-right">
-                  {row.isNative ? null : !isBscChainName(row.chain) ? (
-                    <span className="text-[10px] text-muted font-mono">
-                      {t("wallet.view")}
-                    </span>
-                  ) : (
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        data-testid="wallet-token-preflight"
-                        className="wt__row-btn is-preflight"
-                        title={t("wallet.preflightTitle")}
-                        onClick={() => void handleRowAction("preflight", row)}
-                        disabled={tradeBusy}
-                      >
-                        {t("wallet.check")}
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="wallet-token-quote"
-                        className="wt__row-btn is-quote"
-                        title={t("wallet.quoteTitle")}
-                        onClick={() => void handleRowAction("quote", row)}
-                        disabled={tradeBusy}
-                      >
-                        {t("wallet.quote")}
-                      </button>
-                      {row.isTracked && row.contractAddress && (
-                        <button
-                          type="button"
-                          data-testid="wallet-token-untrack"
-                          className="wt__row-btn is-remove"
-                          title={t("wallet.removeManualTitle")}
-                          onClick={() =>
-                            handleUntrackToken(row.contractAddress!)
-                          }
-                          disabled={tradeBusy}
-                        >
-                          {t("wallet.remove")}
-                        </button>
-                      )}
-                    </div>
+                  {row.isTracked && row.contractAddress && (
+                    <button
+                      type="button"
+                      data-testid="wallet-token-untrack"
+                      className="wt__row-btn is-remove"
+                      title={t("wallet.removeManualTitle")}
+                      onClick={() => handleUntrackToken(row.contractAddress!)}
+                    >
+                      {t("wallet.remove")}
+                    </button>
                   )}
                 </td>
               </tr>

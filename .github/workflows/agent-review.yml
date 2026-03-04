@@ -872,7 +872,7 @@ jobs:
   close-pr:
     name: Close PRs with CLOSE verdict
     needs: [review-pr]
-    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close'
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close' && !contains(github.event.pull_request.labels.*.name, 'skip-auto-close')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

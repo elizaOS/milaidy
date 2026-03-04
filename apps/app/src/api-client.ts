@@ -769,6 +769,8 @@ export interface ConversationMessage {
   source?: string;
   /** Username of the sender (e.g. retake viewer username, discord username). */
   from?: string;
+  /** True when the SSE stream was interrupted before receiving a "done" event. */
+  interrupted?: boolean;
 }
 
 export type ConversationChannelType =
@@ -3937,7 +3939,12 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     const res = await this.rawRequest(path, {
       method: "POST",
       headers: {
@@ -3963,6 +3970,7 @@ export class MiladyClient {
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
     let doneUsage: ChatTokenUsage | undefined;
+    let receivedDone = false;
 
     const findSseEventBreak = (
       chunkBuffer: string,
@@ -4011,6 +4019,7 @@ export class MiladyClient {
       }
 
       if (parsed.type === "done") {
+        receivedDone = true;
         if (typeof parsed.fullText === "string") doneText = parsed.fullText;
         if (typeof parsed.agentName === "string" && parsed.agentName.trim()) {
           doneAgentName = parsed.agentName;
@@ -4038,10 +4047,16 @@ export class MiladyClient {
     };
 
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      let readResult: ReadableStreamReadResult<Uint8Array>;
+      try {
+        readResult = await reader.read();
+      } catch (streamErr) {
+        console.warn("[api-client] SSE stream interrupted:", streamErr);
+        break;
+      }
+      if (readResult.done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(readResult.value, { stream: true });
       let eventBreak = findSseEventBreak(buffer);
       while (eventBreak) {
         const rawEvent = buffer.slice(0, eventBreak.index);
@@ -4064,6 +4079,7 @@ export class MiladyClient {
     return {
       text: resolvedText,
       agentName: doneAgentName ?? "Milady",
+      completed: receivedDone,
       ...(doneUsage ? { usage: doneUsage } : {}),
     };
   }
@@ -4094,7 +4110,12 @@ export class MiladyClient {
     onToken: (token: string) => void,
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
@@ -4156,7 +4177,12 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string; usage?: ChatTokenUsage }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,

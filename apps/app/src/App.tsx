@@ -12,6 +12,7 @@ import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
 import { CommandPalette } from "./components/CommandPalette";
 import { CompanionView } from "./components/CompanionView";
+import { ConnectionFailedBanner } from "./components/ConnectionFailedBanner";
 import { ConnectorsPageView } from "./components/ConnectorsPageView";
 import { ConversationsSidebar } from "./components/ConversationsSidebar";
 import { CustomActionEditor } from "./components/CustomActionEditor";
@@ -34,6 +35,7 @@ import { SettingsView } from "./components/SettingsView";
 import { SkillsView } from "./components/SkillsView";
 import { StartupFailureView } from "./components/StartupFailureView";
 import { StreamView } from "./components/StreamView";
+import { SystemWarningBanner } from "./components/SystemWarningBanner";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
@@ -984,6 +986,8 @@ export function App() {
         }}
       />
       <RestartBanner />
+      <ConnectionFailedBanner />
+      <SystemWarningBanner />
       <MemoryDebugPanel />
       <BugReportModal />
       {actionNotice && (

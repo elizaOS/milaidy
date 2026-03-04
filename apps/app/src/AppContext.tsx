@@ -855,6 +855,9 @@ export interface AppState {
   };
   backendDisconnectedBannerDismissed: boolean;
 
+  // System warnings
+  systemWarnings: string[];
+
   // Pairing
   pairingEnabled: boolean;
   pairingExpiresAt: number | null;
@@ -1139,10 +1142,12 @@ export interface AppActions {
   dismissBackendDisconnectedBanner: () => void;
   retryBackendConnection: () => void;
   restartBackend: () => Promise<void>;
+  dismissSystemWarning: (index: number) => void;
 
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
   handleChatStop: () => void;
+  handleChatRetry: (assistantMsgId: string) => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
   setChatPendingImages: React.Dispatch<React.SetStateAction<ImageAttachment[]>>;
@@ -1217,6 +1222,16 @@ export interface AppActions {
   ) => Promise<WalletTradingProfileResponse>;
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
+
+  // BSC Trading (optional — dynamically injected)
+  getBscTradePreflight?: () => Promise<void>;
+  getBscTradeQuote?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeQuoteResponse>;
+  executeBscTrade?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeExecuteResponse>;
+  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 
   // Registry / Drop
   loadRegistryStatus: () => Promise<void>;
@@ -1343,6 +1358,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     backendDisconnectedBannerDismissed,
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
+  const [systemWarnings, setSystemWarnings] = useState<string[]>([]);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -2638,6 +2654,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     client.resetConnection();
   }, []);
 
+  const dismissSystemWarning = useCallback((index: number) => {
+    setSystemWarnings((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const restartBackend = useCallback(async () => {
     const electron = (
       window as {
@@ -3129,6 +3149,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
               updatedAt: Date.now(),
             });
           }
+
+          // Mark interrupted if stream ended without a "done" event
+          if (!data.completed && streamedAssistantText.trim()) {
+            setConversationMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMsgId
+                  ? { ...message, interrupted: true }
+                  : message,
+              ),
+            );
+          }
           void loadConversations();
         } catch (err) {
           const abortError = err as Error;
@@ -3328,6 +3359,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       client.stopCodingAgent(session.sessionId).catch(() => {});
     }
   }, [ptySessions]);
+
+  const handleChatRetry = useCallback(
+    (assistantMsgId: string) => {
+      setConversationMessages((prev) => {
+        // Find the interrupted assistant message
+        const assistantIdx = prev.findIndex(
+          (m) => m.id === assistantMsgId && m.role === "assistant",
+        );
+        if (assistantIdx < 0) return prev;
+
+        // Find the preceding user message
+        let userMsg: ConversationMessage | null = null;
+        for (let i = assistantIdx - 1; i >= 0; i--) {
+          if (prev[i].role === "user") {
+            userMsg = prev[i];
+            break;
+          }
+        }
+        if (!userMsg) return prev;
+
+        // Remove the interrupted assistant message
+        const next = prev.filter((m) => m.id !== assistantMsgId);
+
+        // Re-send the user's text by setting the input and triggering send
+        // (done outside setConversationMessages via queueMicrotask to avoid nested updates)
+        const retryText = userMsg.text;
+        queueMicrotask(() => {
+          setChatInput(retryText);
+          // Small delay to let state settle before triggering send
+          setTimeout(() => handleChatSend(), 50);
+        });
+
+        return next;
+      });
+    },
+    [handleChatSend],
+  );
 
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
@@ -5362,6 +5430,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hydratePtySessions();
       });
 
+      // Surface system-level warnings (connector failures, wiring exhaustion, etc.)
+      client.onWsEvent("system-warning", (data: Record<string, unknown>) => {
+        const message = typeof data.message === "string" ? data.message : "";
+        if (message) {
+          setSystemWarnings((prev) =>
+            prev.includes(message) ? prev : [...prev, message],
+          );
+        }
+      });
+
       // Re-hydrate when the tab becomes visible — browsers may throttle
       // or drop WS messages for background tabs.
       handleVisibilityRef = () => {
@@ -6007,8 +6085,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dismissBackendDisconnectedBanner,
     retryBackendConnection,
     restartBackend,
+    systemWarnings,
+    dismissSystemWarning,
     handleChatSend,
     handleChatStop,
+    handleChatRetry,
     handleChatClear,
     handleNewConversation,
     setChatPendingImages,

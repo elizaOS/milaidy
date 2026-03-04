@@ -54,6 +54,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     conversationMessages,
     handleChatSend,
     handleChatStop,
+    handleChatRetry,
     setState,
     droppedFiles,
     shareIngestNotice,
@@ -434,6 +435,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                   isGrouped={isGrouped}
                   agentName={agentName}
                   agentAvatarSrc={agentAvatarSrc}
+                  onRetry={handleChatRetry}
                 />
               );
             })}

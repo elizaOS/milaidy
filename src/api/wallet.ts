@@ -1,15 +1,16 @@
 /**
  * Wallet key generation, address derivation, and balance/NFT fetching.
  * Uses Node crypto primitives (no viem/@solana/web3.js dependency).
- * Balance data from Alchemy (EVM) and Helius (Solana) REST APIs.
+ * Balance data from Alchemy/Ankr (EVM), NodeReal/QuickNode (BSC RPC),
+ * and Helius (Solana) REST APIs.
+ *
+ * DEX price oracle logic lives in ./wallet-dex-prices.ts
+ * EVM balance + NFT fetching lives in ./wallet-evm-balance.ts
  */
 import crypto from "node:crypto";
 import { logger } from "@elizaos/core";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import type {
-  EvmChainBalance,
-  EvmNft,
-  EvmTokenBalance,
   KeyValidationResult,
   SolanaNft,
   SolanaTokenBalance,
@@ -20,13 +21,32 @@ import type {
   WalletKeys,
 } from "../contracts/wallet";
 
+// ── Re-exports from contracts/wallet ──────────────────────────────────
+
 export type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTradeExecutionResult,
+  BscTradePreflightRequest,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeSide,
+  BscTradeTxStatus,
+  BscTradeTxStatusResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTransferExecutionResult,
+  BscUnsignedApprovalTx,
+  BscUnsignedTradeTx,
+  BscUnsignedTransferTx,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
   KeyValidationResult,
   SolanaNft,
   SolanaTokenBalance,
+  TradePermissionMode,
   WalletAddresses,
   WalletBalancesResponse,
   WalletChain,
@@ -35,44 +55,44 @@ export type {
   WalletImportResult,
   WalletKeys,
   WalletNftsResponse,
+  WalletTradeLedgerEntry,
+  WalletTradeSource,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
 } from "../contracts/wallet";
 
+// ── Re-exports from extracted modules ─────────────────────────────────
+
+export {
+  computeValueUsd,
+  DEX_PRICE_TIMEOUT_MS,
+  DEXPAPRIKA_CHAIN_MAP,
+  DEXSCREENER_CHAIN_MAP,
+  type DexScreenerPair,
+  type DexTokenMeta,
+  fetchDexPaprikaPrices,
+  fetchDexPrices,
+  fetchDexScreenerPrices,
+  WRAPPED_NATIVE,
+} from "./wallet-dex-prices";
+
+export {
+  type AnkrTokenAsset,
+  DEFAULT_EVM_CHAINS,
+  type EvmProviderKeys,
+  fetchEvmBalances,
+  fetchEvmNfts,
+  resolveEvmProviderKeys,
+} from "./wallet-evm-balance";
+
+// ── Constants ─────────────────────────────────────────────────────────
+
 const FETCH_TIMEOUT_MS = 15_000;
+export const MANAGED_EVM_ADDRESS_ENV_KEY = "MILADY_MANAGED_EVM_ADDRESS";
+export const MANAGED_SOLANA_ADDRESS_ENV_KEY = "MILADY_MANAGED_SOLANA_ADDRESS";
 
-export const DEFAULT_EVM_CHAINS = [
-  {
-    name: "Ethereum",
-    subdomain: "eth-mainnet",
-    chainId: 1,
-    nativeSymbol: "ETH",
-  },
-  {
-    name: "Base",
-    subdomain: "base-mainnet",
-    chainId: 8453,
-    nativeSymbol: "ETH",
-  },
-  {
-    name: "Arbitrum",
-    subdomain: "arb-mainnet",
-    chainId: 42161,
-    nativeSymbol: "ETH",
-  },
-  {
-    name: "Optimism",
-    subdomain: "opt-mainnet",
-    chainId: 10,
-    nativeSymbol: "ETH",
-  },
-  {
-    name: "Polygon",
-    subdomain: "polygon-mainnet",
-    chainId: 137,
-    nativeSymbol: "POL",
-  },
-] as const;
-
-// EVM key derivation (secp256k1 via Node ECDH + keccak-256)
+// ── EVM key derivation (secp256k1 via @noble/curves + keccak-256) ─────
 
 function generateEvmPrivateKey(): string {
   return `0x${crypto.randomBytes(32).toString("hex")}`;
@@ -91,7 +111,7 @@ export function deriveEvmAddress(privateKeyHex: string): string {
   return toChecksumAddress(`0x${hash.subarray(12).toString("hex")}`);
 }
 
-// Keccak-256 (minimal sponge implementation)
+// ── Keccak-256 (minimal sponge implementation) ───────────────────────
 
 const RC = [
   0x0000000000000001n,
@@ -203,7 +223,7 @@ function toChecksumAddress(address: string): string {
   return out;
 }
 
-// Solana key derivation (Ed25519 via Node crypto)
+// ── Solana key derivation (Ed25519 via Node crypto) ───────────────────
 
 function generateSolanaKeypair(): { privateKey: string; publicKey: string } {
   const { privateKey, publicKey } = crypto.generateKeyPairSync("ed25519");
@@ -240,7 +260,7 @@ export function deriveSolanaAddress(privateKeyBase58: string): string {
   throw new Error(`Invalid Solana secret key length: ${secretBytes.length}`);
 }
 
-// Base58 (Bitcoin alphabet)
+// ── Base58 (Bitcoin alphabet) ─────────────────────────────────────────
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -276,7 +296,7 @@ function base58Decode(str: string): Buffer {
   return zeros > 0 ? Buffer.concat([Buffer.alloc(zeros), bytes]) : bytes;
 }
 
-// Key validation
+// ── Key validation ────────────────────────────────────────────────────
 
 const HEX_RE = /^[0-9a-fA-F]+$/;
 
@@ -357,7 +377,7 @@ export function maskSecret(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-// Key generation
+// ── Key generation ────────────────────────────────────────────────────
 
 export function generateWalletKeys(): WalletKeys {
   const evmPrivateKey = generateEvmPrivateKey();
@@ -428,210 +448,40 @@ export function getWalletAddresses(): WalletAddresses {
       logger.warn(`Bad SOL key: ${e}`);
     }
   }
+
+  if (!evmAddress) {
+    const managedEvmAddress = process.env[MANAGED_EVM_ADDRESS_ENV_KEY];
+    if (managedEvmAddress) {
+      const trimmed = managedEvmAddress.trim();
+      if (/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+        evmAddress = trimmed;
+      } else {
+        logger.warn("Bad managed EVM address in env");
+      }
+    }
+  }
+
+  if (!solanaAddress) {
+    const managedSolanaAddress = process.env[MANAGED_SOLANA_ADDRESS_ENV_KEY];
+    if (managedSolanaAddress) {
+      const trimmed = managedSolanaAddress.trim();
+      try {
+        const decoded = base58Decode(trimmed);
+        if (decoded.length === 32) {
+          solanaAddress = trimmed;
+        } else {
+          logger.warn("Bad managed Solana address in env");
+        }
+      } catch {
+        logger.warn("Bad managed Solana address in env");
+      }
+    }
+  }
+
   return { evmAddress, solanaAddress };
 }
 
-// Alchemy API (EVM tokens + NFTs)
-
-interface AlchemyTokenBalance {
-  contractAddress: string;
-  tokenBalance: string;
-}
-interface AlchemyTokenMeta {
-  name: string;
-  symbol: string;
-  decimals: number;
-  logo: string | null;
-}
-
-/** Parse JSON from a fetch response. If the body isn't JSON, throw with the raw text. */
-async function jsonOrThrow<T>(res: Response): Promise<T> {
-  const text = await res.text();
-  if (!res.ok) throw new Error(text.slice(0, 200) || `HTTP ${res.status}`);
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(text.slice(0, 200) || "Invalid JSON");
-  }
-}
-
-export async function fetchEvmBalances(
-  address: string,
-  alchemyKey: string,
-): Promise<EvmChainBalance[]> {
-  return Promise.all(
-    DEFAULT_EVM_CHAINS.map(async (chain): Promise<EvmChainBalance> => {
-      const fail = (msg: string): EvmChainBalance => ({
-        chain: chain.name,
-        chainId: chain.chainId,
-        nativeBalance: "0",
-        nativeSymbol: chain.nativeSymbol,
-        nativeValueUsd: "0",
-        tokens: [],
-        error: msg,
-      });
-      try {
-        const url = `https://${chain.subdomain}.g.alchemy.com/v2/${alchemyKey}`;
-        const rpc = (body: string): RequestInit => ({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          body,
-        });
-
-        const nativeData = await jsonOrThrow<{ result?: string }>(
-          await fetch(
-            url,
-            rpc(
-              JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "eth_getBalance",
-                params: [address, "latest"],
-              }),
-            ),
-          ),
-        );
-        const nativeBalance = formatWei(
-          nativeData.result ? BigInt(nativeData.result) : 0n,
-          18,
-        );
-
-        const tokenData = await jsonOrThrow<{
-          result?: { tokenBalances?: AlchemyTokenBalance[] };
-        }>(
-          await fetch(
-            url,
-            rpc(
-              JSON.stringify({
-                jsonrpc: "2.0",
-                id: 2,
-                method: "alchemy_getTokenBalances",
-                params: [address, "DEFAULT_TOKENS"],
-              }),
-            ),
-          ),
-        );
-        const nonZero = (tokenData.result?.tokenBalances ?? []).filter(
-          (t) =>
-            t.tokenBalance &&
-            t.tokenBalance !== "0x0" &&
-            t.tokenBalance !== "0x",
-        );
-
-        const metaResults = await Promise.allSettled(
-          nonZero.slice(0, 50).map(async (tok): Promise<EvmTokenBalance> => {
-            const meta = (
-              await jsonOrThrow<{ result?: AlchemyTokenMeta }>(
-                await fetch(
-                  url,
-                  rpc(
-                    JSON.stringify({
-                      jsonrpc: "2.0",
-                      id: 3,
-                      method: "alchemy_getTokenMetadata",
-                      params: [tok.contractAddress],
-                    }),
-                  ),
-                ),
-              )
-            ).result;
-            const decimals = meta?.decimals ?? 18;
-            return {
-              symbol: meta?.symbol ?? "???",
-              name: meta?.name ?? "Unknown Token",
-              contractAddress: tok.contractAddress,
-              balance: formatWei(BigInt(tok.tokenBalance), decimals),
-              decimals,
-              valueUsd: "0",
-              logoUrl: meta?.logo ?? "",
-            };
-          }),
-        );
-        const tokens = metaResults
-          .filter(
-            (r): r is PromiseFulfilledResult<EvmTokenBalance> =>
-              r.status === "fulfilled",
-          )
-          .map((r) => r.value);
-
-        return {
-          chain: chain.name,
-          chainId: chain.chainId,
-          nativeBalance,
-          nativeSymbol: chain.nativeSymbol,
-          nativeValueUsd: "0",
-          tokens,
-          error: null,
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        logger.warn(`EVM balance fetch failed for ${chain.name}: ${msg}`);
-        return fail(msg);
-      }
-    }),
-  );
-}
-
-export async function fetchEvmNfts(
-  address: string,
-  alchemyKey: string,
-): Promise<Array<{ chain: string; nfts: EvmNft[] }>> {
-  return Promise.all(
-    DEFAULT_EVM_CHAINS.map(
-      async (chain): Promise<{ chain: string; nfts: EvmNft[] }> => {
-        try {
-          const res = await fetch(
-            `https://${chain.subdomain}.g.alchemy.com/nft/v3/${alchemyKey}/getNFTsForOwner?owner=${address}&withMetadata=true&pageSize=50`,
-            { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
-          );
-          const data = await jsonOrThrow<{
-            ownedNfts?: Array<{
-              contract?: {
-                address?: string;
-                name?: string;
-                openSeaMetadata?: { collectionName?: string };
-              };
-              tokenId?: string;
-              name?: string;
-              description?: string;
-              image?: {
-                cachedUrl?: string;
-                thumbnailUrl?: string;
-                originalUrl?: string;
-              };
-              tokenType?: string;
-            }>;
-          }>(res);
-          return {
-            chain: chain.name,
-            nfts: (data.ownedNfts ?? []).map((nft) => ({
-              contractAddress: nft.contract?.address ?? "",
-              tokenId: nft.tokenId ?? "",
-              name: nft.name ?? "Untitled",
-              description: (nft.description ?? "").slice(0, 200),
-              imageUrl:
-                nft.image?.cachedUrl ??
-                nft.image?.thumbnailUrl ??
-                nft.image?.originalUrl ??
-                "",
-              collectionName:
-                nft.contract?.openSeaMetadata?.collectionName ??
-                nft.contract?.name ??
-                "",
-              tokenType: nft.tokenType ?? "ERC721",
-            })),
-          };
-        } catch (err) {
-          logger.warn(`EVM NFT fetch failed for ${chain.name}: ${err}`);
-          return { chain: chain.name, nfts: [] };
-        }
-      },
-    ),
-  );
-}
-
-// Helius API (Solana tokens + NFTs)
+// ── Helius API (Solana tokens + NFTs) ─────────────────────────────────
 
 interface HeliusAsset {
   id: string;
@@ -650,6 +500,34 @@ interface HeliusAsset {
     group_key?: string;
     collection_metadata?: { name?: string };
   }>;
+}
+
+function rpcJsonRequest(body: string): RequestInit {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    body,
+  };
+}
+
+function describeRpcEndpoint(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "rpc";
+  }
+}
+
+/** Parse JSON from a fetch response. If the body isn't JSON, throw with the raw text. */
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(text.slice(0, 200) || `HTTP ${res.status}`);
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(text.slice(0, 200) || "Invalid JSON");
+  }
 }
 
 export async function fetchSolanaBalances(
@@ -746,6 +624,48 @@ export async function fetchSolanaBalances(
   return { solBalance, solValueUsd: "0", tokens };
 }
 
+export async function fetchSolanaNativeBalanceViaRpc(
+  address: string,
+  rpcUrls: string[],
+): Promise<{
+  solBalance: string;
+  solValueUsd: string;
+  tokens: SolanaTokenBalance[];
+}> {
+  const urls = [...new Set(rpcUrls)].filter((u) => Boolean(u?.trim()));
+  const errors: string[] = [];
+
+  for (const rpcUrl of urls) {
+    try {
+      const data = await jsonOrThrow<{
+        result?: { value?: number };
+        error?: { message?: string };
+      }>(
+        await fetch(
+          rpcUrl,
+          rpcJsonRequest(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "getBalance",
+              params: [address],
+            }),
+          ),
+        ),
+      );
+      if (data.error?.message) throw new Error(data.error.message);
+
+      const solBalance = ((data.result?.value ?? 0) / 1e9).toFixed(9);
+      return { solBalance, solValueUsd: "0", tokens: [] };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${describeRpcEndpoint(rpcUrl)}: ${msg}`);
+    }
+  }
+
+  throw new Error(errors.join(" | ").slice(0, 400) || "Solana RPC unavailable");
+}
+
 export async function fetchSolanaNfts(
   address: string,
   heliusKey: string,
@@ -795,17 +715,4 @@ export async function fetchSolanaNfts(
     logger.warn(`Solana NFT fetch failed: ${err}`);
     return [];
   }
-}
-
-// Utility
-
-// maskSecret is defined near the key-validation section above
-
-function formatWei(wei: bigint, decimals: number): string {
-  if (wei <= 0n || decimals <= 0) return wei <= 0n ? "0" : wei.toString();
-  const divisor = 10n ** BigInt(decimals);
-  const whole = wei / divisor;
-  const rem = wei % divisor;
-  if (rem === 0n) return whole.toString();
-  return `${whole}.${rem.toString().padStart(decimals, "0").replace(/0+$/, "")}`;
 }
