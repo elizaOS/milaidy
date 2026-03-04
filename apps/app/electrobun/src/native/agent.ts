@@ -18,8 +18,8 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 import type { AgentStatus } from "../rpc-schema";
 
@@ -334,10 +334,7 @@ export class AgentManager {
       let searchDir = miladyDistPath;
       while (searchDir !== path.dirname(searchDir)) {
         const candidate = path.join(searchDir, "node_modules");
-        if (
-          fs.existsSync(candidate) &&
-          candidate !== distModules
-        ) {
+        if (fs.existsSync(candidate) && candidate !== distModules) {
           nodePaths.push(candidate);
           break;
         }
@@ -351,15 +348,13 @@ export class AgentManager {
       }
 
       const childEnv: Record<string, string> = {
-        ...process.env as Record<string, string>,
+        ...(process.env as Record<string, string>),
         MILADY_PORT: String(apiPort),
       };
 
       if (nodePaths.length > 0) {
         childEnv.NODE_PATH = nodePaths.join(path.delimiter);
-        diagnosticLog(
-          `[Agent] Child NODE_PATH: ${childEnv.NODE_PATH}`,
-        );
+        diagnosticLog(`[Agent] Child NODE_PATH: ${childEnv.NODE_PATH}`);
       }
 
       // Spawn the child process
@@ -472,9 +467,7 @@ export class AgentManager {
       return this.status;
     } catch (err) {
       const errMsg =
-        err instanceof Error
-          ? (err.stack || err.message)
-          : String(err);
+        err instanceof Error ? err.stack || err.message : String(err);
       diagnosticLog(`[Agent] Failed to start: ${errMsg}`);
 
       // Clean up child if it was spawned
@@ -649,10 +642,7 @@ export class AgentManager {
         // Process may have already exited between check and kill
       }
       // Wait briefly for SIGKILL to take effect
-      await Promise.race([
-        proc.exited.catch(() => {}),
-        Bun.sleep(1_000),
-      ]);
+      await Promise.race([proc.exited.catch(() => {}), Bun.sleep(1_000)]);
     }
 
     diagnosticLog("[Agent] Child process terminated");
@@ -664,10 +654,9 @@ export class AgentManager {
    */
   private async fetchAgentName(port: number): Promise<string> {
     try {
-      const response = await fetch(
-        `http://localhost:${port}/api/agents`,
-        { signal: AbortSignal.timeout(5_000) },
-      );
+      const response = await fetch(`http://localhost:${port}/api/agents`, {
+        signal: AbortSignal.timeout(5_000),
+      });
       if (response.ok) {
         const data = (await response.json()) as {
           agents?: Array<{ name?: string }>;

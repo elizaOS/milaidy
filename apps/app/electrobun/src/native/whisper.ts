@@ -43,9 +43,7 @@ async function tryLoadWhisper(): Promise<boolean> {
       console.log(`[Whisper] Loaded ${pkg}`);
       whisperAvailable = true;
       return true;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   console.warn(

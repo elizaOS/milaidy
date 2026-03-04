@@ -11,6 +11,7 @@
  */
 
 import http from "node:http";
+import type { AgentRuntime } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startApiServer } from "../src/api/server";
 
@@ -211,7 +212,10 @@ describe("Skills Marketplace & Catalog E2E (MW-08, #473)", () => {
       getServicesByType: () => [],
     };
 
-    server = await startApiServer({ port: 0, runtime: mockRuntime as any });
+    server = await startApiServer({
+      port: 0,
+      runtime: mockRuntime as unknown as AgentRuntime,
+    });
   }, 30_000);
 
   afterAll(async () => {

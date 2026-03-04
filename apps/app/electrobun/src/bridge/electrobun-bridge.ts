@@ -15,6 +15,28 @@
  * This bridge translates those calls to typed RPC requests/messages.
  */
 
+// Augment the Window interface for bridge globals
+declare global {
+  interface Window {
+    __MILADY_RPC_LISTENERS__: Record<string, IpcListener[] | undefined>;
+    __MILADY_API_BASE__: string;
+    __MILADY_API_TOKEN__: string;
+    __ELECTROBUN__: boolean;
+    __MILADY_RUNTIME__: string;
+    electron: typeof electronAPI;
+    electroview?: {
+      rpc?: {
+        request?: Record<string, (params: unknown) => Promise<unknown>>;
+        handleMessage?: {
+          apiBaseUpdate?: (
+            handler: (payload: { base: string; token?: string }) => void,
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
 // ============================================================================
 // Channel → RPC Method Mapping
 // ============================================================================
@@ -245,7 +267,7 @@ const listenersByRpcMessage: Record<string, Set<IpcListener>> = {};
 const listenersByChannel: Record<string, Set<IpcListener>> = {};
 
 // Expose the registry globally so the Bun side can dispatch to it
-(window as any).__MILADY_RPC_LISTENERS__ = new Proxy(
+window.__MILADY_RPC_LISTENERS__ = new Proxy(
   {},
   {
     get(_target, prop: string) {
@@ -268,7 +290,7 @@ function getRpcProxy(): Record<
   string,
   (params: unknown) => Promise<unknown>
 > | null {
-  const ev = (window as any).electroview;
+  const ev = window.electroview;
   if (!ev?.rpc?.request) return null;
   return ev.rpc.request;
 }
@@ -387,7 +409,7 @@ const electronAPI = {
       const result = await electronAPI.ipcRenderer.invoke(
         "screencapture:getSources",
       );
-      return (result as any)?.sources ?? [];
+      return (result as { sources?: unknown[] })?.sources ?? [];
     },
   },
 
@@ -423,13 +445,13 @@ electronAPI.ipcRenderer
  * a typed RPC message (CSP-safe).
  */
 function setupApiBasePushHandler(): void {
-  const ev = (window as any).electroview;
+  const ev = window.electroview;
   if (ev?.rpc?.handleMessage?.apiBaseUpdate) {
     ev.rpc.handleMessage.apiBaseUpdate(
       (payload: { base: string; token?: string }) => {
-        (window as any).__MILADY_API_BASE__ = payload.base;
+        window.__MILADY_API_BASE__ = payload.base;
         if (payload.token) {
-          (window as any).__MILADY_API_TOKEN__ = payload.token;
+          window.__MILADY_API_TOKEN__ = payload.token;
         }
       },
     );
@@ -457,10 +479,10 @@ try {
 // ============================================================================
 
 // Expose as window.electron for backward compatibility
-(window as any).electron = electronAPI;
+window.electron = electronAPI;
 
 // Also expose detection flag
-(window as any).__ELECTROBUN__ = true;
-(window as any).__MILADY_RUNTIME__ = "electrobun";
+window.__ELECTROBUN__ = true;
+window.__MILADY_RUNTIME__ = "electrobun";
 
 export {};

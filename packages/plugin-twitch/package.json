@@ -9,7 +9,13 @@
   "packageType": "plugin",
   "platform": "node",
   "license": "MIT",
-  "keywords": ["elizaos", "elizaos-plugin", "twitch", "streaming", "rtmp"],
+  "keywords": [
+    "elizaos",
+    "elizaos-plugin",
+    "twitch",
+    "streaming",
+    "rtmp"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/milady-ai/milady.git",

@@ -5,7 +5,7 @@
  * and provides centralized dispose for clean shutdown.
  */
 
-import { BrowserWindow } from "electrobun/bun";
+import type { BrowserWindow } from "electrobun/bun";
 import { getAgentManager } from "./agent";
 import { getCameraManager } from "./camera";
 import { getCanvasManager } from "./canvas";

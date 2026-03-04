@@ -14,8 +14,6 @@ const UNAVAILABLE_REASON =
   "Screen capture requires platform-specific integration not yet available in Electrobun";
 
 export class ScreenCaptureManager {
-  private sendToWebview: SendToWebview | null = null;
-
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
   }

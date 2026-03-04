@@ -5,7 +5,10 @@
  * Camera/microphone permissions are per-app in Windows 10+.
  */
 
-import type { PermissionCheckResult, SystemPermissionId } from "./permissions-shared";
+import type {
+  PermissionCheckResult,
+  SystemPermissionId,
+} from "./permissions-shared";
 
 export async function checkPermission(
   id: SystemPermissionId,
@@ -45,7 +48,10 @@ export async function openPrivacySettings(
   const uri = settingsMap[id];
   if (uri) {
     try {
-      Bun.spawn(["cmd", "/c", "start", uri], { stdout: "ignore", stderr: "ignore" });
+      Bun.spawn(["cmd", "/c", "start", uri], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
     } catch {
       // Settings unavailable
     }
