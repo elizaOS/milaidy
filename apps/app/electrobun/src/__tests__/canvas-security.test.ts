@@ -24,11 +24,7 @@ const { CanvasManager } = await import("../native/canvas");
  * with a controlled webview.url value, so we can test the URL check
  * without creating real BrowserWindow instances.
  */
-function injectFakeCanvas(
-  manager: AnyCanvas,
-  id: string,
-  url: string,
-): void {
+function injectFakeCanvas(manager: AnyCanvas, id: string, url: string): void {
   const mockEvalFn = vi.fn().mockResolvedValue("ok");
   const fakeCanvas = {
     id,
@@ -117,16 +113,16 @@ describe("CanvasManager.eval() URL allowlist", () => {
 
     it("blocks http://google.com", async () => {
       injectFakeCanvas(manager, "c12", "http://google.com");
-      await expect(
-        manager.eval({ id: "c12", script: "1+1" }),
-      ).rejects.toThrow("canvas:eval blocked");
+      await expect(manager.eval({ id: "c12", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
 
     it("blocks https://attacker.com/path", async () => {
       injectFakeCanvas(manager, "c13", "https://attacker.com/path?q=1");
-      await expect(
-        manager.eval({ id: "c13", script: "1+1" }),
-      ).rejects.toThrow("canvas:eval blocked");
+      await expect(manager.eval({ id: "c13", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
   });
 
