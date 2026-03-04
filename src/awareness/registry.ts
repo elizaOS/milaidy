@@ -30,8 +30,8 @@ const SANITIZE_PATTERNS: RegExp[] = [
   /xai-\S+/gi,
   // Private keys (hex, 64 hex chars)
   /0x[a-fA-F0-9]{64}/gi,
-  // Generic long hex secrets (40+ hex chars)
-  /[a-fA-F0-9]{40,}/gi,
+  // Generic long hex secrets (64+ hex chars — avoids false-positives on ETH addresses / git SHAs)
+  /[a-fA-F0-9]{64,}/gi,
   // Prompt injection attempts
   /ignore\s+(all\s+)?(previous\s+)?instructions/gi,
   /you are now/gi,
@@ -225,8 +225,9 @@ export class AwarenessRegistry {
 
     let body = included.join("\n");
     if (remaining > 0) {
-      const suffix = `\n[+${remaining} more]`;
-      // Make room for the suffix if needed.
+      let suffix = `\n[+${remaining} more]`;
+      // Make room for the suffix if needed — recompute suffix each iteration
+      // because remaining++ can change its digit count (e.g. 9→10, 99→100).
       while (
         body.length + suffix.length + headerLen + 1 >
           SUMMARY_TOTAL_CHAR_LIMIT &&
@@ -235,8 +236,9 @@ export class AwarenessRegistry {
         included.pop();
         remaining++;
         body = included.join("\n");
+        suffix = `\n[+${remaining} more]`;
       }
-      body += `\n[+${remaining} more]`;
+      body += suffix;
     }
 
     return `${header}\n${body}`;
