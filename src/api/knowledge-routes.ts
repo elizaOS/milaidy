@@ -16,6 +16,10 @@ import {
   parseClampedFloat,
   parsePositiveInteger,
 } from "../utils/number-parsing.js";
+import {
+  getKnowledgeService,
+  type KnowledgeServiceLike,
+} from "./knowledge-service-loader";
 import type { RouteHelpers, RouteRequestContext } from "./route-helpers.js";
 
 export type KnowledgeRouteHelpers = RouteHelpers;
@@ -23,48 +27,6 @@ export type KnowledgeRouteHelpers = RouteHelpers;
 export interface KnowledgeRouteContext extends RouteRequestContext {
   url: URL;
   runtime: AgentRuntime | null;
-}
-
-interface KnowledgeServiceLike {
-  addKnowledge(options: {
-    agentId?: UUID;
-    worldId: UUID;
-    roomId: UUID;
-    entityId: UUID;
-    clientDocumentId: UUID;
-    contentType: string;
-    originalFilename: string;
-    content: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<{
-    clientDocumentId: string;
-    storedDocumentMemoryId: UUID;
-    fragmentCount: number;
-  }>;
-  getKnowledge(
-    message: Memory,
-    scope?: { roomId?: UUID; worldId?: UUID; entityId?: UUID },
-  ): Promise<
-    Array<{
-      id: UUID;
-      content: { text?: string };
-      similarity?: number;
-      metadata?: Record<string, unknown>;
-    }>
-  >;
-  getMemories(params: {
-    tableName: string;
-    roomId?: UUID;
-    count?: number;
-    offset?: number;
-    end?: number;
-  }): Promise<Memory[]>;
-  countMemories(params: {
-    tableName: string;
-    roomId?: UUID;
-    unique?: boolean;
-  }): Promise<number>;
-  deleteMemory(memoryId: UUID): Promise<void>;
 }
 
 const FRAGMENT_COUNT_BATCH_SIZE = 500;
@@ -213,36 +175,6 @@ async function listKnowledgeFragmentsForDocument(
   }
 
   return fragmentIds;
-}
-
-async function getKnowledgeService(
-  runtime: AgentRuntime | null,
-): Promise<KnowledgeServiceLike | null> {
-  if (!runtime) return null;
-
-  // Try to get the service directly first
-  let service = runtime.getService("knowledge") as KnowledgeServiceLike | null;
-  if (service) return service;
-
-  // Service might still be loading - wait for it with a timeout
-  try {
-    const servicePromise = runtime.getServiceLoadPromise("knowledge");
-    const timeout = new Promise<never>((_resolve, reject) => {
-      setTimeout(() => {
-        reject(new Error("Knowledge service load timeout (10s)"));
-      }, 10_000);
-    });
-
-    await Promise.race([servicePromise, timeout]);
-
-    // Try again after waiting
-    service = runtime.getService("knowledge") as KnowledgeServiceLike | null;
-  } catch {
-    // Service didn't load in time or isn't registered
-    return null;
-  }
-
-  return service;
 }
 
 function isBlockedIp(ip: string): boolean {
@@ -748,13 +680,23 @@ export async function handleKnowledgeRoutes(
 
   if (!pathname.startsWith("/api/knowledge")) return false;
 
-  const knowledgeService = await getKnowledgeService(runtime);
+  const { service: knowledgeService, reason } =
+    await getKnowledgeService(runtime);
   if (!knowledgeService) {
-    error(
-      res,
-      "Knowledge service is not available. Agent may not be running.",
-      503,
-    );
+    if (reason === "timeout") {
+      res.setHeader("Retry-After", "5");
+      error(
+        res,
+        "Knowledge service is still loading. Please retry shortly.",
+        503,
+      );
+    } else {
+      error(
+        res,
+        "Knowledge service is not available. Agent may not be running.",
+        503,
+      );
+    }
     return true;
   }
 

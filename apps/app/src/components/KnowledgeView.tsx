@@ -98,9 +98,11 @@ function isSupportedKnowledgeFile(file: Pick<File, "name">): boolean {
 function StatsCard({
   stats,
   loading,
+  hasError,
 }: {
   stats: KnowledgeStats | null;
   loading: boolean;
+  hasError?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
@@ -109,7 +111,7 @@ function StatsCard({
           Documents
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
-          {loading ? "—" : (stats?.documentCount ?? 0)}
+          {loading ? "—" : hasError ? "—" : (stats?.documentCount ?? 0)}
         </div>
       </div>
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded overflow-visible">
@@ -126,7 +128,7 @@ function StatsCard({
           </span>
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
-          {loading ? "—" : (stats?.fragmentCount ?? 0)}
+          {loading ? "—" : hasError ? "—" : (stats?.fragmentCount ?? 0)}
         </div>
       </div>
     </div>
@@ -599,6 +601,8 @@ function DocumentDetailModal({
 
 export function KnowledgeView() {
   const { setActionNotice } = useApp();
+  const setActionNoticeRef = useRef(setActionNotice);
+  setActionNoticeRef.current = setActionNotice;
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [searchResults, setSearchResults] = useState<
@@ -614,9 +618,13 @@ export function KnowledgeView() {
   const [searching, setSearching] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isServiceLoading, setIsServiceLoading] = useState(false);
+  const serviceRetryRef = useRef(0);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [statsRes, docsRes] = await Promise.all([
         client.getKnowledgeStats(),
@@ -624,6 +632,19 @@ export function KnowledgeView() {
       ]);
       setStats(statsRes);
       setDocuments(docsRes.documents);
+      setIsServiceLoading(false);
+      serviceRetryRef.current = 0;
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 503) {
+        setIsServiceLoading(true);
+      } else {
+        setIsServiceLoading(false);
+        const msg =
+          err instanceof Error ? err.message : "Failed to load knowledge data";
+        setLoadError(msg);
+        setActionNoticeRef.current({ type: "error", message: msg });
+      }
     } finally {
       setLoading(false);
     }
@@ -635,6 +656,28 @@ export function KnowledgeView() {
       setLoading(false);
     });
   }, [loadData]);
+
+  // Auto-retry with exponential backoff when knowledge service is still loading (503)
+  useEffect(() => {
+    if (!isServiceLoading) {
+      serviceRetryRef.current = 0;
+      return;
+    }
+    const attempt = serviceRetryRef.current;
+    if (attempt >= 5) {
+      setIsServiceLoading(false);
+      setLoadError(
+        "Knowledge service did not become available. Please reload the page.",
+      );
+      return;
+    }
+    const delayMs = 2000 * 1.5 ** attempt; // 2s, 3s, 4.5s, 6.75s, ~10s
+    const timer = setTimeout(() => {
+      serviceRetryRef.current = attempt + 1;
+      loadData();
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [isServiceLoading, loadData]);
 
   const readKnowledgeFile = useCallback(async (file: KnowledgeUploadFile) => {
     const reader = new FileReader();
@@ -985,7 +1028,31 @@ export function KnowledgeView() {
         Knowledge Base
       </h1>
 
-      <StatsCard stats={stats} loading={loading} />
+      <StatsCard
+        stats={stats}
+        loading={loading}
+        hasError={!!(loadError || isServiceLoading)}
+      />
+
+      {isServiceLoading && (
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--muted)]">
+          <span className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          Knowledge service is loading...
+        </div>
+      )}
+
+      {loadError && !isServiceLoading && (
+        <div className="flex items-center justify-between mb-4 px-3 py-2 rounded border border-[var(--danger)] bg-[var(--danger)]/10 text-sm text-[var(--danger)]">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => loadData()}
+            className="ml-3 px-2 py-1 text-xs border border-[var(--danger)] rounded hover:bg-[var(--danger)]/20 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <UploadZone
         onFilesUpload={handleFilesUpload}
