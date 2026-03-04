@@ -13,6 +13,7 @@ export function ConnectionFailedBanner() {
   } = useApp();
 
   if (
+    !backendConnection ||
     backendConnection.state !== "failed" ||
     backendDisconnectedBannerDismissed
   ) {
