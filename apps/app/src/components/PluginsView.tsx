@@ -2147,8 +2147,9 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                             className="w-4 h-4 rounded-sm object-cover"
                             loading="lazy"
                             onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display =
-                                "none";
+                              (
+                                e.currentTarget as HTMLImageElement
+                              ).style.display = "none";
                             }}
                           />
                         ) : (
