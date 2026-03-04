@@ -1,5 +1,3 @@
-// TODO: Add unit tests for trade execution (bsc-trade, execute-trade, wallet-trading-profile)
-
 /**
  * EXECUTE_TRADE action — executes a BSC token trade (buy or sell).
  *
@@ -18,8 +16,8 @@
 import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import {
-  WALLET_ACTION_API_PORT,
   buildAuthHeaders,
+  WALLET_ACTION_API_PORT,
 } from "./wallet-action-shared.js";
 
 /** Timeout for the trade API call (includes on-chain confirmation). */

@@ -19,8 +19,8 @@ import type {
   WalletBalancesResponse,
 } from "../contracts/wallet.js";
 import {
-  WALLET_ACTION_API_PORT,
   buildAuthHeaders,
+  WALLET_ACTION_API_PORT,
 } from "./wallet-action-shared.js";
 
 /** Timeout for the balance API call. */

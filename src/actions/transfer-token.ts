@@ -15,8 +15,8 @@
 
 import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
 import {
-  WALLET_ACTION_API_PORT,
   buildAuthHeaders,
+  WALLET_ACTION_API_PORT,
 } from "./wallet-action-shared.js";
 
 /** Timeout for the transfer API call (includes on-chain confirmation). */
