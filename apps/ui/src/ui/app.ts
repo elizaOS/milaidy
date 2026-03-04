@@ -182,6 +182,7 @@ const AI_PROVIDER_ALIASES: Record<string, string> = {
   gemini: "google-genai",
   grok: "xai",
   localai: "local-ai",
+  "openai-codex": "openai-subscription",
 };
 
 function canonicalProviderId(id: string): string {
@@ -11243,7 +11244,7 @@ export class MilaidyApp extends LitElement {
         {
           id: "google-genai",
           name: AI_PROVIDER_COPY["google-genai"].name,
-          envKey: "GOOGLE_API_KEY",
+          envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
           pluginName: "@elizaos/plugin-google-genai",
           keyPrefix: null,
           description: AI_PROVIDER_COPY["google-genai"].description,
@@ -11267,7 +11268,7 @@ export class MilaidyApp extends LitElement {
         {
           id: "vercel-ai-gateway",
           name: AI_PROVIDER_COPY["vercel-ai-gateway"].name,
-          envKey: "AI_GATEWAY_API_KEY",
+          envKey: null,
           pluginName: "@elizaos/plugin-vercel-ai-gateway",
           keyPrefix: null,
           description: AI_PROVIDER_COPY["vercel-ai-gateway"].description,
