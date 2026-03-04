@@ -9489,7 +9489,8 @@ export class MilaidyApp extends LitElement {
     if (has("slack")) return "https://www.google.com/s2/favicons?domain=slack.com&sz=64";
     if (has("whatsapp")) return "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=64";
     if (has("signal")) return "https://www.google.com/s2/favicons?domain=signal.org&sz=64";
-    if (has("imessage", "bluebubbles")) return "https://www.google.com/s2/favicons?domain=bluebubbles.app&sz=64";
+    if (has("imessage")) return "https://www.google.com/s2/favicons?domain=apple.com&sz=64";
+    if (has("bluebubbles")) return "https://www.google.com/s2/favicons?domain=bluebubbles.app&sz=64";
     if (has("bluesky")) return "https://www.google.com/s2/favicons?domain=bsky.app&sz=64";
     if (has("blooio")) return "https://www.google.com/s2/favicons?domain=bloo.io&sz=64";
     if (has("farcaster")) return "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=64";
@@ -9530,7 +9531,7 @@ export class MilaidyApp extends LitElement {
     if (has("iq")) return "https://www.google.com/s2/favicons?domain=elizaos.ai&sz=64";
     if (has("msteams", "microsoftteams", "teams")) return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
     if (has("mattermost")) return "/brands/mattermost.svg";
-    if (has("auto-trader", "autotrader")) return "https://www.google.com/s2/favicons?domain=jup.ag&sz=64";
+    if (has("auto-trader", "autotrader")) return "/brands/generic-app.svg";
     if (has("openai")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
     if (has("anthropic")) return "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
     if (has("google", "gemini")) return "https://www.google.com/s2/favicons?domain=ai.google.dev&sz=64";
