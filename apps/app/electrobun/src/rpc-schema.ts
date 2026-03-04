@@ -707,6 +707,14 @@ export type MiladyRPCSchema = {
       // API Base injection
       apiBaseUpdate: { base: string; token?: string };
 
+      // Location
+      locationUpdate: {
+        latitude: number;
+        longitude: number;
+        accuracy: number;
+        timestamp: number;
+      };
+
       // Share target
       shareTargetReceived: { url: string; text?: string };
     };
@@ -919,6 +927,7 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "talkmode:speakComplete": "talkmodeSpeakComplete",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChanged": "swabbleStateChanged",
+  "location:update": "locationUpdate",
 };
 
 /**

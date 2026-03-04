@@ -244,6 +244,7 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "talkmode:speakComplete": "talkmodeSpeakComplete",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChanged": "swabbleStateChanged",
+  "location:update": "locationUpdate",
 };
 
 // Reverse mapping: RPC message name → Electron push channel
