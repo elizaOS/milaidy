@@ -5698,6 +5698,47 @@ async function handleRequest(
       type: "restart-required",
       reasons: [...state.pendingRestartReasons],
     });
+
+    // In hosts with an in-process restart handler (dev-server / desktop),
+    // apply the restart automatically so provider/plugin changes take effect
+    // without requiring a manual /api/agent/restart call.
+    if (ctx?.onRestart && state.agentState !== "restarting") {
+      const previousState = state.agentState;
+      state.agentState = "restarting";
+      state.broadcastStatus?.();
+
+      void (async () => {
+        try {
+          const newRuntime = await ctx.onRestart?.();
+          if (newRuntime) {
+            state.runtime = newRuntime;
+            state.chatConnectionReady = null;
+            state.chatConnectionPromise = null;
+            state.agentState = "running";
+            state.agentName = newRuntime.character.name ?? "Milady";
+            state.model = detectRuntimeModel(newRuntime);
+            state.startedAt = Date.now();
+            state.pendingRestartReasons = [];
+            state.broadcastWs?.({
+              type: "restart-applied",
+              reason,
+            });
+          } else {
+            state.agentState = previousState;
+            logger.warn(
+              "[milady-api] Restart handler returned null while applying pending restart",
+            );
+          }
+        } catch (err) {
+          state.agentState = previousState;
+          logger.warn(
+            `[milady-api] Failed to auto-apply pending restart: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        } finally {
+          state.broadcastStatus?.();
+        }
+      })();
+    }
   };
 
   const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
