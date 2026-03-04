@@ -5028,11 +5028,16 @@ export class MilaidyApp extends LitElement {
       const status = await client.getStatus();
       this.setAgentStatus(status);
       const extra = status as unknown as {
-        startup?: { phase?: string; attempt?: number };
+        startup?: {
+          phase?: string;
+          attempt?: number;
+          lastError?: string;
+        };
         pendingRestart?: boolean;
         pendingRestartReasons?: string[];
       };
       const phase = extra.startup?.phase;
+      const startupError = extra.startup?.lastError?.trim();
       const pendingReason =
         Array.isArray(extra.pendingRestartReasons) && extra.pendingRestartReasons.length > 0
           ? extra.pendingRestartReasons[0]
@@ -5042,6 +5047,9 @@ export class MilaidyApp extends LitElement {
       }
       if (pendingReason) {
         startupDetail += ` Pending restart reason: ${pendingReason}.`;
+      }
+      if (startupError && startupError.length > 0) {
+        startupDetail += ` Last runtime issue: ${startupError}`;
       }
     } catch {
       // ignore and continue to logs probe
