@@ -109,9 +109,9 @@ export const executeTradeAction: Action = {
   handler: async (_runtime, message, _state, options) => {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
-      logger.debug("[EXECUTE_TRADE] handler called", {
-        hasParams: Boolean(params),
-      });
+      logger.debug(
+        `[EXECUTE_TRADE] handler called hasParams=${Boolean(params)}`,
+      );
 
       // Fallback: extract from message text when structured params are missing.
       const textParams = extractParamsFromText(message as Memory | undefined);
@@ -180,10 +180,9 @@ export const executeTradeAction: Action = {
         };
       }
 
-      logger.debug("[EXECUTE_TRADE] resolved trade parameters", {
-        side,
-        hasToken: Boolean(tokenAddress),
-      });
+      logger.debug(
+        `[EXECUTE_TRADE] resolved trade parameters side=${side} hasToken=${Boolean(tokenAddress)}`,
+      );
 
       // ── POST to trade execution API ──────────────────────────────────
       const response = await fetch(
@@ -233,9 +232,9 @@ export const executeTradeAction: Action = {
         error?: string;
       };
 
-      logger.debug("[EXECUTE_TRADE] trade API responded", {
-        status: result.ok ? "ok" : "error",
-      });
+      logger.debug(
+        `[EXECUTE_TRADE] trade API responded status=${result.ok ? "ok" : "error"}`,
+      );
 
       if (!result.ok) {
         return {

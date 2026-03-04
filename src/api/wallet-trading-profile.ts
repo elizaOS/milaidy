@@ -133,16 +133,14 @@ function normalizeStatus(value: unknown): BscTradeTxStatus {
 function normalizeSide(value: unknown): BscTradeSide {
   if (typeof value !== "string") {
     logger.warn(
-      "wallet-trading-profile: invalid trade side value, defaulting to buy",
-      { value: typeof value },
+      `wallet-trading-profile: invalid trade side value (${typeof value}), defaulting to buy`,
     );
     return "buy";
   }
   const normalized = value.trim().toLowerCase() as BscTradeSide;
   if (!TRADE_SIDE_SET.has(normalized)) {
     logger.warn(
-      "wallet-trading-profile: unrecognized trade side, defaulting to buy",
-      { side: normalized },
+      `wallet-trading-profile: unrecognized trade side "${normalized}", defaulting to buy`,
     );
     return "buy";
   }
