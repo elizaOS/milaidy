@@ -36,6 +36,13 @@ function configuredAddressFromEnv(
   return trimmed ? trimmed : null;
 }
 
+function isEvmDisabled(): boolean {
+  return (
+    process.env.WALLET_DISABLE_EVM === "1" ||
+    process.env.MILADY_WALLET_DISABLE_EVM === "1"
+  );
+}
+
 async function fetchSolanaBalancePublic(address: string): Promise<{
   solBalance: string;
   solValueUsd: string;
@@ -140,8 +147,11 @@ export async function handleWalletRoutes(
   // GET /api/wallet/addresses
   if (method === "GET" && pathname === "/api/wallet/addresses") {
     const addresses = deps.getWalletAddresses();
+    const evmDisabled = isEvmDisabled();
     json(res, {
-      evmAddress: addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS"),
+      evmAddress: evmDisabled
+        ? null
+        : (addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS")),
       solanaAddress:
         addresses.solanaAddress ?? configuredAddressFromEnv("SOLANA_ADDRESS"),
     });
@@ -150,13 +160,14 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/balances
   if (method === "GET" && pathname === "/api/wallet/balances") {
+    const evmDisabled = isEvmDisabled();
     const addresses = deps.getWalletAddresses();
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
-    if (addresses.evmAddress && alchemyKey) {
+    if (!evmDisabled && addresses.evmAddress && alchemyKey) {
       const evmBalancesSpan = createIntegrationTelemetrySpan({
         boundary: "wallet",
         operation: "fetch_evm_balances",
@@ -198,13 +209,14 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/nfts
   if (method === "GET" && pathname === "/api/wallet/nfts") {
+    const evmDisabled = isEvmDisabled();
     const addresses = deps.getWalletAddresses();
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletNftsResponse = { evm: [], solana: null };
 
-    if (addresses.evmAddress && alchemyKey) {
+    if (!evmDisabled && addresses.evmAddress && alchemyKey) {
       const evmNftsSpan = createIntegrationTelemetrySpan({
         boundary: "wallet",
         operation: "fetch_evm_nfts",
@@ -348,10 +360,13 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/config
   if (method === "GET" && pathname === "/api/wallet/config") {
+    const evmDisabled = isEvmDisabled();
     const addresses = deps.getWalletAddresses();
     const evmConfiguredAddress = configuredAddressFromEnv("EVM_ADDRESS");
     const solanaConfiguredAddress = configuredAddressFromEnv("SOLANA_ADDRESS");
-    const effectiveEvmAddress = addresses.evmAddress ?? evmConfiguredAddress;
+    const effectiveEvmAddress = evmDisabled
+      ? null
+      : (addresses.evmAddress ?? evmConfiguredAddress);
     const effectiveSolanaAddress = addresses.solanaAddress ?? solanaConfiguredAddress;
     const walletConnectionLocked =
       process.env.WALLET_DISCONNECT === "1" ||
@@ -372,6 +387,7 @@ export async function handleWalletRoutes(
       ),
       solanaWalletConnected: Boolean(effectiveSolanaAddress),
       walletConnectionLocked,
+      evmDisabled,
       evmConfiguredAddress,
       solanaConfiguredAddress,
       evmSigningEnabled: Boolean(process.env.EVM_PRIVATE_KEY?.trim()),
@@ -398,15 +414,23 @@ export async function handleWalletRoutes(
       "EVM_ADDRESS",
       "SOLANA_ADDRESS",
       "WALLET_DISCONNECT",
+      "WALLET_DISABLE_EVM",
     ];
 
     if (!config.env) config.env = {};
 
     for (const key of allowedKeys) {
+      if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
       const value = body[key];
-      if (typeof value === "string" && value.trim()) {
-        process.env[key] = value.trim();
-        (config.env as Record<string, string>)[key] = value.trim();
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed) {
+          process.env[key] = trimmed;
+          (config.env as Record<string, string>)[key] = trimmed;
+        } else {
+          delete process.env[key];
+          (config.env as Record<string, string>)[key] = "";
+        }
       }
     }
 
@@ -478,9 +502,12 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/connected-data
   if (method === "GET" && pathname === "/api/wallet/connected-data") {
+    const evmDisabled = isEvmDisabled();
     const addresses = deps.getWalletAddresses();
     const effectiveAddresses = {
-      evmAddress: addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS"),
+      evmAddress: evmDisabled
+        ? null
+        : (addresses.evmAddress ?? configuredAddressFromEnv("EVM_ADDRESS")),
       solanaAddress:
         addresses.solanaAddress ?? configuredAddressFromEnv("SOLANA_ADDRESS"),
     };
@@ -491,7 +518,7 @@ export async function handleWalletRoutes(
     const balances: WalletBalancesResponse = { evm: null, solana: null };
     const nfts: WalletNftsResponse = { evm: [], solana: null };
 
-    if (effectiveAddresses.evmAddress && alchemyKey) {
+    if (!evmDisabled && effectiveAddresses.evmAddress && alchemyKey) {
       try {
         const chains = await deps.fetchEvmBalances(
           effectiveAddresses.evmAddress,
