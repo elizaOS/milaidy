@@ -1205,6 +1205,20 @@ describe("isRecoverablePgliteInitError", () => {
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 
+  it("returns true for migration summary with PGlite exit status crashes", () => {
+    const err = new Error(
+      "1 migration(s) failed:\n  worlds: Program terminated with exit(1)",
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns false for migration failures without recoverable signals", () => {
+    const err = new Error(
+      "1 migration(s) failed:\n  worlds: relation \"foo\" does not exist",
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(false);
+  });
+
   it("returns false for unrelated errors", () => {
     expect(isRecoverablePgliteInitError(new Error("Connection refused"))).toBe(
       false,
