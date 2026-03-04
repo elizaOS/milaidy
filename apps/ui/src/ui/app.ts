@@ -143,6 +143,14 @@ const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> = 
   "google-genai": { name: "Gemini", description: "Google's Gemini models." },
   xai: { name: "xAI (Grok)", description: "xAI's Grok models." },
   groq: { name: "Groq", description: "Fast inference." },
+  "vercel-ai-gateway": {
+    name: "Vercel AI Gateway",
+    description: "Unified model routing via Vercel AI Gateway.",
+  },
+  "local-ai": {
+    name: "Local AI",
+    description: "Run local models without external API keys.",
+  },
   deepseek: { name: "DeepSeek", description: "DeepSeek models." },
   mistral: { name: "Mistral", description: "Mistral AI models." },
   together: { name: "Together AI", description: "Open-source model hosting." },
@@ -155,6 +163,7 @@ const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> = 
 const AI_PROVIDER_ALIASES: Record<string, string> = {
   gemini: "google-genai",
   grok: "xai",
+  localai: "local-ai",
 };
 
 function canonicalProviderId(id: string): string {
@@ -10810,6 +10819,22 @@ export class MilaidyApp extends LitElement {
           description: AI_PROVIDER_COPY.groq.description,
         },
         {
+          id: "vercel-ai-gateway",
+          name: AI_PROVIDER_COPY["vercel-ai-gateway"].name,
+          envKey: "AI_GATEWAY_API_KEY",
+          pluginName: "@elizaos/plugin-vercel-ai-gateway",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY["vercel-ai-gateway"].description,
+        },
+        {
+          id: "local-ai",
+          name: AI_PROVIDER_COPY["local-ai"].name,
+          envKey: null,
+          pluginName: "@elizaos/plugin-local-ai",
+          keyPrefix: null,
+          description: AI_PROVIDER_COPY["local-ai"].description,
+        },
+        {
           id: "deepseek",
           name: AI_PROVIDER_COPY.deepseek.name,
           envKey: "DEEPSEEK_API_KEY",
@@ -10849,7 +10874,10 @@ export class MilaidyApp extends LitElement {
   private normalizeOnboardingOptions(options: OnboardingOptions): OnboardingOptions {
     const fallback = this.defaultOnboardingOptions();
     const byId = new Map<string, ProviderOption>();
-    for (const p of options.providers ?? []) byId.set(p.id, p);
+    for (const p of options.providers ?? []) {
+      const canonicalId = canonicalProviderId(p.id);
+      byId.set(canonicalId, { ...p, id: canonicalId });
+    }
     for (const p of fallback.providers ?? []) {
       if (!byId.has(p.id)) byId.set(p.id, p);
     }
@@ -10895,6 +10923,14 @@ export class MilaidyApp extends LitElement {
         name: AI_PROVIDER_COPY.groq.name,
         description: AI_PROVIDER_COPY.groq.description,
       },
+      "vercel-ai-gateway": {
+        name: AI_PROVIDER_COPY["vercel-ai-gateway"].name,
+        description: AI_PROVIDER_COPY["vercel-ai-gateway"].description,
+      },
+      "local-ai": {
+        name: AI_PROVIDER_COPY["local-ai"].name,
+        description: AI_PROVIDER_COPY["local-ai"].description,
+      },
       deepseek: {
         name: AI_PROVIDER_COPY.deepseek.name,
         description: AI_PROVIDER_COPY.deepseek.description,
@@ -10926,6 +10962,8 @@ export class MilaidyApp extends LitElement {
       "google-genai",
       "xai",
       "groq",
+      "vercel-ai-gateway",
+      "local-ai",
       "deepseek",
       "mistral",
       "together",
