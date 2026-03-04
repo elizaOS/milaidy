@@ -8187,6 +8187,12 @@ export class MilaidyApp extends LitElement {
     ]);
     if (infraDenyIds.has(id)) return false;
     if (plugin.category === "connector") return true;
+    if (plugin.category === "feature") {
+      const integrationSignals = plugin.parameters.some((param) =>
+        /(token|webhook|channel|account|username|password|secret|client|tenant|api)/i.test(param.key),
+      );
+      if (integrationSignals) return true;
+    }
     const key = `${plugin.id} ${plugin.name}`.toLowerCase();
     return (
       key.includes("telegram")
