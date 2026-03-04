@@ -8865,6 +8865,173 @@ async function handleRequest(
     return;
   }
 
+  const HANDLE_LOCK_MS = 48 * 60 * 60 * 1000;
+
+  const getHandleStore = (): {
+    ownership: Record<string, string>;
+    ownerCurrent: Record<string, string>;
+    locks: Record<string, number>;
+  } => {
+    if (!state.config.ui) state.config.ui = {};
+    const uiConfig = state.config.ui as Record<string, unknown>;
+    const handleStore =
+      uiConfig.handleStore && typeof uiConfig.handleStore === "object"
+        ? (uiConfig.handleStore as Record<string, unknown>)
+        : {};
+    uiConfig.handleStore = handleStore;
+
+    const ownership =
+      handleStore.ownership && typeof handleStore.ownership === "object"
+        ? (handleStore.ownership as Record<string, string>)
+        : {};
+    const ownerCurrent =
+      handleStore.ownerCurrent && typeof handleStore.ownerCurrent === "object"
+        ? (handleStore.ownerCurrent as Record<string, string>)
+        : {};
+    const locks =
+      handleStore.locks && typeof handleStore.locks === "object"
+        ? (handleStore.locks as Record<string, number>)
+        : {};
+
+    handleStore.ownership = ownership;
+    handleStore.ownerCurrent = ownerCurrent;
+    handleStore.locks = locks;
+
+    return { ownership, ownerCurrent, locks };
+  };
+
+  const saveHandleStore = (): void => {
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[api] Failed to save handle store: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const normalizeHandle = (value: string): string => value.trim().toLowerCase();
+
+  // ── GET /api/polymarket/portfolio ───────────────────────────────────────
+  if (method === "GET" && pathname === "/api/polymarket/portfolio") {
+    const configuredWallet =
+      process.env.EVM_ADDRESS?.trim() ||
+      process.env.SOLANA_ADDRESS?.trim() ||
+      null;
+    json(res, {
+      wallet: configuredWallet,
+      connected: Boolean(configuredWallet),
+      availableBalanceUsd: null,
+      openExposureUsd: null,
+      unsettledPnlUsd: null,
+      openPositionsCount: 0,
+      positions: [],
+    });
+    return;
+  }
+
+  // ── GET /api/handles/check ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/handles/check") {
+    const urlObj = new URL(req.url ?? "", `http://${req.headers.host ?? "127.0.0.1"}`);
+    const handle = normalizeHandle(urlObj.searchParams.get("handle") ?? "");
+    const ownerId = (urlObj.searchParams.get("ownerId") ?? "").trim();
+    const { ownership, locks } = getHandleStore();
+
+    const handleOwnerId = ownership[handle] ?? null;
+    const lockUntilRaw = locks[ownerId] ?? null;
+    const lockUntil =
+      typeof lockUntilRaw === "number" && Number.isFinite(lockUntilRaw)
+        ? lockUntilRaw
+        : null;
+    const lockActive = lockUntil != null && lockUntil > Date.now();
+
+    const owner: "self" | "other" | "none" =
+      !handleOwnerId ? "none" : handleOwnerId === ownerId ? "self" : "other";
+    const available = owner === "none" || owner === "self";
+
+    json(res, {
+      ok: true,
+      handle,
+      available,
+      owner,
+      lockUntil: lockActive ? lockUntil : null,
+    });
+    return;
+  }
+
+  // ── POST /api/handles/claim ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/handles/claim") {
+    const body = await readJsonBody<{
+      handle?: string;
+      ownerId?: string;
+      previousHandle?: string;
+    }>(req, res);
+    if (!body) return;
+
+    const handle = normalizeHandle(body.handle ?? "");
+    const ownerId = (body.ownerId ?? "").trim();
+    const previousHandle = normalizeHandle(body.previousHandle ?? "");
+
+    if (!handle) {
+      error(res, "handle is required", 400);
+      return;
+    }
+    if (!ownerId) {
+      error(res, "ownerId is required", 400);
+      return;
+    }
+
+    if (!/^[a-z0-9._-]{2,32}$/.test(handle)) {
+      error(res, "Invalid handle format", 422);
+      return;
+    }
+
+    const { ownership, ownerCurrent, locks } = getHandleStore();
+    const now = Date.now();
+    const lockUntil = locks[ownerId];
+    const currentHandle = ownerCurrent[ownerId] ?? "";
+    const hasActiveLock =
+      typeof lockUntil === "number" &&
+      Number.isFinite(lockUntil) &&
+      lockUntil > now;
+
+    if (hasActiveLock && currentHandle && handle !== currentHandle) {
+      json(
+        res,
+        {
+          error: "Handle change is temporarily locked",
+          details: { lockUntil },
+        },
+        429,
+      );
+      return;
+    }
+
+    const existingOwnerId = ownership[handle];
+    if (existingOwnerId && existingOwnerId !== ownerId) {
+      error(res, "Handle is already taken", 409);
+      return;
+    }
+
+    if (previousHandle && ownership[previousHandle] === ownerId && previousHandle !== handle) {
+      delete ownership[previousHandle];
+    }
+
+    ownership[handle] = ownerId;
+    ownerCurrent[ownerId] = handle;
+    const nextLockUntil = now + HANDLE_LOCK_MS;
+    locks[ownerId] = nextLockUntil;
+
+    saveHandleStore();
+
+    json(res, {
+      ok: true,
+      handle,
+      lockUntil: nextLockUntil,
+    });
+    return;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   //  ERC-8004 Registry Routes
   // ═══════════════════════════════════════════════════════════════════════
