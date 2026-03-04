@@ -1171,8 +1171,12 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       const entries = index.plugins
         .map((p) => {
-          // Use manifest category if available, otherwise fall back to hardcoded categorization
-          const category = p.category ?? categorizePlugin(p.id);
+          // Use manifest category if available, otherwise fall back to hardcoded categorization.
+          // Eliza Cloud should be grouped with AI providers in Runtime UI.
+          const category =
+            p.id === "elizacloud"
+              ? "ai-provider"
+              : (p.category ?? categorizePlugin(p.id));
           const envKey = p.envKey;
           const filteredConfigKeys = p.configKeys.filter(
             (k) => !HIDDEN_KEYS.has(k),
@@ -3408,7 +3412,7 @@ function getProviderOptions(): Array<{
       description: "Access multiple models via one API key.",
     },
     {
-      id: "gemini",
+      id: "google-genai",
       name: "Gemini",
       envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
       pluginName: "@elizaos/plugin-google-genai",
@@ -3416,7 +3420,7 @@ function getProviderOptions(): Array<{
       description: "Google's Gemini models.",
     },
     {
-      id: "grok",
+      id: "xai",
       name: "Grok",
       envKey: "XAI_API_KEY",
       pluginName: "@elizaos/plugin-xai",
@@ -3430,6 +3434,22 @@ function getProviderOptions(): Array<{
       pluginName: "@elizaos/plugin-groq",
       keyPrefix: "gsk_",
       description: "Fast inference.",
+    },
+    {
+      id: "vercel-ai-gateway",
+      name: "Vercel AI Gateway",
+      envKey: "AI_GATEWAY_API_KEY",
+      pluginName: "@elizaos/plugin-vercel-ai-gateway",
+      keyPrefix: null,
+      description: "Unified model routing via Vercel AI Gateway.",
+    },
+    {
+      id: "local-ai",
+      name: "Local AI",
+      envKey: null,
+      pluginName: "@elizaos/plugin-local-ai",
+      keyPrefix: null,
+      description: "Run local models without external API keys.",
     },
     {
       id: "deepseek",
