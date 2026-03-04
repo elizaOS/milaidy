@@ -8,7 +8,7 @@ import { useApp } from "../AppContext";
 export function SystemWarningBanner() {
   const { systemWarnings, dismissSystemWarning } = useApp();
 
-  if (!systemWarnings.length) return null;
+  if (!systemWarnings?.length) return null;
 
   return (
     <>
