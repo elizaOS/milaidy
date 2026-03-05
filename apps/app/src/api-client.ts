@@ -106,6 +106,74 @@ export type {
 };
 
 // ---------------------------------------------------------------------------
+// NFA / Identity types (BAP-578)
+// ---------------------------------------------------------------------------
+
+export interface NfaContractMetadata {
+  persona: string;
+  experience: string;
+  voiceHash: string;
+  animationURI: string;
+  vaultURI: string;
+  vaultHash: string;
+}
+
+export interface NfaInfo {
+  tokenId: string;
+  owner: string;
+  balance: string;
+  active: boolean;
+  logicContract: string;
+  createdAt: number;
+  metadata: NfaContractMetadata;
+  metadataURI: string;
+  freeMint: boolean;
+}
+
+export interface IdentityRecord {
+  agentId: string;
+  network: string;
+  txHash: string;
+  ownerAddress: string;
+  agentURI: string;
+  registeredAt: string;
+  lastUpdatedAt: string;
+}
+
+export interface NfaRecord {
+  tokenId: string;
+  network: string;
+  owner: string;
+  learningRoot: string;
+  learningCount: number;
+  lastAnchoredAt: string;
+  logicContract?: string;
+  paused: boolean;
+  freeMint: boolean;
+  mintTxHash: string;
+}
+
+export interface LearningLeaf {
+  id: string;
+  timestamp: string;
+  category: "error" | "correction" | "insight" | "pattern";
+  summary: string;
+  contentHash: string;
+}
+
+export interface NfaStatusResponse {
+  identity: IdentityRecord | null;
+  nfa: NfaRecord | null;
+  onChain: NfaInfo | null;
+}
+
+export interface NfaLearningsResponse {
+  entries: LearningLeaf[];
+  root: string;
+  count: number;
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -3067,6 +3135,15 @@ export class MiladyClient {
       method: "PUT",
       body: JSON.stringify(character),
     });
+  }
+
+  // NFA / Identity (BAP-578)
+
+  async getNfaStatus(): Promise<NfaStatusResponse> {
+    return this.fetch("/api/nfa/status");
+  }
+  async getNfaLearnings(): Promise<NfaLearningsResponse> {
+    return this.fetch("/api/nfa/learnings");
   }
 
   // Wallet
