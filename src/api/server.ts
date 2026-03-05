@@ -14452,112 +14452,151 @@ export async function startApiServer(opts?: {
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
   return new Promise((resolve, reject) => {
-    let currentPort = port;
+    const isPortAvailable = async (candidatePort: number): Promise<boolean> => {
+      return await new Promise<boolean>((resolveProbe) => {
+        const probe = net.createServer();
+        const cleanup = () => {
+          probe.removeAllListeners("error");
+          probe.removeAllListeners("listening");
+        };
+        probe.once("error", (err: NodeJS.ErrnoException) => {
+          cleanup();
+          if (err.code === "EADDRINUSE") {
+            resolveProbe(false);
+            return;
+          }
+          resolveProbe(false);
+        });
+        probe.once("listening", () => {
+          cleanup();
+          probe.close(() => resolveProbe(true));
+        });
+        probe.listen(candidatePort, host);
+      });
+    };
 
-    server.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EADDRINUSE") {
-        console.warn(
-          `[milady-api] Port ${currentPort} is already in use. Checking fallback...`,
-        );
-        if (currentPort !== 0) {
-          console.warn(`[milady-api] Retrying with dynamic port (0)...`);
-          currentPort = 0;
-          server.listen(0, host);
-          return;
+    const choosePort = async (): Promise<number> => {
+      if (port === 0) return 0;
+      if (await isPortAvailable(port)) return port;
+      console.warn(
+        `[milady-api] Port ${port} is already in use. Checking fallback...`,
+      );
+      for (let candidate = port + 1; candidate <= port + 20; candidate += 1) {
+        if (await isPortAvailable(candidate)) {
+          console.warn(`[milady-api] Using fallback port ${candidate}.`);
+          return candidate;
         }
-      } else {
-        console.error(
-          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
-        );
       }
-      reject(err);
-    });
+      throw new Error(
+        `No available fallback port found in range ${port + 1}-${port + 20}`,
+      );
+    };
 
-    server.listen(port, host, () => {
-      console.log(
-        `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
-      );
-      const addr = server.address();
-      const actualPort =
-        typeof addr === "object" && addr ? addr.port : currentPort;
-      const displayHost =
-        typeof addr === "object" && addr ? addr.address : host;
-      addLog(
-        "info",
-        `API server listening on http://${displayHost}:${actualPort}`,
-        "system",
-        ["server", "system"],
-      );
-      logger.info(
-        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
-      );
-      startDeferredStartupWork();
-      resolve({
-        port: actualPort,
-        close: () =>
-          new Promise<void>((r) => {
-            const closeAllConnections = (
-              server as { closeAllConnections?: () => void }
-            ).closeAllConnections;
-            const closeIdleConnections = (
-              server as { closeIdleConnections?: () => void }
-            ).closeIdleConnections;
+    void (async () => {
+      let bindPort: number;
+      try {
+        bindPort = await choosePort();
+      } catch (err) {
+        console.error(
+          `[milady-api] ${err instanceof Error ? err.message : String(err)}`,
+        );
+        reject(err);
+        return;
+      }
 
-            clearInterval(statusInterval);
-            if (detachRuntimeStreams) {
-              detachRuntimeStreams();
-              detachRuntimeStreams = null;
-            }
-            if (detachTrainingStream) {
-              detachTrainingStream();
-              detachTrainingStream = null;
-            }
-            for (const ws of wsClients) {
-              if (ws.readyState === 1 || ws.readyState === 0) {
-                ws.terminate();
+      server.once("error", (err: NodeJS.ErrnoException) => {
+        console.error(
+          `[milady-api] Server error while binding ${bindPort}: ${err.message} (code: ${err.code})`,
+        );
+        reject(err);
+      });
+
+      server.listen(bindPort, host, () => {
+        console.log(
+          `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
+        );
+        const addr = server.address();
+        const actualPort =
+          typeof addr === "object" && addr ? addr.port : bindPort;
+        const displayHost =
+          typeof addr === "object" && addr ? addr.address : host;
+        addLog(
+          "info",
+          `API server listening on http://${displayHost}:${actualPort}`,
+          "system",
+          ["server", "system"],
+        );
+        logger.info(
+          `[milady-api] Listening on http://${displayHost}:${actualPort}`,
+        );
+        startDeferredStartupWork();
+        resolve({
+          port: actualPort,
+          close: () =>
+            new Promise<void>((r) => {
+              const closeAllConnections = (
+                server as { closeAllConnections?: () => void }
+              ).closeAllConnections;
+              const closeIdleConnections = (
+                server as { closeIdleConnections?: () => void }
+              ).closeIdleConnections;
+
+              clearInterval(statusInterval);
+              if (detachRuntimeStreams) {
+                detachRuntimeStreams();
+                detachRuntimeStreams = null;
               }
-            }
-            wsClients.clear();
-            // Clean up WhatsApp pairing sessions
-            if (state.whatsappPairingSessions) {
-              for (const s of state.whatsappPairingSessions.values()) {
-                try {
-                  s.stop();
-                } catch {
-                  /* non-fatal */
+              if (detachTrainingStream) {
+                detachTrainingStream();
+                detachTrainingStream = null;
+              }
+              for (const ws of wsClients) {
+                if (ws.readyState === 1 || ws.readyState === 0) {
+                  ws.terminate();
                 }
               }
-              state.whatsappPairingSessions.clear();
-            }
-            wss.close();
-            const closeTimeout = setTimeout(() => r(), 5_000);
-            const resolved = { done: false };
-            const finalize = () => {
-              if (!resolved.done) {
-                resolved.done = true;
-                clearTimeout(closeTimeout);
-                r();
+              wsClients.clear();
+              // Clean up WhatsApp pairing sessions
+              if (state.whatsappPairingSessions) {
+                for (const s of state.whatsappPairingSessions.values()) {
+                  try {
+                    s.stop();
+                  } catch {
+                    /* non-fatal */
+                  }
+                }
+                state.whatsappPairingSessions.clear();
               }
-            };
-            if (typeof closeAllConnections === "function") {
-              try {
-                closeAllConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              wss.close();
+              const closeTimeout = setTimeout(() => r(), 5_000);
+              const resolved = { done: false };
+              const finalize = () => {
+                if (!resolved.done) {
+                  resolved.done = true;
+                  clearTimeout(closeTimeout);
+                  r();
+                }
+              };
+              if (typeof closeAllConnections === "function") {
+                try {
+                  closeAllConnections();
+                } catch {
+                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+                }
               }
-            }
-            if (typeof closeIdleConnections === "function") {
-              try {
-                closeIdleConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              if (typeof closeIdleConnections === "function") {
+                try {
+                  closeIdleConnections();
+                } catch {
+                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+                }
               }
-            }
-            server.close(finalize);
-          }),
-        updateRuntime,
-        updateStartup,
+              server.close(finalize);
+            }),
+          updateRuntime,
+          updateStartup,
+        });
       });
-    });
+    })();
   });
 }
