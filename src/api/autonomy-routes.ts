@@ -1,4 +1,4 @@
-import type { AgentRuntime } from "@elizaos/core";
+import { AutonomyService, type AgentRuntime } from "@elizaos/core";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 export interface AutonomyServiceLike {
@@ -54,8 +54,29 @@ export async function handleAutonomyRoutes(
     const body = await readJsonBody<{ enabled?: boolean }>(req, res);
     if (!body) return true;
 
-    const svc = getAutonomySvc(runtime);
     if (typeof body.enabled === "boolean") {
+      let svc = getAutonomySvc(runtime);
+      // Some runtime boot paths may start without AUTONOMY service. When
+      // enabling autonomy, attempt a lazy service start before failing.
+      if (!svc && body.enabled && runtime) {
+        try {
+          await AutonomyService.start(runtime);
+          svc = getAutonomySvc(runtime);
+        } catch (err) {
+          const autonomy = getAutonomyState(runtime);
+          json(res, {
+            ok: false,
+            error:
+              err instanceof Error
+                ? `Autonomy service failed to start: ${err.message}`
+                : "Autonomy service failed to start.",
+            autonomy: autonomy.enabled,
+            thinking: autonomy.thinking,
+          });
+          return true;
+        }
+      }
+
       if (!svc) {
         const autonomy = getAutonomyState(runtime);
         json(res, {
