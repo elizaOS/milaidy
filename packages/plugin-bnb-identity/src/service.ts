@@ -19,6 +19,12 @@ import type {
   GetAgentResult,
   GetAgentWalletResult,
   AddressResult,
+  NfaInfo,
+  NfaMintResult,
+  NfaUpdateLearningResult,
+  NfaTransferResult,
+  NfaUpgradeResult,
+  NfaPauseResult,
 } from "./types.js";
 
 export type McpToolResponse = {
@@ -105,12 +111,15 @@ export function parseMcpTextPayload<T>(text: string, toolName: string): T {
     return JSON.parse(trimmed) as T;
   } catch {
     throw new Error(
-      `MCP tool ${toolName} returned non-JSON text response: ${trimmed.slice(0, 180)}`
+      `MCP tool ${toolName} returned non-JSON text response: ${trimmed.slice(0, 180)}`,
     );
   }
 }
 
-export function parseMcpResult<T>(result: McpToolResponse, toolName: string): T {
+export function parseMcpResult<T>(
+  result: McpToolResponse,
+  toolName: string,
+): T {
   const payload = extractMcpPayload(result);
   if (payload === null || payload === undefined) {
     throw new Error(`MCP tool ${toolName} returned empty payload.`);
@@ -125,10 +134,15 @@ export function parseMcpResult<T>(result: McpToolResponse, toolName: string): T 
   ) {
     return payload as T;
   }
-  throw new Error(`Unexpected MCP payload type from ${toolName}: ${typeof payload}`);
+  throw new Error(
+    `Unexpected MCP payload type from ${toolName}: ${typeof payload}`,
+  );
 }
 
-export function assertMcpToolSuccess(toolName: string, result: McpToolResponse): void {
+export function assertMcpToolSuccess(
+  toolName: string,
+  result: McpToolResponse,
+): void {
   if (!result) {
     throw new Error(`MCP tool ${toolName} returned an empty response.`);
   }
@@ -136,7 +150,7 @@ export function assertMcpToolSuccess(toolName: string, result: McpToolResponse):
     const text = extractMcpTextPayload(result);
     const message = text || result.error || result.message;
     throw new Error(
-      `MCP tool ${toolName} error: ${message || MCP_TOOL_GENERIC_ERROR_MESSAGE}`
+      `MCP tool ${toolName} error: ${message || MCP_TOOL_GENERIC_ERROR_MESSAGE}`,
     );
   }
 }
@@ -172,10 +186,7 @@ export class BnbIdentityService {
    * Calls set_erc8004_agent_uri to update the metadata URI on-chain.
    * Caller must own the agent NFT (same private key used at registration).
    */
-  async updateAgentUri(
-    agentId: string,
-    newURI: string
-  ): Promise<SetUriResult> {
+  async updateAgentUri(agentId: string, newURI: string): Promise<SetUriResult> {
     this.assertPrivateKey();
     return this.callMcpTool<SetUriResult>("set_erc8004_agent_uri", {
       privateKey: this.config.privateKey,
@@ -197,7 +208,7 @@ export class BnbIdentityService {
         {
           privateKey: this.config.privateKey,
           network: this.config.network,
-        }
+        },
       );
       return this.normalizeAddress(result.address ?? result.result);
     } catch {
@@ -223,13 +234,97 @@ export class BnbIdentityService {
     });
   }
 
+  // ── BAP-578 NFA write tools ─────────────────────────────────────────────
+
+  /** Mint a new NFA NFT for this agent. */
+  async mintNfa(agentURI: string): Promise<NfaMintResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaMintResult>("mint_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      agentURI,
+      network: this.config.network,
+    });
+  }
+
+  /** Update the on-chain learning Merkle root. */
+  async updateLearningRoot(
+    tokenId: string,
+    newRoot: string,
+  ): Promise<NfaUpdateLearningResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaUpdateLearningResult>("update_bap578_learning", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      newRoot,
+      network: this.config.network,
+    });
+  }
+
+  /** Transfer NFA ownership to a new address. */
+  async transferNfa(
+    tokenId: string,
+    to: string,
+  ): Promise<NfaTransferResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaTransferResult>("transfer_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      to,
+      network: this.config.network,
+    });
+  }
+
+  /** Upgrade the NFA logic contract. */
+  async upgradeLogic(
+    tokenId: string,
+    newLogic: string,
+  ): Promise<NfaUpgradeResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaUpgradeResult>("upgrade_bap578_logic", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      newLogic,
+      network: this.config.network,
+    });
+  }
+
+  /** Pause the NFA (emergency circuit breaker). */
+  async pauseNfa(tokenId: string): Promise<NfaPauseResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaPauseResult>("pause_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      network: this.config.network,
+    });
+  }
+
+  /** Unpause the NFA. */
+  async unpauseNfa(tokenId: string): Promise<NfaPauseResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaPauseResult>("unpause_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      network: this.config.network,
+    });
+  }
+
+  // ── BAP-578 NFA read-only tools ─────────────────────────────────────────
+
+  /** Query on-chain NFA info. */
+  async getNfaInfo(tokenId: string): Promise<NfaInfo> {
+    return this.callMcpTool<NfaInfo>("get_bap578_nfa", {
+      tokenId,
+      network: this.config.network,
+    });
+  }
+
   // ── Internal ───────────────────────────────────────────────────────────────
 
   private assertPrivateKey(): void {
     if (!this.config.privateKey) {
       throw new Error(
         "BNB_PRIVATE_KEY is required for write operations. " +
-          "Add it to ~/.milady/.env or milady.json plugin parameters."
+          "Add it to ~/.milady/.env or milady.json plugin parameters.",
       );
     }
   }
@@ -244,18 +339,38 @@ export class BnbIdentityService {
    */
   private async callMcpTool<T>(
     toolName: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<T> {
     // Try runtime MCP client first
-    const mcpClient = (this.runtime as any).mcpClient;
+    const mcpClient = (
+      this.runtime as unknown as {
+        mcpClient?: {
+          callTool: (request: {
+            name: string;
+            arguments: Record<string, unknown>;
+          }) => Promise<unknown>;
+        };
+      }
+    ).mcpClient;
     if (mcpClient?.callTool) {
-      const result = (await mcpClient.callTool({ name: toolName, arguments: params })) as McpToolResponse;
+      const result = (await mcpClient.callTool({
+        name: toolName,
+        arguments: params,
+      })) as McpToolResponse;
       assertMcpToolSuccess(toolName, result);
       return parseMcpResult<T>(result, toolName);
     }
 
-    // Fallback: direct SSE HTTP call to local bnbchain-mcp dev server
+    // Fallback: direct SSE HTTP call to local bnbchain-mcp dev server.
+    // SECURITY: The HTTP fallback transmits the private key in the request
+    // body, so we restrict to localhost to prevent accidental exfiltration.
     const baseUrl = process.env.BNB_MCP_URL ?? "http://localhost:3001";
+    const parsedUrl = new URL(baseUrl);
+    if (!["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname)) {
+      throw new Error(
+        `BNB_MCP_URL must be localhost when transmitting private keys. Got: ${parsedUrl.hostname}`,
+      );
+    }
     const res = await fetch(`${baseUrl}/tools/${toolName}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -267,12 +382,13 @@ export class BnbIdentityService {
       throw new Error(`bnbchain-mcp HTTP ${res.status}: ${body}`);
     }
 
+    const bodyText = await res.text();
     let raw: unknown;
     try {
-      raw = await res.json();
+      raw = JSON.parse(bodyText);
     } catch {
       raw = {
-        content: await res.text(),
+        content: bodyText,
       } as McpToolResponse;
     }
 
