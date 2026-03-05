@@ -39,6 +39,12 @@ import type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
+  BscTradeExecuteRequest,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
 } from "../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
@@ -81,6 +87,12 @@ export type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
+  BscTradeExecuteRequest,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
 };
 export type { DropStatus, MintResult };
 export type { VerificationResult };

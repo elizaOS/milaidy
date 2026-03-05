@@ -1,5 +1,6 @@
 import {
   getWalletTxStatusLabel,
+  safeExplorerHref,
   shortHash,
   type TranslatorFn,
   type WalletRecentFilter,
@@ -123,10 +124,10 @@ export function WalletTradeHistory({
                           {getWalletTxStatusLabel(entry.status, t)}
                         </span>
                         <a
-                          href={
-                            entry.explorerUrl ||
-                            `https://bscscan.com/tx/${entry.hash}`
-                          }
+                          href={safeExplorerHref(
+                            entry.explorerUrl,
+                            entry.hash,
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="anime-wallet-tx-link anime-wallet-recent-link"
