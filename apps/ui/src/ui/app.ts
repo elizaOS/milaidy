@@ -2410,7 +2410,7 @@ export class MilaidyApp extends LitElement {
       justify-content: space-between;
       margin-bottom: 6px;
       position: relative;
-      z-index: 1;
+      z-index: 4;
     }
 
     .chat-header-actions {
@@ -2497,6 +2497,7 @@ export class MilaidyApp extends LitElement {
 
     .autonomy-dropdown {
       position: relative;
+      z-index: 8;
     }
 
     .autonomy-trigger {
@@ -3932,12 +3933,6 @@ export class MilaidyApp extends LitElement {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
-      }
-
-      .autonomy-menu {
-        position: static;
-        width: 100%;
-        max-height: none;
       }
 
       .chat-msg {
