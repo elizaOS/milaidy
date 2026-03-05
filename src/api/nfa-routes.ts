@@ -11,8 +11,11 @@ import { logger } from "@elizaos/core";
 import {
   readIdentity,
   readNfa,
+  writeNfa,
+  patchNfa,
   BnbIdentityService,
 } from "../../packages/plugin-bnb-identity/src/index";
+import { getLearningRoot } from "../../packages/plugin-bnb-identity/src/merkle-learning";
 import type {
   IdentityRecord,
   NfaRecord,
@@ -28,6 +31,8 @@ export interface NfaRouteContext
   nfaContractAddress?: string;
   /** Workspace directory for reading LEARNINGS.md. */
   workspaceDir: string;
+  /** Read the JSON request body. */
+  readJsonBody: () => Promise<Record<string, unknown>>;
 }
 
 export interface NfaStatusResponse {
@@ -116,7 +121,242 @@ export async function handleNfaRoutes(
     return true;
   }
 
+  // ── POST /api/nfa/mint ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/nfa/mint") {
+    try {
+      const body = await ctx.readJsonBody();
+      const privateKey = resolvePrivateKey(body);
+      const agentURI = body.agentURI as string | undefined;
+
+      if (!agentURI) {
+        error(ctx.res, "Missing required field: agentURI", 400);
+        return true;
+      }
+
+      const svc = buildService(privateKey, nfaContractAddress, body.network as string | undefined);
+
+      const result = await svc.mintNfa(agentURI, {
+        persona: (body.persona as string) ?? "",
+        experience: (body.experience as string) ?? "",
+        voiceHash: (body.voiceHash as string) ?? "",
+        animationURI: (body.animationURI as string) ?? "",
+        vaultURI: (body.vaultURI as string) ?? "",
+        vaultHash: (body.vaultHash as string) ?? "0x" + "0".repeat(64),
+      });
+
+      await writeNfa({
+        tokenId: result.tokenId,
+        network: result.network,
+        owner: result.owner,
+        learningRoot: "",
+        learningCount: 0,
+        lastAnchoredAt: "",
+        logicContract: undefined,
+        paused: false,
+        freeMint: result.freeMint,
+        mintTxHash: result.txHash,
+      });
+
+      json(ctx.res, { success: true, txHash: result.txHash, tokenId: result.tokenId, freeMint: result.freeMint });
+    } catch (err) {
+      error(
+        ctx.res,
+        `Mint failed: ${err instanceof Error ? err.message : "unknown"}`,
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── POST /api/nfa/anchor ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/nfa/anchor") {
+    try {
+      const body = await ctx.readJsonBody();
+      const privateKey = resolvePrivateKey(body);
+      const nfa = await readNfa();
+
+      if (!nfa) {
+        error(ctx.res, "No NFA record found. Mint first.", 400);
+        return true;
+      }
+
+      const learningsPath = join(workspaceDir, "LEARNINGS.md");
+      let raw: string;
+      try {
+        raw = await readFile(learningsPath, "utf8");
+      } catch {
+        error(ctx.res, "LEARNINGS.md not found in workspace", 400);
+        return true;
+      }
+
+      const entries = parseLearningsMd(raw);
+      const newRoot = getLearningRoot(entries);
+
+      const svc = buildService(privateKey, nfaContractAddress, nfa.network);
+      const result = await svc.updateLearningRoot(nfa.tokenId, newRoot);
+
+      await patchNfa({
+        learningRoot: newRoot,
+        learningCount: entries.length,
+        lastAnchoredAt: new Date().toISOString(),
+      });
+
+      json(ctx.res, {
+        success: true,
+        txHash: result.txHash,
+        previousRoot: result.previousRoot,
+        newRoot: result.newRoot,
+        entryCount: entries.length,
+      });
+    } catch (err) {
+      error(
+        ctx.res,
+        `Anchor failed: ${err instanceof Error ? err.message : "unknown"}`,
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── POST /api/nfa/transfer ────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/nfa/transfer") {
+    try {
+      const body = await ctx.readJsonBody();
+      const privateKey = resolvePrivateKey(body);
+      const to = body.to as string | undefined;
+
+      if (!to) {
+        error(ctx.res, "Missing required field: to", 400);
+        return true;
+      }
+
+      const nfa = await readNfa();
+      if (!nfa) {
+        error(ctx.res, "No NFA record found. Mint first.", 400);
+        return true;
+      }
+
+      if (nfa.freeMint) {
+        error(ctx.res, "Free-minted NFAs are non-transferable.", 400);
+        return true;
+      }
+
+      const svc = buildService(privateKey, nfaContractAddress, nfa.network);
+      const result = await svc.transferNfa(nfa.tokenId, to);
+
+      await patchNfa({ owner: to });
+
+      json(ctx.res, { success: true, txHash: result.txHash });
+    } catch (err) {
+      error(
+        ctx.res,
+        `Transfer failed: ${err instanceof Error ? err.message : "unknown"}`,
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── POST /api/nfa/upgrade-logic ───────────────────────────────────────
+  if (method === "POST" && pathname === "/api/nfa/upgrade-logic") {
+    try {
+      const body = await ctx.readJsonBody();
+      const privateKey = resolvePrivateKey(body);
+      const newLogicAddress = body.newLogicAddress as string | undefined;
+
+      if (!newLogicAddress) {
+        error(ctx.res, "Missing required field: newLogicAddress", 400);
+        return true;
+      }
+
+      const nfa = await readNfa();
+      if (!nfa) {
+        error(ctx.res, "No NFA record found. Mint first.", 400);
+        return true;
+      }
+
+      const svc = buildService(privateKey, nfaContractAddress, nfa.network);
+      const result = await svc.upgradeLogic(nfa.tokenId, newLogicAddress);
+
+      await patchNfa({ logicContract: newLogicAddress });
+
+      json(ctx.res, {
+        success: true,
+        txHash: result.txHash,
+        previousLogic: result.previousLogic,
+        newLogic: result.newLogic,
+      });
+    } catch (err) {
+      error(
+        ctx.res,
+        `Upgrade failed: ${err instanceof Error ? err.message : "unknown"}`,
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── POST /api/nfa/pause ───────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/nfa/pause") {
+    try {
+      const body = await ctx.readJsonBody();
+      const privateKey = resolvePrivateKey(body);
+      const nfa = await readNfa();
+
+      if (!nfa) {
+        error(ctx.res, "No NFA record found. Mint first.", 400);
+        return true;
+      }
+
+      const svc = buildService(privateKey, nfaContractAddress, nfa.network);
+
+      // Toggle based on current state
+      const result = nfa.paused
+        ? await svc.unpauseNfa(nfa.tokenId)
+        : await svc.pauseNfa(nfa.tokenId);
+
+      await patchNfa({ paused: result.paused });
+
+      json(ctx.res, { success: true, txHash: result.txHash, paused: result.paused });
+    } catch (err) {
+      error(
+        ctx.res,
+        `Pause toggle failed: ${err instanceof Error ? err.message : "unknown"}`,
+        500,
+      );
+    }
+    return true;
+  }
+
   return false;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Resolve which private key to use based on body.useWalletKey. */
+function resolvePrivateKey(body: Record<string, unknown>): string {
+  if (body.useWalletKey) {
+    const key = process.env.EVM_PRIVATE_KEY;
+    if (!key) throw new Error("EVM_PRIVATE_KEY not set");
+    return key;
+  }
+  const key = process.env.BNB_PRIVATE_KEY;
+  if (!key) throw new Error("BNB_PRIVATE_KEY not set");
+  return key;
+}
+
+/** Build a BnbIdentityService for route-level usage. */
+function buildService(
+  privateKey: string,
+  nfaContractAddress: string | undefined,
+  network?: string,
+): BnbIdentityService {
+  return new BnbIdentityService(null as never, {
+    privateKey,
+    network: network || "bsc",
+    gatewayPort: 0,
+    nfaContractAddress,
+  });
 }
 
 /** Parse LEARNINGS.md into structured entries. */
