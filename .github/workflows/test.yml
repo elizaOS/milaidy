@@ -35,6 +35,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
@@ -90,6 +93,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
@@ -133,6 +139,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
 
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
