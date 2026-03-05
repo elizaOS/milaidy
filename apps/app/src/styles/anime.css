@@ -3086,28 +3086,28 @@
 .anime-theme-scope input.border,
 .anime-theme-scope textarea.border,
 .anime-theme-scope select.border {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px 4px 0 0;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  color: #fff;
-  box-shadow: none;
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 4px 4px 0 0 !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.3s ease !important;
+  color: #fff !important;
+  box-shadow: none !important;
 }
 
 .anime-theme-scope input.border:focus,
 .anime-theme-scope textarea.border:focus,
 .anime-theme-scope select.border:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom-color: var(--accent);
-  outline: none;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-bottom-color: var(--accent) !important;
+  outline: none !important;
 }
 
 .anime-theme-scope input.border::placeholder,
 .anime-theme-scope textarea.border::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* ── HSR-style Character Modal Panels ──────────────────────────────── */
@@ -3478,7 +3478,7 @@
   -webkit-appearance: none;
   width: 36px;
   height: 18px;
-  border-radius: 9px;
+  border-radius: 9px !important;
   border: 1.5px solid var(--s-border-medium);
   background: var(--s-input-bg);
   cursor: pointer;
@@ -3496,7 +3496,7 @@
   left: 2px;
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: 50% !important;
   background: var(--s-text-muted);
   transition:
     transform 0.25s ease,
@@ -3515,9 +3515,9 @@
 
 /* Buttons — chamfered clip-path, dark glass with accent border */
 .settings-content-area .btn {
-  background: var(--s-accent-subtle);
-  border: 1px solid var(--s-accent);
-  color: var(--s-text);
+  background: var(--s-accent-subtle) !important;
+  border: 1px solid var(--s-accent) !important;
+  color: var(--s-text) !important;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -3536,8 +3536,8 @@
 }
 
 .settings-content-area .btn:hover {
-  background: var(--s-accent-glow);
-  color: #fff;
+  background: var(--s-accent-glow) !important;
+  color: #fff !important;
   box-shadow:
     0 0 15px var(--s-accent-glow),
     inset 0 0 10px var(--s-accent-subtle);
@@ -3569,25 +3569,25 @@
 
 /* ── Ghost / Danger overrides inside settings-content-area ── */
 .settings-content-area .btn.btn-ghost {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--s-text-secondary);
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--s-text-secondary) !important;
 }
 .settings-content-area .btn.btn-ghost:hover {
-  border-color: var(--s-accent);
-  color: var(--s-text);
-  background: transparent;
+  border-color: var(--s-accent) !important;
+  color: var(--s-text) !important;
+  background: transparent !important;
   box-shadow: none;
 }
 
 .settings-content-area .btn.btn-danger {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--danger, #ef4444);
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--danger, #ef4444) !important;
 }
 .settings-content-area .btn.btn-danger:hover {
-  border-color: var(--danger, #ef4444);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--danger, #ef4444) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
   box-shadow: none;
   opacity: 1;
 }
@@ -3614,12 +3614,12 @@
 
 /* Swatch dot — keep round */
 .settings-content-area .theme-btn span[class*="rounded-full"] {
-  border-radius: 50%;
+  border-radius: 50% !important;
 }
 
 /* Status dots — keep round */
 .settings-content-area span[class*="rounded-full"][class*="w-2"] {
-  border-radius: 50%;
+  border-radius: 50% !important;
 }
 
 /* Status badges */
@@ -3687,27 +3687,27 @@
    which is jarring on dark glass.  Convert to transparent amber + amber text.
    ───────────────────────────────────────────────────────────────────── */
 .settings-content-area .bg-\[var\(--accent\)\] {
-  background: rgba(240, 178, 50, 0.15);
-  color: var(--s-accent);
+  background: rgba(240, 178, 50, 0.15) !important;
+  color: var(--s-accent) !important;
   box-shadow:
     inset 0 -2px 0 0 var(--s-accent),
     0 0 10px rgba(240, 178, 50, 0.08);
 }
 
 .settings-content-area .text-\[var\(--accent-foreground\)\] {
-  color: var(--s-accent);
+  color: var(--s-accent) !important;
 }
 
 /* Inactive/muted elements — boost readability */
 .settings-content-area .text-\[var\(--muted\)\] {
-  color: var(--s-text-secondary);
+  color: var(--s-text-secondary) !important;
 }
 
 /* Input placeholder double-opacity fix (placeholder:opacity-60 * muted 0.55) */
 .settings-content-area select,
 .settings-content-area input,
 .settings-content-area textarea {
-  color: var(--s-text);
+  color: var(--s-text) !important;
 }
 
 .settings-content-area option {
@@ -5381,8 +5381,8 @@
 }
 
 .plugins-game-detail-config [class*="tracking-wider"] {
-  color: rgba(244, 246, 253, 0.9);
-  opacity: 1;
+  color: rgba(244, 246, 253, 0.9) !important;
+  opacity: 1 !important;
 }
 
 .plugins-game-detail-config .line-clamp-2 {
@@ -5391,9 +5391,9 @@
 }
 
 .plugins-game-detail-config :is(input, select, textarea) {
-  background: rgba(7, 10, 18, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--pg-text);
+  background: rgba(7, 10, 18, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--pg-text) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -5402,8 +5402,8 @@
 }
 
 .plugins-game-detail-config :is(input, select, textarea):focus {
-  border-color: color-mix(in srgb, var(--pg-accent) 72%, white 28%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pg-accent) 44%, transparent);
+  border-color: color-mix(in srgb, var(--pg-accent) 72%, white 28%) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pg-accent) 44%, transparent) !important;
 }
 
 .plugins-game-detail-config [id^="field-"] {
@@ -5508,7 +5508,7 @@
   .plugins-game-detail-panel {
     border-width: 1px;
     border-radius: 12px;
-    transform: none;
+    transform: none !important;
   }
 
   .plugins-game-detail-panel {
