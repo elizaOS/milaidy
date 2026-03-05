@@ -200,6 +200,8 @@ jobs:
           if (-not $hasComponent) {
             Write-Host "Installing $componentId..."
             & $installer modify --installPath $installPath --add $componentId --quiet --norestart --wait
+            # VS Installer can return 3010 (restart required) even on success with --norestart; treat as success.
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) { exit $LASTEXITCODE }
           }
 
       - name: Install Electron dependencies
