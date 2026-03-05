@@ -275,7 +275,7 @@ function parseImportedMessageExamples(
 
 /* ── CharacterView ──────────────────────────────────────────────────── */
 
-export function CharacterView() {
+export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
   const {
     characterData,
     characterDraft,
@@ -837,7 +837,9 @@ export function CharacterView() {
   }, [handleFieldEdit]);
 
   /* ── Helpers ────────────────────────────────────────────────────── */
-  const sectionCls = "mt-4 p-4 border border-[var(--border)] bg-[var(--card)]";
+  const sectionCls = inModal
+    ? "mt-4 p-4 border border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
+    : "mt-4 p-4 border border-[var(--border)] bg-[var(--card)]";
   const inputCls =
     "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none";
   const textareaCls = `${inputCls} font-inherit resize-y leading-relaxed`;
@@ -876,7 +878,7 @@ export function CharacterView() {
   const userMinted = dropStatus?.userHasMinted === true;
 
   return (
-    <div>
+    <div className={inModal ? "pb-8" : ""}>
       {fileInput}
 
       {/* ═══ ON-CHAIN IDENTITY ═══ */}

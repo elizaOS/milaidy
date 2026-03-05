@@ -81,7 +81,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | Anthropic Model |
+| elizaOS Model Type | Anthropic Model |
 |-------------------|----------------|
 | `TEXT_SMALL` | `claude-3-5-haiku-20241022` |
 | `TEXT_LARGE` | `claude-sonnet-4-20250514` |

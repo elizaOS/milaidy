@@ -11,6 +11,10 @@ import { BugReportModal } from "./components/BugReportModal";
 import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
 import { CommandPalette } from "./components/CommandPalette";
+import {
+  COMPANION_OVERLAY_TABS,
+  CompanionShell,
+} from "./components/CompanionShell";
 import { CompanionView } from "./components/CompanionView";
 import { ConnectionFailedBanner } from "./components/ConnectionFailedBanner";
 import { ConnectorsPageView } from "./components/ConnectorsPageView";
@@ -33,24 +37,28 @@ import { SaveCommandModal } from "./components/SaveCommandModal";
 import { SettingsView } from "./components/SettingsView";
 import { StartupFailureView } from "./components/StartupFailureView";
 import { StreamView } from "./components/StreamView";
+import { SystemWarningBanner } from "./components/SystemWarningBanner";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
-import { isLifoPopoutMode } from "./lifo-popout";
+import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
+import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
-/** Check if we're in pop-out mode (StreamView only, no chrome). */
+/** Check if we're in pop-out mode (StreamView only, no chrome).
+ *  Excludes lifo popout values — those use the dedicated LifoSandboxView shell. */
 function useIsPopout(): boolean {
   const [popout] = useState(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(
       window.location.search || window.location.hash.split("?")[1] || "",
     );
-    return params.has("popout");
+    if (!params.has("popout")) return false;
+    return !isLifoPopoutValue(params.get("popout"));
   });
   return popout;
 }
@@ -69,6 +77,7 @@ function ViewRouter() {
         // Apps disabled in production builds; fall through to chat
         return APPS_ENABLED ? <AppsPageView /> : <ChatView />;
       case "character":
+      case "character-select":
         return <CharacterView />;
       case "wallets":
         return <InventoryView />;
@@ -111,6 +120,7 @@ export function App() {
     tab,
     setTab,
     actionNotice,
+    uiShellMode,
     agentStatus,
     unreadConversations,
     activeGameViewerUrl,
@@ -118,6 +128,13 @@ export function App() {
     setActionNotice,
   } = useApp();
   const isPopout = useIsPopout();
+  const shellMode = uiShellMode ?? "companion";
+  const effectiveTab: Tab =
+    shellMode === "native" && tab === "companion"
+      ? "chat"
+      : shellMode === "companion" && tab === "chat"
+        ? "companion"
+        : tab;
   const contextMenu = useContextMenu();
 
   // When the stream is popped out, navigate away; when closed, navigate back.
@@ -354,6 +371,34 @@ export function App() {
     );
   }
 
+  /* ── Companion shell mode ─────────────────────────────────────────── */
+  if (shellMode === "companion" && COMPANION_OVERLAY_TABS.has(effectiveTab)) {
+    return (
+      <BugReportProvider value={bugReport}>
+        <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
+        <CommandPalette />
+        <EmotePicker />
+        <RestartBanner />
+        <MemoryDebugPanel />
+        <BugReportModal />
+        {actionNotice && (
+          <div
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
+              actionNotice.tone === "error"
+                ? "bg-danger"
+                : actionNotice.tone === "success"
+                  ? "bg-ok"
+                  : "bg-accent"
+            }`}
+          >
+            {actionNotice.text}
+          </div>
+        )}
+      </BugReportProvider>
+    );
+  }
+
+  /* ── Native shell mode (all fork features intact) ─────────────────── */
   return (
     <BugReportProvider value={bugReport}>
       {tab === "stream" && !streamPoppedOut ? (
@@ -448,6 +493,7 @@ export function App() {
       />
       <RestartBanner />
       <ConnectionFailedBanner />
+      <SystemWarningBanner />
       <MemoryDebugPanel />
       <BugReportModal />
       {actionNotice && (

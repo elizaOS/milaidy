@@ -8,6 +8,8 @@ const { mockUseApp } = vi.hoisted(() => ({
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
+  getVrmPreviewUrl: (index: number) => `mock-vrm-${index}.png`,
+  VRM_COUNT: 8,
 }));
 
 import { ConversationsSidebar } from "../../src/components/ConversationsSidebar";
@@ -33,6 +35,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
     handleSelectConversation: vi.fn(async () => {}),
     handleDeleteConversation: vi.fn(async () => {}),
     handleRenameConversation: vi.fn(async () => {}),
+    uiLanguage: "en",
     ...overrides,
   };
 }

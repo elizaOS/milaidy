@@ -761,7 +761,7 @@ function EditSkillModal({
 
 /* ── Main Skills View ───────────────────────────────────────────────── */
 
-export function SkillsView() {
+export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
   const {
     skills,
     skillCreateFormOpen,

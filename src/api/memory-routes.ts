@@ -9,6 +9,7 @@ import {
   type UUID,
 } from "@elizaos/core";
 import { parsePositiveInteger } from "../utils/number-parsing.js";
+import { getKnowledgeService } from "./knowledge-service-loader";
 import type { RouteRequestContext } from "./route-helpers.js";
 
 const HASH_MEMORY_SOURCE = "hash_memory";
@@ -18,20 +19,6 @@ const MEMORY_SEARCH_MAX_LIMIT = 50;
 const QUICK_CONTEXT_DEFAULT_LIMIT = 8;
 const QUICK_CONTEXT_MAX_LIMIT = 20;
 const QUICK_CONTEXT_KNOWLEDGE_THRESHOLD = 0.2;
-
-interface KnowledgeServiceLike {
-  getKnowledge(
-    message: Memory,
-    scope?: { roomId?: UUID; worldId?: UUID; entityId?: UUID },
-  ): Promise<
-    Array<{
-      id: UUID;
-      content: { text?: string };
-      similarity?: number;
-      metadata?: Record<string, unknown>;
-    }>
-  >;
-}
 
 export interface MemoryRouteContext extends RouteRequestContext {
   url: URL;
@@ -144,30 +131,12 @@ async function searchMemoryNotes(
   return hits.slice(0, limit);
 }
 
-async function getKnowledgeService(
-  runtime: AgentRuntime,
-): Promise<KnowledgeServiceLike | null> {
-  let service = runtime.getService("knowledge") as KnowledgeServiceLike | null;
-  if (service) return service;
-  try {
-    const servicePromise = runtime.getServiceLoadPromise("knowledge");
-    const timeout = new Promise<never>((_resolve, reject) => {
-      setTimeout(() => reject(new Error("knowledge service timeout")), 10_000);
-    });
-    await Promise.race([servicePromise, timeout]);
-    service = runtime.getService("knowledge") as KnowledgeServiceLike | null;
-  } catch {
-    return null;
-  }
-  return service;
-}
-
 async function searchKnowledge(
   runtime: AgentRuntime,
   query: string,
   limit: number,
 ): Promise<KnowledgeSearchHit[]> {
-  const knowledgeService = await getKnowledgeService(runtime);
+  const { service: knowledgeService } = await getKnowledgeService(runtime);
   if (!knowledgeService || !runtime.agentId) return [];
 
   const agentId = runtime.agentId as UUID;

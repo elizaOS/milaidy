@@ -1,5 +1,5 @@
 /**
- * Milady plugin for ElizaOS — workspace context, session keys, and agent
+ * Milady plugin for elizaOS — workspace context, session keys, and agent
  * lifecycle actions (restart).
  *
  * Compaction is handled by core auto-compaction in the recent-messages provider.

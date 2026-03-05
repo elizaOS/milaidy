@@ -46,6 +46,9 @@ describe("header status", () => {
       dropStatus: null,
       loadDropStatus: vi.fn().mockResolvedValue(undefined),
       registryStatus: null,
+      uiShellMode: "native",
+      setUiShellMode: vi.fn(),
+      uiLanguage: "en",
     };
     mockUseApp.mockReturnValue(baseAppState);
   });
@@ -137,8 +140,8 @@ describe("header status", () => {
 
     const walletButton = tree?.root.find(
       (node) =>
-        node.type === "button" && node.props["aria-label"] === "Open wallets",
+        node.type === "button" && node.props["aria-label"] === "View wallets",
     );
-    expect(walletButton.props["aria-label"]).toBe("Open wallets");
+    expect(walletButton.props["aria-label"]).toBe("View wallets");
   });
 });

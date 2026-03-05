@@ -2,7 +2,7 @@
  * Milady WhatsApp Plugin — Baileys-based WhatsApp integration.
  *
  * Uses QR-authenticated Baileys sessions (created via the pairing service)
- * to send and receive WhatsApp messages through the ElizaOS runtime.
+ * to send and receive WhatsApp messages through the elizaOS runtime.
  *
  * Loaded as `@milady/plugin-whatsapp` via CHANNEL_PLUGIN_MAP when
  * `config.connectors.whatsapp` is present.
@@ -21,9 +21,9 @@
  *   the lockfile to verify the resolved commit hash before deploying.
  */
 
-import type { Plugin, IAgentRuntime, ServiceClass } from "@elizaos/core";
-import { WhatsAppBaileysService } from "./service";
+import type { IAgentRuntime, Plugin, ServiceClass } from "@elizaos/core";
 import { sendWhatsAppMessage } from "./actions";
+import { WhatsAppBaileysService } from "./service";
 
 export const whatsappPlugin: Plugin = {
   name: "whatsapp",

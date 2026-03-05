@@ -89,7 +89,7 @@ export OPENAI_API_KEY=sk-...
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | OpenAI Model |
+| elizaOS Model Type | OpenAI Model |
 |-------------------|-------------|
 | `TEXT_SMALL` | `gpt-4o-mini` |
 | `TEXT_LARGE` | `gpt-4o` |

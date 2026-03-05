@@ -15,7 +15,9 @@ const stubContext = {
   fillStyle: "",
   fillRect: vi.fn(),
   clearRect: vi.fn(),
-  getImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray(0), width: 0, height: 0 }),
+  getImageData: vi
+    .fn()
+    .mockReturnValue({ data: new Uint8ClampedArray(0), width: 0, height: 0 }),
   putImageData: vi.fn(),
   setTransform: vi.fn(),
   save: vi.fn(),
@@ -47,7 +49,9 @@ describe("@milady/capacitor-canvas", () => {
 
   beforeEach(() => {
     // Return our stub for any "2d" context request
-    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(stubContext) as typeof originalGetContext;
+    HTMLCanvasElement.prototype.getContext = vi
+      .fn()
+      .mockReturnValue(stubContext) as typeof originalGetContext;
     c = new CanvasWeb();
   });
 

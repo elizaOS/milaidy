@@ -86,7 +86,7 @@ export class PluginEndpointsTab implements Component, Focusable {
     // Default endpoint is always first
     items.push({
       id: "__default__",
-      label: "ElizaOS Registry [default]",
+      label: "elizaOS Registry [default]",
       currentValue: "always on",
       values: ["always on"],
     });

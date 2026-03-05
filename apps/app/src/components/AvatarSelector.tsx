@@ -1,16 +1,16 @@
 /**
  * Reusable avatar/character VRM selector.
  *
- * Shows a single row of the 8 built-in milady VRMs as thumbnail images.
+ * Shows a single row/grid of bundled VRM avatars as thumbnail images.
  * The selected avatar gets a highlight ring. No text labels.
  * Supports drag-and-drop for custom VRM uploads.
  */
 
 import { useCallback, useRef, useState } from "react";
-import { getVrmPreviewUrl, VRM_COUNT } from "../AppContext";
+import { getVrmPreviewUrl, getVrmTitle, VRM_COUNT } from "../AppContext";
 
 export interface AvatarSelectorProps {
-  /** Currently selected index (1-8 for built-in, 0 for custom) */
+  /** Currently selected index (1-N for bundled, 0 for custom) */
   selected: number;
   /** Called when a built-in avatar is selected */
   onSelect: (index: number) => void;
@@ -24,6 +24,29 @@ export interface AvatarSelectorProps {
 
 function isVrmFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".vrm");
+}
+
+async function validateVrmFile(file: File): Promise<string | null> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer.slice(0, 32));
+    const textHeader = new TextDecoder().decode(bytes);
+    if (textHeader.startsWith("version https://git-lfs.github.com/spec/v1")) {
+      return "This .vrm is a Git LFS pointer, not the real model file. Export/download the actual VRM binary.";
+    }
+    const isGlbMagic =
+      bytes.length >= 4 &&
+      bytes[0] === 0x67 && // g
+      bytes[1] === 0x6c && // l
+      bytes[2] === 0x54 && // T
+      bytes[3] === 0x46; // F
+    if (!isGlbMagic) {
+      return "Invalid VRM file. Please select a valid .vrm binary.";
+    }
+    return null;
+  } catch {
+    return "Could not read the selected file. Please try another .vrm.";
+  }
 }
 
 export function AvatarSelector({
@@ -42,8 +65,15 @@ export function AvatarSelector({
         alert("Please select a .vrm file");
         return;
       }
-      onUpload?.(file);
-      onSelect(0);
+      void (async () => {
+        const validationError = await validateVrmFile(file);
+        if (validationError) {
+          alert(validationError);
+          return;
+        }
+        onUpload?.(file);
+        onSelect(0);
+      })();
     },
     [onUpload, onSelect],
   );
@@ -106,7 +136,7 @@ export function AvatarSelector({
           >
             <img
               src={getVrmPreviewUrl(i)}
-              alt={`Avatar ${i}`}
+              alt={getVrmTitle(i)}
               className="w-full h-full object-cover"
             />
           </button>

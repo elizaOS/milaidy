@@ -6,7 +6,7 @@ description: "Start Milady with the interactive terminal UI."
 
 Start Milady with the full-screen interactive terminal chat interface. This is the **default command** -- running `milady` with no arguments is equivalent to `milady tui`.
 
-The TUI boots the full ElizaOS agent runtime (with `requireConfig: true`) and launches a multi-pane terminal application with a status bar, scrollable chat area, and a multi-line input editor with slash command autocomplete.
+The TUI boots the full elizaOS agent runtime (with `requireConfig: true`) and launches a multi-pane terminal application with a status bar, scrollable chat area, and a multi-line input editor with slash command autocomplete.
 
 ## Usage
 
@@ -53,7 +53,7 @@ milady --dev tui --model openai/gpt-4o
 
 When you run `milady tui`:
 
-1. The ElizaOS runtime boots with `requireConfig: true` -- the agent fails fast if no config is found.
+1. The elizaOS runtime boots with `requireConfig: true` -- the agent fails fast if no config is found.
 2. If a `--model` flag is provided, it is passed as a `modelOverride` to the TUI layer.
 3. The TUI launches as a full-screen terminal application with these panes:
    - **Status bar** -- agent name, current model, and connection status

@@ -6,7 +6,7 @@ This doc explains how the embedded agent starts in the packaged desktop app and 
 
 1. **API server** — Load `milady-dist/server.js` and call `startApiServer()`. The UI needs this port to connect; it is started first so the window can bootstrap.
 2. **Runtime bootstrap** — Load `milady-dist/eliza.js` (dynamic import) and get `startEliza`.
-3. **Runtime start** — Call `startEliza({ headless: true })`. This initializes plugins, native modules (e.g. onnxruntime-node), and the ElizaOS runtime.
+3. **Runtime start** — Call `startEliza({ headless: true })`. This initializes plugins, native modules (e.g. onnxruntime-node), and the elizaOS runtime.
 
 If step 2 or 3 fails (missing native binary, plugin error, etc.), we want:
 

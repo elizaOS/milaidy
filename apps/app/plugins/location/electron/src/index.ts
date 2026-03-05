@@ -58,6 +58,7 @@ declare global {
  */
 export class LocationElectron implements LocationPlugin {
   private watches: Map<string, number> = new Map();
+  private ipcHandlers = new Map<string, IpcListener>();
   private listeners: ListenerEntry[] = [];
   private watchIdCounter = 0;
 
@@ -129,7 +130,11 @@ export class LocationElectron implements LocationPlugin {
             this.notifyListeners("locationChange", data.location);
           }
         };
-        window.electron.ipcRenderer.on("location:update", handler);
+        this.ipcHandlers.set(watchId, handler as IpcListener);
+        window.electron.ipcRenderer.on(
+          "location:update",
+          handler as IpcListener,
+        );
 
         return { watchId };
       } catch {
@@ -169,6 +174,16 @@ export class LocationElectron implements LocationPlugin {
     if (nativeWatchId !== undefined) {
       navigator.geolocation.clearWatch(nativeWatchId);
       this.watches.delete(options.watchId);
+    }
+
+    // Remove the IPC listener if one was registered for this watch
+    const ipcHandler = this.ipcHandlers.get(options.watchId);
+    if (ipcHandler) {
+      window.electron?.ipcRenderer.removeListener(
+        "location:update",
+        ipcHandler,
+      );
+      this.ipcHandlers.delete(options.watchId);
     }
 
     // Also notify Electron if using native
@@ -296,6 +311,13 @@ export class LocationElectron implements LocationPlugin {
     for (const [watchId] of this.watches) {
       await this.clearWatch({ watchId });
     }
+
+    // Remove any remaining IPC handlers not associated with browser watches
+    for (const [, handler] of this.ipcHandlers) {
+      window.electron?.ipcRenderer.removeListener("location:update", handler);
+    }
+    this.ipcHandlers.clear();
+
     this.listeners = [];
   }
 }

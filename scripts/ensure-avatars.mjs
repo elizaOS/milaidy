@@ -33,7 +33,7 @@ const ANIMATIONS_DIR = join(PUBLIC, "animations");
 // milady-ai/avatars is an org-owned repo in the milady-ai GitHub organization.
 // Pinned to a specific commit for reproducible installs (supply-chain safety).
 const AVATARS_REPO = "https://github.com/milady-ai/avatars.git";
-const AVATARS_COMMIT = "23e9bfc02e55e70acb8c8f0d4786829ecccbb5b6";
+const AVATARS_COMMIT = "50f6bf0ad6db583581d4cbaeb377ca005b45195b";
 const TAG = "[ensure-avatars]";
 
 /** A VRM file is valid if it is > 1 KB (rules out LFS pointers & stubs). */

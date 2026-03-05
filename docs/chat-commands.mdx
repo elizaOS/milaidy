@@ -27,7 +27,7 @@ TUI slash commands are handled entirely within the terminal UI layer. They do no
 
 ## Runtime Command Configuration
 
-Runtime commands are capabilities that operate through the ElizaOS agent runtime. They are controlled by the `commands` section in `milady.json` and can be enabled or disabled independently.
+Runtime commands are capabilities that operate through the elizaOS agent runtime. They are controlled by the `commands` section in `milady.json` and can be enabled or disabled independently.
 
 ```json milady.json
 {
@@ -168,7 +168,7 @@ Beyond commands, the hooks system supports these event types:
 
 ## Plugin-Provided Commands
 
-Plugins can extend the command system by registering actions through the ElizaOS runtime. When a plugin is loaded, its exported `actions` array is registered with the runtime via `registerAction()`.
+Plugins can extend the command system by registering actions through the elizaOS runtime. When a plugin is loaded, its exported `actions` array is registered with the runtime via `registerAction()`.
 
 Common plugin-provided capabilities include:
 
@@ -176,7 +176,7 @@ Common plugin-provided capabilities include:
 - **Commands plugin** (`@elizaos/plugin-commands`) -- provides slash command handling
 - **Custom actions** -- any plugin can define actions that respond to specific patterns or intents
 
-Plugins declare their capabilities through the standard ElizaOS plugin interface:
+Plugins declare their capabilities through the standard elizaOS plugin interface:
 
 ```typescript
 export const myPlugin = {
@@ -190,7 +190,7 @@ export const myPlugin = {
 
 ## Web Dashboard Commands
 
-The web Control UI (opened via `milady dashboard`) provides its own command interface through the API server. Commands sent through the web chat are processed by the same ElizaOS runtime, so all runtime commands, hook handlers, and plugin-provided actions are available.
+The web Control UI (opened via `milady dashboard`) provides its own command interface through the API server. Commands sent through the web chat are processed by the same elizaOS runtime, so all runtime commands, hook handlers, and plugin-provided actions are available.
 
 The API server exposes endpoints at `http://localhost:2138` (default) that the web UI uses to send messages and receive responses. The agent restart endpoint (`POST /api/agent/restart`) is also available when `commands.restart` is enabled.
 

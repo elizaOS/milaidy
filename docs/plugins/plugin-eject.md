@@ -126,7 +126,7 @@ rm -rf ~/.milady/plugins/ejected/plugin-telegram
 
 ## Core Eject
 
-In addition to plugins, you can eject `@elizaos/core` itself for deep customization. Core eject clones the entire ElizaOS monorepo and configures TypeScript path mapping to load the local core.
+In addition to plugins, you can eject `@elizaos/core` itself for deep customization. Core eject clones the entire elizaOS monorepo and configures TypeScript path mapping to load the local core.
 
 ### Core Eject Details
 

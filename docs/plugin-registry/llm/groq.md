@@ -58,7 +58,7 @@ export GROQ_API_KEY=gsk_...
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | Groq Model |
+| elizaOS Model Type | Groq Model |
 |-------------------|-----------|
 | `TEXT_SMALL` | `llama-3.1-8b-instant` |
 | `TEXT_LARGE` | `llama-3.3-70b-versatile` |

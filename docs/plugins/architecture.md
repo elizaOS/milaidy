@@ -4,7 +4,7 @@ sidebarTitle: "Architecture"
 description: "Deep dive into Milady's plugin system — registration lifecycle, hook points, auto-enable mechanism, and dependency resolution."
 ---
 
-The Milady plugin system is built on ElizaOS core. Every capability beyond the base runtime — model providers, platform connectors, DeFi integrations, scheduling, and custom features — is delivered as a plugin.
+The Milady plugin system is built on elizaOS core. Every capability beyond the base runtime — model providers, platform connectors, DeFi integrations, scheduling, and custom features — is delivered as a plugin.
 
 ## System Design
 
