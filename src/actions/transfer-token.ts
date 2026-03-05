@@ -13,7 +13,7 @@
  * @module actions/transfer-token
  */
 
-import type { Action, HandlerOptions } from "@elizaos/core";
+import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
 import {
   buildAuthHeaders,
   WALLET_ACTION_API_PORT,
@@ -34,7 +34,12 @@ export const transferTokenAction: Action = {
     "Transfer tokens or native BNB to another address. Use this when a user " +
     "asks to send, transfer, or pay tokens to a recipient address on BSC.",
 
-  validate: async () => true,
+  validate: async (runtime: IAgentRuntime): Promise<boolean> => {
+    return Boolean(
+      runtime.getSetting("EVM_PRIVATE_KEY") ||
+        runtime.getSetting("PRIVY_APP_ID"),
+    );
+  },
 
   handler: async (_runtime, _message, _state, options) => {
     try {
@@ -85,12 +90,20 @@ export const transferTokenAction: Action = {
         };
       }
 
+      if (!/^[A-Za-z0-9]{1,20}$/.test(assetSymbol)) {
+        return { text: "Invalid asset symbol format.", success: false };
+      }
+
       // ── Optional tokenAddress ──────────────────────────────────────────
       const tokenAddress =
         typeof params?.tokenAddress === "string" &&
         params.tokenAddress.trim() !== ""
           ? params.tokenAddress.trim()
           : undefined;
+
+      if (tokenAddress && !EVM_ADDRESS_RE.test(tokenAddress)) {
+        return { text: "Invalid token address format.", success: false };
+      }
 
       // ── POST to transfer execution API ─────────────────────────────────
       const body: Record<string, unknown> = {

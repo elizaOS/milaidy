@@ -11,9 +11,11 @@
 import type {
   Action,
   ActionExample,
-  Handler,
+  ActionResult,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
+  JsonValue,
   Memory,
   State,
 } from "@elizaos/core";
@@ -107,16 +109,16 @@ export const getNfaInfoAction: Action = {
     _message: Memory,
   ): Promise<boolean> => true,
 
-  handler: (async (
+  handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     const record = await readNfaRecord();
     if (!record) {
-      await callback({
+      await callback?.({
         text:
           "No NFA record found. Mint one with: **mint nfa**\n\n" +
           "This will create a BAP-578 Non-Fungible Agent token representing Milady's on-chain identity and learning history.",
@@ -129,7 +131,7 @@ export const getNfaInfoAction: Action = {
       config = loadConfig(runtime);
     } catch (err) {
       // Show local record even if config is missing
-      await callback({
+      await callback?.({
         text:
           `**NFA Token ID:** \`${record.tokenId}\`\n` +
           `**Network:** ${record.network}\n` +
@@ -146,7 +148,7 @@ export const getNfaInfoAction: Action = {
     const svc = new Bap578NfaService(config);
     try {
       const info = await svc.getNfaInfo(record.tokenId);
-      await callback({
+      await callback?.({
         text:
           `**NFA Token ID:** \`${info.tokenId}\`\n` +
           `**Network:** ${networkLabel(info.network)}\n` +
@@ -159,7 +161,7 @@ export const getNfaInfoAction: Action = {
       });
     } catch {
       // Fall back to local record
-      await callback({
+      await callback?.({
         text:
           `**NFA Token ID:** \`${record.tokenId}\`\n` +
           `**Network:** ${record.network}\n` +
@@ -170,7 +172,7 @@ export const getNfaInfoAction: Action = {
           `_Showing cached data — could not reach the contract._`,
       });
     }
-  }) as unknown as Handler,
+  },
 
   examples: [
     [
@@ -186,6 +188,7 @@ export const getNfaInfoAction: Action = {
         },
       },
     ],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   ] as unknown as ActionExample[][],
 };
 
@@ -207,18 +210,18 @@ export const mintNfaAction: Action = {
     _message: Memory,
   ): Promise<boolean> => true,
 
-  handler: (async (
+  handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     let config: Bap578NfaConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `Configuration error: ${(err as Error).message}`,
       });
       return;
@@ -227,7 +230,7 @@ export const mintNfaAction: Action = {
     // Check for existing NFA
     const existing = await readNfaRecord();
     if (existing) {
-      await callback({
+      await callback?.({
         text:
           `Milady already has an NFA token (ID: \`${existing.tokenId}\`) on ${existing.network}.\n\n` +
           `To update the learning root instead, say: **update nfa learning root**`,
@@ -236,7 +239,7 @@ export const mintNfaAction: Action = {
     }
 
     if (!config.privateKey) {
-      await callback({
+      await callback?.({
         text:
           "BNB_PRIVATE_KEY is not set. Add it to `~/.milady/.env`:\n\n" +
           "```\nBNB_PRIVATE_KEY=0x...\n```\n\n" +
@@ -251,7 +254,7 @@ export const mintNfaAction: Action = {
 
     const pendingKey = nfaMintPendingKey(runtime.agentId);
     if (!getPending(pendingKey)) {
-      await callback({
+      await callback?.({
         text:
           `Ready to mint NFA on **${networkLabel(config.network)}**.\n\n` +
           `**Contract:** \`${config.contractAddress}\`\n` +
@@ -264,12 +267,12 @@ export const mintNfaAction: Action = {
     }
 
     if (!userConfirmed(message)) {
-      await callback({ text: "Minting cancelled." });
+      await callback?.({ text: "Minting cancelled." });
       deletePending(pendingKey);
       return;
     }
 
-    await callback({ text: "Sending mint transaction..." });
+    await callback?.({ text: "Sending mint transaction..." });
 
     const svc = new Bap578NfaService(config);
     try {
@@ -291,7 +294,7 @@ export const mintNfaAction: Action = {
 
       await writeNfaRecord(record);
 
-      await callback({
+      await callback?.({
         text:
           `NFA minted successfully!\n\n` +
           `**Token ID:** \`${result.tokenId}\`\n` +
@@ -301,13 +304,13 @@ export const mintNfaAction: Action = {
           `Milady's learning history is now provably anchored on-chain.`,
       });
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `Minting failed: ${(err as Error).message}`,
       });
     }
 
     deletePending(pendingKey);
-  }) as unknown as Handler,
+  },
 
   examples: [
     [
@@ -323,6 +326,7 @@ export const mintNfaAction: Action = {
         },
       },
     ],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   ] as unknown as ActionExample[][],
 };
 
@@ -348,18 +352,18 @@ export const updateLearningRootAction: Action = {
     return record !== null;
   },
 
-  handler: (async (
+  handler: async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback,
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     let config: Bap578NfaConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `Configuration error: ${(err as Error).message}`,
       });
       return;
@@ -367,14 +371,14 @@ export const updateLearningRootAction: Action = {
 
     const existing = await readNfaRecord();
     if (!existing) {
-      await callback({
+      await callback?.({
         text: "No NFA found. Mint one first with: **mint nfa**",
       });
       return;
     }
 
     if (!config.privateKey) {
-      await callback({
+      await callback?.({
         text: "BNB_PRIVATE_KEY is required to update the learning root. Set it in `~/.milady/.env`.",
       });
       return;
@@ -382,7 +386,7 @@ export const updateLearningRootAction: Action = {
 
     const markdown = await loadLearningsMarkdown();
     if (!markdown) {
-      await callback({
+      await callback?.({
         text: "No LEARNINGS.md found. Expected at `~/.milady/LEARNINGS.md` or in the current directory.",
       });
       return;
@@ -391,7 +395,7 @@ export const updateLearningRootAction: Action = {
     const learnings = computeLearningsData(markdown);
 
     if (learnings.merkleRoot === existing.merkleRoot) {
-      await callback({
+      await callback?.({
         text:
           `Learning root is already up to date.\n\n` +
           `**Current root:** \`${existing.merkleRoot.slice(0, 16)}...\`\n` +
@@ -402,7 +406,7 @@ export const updateLearningRootAction: Action = {
 
     const pendingKey = nfaUpdatePendingKey(runtime.agentId);
     if (!getPending(pendingKey)) {
-      await callback({
+      await callback?.({
         text:
           `Ready to update NFA learning root on **${networkLabel(existing.network)}**.\n\n` +
           `**Token ID:** \`${existing.tokenId}\`\n` +
@@ -416,12 +420,12 @@ export const updateLearningRootAction: Action = {
     }
 
     if (!userConfirmed(message)) {
-      await callback({ text: "Update cancelled." });
+      await callback?.({ text: "Update cancelled." });
       deletePending(pendingKey);
       return;
     }
 
-    await callback({ text: "Sending update transaction..." });
+    await callback?.({ text: "Sending update transaction..." });
 
     const svc = new Bap578NfaService(config);
     try {
@@ -432,7 +436,7 @@ export const updateLearningRootAction: Action = {
 
       await patchNfaRecord({ merkleRoot: learnings.merkleRoot });
 
-      await callback({
+      await callback?.({
         text:
           `Learning root updated!\n\n` +
           `**Token ID:** \`${existing.tokenId}\`\n` +
@@ -441,13 +445,13 @@ export const updateLearningRootAction: Action = {
           `**Entries:** ${learnings.totalEntries}`,
       });
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `Update failed: ${(err as Error).message}`,
       });
     }
 
     deletePending(pendingKey);
-  }) as unknown as Handler,
+  },
 
   examples: [
     [
@@ -463,5 +467,6 @@ export const updateLearningRootAction: Action = {
         },
       },
     ],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   ] as unknown as ActionExample[][],
 };

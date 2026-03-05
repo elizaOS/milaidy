@@ -10881,7 +10881,7 @@ async function handleRequest(
     }
 
     const tradePermissionMode = resolveTradePermissionMode(state.config);
-    const isAgentRequest = body.source === "agent";
+    const isAgentRequest = isAgentAutomationRequest(req);
     const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const canExecuteLocally = canUseLocalTradeExecution(
       tradePermissionMode,
@@ -12378,7 +12378,7 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
-          ...(result.usage ? { usage: result.usage } : {}),
+          ...(result.usage ? { estimatedUsage: result.usage } : {}),
         });
 
         // Background chat renaming
@@ -12739,7 +12739,7 @@ async function handleRequest(
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
-          ...(result.usage ? { usage: result.usage } : {}),
+          ...(result.usage ? { estimatedUsage: result.usage } : {}),
         });
       }
     } catch (err) {
