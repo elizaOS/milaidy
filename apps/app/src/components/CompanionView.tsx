@@ -18,6 +18,7 @@ import type {
 import { client } from "../api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "../asset-url";
 import { createTranslator } from "../i18n";
+import { IdentityCard } from "./IdentityCard";
 import {
   MOOD_ANIMATION_POOLS,
   pickRandomAnimationDef,
@@ -2061,6 +2062,8 @@ export function CompanionView() {
                         </button>
                       </div>
                     </div>
+
+                    <IdentityCard />
 
                     <div className="anime-wallet-popover-total">
                       <div className="anime-wallet-popover-total-value">
