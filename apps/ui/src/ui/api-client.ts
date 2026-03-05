@@ -456,6 +456,19 @@ export class MilaidyClient {
     });
   }
 
+  async switchProvider(
+    provider: string,
+    apiKey?: string,
+  ): Promise<{ success: boolean; provider: string; restarting: boolean }> {
+    return this.fetch("/api/provider/switch", {
+      method: "POST",
+      body: JSON.stringify({
+        provider,
+        ...(apiKey ? { apiKey } : {}),
+      }),
+    });
+  }
+
   async startAgent(): Promise<AgentStatus> {
     const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", { method: "POST" });
     return res.status;

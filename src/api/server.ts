@@ -6140,6 +6140,13 @@ async function handleRequest(
         // config.cloud.apiKey from the original cloud login.  If it was
         // wiped, the user will need to re-login via cloud.
         (config.cloud as Record<string, unknown>).enabled = true;
+        const cloudApiKey =
+          typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+        if (cloudApiKey) {
+          config.cloud.apiKey = cloudApiKey;
+          envCfg.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+          process.env.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+        }
         if (config.cloud.apiKey) {
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
           process.env.ELIZAOS_CLOUD_ENABLED = "true";
@@ -7109,6 +7116,46 @@ async function handleRequest(
       freshConfig = loadMiladyConfig();
     } catch {
       freshConfig = state.config;
+    }
+
+    // Keep provider env vars hydrated from persisted config so Settings can
+    // reflect real key state even when runtime has not started yet.
+    const persistedEnv =
+      freshConfig.env && typeof freshConfig.env === "object"
+        ? (freshConfig.env as Record<string, unknown>)
+        : {};
+    const persistedVars =
+      persistedEnv.vars &&
+      typeof persistedEnv.vars === "object" &&
+      !Array.isArray(persistedEnv.vars)
+        ? (persistedEnv.vars as Record<string, unknown>)
+        : {};
+    const hydrateProviderEnvKey = (key: string): void => {
+      if (process.env[key]?.trim()) return;
+      const directVal = persistedEnv[key];
+      if (typeof directVal === "string" && directVal.trim()) {
+        process.env[key] = directVal.trim();
+        return;
+      }
+      const varsVal = persistedVars[key];
+      if (typeof varsVal === "string" && varsVal.trim()) {
+        process.env[key] = varsVal.trim();
+      }
+    };
+    for (const provider of getProviderOptions()) {
+      if (provider.envKey) {
+        hydrateProviderEnvKey(provider.envKey);
+      }
+    }
+    const cloudApiKey =
+      typeof freshConfig.cloud?.apiKey === "string"
+        ? freshConfig.cloud.apiKey.trim()
+        : "";
+    if (cloudApiKey && !process.env.ELIZAOS_CLOUD_API_KEY?.trim()) {
+      process.env.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+    }
+    if (freshConfig.cloud?.enabled) {
+      process.env.ELIZAOS_CLOUD_ENABLED = "true";
     }
 
     // Merge user-installed plugins into the list (they don't exist in plugins.json)

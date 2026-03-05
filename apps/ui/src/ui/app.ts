@@ -6949,6 +6949,19 @@ export class MilaidyApp extends LitElement {
         }
 
         if (onboardingSaved) {
+          const selectedProviderId = (this.onboardingProvider || "").trim();
+          const selectedProviderKey = this.onboardingApiKey.trim();
+          if (selectedProviderId) {
+            try {
+              await client.switchProvider(
+                selectedProviderId,
+                selectedProviderKey || undefined,
+              );
+            } catch (err) {
+              console.warn("Provider switch after onboarding failed:", err);
+            }
+          }
+
           // Persist profile/theme to backend config so it survives across devices.
           await this.syncProfileToServer();
           try {
