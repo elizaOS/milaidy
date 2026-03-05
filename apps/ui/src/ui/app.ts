@@ -8090,7 +8090,6 @@ export class MilaidyApp extends LitElement {
           </div>
 
           <div class="autonomy-actions">
-            <button class="plugin-secondary-btn" @click=${() => this.setTab("ai-setup")}>AI Settings</button>
             <button class="plugin-secondary-btn" @click=${() => this.setTab("config")}>Security</button>
           </div>
         </div>
