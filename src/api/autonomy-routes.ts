@@ -1,4 +1,4 @@
-import { AutonomyService, type AgentRuntime } from "@elizaos/core";
+import { type AgentRuntime, AutonomyService } from "@elizaos/core";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 export interface AutonomyServiceLike {

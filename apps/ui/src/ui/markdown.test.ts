@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 // Dynamic imports to handle missing dompurify in non-browser environments
-const hasDocument = typeof document !== "undefined" && typeof document.createElement === "function";
+const hasDocument =
+  typeof document !== "undefined" &&
+  typeof document.createElement === "function";
 
 // Skip this entire test module if no DOM is available (module dependencies require browser environment)
 if (!hasDocument) {
@@ -33,7 +35,9 @@ if (!hasDocument) {
     });
 
     it("renders fenced code blocks", () => {
-      const html = toSanitizedMarkdownHtml(["```ts", "console.log(1)", "```"].join("\n"));
+      const html = toSanitizedMarkdownHtml(
+        ["```ts", "console.log(1)", "```"].join("\n"),
+      );
       expect(html).toContain("<pre>");
       expect(html).toContain("<code");
       expect(html).toContain("console.log(1)");

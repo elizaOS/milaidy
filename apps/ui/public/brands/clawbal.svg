@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Clawbal Chat icon">
+  <rect width="64" height="64" rx="14" fill="#0c4a6e"/>
+  <path d="M14 20c0-4 3-7 7-7h22c4 0 7 3 7 7v12c0 4-3 7-7 7H29l-7 7v-7h-1c-4 0-7-3-7-7z" fill="#e0f2fe"/>
+  <path d="M37 19l7 5-3 2 3 2-7 5" fill="none" stroke="#0c4a6e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

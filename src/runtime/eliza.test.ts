@@ -1119,9 +1119,7 @@ describe("applyDatabaseConfigToEnv", () => {
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(customDataDir),
-    );
+    expect(process.env.PGLITE_DATA_DIR).toBe(path.resolve(customDataDir));
   });
 
   it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
@@ -1266,7 +1264,7 @@ describe("isRecoverablePgliteInitError", () => {
 
   it("returns false for migration failures without recoverable signals", () => {
     const err = new Error(
-      "1 migration(s) failed:\n  worlds: relation \"foo\" does not exist",
+      '1 migration(s) failed:\n  worlds: relation "foo" does not exist',
     );
     expect(isRecoverablePgliteInitError(err)).toBe(false);
   });

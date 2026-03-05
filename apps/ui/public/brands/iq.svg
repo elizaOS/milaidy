@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="IQ icon">
+  <rect width="64" height="64" rx="14" fill="#1f2937"/>
+  <circle cx="27" cy="30" r="11" fill="#fef3c7"/>
+  <path d="M36 38l8 8" stroke="#fef3c7" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="27" cy="30" r="5" fill="#1f2937"/>
+</svg>

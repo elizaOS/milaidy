@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveDevServerStatePaths,
   type DevServerStatePathResolution,
+  resolveDevServerStatePaths,
 } from "./dev-server-state";
 
-function resolveFor(
-  env: NodeJS.ProcessEnv,
-): DevServerStatePathResolution {
+function resolveFor(env: NodeJS.ProcessEnv): DevServerStatePathResolution {
   return resolveDevServerStatePaths("/tmp/milaidy-main", env);
 }
 

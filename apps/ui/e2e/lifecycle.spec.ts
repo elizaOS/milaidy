@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers";
 
 test.describe("Agent lifecycle", () => {
@@ -7,27 +7,43 @@ test.describe("Agent lifecycle", () => {
   test("shows Start button when agent is not started", async ({ page }) => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }),
+    ).toBeVisible();
   });
 
-  test("shows Pause and Stop buttons when agent is running", async ({ page }) => {
+  test("shows Pause and Stop buttons when agent is running", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Pause" })).toBeVisible();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Stop" })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Pause" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Stop" }),
+    ).toBeVisible();
   });
 
-  test("shows Resume and Stop buttons when agent is paused", async ({ page }) => {
+  test("shows Resume and Stop buttons when agent is paused", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "paused" });
     await page.goto("/chat");
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Resume" })).toBeVisible();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Stop" })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Resume" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Stop" }),
+    ).toBeVisible();
   });
 
   test("shows Start button when agent is stopped", async ({ page }) => {
     await mockApi(page, { agentState: "stopped" });
     await page.goto("/chat");
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }),
+    ).toBeVisible();
   });
 
   // --- Status pill ---
@@ -50,11 +66,15 @@ test.describe("Agent lifecycle", () => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/agent/start") && req.method() === "POST",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/agent/start") && req.method() === "POST",
     );
 
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
     await requestPromise;
   });
 
@@ -62,8 +82,9 @@ test.describe("Agent lifecycle", () => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/agent/pause") && req.method() === "POST",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/agent/pause") && req.method() === "POST",
     );
 
     await page.locator(".lifecycle-btn").filter({ hasText: "Pause" }).click();
@@ -74,8 +95,8 @@ test.describe("Agent lifecycle", () => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/agent/stop") && req.method() === "POST",
+    const requestPromise = page.waitForRequest(
+      (req) => req.url().includes("/api/agent/stop") && req.method() === "POST",
     );
 
     await page.locator(".lifecycle-btn").filter({ hasText: "Stop" }).click();
@@ -86,8 +107,9 @@ test.describe("Agent lifecycle", () => {
     await mockApi(page, { agentState: "paused" });
     await page.goto("/chat");
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/agent/resume") && req.method() === "POST",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/agent/resume") && req.method() === "POST",
     );
 
     await page.locator(".lifecycle-btn").filter({ hasText: "Resume" }).click();
@@ -101,7 +123,10 @@ test.describe("Agent lifecycle", () => {
     await page.goto("/chat");
 
     await expect(page.locator(".status-pill")).toHaveText("not_started");
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
     await expect(page.locator(".status-pill")).toHaveText("running");
   });
 
@@ -109,17 +134,29 @@ test.describe("Agent lifecycle", () => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
 
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Pause" })).toBeVisible();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Stop" })).toBeVisible();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Pause" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Stop" }),
+    ).toBeVisible();
   });
 
-  test("starting agent shows chat interface instead of start prompt", async ({ page }) => {
+  test("starting agent shows chat interface instead of start prompt", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
 
     await expect(page.locator(".start-agent-box")).toBeVisible();
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
     await expect(page.locator(".chat-input")).toBeVisible();
   });
 
@@ -137,10 +174,14 @@ test.describe("Agent lifecycle", () => {
     await page.goto("/chat");
 
     await page.locator(".lifecycle-btn").filter({ hasText: "Pause" }).click();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: "Resume" })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: "Resume" }),
+    ).toBeVisible();
   });
 
-  test("resuming agent updates status pill back to running", async ({ page }) => {
+  test("resuming agent updates status pill back to running", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "paused" });
     await page.goto("/chat");
 
@@ -163,7 +204,9 @@ test.describe("Agent lifecycle", () => {
     await page.goto("/chat");
 
     await page.locator(".lifecycle-btn").filter({ hasText: "Stop" }).click();
-    await expect(page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ })).toBeVisible();
+    await expect(
+      page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }),
+    ).toBeVisible();
   });
 
   // --- Full lifecycle cycle ---
@@ -173,7 +216,10 @@ test.describe("Agent lifecycle", () => {
     await page.goto("/chat");
 
     // Start
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
     await expect(page.locator(".status-pill")).toHaveText("running");
 
     // Pause
@@ -189,7 +235,10 @@ test.describe("Agent lifecycle", () => {
     await expect(page.locator(".status-pill")).toHaveText("stopped");
 
     // Restart
-    await page.locator(".lifecycle-btn").filter({ hasText: /^Start$/ }).click();
+    await page
+      .locator(".lifecycle-btn")
+      .filter({ hasText: /^Start$/ })
+      .click();
     await expect(page.locator(".status-pill")).toHaveText("running");
   });
 

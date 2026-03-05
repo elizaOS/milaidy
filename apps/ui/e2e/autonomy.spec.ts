@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers";
 
 test.describe("Autonomy indicator", () => {
@@ -11,6 +11,8 @@ test.describe("Autonomy indicator", () => {
     await mockApi(page);
     await page.goto("/chat");
     // The old checkbox should no longer exist
-    await expect(page.locator("[data-action='autonomy-toggle']")).toHaveCount(0);
+    await expect(page.locator("[data-action='autonomy-toggle']")).toHaveCount(
+      0,
+    );
   });
 });

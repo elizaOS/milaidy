@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import { mockApi } from "./helpers";
 
 /** Click the visual toggle switch that wraps a hidden checkbox. */
@@ -17,7 +17,9 @@ test.describe("Plugins page", () => {
   // --- Display ---
 
   test("displays the plugins heading and subtitle", async ({ page }) => {
-    await expect(page.locator(".subtitle").first()).toContainText("plugins discovered");
+    await expect(page.locator(".subtitle").first()).toContainText(
+      "plugins discovered",
+    );
   });
 
   test("lists all plugins from mock data", async ({ page }) => {
@@ -47,12 +49,15 @@ test.describe("Plugins page", () => {
 
   // --- Toggle ON: disabled -> enabled ---
 
-  test("toggling a disabled plugin ON sends PUT with enabled:true", async ({ page }) => {
+  test("toggling a disabled plugin ON sends PUT with enabled:true", async ({
+    page,
+  }) => {
     const ollamaToggle = page.locator("[data-plugin-toggle='ollama']");
     await expect(ollamaToggle).not.toBeChecked();
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/plugins/ollama") && req.method() === "PUT",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/plugins/ollama") && req.method() === "PUT",
     );
 
     await clickToggle(ollamaToggle);
@@ -62,7 +67,9 @@ test.describe("Plugins page", () => {
     expect(body.enabled).toBe(true);
   });
 
-  test("toggling a disabled plugin ON updates the checkbox state", async ({ page }) => {
+  test("toggling a disabled plugin ON updates the checkbox state", async ({
+    page,
+  }) => {
     const ollamaToggle = page.locator("[data-plugin-toggle='ollama']");
     await expect(ollamaToggle).not.toBeChecked();
 
@@ -72,12 +79,15 @@ test.describe("Plugins page", () => {
 
   // --- Toggle OFF: enabled -> disabled ---
 
-  test("toggling an enabled plugin OFF sends PUT with enabled:false", async ({ page }) => {
+  test("toggling an enabled plugin OFF sends PUT with enabled:false", async ({
+    page,
+  }) => {
     const anthropicToggle = page.locator("[data-plugin-toggle='anthropic']");
     await expect(anthropicToggle).toBeChecked();
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/plugins/anthropic") && req.method() === "PUT",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/plugins/anthropic") && req.method() === "PUT",
     );
 
     await clickToggle(anthropicToggle);
@@ -87,7 +97,9 @@ test.describe("Plugins page", () => {
     expect(body.enabled).toBe(false);
   });
 
-  test("toggling an enabled plugin OFF updates the checkbox state", async ({ page }) => {
+  test("toggling an enabled plugin OFF updates the checkbox state", async ({
+    page,
+  }) => {
     const anthropicToggle = page.locator("[data-plugin-toggle='anthropic']");
     await expect(anthropicToggle).toBeChecked();
 
@@ -148,7 +160,9 @@ test.describe("Plugins page", () => {
 
   // --- Toggle within filtered view ---
 
-  test("can toggle a plugin within a filtered category view", async ({ page }) => {
+  test("can toggle a plugin within a filtered category view", async ({
+    page,
+  }) => {
     // Click All filter first to ensure we see all plugins
     const filters = page.locator(".plugin-filters button");
     await filters.first().click();
@@ -157,8 +171,9 @@ test.describe("Plugins page", () => {
     const ollamaToggle = page.locator("[data-plugin-toggle='ollama']");
     await expect(ollamaToggle).not.toBeChecked();
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/plugins/ollama") && req.method() === "PUT",
+    const requestPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes("/api/plugins/ollama") && req.method() === "PUT",
     );
 
     await clickToggle(ollamaToggle);

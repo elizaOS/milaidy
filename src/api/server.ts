@@ -6724,7 +6724,9 @@ async function handleRequest(
         (config.env as Record<string, string>).ELIZAOS_CLOUD_ENABLED = "true";
         process.env.ELIZAOS_CLOUD_ENABLED = "true";
         const existingCloudKey =
-          typeof config.cloud.apiKey === "string" ? config.cloud.apiKey.trim() : "";
+          typeof config.cloud.apiKey === "string"
+            ? config.cloud.apiKey.trim()
+            : "";
         const existingEnvKey = (
           (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY ?? ""
         ).trim();
@@ -6907,7 +6909,9 @@ async function handleRequest(
     const providerRestartRequired =
       runMode === "local" && selectedProviderId.length > 0;
     if (providerRestartRequired) {
-      scheduleRuntimeRestart(`Onboarding provider selected: ${selectedProviderId}`);
+      scheduleRuntimeRestart(
+        `Onboarding provider selected: ${selectedProviderId}`,
+      );
     }
     logger.info(
       `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
@@ -9259,7 +9263,10 @@ async function handleRequest(
 
   // ── GET /api/handles/check ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/handles/check") {
-    const urlObj = new URL(req.url ?? "", `http://${req.headers.host ?? "127.0.0.1"}`);
+    const urlObj = new URL(
+      req.url ?? "",
+      `http://${req.headers.host ?? "127.0.0.1"}`,
+    );
     const handle = normalizeHandle(urlObj.searchParams.get("handle") ?? "");
     const ownerId = resolveHandleOwnerId(urlObj.searchParams.get("ownerId"));
     const { ownership, locks } = getHandleStore();
@@ -9272,8 +9279,11 @@ async function handleRequest(
         : null;
     const lockActive = lockUntil != null && lockUntil > Date.now();
 
-    const owner: "self" | "other" | "none" =
-      !handleOwnerId ? "none" : handleOwnerId === ownerId ? "self" : "other";
+    const owner: "self" | "other" | "none" = !handleOwnerId
+      ? "none"
+      : handleOwnerId === ownerId
+        ? "self"
+        : "other";
     const available = owner === "none" || owner === "self";
 
     json(res, {
@@ -9335,7 +9345,11 @@ async function handleRequest(
       return;
     }
 
-    if (previousHandle && ownership[previousHandle] === ownerId && previousHandle !== handle) {
+    if (
+      previousHandle &&
+      ownership[previousHandle] === ownerId &&
+      previousHandle !== handle
+    ) {
       delete ownership[previousHandle];
     }
 
@@ -10714,7 +10728,9 @@ async function handleRequest(
         {
           const runtime = state.runtime;
           if (!runtime) {
-            throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+            throw new Error(
+              runtimeUnavailableMessage() ?? "Agent is not running",
+            );
           }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
@@ -10798,7 +10814,9 @@ async function handleRequest(
         }
         const runtime = state.runtime;
         if (!runtime) {
-          throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+          throw new Error(
+            runtimeUnavailableMessage() ?? "Agent is not running",
+          );
         }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
@@ -10980,7 +10998,9 @@ async function handleRequest(
         {
           const runtime = state.runtime;
           if (!runtime) {
-            throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+            throw new Error(
+              runtimeUnavailableMessage() ?? "Agent is not running",
+            );
           }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
@@ -11070,7 +11090,9 @@ async function handleRequest(
         }
         const runtime = state.runtime;
         if (!runtime) {
-          throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+          throw new Error(
+            runtimeUnavailableMessage() ?? "Agent is not running",
+          );
         }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(

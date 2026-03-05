@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -60,7 +60,9 @@ test.describe("Header — wallet icon", () => {
     await page.locator(".wallet-btn").click();
     await page.waitForTimeout(300);
 
-    await expect(page.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Inventory" }),
+    ).toBeVisible();
     expect(page.url()).toContain("/inventory");
   });
 });
@@ -85,7 +87,9 @@ test.describe("Navigation — inventory tab", () => {
     await page.locator("a").filter({ hasText: "Inventory" }).click();
     await page.waitForTimeout(300);
 
-    await expect(page.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Inventory" }),
+    ).toBeVisible();
   });
 
   test("direct navigation to /inventory works", async ({ page }) => {
@@ -93,7 +97,9 @@ test.describe("Navigation — inventory tab", () => {
     await page.goto("/inventory");
     await page.waitForTimeout(500);
 
-    await expect(page.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Inventory" }),
+    ).toBeVisible();
   });
 });
 
@@ -103,34 +109,54 @@ test.describe("Navigation — inventory tab", () => {
 
 test.describe("Inventory — setup flow (no API keys)", () => {
   test.beforeEach(async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: false, heliusKeySet: false } });
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: false, heliusKeySet: false },
+    });
     await page.goto("/inventory");
     await page.waitForTimeout(500);
   });
 
-  test("shows setup instructions when no API keys configured", async ({ page }) => {
-    await expect(page.locator("text=API keys from blockchain data providers")).toBeVisible();
+  test("shows setup instructions when no API keys configured", async ({
+    page,
+  }) => {
+    await expect(
+      page.locator("text=API keys from blockchain data providers"),
+    ).toBeVisible();
   });
 
   test("shows Alchemy setup card with link", async ({ page }) => {
-    await expect(page.locator("h3").filter({ hasText: "Alchemy" })).toBeVisible();
-    await expect(page.locator("a[href*='dashboard.alchemy.com']")).toBeVisible();
+    await expect(
+      page.locator("h3").filter({ hasText: "Alchemy" }),
+    ).toBeVisible();
+    await expect(
+      page.locator("a[href*='dashboard.alchemy.com']"),
+    ).toBeVisible();
   });
 
   test("shows Helius setup card with link", async ({ page }) => {
-    await expect(page.locator("h3").filter({ hasText: "Helius" })).toBeVisible();
+    await expect(
+      page.locator("h3").filter({ hasText: "Helius" }),
+    ).toBeVisible();
     await expect(page.locator("a[href*='dev.helius.xyz']")).toBeVisible();
   });
 
   test("shows Birdeye setup card with optional label", async ({ page }) => {
-    await expect(page.locator("h3").filter({ hasText: "Birdeye" })).toBeVisible();
+    await expect(
+      page.locator("h3").filter({ hasText: "Birdeye" }),
+    ).toBeVisible();
     await expect(page.locator("text=optional").first()).toBeVisible();
   });
 
   test("shows input fields for API keys", async ({ page }) => {
-    const alchemyInput = page.locator("input[data-wallet-config='ALCHEMY_API_KEY']");
-    const heliusInput = page.locator("input[data-wallet-config='HELIUS_API_KEY']");
-    const birdeyeInput = page.locator("input[data-wallet-config='BIRDEYE_API_KEY']");
+    const alchemyInput = page.locator(
+      "input[data-wallet-config='ALCHEMY_API_KEY']",
+    );
+    const heliusInput = page.locator(
+      "input[data-wallet-config='HELIUS_API_KEY']",
+    );
+    const birdeyeInput = page.locator(
+      "input[data-wallet-config='BIRDEYE_API_KEY']",
+    );
 
     await expect(alchemyInput).toBeVisible();
     await expect(heliusInput).toBeVisible();
@@ -138,17 +164,25 @@ test.describe("Inventory — setup flow (no API keys)", () => {
   });
 
   test("Save API Keys button is present", async ({ page }) => {
-    await expect(page.locator("button").filter({ hasText: "Save API Keys" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Save API Keys" }),
+    ).toBeVisible();
   });
 
   test("saving keys transitions to balance view", async ({ page }) => {
-    await page.locator("input[data-wallet-config='ALCHEMY_API_KEY']").fill("test-alchemy-key");
-    await page.locator("input[data-wallet-config='HELIUS_API_KEY']").fill("test-helius-key");
+    await page
+      .locator("input[data-wallet-config='ALCHEMY_API_KEY']")
+      .fill("test-alchemy-key");
+    await page
+      .locator("input[data-wallet-config='HELIUS_API_KEY']")
+      .fill("test-helius-key");
 
     await page.locator("button").filter({ hasText: "Save API Keys" }).click();
     await page.waitForTimeout(1000);
 
-    await expect(page.locator("button.inventory-subtab").filter({ hasText: "Tokens" })).toBeVisible();
+    await expect(
+      page.locator("button.inventory-subtab").filter({ hasText: "Tokens" }),
+    ).toBeVisible();
   });
 });
 
@@ -158,7 +192,9 @@ test.describe("Inventory — setup flow (no API keys)", () => {
 
 test.describe("Inventory — tokens view", () => {
   test.beforeEach(async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: true, heliusKeySet: true } });
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: true, heliusKeySet: true },
+    });
     await page.goto("/");
     await page.waitForTimeout(300);
     await page.locator("a").filter({ hasText: "Inventory" }).click();
@@ -166,25 +202,39 @@ test.describe("Inventory — tokens view", () => {
   });
 
   test("shows Tokens and NFTs sub-tabs", async ({ page }) => {
-    await expect(page.locator("button.inventory-subtab").filter({ hasText: "Tokens" })).toBeVisible();
-    await expect(page.locator("button.inventory-subtab").filter({ hasText: "NFTs" })).toBeVisible();
+    await expect(
+      page.locator("button.inventory-subtab").filter({ hasText: "Tokens" }),
+    ).toBeVisible();
+    await expect(
+      page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }),
+    ).toBeVisible();
   });
 
   test("shows sort buttons", async ({ page }) => {
-    await expect(page.locator(".sort-btn").filter({ hasText: "Value" })).toBeVisible();
-    await expect(page.locator(".sort-btn").filter({ hasText: "Chain" })).toBeVisible();
-    await expect(page.locator(".sort-btn").filter({ hasText: "Name" })).toBeVisible();
+    await expect(
+      page.locator(".sort-btn").filter({ hasText: "Value" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".sort-btn").filter({ hasText: "Chain" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".sort-btn").filter({ hasText: "Name" }),
+    ).toBeVisible();
   });
 
   test("shows Refresh button", async ({ page }) => {
-    await expect(page.locator("button").filter({ hasText: "Refresh" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Refresh" }),
+    ).toBeVisible();
   });
 
   test("renders a scrollable token table", async ({ page }) => {
     const tableWrap = page.locator(".token-table-wrap");
     await expect(tableWrap).toBeVisible();
     // Check max-height is set for scrollability
-    const style = await tableWrap.evaluate((el) => getComputedStyle(el).maxHeight);
+    const style = await tableWrap.evaluate(
+      (el) => getComputedStyle(el).maxHeight,
+    );
     expect(style).not.toBe("none");
   });
 
@@ -203,19 +253,26 @@ test.describe("Inventory — tokens view", () => {
 
   test("shows ETH token row with Ethereum chain", async ({ page }) => {
     // Find a row containing ETH
-    const ethRow = page.locator(".token-table tbody tr").filter({ hasText: "ETH" }).first();
+    const ethRow = page
+      .locator(".token-table tbody tr")
+      .filter({ hasText: "ETH" })
+      .first();
     await expect(ethRow).toBeVisible();
     await expect(ethRow.locator(".chain-icon")).toBeVisible();
   });
 
   test("shows USDC rows", async ({ page }) => {
-    const usdcRows = page.locator(".token-table tbody tr").filter({ hasText: "USDC" });
+    const usdcRows = page
+      .locator(".token-table tbody tr")
+      .filter({ hasText: "USDC" });
     // USDC on Ethereum + USDC on Solana
     expect(await usdcRows.count()).toBeGreaterThanOrEqual(2);
   });
 
   test("shows SOL token row", async ({ page }) => {
-    const solRow = page.locator(".token-table tbody tr").filter({ hasText: "SOL" });
+    const solRow = page
+      .locator(".token-table tbody tr")
+      .filter({ hasText: "SOL" });
     await expect(solRow.first()).toBeVisible();
   });
 
@@ -224,14 +281,18 @@ test.describe("Inventory — tokens view", () => {
     await page.waitForTimeout(300);
 
     // After sorting by chain, check that the sort button is active
-    await expect(page.locator(".sort-btn.active").filter({ hasText: "Chain" })).toBeVisible();
+    await expect(
+      page.locator(".sort-btn.active").filter({ hasText: "Chain" }),
+    ).toBeVisible();
   });
 
   test("clicking Name sort reorders table", async ({ page }) => {
     await page.locator(".sort-btn").filter({ hasText: "Name" }).click();
     await page.waitForTimeout(300);
 
-    await expect(page.locator(".sort-btn.active").filter({ hasText: "Name" })).toBeVisible();
+    await expect(
+      page.locator(".sort-btn.active").filter({ hasText: "Name" }),
+    ).toBeVisible();
   });
 
   test("all tokens from all chains in one table", async ({ page }) => {
@@ -248,7 +309,9 @@ test.describe("Inventory — tokens view", () => {
 
 test.describe("Inventory — NFTs view", () => {
   test.beforeEach(async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: true, heliusKeySet: true } });
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: true, heliusKeySet: true },
+    });
     await page.goto("/");
     await page.waitForTimeout(300);
     await page.locator("a").filter({ hasText: "Inventory" }).click();
@@ -256,14 +319,20 @@ test.describe("Inventory — NFTs view", () => {
   });
 
   test("switching to NFTs tab shows NFTs", async ({ page }) => {
-    await page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }).click();
+    await page
+      .locator("button.inventory-subtab")
+      .filter({ hasText: "NFTs" })
+      .click();
     await page.waitForTimeout(1000);
 
     await expect(page.locator(".nft-card").first()).toBeVisible();
   });
 
   test("NFT cards show chain badges", async ({ page }) => {
-    await page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }).click();
+    await page
+      .locator("button.inventory-subtab")
+      .filter({ hasText: "NFTs" })
+      .click();
     await page.waitForTimeout(1000);
 
     // Each NFT card should have a chain indicator
@@ -271,23 +340,42 @@ test.describe("Inventory — NFTs view", () => {
   });
 
   test("shows Bored Ape NFT", async ({ page }) => {
-    await page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }).click();
+    await page
+      .locator("button.inventory-subtab")
+      .filter({ hasText: "NFTs" })
+      .click();
     await page.waitForTimeout(1000);
 
-    await expect(page.locator(".nft-name").filter({ hasText: "Bored Ape #1234" })).toBeVisible();
-    await expect(page.locator(".nft-collection").filter({ hasText: "Bored Ape Yacht Club" })).toBeVisible();
+    await expect(
+      page.locator(".nft-name").filter({ hasText: "Bored Ape #1234" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".nft-collection")
+        .filter({ hasText: "Bored Ape Yacht Club" }),
+    ).toBeVisible();
   });
 
   test("shows Solana DRiP NFT", async ({ page }) => {
-    await page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }).click();
+    await page
+      .locator("button.inventory-subtab")
+      .filter({ hasText: "NFTs" })
+      .click();
     await page.waitForTimeout(1000);
 
-    await expect(page.locator(".nft-name").filter({ hasText: "DRiP Drop #42" })).toBeVisible();
-    await expect(page.locator(".nft-collection").filter({ hasText: "DRiP" })).toBeVisible();
+    await expect(
+      page.locator(".nft-name").filter({ hasText: "DRiP Drop #42" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".nft-collection").filter({ hasText: "DRiP" }),
+    ).toBeVisible();
   });
 
   test("NFT grid is scrollable", async ({ page }) => {
-    await page.locator("button.inventory-subtab").filter({ hasText: "NFTs" }).click();
+    await page
+      .locator("button.inventory-subtab")
+      .filter({ hasText: "NFTs" })
+      .click();
     await page.waitForTimeout(1000);
 
     const grid = page.locator(".nft-grid");
@@ -313,17 +401,25 @@ test.describe("Config — wallet API keys", () => {
   });
 
   test("shows ALCHEMY_API_KEY input", async ({ page }) => {
-    await expect(page.locator("code").filter({ hasText: "ALCHEMY_API_KEY" })).toBeVisible();
-    await expect(page.locator("a[href*='dashboard.alchemy.com']")).toBeVisible();
+    await expect(
+      page.locator("code").filter({ hasText: "ALCHEMY_API_KEY" }),
+    ).toBeVisible();
+    await expect(
+      page.locator("a[href*='dashboard.alchemy.com']"),
+    ).toBeVisible();
   });
 
   test("shows HELIUS_API_KEY input", async ({ page }) => {
-    await expect(page.locator("code").filter({ hasText: "HELIUS_API_KEY" })).toBeVisible();
+    await expect(
+      page.locator("code").filter({ hasText: "HELIUS_API_KEY" }),
+    ).toBeVisible();
     await expect(page.locator("a[href*='dev.helius.xyz']")).toBeVisible();
   });
 
   test("shows BIRDEYE_API_KEY input", async ({ page }) => {
-    await expect(page.locator("code").filter({ hasText: "BIRDEYE_API_KEY" })).toBeVisible();
+    await expect(
+      page.locator("code").filter({ hasText: "BIRDEYE_API_KEY" }),
+    ).toBeVisible();
     await expect(page.locator("a[href*='birdeye.so']")).toBeVisible();
   });
 
@@ -352,11 +448,15 @@ test.describe("Config — private key export", () => {
 
   test("shows Export Private Keys section in Danger Zone", async ({ page }) => {
     await expect(page.locator("text=Export Private Keys")).toBeVisible();
-    await expect(page.locator("text=Never share these with anyone")).toBeVisible();
+    await expect(
+      page.locator("text=Never share these with anyone"),
+    ).toBeVisible();
   });
 
   test("Export Keys button is visible", async ({ page }) => {
-    await expect(page.locator("button").filter({ hasText: "Export Keys" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Export Keys" }),
+    ).toBeVisible();
   });
 
   test("clicking Export Keys shows confirmation dialog", async ({ page }) => {
@@ -377,8 +477,16 @@ test.describe("Config — private key export", () => {
     await page.locator("button").filter({ hasText: "Export Keys" }).click();
     await page.waitForTimeout(500);
 
-    await expect(page.locator(".key-export-box strong").filter({ hasText: "EVM Private Key" })).toBeVisible();
-    await expect(page.locator(".key-export-box strong").filter({ hasText: "Solana Private Key" })).toBeVisible();
+    await expect(
+      page
+        .locator(".key-export-box strong")
+        .filter({ hasText: "EVM Private Key" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".key-export-box strong")
+        .filter({ hasText: "Solana Private Key" }),
+    ).toBeVisible();
   });
 
   test("exported keys have copy buttons", async ({ page }) => {
@@ -403,7 +511,9 @@ test.describe("Config — private key export", () => {
     await expect(page.locator(".key-export-box")).not.toBeVisible();
   });
 
-  test("dismissing confirmation dialog does not show keys", async ({ page }) => {
+  test("dismissing confirmation dialog does not show keys", async ({
+    page,
+  }) => {
     page.on("dialog", async (dialog) => await dialog.dismiss());
 
     await page.locator("button").filter({ hasText: "Export Keys" }).click();
@@ -418,39 +528,61 @@ test.describe("Config — private key export", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe("Inventory — EVM only (no Helius key)", () => {
-  test("shows EVM tokens but no Solana section when only Alchemy is configured", async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: true, heliusKeySet: false } });
+  test("shows EVM tokens but no Solana section when only Alchemy is configured", async ({
+    page,
+  }) => {
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: true, heliusKeySet: false },
+    });
     await page.goto("/");
     await page.locator("a").filter({ hasText: "Inventory" }).click();
     await page.waitForTimeout(1500);
 
     // Should show EVM tokens (ETH row exists)
-    await expect(page.locator(".token-table tbody tr").filter({ hasText: "ETH" }).first()).toBeVisible();
+    await expect(
+      page.locator(".token-table tbody tr").filter({ hasText: "ETH" }).first(),
+    ).toBeVisible();
     // No SOL row since Helius is not set
-    const solRows = page.locator(".token-table tbody tr").filter({ hasText: "SOL" }).filter({ hasText: "Solana" });
+    const solRows = page
+      .locator(".token-table tbody tr")
+      .filter({ hasText: "SOL" })
+      .filter({ hasText: "Solana" });
     expect(await solRows.count()).toBe(0);
   });
 });
 
 test.describe("Inventory — Solana only (no Alchemy key)", () => {
-  test("shows Solana tokens but no EVM section when only Helius is configured", async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: false, heliusKeySet: true } });
+  test("shows Solana tokens but no EVM section when only Helius is configured", async ({
+    page,
+  }) => {
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: false, heliusKeySet: true },
+    });
     await page.goto("/");
     await page.locator("a").filter({ hasText: "Inventory" }).click();
     await page.waitForTimeout(1500);
 
     // Should show SOL row
-    await expect(page.locator(".token-table tbody tr").filter({ hasText: "SOL" }).first()).toBeVisible();
+    await expect(
+      page.locator(".token-table tbody tr").filter({ hasText: "SOL" }).first(),
+    ).toBeVisible();
     // No Ethereum chain rows
-    const ethRows = page.locator(".token-table tbody tr").filter({ hasText: "Ethereum" });
+    const ethRows = page
+      .locator(".token-table tbody tr")
+      .filter({ hasText: "Ethereum" });
     expect(await ethRows.count()).toBe(0);
   });
 });
 
 test.describe("Header — EVM-only wallet address", () => {
-  test("shows only EVM address in tooltip when Solana is null", async ({ page }) => {
+  test("shows only EVM address in tooltip when Solana is null", async ({
+    page,
+  }) => {
     await mockApi(page, {
-      walletAddresses: { evmAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", solanaAddress: null },
+      walletAddresses: {
+        evmAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        solanaAddress: null,
+      },
     });
     await page.goto("/");
     await page.waitForTimeout(500);
@@ -461,7 +593,9 @@ test.describe("Header — EVM-only wallet address", () => {
 
     await expect(page.locator("text=EVM")).toBeVisible();
     // SOL label should not appear
-    await expect(page.locator(".wallet-addr-row").filter({ hasText: "SOL" })).not.toBeVisible();
+    await expect(
+      page.locator(".wallet-addr-row").filter({ hasText: "SOL" }),
+    ).not.toBeVisible();
     // Only one copy button
     const copyButtons = page.locator(".wallet-tooltip .copy-btn");
     await expect(copyButtons).toHaveCount(1);
@@ -470,27 +604,48 @@ test.describe("Header — EVM-only wallet address", () => {
 
 test.describe("Config — API keys show 'set' when configured", () => {
   test("shows 'set' labels when keys are configured", async ({ page }) => {
-    await mockApi(page, { walletConfig: { alchemyKeySet: true, heliusKeySet: true, birdeyeKeySet: true } });
+    await mockApi(page, {
+      walletConfig: {
+        alchemyKeySet: true,
+        heliusKeySet: true,
+        birdeyeKeySet: true,
+      },
+    });
     await page.goto("/");
     await page.locator("a").filter({ hasText: "Config" }).click();
     await page.waitForTimeout(500);
 
     // All three keys should show "set"
-    const setLabels = page.locator("text=set").filter({ hasNotText: "not set" });
+    const setLabels = page
+      .locator("text=set")
+      .filter({ hasNotText: "not set" });
     expect(await setLabels.count()).toBeGreaterThanOrEqual(3);
   });
 });
 
 test.describe("Inventory — empty wallet", () => {
-  test("shows empty state when API keys are set but wallet has no tokens", async ({ page }) => {
+  test("shows empty state when API keys are set but wallet has no tokens", async ({
+    page,
+  }) => {
     // Override balance mock to return empty
-    await mockApi(page, { walletConfig: { alchemyKeySet: true, heliusKeySet: true } });
+    await mockApi(page, {
+      walletConfig: { alchemyKeySet: true, heliusKeySet: true },
+    });
 
     // Override the balance endpoint to return empty data
     await page.route("**/api/wallet/balances", async (route) => {
       await route.fulfill({
-        status: 200, contentType: "application/json",
-        body: JSON.stringify({ evm: { address: "0xtest", chains: [] }, solana: { address: "test", solBalance: "0", solValueUsd: "0", tokens: [] } }),
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          evm: { address: "0xtest", chains: [] },
+          solana: {
+            address: "test",
+            solBalance: "0",
+            solValueUsd: "0",
+            tokens: [],
+          },
+        }),
       });
     });
 

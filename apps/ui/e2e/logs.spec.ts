@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers";
 
 test.describe("Logs page", () => {
@@ -55,8 +55,8 @@ test.describe("Logs page", () => {
     await page.locator("a").filter({ hasText: "Logs" }).click();
     await page.waitForTimeout(300);
 
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes("/api/logs") && req.method() === "GET",
+    const requestPromise = page.waitForRequest(
+      (req) => req.url().includes("/api/logs") && req.method() === "GET",
     );
 
     await page.locator("[data-action='refresh-logs']").click();

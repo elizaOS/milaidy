@@ -39,7 +39,9 @@ describe("stripThinkingTags", () => {
   });
 
   it("strips <thinking>…</thinking> segments", () => {
-    const input = ["<thinking>", "secret", "</thinking>", "", "Hello"].join("\n");
+    const input = ["<thinking>", "secret", "</thinking>", "", "Hello"].join(
+      "\n",
+    );
     expect(stripThinkingTags(input)).toBe("Hello");
   });
 

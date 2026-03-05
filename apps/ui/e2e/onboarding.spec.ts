@@ -1,8 +1,10 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi } from "./helpers.js";
 
 test.describe("Onboarding Wizard", () => {
-  test("shows welcome screen when onboarding is incomplete", async ({ page }) => {
+  test("shows welcome screen when onboarding is incomplete", async ({
+    page,
+  }) => {
     await mockApi(page, { onboardingComplete: false });
     await page.goto("/");
     await expect(page.getByText("Welcome to milAIdy")).toBeVisible();
@@ -17,7 +19,9 @@ test.describe("Onboarding Wizard", () => {
     await page.getByText("Continue").click();
 
     // Step 2: Name
-    await expect(page.getByText("errr, what was my name again...?")).toBeVisible();
+    await expect(
+      page.getByText("errr, what was my name again...?"),
+    ).toBeVisible();
     await expect(page.getByText("Reimu")).toBeVisible();
     await expect(page.getByText("Flandre")).toBeVisible();
 
@@ -61,7 +65,9 @@ test.describe("Onboarding Wizard", () => {
     await page.getByText("Next").click();
 
     // Step 4: Provider (conversational speech bubble)
-    await expect(page.getByText("which AI provider do you want to use?")).toBeVisible();
+    await expect(
+      page.getByText("which AI provider do you want to use?"),
+    ).toBeVisible();
   });
 
   test("shows provider options with Eliza Cloud first", async ({ page }) => {
@@ -127,7 +133,11 @@ test.describe("Onboarding Wizard", () => {
   });
 
   test("completes onboarding and shows chat view", async ({ page }) => {
-    await mockApi(page, { onboardingComplete: false, agentState: "running", agentName: "Reimu" });
+    await mockApi(page, {
+      onboardingComplete: false,
+      agentState: "running",
+      agentName: "Reimu",
+    });
     await page.goto("/");
 
     // Complete all steps

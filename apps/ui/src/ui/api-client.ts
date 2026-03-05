@@ -9,7 +9,13 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type AgentState = "not_started" | "running" | "paused" | "stopped" | "restarting" | "error";
+export type AgentState =
+  | "not_started"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "restarting"
+  | "error";
 
 export interface AgentStatus {
   state: AgentState;
@@ -180,25 +186,106 @@ export interface AgentAutonomyUpdateResponse {
 
 // Wallet types
 
-export interface WalletAddresses { evmAddress: string | null; solanaAddress: string | null }
-export interface EvmTokenBalance { symbol: string; name: string; contractAddress: string; balance: string; decimals: number; valueUsd: string; logoUrl: string }
-export interface EvmChainBalance { chain: string; chainId: number; nativeBalance: string; nativeSymbol: string; nativeValueUsd: string; tokens: EvmTokenBalance[]; error: string | null }
-export interface SolanaTokenBalance { symbol: string; name: string; mint: string; balance: string; decimals: number; valueUsd: string; logoUrl: string }
+export interface WalletAddresses {
+  evmAddress: string | null;
+  solanaAddress: string | null;
+}
+export interface EvmTokenBalance {
+  symbol: string;
+  name: string;
+  contractAddress: string;
+  balance: string;
+  decimals: number;
+  valueUsd: string;
+  logoUrl: string;
+}
+export interface EvmChainBalance {
+  chain: string;
+  chainId: number;
+  nativeBalance: string;
+  nativeSymbol: string;
+  nativeValueUsd: string;
+  tokens: EvmTokenBalance[];
+  error: string | null;
+}
+export interface SolanaTokenBalance {
+  symbol: string;
+  name: string;
+  mint: string;
+  balance: string;
+  decimals: number;
+  valueUsd: string;
+  logoUrl: string;
+}
 export interface WalletBalancesResponse {
   evm: { address: string; chains: EvmChainBalance[] } | null;
-  solana: { address: string; solBalance: string; solValueUsd: string; tokens: SolanaTokenBalance[] } | null;
+  solana: {
+    address: string;
+    solBalance: string;
+    solValueUsd: string;
+    tokens: SolanaTokenBalance[];
+  } | null;
 }
-export interface EvmNft { contractAddress: string; tokenId: string; name: string; description: string; imageUrl: string; collectionName: string; tokenType: string }
-export interface SolanaNft { mint: string; name: string; description: string; imageUrl: string; collectionName: string }
-export interface WalletNftsResponse { evm: Array<{ chain: string; nfts: EvmNft[] }>; solana: { nfts: SolanaNft[] } | null }
-export interface WalletConfigStatus { alchemyKeySet: boolean; heliusKeySet: boolean; birdeyeKeySet: boolean; evmPublicSource: boolean; solanaPublicSource: boolean; pricePublicSource: boolean; walletExportEnabled: boolean; solanaWalletConnected: boolean; walletConnectionLocked: boolean; evmConfiguredAddress: string | null; solanaConfiguredAddress: string | null; evmSigningEnabled: boolean; solanaSigningEnabled: boolean; evmChains: string[]; evmAddress: string | null; solanaAddress: string | null }
-export interface WalletExportResult { evm: { privateKey: string; address: string | null } | null; solana: { privateKey: string; address: string | null } | null }
+export interface EvmNft {
+  contractAddress: string;
+  tokenId: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  collectionName: string;
+  tokenType: string;
+}
+export interface SolanaNft {
+  mint: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  collectionName: string;
+}
+export interface WalletNftsResponse {
+  evm: Array<{ chain: string; nfts: EvmNft[] }>;
+  solana: { nfts: SolanaNft[] } | null;
+}
+export interface WalletConfigStatus {
+  alchemyKeySet: boolean;
+  heliusKeySet: boolean;
+  birdeyeKeySet: boolean;
+  evmPublicSource: boolean;
+  solanaPublicSource: boolean;
+  pricePublicSource: boolean;
+  walletExportEnabled: boolean;
+  solanaWalletConnected: boolean;
+  walletConnectionLocked: boolean;
+  evmConfiguredAddress: string | null;
+  solanaConfiguredAddress: string | null;
+  evmSigningEnabled: boolean;
+  solanaSigningEnabled: boolean;
+  evmChains: string[];
+  evmAddress: string | null;
+  solanaAddress: string | null;
+}
+export interface WalletExportResult {
+  evm: { privateKey: string; address: string | null } | null;
+  solana: { privateKey: string; address: string | null } | null;
+}
 export type WalletChain = "evm" | "solana" | "both";
-export interface WalletGenerateResponse { ok: boolean; wallets: Array<{ chain: "evm" | "solana"; address: string }> }
-export interface WalletImportResponse { ok: boolean; chain: "evm" | "solana"; address: string | null }
+export interface WalletGenerateResponse {
+  ok: boolean;
+  wallets: Array<{ chain: "evm" | "solana"; address: string }>;
+}
+export interface WalletImportResponse {
+  ok: boolean;
+  chain: "evm" | "solana";
+  address: string | null;
+}
 export interface WalletConnectedDataResponse {
   account:
-    | { mode: "user"; userId: string; displayName: string; username: string | null }
+    | {
+        mode: "user";
+        userId: string;
+        displayName: string;
+        username: string | null;
+      }
     | { mode: "server"; username: string | null };
   addresses: WalletAddresses;
   balances: WalletBalancesResponse;
@@ -229,12 +316,21 @@ export interface HandleCheckResponse {
   owner: "self" | "other" | "none";
   lockUntil?: number | null;
 }
-export interface HandleClaimResponse { ok: boolean; handle: string; lockUntil?: number | null }
+export interface HandleClaimResponse {
+  ok: boolean;
+  handle: string;
+  lockUntil?: number | null;
+}
 
 export interface UiConfigResponse {
   ui?: {
     assistant?: { name?: string };
-    user?: { handle?: string; accent?: string; imageUrl?: string; responseMode?: string };
+    user?: {
+      handle?: string;
+      accent?: string;
+      imageUrl?: string;
+      responseMode?: string;
+    };
   };
 }
 
@@ -271,9 +367,10 @@ export class MilaidyClient {
         : null;
     this._token = token?.trim() || stored || null;
     // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
-    const global = typeof window !== "undefined"
-      ? (window as Record<string, unknown>).__MILAIDY_API_BASE__
-      : undefined;
+    const global =
+      typeof window !== "undefined"
+        ? (window as Record<string, unknown>).__MILAIDY_API_BASE__
+        : undefined;
     this._baseUrl = baseUrl ?? (typeof global === "string" ? global : "");
     const v2Global =
       typeof window !== "undefined"
@@ -289,7 +386,11 @@ export class MilaidyClient {
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
-    if (!this._baseUrl && !this._explicitBase && typeof window !== "undefined") {
+    if (
+      !this._baseUrl &&
+      !this._explicitBase &&
+      typeof window !== "undefined"
+    ) {
       const injected = (window as Record<string, unknown>).__MILAIDY_API_BASE__;
       if (typeof injected === "string") {
         this._baseUrl = injected;
@@ -369,7 +470,9 @@ export class MilaidyClient {
       ]) as Promise<Response>;
     };
 
-    const requestWithBackendRetry = async (token: string | null): Promise<Response> => {
+    const requestWithBackendRetry = async (
+      token: string | null,
+    ): Promise<Response> => {
       // Fail fast on chat so users aren't stuck waiting on retries.
       // Non-chat routes can retry a bit longer during startup/restarts.
       const isChatRoute =
@@ -379,9 +482,14 @@ export class MilaidyClient {
         const res = await makeRequest(token);
         if (res.status !== 503) return res;
 
-        const body = await res.clone().json().catch(() => ({})) as Record<string, unknown>;
+        const body = (await res
+          .clone()
+          .json()
+          .catch(() => ({}))) as Record<string, unknown>;
         const errMsg = typeof body.error === "string" ? body.error : "";
-        const isBackendNotReady = errMsg.toLowerCase().includes("backend not ready");
+        const isBackendNotReady = errMsg
+          .toLowerCase()
+          .includes("backend not ready");
         if (!isBackendNotReady || attempt === maxAttempts) {
           return res;
         }
@@ -401,10 +509,19 @@ export class MilaidyClient {
       }
     }
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText })) as Record<string, unknown>;
-      const err = new Error((typeof body.error === "string" ? body.error : "") || `HTTP ${res.status}`);
-      (err as Error & { status?: number; details?: Record<string, unknown> }).status = res.status;
-      (err as Error & { status?: number; details?: Record<string, unknown> }).details = body;
+      const body = (await res
+        .json()
+        .catch(() => ({ error: res.statusText }))) as Record<string, unknown>;
+      const err = new Error(
+        (typeof body.error === "string" ? body.error : "") ||
+          `HTTP ${res.status}`,
+      );
+      (
+        err as Error & { status?: number; details?: Record<string, unknown> }
+      ).status = res.status;
+      (
+        err as Error & { status?: number; details?: Record<string, unknown> }
+      ).details = body;
       throw err;
     }
     return res.json() as Promise<T>;
@@ -422,7 +539,9 @@ export class MilaidyClient {
     return this.fetch("/api/agent/autonomy");
   }
 
-  async setAgentAutonomy(enabled: boolean): Promise<AgentAutonomyUpdateResponse> {
+  async setAgentAutonomy(
+    enabled: boolean,
+  ): Promise<AgentAutonomyUpdateResponse> {
     return this.fetch("/api/agent/autonomy", {
       method: "POST",
       body: JSON.stringify({ enabled }),
@@ -433,7 +552,11 @@ export class MilaidyClient {
     return this.fetch("/api/onboarding/status");
   }
 
-  async getAuthStatus(): Promise<{ required: boolean; pairingEnabled: boolean; expiresAt: number | null }> {
+  async getAuthStatus(): Promise<{
+    required: boolean;
+    pairingEnabled: boolean;
+    expiresAt: number | null;
+  }> {
     return this.fetch("/api/auth/status");
   }
 
@@ -470,27 +593,38 @@ export class MilaidyClient {
   }
 
   async startAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/start", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async stopAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/stop", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async pauseAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/pause", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async resumeAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/resume", {
+      method: "POST",
+    });
     return res.status;
   }
 
   async restartAgent(): Promise<AgentStatus> {
-    const res = await this.fetch<{ status: AgentStatus }>("/api/agent/restart", { method: "POST" });
+    const res = await this.fetch<{ status: AgentStatus }>(
+      "/api/agent/restart",
+      { method: "POST" },
+    );
     return res.status;
   }
 
@@ -502,14 +636,20 @@ export class MilaidyClient {
     return this.fetch("/api/plugins");
   }
 
-  async updatePlugin(id: string, config: Record<string, unknown>): Promise<void> {
+  async updatePlugin(
+    id: string,
+    config: Record<string, unknown>,
+  ): Promise<void> {
     await this.fetch(`/api/plugins/${id}`, {
       method: "PUT",
       body: JSON.stringify(config),
     });
   }
 
-  async installPlugin(name: string, autoRestart = true): Promise<{ ok: boolean; message?: string }> {
+  async installPlugin(
+    name: string,
+    autoRestart = true,
+  ): Promise<{ ok: boolean; message?: string }> {
     return this.fetch("/api/plugins/install", {
       method: "POST",
       body: JSON.stringify({ name, autoRestart }),
@@ -533,7 +673,10 @@ export class MilaidyClient {
   }
 
   async updateConfig(patch: UiConfigResponse): Promise<UiConfigResponse> {
-    return this.fetch("/api/config", { method: "PUT", body: JSON.stringify(patch) });
+    return this.fetch("/api/config", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    });
   }
 
   async getExtensionStatus(): Promise<ExtensionStatus> {
@@ -541,7 +684,9 @@ export class MilaidyClient {
   }
 
   // Subscription auth
-  async getSubscriptionStatus(): Promise<{ providers: SubscriptionStatusEntry[] }> {
+  async getSubscriptionStatus(): Promise<{
+    providers: SubscriptionStatusEntry[];
+  }> {
     return this.fetch("/api/subscription/status");
   }
 
@@ -549,7 +694,9 @@ export class MilaidyClient {
     return this.fetch("/api/subscription/anthropic/start", { method: "POST" });
   }
 
-  async exchangeAnthropicSubscription(code: string): Promise<{ success: boolean; expiresAt?: number | null }> {
+  async exchangeAnthropicSubscription(
+    code: string,
+  ): Promise<{ success: boolean; expiresAt?: number | null }> {
     return this.fetch("/api/subscription/anthropic/exchange", {
       method: "POST",
       body: JSON.stringify({ code }),
@@ -563,11 +710,18 @@ export class MilaidyClient {
     });
   }
 
-  async startOpenAiSubscription(): Promise<{ authUrl: string; state?: string; instructions?: string }> {
+  async startOpenAiSubscription(): Promise<{
+    authUrl: string;
+    state?: string;
+    instructions?: string;
+  }> {
     return this.fetch("/api/subscription/openai/start", { method: "POST" });
   }
 
-  async exchangeOpenAiSubscription(body: { code?: string; waitForCallback?: boolean }): Promise<{ success: boolean; expiresAt?: number | null }> {
+  async exchangeOpenAiSubscription(body: {
+    code?: string;
+    waitForCallback?: boolean;
+  }): Promise<{ success: boolean; expiresAt?: number | null }> {
     return this.fetch("/api/subscription/openai/exchange", {
       method: "POST",
       body: JSON.stringify(body),
@@ -576,9 +730,15 @@ export class MilaidyClient {
 
   // Wallet
 
-  async getWalletAddresses(): Promise<WalletAddresses> { return this.fetch("/api/wallet/addresses"); }
-  async getWalletBalances(): Promise<WalletBalancesResponse> { return this.fetch("/api/wallet/balances"); }
-  async getWalletNfts(): Promise<WalletNftsResponse> { return this.fetch("/api/wallet/nfts"); }
+  async getWalletAddresses(): Promise<WalletAddresses> {
+    return this.fetch("/api/wallet/addresses");
+  }
+  async getWalletBalances(): Promise<WalletBalancesResponse> {
+    return this.fetch("/api/wallet/balances");
+  }
+  async getWalletNfts(): Promise<WalletNftsResponse> {
+    return this.fetch("/api/wallet/nfts");
+  }
   async getWalletConnectedData(): Promise<WalletConnectedDataResponse> {
     try {
       return await this.fetch("/api/wallet/connected-data");
@@ -587,8 +747,12 @@ export class MilaidyClient {
       if (status !== 404) throw err;
 
       const addresses = await this.getWalletAddresses();
-      const balances = await this.getWalletBalances().catch(() => ({ evm: null, solana: null } as WalletBalancesResponse));
-      const nfts = await this.getWalletNfts().catch(() => ({ evm: [], solana: null } as WalletNftsResponse));
+      const balances = await this.getWalletBalances().catch(
+        () => ({ evm: null, solana: null }) as WalletBalancesResponse,
+      );
+      const nfts = await this.getWalletNfts().catch(
+        () => ({ evm: [], solana: null }) as WalletNftsResponse,
+      );
       const polymarket = await this.getPolymarketPortfolio().catch(
         () =>
           ({
@@ -611,10 +775,34 @@ export class MilaidyClient {
       };
     }
   }
-  async generateWallet(chain: WalletChain = "both"): Promise<WalletGenerateResponse> { return this.fetch("/api/wallet/generate", { method: "POST", body: JSON.stringify({ chain }) }); }
-  async importWallet(chain: "evm" | "solana", privateKey: string): Promise<WalletImportResponse> { return this.fetch("/api/wallet/import", { method: "POST", body: JSON.stringify({ chain, privateKey }) }); }
-  async getWalletConfig(): Promise<WalletConfigStatus> { return this.fetch("/api/wallet/config"); }
-  async updateWalletConfig(config: Record<string, string>): Promise<{ ok: boolean }> { return this.fetch("/api/wallet/config", { method: "PUT", body: JSON.stringify(config) }); }
+  async generateWallet(
+    chain: WalletChain = "both",
+  ): Promise<WalletGenerateResponse> {
+    return this.fetch("/api/wallet/generate", {
+      method: "POST",
+      body: JSON.stringify({ chain }),
+    });
+  }
+  async importWallet(
+    chain: "evm" | "solana",
+    privateKey: string,
+  ): Promise<WalletImportResponse> {
+    return this.fetch("/api/wallet/import", {
+      method: "POST",
+      body: JSON.stringify({ chain, privateKey }),
+    });
+  }
+  async getWalletConfig(): Promise<WalletConfigStatus> {
+    return this.fetch("/api/wallet/config");
+  }
+  async updateWalletConfig(
+    config: Record<string, string>,
+  ): Promise<{ ok: boolean }> {
+    return this.fetch("/api/wallet/config", {
+      method: "PUT",
+      body: JSON.stringify(config),
+    });
+  }
   async disconnectWallet(): Promise<{ ok: boolean }> {
     try {
       return await this.fetch("/api/wallet/disconnect", { method: "POST" });
@@ -645,16 +833,30 @@ export class MilaidyClient {
       throw err;
     }
   }
-  async exportWalletKeys(): Promise<WalletExportResult> { return this.fetch("/api/wallet/export", { method: "POST", body: JSON.stringify({ confirm: true }) }); }
-  async getPolymarketPortfolio(): Promise<PolymarketPortfolioResponse> { return this.fetch("/api/polymarket/portfolio"); }
+  async exportWalletKeys(): Promise<WalletExportResult> {
+    return this.fetch("/api/wallet/export", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
+  }
+  async getPolymarketPortfolio(): Promise<PolymarketPortfolioResponse> {
+    return this.fetch("/api/polymarket/portfolio");
+  }
 
-  async checkHandle(handle: string, ownerId?: string): Promise<HandleCheckResponse> {
+  async checkHandle(
+    handle: string,
+    ownerId?: string,
+  ): Promise<HandleCheckResponse> {
     const params = new URLSearchParams({ handle });
     if (ownerId) params.set("ownerId", ownerId);
     return this.fetch(`/api/handles/check?${params.toString()}`);
   }
 
-  async claimHandle(handle: string, ownerId: string, previousHandle?: string): Promise<HandleClaimResponse> {
+  async claimHandle(
+    handle: string,
+    ownerId: string,
+    previousHandle?: string,
+  ): Promise<HandleClaimResponse> {
     return this.fetch("/api/handles/claim", {
       method: "POST",
       body: JSON.stringify({ handle, ownerId, previousHandle }),
@@ -690,7 +892,10 @@ export class MilaidyClient {
 
     this.ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string) as Record<string, unknown>;
+        const data = JSON.parse(event.data as string) as Record<
+          string,
+          unknown
+        >;
         const type = data.type as string;
         const handlers = this.wsHandlers.get(type);
         if (handlers) {
@@ -751,8 +956,20 @@ export class MilaidyClient {
     if (this._useV2Api) {
       try {
         const v2 = await this.fetch<{
-          userMessage: { id: string; sessionId: string; role: "user"; content: string; createdAt: string };
-          assistantMessage: { id: string; sessionId: string; role: "assistant"; content: string; createdAt: string };
+          userMessage: {
+            id: string;
+            sessionId: string;
+            role: "user";
+            content: string;
+            createdAt: string;
+          };
+          assistantMessage: {
+            id: string;
+            sessionId: string;
+            role: "assistant";
+            content: string;
+            createdAt: string;
+          };
         }>("/api/v2/chat/messages", {
           method: "POST",
           body: JSON.stringify({
@@ -762,7 +979,8 @@ export class MilaidyClient {
           signal,
         });
         return {
-          text: v2.assistantMessage?.content ?? "No assistant response returned.",
+          text:
+            v2.assistantMessage?.content ?? "No assistant response returned.",
           agentName: "Runtime",
         };
       } catch (err) {
@@ -774,14 +992,17 @@ export class MilaidyClient {
       }
     }
 
-    const legacy = await this.fetch<{ text: string; agentName: string }>("/api/chat", {
-      method: "POST",
-      body: JSON.stringify({
-        text,
-        ...(securityContext ? { securityContext } : {}),
-      }),
-      signal,
-    });
+    const legacy = await this.fetch<{ text: string; agentName: string }>(
+      "/api/chat",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          text,
+          ...(securityContext ? { securityContext } : {}),
+        }),
+        signal,
+      },
+    );
     if (this.isLegacyNoResponseText(legacy.text)) {
       return this.sendChatViaConversation(text, securityContext, signal);
     }
@@ -791,7 +1012,8 @@ export class MilaidyClient {
   private isLegacyNoResponseText(text: string | null | undefined): boolean {
     const value = (text ?? "").trim().toLowerCase();
     return (
-      value === "sorry, i couldn't generate a response right now. please try again." ||
+      value ===
+        "sorry, i couldn't generate a response right now. please try again." ||
       value === "provider timed out. try again."
     );
   }

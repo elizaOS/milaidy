@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Auto Trader icon">
+  <rect width="64" height="64" rx="14" fill="#111827"/>
+  <path d="M14 46h36" stroke="#9ca3af" stroke-width="2"/>
+  <rect x="20" y="30" width="5" height="12" rx="1.5" fill="#34d399"/>
+  <rect x="30" y="24" width="5" height="18" rx="1.5" fill="#34d399"/>
+  <rect x="40" y="33" width="5" height="9" rx="1.5" fill="#f87171"/>
+  <path d="M46 20h8v8" fill="none" stroke="#d1d5db" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M54 20L42 32" fill="none" stroke="#d1d5db" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

@@ -2,7 +2,15 @@
  * Navigation — tabs + onboarding.
  */
 
-export type Tab = "chat" | "inventory" | "accounts" | "ai-setup" | "apps" | "skills" | "config" | "logs";
+export type Tab =
+  | "chat"
+  | "inventory"
+  | "accounts"
+  | "ai-setup"
+  | "apps"
+  | "skills"
+  | "config"
+  | "logs";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] as Tab[] },
@@ -61,7 +69,8 @@ export function normalizePath(p: string): string {
   if (!p) return "/";
   let normalized = p.trim();
   if (!normalized.startsWith("/")) normalized = `/${normalized}`;
-  if (normalized.length > 1 && normalized.endsWith("/")) normalized = normalized.slice(0, -1);
+  if (normalized.length > 1 && normalized.endsWith("/"))
+    normalized = normalized.slice(0, -1);
   return normalized;
 }
 
@@ -85,28 +94,46 @@ export function basePathFromLocation(pathname: string): string {
 
 export function titleForTab(tab: Tab): string {
   switch (tab) {
-    case "chat": return "Chat";
-    case "inventory": return "Portfolio";
-    case "accounts": return "Account";
-    case "ai-setup": return "AI Settings";
-    case "apps": return "Markets & Apps";
-    case "skills": return "Skills";
-    case "config": return "Security";
-    case "logs": return "Activity";
-    default: return "Runtime";
+    case "chat":
+      return "Chat";
+    case "inventory":
+      return "Portfolio";
+    case "accounts":
+      return "Account";
+    case "ai-setup":
+      return "AI Settings";
+    case "apps":
+      return "Markets & Apps";
+    case "skills":
+      return "Skills";
+    case "config":
+      return "Security";
+    case "logs":
+      return "Activity";
+    default:
+      return "Runtime";
   }
 }
 
 export function subtitleForTab(tab: Tab): string {
   switch (tab) {
-    case "chat": return "Chat with Runtime.";
-    case "inventory": return "Your tokens and NFTs in one place.";
-    case "accounts": return "Manage account-level connections and identity settings.";
-    case "ai-setup": return "Configure Runtime model and memory settings.";
-    case "apps": return "Use user-facing actions like markets and social apps.";
-    case "skills": return "View available skills.";
-    case "config": return "Confirmations, wallet status, and security audit.";
-    case "logs": return "Recent system activity.";
-    default: return "";
+    case "chat":
+      return "Chat with Runtime.";
+    case "inventory":
+      return "Your tokens and NFTs in one place.";
+    case "accounts":
+      return "Manage account-level connections and identity settings.";
+    case "ai-setup":
+      return "Configure Runtime model and memory settings.";
+    case "apps":
+      return "Use user-facing actions like markets and social apps.";
+    case "skills":
+      return "View available skills.";
+    case "config":
+      return "Confirmations, wallet status, and security audit.";
+    case "logs":
+      return "Recent system activity.";
+    default:
+      return "";
   }
 }

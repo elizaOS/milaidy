@@ -35,18 +35,17 @@ try {
 
 console.log(`[milady] dotenv loaded (${Date.now() - SCRIPT_START}ms)`);
 
-const resolvedStatePaths = resolveDevServerStatePaths(process.cwd(), process.env);
+const resolvedStatePaths = resolveDevServerStatePaths(
+  process.cwd(),
+  process.env,
+);
 applyDevServerStatePaths(resolvedStatePaths, process.env);
 for (const note of resolvedStatePaths.notes) {
   logger.warn(`[milady] ${note}`);
 }
 if (resolvedStatePaths.changed) {
-  logger.info(
-    `[milady] Runtime state path: ${resolvedStatePaths.stateDir}`,
-  );
-  logger.info(
-    `[milady] Runtime config path: ${resolvedStatePaths.configPath}`,
-  );
+  logger.info(`[milady] Runtime state path: ${resolvedStatePaths.stateDir}`);
+  logger.info(`[milady] Runtime config path: ${resolvedStatePaths.configPath}`);
 }
 
 const port = Number(process.env.MILADY_PORT) || 31337;

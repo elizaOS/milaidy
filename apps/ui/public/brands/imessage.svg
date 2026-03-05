@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="iMessage icon">
+  <rect width="64" height="64" rx="14" fill="#10b981"/>
+  <path d="M14 20c0-4.4 3.6-8 8-8h20c4.4 0 8 3.6 8 8v12c0 4.4-3.6 8-8 8H30l-8 8v-8h0c-4.4 0-8-3.6-8-8z" fill="#ecfdf5"/>
+  <circle cx="26" cy="26" r="2.2" fill="#10b981"/>
+  <circle cx="32" cy="26" r="2.2" fill="#10b981"/>
+  <circle cx="38" cy="26" r="2.2" fill="#10b981"/>
+</svg>

@@ -881,7 +881,9 @@ async function saveTrajectory(
     const message =
       err instanceof Error
         ? err.message
-        : (typeof err === "string" ? err : String(err));
+        : typeof err === "string"
+          ? err
+          : String(err);
     const missingTrajectoryIdColumn =
       message.includes('column "trajectory_id"') &&
       message.includes("does not exist");

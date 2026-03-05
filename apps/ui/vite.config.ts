@@ -23,7 +23,9 @@ function normalizeBase(input: string): string {
 function isTransientConnError(err: NodeJS.ErrnoException): boolean {
   if (err.code === "ECONNREFUSED" || err.code === "ECONNRESET") return true;
   // Node 22+ wraps multiple connection attempts in AggregateError
-  const agg = err as NodeJS.ErrnoException & { errors?: NodeJS.ErrnoException[] };
+  const agg = err as NodeJS.ErrnoException & {
+    errors?: NodeJS.ErrnoException[];
+  };
   if (agg.errors) {
     return agg.errors.some(
       (e) => e.code === "ECONNREFUSED" || e.code === "ECONNRESET",
@@ -55,7 +57,9 @@ const withQuietErrors: NonNullable<ProxyOptions["configure"]> = (proxy) => {
       }
       return true;
     }
-    return origEmit.apply(this, [event, ...rest] as Parameters<typeof origEmit>);
+    return origEmit.apply(this, [event, ...rest] as Parameters<
+      typeof origEmit
+    >);
   } as typeof origEmit;
 };
 

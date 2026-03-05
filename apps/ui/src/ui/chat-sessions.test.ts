@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MilaidyApp } from "./app.js";
 import type { ChatMessage } from "./api-client.js";
+import { MilaidyApp } from "./app.js";
 
 interface TestSession {
   id: string;
@@ -9,11 +9,25 @@ interface TestSession {
   messages: ChatMessage[];
 }
 
+interface TestableApp {
+  tab: string;
+  chatSessions: TestSession[];
+  activeSessionId: string | null;
+  chatMessages: ChatMessage[];
+  setTab: (tab: string) => void;
+  syncChatViewportForActiveSession: (behavior: "auto" | "smooth") => void;
+  createNewSession: () => void;
+  switchSession: (sessionId: string) => void;
+}
+
 const userMsg = (text: string): ChatMessage => ({
   role: "user",
   text,
   timestamp: Date.now(),
 });
+
+const asTestableApp = (app: MilaidyApp): TestableApp =>
+  app as unknown as TestableApp;
 
 describe("chat sessions", () => {
   beforeEach(() => {
@@ -34,8 +48,9 @@ describe("chat sessions", () => {
 
   it("createNewSession switches to chat when triggered from another tab", () => {
     const app = new MilaidyApp();
-    (app as any).tab = "apps";
-    (app as any).chatSessions = [
+    const testApp = asTestableApp(app);
+    testApp.tab = "apps";
+    testApp.chatSessions = [
       {
         id: "s-1",
         name: "Chat 1",
@@ -43,30 +58,31 @@ describe("chat sessions", () => {
         messages: [userMsg("existing")],
       } satisfies TestSession,
     ];
-    (app as any).activeSessionId = "s-1";
-    (app as any).chatMessages = [userMsg("existing")];
+    testApp.activeSessionId = "s-1";
+    testApp.chatMessages = [userMsg("existing")];
 
     const setTabSpy = vi
-      .spyOn(app as any, "setTab")
+      .spyOn(testApp, "setTab")
       .mockImplementation((tab: string) => {
-        (app as any).tab = tab;
+        testApp.tab = tab;
       });
     const syncSpy = vi
-      .spyOn(app as any, "syncChatViewportForActiveSession")
+      .spyOn(testApp, "syncChatViewportForActiveSession")
       .mockImplementation(() => {});
 
-    (app as any).createNewSession();
+    testApp.createNewSession();
 
     expect(setTabSpy).toHaveBeenCalledWith("chat");
-    expect((app as any).tab).toBe("chat");
-    expect((app as any).chatMessages).toEqual([]);
+    expect(testApp.tab).toBe("chat");
+    expect(testApp.chatMessages).toEqual([]);
     expect(syncSpy).not.toHaveBeenCalled();
   });
 
   it("createNewSession reuses existing empty session and still switches to chat", () => {
     const app = new MilaidyApp();
-    (app as any).tab = "accounts";
-    (app as any).chatSessions = [
+    const testApp = asTestableApp(app);
+    testApp.tab = "accounts";
+    testApp.chatSessions = [
       {
         id: "empty",
         name: "Chat Empty",
@@ -80,30 +96,31 @@ describe("chat sessions", () => {
         messages: [userMsg("hello")],
       } satisfies TestSession,
     ];
-    (app as any).activeSessionId = "full";
-    (app as any).chatMessages = [userMsg("hello")];
+    testApp.activeSessionId = "full";
+    testApp.chatMessages = [userMsg("hello")];
 
     const setTabSpy = vi
-      .spyOn(app as any, "setTab")
+      .spyOn(testApp, "setTab")
       .mockImplementation((tab: string) => {
-        (app as any).tab = tab;
+        testApp.tab = tab;
       });
     const syncSpy = vi
-      .spyOn(app as any, "syncChatViewportForActiveSession")
+      .spyOn(testApp, "syncChatViewportForActiveSession")
       .mockImplementation(() => {});
 
-    (app as any).createNewSession();
+    testApp.createNewSession();
 
-    expect((app as any).activeSessionId).toBe("empty");
+    expect(testApp.activeSessionId).toBe("empty");
     expect(setTabSpy).toHaveBeenCalledWith("chat");
-    expect((app as any).chatMessages).toEqual([]);
+    expect(testApp.chatMessages).toEqual([]);
     expect(syncSpy).not.toHaveBeenCalled();
   });
 
   it("createNewSession keeps viewport sync path when already on chat", () => {
     const app = new MilaidyApp();
-    (app as any).tab = "chat";
-    (app as any).chatSessions = [
+    const testApp = asTestableApp(app);
+    testApp.tab = "chat";
+    testApp.chatSessions = [
       {
         id: "s-1",
         name: "Chat 1",
@@ -111,27 +128,26 @@ describe("chat sessions", () => {
         messages: [userMsg("existing")],
       } satisfies TestSession,
     ];
-    (app as any).activeSessionId = "s-1";
-    (app as any).chatMessages = [userMsg("existing")];
+    testApp.activeSessionId = "s-1";
+    testApp.chatMessages = [userMsg("existing")];
 
-    const setTabSpy = vi
-      .spyOn(app as any, "setTab")
-      .mockImplementation(() => {});
+    const setTabSpy = vi.spyOn(testApp, "setTab").mockImplementation(() => {});
     const syncSpy = vi
-      .spyOn(app as any, "syncChatViewportForActiveSession")
+      .spyOn(testApp, "syncChatViewportForActiveSession")
       .mockImplementation(() => {});
 
-    (app as any).createNewSession();
+    testApp.createNewSession();
 
     expect(setTabSpy).not.toHaveBeenCalled();
     expect(syncSpy).toHaveBeenCalledWith("auto");
-    expect((app as any).chatMessages).toEqual([]);
+    expect(testApp.chatMessages).toEqual([]);
   });
 
   it("switchSession loads selected messages and syncs viewport", () => {
     const app = new MilaidyApp();
+    const testApp = asTestableApp(app);
     const selectedMessages = [userMsg("selected session message")];
-    (app as any).chatSessions = [
+    testApp.chatSessions = [
       {
         id: "s-1",
         name: "Chat 1",
@@ -145,17 +161,17 @@ describe("chat sessions", () => {
         messages: selectedMessages,
       } satisfies TestSession,
     ];
-    (app as any).activeSessionId = "s-1";
-    (app as any).chatMessages = [userMsg("old message")];
+    testApp.activeSessionId = "s-1";
+    testApp.chatMessages = [userMsg("old message")];
 
     const syncSpy = vi
-      .spyOn(app as any, "syncChatViewportForActiveSession")
+      .spyOn(testApp, "syncChatViewportForActiveSession")
       .mockImplementation(() => {});
 
-    (app as any).switchSession("s-2");
+    testApp.switchSession("s-2");
 
-    expect((app as any).activeSessionId).toBe("s-2");
-    expect((app as any).chatMessages).toEqual(selectedMessages);
+    expect(testApp.activeSessionId).toBe("s-2");
+    expect(testApp.chatMessages).toEqual(selectedMessages);
     expect(syncSpy).toHaveBeenCalledWith("auto");
   });
 });

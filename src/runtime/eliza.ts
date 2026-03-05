@@ -1820,7 +1820,11 @@ export function applyX402ConfigToEnv(config: MiladyConfig): void {
 }
 
 function resolveDefaultPgliteDataDir(config: MiladyConfig): string {
-  return path.join(resolveEffectiveAgentWorkspaceDir(config), ".eliza", ".elizadb");
+  return path.join(
+    resolveEffectiveAgentWorkspaceDir(config),
+    ".eliza",
+    ".elizadb",
+  );
 }
 
 function resolveEffectiveAgentWorkspaceDir(config: MiladyConfig): string {

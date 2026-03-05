@@ -381,9 +381,12 @@ export async function handleWalletRoutes(
     const evmDisabled = isEvmDisabled();
     const evmConfiguredAddress = configuredAddressFromEnv("EVM_ADDRESS");
     const solanaConfiguredAddress = configuredAddressFromEnv("SOLANA_ADDRESS");
-    const effectiveAddresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
-      evmDisabled,
-    });
+    const effectiveAddresses = resolveEffectiveAddresses(
+      deps.getWalletAddresses(),
+      {
+        evmDisabled,
+      },
+    );
     const effectiveEvmAddress = effectiveAddresses.evmAddress;
     const effectiveSolanaAddress = effectiveAddresses.solanaAddress;
     const walletConnectionLocked =
@@ -437,7 +440,7 @@ export async function handleWalletRoutes(
     if (!config.env) config.env = {};
 
     for (const key of allowedKeys) {
-      if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
+      if (!Object.hasOwn(body, key)) continue;
       const value = body[key];
       if (typeof value === "string") {
         const trimmed = value.trim();
@@ -520,9 +523,12 @@ export async function handleWalletRoutes(
   // GET /api/wallet/connected-data
   if (method === "GET" && pathname === "/api/wallet/connected-data") {
     const evmDisabled = isEvmDisabled();
-    const effectiveAddresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
-      evmDisabled,
-    });
+    const effectiveAddresses = resolveEffectiveAddresses(
+      deps.getWalletAddresses(),
+      {
+        evmDisabled,
+      },
+    );
 
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
@@ -537,7 +543,10 @@ export async function handleWalletRoutes(
           alchemyKey,
         );
         balances.evm = { address: effectiveAddresses.evmAddress, chains };
-        nfts.evm = await deps.fetchEvmNfts(effectiveAddresses.evmAddress, alchemyKey);
+        nfts.evm = await deps.fetchEvmNfts(
+          effectiveAddresses.evmAddress,
+          alchemyKey,
+        );
       } catch (err) {
         logger.warn(`[wallet] connected-data EVM fetch failed: ${err}`);
       }

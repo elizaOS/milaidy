@@ -104,22 +104,24 @@ export function parseList(input: string): string[] {
  */
 export function stripThinkingTags(value: string): string {
   let result = value;
-  
+
   // Remove <think>...</think> segments entirely (content and tags)
   result = result.replace(/<think>[\s\S]*?<\/think>/gi, "");
-  
+
   // Remove <thinking>...</thinking> segments entirely (content and tags)
   result = result.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
-  
+
   // For <final>...</final>, keep content but remove tags
-  result = result.replace(/<final>([\s\S]*?)<\/final>/gi, (_match, content) => content.trimStart());
-  
+  result = result.replace(/<final>([\s\S]*?)<\/final>/gi, (_match, content) =>
+    content.trimStart(),
+  );
+
   // Handle unpaired opening tags (streaming case) - remove tag only
   result = result.replace(/<(think|thinking)>\n?/gi, "");
-  
+
   // Handle unpaired closing tags - remove them
   result = result.replace(/<\/(think|thinking|final)>/gi, "");
-  
+
   // Trim leading whitespace
   return result.trimStart();
 }

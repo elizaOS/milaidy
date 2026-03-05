@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockApi, simulateAgentResponse } from "./helpers";
 
 test.describe("Chat page", () => {
@@ -11,13 +11,17 @@ test.describe("Chat page", () => {
   test("shows Start button when agent is not running", async ({ page }) => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
-    await expect(page.locator("button").filter({ hasText: "Start Agent" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Start Agent" }),
+    ).toBeVisible();
   });
 
   test("shows empty state when no messages", async ({ page }) => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
-    await expect(page.getByText("Send a message to start chatting")).toBeVisible();
+    await expect(
+      page.getByText("Send a message to start chatting"),
+    ).toBeVisible();
   });
 
   test("can type a message in the input", async ({ page }) => {
@@ -31,7 +35,9 @@ test.describe("Chat page", () => {
   test("send button is visible", async ({ page }) => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
-    await expect(page.locator("button").filter({ hasText: "Send" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Send" }),
+    ).toBeVisible();
   });
 
   test("sending a message shows it in the chat", async ({ page }) => {
@@ -68,7 +74,9 @@ test.describe("Chat page", () => {
     await expect(input).toHaveValue("");
   });
 
-  test("shows sending indicator while waiting for response", async ({ page }) => {
+  test("shows sending indicator while waiting for response", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
 
@@ -76,7 +84,9 @@ test.describe("Chat page", () => {
     await input.fill("Thinking test");
     await page.locator("button").filter({ hasText: "Send" }).click();
 
-    await expect(page.locator("button").filter({ hasText: "..." })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "..." }),
+    ).toBeVisible();
   });
 
   test("user message shows 'You' as the role label", async ({ page }) => {
@@ -123,10 +133,14 @@ test.describe("Chat page", () => {
     await input.fill("Restore test");
     await page.locator("button").filter({ hasText: "Send" }).click();
 
-    await expect(page.locator("button").filter({ hasText: "..." })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "..." }),
+    ).toBeVisible();
 
     await simulateAgentResponse(page, "Done!");
-    await expect(page.locator("button").filter({ hasText: "Send" })).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "Send" }),
+    ).toBeVisible();
   });
 
   test("input re-enables after agent responds", async ({ page }) => {
@@ -142,7 +156,9 @@ test.describe("Chat page", () => {
     await expect(input).toBeEnabled();
   });
 
-  test("multi-turn conversation shows all messages in order", async ({ page }) => {
+  test("multi-turn conversation shows all messages in order", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "running", agentName: "Agent" });
     await page.goto("/chat");
 
@@ -161,9 +177,9 @@ test.describe("Chat page", () => {
 
     const messages = page.locator(".chat-msg");
     await expect(messages.nth(0)).toContainText("First question");
-    await expect(messages.nth(1)).toContainText("First question");  // mock echoes input
+    await expect(messages.nth(1)).toContainText("First question"); // mock echoes input
     await expect(messages.nth(2)).toContainText("Second question");
-    await expect(messages.nth(3)).toContainText("Second question");  // mock echoes input
+    await expect(messages.nth(3)).toContainText("Second question"); // mock echoes input
   });
 
   test("pressing Enter sends a message", async ({ page }) => {
@@ -174,7 +190,9 @@ test.describe("Chat page", () => {
     await input.fill("Enter key test");
     await input.press("Enter");
 
-    await expect(page.getByText("Enter key test", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Enter key test", { exact: true }),
+    ).toBeVisible();
   });
 
   test("empty input does not send a message", async ({ page }) => {
@@ -182,23 +200,31 @@ test.describe("Chat page", () => {
     await page.goto("/chat");
 
     await page.locator("button").filter({ hasText: "Send" }).click();
-    await expect(page.getByText("Send a message to start chatting")).toBeVisible();
+    await expect(
+      page.getByText("Send a message to start chatting"),
+    ).toBeVisible();
   });
 
   test("empty state disappears after first message", async ({ page }) => {
     await mockApi(page, { agentState: "running" });
     await page.goto("/chat");
 
-    await expect(page.getByText("Send a message to start chatting")).toBeVisible();
+    await expect(
+      page.getByText("Send a message to start chatting"),
+    ).toBeVisible();
 
     const input = page.locator(".chat-input");
     await input.fill("Goodbye empty state");
     await page.locator("button").filter({ hasText: "Send" }).click();
 
-    await expect(page.getByText("Send a message to start chatting")).not.toBeVisible();
+    await expect(
+      page.getByText("Send a message to start chatting"),
+    ).not.toBeVisible();
   });
 
-  test("clicking Start Agent on stopped state sends start request and shows chat", async ({ page }) => {
+  test("clicking Start Agent on stopped state sends start request and shows chat", async ({
+    page,
+  }) => {
     await mockApi(page, { agentState: "not_started" });
     await page.goto("/chat");
 

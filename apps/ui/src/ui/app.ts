@@ -5,33 +5,39 @@
  * config, and logs views.
  */
 
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { guard } from "lit/directives/guard.js";
 import { keyed } from "lit/directives/keyed.js";
 import { repeat } from "lit/directives/repeat.js";
 import {
-  client,
   type AgentStatus,
   type ChatMessage,
-  type PluginInfo,
-  type PluginParamDef,
-  type SkillInfo,
+  client,
+  type ExtensionStatus,
   type LogEntry,
   type OnboardingOptions,
+  type PluginInfo,
+  type PluginParamDef,
+  type PolymarketPortfolioResponse,
   type ProviderOption,
+  type SkillInfo,
   type SubscriptionStatusEntry,
-  type ExtensionStatus,
   type UiConfigResponse,
   type WalletAddresses,
   type WalletBalancesResponse,
-  type WalletNftsResponse,
   type WalletChain,
   type WalletConfigStatus,
-  type PolymarketPortfolioResponse,
+  type WalletNftsResponse,
   type WorkbenchOverviewResponse,
 } from "./api-client.js";
-import { basePathFromLocation, tabFromPath, pathForTab, type Tab, titleForTab } from "./navigation.js";
+import {
+  basePathFromLocation,
+  pathForTab,
+  type Tab,
+  tabFromPath,
+  titleForTab,
+} from "./navigation.js";
 
 const CHAT_STORAGE_KEY = "milaidy:chatMessages";
 const SESSION_STORAGE_KEY = "milaidy:sessions";
@@ -39,7 +45,8 @@ const SECURITY_STORAGE_KEY = "milaidy:security";
 const PROFILE_IMAGE_STORAGE_KEY = "milaidy:profileImage";
 const PROFILE_ACCENT_STORAGE_KEY = "milaidy:profileAccent";
 const USER_NAME_STORAGE_KEY = "milaidy:userName";
-const USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY = "milaidy:userNameChangeLockUntil";
+const USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY =
+  "milaidy:userNameChangeLockUntil";
 const USER_HANDLE_REGISTRY_STORAGE_KEY = "milaidy:userHandleRegistry";
 const USER_HANDLE_OWNER_ID_STORAGE_KEY = "milaidy:userHandleOwnerId";
 const STYLE_SELECTION_STORAGE_KEY = "milaidy:styleSelection";
@@ -128,56 +135,64 @@ const CURATED_APPS: CuratedAppEntry[] = [
   },
 ];
 const CURATED_APP_ID_SET = new Set(CURATED_APPS.map((app) => app.id));
-const CURATED_APP_ORDER = new Map(CURATED_APPS.map((app, idx) => [app.id, idx]));
+const CURATED_APP_ORDER = new Map(
+  CURATED_APPS.map((app, idx) => [app.id, idx]),
+);
 
 type AppEntry = CuratedAppEntry;
 
-const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> = {
-  elizacloud: {
-    name: "Eliza Cloud",
-    description: "Managed cloud models and services.",
-  },
-  "anthropic-subscription": {
-    name: "Anthropic Subscription",
-    description: "Use your Claude subscription via OAuth or setup token.",
-  },
-  "openai-subscription": {
-    name: "OpenAI Subscription",
-    description: "Use your ChatGPT subscription via OAuth.",
-  },
-  "pi-ai": {
-    name: "Pi Credentials (pi-ai)",
-    description: "Use credentials from ~/.pi/agent/auth.json (API keys or OAuth).",
-  },
-  anthropic: { name: "Anthropic", description: "Claude models." },
-  openai: { name: "OpenAI", description: "GPT models." },
-  openrouter: {
-    name: "OpenRouter",
-    description: "Access multiple models via one API key.",
-  },
-  "google-genai": { name: "Gemini", description: "Google's Gemini models." },
-  xai: { name: "xAI (Grok)", description: "xAI's Grok models." },
-  groq: { name: "Groq", description: "Fast inference." },
-  "vercel-ai-gateway": {
-    name: "Vercel AI Gateway",
-    description: "Unified model routing via Vercel AI Gateway.",
-  },
-  "local-ai": {
-    name: "Local AI",
-    description: "Run local models without external API keys.",
-  },
-  deepseek: { name: "DeepSeek", description: "DeepSeek models." },
-  mistral: { name: "Mistral", description: "Mistral AI models." },
-  together: { name: "Together AI", description: "Open-source model hosting." },
-  ollama: {
-    name: "Ollama (local)",
-    description: "Local models, no API key needed. Requires Ollama running on this device.",
-  },
-  zai: {
-    name: "z.ai (GLM Coding Plan)",
-    description: "GLM models via z.ai Coding Plan.",
-  },
-};
+const AI_PROVIDER_COPY: Record<string, { name: string; description: string }> =
+  {
+    elizacloud: {
+      name: "Eliza Cloud",
+      description: "Managed cloud models and services.",
+    },
+    "anthropic-subscription": {
+      name: "Anthropic Subscription",
+      description: "Use your Claude subscription via OAuth or setup token.",
+    },
+    "openai-subscription": {
+      name: "OpenAI Subscription",
+      description: "Use your ChatGPT subscription via OAuth.",
+    },
+    "pi-ai": {
+      name: "Pi Credentials (pi-ai)",
+      description:
+        "Use credentials from ~/.pi/agent/auth.json (API keys or OAuth).",
+    },
+    anthropic: { name: "Anthropic", description: "Claude models." },
+    openai: { name: "OpenAI", description: "GPT models." },
+    openrouter: {
+      name: "OpenRouter",
+      description: "Access multiple models via one API key.",
+    },
+    "google-genai": { name: "Gemini", description: "Google's Gemini models." },
+    xai: { name: "xAI (Grok)", description: "xAI's Grok models." },
+    groq: { name: "Groq", description: "Fast inference." },
+    "vercel-ai-gateway": {
+      name: "Vercel AI Gateway",
+      description: "Unified model routing via Vercel AI Gateway.",
+    },
+    "local-ai": {
+      name: "Local AI",
+      description: "Run local models without external API keys.",
+    },
+    deepseek: { name: "DeepSeek", description: "DeepSeek models." },
+    mistral: { name: "Mistral", description: "Mistral AI models." },
+    together: {
+      name: "Together AI",
+      description: "Open-source model hosting.",
+    },
+    ollama: {
+      name: "Ollama (local)",
+      description:
+        "Local models, no API key needed. Requires Ollama running on this device.",
+    },
+    zai: {
+      name: "z.ai (GLM Coding Plan)",
+      description: "GLM models via z.ai Coding Plan.",
+    },
+  };
 
 const AI_PROVIDER_ALIASES: Record<string, string> = {
   gemini: "google-genai",
@@ -191,7 +206,9 @@ function canonicalProviderId(id: string): string {
   return AI_PROVIDER_ALIASES[key] ?? key;
 }
 
-function providerCopyForId(id: string): { name: string; description: string } | null {
+function providerCopyForId(
+  id: string,
+): { name: string; description: string } | null {
   return AI_PROVIDER_COPY[canonicalProviderId(id)] ?? null;
 }
 
@@ -286,7 +303,13 @@ export class MilaidyApp extends LitElement {
   @state() chatAutonomyActionMessage: string | null = null;
   @state() chatResumePending = false;
   @state() plugins: PluginInfo[] = [];
-  @state() pluginFilter: "all" | "ai-provider" | "database" | "runtime" | "connector" | "feature" = "all";
+  @state() pluginFilter:
+    | "all"
+    | "ai-provider"
+    | "database"
+    | "runtime"
+    | "connector"
+    | "feature" = "all";
   @state() pluginSearch = "";
   @state() accountsShowAll = false;
   @state() pluginSettingsOpen: Set<string> = new Set();
@@ -324,7 +347,8 @@ export class MilaidyApp extends LitElement {
   @state() inventorySort: "chain" | "symbol" | "value" = "value";
   @state() walletError: string | null = null;
   @state() walletAccountUsername: string | null = null;
-  @state() walletConnectMode: "choose" | "generate" | "import" | "connect" = "choose";
+  @state() walletConnectMode: "choose" | "generate" | "import" | "connect" =
+    "choose";
   @state() walletConnectChain: WalletChain = "both";
   @state() walletImportChain: "evm" | "solana" = "evm";
   @state() walletImportKey = "";
@@ -384,7 +408,10 @@ export class MilaidyApp extends LitElement {
   private activeChatRequestText: string | null = null;
   private pausedChatRequestText: string | null = null;
   private uiNoticeTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly chatTimeFormatter = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" });
+  private readonly chatTimeFormatter = new Intl.DateTimeFormat([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
   private readonly sessionUpdatedFormatter = new Intl.DateTimeFormat([], {
     year: "numeric",
     month: "numeric",
@@ -4197,7 +4224,10 @@ export class MilaidyApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener("popstate", this.handlePopState);
     window.removeEventListener("focus", this.handleDeviceProfileRefresh);
-    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange,
+    );
     if (this.tabDataLoadRaf != null) {
       cancelAnimationFrame(this.tabDataLoadRaf);
       this.tabDataLoadRaf = null;
@@ -4276,20 +4306,28 @@ export class MilaidyApp extends LitElement {
           } catch {
             // Avoid trapping users on "Loading onboarding..." forever when
             // options fetch fails but status endpoint is reachable.
-            const fallback = this.normalizeOnboardingOptions(this.defaultOnboardingOptions());
+            const fallback = this.normalizeOnboardingOptions(
+              this.defaultOnboardingOptions(),
+            );
             this.onboardingOptions = fallback;
             this.prefetchCharacterImages(fallback.names);
-            this.showUiNotice("Using fallback onboarding options. You can update provider settings later.");
+            this.showUiNotice(
+              "Using fallback onboarding options. You can update provider settings later.",
+            );
           }
         }
         serverReady = true;
         if (attempt > 0) {
-          console.info(`[milaidy] Server is ready (connected after ${attempt} ${attempt === 1 ? "retry" : "retries"}).`);
+          console.info(
+            `[milaidy] Server is ready (connected after ${attempt} ${attempt === 1 ? "retry" : "retries"}).`,
+          );
         }
         break; // success
       } catch {
         if (attempt === 0) {
-          console.info("[milaidy] Server is starting up, waiting for it to become available...");
+          console.info(
+            "[milaidy] Server is starting up, waiting for it to become available...",
+          );
         }
         if (attempt < MAX_RETRIES) {
           const delay = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS);
@@ -4298,7 +4336,9 @@ export class MilaidyApp extends LitElement {
       }
     }
     if (!serverReady) {
-      console.warn("[milaidy] Could not reach server after retries — continuing in offline mode.");
+      console.warn(
+        "[milaidy] Could not reach server after retries — continuing in offline mode.",
+      );
     }
     this.onboardingLoading = false;
 
@@ -4374,7 +4414,8 @@ export class MilaidyApp extends LitElement {
       this.appsDetailReady = false;
       // Always open Markets & Apps in collapsed mode for fast first paint.
       this.appTabsExpanded = false;
-      if (this.appsDetailReadyRaf != null) cancelAnimationFrame(this.appsDetailReadyRaf);
+      if (this.appsDetailReadyRaf != null)
+        cancelAnimationFrame(this.appsDetailReadyRaf);
       // Let the tab paint first, then mount the heavier detail panel.
       this.appsDetailReadyRaf = requestAnimationFrame(() => {
         this.appsDetailReadyRaf = null;
@@ -4407,15 +4448,18 @@ export class MilaidyApp extends LitElement {
     this.cancelPendingChatAutoScroll();
     void this.updateComplete.then(() => {
       requestAnimationFrame(() => {
-        const container = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+        const container =
+          this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
         if (!container) return;
         container.scrollTo({ top: 0, behavior: "auto" });
         this.updateChatJumpToLatestVisibility();
         // Final settle pass to defeat any late async scroll writes.
         this.chatAutoScrollTimeout = setTimeout(() => {
           this.chatAutoScrollTimeout = null;
-          const settled = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
-          if (!settled || this.tab !== "chat" || this.chatMessages.length !== 0) return;
+          const settled =
+            this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+          if (!settled || this.tab !== "chat" || this.chatMessages.length !== 0)
+            return;
           settled.scrollTo({ top: 0, behavior: "auto" });
           this.updateChatJumpToLatestVisibility();
         }, 180);
@@ -4460,17 +4504,22 @@ export class MilaidyApp extends LitElement {
       const SUBSCRIPTION_TTL_MS = 45_000;
 
       if (tab === "inventory") {
-        if (isStale(this.inventoryLoadedAt, INVENTORY_TTL_MS)) void this.loadInventory();
+        if (isStale(this.inventoryLoadedAt, INVENTORY_TTL_MS))
+          void this.loadInventory();
         return;
       }
       if (tab === "accounts") {
-        if (isStale(this.walletConfigLoadedAt, WALLET_TTL_MS)) void this.loadWalletConfig();
-        if (isStale(this.inventoryLoadedAt, INVENTORY_TTL_MS)) void this.loadInventory();
+        if (isStale(this.walletConfigLoadedAt, WALLET_TTL_MS))
+          void this.loadWalletConfig();
+        if (isStale(this.inventoryLoadedAt, INVENTORY_TTL_MS))
+          void this.loadInventory();
         return;
       }
       if (tab === "ai-setup") {
-        if (isStale(this.pluginsLoadedAt, PLUGINS_TTL_MS)) void this.loadPlugins();
-        if (isStale(this.subscriptionStatusLoadedAt, SUBSCRIPTION_TTL_MS)) void this.loadSubscriptionStatus();
+        if (isStale(this.pluginsLoadedAt, PLUGINS_TTL_MS))
+          void this.loadPlugins();
+        if (isStale(this.subscriptionStatusLoadedAt, SUBSCRIPTION_TTL_MS))
+          void this.loadSubscriptionStatus();
         return;
       }
       if (tab === "apps") {
@@ -4482,8 +4531,10 @@ export class MilaidyApp extends LitElement {
         return;
       }
       if (tab === "config") {
-        if (isStale(this.extensionCheckedAt, EXTENSION_TTL_MS)) void this.checkExtensionStatus();
-        if (isStale(this.walletConfigLoadedAt, WALLET_TTL_MS)) void this.loadWalletConfig();
+        if (isStale(this.extensionCheckedAt, EXTENSION_TTL_MS))
+          void this.checkExtensionStatus();
+        if (isStale(this.walletConfigLoadedAt, WALLET_TTL_MS))
+          void this.loadWalletConfig();
         return;
       }
       if (tab === "logs") {
@@ -4493,7 +4544,8 @@ export class MilaidyApp extends LitElement {
   }
 
   private schedulePluginsRefresh(): void {
-    if (this.pluginsRefreshRaf != null || this.pluginsRefreshTimeout != null) return;
+    if (this.pluginsRefreshRaf != null || this.pluginsRefreshTimeout != null)
+      return;
     this.pluginsRefreshRaf = requestAnimationFrame(() => {
       this.pluginsRefreshRaf = null;
       // Refresh plugin data in idle-ish time so tab navigation stays instant.
@@ -4588,14 +4640,15 @@ export class MilaidyApp extends LitElement {
     }
   }
 
-
   // --- Agent lifecycle ---
 
   private async handleStart(): Promise<void> {
     try {
       this.setAgentStatus(await client.startAgent());
     } catch (err) {
-      this.showUiNotice(`Could not start agent: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
@@ -4603,7 +4656,9 @@ export class MilaidyApp extends LitElement {
     try {
       this.setAgentStatus(await client.stopAgent());
     } catch (err) {
-      this.showUiNotice(`Could not stop agent: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not stop agent: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
@@ -4615,18 +4670,30 @@ export class MilaidyApp extends LitElement {
       } else if (this.agentStatus.state === "paused") {
         this.setAgentStatus(await client.resumeAgent());
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   private async handleRestart(): Promise<void> {
     try {
       const visualMinMs = 900;
       const started = Date.now();
-      this.setAgentStatus({ ...(this.agentStatus ?? { agentName: "Runtime", model: undefined, uptime: undefined, startedAt: undefined }), state: "restarting" });
+      this.setAgentStatus({
+        ...(this.agentStatus ?? {
+          agentName: "Runtime",
+          model: undefined,
+          uptime: undefined,
+          startedAt: undefined,
+        }),
+        state: "restarting",
+      });
       const next = await client.restartAgent();
       const elapsed = Date.now() - started;
       if (elapsed < visualMinMs) {
-        await new Promise((resolve) => setTimeout(resolve, visualMinMs - elapsed));
+        await new Promise((resolve) =>
+          setTimeout(resolve, visualMinMs - elapsed),
+        );
       }
       this.setAgentStatus(next);
     } catch {
@@ -4634,7 +4701,9 @@ export class MilaidyApp extends LitElement {
       setTimeout(async () => {
         try {
           this.setAgentStatus(await client.getStatus());
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }, 3000);
     }
   }
@@ -4656,8 +4725,7 @@ export class MilaidyApp extends LitElement {
   private async handleReset(): Promise<void> {
     this.openActionConfirm({
       title: "Reset Runtime?",
-      body:
-        "This will wipe config, memory, chats, and local app state. You will return to onboarding.",
+      body: "This will wipe config, memory, chats, and local app state. You will return to onboarding.",
       confirmLabel: "Reset everything",
       danger: true,
       onConfirm: async () => {
@@ -4769,10 +4837,14 @@ export class MilaidyApp extends LitElement {
 
       // Re-fetch onboarding options for the wizard
       try {
-        const options = this.normalizeOnboardingOptions(await client.getOnboardingOptions());
+        const options = this.normalizeOnboardingOptions(
+          await client.getOnboardingOptions(),
+        );
         this.onboardingOptions = options;
         this.prefetchCharacterImages(options.names);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } catch (err) {
       this.appActionStatus = `Reset failed: ${err instanceof Error ? err.message : "unknown error"}`;
     }
@@ -4786,19 +4858,31 @@ export class MilaidyApp extends LitElement {
     const runtimeReady = await this.ensureAgentRunningForChat();
     if (!runtimeReady) return;
     const providerForChat = this.getPreferredAiProviderForChat();
-    const providerIdForChat = providerForChat ? canonicalProviderId(providerForChat.id) : null;
-    const providerReady = Boolean(providerForChat && this.isChatProviderReady(providerForChat));
+    const providerIdForChat = providerForChat
+      ? canonicalProviderId(providerForChat.id)
+      : null;
+    const providerReady = Boolean(
+      providerForChat && this.isChatProviderReady(providerForChat),
+    );
     if (!providerReady) {
       if (this.providerSetupApplying) {
-        this.showUiNotice("Applying model provider settings. Runtime will unlock chat after restart.");
+        this.showUiNotice(
+          "Applying model provider settings. Runtime will unlock chat after restart.",
+        );
       } else {
-        this.showUiNotice("Connect an AI provider in AI Settings to start chatting.");
+        this.showUiNotice(
+          "Connect an AI provider in AI Settings to start chatting.",
+        );
         this.setTab("ai-setup");
       }
       return;
     }
-    if (providerIdForChat && this.creditBlockedProviderId === providerIdForChat) {
-      const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
+    if (
+      providerIdForChat &&
+      this.creditBlockedProviderId === providerIdForChat
+    ) {
+      const textarea =
+        this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
       if (textarea) textarea.value = "";
       this.chatInput = "";
       this.updateChatCountDisplay(0);
@@ -4808,7 +4892,11 @@ export class MilaidyApp extends LitElement {
         ...this.chatMessages,
         { role: "assistant", text: blockedText, timestamp: Date.now() },
       ];
-      this.setProviderHealthState("Credits exhausted", "warn", "Insufficient provider credits");
+      this.setProviderHealthState(
+        "Credits exhausted",
+        "warn",
+        "Insufficient provider credits",
+      );
       this.scrollChatToLatest("smooth", true);
       this.saveChatMessages();
       this.activeChatRequestText = null;
@@ -4827,7 +4915,8 @@ export class MilaidyApp extends LitElement {
 
     // chatInput is intentionally non-reactive for perf, so clear the DOM
     // textarea directly to avoid stale text being re-sent.
-    const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
+    const textarea =
+      this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
     if (textarea) textarea.value = "";
 
     this.chatMessages = [
@@ -4863,7 +4952,9 @@ export class MilaidyApp extends LitElement {
         const firstMsg =
           firstErr instanceof Error
             ? firstErr.message.toLowerCase()
-            : (typeof firstErr === "string" ? firstErr.toLowerCase() : "");
+            : typeof firstErr === "string"
+              ? firstErr.toLowerCase()
+              : "";
         if (firstMsg.includes("agent is not running")) {
           const readyAfterRetry = await this.ensureAgentRunningForChat();
           if (readyAfterRetry) {
@@ -4918,9 +5009,9 @@ export class MilaidyApp extends LitElement {
       const aborted =
         err instanceof DOMException
           ? err.name === "AbortError"
-          : (typeof err === "object" && err !== null && "name" in err
+          : typeof err === "object" && err !== null && "name" in err
             ? (err as { name?: string }).name === "AbortError"
-            : false);
+            : false;
       if (aborted && didTimeout) {
         const errorText =
           "Provider response timed out. Retry, switch model provider, or use a shorter request.";
@@ -4928,7 +5019,11 @@ export class MilaidyApp extends LitElement {
           ...this.chatMessages,
           { role: "assistant", text: errorText, timestamp: Date.now() },
         ];
-        this.setProviderHealthState("Timeout", "warn", "Slow response on last request");
+        this.setProviderHealthState(
+          "Timeout",
+          "warn",
+          "Slow response on last request",
+        );
         this.scrollChatToLatest("smooth", true);
         this.saveChatMessages();
         this.activeChatRequestText = null;
@@ -4936,21 +5031,22 @@ export class MilaidyApp extends LitElement {
         const raw =
           err instanceof Error
             ? err.message
-            : (typeof err === "string" ? err : "");
+            : typeof err === "string"
+              ? err
+              : "";
         const lower = raw.trim().toLowerCase();
         if (
           lower.includes("ai_provider_required") ||
           lower.includes("provider not connected") ||
           lower.includes("ai provider not connected")
         ) {
-          this.showUiNotice("Connect your AI provider in AI Settings to continue.");
+          this.showUiNotice(
+            "Connect your AI provider in AI Settings to continue.",
+          );
           this.setTab("ai-setup");
         }
         this.setProviderHealthFromError(err);
-        if (
-          providerIdForChat &&
-          this.isInsufficientCreditsSignal(err)
-        ) {
+        if (providerIdForChat && this.isInsufficientCreditsSignal(err)) {
           this.creditBlockedProviderId = providerIdForChat;
         }
         let errorText = this.chatErrorMessage(err);
@@ -5037,7 +5133,8 @@ export class MilaidyApp extends LitElement {
   }
 
   private isChatNearBottom(container: HTMLElement, threshold = 96): boolean {
-    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const distance =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
     return distance <= threshold;
   }
 
@@ -5046,12 +5143,14 @@ export class MilaidyApp extends LitElement {
       if (this.chatShowJumpToLatest) this.chatShowJumpToLatest = false;
       return;
     }
-    const container = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+    const container =
+      this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
     if (!container) {
       this.chatShowJumpToLatest = false;
       return;
     }
-    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const distance =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
     const shouldShow = this.chatMessages.length > 2 && distance > 180;
     if (this.chatShowJumpToLatest !== shouldShow) {
       this.chatShowJumpToLatest = shouldShow;
@@ -5077,13 +5176,15 @@ export class MilaidyApp extends LitElement {
     this.chatAutoScrollRaf = requestAnimationFrame(() => {
       this.chatAutoScrollRaf = requestAnimationFrame(() => {
         this.chatAutoScrollRaf = null;
-        const container = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+        const container =
+          this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
         if (!container) return;
         if (!force && !this.isChatNearBottom(container)) {
           this.updateChatJumpToLatestVisibility();
           return;
         }
-        const anchor = this.shadowRoot?.querySelector<HTMLElement>(".chat-end-anchor");
+        const anchor =
+          this.shadowRoot?.querySelector<HTMLElement>(".chat-end-anchor");
         if (anchor) {
           anchor.scrollIntoView({ behavior, block: "end" });
         } else {
@@ -5091,20 +5192,28 @@ export class MilaidyApp extends LitElement {
         }
         // Final settle pass after smooth animation/layout updates to prevent
         // slight bounce-back when the browser readjusts scroll anchoring.
-        this.chatAutoScrollTimeout = setTimeout(() => {
-          this.chatAutoScrollTimeout = null;
-          const settledContainer = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
-          if (!settledContainer) return;
-          if (!force && !this.isChatNearBottom(settledContainer)) return;
-          settledContainer.scrollTo({ top: Number.MAX_SAFE_INTEGER, behavior: "auto" });
-          this.updateChatJumpToLatestVisibility();
-        }, behavior === "smooth" ? 280 : 0);
+        this.chatAutoScrollTimeout = setTimeout(
+          () => {
+            this.chatAutoScrollTimeout = null;
+            const settledContainer =
+              this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+            if (!settledContainer) return;
+            if (!force && !this.isChatNearBottom(settledContainer)) return;
+            settledContainer.scrollTo({
+              top: Number.MAX_SAFE_INTEGER,
+              behavior: "auto",
+            });
+            this.updateChatJumpToLatestVisibility();
+          },
+          behavior === "smooth" ? 280 : 0,
+        );
       });
     });
   }
 
   private scrollChatToTop(behavior: ScrollBehavior = "auto"): void {
-    const container = this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
+    const container =
+      this.shadowRoot?.querySelector<HTMLElement>(".chat-messages");
     if (!container) return;
     container.scrollTo({ top: 0, behavior });
   }
@@ -5139,11 +5248,15 @@ export class MilaidyApp extends LitElement {
         ? (value as { details?: Record<string, unknown> }).details
         : undefined;
     const code =
-      details && typeof details.code === "string" ? details.code.toLowerCase() : "";
+      details && typeof details.code === "string"
+        ? details.code.toLowerCase()
+        : "";
     const raw =
       value instanceof Error
         ? value.message
-        : (typeof value === "string" ? value : "");
+        : typeof value === "string"
+          ? value
+          : "";
     const lower = raw.trim().toLowerCase();
     if (
       code.includes("insufficient_credits") ||
@@ -5168,40 +5281,85 @@ export class MilaidyApp extends LitElement {
     const code =
       details && typeof details.code === "string" ? details.code : null;
     const raw =
-      err instanceof Error
-        ? err.message
-        : (typeof err === "string" ? err : "");
+      err instanceof Error ? err.message : typeof err === "string" ? err : "";
     const lower = raw.trim().toLowerCase();
 
     if (this.isInsufficientCreditsSignal(err)) {
-      this.setProviderHealthState("Credits exhausted", "warn", "Insufficient provider credits");
+      this.setProviderHealthState(
+        "Credits exhausted",
+        "warn",
+        "Insufficient provider credits",
+      );
       return;
     }
-    if (code === "PROVIDER_QUOTA" || lower.includes("insufficient_quota") || lower.includes("quota")) {
-      this.setProviderHealthState("Quota issue", "warn", "Billing/usage limit reached");
+    if (
+      code === "PROVIDER_QUOTA" ||
+      lower.includes("insufficient_quota") ||
+      lower.includes("quota")
+    ) {
+      this.setProviderHealthState(
+        "Quota issue",
+        "warn",
+        "Billing/usage limit reached",
+      );
       return;
     }
-    if (code === "PROVIDER_AUTH" || lower.includes("invalid api key") || lower.includes("unauthorized")) {
-      this.setProviderHealthState("Auth issue", "risk", "API key invalid or missing");
+    if (
+      code === "PROVIDER_AUTH" ||
+      lower.includes("invalid api key") ||
+      lower.includes("unauthorized")
+    ) {
+      this.setProviderHealthState(
+        "Auth issue",
+        "risk",
+        "API key invalid or missing",
+      );
       return;
     }
-    if (code === "PROVIDER_NOT_RUNNING" || lower.includes("ollama") || lower.includes("connection refused")) {
-      this.setProviderHealthState("Provider offline", "warn", "Local provider not reachable");
+    if (
+      code === "PROVIDER_NOT_RUNNING" ||
+      lower.includes("ollama") ||
+      lower.includes("connection refused")
+    ) {
+      this.setProviderHealthState(
+        "Provider offline",
+        "warn",
+        "Local provider not reachable",
+      );
       return;
     }
-    if (code === "PROVIDER_TIMEOUT" || lower.includes("timed out") || lower.includes("timeout")) {
+    if (
+      code === "PROVIDER_TIMEOUT" ||
+      lower.includes("timed out") ||
+      lower.includes("timeout")
+    ) {
       this.setProviderHealthState("Timeout", "warn", "Provider response slow");
       return;
     }
     if (code === "PROVIDER_RESTART_REQUIRED" || lower.includes("not loaded")) {
-      this.setProviderHealthState("Restart required", "warn", "Reload provider settings");
+      this.setProviderHealthState(
+        "Restart required",
+        "warn",
+        "Reload provider settings",
+      );
       return;
     }
-    if (code === "AI_PROVIDER_REQUIRED" || lower.includes("provider not connected")) {
-      this.setProviderHealthState("Not connected", "warn", "Connect a provider in AI Settings");
+    if (
+      code === "AI_PROVIDER_REQUIRED" ||
+      lower.includes("provider not connected")
+    ) {
+      this.setProviderHealthState(
+        "Not connected",
+        "warn",
+        "Connect a provider in AI Settings",
+      );
       return;
     }
-    this.setProviderHealthState("Provider issue", "warn", "Check provider settings");
+    this.setProviderHealthState(
+      "Provider issue",
+      "warn",
+      "Check provider settings",
+    );
   }
 
   private chatErrorMessage(err: unknown): string {
@@ -5231,9 +5389,7 @@ export class MilaidyApp extends LitElement {
       return "Connect your AI provider key in AI Settings to chat.";
     }
     const raw =
-      err instanceof Error
-        ? err.message
-        : (typeof err === "string" ? err : "");
+      err instanceof Error ? err.message : typeof err === "string" ? err : "";
     const msg = raw.trim();
     if (!msg) return fallback;
     const lower = msg.toLowerCase();
@@ -5307,9 +5463,7 @@ export class MilaidyApp extends LitElement {
       return "Authentication issue with the provider. Please verify your API key.";
     }
 
-    if (
-      lower.includes("429") && lower.includes("openai")
-    ) {
+    if (lower.includes("429") && lower.includes("openai")) {
       return "Provider rate limit reached. Please wait briefly and retry.";
     }
 
@@ -5333,7 +5487,8 @@ export class MilaidyApp extends LitElement {
       const phase = extra.startup?.phase;
       const startupError = extra.startup?.lastError?.trim();
       const pendingReason =
-        Array.isArray(extra.pendingRestartReasons) && extra.pendingRestartReasons.length > 0
+        Array.isArray(extra.pendingRestartReasons) &&
+        extra.pendingRestartReasons.length > 0
           ? extra.pendingRestartReasons[0]
           : null;
       if (phase && phase !== "running") {
@@ -5352,9 +5507,9 @@ export class MilaidyApp extends LitElement {
     try {
       const data = await client.getLogs();
       const entries = data.entries ?? [];
-      const latest = [...entries].reverse().find((entry) =>
-        entry.level === "error" || entry.level === "warn",
-      );
+      const latest = [...entries]
+        .reverse()
+        .find((entry) => entry.level === "error" || entry.level === "warn");
       if (latest?.message) {
         const msg = latest.message.trim();
         if (msg.length > 0) {
@@ -5372,10 +5527,13 @@ export class MilaidyApp extends LitElement {
     return "Runtime is not running. Open Config to view startup errors, then restart the agent.";
   }
 
-  private isGenericAssistantFailureText(text: string | null | undefined): boolean {
+  private isGenericAssistantFailureText(
+    text: string | null | undefined,
+  ): boolean {
     const value = (text ?? "").trim().toLowerCase();
     return (
-      value === "sorry, i couldn't generate a response right now. please try again." ||
+      value ===
+        "sorry, i couldn't generate a response right now. please try again." ||
       value === "provider timed out. try again."
     );
   }
@@ -5400,7 +5558,8 @@ export class MilaidyApp extends LitElement {
         joined.includes("unauthorized")
       ) {
         return {
-          message: "Provider authentication failed. Your API key looks invalid or expired. Update it in AI Settings, save, then restart agent.",
+          message:
+            "Provider authentication failed. Your API key looks invalid or expired. Update it in AI Settings, save, then restart agent.",
           label: "Auth issue",
           tone: "risk",
           detail: "Invalid or expired API key",
@@ -5412,7 +5571,8 @@ export class MilaidyApp extends LitElement {
         joined.includes("ai_apicallerror: insufficient credits")
       ) {
         return {
-          message: "Provider credits are exhausted. Add credits to the current provider or switch to another provider in AI Settings.",
+          message:
+            "Provider credits are exhausted. Add credits to the current provider or switch to another provider in AI Settings.",
           label: "Credits exhausted",
           tone: "warn",
           detail: "Insufficient provider credits",
@@ -5425,20 +5585,23 @@ export class MilaidyApp extends LitElement {
         joined.includes("http 429")
       ) {
         return {
-          message: "Provider quota or rate limit reached. Check billing/usage limits, then retry.",
+          message:
+            "Provider quota or rate limit reached. Check billing/usage limits, then retry.",
           label: "Quota issue",
           tone: "warn",
           detail: "Rate limit or quota reached",
         };
       }
       if (
-        joined.includes("column \"trajectory_id\"") ||
+        joined.includes('column "trajectory_id"') ||
         joined.includes("failed query") ||
         joined.includes("create schema if not exists migrations") ||
-        joined.includes("select \"id\", \"agent_id\", \"name\"") && joined.includes("from \"worlds\"")
+        (joined.includes('select "id", "agent_id", "name"') &&
+          joined.includes('from "worlds"'))
       ) {
         return {
-          message: "Runtime database state is inconsistent. Open Config and run wipe/reset data, then start agent again.",
+          message:
+            "Runtime database state is inconsistent. Open Config and run wipe/reset data, then start agent again.",
           label: "DB issue",
           tone: "risk",
           detail: "Database schema/state mismatch",
@@ -5446,7 +5609,8 @@ export class MilaidyApp extends LitElement {
       }
       if (joined.includes("agent is not running")) {
         return {
-          message: "Runtime is not running. Start the agent in Config, then retry chat.",
+          message:
+            "Runtime is not running. Start the agent in Config, then retry chat.",
           label: "Agent stopped",
           tone: "warn",
           detail: "Agent runtime is stopped",
@@ -5457,7 +5621,8 @@ export class MilaidyApp extends LitElement {
         joined.includes("module not found")
       ) {
         return {
-          message: "Runtime failed to load a required plugin/module. This is a backend dependency issue, not your prompt.",
+          message:
+            "Runtime failed to load a required plugin/module. This is a backend dependency issue, not your prompt.",
           label: "Module issue",
           tone: "risk",
           detail: "Missing runtime module/plugin",
@@ -5468,7 +5633,8 @@ export class MilaidyApp extends LitElement {
         joined.includes("failed to start server. is port")
       ) {
         return {
-          message: "Runtime failed to bind its API port because it is already in use.",
+          message:
+            "Runtime failed to bind its API port because it is already in use.",
           label: "Port conflict",
           tone: "warn",
           detail: "Backend port already in use",
@@ -5476,7 +5642,8 @@ export class MilaidyApp extends LitElement {
       }
       if (joined.includes("timed out") || joined.includes("timeout")) {
         return {
-          message: "Provider timed out. Retry with a shorter prompt or switch provider.",
+          message:
+            "Provider timed out. Retry with a shorter prompt or switch provider.",
           label: "Timeout",
           tone: "warn",
           detail: "Provider response timeout",
@@ -5491,9 +5658,12 @@ export class MilaidyApp extends LitElement {
   private async handleChatStop(): Promise<void> {
     if (!this.chatSending) return;
     this.pausedChatRequestText =
-      this.activeChatRequestText
-      ?? this.chatMessages.slice().reverse().find((m) => m.role === "user")?.text
-      ?? null;
+      this.activeChatRequestText ??
+      this.chatMessages
+        .slice()
+        .reverse()
+        .find((m) => m.role === "user")?.text ??
+      null;
     this.inFlightChatAbort?.abort();
     this.inFlightChatAbort = null;
     this.activeChatRequestText = null;
@@ -5519,7 +5689,9 @@ export class MilaidyApp extends LitElement {
   private formatChatTime(timestamp: number): string {
     const cached = this.chatTimeCache.get(timestamp);
     if (cached) return cached;
-    const formatted = this.chatTimeFormatter.format(new Date(timestamp || Date.now()));
+    const formatted = this.chatTimeFormatter.format(
+      new Date(timestamp || Date.now()),
+    );
     this.chatTimeCache.set(timestamp, formatted);
     return formatted;
   }
@@ -5539,7 +5711,9 @@ export class MilaidyApp extends LitElement {
   private renderMentionHighlights(text: string) {
     const mentionBase = (this.userDisplayName ?? "").trim();
     if (!mentionBase || mentionBase === "@you") return text;
-    const mention = mentionBase.startsWith("@") ? mentionBase : `@${mentionBase}`;
+    const mention = mentionBase.startsWith("@")
+      ? mentionBase
+      : `@${mentionBase}`;
     if (!mention || mention === "@") return text;
     const matcher = new RegExp(`(${this.escapeRegExp(mention)})`, "gi");
     const parts = text.split(matcher);
@@ -5555,7 +5729,9 @@ export class MilaidyApp extends LitElement {
     const lines = text
       .split(/\r?\n/)
       .map((line) => line.trim())
-      .filter((line) => Boolean(line) && line.toLowerCase() !== "wallet snapshot");
+      .filter(
+        (line) => Boolean(line) && line.toLowerCase() !== "wallet snapshot",
+      );
     if (lines.length === 0) return null;
 
     const hasWalletLine = lines.some((line) => /^solana wallet:/i.test(line));
@@ -5566,10 +5742,16 @@ export class MilaidyApp extends LitElement {
       if (/^solana wallet:/i.test(line)) {
         const value = line.replace(/^solana wallet:\s*/i, "").trim();
         const looksAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
-        const displayValue = looksAddress && value.length > 10 ? `${value.slice(0, 4)}...${value.slice(-4)}` : value;
-        const fullAddressFromState = (this.walletAddresses?.solanaAddress ?? "").trim();
+        const displayValue =
+          looksAddress && value.length > 10
+            ? `${value.slice(0, 4)}...${value.slice(-4)}`
+            : value;
+        const fullAddressFromState = (
+          this.walletAddresses?.solanaAddress ?? ""
+        ).trim();
         const copyValue =
-          fullAddressFromState && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(fullAddressFromState)
+          fullAddressFromState &&
+          /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(fullAddressFromState)
             ? fullAddressFromState
             : value;
         return html`<span class="chat-snapshot-line"><span class="chat-snapshot-label">Solana wallet:</span><button class="chat-copy-value" title="Tap to copy wallet" @click=${async () => {
@@ -5587,7 +5769,9 @@ export class MilaidyApp extends LitElement {
     });
   }
 
-  private async resolveFullSolanaAddress(candidate: string): Promise<string | null> {
+  private async resolveFullSolanaAddress(
+    candidate: string,
+  ): Promise<string | null> {
     const trimmed = candidate.trim();
     if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return trimmed;
 
@@ -5617,16 +5801,24 @@ export class MilaidyApp extends LitElement {
     if (cache.sourceRef === this.chatSessions && cache.search === searchLower) {
       return cache.result;
     }
-    const result = this.chatSessions.filter((s) =>
-      !searchLower || s.name.toLowerCase().includes(searchLower),
+    const result = this.chatSessions.filter(
+      (s) => !searchLower || s.name.toLowerCase().includes(searchLower),
     );
-    this.visibleSessionsCache = { sourceRef: this.chatSessions, search: searchLower, result };
+    this.visibleSessionsCache = {
+      sourceRef: this.chatSessions,
+      search: searchLower,
+      result,
+    };
     return result;
   }
 
-  private getTopVisibleSessions(sessions: ChatSession[], limit: number): ChatSession[] {
+  private getTopVisibleSessions(
+    sessions: ChatSession[],
+    limit: number,
+  ): ChatSession[] {
     const cache = this.topVisibleSessionsCache;
-    if (cache.sourceRef === sessions && cache.limit === limit) return cache.result;
+    if (cache.sourceRef === sessions && cache.limit === limit)
+      return cache.result;
     const result = sessions.slice(0, limit);
     this.topVisibleSessionsCache = { sourceRef: sessions, limit, result };
     return result;
@@ -5639,11 +5831,11 @@ export class MilaidyApp extends LitElement {
     }
     const prev = this.agentStatus;
     if (
-      prev
-      && prev.state === next.state
-      && prev.agentName === next.agentName
-      && (prev.model ?? "") === (next.model ?? "")
-      && (prev.startedAt ?? 0) === (next.startedAt ?? 0)
+      prev &&
+      prev.state === next.state &&
+      prev.agentName === next.agentName &&
+      (prev.model ?? "") === (next.model ?? "") &&
+      (prev.startedAt ?? 0) === (next.startedAt ?? 0)
     ) {
       // Ignore uptime-only websocket churn to keep UI responsive while typing.
       return;
@@ -5681,7 +5873,12 @@ export class MilaidyApp extends LitElement {
       if (!activeId) return;
       const nextSessions = this.chatSessions.map((s) =>
         s.id === activeId
-          ? { ...s, updatedAt: Date.now(), messages: [...this.chatMessages], name: this.deriveSessionName(this.chatMessages, s.name) }
+          ? {
+              ...s,
+              updatedAt: Date.now(),
+              messages: [...this.chatMessages],
+              name: this.deriveSessionName(this.chatMessages, s.name),
+            }
           : s,
       );
       this.chatSessions = nextSessions;
@@ -5697,10 +5894,15 @@ export class MilaidyApp extends LitElement {
       if (sessionsRaw) {
         const parsed = JSON.parse(sessionsRaw) as ChatSession[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          this.chatSessions = this.collapseEmptySessions(parsed.sort((a, b) => b.updatedAt - a.updatedAt));
+          this.chatSessions = this.collapseEmptySessions(
+            parsed.sort((a, b) => b.updatedAt - a.updatedAt),
+          );
           this.activeSessionId = this.chatSessions[0].id;
           this.chatMessages = [...this.chatSessions[0].messages];
-          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(this.chatSessions));
+          localStorage.setItem(
+            SESSION_STORAGE_KEY,
+            JSON.stringify(this.chatSessions),
+          );
           return;
         }
       }
@@ -5718,7 +5920,10 @@ export class MilaidyApp extends LitElement {
           this.chatSessions = [seed];
           this.activeSessionId = seed.id;
           this.chatMessages = [...seed.messages];
-          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(this.chatSessions));
+          localStorage.setItem(
+            SESSION_STORAGE_KEY,
+            JSON.stringify(this.chatSessions),
+          );
           return;
         }
       }
@@ -5771,7 +5976,8 @@ export class MilaidyApp extends LitElement {
 
   private sessionNeedsFundsConfirmation(session: ChatSession | null): boolean {
     if (!session || session.messages.length === 0) return false;
-    const fundsPattern = /\b(polymarket|bet|spend|swap|transfer|send\s+sol|send\s+usdc|buy|sell|position|trade)\b/i;
+    const fundsPattern =
+      /\b(polymarket|bet|spend|swap|transfer|send\s+sol|send\s+usdc|buy|sell|position|trade)\b/i;
     return session.messages.some((m) => fundsPattern.test(m.text || ""));
   }
 
@@ -5802,7 +6008,9 @@ export class MilaidyApp extends LitElement {
 
     this.chatSessions = nextSessions;
     if (this.activeSessionId === sessionId) {
-      const nextActive = nextSessions[Math.min(removeIndex, nextSessions.length - 1)] ?? nextSessions[0];
+      const nextActive =
+        nextSessions[Math.min(removeIndex, nextSessions.length - 1)] ??
+        nextSessions[0];
       this.activeSessionId = nextActive.id;
       this.chatMessages = [...nextActive.messages];
       this.chatShowAllMessages = false;
@@ -5812,10 +6020,18 @@ export class MilaidyApp extends LitElement {
     }
 
     try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(this.chatSessions));
+      localStorage.setItem(
+        SESSION_STORAGE_KEY,
+        JSON.stringify(this.chatSessions),
+      );
       if (this.activeSessionId) {
-        const activeSession = this.chatSessions.find((s) => s.id === this.activeSessionId);
-        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(activeSession?.messages ?? []));
+        const activeSession = this.chatSessions.find(
+          (s) => s.id === this.activeSessionId,
+        );
+        localStorage.setItem(
+          CHAT_STORAGE_KEY,
+          JSON.stringify(activeSession?.messages ?? []),
+        );
       } else {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify([]));
       }
@@ -5824,7 +6040,10 @@ export class MilaidyApp extends LitElement {
     }
   }
 
-  private requestClearConfirmForSession = (sessionId: string, event?: Event): void => {
+  private requestClearConfirmForSession = (
+    sessionId: string,
+    event?: Event,
+  ): void => {
     event?.preventDefault();
     event?.stopPropagation();
     if (this.chatSessions.length <= 1) {
@@ -5832,7 +6051,8 @@ export class MilaidyApp extends LitElement {
       return;
     }
     if (!sessionId) return;
-    const targetSession = this.chatSessions.find((s) => s.id === sessionId) ?? null;
+    const targetSession =
+      this.chatSessions.find((s) => s.id === sessionId) ?? null;
     if (!targetSession) return;
     if (this.tab !== "chat") {
       this.setTab("chat");
@@ -5867,7 +6087,8 @@ export class MilaidyApp extends LitElement {
     event?.stopPropagation();
     const targetId = this.clearDialogSessionId;
     if (!targetId) return;
-    const targetSession = this.chatSessions.find((s) => s.id === targetId) ?? null;
+    const targetSession =
+      this.chatSessions.find((s) => s.id === targetId) ?? null;
     const risky = this.sessionNeedsFundsConfirmation(targetSession);
     this.clearDialogOpen = false;
     this.clearDialogSessionId = null;
@@ -5923,7 +6144,10 @@ export class MilaidyApp extends LitElement {
         this.syncChatViewportForActiveSession("auto");
       }
       try {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(this.chatSessions));
+        localStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify(this.chatSessions),
+        );
       } catch {
         // ignore
       }
@@ -5937,7 +6161,10 @@ export class MilaidyApp extends LitElement {
       updatedAt: Date.now(),
       messages: [],
     };
-    this.chatSessions = this.collapseEmptySessions([created, ...this.chatSessions]);
+    this.chatSessions = this.collapseEmptySessions([
+      created,
+      ...this.chatSessions,
+    ]);
     this.activeSessionId = created.id;
     this.chatMessages = [];
     this.chatShowAllMessages = false;
@@ -5949,7 +6176,10 @@ export class MilaidyApp extends LitElement {
       this.syncChatViewportForActiveSession("auto");
     }
     try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(this.chatSessions));
+      localStorage.setItem(
+        SESSION_STORAGE_KEY,
+        JSON.stringify(this.chatSessions),
+      );
     } catch {
       // ignore
     }
@@ -5982,7 +6212,8 @@ export class MilaidyApp extends LitElement {
       confirmBeforeExecution: this.securityRequireExecuteConfirm,
       confirmBeforeSpend: this.securityRequireSpendConfirm,
       spendGuardEnabled: this.securitySpendGuardEnabled,
-      polymarketExecutionEnabled: this.pluginExecutionToggles["polymarket"] === true,
+      polymarketExecutionEnabled:
+        this.pluginExecutionToggles["polymarket"] === true,
       dailySpendLimitUsd: this.securityBetDailyLimitUsd,
       perTradeLimitUsd: this.securityBetPerTradeLimitUsd,
       cooldownSeconds: this.securityBetCooldownSec,
@@ -6009,13 +6240,17 @@ export class MilaidyApp extends LitElement {
       this.securityBetDailyLimitUsd = Number.isFinite(parsed.betDailyLimitUsd)
         ? Math.max(1, Number(parsed.betDailyLimitUsd))
         : 50;
-      this.securityBetPerTradeLimitUsd = Number.isFinite(parsed.betPerTradeLimitUsd)
+      this.securityBetPerTradeLimitUsd = Number.isFinite(
+        parsed.betPerTradeLimitUsd,
+      )
         ? Math.max(1, Number(parsed.betPerTradeLimitUsd))
         : 20;
       this.securityBetCooldownSec = Number.isFinite(parsed.betCooldownSec)
         ? Math.max(0, Number(parsed.betCooldownSec))
         : 30;
-      this.securityAuditActions = Array.isArray(parsed.audit) ? parsed.audit : [];
+      this.securityAuditActions = Array.isArray(parsed.audit)
+        ? parsed.audit
+        : [];
       this.pluginExecutionToggles = parsed.pluginExecutionToggles ?? {};
     } catch {
       // ignore
@@ -6057,13 +6292,21 @@ export class MilaidyApp extends LitElement {
       kind,
       detail,
     };
-    this.securityAuditActions = [entry, ...this.securityAuditActions].slice(0, 40);
+    this.securityAuditActions = [entry, ...this.securityAuditActions].slice(
+      0,
+      40,
+    );
     this.saveSecurityState();
   }
 
   private pluginRisk(plugin: PluginInfo): "SAFE" | "CAN_EXECUTE" | "CAN_SPEND" {
     if (plugin.id === "polymarket") return "CAN_SPEND";
-    if (plugin.id.includes("solana") || plugin.id.includes("evm") || plugin.id.includes("wallet")) return "CAN_EXECUTE";
+    if (
+      plugin.id.includes("solana") ||
+      plugin.id.includes("evm") ||
+      plugin.id.includes("wallet")
+    )
+      return "CAN_EXECUTE";
     return "SAFE";
   }
 
@@ -6072,7 +6315,10 @@ export class MilaidyApp extends LitElement {
     start.setHours(0, 0, 0, 0);
     const startMs = start.getTime();
     return this.securityAuditActions
-      .filter((a) => a.risk === "CAN_SPEND" && a.kind === "prepared" && a.at >= startMs)
+      .filter(
+        (a) =>
+          a.risk === "CAN_SPEND" && a.kind === "prepared" && a.at >= startMs,
+      )
       .reduce((sum, a) => {
         const match = /\$([0-9]+(?:\.[0-9]+)?)/.exec(a.detail);
         if (!match) return sum;
@@ -6082,12 +6328,20 @@ export class MilaidyApp extends LitElement {
   }
 
   private getLastSpendAtMs(): number | null {
-    const last = this.securityAuditActions.find((a) => a.risk === "CAN_SPEND" && a.kind === "prepared");
+    const last = this.securityAuditActions.find(
+      (a) => a.risk === "CAN_SPEND" && a.kind === "prepared",
+    );
     return last?.at ?? null;
   }
 
-  private pluginStatusLabel(plugin: PluginInfo): "Loaded" | "Missing keys" | "Missing auth" | "Disabled" {
-    if (this.isSubscriptionProvider(plugin) && !this.isSubscriptionAuthenticated(plugin)) return "Missing auth";
+  private pluginStatusLabel(
+    plugin: PluginInfo,
+  ): "Loaded" | "Missing keys" | "Missing auth" | "Disabled" {
+    if (
+      this.isSubscriptionProvider(plugin) &&
+      !this.isSubscriptionAuthenticated(plugin)
+    )
+      return "Missing auth";
     if (plugin.validationErrors.length > 0) return "Missing keys";
     if (plugin.enabled) return "Loaded";
     return "Disabled";
@@ -6106,7 +6360,9 @@ export class MilaidyApp extends LitElement {
   }
 
   private isSensitiveFieldVisible(pluginId: string, key: string): boolean {
-    return this.sensitiveFieldVisible[this.sensitiveFieldId(pluginId, key)] === true;
+    return (
+      this.sensitiveFieldVisible[this.sensitiveFieldId(pluginId, key)] === true
+    );
   }
 
   private toggleSensitiveFieldVisibility(pluginId: string, key: string): void {
@@ -6119,9 +6375,13 @@ export class MilaidyApp extends LitElement {
 
   private hexToRgb(hex: string): { r: number; g: number; b: number } {
     const clean = hex.replace("#", "").trim();
-    const normalized = clean.length === 3
-      ? clean.split("").map((c) => `${c}${c}`).join("")
-      : clean;
+    const normalized =
+      clean.length === 3
+        ? clean
+            .split("")
+            .map((c) => `${c}${c}`)
+            .join("")
+        : clean;
     const num = Number.parseInt(normalized, 16);
     return {
       r: (num >> 16) & 255,
@@ -6162,8 +6422,7 @@ export class MilaidyApp extends LitElement {
       "--border-soft": this.tintHex(accent, 0.8),
       "--bg-muted": "#f5ece4",
       "--bg-hover": "rgba(245, 122, 59, 0.08)",
-      "--app-shell-background":
-        `radial-gradient(circle at 10% 8%, rgba(255,255,255,0.86), transparent 32%), radial-gradient(circle at 90% 8%, color-mix(in srgb, ${accent} 28%, white), transparent 30%), linear-gradient(180deg, ${this.tintHex(accent, 0.95)} 0%, ${this.tintHex(accent, 0.9)} 45%, ${this.tintHex(accent, 0.86)} 100%)`,
+      "--app-shell-background": `radial-gradient(circle at 10% 8%, rgba(255,255,255,0.86), transparent 32%), radial-gradient(circle at 90% 8%, color-mix(in srgb, ${accent} 28%, white), transparent 30%), linear-gradient(180deg, ${this.tintHex(accent, 0.95)} 0%, ${this.tintHex(accent, 0.9)} 45%, ${this.tintHex(accent, 0.86)} 100%)`,
     };
   }
 
@@ -6205,12 +6464,16 @@ export class MilaidyApp extends LitElement {
       const image = localStorage.getItem(PROFILE_IMAGE_STORAGE_KEY);
       const accent = localStorage.getItem(PROFILE_ACCENT_STORAGE_KEY);
       const displayName = localStorage.getItem(USER_NAME_STORAGE_KEY);
-      const lockUntilRaw = localStorage.getItem(USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY);
+      const lockUntilRaw = localStorage.getItem(
+        USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY,
+      );
       const style = localStorage.getItem(STYLE_SELECTION_STORAGE_KEY);
       const provider = localStorage.getItem(PROVIDER_SELECTION_STORAGE_KEY);
       if (image) this.profileImageUrl = image;
       if (accent) this.profileAccent = accent;
-      if (displayName && displayName.trim()) this.userDisplayName = this.normalizeUserHandle(displayName.trim()) || "@you";
+      if (displayName && displayName.trim())
+        this.userDisplayName =
+          this.normalizeUserHandle(displayName.trim()) || "@you";
       if (lockUntilRaw) {
         const parsed = Number.parseInt(lockUntilRaw, 10);
         if (Number.isFinite(parsed) && parsed > Date.now()) {
@@ -6230,7 +6493,8 @@ export class MilaidyApp extends LitElement {
         this.saveHandleRegistry([...registry]);
       }
       if (style && style.trim()) this.onboardingStyle = style.trim();
-      if (provider && provider.trim()) this.onboardingProvider = provider.trim();
+      if (provider && provider.trim())
+        this.onboardingProvider = provider.trim();
       this.applyThemeFromAccent(this.profileAccent);
     } catch {
       // ignore
@@ -6243,11 +6507,16 @@ export class MilaidyApp extends LitElement {
 
     // Only hydrate from server when local profile isn't already set.
     const localHasHandle =
-      Boolean((this.userDisplayName ?? "").trim()) && this.userDisplayName !== "@you";
+      Boolean((this.userDisplayName ?? "").trim()) &&
+      this.userDisplayName !== "@you";
     const localHasAccent = Boolean((this.profileAccent ?? "").trim());
     const localHasImage = Boolean((this.profileImageUrl ?? "").trim());
 
-    if (!localHasHandle && typeof user.handle === "string" && user.handle.trim()) {
+    if (
+      !localHasHandle &&
+      typeof user.handle === "string" &&
+      user.handle.trim()
+    ) {
       const normalized = this.normalizeUserHandle(user.handle);
       if (normalized) {
         this.userDisplayName = normalized;
@@ -6260,7 +6529,11 @@ export class MilaidyApp extends LitElement {
       }
     }
 
-    if (!localHasAccent && typeof user.accent === "string" && user.accent.trim()) {
+    if (
+      !localHasAccent &&
+      typeof user.accent === "string" &&
+      user.accent.trim()
+    ) {
       this.profileAccent = user.accent.trim();
       try {
         localStorage.setItem(PROFILE_ACCENT_STORAGE_KEY, this.profileAccent);
@@ -6269,7 +6542,11 @@ export class MilaidyApp extends LitElement {
       }
     }
 
-    if (!localHasImage && typeof user.imageUrl === "string" && user.imageUrl.trim()) {
+    if (
+      !localHasImage &&
+      typeof user.imageUrl === "string" &&
+      user.imageUrl.trim()
+    ) {
       this.profileImageUrl = user.imageUrl.trim();
       try {
         localStorage.setItem(PROFILE_IMAGE_STORAGE_KEY, this.profileImageUrl);
@@ -6278,7 +6555,11 @@ export class MilaidyApp extends LitElement {
       }
     }
 
-    if (typeof user.responseMode === "string" && user.responseMode.trim() && !this.onboardingStyle) {
+    if (
+      typeof user.responseMode === "string" &&
+      user.responseMode.trim() &&
+      !this.onboardingStyle
+    ) {
       this.onboardingStyle = user.responseMode.trim();
       try {
         localStorage.setItem(STYLE_SELECTION_STORAGE_KEY, this.onboardingStyle);
@@ -6327,8 +6608,10 @@ export class MilaidyApp extends LitElement {
       this.applyThemeFromAccent(nextAccent);
     }
     try {
-      if (imageChanged) localStorage.setItem(PROFILE_IMAGE_STORAGE_KEY, nextImage);
-      if (accentChanged) localStorage.setItem(PROFILE_ACCENT_STORAGE_KEY, nextAccent);
+      if (imageChanged)
+        localStorage.setItem(PROFILE_IMAGE_STORAGE_KEY, nextImage);
+      if (accentChanged)
+        localStorage.setItem(PROFILE_ACCENT_STORAGE_KEY, nextAccent);
     } catch {
       // ignore
     }
@@ -6355,13 +6638,16 @@ export class MilaidyApp extends LitElement {
         .split(",")
         .map((p) => p.trim())
         .filter(Boolean);
-      if (prefixes.length > 0 && !prefixes.some((p) => trimmed.startsWith(p))) return false;
+      if (prefixes.length > 0 && !prefixes.some((p) => trimmed.startsWith(p)))
+        return false;
     }
     // Avoid accepting arbitrary short text.
     return trimmed.length >= 20;
   }
 
-  private providerNeedsKey(provider: ProviderOption | null | undefined): boolean {
+  private providerNeedsKey(
+    provider: ProviderOption | null | undefined,
+  ): boolean {
     return Boolean(provider && provider.envKey && provider.id !== "ollama");
   }
 
@@ -6370,7 +6656,9 @@ export class MilaidyApp extends LitElement {
     if (!opts) return false;
     const target = name.trim().toLowerCase();
     if (!target) return false;
-    const presets = (opts.names ?? []).map((v: string) => String(v).trim().toLowerCase());
+    const presets = (opts.names ?? []).map((v: string) =>
+      String(v).trim().toLowerCase(),
+    );
     return presets.includes(target);
   }
 
@@ -6385,12 +6673,19 @@ export class MilaidyApp extends LitElement {
     return hash >>> 0;
   }
 
-  private presetHandleSuffix(ownerId: string, base: string, attempt: number): string {
+  private presetHandleSuffix(
+    ownerId: string,
+    base: string,
+    attempt: number,
+  ): string {
     // Per-user deterministic suffix (varies by attempt) with Runtime-themed wording.
     // Example: "@operator_core7k3f1" / "@operator_nexus2p9ad".
     const baseHash = this.fnv1a32(`${ownerId}:${base}`);
     const h = this.fnv1a32(`${ownerId}:${base}:${attempt}`);
-    const word = RUNTIME_HANDLE_SUFFIX_WORDS[(baseHash + attempt) % RUNTIME_HANDLE_SUFFIX_WORDS.length];
+    const word =
+      RUNTIME_HANDLE_SUFFIX_WORDS[
+        (baseHash + attempt) % RUNTIME_HANDLE_SUFFIX_WORDS.length
+      ];
     const encoded = h.toString(36);
     // 5 chars gives ~60M combos per word, enough to stay unique at scale.
     const tail = encoded.padStart(5, "0").slice(-5);
@@ -6400,7 +6695,10 @@ export class MilaidyApp extends LitElement {
   private randomPresetHandleSuffix(): string {
     // Extra safety: if a deterministic suffix ever collides, fall back to randomness.
     // Stays within [a-z0-9_] so it survives normalizeUserHandle().
-    const word = RUNTIME_HANDLE_SUFFIX_WORDS[Math.floor(Math.random() * RUNTIME_HANDLE_SUFFIX_WORDS.length)];
+    const word =
+      RUNTIME_HANDLE_SUFFIX_WORDS[
+        Math.floor(Math.random() * RUNTIME_HANDLE_SUFFIX_WORDS.length)
+      ];
     const rand = crypto.getRandomValues(new Uint32Array(2));
     const chunk = ((BigInt(rand[0]!) << 32n) | BigInt(rand[1]!)).toString(36);
     const tail = chunk.padStart(10, "0").slice(-10);
@@ -6423,7 +6721,10 @@ export class MilaidyApp extends LitElement {
 
   private saveHandleRegistry(values: string[]): void {
     try {
-      localStorage.setItem(USER_HANDLE_REGISTRY_STORAGE_KEY, JSON.stringify(values));
+      localStorage.setItem(
+        USER_HANDLE_REGISTRY_STORAGE_KEY,
+        JSON.stringify(values),
+      );
     } catch {
       // ignore
     }
@@ -6431,7 +6732,9 @@ export class MilaidyApp extends LitElement {
 
   private getOrCreateHandleOwnerId(): string {
     try {
-      const existing = localStorage.getItem(USER_HANDLE_OWNER_ID_STORAGE_KEY)?.trim();
+      const existing = localStorage
+        .getItem(USER_HANDLE_OWNER_ID_STORAGE_KEY)
+        ?.trim();
       if (existing) return existing;
       const created = crypto.randomUUID();
       localStorage.setItem(USER_HANDLE_OWNER_ID_STORAGE_KEY, created);
@@ -6485,7 +6788,8 @@ export class MilaidyApp extends LitElement {
     const allowOfflineFallback = opts?.allowOfflineFallback ?? true;
     const normalized = this.normalizeUserHandle(name);
     if (!normalized) {
-      this.nameValidationMessage = "Choose an @name with letters, numbers, or underscores.";
+      this.nameValidationMessage =
+        "Choose an @name with letters, numbers, or underscores.";
       return false;
     }
     if (normalized.length < 3) {
@@ -6506,12 +6810,19 @@ export class MilaidyApp extends LitElement {
             : check.lockUntil == null
               ? null
               : Number.parseInt(String(check.lockUntil), 10);
-        if (!lockUntil || !Number.isFinite(lockUntil) || lockUntil <= Date.now()) {
+        if (
+          !lockUntil ||
+          !Number.isFinite(lockUntil) ||
+          lockUntil <= Date.now()
+        ) {
           this.clearUserNameLock();
         } else {
           this.userNameChangeLockedUntil = lockUntil;
           try {
-            localStorage.setItem(USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY, String(lockUntil));
+            localStorage.setItem(
+              USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY,
+              String(lockUntil),
+            );
           } catch {
             // ignore
           }
@@ -6522,19 +6833,26 @@ export class MilaidyApp extends LitElement {
       if (!this.isUserNameChangeLocked(normalized)) {
         // Lock was cleared; continue with claim.
       } else {
-      const remaining = this.formatUserNameLockRemaining(this.getUserNameLockRemainingMs());
-      this.nameValidationMessage = `You can change your @name in ${remaining}.`;
-      return false;
+        const remaining = this.formatUserNameLockRemaining(
+          this.getUserNameLockRemainingMs(),
+        );
+        this.nameValidationMessage = `You can change your @name in ${remaining}.`;
+        return false;
       }
     }
     const ownerId = this.getOrCreateHandleOwnerId();
     let claimResult: { lockUntil?: number | null } | null = null;
     try {
-      claimResult = await client.claimHandle(normalized, ownerId, current || undefined);
+      claimResult = await client.claimHandle(
+        normalized,
+        ownerId,
+        current || undefined,
+      );
     } catch (err) {
-      const status = typeof err === "object" && err !== null && "status" in err
-        ? Number((err as { status?: number }).status)
-        : 0;
+      const status =
+        typeof err === "object" && err !== null && "status" in err
+          ? Number((err as { status?: number }).status)
+          : 0;
       if (status === 429) {
         const details =
           typeof err === "object" && err !== null && "details" in err
@@ -6548,12 +6866,17 @@ export class MilaidyApp extends LitElement {
         if (Number.isFinite(lockUntil) && lockUntil > Date.now()) {
           this.userNameChangeLockedUntil = lockUntil;
           try {
-            localStorage.setItem(USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY, String(lockUntil));
+            localStorage.setItem(
+              USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY,
+              String(lockUntil),
+            );
           } catch {
             // ignore
           }
         }
-        const remaining = this.formatUserNameLockRemaining(this.getUserNameLockRemainingMs());
+        const remaining = this.formatUserNameLockRemaining(
+          this.getUserNameLockRemainingMs(),
+        );
         this.nameValidationMessage = `You can change your @name in ${remaining}.`;
         return false;
       }
@@ -6562,7 +6885,8 @@ export class MilaidyApp extends LitElement {
         return false;
       }
       if (!allowOfflineFallback) {
-        this.nameValidationMessage = "Could not save @name right now. Try again.";
+        this.nameValidationMessage =
+          "Could not save @name right now. Try again.";
         return false;
       }
     }
@@ -6579,14 +6903,18 @@ export class MilaidyApp extends LitElement {
       claimResult && Number.isFinite(claimResult.lockUntil)
         ? Number(claimResult.lockUntil)
         : null;
-    const nextLockUntil = returnedLockUntil && returnedLockUntil > Date.now()
-      ? returnedLockUntil
-      : Date.now() + USER_NAME_CHANGE_LOCK_MS;
+    const nextLockUntil =
+      returnedLockUntil && returnedLockUntil > Date.now()
+        ? returnedLockUntil
+        : Date.now() + USER_NAME_CHANGE_LOCK_MS;
     this.userNameChangeLockedUntil = nextLockUntil;
     this.nameValidationMessage = null;
     try {
       localStorage.setItem(USER_NAME_STORAGE_KEY, normalized);
-      localStorage.setItem(USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY, String(nextLockUntil));
+      localStorage.setItem(
+        USER_NAME_CHANGE_LOCK_UNTIL_STORAGE_KEY,
+        String(nextLockUntil),
+      );
     } catch {
       // ignore
     }
@@ -6654,7 +6982,9 @@ export class MilaidyApp extends LitElement {
   private async applyStyleFromChatSettings(): Promise<void> {
     const opts = this.onboardingOptions;
     if (!opts || !this.onboardingStyle) return;
-    const selectedStyle = opts.styles.find((s) => s.catchphrase === this.onboardingStyle);
+    const selectedStyle = opts.styles.find(
+      (s) => s.catchphrase === this.onboardingStyle,
+    );
     if (!selectedStyle) return;
 
     const agentName = "Runtime";
@@ -6707,17 +7037,27 @@ export class MilaidyApp extends LitElement {
     const name = this.onboardingName.trim();
     const presetNames = this.onboardingOptions?.names ?? [];
     const isPreset = presetNames.includes(name);
-    if (!isPreset && this.onboardingCustomAccent) return this.onboardingCustomAccent;
-    return this.characterTheme(name || RUNTIME_PRESET_NAMES[0] || "Runtime").accent;
+    if (!isPreset && this.onboardingCustomAccent)
+      return this.onboardingCustomAccent;
+    return this.characterTheme(name || RUNTIME_PRESET_NAMES[0] || "Runtime")
+      .accent;
   }
 
   private characterTheme(name: string): CharacterTheme {
     const preset = RUNTIME_PRESET_PROFILES[name];
     if (preset) return { accent: preset.accent, surface: preset.surface };
 
-    const palette = ["#f57a3b", "#3f7ecf", "#16a085", "#9c6dff", "#c94f4f", "#2d9a5f"];
+    const palette = [
+      "#f57a3b",
+      "#3f7ecf",
+      "#16a085",
+      "#9c6dff",
+      "#c94f4f",
+      "#2d9a5f",
+    ];
     let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = (hash * 33 + name.charCodeAt(i)) | 0;
+    for (let i = 0; i < name.length; i++)
+      hash = (hash * 33 + name.charCodeAt(i)) | 0;
     const accent = palette[Math.abs(hash) % palette.length];
     return { accent, surface: `${accent}1a` };
   }
@@ -6730,7 +7070,8 @@ export class MilaidyApp extends LitElement {
     const safeAccent = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#4e6a8b";
     const key = (label || "runtime").trim().toLowerCase();
     let seed = 0;
-    for (let i = 0; i < key.length; i++) seed = (seed * 33 + key.charCodeAt(i)) | 0;
+    for (let i = 0; i < key.length; i++)
+      seed = (seed * 33 + key.charCodeAt(i)) | 0;
     const variant = Math.abs(seed) % 4;
     const ring = Math.abs(seed >> 3) % 3;
     const tilt = (Math.abs(seed >> 5) % 15) - 7;
@@ -6786,9 +7127,13 @@ export class MilaidyApp extends LitElement {
 
   private async ensureCharacterImage(name: string): Promise<void> {
     const key = name.trim();
-    if (!key || !RUNTIME_PRESET_PROFILES[key] || this.characterImageByName[key]) return;
+    if (!key || !RUNTIME_PRESET_PROFILES[key] || this.characterImageByName[key])
+      return;
     const imageUrl = await this.fetchCharacterImage(key);
-    this.characterImageByName = { ...this.characterImageByName, [key]: imageUrl };
+    this.characterImageByName = {
+      ...this.characterImageByName,
+      [key]: imageUrl,
+    };
     if (this.onboardingName.trim() === key) {
       this.saveProfileAppearance(imageUrl, this.resolvedOnboardingAccent());
     }
@@ -6802,11 +7147,13 @@ export class MilaidyApp extends LitElement {
 
   private characterImage(name: string, accentOverride?: string): string {
     const key = name.trim();
-    if (!key) return this.fallbackCharacterImage(RUNTIME_PRESET_NAMES[0] || "Runtime");
+    if (!key)
+      return this.fallbackCharacterImage(RUNTIME_PRESET_NAMES[0] || "Runtime");
     if (RUNTIME_PRESET_PROFILES[key]) {
       return this.characterImageByName[key] ?? this.fallbackCharacterImage(key);
     }
-    const accent = accentOverride ?? this.profileAccent ?? this.characterTheme(key).accent;
+    const accent =
+      accentOverride ?? this.profileAccent ?? this.characterTheme(key).accent;
     return this.characterAvatarDataUri(key, accent);
   }
 
@@ -6834,7 +7181,10 @@ export class MilaidyApp extends LitElement {
       );
       const needsKey = this.providerNeedsKey(selectedProvider);
       const keyLooksValid = needsKey
-        ? this.looksLikeApiKey(this.onboardingApiKey, selectedProvider?.keyPrefix ?? null)
+        ? this.looksLikeApiKey(
+            this.onboardingApiKey,
+            selectedProvider?.keyPrefix ?? null,
+          )
         : false;
       this.providerSetupApplying = needsKey && keyLooksValid;
 
@@ -6850,7 +7200,8 @@ export class MilaidyApp extends LitElement {
       const selectedAccent = this.resolvedOnboardingAccent();
       const onboardingNameRaw = this.onboardingName.trim();
       if (!onboardingNameRaw) {
-        this.nameValidationMessage = "Choose an @name with letters, numbers, or underscores.";
+        this.nameValidationMessage =
+          "Choose an @name with letters, numbers, or underscores.";
         return;
       }
 
@@ -6906,7 +7257,10 @@ export class MilaidyApp extends LitElement {
       const selectedAvatarKey = this.onboardingName.trim();
       if (selectedAvatarKey) {
         await this.ensureCharacterImage(selectedAvatarKey);
-        this.saveProfileAppearance(this.characterImage(selectedAvatarKey, selectedAccent), selectedAccent);
+        this.saveProfileAppearance(
+          this.characterImage(selectedAvatarKey, selectedAccent),
+          selectedAccent,
+        );
       } else {
         this.saveProfileAppearance(this.profileImageUrl, selectedAccent);
       }
@@ -6914,7 +7268,10 @@ export class MilaidyApp extends LitElement {
       this.saveStyleSelection(this.onboardingStyle);
       try {
         if (this.onboardingProvider) {
-          localStorage.setItem(PROVIDER_SELECTION_STORAGE_KEY, this.onboardingProvider);
+          localStorage.setItem(
+            PROVIDER_SELECTION_STORAGE_KEY,
+            this.onboardingProvider,
+          );
         }
       } catch {
         // ignore
@@ -6939,9 +7296,14 @@ export class MilaidyApp extends LitElement {
           await client.submitOnboarding(payload);
           onboardingSaved = true;
         } catch (err) {
-          console.error(`Onboarding submit failed (attempt ${attempt + 1}/3):`, err);
+          console.error(
+            `Onboarding submit failed (attempt ${attempt + 1}/3):`,
+            err,
+          );
           if (attempt < 2) {
-            await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+            await new Promise((resolve) =>
+              setTimeout(resolve, 500 * (attempt + 1)),
+            );
           }
         }
       }
@@ -7025,9 +7387,11 @@ export class MilaidyApp extends LitElement {
         </div>
         ${this.renderHeader()}
         ${this.renderMobileTabbar()}
-        ${this.uiNotice
-          ? html`<div class="app-notice" role="status" aria-live="polite">${this.uiNotice}</div>`
-          : ""}
+        ${
+          this.uiNotice
+            ? html`<div class="app-notice" role="status" aria-live="polite">${this.uiNotice}</div>`
+            : ""
+        }
         <div class="layout">
           <aside class="sidebar">${this.renderNav()}</aside>
           <main class="main">${this.renderView()}</main>
@@ -7040,7 +7404,14 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderMobileTabbar() {
-    const navTabs: Tab[] = ["chat", "accounts", "inventory", "apps", "ai-setup", "config"];
+    const navTabs: Tab[] = [
+      "chat",
+      "accounts",
+      "inventory",
+      "apps",
+      "ai-setup",
+      "config",
+    ];
     return html`
       <div class="mobile-tabbar">
         ${navTabs.map(
@@ -7086,23 +7457,31 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderPairing() {
-    const expires =
-      this.pairingExpiresAt ? Math.max(0, Math.round((this.pairingExpiresAt - Date.now()) / 60000)) : null;
+    const expires = this.pairingExpiresAt
+      ? Math.max(0, Math.round((this.pairingExpiresAt - Date.now()) / 60000))
+      : null;
     return html`
       <div class="app-shell">
         <div class="pairing-shell">
           <div class="pairing-title">Pair This UI</div>
           <div class="pairing-sub">
-            ${this.pairingEnabled
-              ? html`Enter the pairing code printed in the Runtime server logs.${expires != null
-                ? html` Code expires in about ${expires} minute${expires === 1 ? "" : "s"}.` : ""}`
-              : html`Pairing is disabled. Set <code>MILAIDY_PAIRING_DISABLED</code> to <code>0</code> to enable pairing.`}
+            ${
+              this.pairingEnabled
+                ? html`Enter the pairing code printed in the Runtime server logs.${
+                    expires != null
+                      ? html` Code expires in about ${expires} minute${expires === 1 ? "" : "s"}.`
+                      : ""
+                  }`
+                : html`Pairing is disabled. Set <code>MILAIDY_PAIRING_DISABLED</code> to <code>0</code> to enable pairing.`
+            }
           </div>
           <input
             class="pairing-input"
             .value=${this.pairingCodeInput}
             placeholder="XXXX-XXXX"
-            @input=${(e: Event) => { this.pairingCodeInput = (e.target as HTMLInputElement).value; }}
+            @input=${(e: Event) => {
+              this.pairingCodeInput = (e.target as HTMLInputElement).value;
+            }}
           />
           <div class="pairing-actions">
             <button class="lifecycle-btn" @click=${this.handlePairingSubmit} ?disabled=${this.pairingBusy}>
@@ -7146,15 +7525,23 @@ export class MilaidyApp extends LitElement {
     const stateLabel = this.formatAgentStateLabel(state);
     const name = this.userDisplayName || "@you";
     const providerForChat = this.getPreferredAiProviderForChat();
-    const providerConfigured = providerForChat ? this.isChatProviderReady(providerForChat) : false;
+    const providerConfigured = providerForChat
+      ? this.isChatProviderReady(providerForChat)
+      : false;
     const configuredProvider = providerConfigured ? providerForChat : null;
     const modelRaw = status?.model?.trim() ?? "";
     const normalizedModel =
       modelRaw && modelRaw.toLowerCase() !== "unknown"
         ? modelRaw.split("/").slice(-1)[0]
         : "";
-    const modelName = normalizedModel || configuredProvider?.name || (providerConfigured ? "Connected" : "Not set");
-    const walletConnected = Boolean(this.walletConfig?.solanaConfiguredAddress || this.walletConfig?.evmConfiguredAddress);
+    const modelName =
+      normalizedModel ||
+      configuredProvider?.name ||
+      (providerConfigured ? "Connected" : "Not set");
+    const walletConnected = Boolean(
+      this.walletConfig?.solanaConfiguredAddress ||
+        this.walletConfig?.evmConfiguredAddress,
+    );
 
     return html`
       <div class="header-shell">
@@ -7188,13 +7575,15 @@ export class MilaidyApp extends LitElement {
             </span>
           </div>
           <span class="status-pill ${state}">${stateLabel}</span>
-          ${state === "not_started" || state === "stopped" || state === "paused"
-            ? html`<button class="lifecycle-btn" @click=${this.handleStart}>Start</button>`
-            : state === "restarting"
-              ? html`<span class="lifecycle-btn" style="opacity:0.6;cursor:default;">Restarting…</span>`
-              : html`
+          ${
+            state === "not_started" || state === "stopped" || state === "paused"
+              ? html`<button class="lifecycle-btn" @click=${this.handleStart}>Start</button>`
+              : state === "restarting"
+                ? html`<span class="lifecycle-btn" style="opacity:0.6;cursor:default;">Restarting…</span>`
+                : html`
                   <button class="lifecycle-btn" @click=${this.handleStop}>Stop</button>
-                `}
+                `
+          }
             <button class="lifecycle-btn" @click=${this.handleRestart} ?disabled=${state === "restarting" || state === "not_started"} title="Restart the agent (reload code, config, plugins)">Restart</button>
           </div>
         </header>
@@ -7237,7 +7626,14 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderNav() {
-    const navTabs: Tab[] = ["chat", "inventory", "apps", "ai-setup", "accounts", "config"];
+    const navTabs: Tab[] = [
+      "chat",
+      "inventory",
+      "apps",
+      "ai-setup",
+      "accounts",
+      "config",
+    ];
     const search = this.sessionSearch.trim().toLowerCase();
     const visibleSessions = this.getVisibleSessions(search);
     const topVisibleSessions = this.getTopVisibleSessions(visibleSessions, 16);
@@ -7270,7 +7666,9 @@ export class MilaidyApp extends LitElement {
             style="margin:0;font-size:12px;padding:6px 8px;width:100%;max-width:100%;min-width:0;box-sizing:border-box;"
             placeholder="Search chats"
             .value=${this.sessionSearch}
-            @input=${(e: Event) => { this.sessionSearch = (e.target as HTMLInputElement).value; }}
+            @input=${(e: Event) => {
+              this.sessionSearch = (e.target as HTMLInputElement).value;
+            }}
           />
           <div style="display:grid;gap:6px;">
             ${guard([topVisibleSessions, this.activeSessionId, this.tab], () =>
@@ -7300,9 +7698,11 @@ export class MilaidyApp extends LitElement {
                 `,
               ),
             )}
-            ${visibleSessions.length === 0
-              ? html`<div style="font-size:12px;color:var(--muted);padding:2px 0;">No chats</div>`
-              : ""}
+            ${
+              visibleSessions.length === 0
+                ? html`<div style="font-size:12px;color:var(--muted);padding:2px 0;">No chats</div>`
+                : ""
+            }
           </div>
         </div>
       </nav>
@@ -7312,44 +7712,53 @@ export class MilaidyApp extends LitElement {
   private renderContextRail() {
     const state = this.agentStatus?.state ?? "not_started";
     const stateLabel = this.formatAgentStateLabel(state);
-    const aiModuleCount = this.aiPluginCatalog().filter((plugin) =>
-      !this.isHiddenSystemPlugin(plugin.id)
-      && (this.isAiProviderPlugin(plugin) || plugin.category === "database"),
+    const aiModuleCount = this.aiPluginCatalog().filter(
+      (plugin) =>
+        !this.isHiddenSystemPlugin(plugin.id) &&
+        (this.isAiProviderPlugin(plugin) || plugin.category === "database"),
     ).length;
     const activeProvider = this.getActiveAiProvider();
     const providerForChat = this.getPreferredAiProviderForChat();
-    const configuredProvider = this.plugins.find((p) => this.isChatProviderReady(p)) ?? null;
-    const providerReady = Boolean(providerForChat && this.isChatProviderReady(providerForChat));
-    const providerIssue =
-      !providerForChat
-        ? "No provider enabled"
-        : providerForChat.validationErrors.length > 0
-          ? (providerForChat.validationErrors[0]?.message ?? "Needs setup")
-          : !this.isChatProviderReady(providerForChat)
-            ? "Provider key not connected"
-            : null;
-    const providerHealthLabel = this.providerHealth?.label ?? (providerReady ? "Healthy" : "Not ready");
-    const providerHealthDetail = this.providerHealth?.detail ?? providerIssue ?? null;
+    const configuredProvider =
+      this.plugins.find((p) => this.isChatProviderReady(p)) ?? null;
+    const providerReady = Boolean(
+      providerForChat && this.isChatProviderReady(providerForChat),
+    );
+    const providerIssue = !providerForChat
+      ? "No provider enabled"
+      : providerForChat.validationErrors.length > 0
+        ? (providerForChat.validationErrors[0]?.message ?? "Needs setup")
+        : !this.isChatProviderReady(providerForChat)
+          ? "Provider key not connected"
+          : null;
+    const providerHealthLabel =
+      this.providerHealth?.label ?? (providerReady ? "Healthy" : "Not ready");
+    const providerHealthDetail =
+      this.providerHealth?.detail ?? providerIssue ?? null;
     const providerHealthTone =
       this.providerHealth?.tone ?? (providerReady ? "ok" : "warn");
     const polymarket = this.plugins.find((p) => p.id === "polymarket");
     const polymarketEnabled = Boolean(polymarket?.enabled);
     const spendExecEnabled = this.pluginExecutionToggles.polymarket === true;
     const spendExecLabel = polymarketEnabled
-      ? (spendExecEnabled ? "Allowed" : "Blocked")
+      ? spendExecEnabled
+        ? "Allowed"
+        : "Blocked"
       : "Unavailable";
     const spendExecClass = !polymarketEnabled
       ? "warn"
-      : (spendExecEnabled ? "risk" : "warn");
+      : spendExecEnabled
+        ? "risk"
+        : "warn";
     const solanaSigning = this.walletConfig?.solanaSigningEnabled === true;
     const connectedWallet =
-      this.walletConfig?.solanaConfiguredAddress
-      ?? this.walletConfig?.evmConfiguredAddress
-      ?? this.walletConfig?.solanaAddress
-      ?? this.walletConfig?.evmAddress
-      ?? this.walletAddresses?.solanaAddress
-      ?? this.walletAddresses?.evmAddress
-      ?? null;
+      this.walletConfig?.solanaConfiguredAddress ??
+      this.walletConfig?.evmConfiguredAddress ??
+      this.walletConfig?.solanaAddress ??
+      this.walletConfig?.evmAddress ??
+      this.walletAddresses?.solanaAddress ??
+      this.walletAddresses?.evmAddress ??
+      null;
     const walletLabel = connectedWallet
       ? `${connectedWallet.slice(0, 4)}...${connectedWallet.slice(-4)}`
       : "None";
@@ -7389,23 +7798,27 @@ export class MilaidyApp extends LitElement {
               <span class="rail-detail-k">Provider</span>
               <span class="rail-detail-v">${configuredProvider?.name ?? activeProvider?.name ?? (providerReady ? "Connected" : "Not connected")}</span>
             </div>
-            ${!providerReady && providerIssue
-              ? html`
+            ${
+              !providerReady && providerIssue
+                ? html`
                   <div class="rail-detail-item">
                     <span class="rail-detail-k">Fix</span>
                     <span class="rail-detail-v" style="color:var(--warn);">${providerIssue}</span>
                   </div>
                 `
-              : ""}
+                : ""
+            }
             <div class="rail-detail-item">
               <span class="rail-detail-k">Provider health</span>
               <span
                 class="rail-detail-v"
-                style=${providerHealthTone === "ok"
-                  ? "color:var(--ok);"
-                  : providerHealthTone === "risk"
-                    ? "color:var(--danger);"
-                    : "color:var(--warn);"}
+                style=${
+                  providerHealthTone === "ok"
+                    ? "color:var(--ok);"
+                    : providerHealthTone === "risk"
+                      ? "color:var(--danger);"
+                      : "color:var(--warn);"
+                }
                 title=${providerHealthDetail ?? providerHealthLabel}
               >${providerHealthLabel}</span>
             </div>
@@ -7432,23 +7845,36 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderAccounts() {
-    const walletSol = this.walletConfig?.solanaConfiguredAddress ?? this.walletConfig?.solanaAddress ?? this.walletAddresses?.solanaAddress ?? "";
-    const walletEvm = this.walletConfig?.evmConfiguredAddress ?? this.walletConfig?.evmAddress ?? this.walletAddresses?.evmAddress ?? "";
+    const walletSol =
+      this.walletConfig?.solanaConfiguredAddress ??
+      this.walletConfig?.solanaAddress ??
+      this.walletAddresses?.solanaAddress ??
+      "";
+    const walletEvm =
+      this.walletConfig?.evmConfiguredAddress ??
+      this.walletConfig?.evmAddress ??
+      this.walletAddresses?.evmAddress ??
+      "";
     const walletConnected = Boolean(walletSol || walletEvm);
-    const themeLabel = this.themeColorOptions().find((c) => c.value.toLowerCase() === this.profileAccent.toLowerCase())?.label ?? "Custom";
+    const themeLabel =
+      this.themeColorOptions().find(
+        (c) => c.value.toLowerCase() === this.profileAccent.toLowerCase(),
+      )?.label ?? "Custom";
     const currentHandle = this.normalizeUserHandle(this.userDisplayName);
     const draftHandle = this.normalizeUserHandle(this.accountNameInput);
     const userNameLockRemainingMs = this.getUserNameLockRemainingMs();
     const userNameLocked = this.isUserNameChangeLocked(draftHandle);
-    const userNameLockLabel = userNameLockRemainingMs > 0
-      ? this.formatUserNameLockRemaining(userNameLockRemainingMs)
-      : "48h";
-    const canSaveName = Boolean(
-      this.accountNameInput.trim()
-      && draftHandle
-      && draftHandle.length >= 3
-      && draftHandle !== currentHandle,
-    ) && !userNameLocked;
+    const userNameLockLabel =
+      userNameLockRemainingMs > 0
+        ? this.formatUserNameLockRemaining(userNameLockRemainingMs)
+        : "48h";
+    const canSaveName =
+      Boolean(
+        this.accountNameInput.trim() &&
+          draftHandle &&
+          draftHandle.length >= 3 &&
+          draftHandle !== currentHandle,
+      ) && !userNameLocked;
     const canCancelNameDraft = this.hasPendingAccountNameDraft();
 
     return html`
@@ -7483,7 +7909,9 @@ export class MilaidyApp extends LitElement {
               type="text"
               .value=${this.accountNameInput}
               placeholder="@yourname"
-              @input=${(e: Event) => { this.accountNameInput = (e.target as HTMLInputElement).value; }}
+              @input=${(e: Event) => {
+                this.accountNameInput = (e.target as HTMLInputElement).value;
+              }}
             />
             <div style="display:flex;justify-content:flex-end;gap:8px;">
               <button
@@ -7504,12 +7932,16 @@ export class MilaidyApp extends LitElement {
                 }}
               >Save name</button>
             </div>
-            ${userNameLocked
-              ? html`<div style="font-size:12px;color:var(--muted);">You can change your @name in ${userNameLockLabel}.</div>`
-              : ""}
-            ${this.nameValidationMessage
-              ? html`<div style="font-size:12px;color:#c94f4f;">${this.nameValidationMessage}</div>`
-              : ""}
+            ${
+              userNameLocked
+                ? html`<div style="font-size:12px;color:var(--muted);">You can change your @name in ${userNameLockLabel}.</div>`
+                : ""
+            }
+            ${
+              this.nameValidationMessage
+                ? html`<div style="font-size:12px;color:#c94f4f;">${this.nameValidationMessage}</div>`
+                : ""
+            }
           </div>
         </div>
 
@@ -7525,18 +7957,24 @@ export class MilaidyApp extends LitElement {
           </div>
           <div class="plugin-settings-body">
             <div class="theme-swatch-row" style="margin-top:0;">
-              ${this.themeColorOptions().map((c) => html`
+              ${this.themeColorOptions().map(
+                (c) => html`
                 <button
                   class="theme-swatch ${this.profileAccent === c.value ? "selected" : ""}"
                   style="background:${c.value};"
                   title=${c.label}
                   @click=${() => {
-                    const baseName = this.userDisplayName.replace(/^@+/, "").trim();
-                    const avatar = baseName ? this.characterImage(baseName, c.value) : this.profileImageUrl;
+                    const baseName = this.userDisplayName
+                      .replace(/^@+/, "")
+                      .trim();
+                    const avatar = baseName
+                      ? this.characterImage(baseName, c.value)
+                      : this.profileImageUrl;
                     this.saveProfileAppearance(avatar, c.value);
                   }}
                 >${this.profileAccent === c.value ? "✓" : ""}</button>
-              `)}
+              `,
+              )}
             </div>
           </div>
         </div>
@@ -7583,21 +8021,24 @@ export class MilaidyApp extends LitElement {
 
   private formatAgentStateLabel(state: string): string {
     if (!state) return "Unknown";
-    return state
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return state.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   private getSelectedAiProvider(): PluginInfo | null {
     const chosenProviderId = (this.onboardingProvider ?? "").trim();
     if (!chosenProviderId) return null;
     const canonicalChosen = canonicalProviderId(chosenProviderId);
-    return this.plugins.find((p) => canonicalProviderId(p.id) === canonicalChosen) ?? null;
+    return (
+      this.plugins.find((p) => canonicalProviderId(p.id) === canonicalChosen) ??
+      null
+    );
   }
 
   private aiProviderIdSet(): Set<string> {
     return new Set(
-      this.onboardingProviderCatalog().map((provider) => canonicalProviderId(provider.id)),
+      this.onboardingProviderCatalog().map((provider) =>
+        canonicalProviderId(provider.id),
+      ),
     );
   }
 
@@ -7607,7 +8048,9 @@ export class MilaidyApp extends LitElement {
   }
 
   private getActiveAiProvider(): PluginInfo | null {
-    return this.plugins.find((p) => this.isAiProviderPlugin(p) && p.enabled) ?? null;
+    return (
+      this.plugins.find((p) => this.isAiProviderPlugin(p) && p.enabled) ?? null
+    );
   }
 
   private getPreferredAiProviderForChat(): PluginInfo | null {
@@ -7623,7 +8066,10 @@ export class MilaidyApp extends LitElement {
   }
 
   private isSubscriptionProvider(plugin: PluginInfo): boolean {
-    return this.isAnthropicSubscriptionProvider(plugin) || this.isOpenAiSubscriptionProvider(plugin);
+    return (
+      this.isAnthropicSubscriptionProvider(plugin) ||
+      this.isOpenAiSubscriptionProvider(plugin)
+    );
   }
 
   private canonicalSubscriptionProviderId(id: string): string {
@@ -7658,16 +8104,22 @@ export class MilaidyApp extends LitElement {
       if (this.isAnthropicSubscriptionProvider(plugin)) {
         const { authUrl } = await client.startAnthropicSubscription();
         this.openExternalUrl(authUrl);
-        this.showUiNotice("Anthropic login opened. Complete login, then click Finish login.");
+        this.showUiNotice(
+          "Anthropic login opened. Complete login, then click Finish login.",
+        );
         return;
       }
       if (this.isOpenAiSubscriptionProvider(plugin)) {
         const { authUrl } = await client.startOpenAiSubscription();
         this.openExternalUrl(authUrl);
-        this.showUiNotice("OpenAI login opened. Complete login, then click Finish login.");
+        this.showUiNotice(
+          "OpenAI login opened. Complete login, then click Finish login.",
+        );
       }
     } catch (err) {
-      this.showUiNotice(`Could not start subscription login: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not start subscription login: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
@@ -7692,11 +8144,15 @@ export class MilaidyApp extends LitElement {
       await this.loadSubscriptionStatus();
       this.showUiNotice(`${plugin.name} login completed.`);
     } catch (err) {
-      this.showUiNotice(`Could not finish subscription login: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not finish subscription login: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
-  private async saveAnthropicSetupTokenFromPrompt(plugin: PluginInfo): Promise<void> {
+  private async saveAnthropicSetupTokenFromPrompt(
+    plugin: PluginInfo,
+  ): Promise<void> {
     if (!this.isAnthropicSubscriptionProvider(plugin)) return;
     const token = window.prompt("Paste Anthropic setup token (sk-ant-...)");
     if (!token?.trim()) return;
@@ -7706,7 +8162,9 @@ export class MilaidyApp extends LitElement {
       await this.loadSubscriptionStatus();
       this.showUiNotice("Anthropic setup token saved.");
     } catch (err) {
-      this.showUiNotice(`Could not save setup token: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not save setup token: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
@@ -7715,7 +8173,10 @@ export class MilaidyApp extends LitElement {
     if (!token?.trim()) return;
     const trimmedToken = token.trim();
     this.onboardingApiKey = trimmedToken;
-    const plugin = this.plugins.find((p) => p.id === "elizacloud") ?? this.aiPluginCatalog().find((p) => p.id === "elizacloud") ?? null;
+    const plugin =
+      this.plugins.find((p) => p.id === "elizacloud") ??
+      this.aiPluginCatalog().find((p) => p.id === "elizacloud") ??
+      null;
     if (!plugin) {
       this.showUiNotice("Eliza Cloud provider is not available right now.");
       return;
@@ -7729,7 +8190,9 @@ export class MilaidyApp extends LitElement {
       await this.loadPlugins();
       this.showUiNotice("Eliza Cloud API key saved.");
     } catch (err) {
-      this.showUiNotice(`Could not save Eliza Cloud key: ${err instanceof Error ? err.message : "network error"}`);
+      this.showUiNotice(
+        `Could not save Eliza Cloud key: ${err instanceof Error ? err.message : "network error"}`,
+      );
     }
   }
 
@@ -7737,15 +8200,17 @@ export class MilaidyApp extends LitElement {
     const providerId = canonicalProviderId(provider.id);
     const hasEnvKey = Boolean(provider.envKey);
     const parameters: PluginParamDef[] = hasEnvKey
-      ? [{
-          key: provider.envKey as string,
-          type: "string",
-          description: `${provider.name} API key`,
-          required: true,
-          sensitive: true,
-          currentValue: null,
-          isSet: false,
-        }]
+      ? [
+          {
+            key: provider.envKey as string,
+            type: "string",
+            description: `${provider.name} API key`,
+            required: true,
+            sensitive: true,
+            currentValue: null,
+            isSet: false,
+          },
+        ]
       : [];
     return {
       id: providerId,
@@ -7757,7 +8222,12 @@ export class MilaidyApp extends LitElement {
       category: "ai-provider",
       parameters,
       validationErrors: hasEnvKey
-        ? [{ field: provider.envKey as string, message: `${provider.envKey} is required but not set` }]
+        ? [
+            {
+              field: provider.envKey as string,
+              message: `${provider.envKey} is required but not set`,
+            },
+          ]
         : [],
       validationWarnings: [],
     };
@@ -7815,57 +8285,72 @@ export class MilaidyApp extends LitElement {
 
   private renderView() {
     switch (this.tab) {
-      case "chat": return this.renderChat();
-      case "inventory": return this.renderInventory();
-      case "accounts": return this.renderAccounts();
-      case "ai-setup": return this.renderPlugins("ai");
-      case "apps": return this.renderApps();
-      case "skills": return this.renderSkills();
-      case "config": return this.renderConfig();
-      case "logs": return this.renderLogs();
-      default: return this.renderChat();
+      case "chat":
+        return this.renderChat();
+      case "inventory":
+        return this.renderInventory();
+      case "accounts":
+        return this.renderAccounts();
+      case "ai-setup":
+        return this.renderPlugins("ai");
+      case "apps":
+        return this.renderApps();
+      case "skills":
+        return this.renderSkills();
+      case "config":
+        return this.renderConfig();
+      case "logs":
+        return this.renderLogs();
+      default:
+        return this.renderChat();
     }
   }
 
   private renderChat() {
     const state = this.agentStatus?.state ?? "not_started";
     const runtimeNeedsStart =
-      state === "not_started" || (state === "stopped" && !this.chatResumePending);
-    const activeSession = this.chatSessions.find((s) => s.id === this.activeSessionId) ?? null;
+      state === "not_started" ||
+      (state === "stopped" && !this.chatResumePending);
+    const activeSession =
+      this.chatSessions.find((s) => s.id === this.activeSessionId) ?? null;
     const sessionName = activeSession?.name ?? "Current Chat";
     const enabledToolCount = this.plugins.filter((p) => p.enabled).length;
     const activeProvider = this.getActiveAiProvider();
     const selectedProvider = this.getSelectedAiProvider();
     const providerForChat = this.getPreferredAiProviderForChat();
-    const providerIdForChat = providerForChat ? canonicalProviderId(providerForChat.id) : null;
+    const providerIdForChat = providerForChat
+      ? canonicalProviderId(providerForChat.id)
+      : null;
     const providerBlockedByCredits = Boolean(
       providerIdForChat && this.creditBlockedProviderId === providerIdForChat,
     );
     const chatProviderReady = providerForChat
       ? this.isChatProviderReady(providerForChat) && !providerBlockedByCredits
       : false;
-    const chatProviderIssue =
-      chatProviderReady
-        ? null
-        : providerBlockedByCredits
-          ? "Provider credits are exhausted. Top up credits or switch provider in AI Settings."
-          : this.providerSetupApplying
+    const chatProviderIssue = chatProviderReady
+      ? null
+      : providerBlockedByCredits
+        ? "Provider credits are exhausted. Top up credits or switch provider in AI Settings."
+        : this.providerSetupApplying
           ? "Applying your model provider settings. Runtime will unlock chat after restart."
           : providerForChat
             ? !providerForChat.enabled
               ? `Enable ${providerForChat.name} in AI Settings to unlock chat.`
               : providerForChat.validationErrors.length > 0
-                ? (providerForChat.validationErrors[0]?.message ?? "Provider needs setup.")
-                : (providerForChat.envKey ?? "").trim() && providerForChat.id !== "ollama"
+                ? (providerForChat.validationErrors[0]?.message ??
+                  "Provider needs setup.")
+                : (providerForChat.envKey ?? "").trim() &&
+                    providerForChat.id !== "ollama"
                   ? `Add your ${providerForChat.name} API key in AI Settings to unlock chat.`
                   : "Provider needs setup."
-          : selectedProvider
-            ? `Enable ${selectedProvider.name} in AI Settings to unlock chat.`
-          : !activeProvider
-            ? "Enable a model provider in AI Settings to start chatting."
-            : activeProvider.validationErrors.length > 0
-              ? (activeProvider.validationErrors[0]?.message ?? "Provider needs setup.")
-              : "Provider needs setup.";
+            : selectedProvider
+              ? `Enable ${selectedProvider.name} in AI Settings to unlock chat.`
+              : !activeProvider
+                ? "Enable a model provider in AI Settings to start chatting."
+                : activeProvider.validationErrors.length > 0
+                  ? (activeProvider.validationErrors[0]?.message ??
+                    "Provider needs setup.")
+                  : "Provider needs setup.";
     const chatLockBanner = !chatProviderReady
       ? html`
           <div style="margin:10px 0 6px;padding:8px 10px;border:1px solid rgba(241,196,15,0.55);background:rgba(241,196,15,0.10);border-radius:12px;font-size:12px;color:var(--text-strong);display:flex;justify-content:space-between;gap:10px;align-items:center;">
@@ -7878,9 +8363,11 @@ export class MilaidyApp extends LitElement {
       : "";
     const inputLen = this.chatInput.trim().length;
     const showStop = this.chatSending;
-    const showStartResume = !this.chatSending && this.chatResumePending && !runtimeNeedsStart;
+    const showStartResume =
+      !this.chatSending && this.chatResumePending && !runtimeNeedsStart;
     const hasMessageOverflow =
-      !this.chatShowAllMessages && this.chatMessages.length > MAX_VISIBLE_CHAT_MESSAGES;
+      !this.chatShowAllMessages &&
+      this.chatMessages.length > MAX_VISIBLE_CHAT_MESSAGES;
     const renderedMessages = hasMessageOverflow
       ? this.chatMessages.slice(-MAX_VISIBLE_CHAT_MESSAGES)
       : this.chatMessages;
@@ -7901,26 +8388,31 @@ export class MilaidyApp extends LitElement {
 	          <div class="chat-header-actions">
               ${this.renderChatAutonomyDropdown()}
 	            <button class="clear-btn" @click=${() => this.createNewSession()}>New Chat</button>
-	            ${this.activeSessionId
-	              ? html`<button class="clear-btn" title="Delete current chat" @click=${this.handleHeaderClearActiveChat}>X</button>`
-	              : ""}
+	            ${
+                this.activeSessionId
+                  ? html`<button class="clear-btn" title="Delete current chat" @click=${this.handleHeaderClearActiveChat}>X</button>`
+                  : ""
+              }
 	          </div>
         </div>
         <div class="chat-presence">
           <span class="chat-presence-dot"></span>
           <span>
-            ${this.chatSending
-              ? "Runtime is working on your request."
-              : runtimeNeedsStart
-                ? "Runtime is not running. Start the agent to chat."
-              : this.chatResumePending
-                ? "Response stopped. Add context if needed, then press Start."
-                : "Runtime is live."}
+            ${
+              this.chatSending
+                ? "Runtime is working on your request."
+                : runtimeNeedsStart
+                  ? "Runtime is not running. Start the agent to chat."
+                  : this.chatResumePending
+                    ? "Response stopped. Add context if needed, then press Start."
+                    : "Runtime is live."
+            }
           </span>
         </div>
         ${chatLockBanner}
-        ${runtimeNeedsStart
-          ? html`
+        ${
+          runtimeNeedsStart
+            ? html`
               <div class="start-agent-box" style="margin-bottom:10px;">
                 <p>Runtime is paused. Start the agent to begin chatting.</p>
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
@@ -7929,22 +8421,28 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : ""}
+            : ""
+        }
 	        <div class="chat-messages" @scroll=${this.handleChatScroll}>
-          ${hasMessageOverflow
-            ? html`
+          ${
+            hasMessageOverflow
+              ? html`
                 <div style="margin:0 0 8px 0;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;background:var(--bg-muted);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;">
                   <span>Showing latest ${renderedMessages.length} messages (${hiddenMessageCount} earlier hidden)</span>
                   <button
                     class="plugin-secondary-btn"
                     style="padding:4px 10px;font-size:11px;"
-                    @click=${() => { this.chatShowAllMessages = true; }}
+                    @click=${() => {
+                      this.chatShowAllMessages = true;
+                    }}
                   >Show full chat</button>
                 </div>
               `
-            : ""}
-          ${this.chatMessages.length === 0
-            ? html`
+              : ""
+          }
+          ${
+            this.chatMessages.length === 0
+              ? html`
                 <div class="chat-empty">
                   <div class="chat-empty-title">Start your first conversation</div>
                   <div class="chat-empty-sub">
@@ -7952,44 +8450,56 @@ export class MilaidyApp extends LitElement {
                   </div>
 	                  <div class="chat-suggest-grid">
 	                    ${CHAT_QUICK_PROMPTS.slice(0, 4).map(
-	                      (prompt) => html`
+                        (prompt) => html`
 	                        <button class="chat-suggest-btn" @click=${() => this.useChatPrompt(prompt)}>
 	                          ${prompt}
 	                        </button>
 	                      `,
-	                    )}
+                      )}
 	                  </div>
 	                </div>
               `
-            : guard([renderedMessages, this.userDisplayName, this.profileImageUrl], () =>
-                repeat(
-                  renderedMessages,
-                  (msg, idx) => `${msg.role}:${msg.timestamp}:${idx}`,
-                  (msg) => html`
+              : guard(
+                  [
+                    renderedMessages,
+                    this.userDisplayName,
+                    this.profileImageUrl,
+                  ],
+                  () =>
+                    repeat(
+                      renderedMessages,
+                      (msg, idx) => `${msg.role}:${msg.timestamp}:${idx}`,
+                      (msg) => html`
                     <div class="chat-msg ${msg.role}">
                       <div class="chat-avatar ${msg.role === "assistant" ? "assistant" : ""}">
-                        ${msg.role === "assistant"
-                          ? html`<img src="/onboarding-logo-test-v3.png" alt="Runtime" />`
-                          : html`<img src=${this.profileImageUrl} alt="@you" @error=${(e: Event) => {
-                            const img = e.currentTarget as HTMLImageElement;
-                            img.src = "/onboarding-logo-test-v3.png";
-                          }} />`}
+                        ${
+                          msg.role === "assistant"
+                            ? html`<img src="/onboarding-logo-test-v3.png" alt="Runtime" />`
+                            : html`<img src=${this.profileImageUrl} alt="@you" @error=${(
+                                e: Event,
+                              ) => {
+                                const img = e.currentTarget as HTMLImageElement;
+                                img.src = "/onboarding-logo-test-v3.png";
+                              }} />`
+                        }
                       </div>
                       <div class="chat-body">
                         <div class="chat-meta">
-                          <span>${msg.role === "user" ? (this.userDisplayName || "@you") : "Runtime"}</span>
+                          <span>${msg.role === "user" ? this.userDisplayName || "@you" : "Runtime"}</span>
                           <span class="chat-time">${this.formatChatTime(msg.timestamp || Date.now())}</span>
                         </div>
                         <div class="chat-bubble">${this.renderChatBubbleText(msg)}</div>
                       </div>
                     </div>
                   `,
-                ),
-              )}
+                    ),
+                )
+          }
           <div class="chat-end-anchor" aria-hidden="true"></div>
         </div>
-        ${this.chatShowJumpToLatest
-          ? html`
+        ${
+          this.chatShowJumpToLatest
+            ? html`
               <button
                 class="chat-jump-latest"
                 @click=${() => this.scrollChatToLatest("smooth", true)}
@@ -8001,38 +8511,45 @@ export class MilaidyApp extends LitElement {
                 </svg>
               </button>
             `
-          : ""}
+            : ""
+        }
         <div class="chat-input-row">
           <textarea
             class="chat-input"
             rows="1"
-            placeholder=${!chatProviderReady
-              ? providerBlockedByCredits
-                ? "Provider credits exhausted. Top up or switch provider..."
-                : "Connect a model provider in AI Settings to chat..."
-              : runtimeNeedsStart
-                ? "Start the agent to begin chatting..."
-              : this.chatResumePending
-                ? "Add new context before restarting..."
-                : "Message Runtime..."}
+            placeholder=${
+              !chatProviderReady
+                ? providerBlockedByCredits
+                  ? "Provider credits exhausted. Top up or switch provider..."
+                  : "Connect a model provider in AI Settings to chat..."
+                : runtimeNeedsStart
+                  ? "Start the agent to begin chatting..."
+                  : this.chatResumePending
+                    ? "Add new context before restarting..."
+                    : "Message Runtime..."
+            }
             .value=${this.chatInput}
             @input=${this.handleChatInput}
             @keydown=${this.handleChatKeydown}
             ?disabled=${this.chatSending || !chatProviderReady || runtimeNeedsStart}
           ></textarea>
           <div class="chat-send-stack">
-            ${(showStop || showStartResume) && chatProviderReady
-              ? html`
+            ${
+              (showStop || showStartResume) && chatProviderReady
+                ? html`
                   <button
                     class="chat-control-btn"
-                    @click=${showStop
-                      ? () => void this.handleChatStop()
-                      : () => void this.handleChatResumeStart()}
+                    @click=${
+                      showStop
+                        ? () => void this.handleChatStop()
+                        : () => void this.handleChatResumeStart()
+                    }
                   >
                     ${showStop ? "Stop" : "Start"}
                   </button>
                 `
-              : ""}
+                : ""
+            }
             <button
               class="chat-send-btn btn"
               @click=${() => void this.handleChatSend()}
@@ -8044,8 +8561,9 @@ export class MilaidyApp extends LitElement {
         </div>
         <div class="chat-composer-foot">
           <div class="chat-typing">
-            ${this.chatSending
-              ? html`
+            ${
+              this.chatSending
+                ? html`
                   <span class="chat-typing live">
                     <span class="chat-typing-signal" aria-hidden="true"></span>
                     <span class="chat-typing-dots"><span></span><span></span><span></span></span>
@@ -8055,7 +8573,8 @@ export class MilaidyApp extends LitElement {
                     </span>
                   </span>
                 `
-              : html`<span>Runtime can use enabled tools while staying in chat with you.</span>`}
+                : html`<span>Runtime can use enabled tools while staying in chat with you.</span>`
+            }
           </div>
           <div class="chat-count">${inputLen}/12000</div>
         </div>
@@ -8076,9 +8595,11 @@ export class MilaidyApp extends LitElement {
           </div>
         </div>
         ${this.styleSettingsOpen ? this.renderChatStylePanel() : ""}
-        ${this.styleUpdateStatus
-          ? html`<div style="margin-top:8px;font-size:12px;color:var(--muted);">${this.styleUpdateStatus}</div>`
-          : ""}
+        ${
+          this.styleUpdateStatus
+            ? html`<div style="margin-top:8px;font-size:12px;color:var(--muted);">${this.styleUpdateStatus}</div>`
+            : ""
+        }
       </div>
       ${this.renderClearChatDialog()}
     `;
@@ -8090,7 +8611,8 @@ export class MilaidyApp extends LitElement {
     const summary = overview?.summary;
     const autonomy = overview?.autonomy;
     const pendingRestartReason =
-      Array.isArray(status?.pendingRestartReasons) && status.pendingRestartReasons.length > 0
+      Array.isArray(status?.pendingRestartReasons) &&
+      status.pendingRestartReasons.length > 0
         ? status.pendingRestartReasons[0]
         : null;
     const loopStatusLabel = status?.pendingRestart
@@ -8106,7 +8628,11 @@ export class MilaidyApp extends LitElement {
       ? `${summary.activeTriggers}/${summary.totalTriggers}`
       : "…/…";
     const autonomyLabel = autonomy
-      ? (autonomy.enabled ? (autonomy.thinking ? "enabled (thinking)" : "enabled") : "disabled")
+      ? autonomy.enabled
+        ? autonomy.thinking
+          ? "enabled (thinking)"
+          : "enabled"
+        : "disabled"
       : "unknown";
     const autonomyEnabled = autonomy?.enabled === true;
     const tasksLabel = summary
@@ -8116,10 +8642,15 @@ export class MilaidyApp extends LitElement {
       ? `${summary.completedTodos}/${summary.totalTodos}`
       : "…/…";
     const lastEventLabel = autonomy?.lastEventAt
-      ? new Date(autonomy.lastEventAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      ? new Date(autonomy.lastEventAt).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        })
       : "none";
     const trackersSourceLabel = overview
-      ? (overview.triggersAvailable ? "connected" : "unavailable")
+      ? overview.triggersAvailable
+        ? "connected"
+        : "unavailable"
       : "unknown";
     const triggerMeta = this.chatAutonomyLoading
       ? "syncing..."
@@ -8164,11 +8695,13 @@ export class MilaidyApp extends LitElement {
               @click=${() => void this.handleChatAutonomyToggleClick()}
               ?disabled=${this.chatAutonomyToggleBusy}
             >
-              ${this.chatAutonomyToggleBusy
-                ? "Updating..."
-                : autonomyEnabled
-                  ? "Disable Autonomy"
-                  : "Enable Autonomy"}
+              ${
+                this.chatAutonomyToggleBusy
+                  ? "Updating..."
+                  : autonomyEnabled
+                    ? "Disable Autonomy"
+                    : "Enable Autonomy"
+              }
             </button>
           </div>
 
@@ -8189,32 +8722,39 @@ export class MilaidyApp extends LitElement {
               <span class="autonomy-line-k">Trackers source</span>
               <span class="autonomy-line-v">${trackersSourceLabel}</span>
             </div>
-            ${pendingRestartReason
-              ? html`
+            ${
+              pendingRestartReason
+                ? html`
                   <div class="autonomy-line">
                     <span class="autonomy-line-k">Pending restart</span>
                     <span class="autonomy-line-v warn">${pendingRestartReason}</span>
                   </div>
                 `
-              : ""}
-            ${this.chatAutonomyLoading
-              ? html`
+                : ""
+            }
+            ${
+              this.chatAutonomyLoading
+                ? html`
                   <div class="autonomy-line">
                     <span class="autonomy-line-k">Status</span>
                     <span class="autonomy-line-v">Refreshing backend status…</span>
                   </div>
                 `
-              : ""}
-            ${this.chatAutonomyError
-              ? html`
+                : ""
+            }
+            ${
+              this.chatAutonomyError
+                ? html`
                   <div class="autonomy-line">
                     <span class="autonomy-line-k">Backend</span>
                     <span class="autonomy-line-v warn">${this.chatAutonomyError}</span>
                   </div>
                 `
-              : ""}
-            ${this.chatAutonomyActionMessage
-              ? html`
+                : ""
+            }
+            ${
+              this.chatAutonomyActionMessage
+                ? html`
                   <div class="autonomy-line">
                     <span class="autonomy-line-k">Autonomy action</span>
                     <span class="autonomy-line-v ${this.chatAutonomyActionMessage.toLowerCase().includes("enabled.") || this.chatAutonomyActionMessage.toLowerCase().includes("disabled.") ? "" : "warn"}">
@@ -8222,7 +8762,8 @@ export class MilaidyApp extends LitElement {
                     </span>
                   </div>
                 `
-              : ""}
+                : ""
+            }
           </div>
 
           <div class="autonomy-actions">
@@ -8259,9 +8800,9 @@ export class MilaidyApp extends LitElement {
   private async loadChatAutonomyOverview(force = false): Promise<void> {
     const now = Date.now();
     if (
-      !force
-      && this.chatAutonomyOverview
-      && now - this.chatAutonomyLoadedAt < 10_000
+      !force &&
+      this.chatAutonomyOverview &&
+      now - this.chatAutonomyLoadedAt < 10_000
     ) {
       return;
     }
@@ -8271,9 +8812,10 @@ export class MilaidyApp extends LitElement {
       this.chatAutonomyOverview = await client.getWorkbenchOverview();
       this.chatAutonomyLoadedAt = Date.now();
     } catch (err) {
-      this.chatAutonomyError = err instanceof Error
-        ? err.message
-        : "Could not load autonomy backend status.";
+      this.chatAutonomyError =
+        err instanceof Error
+          ? err.message
+          : "Could not load autonomy backend status.";
     } finally {
       this.chatAutonomyLoading = false;
     }
@@ -8282,7 +8824,8 @@ export class MilaidyApp extends LitElement {
   private async handleChatAutonomyToggleClick(): Promise<void> {
     if (this.chatAutonomyToggleBusy) return;
     if (this.agentStatus?.state !== "running") {
-      this.chatAutonomyError = "Runtime must be running before autonomy can be toggled.";
+      this.chatAutonomyError =
+        "Runtime must be running before autonomy can be toggled.";
       this.chatAutonomyActionMessage = "No change: runtime is not running.";
       return;
     }
@@ -8299,12 +8842,16 @@ export class MilaidyApp extends LitElement {
       const result = await Promise.race([
         client.setAgentAutonomy(nextEnabled),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Autonomy toggle request timed out.")), 15_000),
+          setTimeout(
+            () => reject(new Error("Autonomy toggle request timed out.")),
+            15_000,
+          ),
         ),
       ]);
       if (result.ok === false) {
         const errorText =
-          result.error ?? "Autonomy service is unavailable on this backend runtime.";
+          result.error ??
+          "Autonomy service is unavailable on this backend runtime.";
         const unavailable = /service unavailable/i.test(errorText);
         if (nextEnabled && unavailable) {
           this.chatAutonomyActionMessage =
@@ -8315,11 +8862,13 @@ export class MilaidyApp extends LitElement {
             await this.waitForAgentAfterRestart(15_000);
             const retry = await client.setAgentAutonomy(true);
             if (retry.ok && retry.autonomy === true) {
-              this.chatAutonomyActionMessage = "Autonomy enabled after runtime restart.";
+              this.chatAutonomyActionMessage =
+                "Autonomy enabled after runtime restart.";
               this.showUiNotice(this.chatAutonomyActionMessage);
             } else {
               this.chatAutonomyActionMessage =
-                retry.error ?? "Autonomy still unavailable after runtime restart.";
+                retry.error ??
+                "Autonomy still unavailable after runtime restart.";
             }
           } catch (restartErr) {
             this.chatAutonomyActionMessage =
@@ -8348,9 +8897,8 @@ export class MilaidyApp extends LitElement {
         // ignore status refresh failures; dropdown data already updated
       }
     } catch (err) {
-      this.chatAutonomyError = err instanceof Error
-        ? err.message
-        : "Could not update autonomy state.";
+      this.chatAutonomyError =
+        err instanceof Error ? err.message : "Could not update autonomy state.";
     } finally {
       this.chatAutonomyToggleBusy = false;
     }
@@ -8368,9 +8916,11 @@ export class MilaidyApp extends LitElement {
         <div class="modal-card" @click=${(e: Event) => e.stopPropagation()}>
           <div class="modal-head">Delete this chat?</div>
           <div class="modal-body">
-            ${risky
-              ? html`<div>This chat includes live bet/fund-management context. Delete <strong>${session.name}</strong>?</div>`
-              : html`<div>Delete <strong>${session.name}</strong>?</div>`}
+            ${
+              risky
+                ? html`<div>This chat includes live bet/fund-management context. Delete <strong>${session.name}</strong>?</div>`
+                : html`<div>Delete <strong>${session.name}</strong>?</div>`
+            }
           </div>
           <div class="modal-actions">
             <button class="plugin-secondary-btn" @click=${this.closeClearDialog}>Cancel</button>
@@ -8389,73 +8939,101 @@ export class MilaidyApp extends LitElement {
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
           Choose how Runtime responds in this workspace.
         </div>
-        ${styles.length === 0
-          ? html`<div style="font-size:12px;color:var(--muted);">Loading style options...</div>`
-          : html`
+        ${
+          styles.length === 0
+            ? html`<div style="font-size:12px;color:var(--muted);">Loading style options...</div>`
+            : html`
               <div class="onboarding-options" style="margin:0;">
-                ${styles.map((style) => html`
+                ${styles.map(
+                  (style) => html`
                   <div
                     class="onboarding-option ${this.onboardingStyle === style.catchphrase ? "selected" : ""}"
-                    @click=${() => { this.onboardingStyle = style.catchphrase; }}
+                    @click=${() => {
+                      this.onboardingStyle = style.catchphrase;
+                    }}
                   >
                     <div class="label">${this.formatResponseModeLabel(style.catchphrase)}</div>
                     <div class="hint">${this.formatResponseModeHint(style.hint)}</div>
                   </div>
-                `)}
+                `,
+                )}
               </div>
               <div class="btn-row" style="justify-content:flex-end;margin-top:10px;">
-                <button class="btn btn-outline" @click=${() => { this.styleSettingsOpen = false; this.styleUpdateStatus = null; }}>Cancel</button>
+                <button class="btn btn-outline" @click=${() => {
+                  this.styleSettingsOpen = false;
+                  this.styleUpdateStatus = null;
+                }}>Cancel</button>
                 <button class="btn" ?disabled=${this.styleUpdateBusy || !this.onboardingStyle} @click=${() => void this.applyStyleFromChatSettings()}>
                   ${this.styleUpdateBusy ? "Applying..." : "Apply"}
                 </button>
               </div>
-            `}
+            `
+        }
       </div>
     `;
   }
 
   private renderPlugins(viewMode: "accounts" | "ai") {
-    const categories = viewMode === "accounts"
-      ? (["all"] as const)
-      : (["all", "ai-provider", "database"] as const);
-    const activeFilter = categories.includes(this.pluginFilter as (typeof categories)[number])
+    const categories =
+      viewMode === "accounts"
+        ? (["all"] as const)
+        : (["all", "ai-provider", "database"] as const);
+    const activeFilter = categories.includes(
+      this.pluginFilter as (typeof categories)[number],
+    )
       ? this.pluginFilter
       : "all";
     const categoryLabels: Record<string, string> = {
-      "all": "All",
+      all: "All",
       "ai-provider": "Model",
-      "database": "Memory",
-      "feature": "Runtime",
-      "connector": "Runtime",
+      database: "Memory",
+      feature: "Runtime",
+      connector: "Runtime",
     };
 
-    const accountPlugins = this.plugins.filter((p) =>
-      this.isAccountConnectionPlugin(p) && !this.isAppIntegrationPlugin(p),
+    const accountPlugins = this.plugins.filter(
+      (p) =>
+        this.isAccountConnectionPlugin(p) && !this.isAppIntegrationPlugin(p),
     );
-    const sourcePlugins = viewMode === "ai" ? this.aiPluginCatalog() : this.plugins;
-    const aiCorePlugins = sourcePlugins.filter((p) =>
-      !this.isHiddenSystemPlugin(p.id) &&
-      (this.isAiProviderPlugin(p) || p.category === "database"),
+    const sourcePlugins =
+      viewMode === "ai" ? this.aiPluginCatalog() : this.plugins;
+    const aiCorePlugins = sourcePlugins.filter(
+      (p) =>
+        !this.isHiddenSystemPlugin(p.id) &&
+        (this.isAiProviderPlugin(p) || p.category === "database"),
     );
-    const availableConnections = viewMode === "accounts" ? accountPlugins : aiCorePlugins;
+    const availableConnections =
+      viewMode === "accounts" ? accountPlugins : aiCorePlugins;
     const searchLower = this.pluginSearch.toLowerCase();
     const baseFiltered = availableConnections.filter((p) => {
-      const matchesCategory = viewMode === "ai"
-        ? (
-          (activeFilter === "all" && (this.isAiProviderPlugin(p) || p.category === "database"))
-          || (activeFilter === "ai-provider" ? this.isAiProviderPlugin(p) : p.category === activeFilter)
-        )
-        : (activeFilter === "all" || p.category === activeFilter);
-      const matchesSearch = !searchLower
-        || p.name.toLowerCase().includes(searchLower)
-        || (p.description ?? "").toLowerCase().includes(searchLower)
-        || p.id.toLowerCase().includes(searchLower);
+      const matchesCategory =
+        viewMode === "ai"
+          ? (activeFilter === "all" &&
+              (this.isAiProviderPlugin(p) || p.category === "database")) ||
+            (activeFilter === "ai-provider"
+              ? this.isAiProviderPlugin(p)
+              : p.category === activeFilter)
+          : activeFilter === "all" || p.category === activeFilter;
+      const matchesSearch =
+        !searchLower ||
+        p.name.toLowerCase().includes(searchLower) ||
+        (p.description ?? "").toLowerCase().includes(searchLower) ||
+        p.id.toLowerCase().includes(searchLower);
       return matchesCategory && matchesSearch;
     });
     const focusedIds = new Set<string>([
       ...CURATED_APPS.map((a) => a.id),
-      ...baseFiltered.filter((p) => this.isAiProviderPlugin(p) || p.id === "wallet").map((p) => p.id),
-      ...baseFiltered.filter((p) => p.enabled || this.isPluginEffectivelyConfigured(p) || p.validationErrors.length > 0).map((p) => p.id),
+      ...baseFiltered
+        .filter((p) => this.isAiProviderPlugin(p) || p.id === "wallet")
+        .map((p) => p.id),
+      ...baseFiltered
+        .filter(
+          (p) =>
+            p.enabled ||
+            this.isPluginEffectivelyConfigured(p) ||
+            p.validationErrors.length > 0,
+        )
+        .map((p) => p.id),
     ]);
     const accountPrimaryIds = new Set<string>([
       ...CURATED_APPS.map((a) => a.id),
@@ -8466,136 +9044,191 @@ export class MilaidyApp extends LitElement {
     ]);
     const focusedFiltered = baseFiltered.filter((p) =>
       viewMode === "accounts"
-        ? accountPrimaryIds.has(p.id) || p.enabled || this.isPluginEffectivelyConfigured(p) || p.validationErrors.length > 0
+        ? accountPrimaryIds.has(p.id) ||
+          p.enabled ||
+          this.isPluginEffectivelyConfigured(p) ||
+          p.validationErrors.length > 0
         : focusedIds.has(p.id),
     );
-    const baselineFocused = focusedFiltered.length > 0 ? focusedFiltered : baseFiltered.slice(0, viewMode === "accounts" ? 6 : 8);
-    const advancedCount = Math.max(0, baseFiltered.length - baselineFocused.length);
-    const filtered = viewMode === "accounts"
-      ? (searchLower || this.accountsShowAll ? baseFiltered : baselineFocused)
-      : baseFiltered;
-    const runtimeModelHint = (this.agentStatus?.model ?? "").trim().toLowerCase();
-    const selectedProviderHint = (this.onboardingProvider ?? "").trim().toLowerCase();
-    const runtimeMatchedAiProvider = viewMode === "ai"
-      ? filtered.find((p) => {
-        if (!this.isAiProviderPlugin(p)) return false;
-        if (!p.enabled) return false;
-        const id = p.id.toLowerCase();
-        const name = p.name.toLowerCase();
-        return Boolean(
-          runtimeModelHint &&
-          (runtimeModelHint.includes(id) || runtimeModelHint.includes(name)),
-        );
-      }) ?? null
-      : null;
-    const selectedEnabledAiProvider = viewMode === "ai"
-      ? filtered.find((p) =>
-        this.isAiProviderPlugin(p)
-        && p.enabled
-        && selectedProviderHint
-        && canonicalProviderId(p.id) === canonicalProviderId(selectedProviderHint),
-      ) ?? null
-      : null;
-    const activeAiProvider = viewMode === "ai"
-      ? runtimeMatchedAiProvider
-        ?? selectedEnabledAiProvider
-        ?? filtered.find((p) => this.isAiProviderPlugin(p) && p.enabled) ?? null
-      : null;
-    const orderedFiltered = (viewMode === "ai" || activeFilter === "all")
-      ? [...filtered].sort((a, b) => {
-          if (viewMode === "ai") {
-            const activeId = activeAiProvider?.id ?? null;
-            const providerOrder = new Map<string, number>([
-              ["elizacloud", 0],
-              ["anthropic", 1],
-              ["anthropic-subscription", 2],
-              ["openai", 3],
-              ["openai-subscription", 4],
-              ["vercel-ai-gateway", 5],
-              ["local-ai", 6],
-              ["openrouter", 7],
-              ["google-genai", 8],
-              ["xai", 9],
-              ["groq", 10],
-              ["deepseek", 11],
-              ["mistral", 12],
-              ["together", 13],
-              ["zai", 14],
-              ["ollama", 15],
-              ["pi-ai", 16],
-            ]);
-            const rank = (p: PluginInfo): number => {
-              if (activeId) {
-                if (p.id === activeId) return 0;
-                if (p.id === "elizacloud") return 1;
-                if (this.isAiProviderPlugin(p)) return 2;
-                return 3;
-              }
-              if (p.id === "elizacloud") return 0;
-              if (this.isAiProviderPlugin(p)) return 1;
-              return 2;
-            };
-            const ar = rank(a);
-            const br = rank(b);
-            if (ar !== br) return ar - br;
+    const baselineFocused =
+      focusedFiltered.length > 0
+        ? focusedFiltered
+        : baseFiltered.slice(0, viewMode === "accounts" ? 6 : 8);
+    const advancedCount = Math.max(
+      0,
+      baseFiltered.length - baselineFocused.length,
+    );
+    const filtered =
+      viewMode === "accounts"
+        ? searchLower || this.accountsShowAll
+          ? baseFiltered
+          : baselineFocused
+        : baseFiltered;
+    const runtimeModelHint = (this.agentStatus?.model ?? "")
+      .trim()
+      .toLowerCase();
+    const selectedProviderHint = (this.onboardingProvider ?? "")
+      .trim()
+      .toLowerCase();
+    const runtimeMatchedAiProvider =
+      viewMode === "ai"
+        ? (filtered.find((p) => {
+            if (!this.isAiProviderPlugin(p)) return false;
+            if (!p.enabled) return false;
+            const id = p.id.toLowerCase();
+            const name = p.name.toLowerCase();
+            return Boolean(
+              runtimeModelHint &&
+                (runtimeModelHint.includes(id) ||
+                  runtimeModelHint.includes(name)),
+            );
+          }) ?? null)
+        : null;
+    const selectedEnabledAiProvider =
+      viewMode === "ai"
+        ? (filtered.find(
+            (p) =>
+              this.isAiProviderPlugin(p) &&
+              p.enabled &&
+              selectedProviderHint &&
+              canonicalProviderId(p.id) ===
+                canonicalProviderId(selectedProviderHint),
+          ) ?? null)
+        : null;
+    const activeAiProvider =
+      viewMode === "ai"
+        ? (runtimeMatchedAiProvider ??
+          selectedEnabledAiProvider ??
+          filtered.find((p) => this.isAiProviderPlugin(p) && p.enabled) ??
+          null)
+        : null;
+    const orderedFiltered =
+      viewMode === "ai" || activeFilter === "all"
+        ? [...filtered].sort((a, b) => {
+            if (viewMode === "ai") {
+              const activeId = activeAiProvider?.id ?? null;
+              const providerOrder = new Map<string, number>([
+                ["elizacloud", 0],
+                ["anthropic", 1],
+                ["anthropic-subscription", 2],
+                ["openai", 3],
+                ["openai-subscription", 4],
+                ["vercel-ai-gateway", 5],
+                ["local-ai", 6],
+                ["openrouter", 7],
+                ["google-genai", 8],
+                ["xai", 9],
+                ["groq", 10],
+                ["deepseek", 11],
+                ["mistral", 12],
+                ["together", 13],
+                ["zai", 14],
+                ["ollama", 15],
+                ["pi-ai", 16],
+              ]);
+              const rank = (p: PluginInfo): number => {
+                if (activeId) {
+                  if (p.id === activeId) return 0;
+                  if (p.id === "elizacloud") return 1;
+                  if (this.isAiProviderPlugin(p)) return 2;
+                  return 3;
+                }
+                if (p.id === "elizacloud") return 0;
+                if (this.isAiProviderPlugin(p)) return 1;
+                return 2;
+              };
+              const ar = rank(a);
+              const br = rank(b);
+              if (ar !== br) return ar - br;
 
-            const ao = providerOrder.get(canonicalProviderId(a.id));
-            const bo = providerOrder.get(canonicalProviderId(b.id));
-            if (ao != null && bo != null && ao !== bo) return ao - bo;
-          }
+              const ao = providerOrder.get(canonicalProviderId(a.id));
+              const bo = providerOrder.get(canonicalProviderId(b.id));
+              if (ao != null && bo != null && ao !== bo) return ao - bo;
+            }
 
-          if (viewMode === "ai" && activeAiProvider) {
-            if (a.id === activeAiProvider.id && b.id !== activeAiProvider.id) return -1;
-            if (b.id === activeAiProvider.id && a.id !== activeAiProvider.id) return 1;
-          }
+            if (viewMode === "ai" && activeAiProvider) {
+              if (a.id === activeAiProvider.id && b.id !== activeAiProvider.id)
+                return -1;
+              if (b.id === activeAiProvider.id && a.id !== activeAiProvider.id)
+                return 1;
+            }
 
-          const aReady = a.enabled && this.isPluginEffectivelyConfigured(a) && a.validationErrors.length === 0;
-          const bReady = b.enabled && this.isPluginEffectivelyConfigured(b) && b.validationErrors.length === 0;
-          if (aReady !== bReady) return aReady ? -1 : 1;
+            const aReady =
+              a.enabled &&
+              this.isPluginEffectivelyConfigured(a) &&
+              a.validationErrors.length === 0;
+            const bReady =
+              b.enabled &&
+              this.isPluginEffectivelyConfigured(b) &&
+              b.validationErrors.length === 0;
+            if (aReady !== bReady) return aReady ? -1 : 1;
 
-          const aRequiresKeys = a.parameters.some((param) => param.required && !param.default);
-          const bRequiresKeys = b.parameters.some((param) => param.required && !param.default);
-          if (aRequiresKeys !== bRequiresKeys) return aRequiresKeys ? 1 : -1;
+            const aRequiresKeys = a.parameters.some(
+              (param) => param.required && !param.default,
+            );
+            const bRequiresKeys = b.parameters.some(
+              (param) => param.required && !param.default,
+            );
+            if (aRequiresKeys !== bRequiresKeys) return aRequiresKeys ? 1 : -1;
 
-          const aNeeds = a.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(a);
-          const bNeeds = b.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(b);
-          if (aNeeds !== bNeeds) return aNeeds ? 1 : -1;
+            const aNeeds =
+              a.validationErrors.length > 0 ||
+              !this.isPluginEffectivelyConfigured(a);
+            const bNeeds =
+              b.validationErrors.length > 0 ||
+              !this.isPluginEffectivelyConfigured(b);
+            if (aNeeds !== bNeeds) return aNeeds ? 1 : -1;
 
-          if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-          if (viewMode === "ai") {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            const aIsVercel = aName.includes("vercel");
-            const bIsVercel = bName.includes("vercel");
-            const aIsOllama = aName.includes("ollama");
-            const bIsOllama = bName.includes("ollama");
-            if (aIsVercel && bIsOllama) return -1;
-            if (aIsOllama && bIsVercel) return 1;
-          }
-          return a.name.localeCompare(b.name);
-        })
-      : filtered;
-    const metricScope = viewMode === "ai" ? aiCorePlugins : availableConnections;
+            if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+            if (viewMode === "ai") {
+              const aName = a.name.toLowerCase();
+              const bName = b.name.toLowerCase();
+              const aIsVercel = aName.includes("vercel");
+              const bIsVercel = bName.includes("vercel");
+              const aIsOllama = aName.includes("ollama");
+              const bIsOllama = bName.includes("ollama");
+              if (aIsVercel && bIsOllama) return -1;
+              if (aIsOllama && bIsVercel) return 1;
+            }
+            return a.name.localeCompare(b.name);
+          })
+        : filtered;
+    const metricScope =
+      viewMode === "ai" ? aiCorePlugins : availableConnections;
     const enabledCount = metricScope.filter((p) => p.enabled).length;
-    const configuredCount = metricScope.filter((p) => this.isPluginUserReady(p)).length;
-    const needsSetupCount = metricScope.filter((p) => !this.isPluginUserReady(p)).length;
+    const configuredCount = metricScope.filter((p) =>
+      this.isPluginUserReady(p),
+    ).length;
+    const needsSetupCount = metricScope.filter(
+      (p) => !this.isPluginUserReady(p),
+    ).length;
     const requiresSetup = metricScope.filter(
-      (p) => p.enabled && (p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p)),
+      (p) =>
+        p.enabled &&
+        (p.validationErrors.length > 0 ||
+          !this.isPluginEffectivelyConfigured(p)),
     );
     const nextSetupTarget =
       (viewMode === "accounts"
-        ? metricScope.find((p) => p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p))
+        ? metricScope.find(
+            (p) =>
+              p.validationErrors.length > 0 ||
+              !this.isPluginEffectivelyConfigured(p),
+          )
         : metricScope.find(
-          (p) =>
-            this.isAiProviderPlugin(p) &&
-            p.enabled &&
-            (p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p)),
-        )) ??
+            (p) =>
+              this.isAiProviderPlugin(p) &&
+              p.enabled &&
+              (p.validationErrors.length > 0 ||
+                !this.isPluginEffectivelyConfigured(p)),
+          )) ??
       metricScope.find(
         (p) =>
           p.enabled &&
-          (p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p)),
-      ) ?? requiresSetup[0];
+          (p.validationErrors.length > 0 ||
+            !this.isPluginEffectivelyConfigured(p)),
+      ) ??
+      requiresSetup[0];
 
     const toggleSettings = (pluginId: string) => {
       const next = new Set(this.pluginSettingsOpen);
@@ -8609,7 +9242,8 @@ export class MilaidyApp extends LitElement {
     const focusPluginParamInput = (pluginId: string, paramKey: string) => {
       requestAnimationFrame(() => {
         const selector = `input[data-plugin-param="${pluginId}:${paramKey}"]`;
-        const input = this.shadowRoot?.querySelector<HTMLInputElement>(selector);
+        const input =
+          this.shadowRoot?.querySelector<HTMLInputElement>(selector);
         if (!input) return;
         input.focus();
         input.select();
@@ -8620,7 +9254,9 @@ export class MilaidyApp extends LitElement {
         toggleSettings(pluginId);
       }
       requestAnimationFrame(() => {
-        const el = this.shadowRoot?.querySelector(`[data-plugin-id="${pluginId}"]`);
+        const el = this.shadowRoot?.querySelector(
+          `[data-plugin-id="${pluginId}"]`,
+        );
         if (el instanceof HTMLElement) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -8631,9 +9267,11 @@ export class MilaidyApp extends LitElement {
       <div class="plugins-surface ${viewMode === "ai" ? "ai-surface" : "accounts-surface"}">
       <h2>${viewMode === "accounts" ? "Account" : "AI Settings"}</h2>
       <p class="subtitle">
-        ${viewMode === "accounts"
-          ? "Manage account-level connections here. Market/social app connections live in Markets & Apps."
-          : "Configure model, memory, and runtime modules for Runtime."}
+        ${
+          viewMode === "accounts"
+            ? "Manage account-level connections here. Market/social app connections live in Markets & Apps."
+            : "Configure model, memory, and runtime modules for Runtime."
+        }
       </p>
 
       <div class="plugin-dashboard">
@@ -8644,9 +9282,11 @@ export class MilaidyApp extends LitElement {
                 ${viewMode === "accounts" ? "Account" : "AI Configuration"}
               </div>
               <div style="font-size:18px;font-weight:700;color:var(--text-strong);">
-                ${viewMode === "accounts"
-                  ? "Manage account identity, wallet, and core user connection status"
-                  : "Set up Runtime’s model and memory stack"}
+                ${
+                  viewMode === "accounts"
+                    ? "Manage account identity, wallet, and core user connection status"
+                    : "Set up Runtime’s model and memory stack"
+                }
               </div>
             </div>
           </div>
@@ -8665,8 +9305,9 @@ export class MilaidyApp extends LitElement {
             </div>
           </div>
 
-          ${nextSetupTarget
-            ? html`
+          ${
+            nextSetupTarget
+              ? html`
                 <div class="plugin-next-step">
                   <div>
                     <div class="plugin-next-step-title">Recommended next step</div>
@@ -8679,106 +9320,148 @@ export class MilaidyApp extends LitElement {
                       class="btn plugin-pill-btn"
                       @click=${async () => {
                         if (!nextSetupTarget.enabled) {
-                          await this.handlePluginToggle(nextSetupTarget.id, true);
+                          await this.handlePluginToggle(
+                            nextSetupTarget.id,
+                            true,
+                          );
                           await this.loadPlugins();
                         }
                         focusPlugin(nextSetupTarget.id);
                       }}
                     >Open settings</button>
-                    ${viewMode === "ai"
-                      ? html`<button class="plugin-secondary-btn" @click=${this.handleRestart}>Restart agent</button>`
-                      : html`
-                          ${advancedCount > 0
-                            ? html`
-                                <button class="plugin-secondary-btn" @click=${() => { this.accountsShowAll = !this.accountsShowAll; }}>
+                    ${
+                      viewMode === "ai"
+                        ? html`<button class="plugin-secondary-btn" @click=${this.handleRestart}>Restart agent</button>`
+                        : html`
+                          ${
+                            advancedCount > 0
+                              ? html`
+                                <button class="plugin-secondary-btn" @click=${() => {
+                                  this.accountsShowAll = !this.accountsShowAll;
+                                }}>
                                   ${this.accountsShowAll ? "Show fewer connections" : `Show all connections (+${advancedCount})`}
                                 </button>
                               `
-                            : ""}
-                        `}
+                              : ""
+                          }
+                        `
+                    }
                   </div>
                 </div>
               `
-            : ""}
+              : ""
+          }
         </div>
 
         <div class="plugin-toolbar">
           <input
             class="plugin-search"
             type="text"
-            placeholder=${viewMode === "accounts"
-              ? "Search account connections..."
-              : "Search model, memory, and runtime modules..."}
+            placeholder=${
+              viewMode === "accounts"
+                ? "Search account connections..."
+                : "Search model, memory, and runtime modules..."
+            }
             .value=${this.pluginSearch}
-            @input=${(e: Event) => { this.pluginSearch = (e.target as HTMLInputElement).value; }}
+            @input=${(e: Event) => {
+              this.pluginSearch = (e.target as HTMLInputElement).value;
+            }}
           />
-          ${viewMode === "ai"
-            ? html`
+          ${
+            viewMode === "ai"
+              ? html`
                 <div class="plugin-filters">
                   ${categories.map(
                     (cat) => html`
                       <button
                         class="filter-btn ${activeFilter === cat ? "active" : ""}"
                         data-category=${cat}
-                        @click=${() => { this.pluginFilter = cat; }}
-                      >${cat === "all"
-                        ? `All (${aiCorePlugins.length})`
-                        : `${categoryLabels[cat]} (${availableConnections.filter((p) => cat === "ai-provider" ? this.isAiProviderPlugin(p) : p.category === cat).length})`}</button>
+                        @click=${() => {
+                          this.pluginFilter = cat;
+                        }}
+                      >${
+                        cat === "all"
+                          ? `All (${aiCorePlugins.length})`
+                          : `${categoryLabels[cat]} (${availableConnections.filter((p) => (cat === "ai-provider" ? this.isAiProviderPlugin(p) : p.category === cat)).length})`
+                      }</button>
                     `,
                   )}
                 </div>
               `
-            : ""}
-          ${!searchLower
-            ? html`
+              : ""
+          }
+          ${
+            !searchLower
+              ? html`
                 <div style="margin-top:8px;font-size:12px;color:var(--muted);">
-                  ${viewMode === "accounts"
+                  ${
+                    viewMode === "accounts"
                       ? this.accountsShowAll
                         ? "Showing all available account connections."
                         : "Showing account-level connections."
-                    : "Showing model and memory modules."}
+                      : "Showing model and memory modules."
+                  }
                 </div>
               `
-            : ""}
+              : ""
+          }
         </div>
 
       </div>
 
-      ${baseFiltered.length === 0
-        ? html`
+      ${
+        baseFiltered.length === 0
+          ? html`
             <div class="empty-state">
-              ${this.pluginSearch
-                ? "No integrations match your search."
-                : viewMode === "accounts"
-                  ? "No account-level connections here right now. Use Markets & Apps for Discord, Telegram, and Polymarket."
-                  : "No integrations in this category."}
+              ${
+                this.pluginSearch
+                  ? "No integrations match your search."
+                  : viewMode === "accounts"
+                    ? "No account-level connections here right now. Use Markets & Apps for Discord, Telegram, and Polymarket."
+                    : "No integrations in this category."
+              }
             </div>
           `
-        : html`
+          : html`
             <div class="plugin-list">
-              ${repeat(orderedFiltered, (p) => p.id, (p) => {
-                const hasParams = p.parameters && p.parameters.length > 0;
-                const allParamsSet = hasParams ? p.parameters.every((param) => param.isSet) : true;
-                const settingsOpen = this.pluginSettingsOpen.has(p.id);
-                const setCount = hasParams ? p.parameters.filter((param) => param.isSet).length : 0;
-                const totalCount = hasParams ? p.parameters.length : 0;
-                const setupComplete = p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0;
-                const needsAttention = p.validationErrors.length > 0 || !this.isPluginEffectivelyConfigured(p);
-                const statusLabel = this.pluginStatusLabel(p);
-                const risk = this.pluginRisk(p);
-                const requiredKeys = p.parameters.filter((param) => param.required).map((param) => param.key);
-                const hasManageSurface =
-                  hasParams ||
-                  this.isSubscriptionProvider(p) ||
-                  risk === "CAN_SPEND" ||
-                  (p.validationErrors?.length ?? 0) > 0 ||
-                  (p.validationWarnings?.length ?? 0) > 0;
-                const categoryLabel =
-                  this.isAiProviderPlugin(p) ? "Model"
-                    : p.category === "database" ? "Memory"
+              ${repeat(
+                orderedFiltered,
+                (p) => p.id,
+                (p) => {
+                  const hasParams = p.parameters && p.parameters.length > 0;
+                  const allParamsSet = hasParams
+                    ? p.parameters.every((param) => param.isSet)
+                    : true;
+                  const settingsOpen = this.pluginSettingsOpen.has(p.id);
+                  const setCount = hasParams
+                    ? p.parameters.filter((param) => param.isSet).length
+                    : 0;
+                  const totalCount = hasParams ? p.parameters.length : 0;
+                  const setupComplete =
+                    p.enabled &&
+                    this.isPluginEffectivelyConfigured(p) &&
+                    p.validationErrors.length === 0;
+                  const needsAttention =
+                    p.validationErrors.length > 0 ||
+                    !this.isPluginEffectivelyConfigured(p);
+                  const statusLabel = this.pluginStatusLabel(p);
+                  const risk = this.pluginRisk(p);
+                  const requiredKeys = p.parameters
+                    .filter((param) => param.required)
+                    .map((param) => param.key);
+                  const hasManageSurface =
+                    hasParams ||
+                    this.isSubscriptionProvider(p) ||
+                    risk === "CAN_SPEND" ||
+                    (p.validationErrors?.length ?? 0) > 0 ||
+                    (p.validationWarnings?.length ?? 0) > 0;
+                  const categoryLabel = this.isAiProviderPlugin(p)
+                    ? "Model"
+                    : p.category === "database"
+                      ? "Memory"
                       : "Runtime";
 
-                return html`
+                  return html`
                   <div class="plugin-item" data-plugin-id=${p.id} style="flex-direction:column;align-items:stretch;">
                     <div class="plugin-item-top">
                       <div style="flex:1;min-width:0;">
@@ -8787,59 +9470,73 @@ export class MilaidyApp extends LitElement {
                             src=${this.appIconPath(p.id)}
                             alt=${`${p.name} icon`}
                             style="width:22px;height:22px;border-radius:6px;border:1px solid var(--border-soft);object-fit:cover;"
-                            @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                            @error=${(e: Event) => this.handlePluginIconError(e, p.id)}
                           />
                           <div class="plugin-name">${p.name}</div>
                           ${viewMode === "ai" ? html`<span class="plugin-category-tag">${categoryLabel}</span>` : ""}
                           <span class="plugin-state-tag ${setupComplete ? "ok" : ""}">
                             ${setupComplete ? "Ready" : needsAttention ? "Needs Setup" : "Installed"}
                           </span>
-                          ${viewMode === "ai"
-                            ? html`
+                          ${
+                            viewMode === "ai"
+                              ? html`
                                 <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
                                   ${statusLabel}
                                 </span>
                               `
-                            : ""}
+                              : ""
+                          }
                           <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
                             ${risk}
                           </span>
                         </div>
                         <div class="plugin-desc">${this.pluginDescription(p)}</div>
-                        ${viewMode === "ai"
-                          ? html`
+                        ${
+                          viewMode === "ai"
+                            ? html`
                               <div class="plugin-required-keys">
                                 <span>Required keys:</span>
-                                ${requiredKeys.length > 0
-                                  ? requiredKeys.map((k) => html`<code>${k}</code>`)
-                                  : html`<span>none</span>`}
+                                ${
+                                  requiredKeys.length > 0
+                                    ? requiredKeys.map(
+                                        (k) => html`<code>${k}</code>`,
+                                      )
+                                    : html`<span>none</span>`
+                                }
                               </div>
                             `
-                          : ""}
+                            : ""
+                        }
                       </div>
 
                       <div class="plugin-inline-actions">
-                        ${hasManageSurface
-                          ? html`
+                        ${
+                          hasManageSurface
+                            ? html`
                               <button
                                 class="plugin-secondary-btn"
                                 @click=${() => {
                                   focusPlugin(p.id);
                                   if (p.id === "elizacloud") {
-                                    focusPluginParamInput("elizacloud", "ELIZAOS_CLOUD_API_KEY");
+                                    focusPluginParamInput(
+                                      "elizacloud",
+                                      "ELIZAOS_CLOUD_API_KEY",
+                                    );
                                   }
                                 }}
                               >Manage</button>
                             `
-                          : ""}
-                        ${viewMode === "accounts"
-                          ? html`
+                            : ""
+                        }
+                        ${
+                          viewMode === "accounts"
+                            ? html`
                               <button
                                 class=${p.enabled ? "plugin-secondary-btn" : "btn plugin-pill-btn"}
                                 @click=${() => this.handlePluginToggle(p.id, !p.enabled)}
                               >${p.enabled ? "Disconnect" : "Connect"}</button>
                             `
-                          : html`
+                            : html`
                               <label class="toggle-switch" style="position:relative;display:inline-block;width:40px;height:22px;">
                                 <input
                                   type="checkbox"
@@ -8859,14 +9556,18 @@ export class MilaidyApp extends LitElement {
                                   "></span>
                                 </span>
                               </label>
-                            `}
+                            `
+                        }
                       </div>
                     </div>
 
-                    ${hasParams || this.isSubscriptionProvider(p)
-                      ? html`
-                          ${p.id === "elizacloud" && !this.hasValidElizaCloudApiKeyConfigured(p)
-                            ? html`
+                    ${
+                      hasParams || this.isSubscriptionProvider(p)
+                        ? html`
+                          ${
+                            p.id === "elizacloud" &&
+                            !this.hasValidElizaCloudApiKeyConfigured(p)
+                              ? html`
                                 <div class="elizacloud-cta">
                                   <div style="min-width:180px;">
                                     <div class="elizacloud-cta-head">
@@ -8879,21 +9580,26 @@ export class MilaidyApp extends LitElement {
                                     <button
                                       class="elizacloud-cta-btn"
                                       @click=${async () => {
-                                        this.openExternalUrl("https://www.elizacloud.ai/login");
+                                        this.openExternalUrl(
+                                          "https://www.elizacloud.ai/login",
+                                        );
                                         await this.promptAndSaveElizaCloudApiKey();
                                       }}
                                     >Login</button>
                                     <button
                                       class="elizacloud-cta-btn"
                                       @click=${async () => {
-                                        this.openExternalUrl("https://www.elizacloud.ai/login?intent=signup");
+                                        this.openExternalUrl(
+                                          "https://www.elizacloud.ai/login?intent=signup",
+                                        );
                                         await this.promptAndSaveElizaCloudApiKey();
                                       }}
                                     >Get started</button>
                                   </div>
                                 </div>
                               `
-                            : ""}
+                              : ""
+                          }
                           <div
                             class="plugin-settings-toggle ${settingsOpen ? "open" : ""}"
                             @click=${() => toggleSettings(p.id)}
@@ -8906,35 +9612,44 @@ export class MilaidyApp extends LitElement {
                             </span>
                           </div>
 
-                          ${settingsOpen
-                            ? html`
+                          ${
+                            settingsOpen
+                              ? html`
                                 <div class="plugin-settings-body">
-                                  ${p.category === "ai-provider" || p.category === "database"
-                                    ? html`
+                                  ${
+                                    p.category === "ai-provider" ||
+                                    p.category === "database"
+                                      ? html`
                                         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
                                           Provider and memory changes may require a restart to take effect. Runtime will restart automatically after saving or toggling.
                                         </div>
                                       `
-                                    : ""}
-                                  ${this.isSubscriptionProvider(p)
-                                    ? html`
+                                      : ""
+                                  }
+                                  ${
+                                    this.isSubscriptionProvider(p)
+                                      ? html`
                                         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
                                           Complete subscription OAuth using backend auth flow.
                                         </div>
                                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                                           <button class="btn plugin-pill-btn" @click=${() => void this.startSubscriptionAuth(p)}>Start login</button>
                                           <button class="plugin-secondary-btn" @click=${() => void this.finishSubscriptionAuth(p)}>Finish login</button>
-                                          ${this.isAnthropicSubscriptionProvider(p)
-                                            ? html`<button class="plugin-secondary-btn" @click=${() => void this.saveAnthropicSetupTokenFromPrompt(p)}>Save setup token</button>`
-                                            : ""}
+                                          ${
+                                            this.isAnthropicSubscriptionProvider(
+                                              p,
+                                            )
+                                              ? html`<button class="plugin-secondary-btn" @click=${() => void this.saveAnthropicSetupTokenFromPrompt(p)}>Save setup token</button>`
+                                              : ""
+                                          }
                                         </div>
                                       `
-                                    : html`
+                                      : html`
                                         ${p.parameters.map(
                                           (param) => html`
                                             <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
                                               <div style="display:flex;align-items:center;gap:6px;">
-                                                <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${param.isSet ? "#2ecc71" : (param.required ? "#e74c3c" : "var(--muted)")};flex-shrink:0;"></span>
+                                                <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${param.isSet ? "#2ecc71" : param.required ? "#e74c3c" : "var(--muted)"};flex-shrink:0;"></span>
                                                 <code style="font-size:11px;font-weight:600;color:var(--text-strong);">${param.key}</code>
                                                 ${param.required ? html`<span style="font-size:10px;color:#e74c3c;">required</span>` : ""}
                                                 ${param.isSet ? html`<span style="font-size:10px;color:#2ecc71;">set</span>` : ""}
@@ -8942,19 +9657,32 @@ export class MilaidyApp extends LitElement {
                                               <div style="color:var(--muted);font-size:11px;padding-left:12px;">${param.description}${param.default ? ` (default: ${param.default})` : ""}</div>
                                               <div class="secret-input-row">
                                                 <input
-                                                  type="${param.sensitive
-                                                    ? (this.isSensitiveFieldVisible(p.id, param.key) ? "text" : "password")
-                                                    : "text"}"
-                                                  .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : (param.isSet ? "" : (param.default ?? ""))}
+                                                  type="${
+                                                    param.sensitive
+                                                      ? this.isSensitiveFieldVisible(
+                                                          p.id,
+                                                          param.key,
+                                                        )
+                                                        ? "text"
+                                                        : "password"
+                                                      : "text"
+                                                  }"
+                                                  .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : param.isSet ? "" : (param.default ?? "")}
                                                   placeholder="${param.sensitive && param.isSet ? "********  (already set, leave blank to keep)" : "Enter value..."}"
                                                   data-plugin-param="${p.id}:${param.key}"
                                                   data-plugin-dirty="0"
                                                   @input=${(e: Event) => {
-                                                    (e.target as HTMLInputElement).setAttribute("data-plugin-dirty", "1");
+                                                    (
+                                                      e.target as HTMLInputElement
+                                                    ).setAttribute(
+                                                      "data-plugin-dirty",
+                                                      "1",
+                                                    );
                                                   }}
                                                 />
-                                                ${param.sensitive
-                                                  ? html`
+                                                ${
+                                                  param.sensitive
+                                                    ? html`
                                                       <button
                                                         class="secret-toggle-btn"
                                                         type="button"
@@ -8963,7 +9691,8 @@ export class MilaidyApp extends LitElement {
                                                         aria-label=${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide value" : "Show value"}
                                                       >${this.isSensitiveFieldVisible(p.id, param.key) ? "Hide" : "Show"}</button>
                                                     `
-                                                  : ""}
+                                                    : ""
+                                                }
                                               </div>
                                             </div>
                                           `,
@@ -8973,17 +9702,19 @@ export class MilaidyApp extends LitElement {
                                           style="align-self:flex-end;font-size:11px;padding:4px 14px;margin-top:4px;"
                                           @click=${() => this.handlePluginConfigSave(p.id)}
                                         >Save Settings</button>
-                                      `}
+                                      `
+                                  }
                                 </div>
                               `
-                            : ""
+                              : ""
                           }
                         `
-                      : ""
+                        : ""
                     }
 
-                    ${risk === "CAN_SPEND"
-                      ? html`
+                    ${
+                      risk === "CAN_SPEND"
+                        ? html`
                           <div style="margin-top:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:rgba(140,47,33,0.04);">
                             <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">High-risk action control</div>
                             <label style="display:flex;align-items:center;gap:8px;font-size:12px;">
@@ -8996,32 +9727,40 @@ export class MilaidyApp extends LitElement {
                             </label>
                           </div>
                         `
-                      : ""}
+                        : ""
+                    }
 
-                    ${p.validationErrors && p.validationErrors.length > 0
-                      ? html`
+                    ${
+                      p.validationErrors && p.validationErrors.length > 0
+                        ? html`
                           <div class="plugin-warn-box">
                             ${p.validationErrors.map(
-                              (err) => html`<div>${err.field}: ${err.message}</div>`,
+                              (err) =>
+                                html`<div>${err.field}: ${err.message}</div>`,
                             )}
                           </div>
                         `
-                      : ""}
-                    ${p.validationWarnings && p.validationWarnings.length > 0
-                      ? html`
+                        : ""
+                    }
+                    ${
+                      p.validationWarnings && p.validationWarnings.length > 0
+                        ? html`
                           <div style="margin-top:4px;font-size:11px;">
                             ${p.validationWarnings.map(
-                              (w) => html`<div style="color:var(--warn);">${w.message}</div>`,
+                              (w) =>
+                                html`<div style="color:var(--warn);">${w.message}</div>`,
                             )}
                           </div>
                         `
-                      : ""
+                        : ""
                     }
                   </div>
                 `;
-              })}
+                },
+              )}
             </div>
-          `}
+          `
+      }
       </div>
     `;
   }
@@ -9031,18 +9770,28 @@ export class MilaidyApp extends LitElement {
     if (plugin.validationErrors.length > 0) return false;
     const requiredParams = plugin.parameters.filter((param) => param.required);
     if (requiredParams.length === 0) return true;
-    return requiredParams.every((param) => param.isSet || Boolean(param.default));
+    return requiredParams.every(
+      (param) => param.isSet || Boolean(param.default),
+    );
   }
 
-  private hasValidElizaCloudApiKeyConfigured(plugin?: PluginInfo | null): boolean {
-    const target = plugin ?? this.plugins.find((p) => p.id === "elizacloud") ?? null;
+  private hasValidElizaCloudApiKeyConfigured(
+    plugin?: PluginInfo | null,
+  ): boolean {
+    const target =
+      plugin ?? this.plugins.find((p) => p.id === "elizacloud") ?? null;
     if (!target || target.id !== "elizacloud") return false;
-    const keyParam = target.parameters.find((param) => param.key === "ELIZAOS_CLOUD_API_KEY");
+    const keyParam = target.parameters.find(
+      (param) => param.key === "ELIZAOS_CLOUD_API_KEY",
+    );
     if (!keyParam?.isSet) return false;
     const hasKeyValidationError = target.validationErrors.some((err) => {
       const field = String(err.field ?? "").toUpperCase();
       const msg = String(err.message ?? "").toUpperCase();
-      return field === "ELIZAOS_CLOUD_API_KEY" || msg.includes("ELIZAOS_CLOUD_API_KEY");
+      return (
+        field === "ELIZAOS_CLOUD_API_KEY" ||
+        msg.includes("ELIZAOS_CLOUD_API_KEY")
+      );
     });
     if (hasKeyValidationError) return false;
     return this.isPluginEffectivelyConfigured(target);
@@ -9051,7 +9800,8 @@ export class MilaidyApp extends LitElement {
   private isChatProviderReady(plugin: PluginInfo): boolean {
     if (!this.isAiProviderPlugin(plugin)) return false;
     if (!plugin.enabled) return false;
-    if (this.isSubscriptionProvider(plugin)) return this.isSubscriptionAuthenticated(plugin);
+    if (this.isSubscriptionProvider(plugin))
+      return this.isSubscriptionAuthenticated(plugin);
     if (plugin.validationErrors.length > 0) return false;
 
     // For providers that require an API key, never trust `configured` alone.
@@ -9067,7 +9817,9 @@ export class MilaidyApp extends LitElement {
     // is actually set before unlocking chat.
     if (plugin.id !== "ollama") {
       const apiKeyParam =
-        plugin.parameters.find((p) => /api[_-]?key/i.test(p.key) && p.sensitive) ??
+        plugin.parameters.find(
+          (p) => /api[_-]?key/i.test(p.key) && p.sensitive,
+        ) ??
         plugin.parameters.find((p) => /api[_-]?key/i.test(p.key)) ??
         null;
       if (apiKeyParam) return Boolean(apiKeyParam.isSet);
@@ -9083,9 +9835,13 @@ export class MilaidyApp extends LitElement {
       return this.isSubscriptionAuthenticated(plugin);
     }
     if (plugin.parameters.length > 0) {
-      const requiredParams = plugin.parameters.filter((param) => param.required);
+      const requiredParams = plugin.parameters.filter(
+        (param) => param.required,
+      );
       if (requiredParams.length > 0) {
-        const hasAllRequired = requiredParams.every((param) => param.isSet || Boolean(param.default));
+        const hasAllRequired = requiredParams.every(
+          (param) => param.isSet || Boolean(param.default),
+        );
         if (!hasAllRequired) return false;
       } else {
         const hasAnyUserInput = plugin.parameters.some((param) => param.isSet);
@@ -9152,28 +9908,30 @@ export class MilaidyApp extends LitElement {
     if (plugin.category === "connector") return true;
     if (plugin.category === "feature") {
       const integrationSignals = plugin.parameters.some((param) =>
-        /(token|webhook|channel|account|username|password|secret|client|tenant|api)/i.test(param.key),
+        /(token|webhook|channel|account|username|password|secret|client|tenant|api)/i.test(
+          param.key,
+        ),
       );
       if (integrationSignals) return true;
     }
     const key = `${plugin.id} ${plugin.name}`.toLowerCase();
     return (
-      key.includes("telegram")
-      || key.includes("discord")
-      || key.includes("slack")
-      || key.includes("signal")
-      || key.includes("whatsapp")
-      || key.includes("google chat")
-      || key.includes("googlechat")
-      || key.includes("twitter")
-      || key.includes("xai")
-      || key.includes("polymarket")
-      || key.includes("market")
-      || key.includes("exchange")
-      || key.includes("farcaster")
-      || key.includes("tiktok")
-      || key.includes("youtube")
-      || key.includes("reddit")
+      key.includes("telegram") ||
+      key.includes("discord") ||
+      key.includes("slack") ||
+      key.includes("signal") ||
+      key.includes("whatsapp") ||
+      key.includes("google chat") ||
+      key.includes("googlechat") ||
+      key.includes("twitter") ||
+      key.includes("xai") ||
+      key.includes("polymarket") ||
+      key.includes("market") ||
+      key.includes("exchange") ||
+      key.includes("farcaster") ||
+      key.includes("tiktok") ||
+      key.includes("youtube") ||
+      key.includes("reddit")
     );
   }
 
@@ -9191,24 +9949,31 @@ export class MilaidyApp extends LitElement {
     return `Use the ${plugin.name} plugin to help with the requested action. Ask one concise clarification question if required fields are missing, then proceed.`;
   }
 
-  private getCuratedApps(): Array<{ app: AppEntry; plugin: PluginInfo | null }> {
+  private getCuratedApps(): Array<{
+    app: AppEntry;
+    plugin: PluginInfo | null;
+  }> {
     const cache = this.curatedAppsCache;
     if (cache.sourceRef === this.plugins) return cache.result;
 
     const byId = new Map<string, AppEntry>();
     for (const app of CURATED_APPS) byId.set(app.id, app);
-    const pluginById = new Map(this.plugins.map((plugin) => [plugin.id, plugin] as const));
+    const pluginById = new Map(
+      this.plugins.map((plugin) => [plugin.id, plugin] as const),
+    );
 
     // Auto-add backend user-facing connections as assistant-driven apps.
     for (const plugin of this.plugins) {
       if (!this.isUserFacingConnection(plugin)) continue;
       if (!this.isAppIntegrationPlugin(plugin)) continue;
       if (byId.has(plugin.id)) continue;
-      const normalizedName = plugin.id.toLowerCase() === "twitter" ? "X" : plugin.name;
+      const normalizedName =
+        plugin.id.toLowerCase() === "twitter" ? "X" : plugin.name;
       byId.set(plugin.id, {
         id: plugin.id,
         name: normalizedName,
-        description: plugin.description || `Use ${normalizedName} through Chat.`,
+        description:
+          plugin.description || `Use ${normalizedName} through Chat.`,
         actionMode: plugin.id === "polymarket" ? "polymarket-bet" : "assistant",
       });
     }
@@ -9238,26 +10003,43 @@ export class MilaidyApp extends LitElement {
   ): Promise<void> {
     const risk = this.pluginRisk(plugin);
     const connectedWallet =
-      this.walletConfig?.solanaConfiguredAddress
-      ?? this.walletConfig?.evmConfiguredAddress
-      ?? null;
+      this.walletConfig?.solanaConfiguredAddress ??
+      this.walletConfig?.evmConfiguredAddress ??
+      null;
 
     if (risk === "CAN_SPEND" && !connectedWallet) {
-      this.appActionStatus = "Connect a wallet in Portfolio before running spend or bet actions.";
-      this.addSecurityAudit(plugin, risk, "blocked", "Blocked: no connected wallet.");
+      this.appActionStatus =
+        "Connect a wallet in Portfolio before running spend or bet actions.";
+      this.addSecurityAudit(
+        plugin,
+        risk,
+        "blocked",
+        "Blocked: no connected wallet.",
+      );
       return;
     }
 
     if (plugin.id === "polymarket") {
       const amount = Number.parseFloat(this.polymarketAmount.trim());
       if (!Number.isFinite(amount) || amount <= 0) {
-        this.appActionStatus = "Enter a valid USD amount before preparing a Polymarket action.";
-        this.addSecurityAudit(plugin, risk, "blocked", "Blocked: invalid bet amount.");
+        this.appActionStatus =
+          "Enter a valid USD amount before preparing a Polymarket action.";
+        this.addSecurityAudit(
+          plugin,
+          risk,
+          "blocked",
+          "Blocked: invalid bet amount.",
+        );
         return;
       }
       if (amount > this.securityBetPerTradeLimitUsd) {
         this.appActionStatus = `Amount exceeds per-trade limit ($${this.securityBetPerTradeLimitUsd.toFixed(2)}).`;
-        this.addSecurityAudit(plugin, risk, "blocked", `Blocked: trade limit exceeded ($${amount.toFixed(2)}).`);
+        this.addSecurityAudit(
+          plugin,
+          risk,
+          "blocked",
+          `Blocked: trade limit exceeded ($${amount.toFixed(2)}).`,
+        );
         return;
       }
       const spentToday = this.getTodaySpendUsd();
@@ -9277,22 +10059,36 @@ export class MilaidyApp extends LitElement {
         if (elapsedSec < this.securityBetCooldownSec) {
           const wait = this.securityBetCooldownSec - elapsedSec;
           this.appActionStatus = `Cooldown active. Wait ${wait}s before another spend action.`;
-          this.addSecurityAudit(plugin, risk, "blocked", `Blocked: cooldown active (${wait}s).`);
+          this.addSecurityAudit(
+            plugin,
+            risk,
+            "blocked",
+            `Blocked: cooldown active (${wait}s).`,
+          );
           return;
         }
       }
     }
 
-    if (risk === "CAN_SPEND" && this.pluginExecutionToggles[plugin.id] !== true) {
-      this.appActionStatus = "Execution is blocked for this spending module. Enable execution in Security first.";
-      this.addSecurityAudit(plugin, risk, "blocked", "Execution blocked by policy toggle.");
+    if (
+      risk === "CAN_SPEND" &&
+      this.pluginExecutionToggles[plugin.id] !== true
+    ) {
+      this.appActionStatus =
+        "Execution is blocked for this spending module. Enable execution in Security first.";
+      this.addSecurityAudit(
+        plugin,
+        risk,
+        "blocked",
+        "Execution blocked by policy toggle.",
+      );
       return;
     }
     if (
-      risk === "CAN_SPEND"
-      && this.securitySpendGuardEnabled
-      && this.securityRequireSpendConfirm
-      && !opts?.skipSpendConfirm
+      risk === "CAN_SPEND" &&
+      this.securitySpendGuardEnabled &&
+      this.securityRequireSpendConfirm &&
+      !opts?.skipSpendConfirm
     ) {
       this.openActionConfirm({
         title: `Confirm ${plugin.name} spend action`,
@@ -9301,7 +10097,12 @@ export class MilaidyApp extends LitElement {
         danger: true,
         onCancel: () => {
           this.appActionStatus = "Action cancelled.";
-          this.addSecurityAudit(plugin, risk, "blocked", "User declined spend confirmation.");
+          this.addSecurityAudit(
+            plugin,
+            risk,
+            "blocked",
+            "User declined spend confirmation.",
+          );
         },
         onConfirm: async () => {
           await this.runAppAction(plugin, { ...opts, skipSpendConfirm: true });
@@ -9309,7 +10110,11 @@ export class MilaidyApp extends LitElement {
       });
       return;
     }
-    if (risk === "CAN_EXECUTE" && this.securityRequireExecuteConfirm && !opts?.skipExecuteConfirm) {
+    if (
+      risk === "CAN_EXECUTE" &&
+      this.securityRequireExecuteConfirm &&
+      !opts?.skipExecuteConfirm
+    ) {
       this.openActionConfirm({
         title: `Confirm ${plugin.name} execution`,
         body: "This action can execute tool operations on your behalf.",
@@ -9317,10 +10122,18 @@ export class MilaidyApp extends LitElement {
         danger: false,
         onCancel: () => {
           this.appActionStatus = "Action cancelled.";
-          this.addSecurityAudit(plugin, risk, "blocked", "User declined execution confirmation.");
+          this.addSecurityAudit(
+            plugin,
+            risk,
+            "blocked",
+            "User declined execution confirmation.",
+          );
         },
         onConfirm: async () => {
-          await this.runAppAction(plugin, { ...opts, skipExecuteConfirm: true });
+          await this.runAppAction(plugin, {
+            ...opts,
+            skipExecuteConfirm: true,
+          });
         },
       });
       return;
@@ -9346,7 +10159,9 @@ export class MilaidyApp extends LitElement {
       this.appActionStatus = `${plugin.name} action prepared. Review the response below or in Chat.`;
       if (plugin.id === "polymarket") {
         const amount = Number.parseFloat(this.polymarketAmount.trim());
-        const amountText = Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "unknown amount";
+        const amountText = Number.isFinite(amount)
+          ? `$${amount.toFixed(2)}`
+          : "unknown amount";
         const market = this.polymarketMarket.trim() || "Unknown market";
         const outcome = this.polymarketOutcome.trim() || "Unknown outcome";
         this.addSecurityAudit(
@@ -9356,7 +10171,12 @@ export class MilaidyApp extends LitElement {
           `Prepared bet. Market: "${market}". Outcome: "${outcome}". Amount: ${amountText}.`,
         );
       } else {
-        this.addSecurityAudit(plugin, risk, "prepared", "Action prepared through Chat.");
+        this.addSecurityAudit(
+          plugin,
+          risk,
+          "prepared",
+          "Action prepared through Chat.",
+        );
       }
     } catch (err) {
       this.appActionStatus = `Action failed: ${err instanceof Error ? err.message : "network error"}`;
@@ -9378,8 +10198,13 @@ export class MilaidyApp extends LitElement {
         return;
       }
 
-      const hasRequiredParams = latest.parameters.some((param) => param.required);
-      if (latest.validationErrors.length > 0 || (!latest.configured && hasRequiredParams)) {
+      const hasRequiredParams = latest.parameters.some(
+        (param) => param.required,
+      );
+      if (
+        latest.validationErrors.length > 0 ||
+        (!latest.configured && hasRequiredParams)
+      ) {
         const missing = latest.validationErrors.map((e) => e.field).join(", ");
         this.appActionStatus = missing
           ? `Missing required settings: ${missing}`
@@ -9392,11 +10217,11 @@ export class MilaidyApp extends LitElement {
       const latestNow = this.plugins.find((p) => p.id === plugin.id) ?? null;
       const enabledNow = latestNow?.enabled === true;
       const readyNow = Boolean(
-        latestNow
-        && latestNow.enabled
-        && latestNow.configured
-        && this.isPluginEffectivelyConfigured(latestNow)
-        && latestNow.validationErrors.length === 0,
+        latestNow &&
+          latestNow.enabled &&
+          latestNow.configured &&
+          this.isPluginEffectivelyConfigured(latestNow) &&
+          latestNow.validationErrors.length === 0,
       );
       this.appActionStatus = readyNow
         ? `${plugin.name} connected.`
@@ -9431,20 +10256,34 @@ export class MilaidyApp extends LitElement {
     const extraVisible = curatedApps
       .filter(({ app }) => !coreAppIds.has(app.id))
       .slice(0, 8);
-    const dedup = new Map<string, { app: AppEntry; plugin: PluginInfo | null }>();
-    for (const row of [...coreVisible, ...extraVisible]) dedup.set(row.app.id, row);
+    const dedup = new Map<
+      string,
+      { app: AppEntry; plugin: PluginInfo | null }
+    >();
+    for (const row of [...coreVisible, ...extraVisible])
+      dedup.set(row.app.id, row);
     const defaultVisible = [...dedup.values()];
-    const collapsedVisible = defaultVisible.length > 0 ? defaultVisible : curatedApps.slice(0, 4);
-    const isActiveHidden = activeEntry ? !collapsedVisible.some((x) => x.app.id === activeEntry.app.id) : false;
-    const visibleCollapsed = isActiveHidden && activeEntry
-      ? [...collapsedVisible, activeEntry]
-      : collapsedVisible;
-    const dedupVisible = new Map<string, { app: AppEntry; plugin: PluginInfo | null }>();
+    const collapsedVisible =
+      defaultVisible.length > 0 ? defaultVisible : curatedApps.slice(0, 4);
+    const isActiveHidden = activeEntry
+      ? !collapsedVisible.some((x) => x.app.id === activeEntry.app.id)
+      : false;
+    const visibleCollapsed =
+      isActiveHidden && activeEntry
+        ? [...collapsedVisible, activeEntry]
+        : collapsedVisible;
+    const dedupVisible = new Map<
+      string,
+      { app: AppEntry; plugin: PluginInfo | null }
+    >();
     for (const row of visibleCollapsed) dedupVisible.set(row.app.id, row);
     const visibleApps = this.appTabsExpanded
       ? curatedApps
       : [...dedupVisible.values()];
-    const hiddenCount = Math.max(0, curatedApps.length - collapsedVisible.length);
+    const hiddenCount = Math.max(
+      0,
+      curatedApps.length - collapsedVisible.length,
+    );
     const active = activeEntry?.plugin ?? null;
     const activeApp = activeEntry?.app ?? null;
 
@@ -9453,13 +10292,14 @@ export class MilaidyApp extends LitElement {
       <h2>Markets & Apps</h2>
       <p class="subtitle">User-facing actions powered by your connected apps.</p>
 
-      ${curatedApps.length === 0
-        ? html`
+      ${
+        curatedApps.length === 0
+          ? html`
             <div class="empty-state">
               No apps available yet.
             </div>
           `
-        : html`
+          : html`
             <div class="plugin-dashboard" style="margin-bottom:10px;">
               <div class="plugin-toolbar">
                 <div class="plugin-filters">
@@ -9469,24 +10309,32 @@ export class MilaidyApp extends LitElement {
                     ({ app, plugin }) => html`
                       <button
                         class="filter-btn ${activeApp?.id === app.id ? "active" : ""}"
-                        @click=${() => { this.activeAppPluginId = app.id; this.appActionStatus = null; }}
+                        @click=${() => {
+                          this.activeAppPluginId = app.id;
+                          this.appActionStatus = null;
+                        }}
                       >${app.name}${plugin?.enabled ? "" : " (needs setup)"}</button>
                     `,
                   )}
-                  ${hiddenCount > 0
-                    ? html`
+                  ${
+                    hiddenCount > 0
+                      ? html`
                         <button
                           class="filter-btn apps-toggle-btn ${this.appTabsExpanded ? "active" : ""}"
-                          @click=${() => { this.appTabsExpanded = !this.appTabsExpanded; }}
+                          @click=${() => {
+                            this.appTabsExpanded = !this.appTabsExpanded;
+                          }}
                         >${this.appTabsExpanded ? "Show fewer apps" : `More apps (+${hiddenCount})`}</button>
                       `
-                    : ""}
+                      : ""
+                  }
                 </div>
               </div>
             </div>
 
-            ${activeApp && this.appsDetailReady
-              ? html`
+            ${
+              activeApp && this.appsDetailReady
+                ? html`
                   <div class="plugin-item apps-detail-card" style="flex-direction:column;align-items:stretch;">
                     <div class="plugin-item-top">
                       <div>
@@ -9495,23 +10343,30 @@ export class MilaidyApp extends LitElement {
                             src=${this.appIconPath(activeApp.id)}
                             alt=${`${activeApp.name} icon`}
                             style="width:24px;height:24px;border-radius:7px;border:1px solid var(--border-soft);object-fit:cover;"
-                            @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                            @error=${(e: Event) => this.handlePluginIconError(e, activeApp.id)}
                           />
                           <div class="plugin-name">${activeApp.name}</div>
                           <span class="plugin-state-tag ${active && active.enabled && active.configured && this.isPluginEffectivelyConfigured(active) && active.validationErrors.length === 0 ? "ok" : ""}>
-                            ${active && active.enabled && active.configured && this.isPluginEffectivelyConfigured(active) && active.validationErrors.length === 0
-                              ? "Ready"
-                              : active?.enabled
-                                ? "Enabled"
-                                : "Pending Setup"}
+                            ${
+                              active &&
+                              active.enabled &&
+                              active.configured &&
+                              this.isPluginEffectivelyConfigured(active) &&
+                              active.validationErrors.length === 0
+                                ? "Ready"
+                                : active?.enabled
+                                  ? "Enabled"
+                                  : "Pending Setup"
+                            }
                           </span>
                         </div>
                         <div class="plugin-desc">${activeApp.description}</div>
                       </div>
                     </div>
 
-                    ${!active
-                      ? html`
+                    ${
+                      !active
+                        ? html`
                           <div class="plugin-settings-body">
                             <div style="font-size:12px;color:var(--muted);">
                               This app is not enabled in this build yet.
@@ -9521,14 +10376,15 @@ export class MilaidyApp extends LitElement {
                             </div>
                           </div>
                         `
-                      : !active.enabled
-                      ? html`
+                        : !active.enabled
+                          ? html`
                           <div class="plugin-settings-body">
                             <div style="font-size:12px;color:var(--muted);">
                               Connect ${active.name} here to use it in Markets & Apps.
                             </div>
-                            ${active.parameters.length > 0
-                              ? html`
+                            ${
+                              active.parameters.length > 0
+                                ? html`
                                   ${active.parameters.map(
                                     (param) => html`
                                       <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
@@ -9542,19 +10398,32 @@ export class MilaidyApp extends LitElement {
                                         </div>
                                         <div class="secret-input-row">
                                           <input
-                                            type="${param.sensitive
-                                              ? (this.isSensitiveFieldVisible(active.id, param.key) ? "text" : "password")
-                                              : "text"}"
-                                            .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : (param.isSet ? "" : (param.default ?? ""))}
+                                            type="${
+                                              param.sensitive
+                                                ? this.isSensitiveFieldVisible(
+                                                    active.id,
+                                                    param.key,
+                                                  )
+                                                  ? "text"
+                                                  : "password"
+                                                : "text"
+                                            }"
+                                            .value=${param.isSet && !param.sensitive ? (param.currentValue ?? "") : param.isSet ? "" : (param.default ?? "")}
                                             placeholder="${param.sensitive && param.isSet ? "******** (already set, leave blank to keep)" : "Enter value..."}"
                                             data-plugin-param="${active.id}:${param.key}"
                                             data-plugin-dirty="0"
                                             @input=${(e: Event) => {
-                                              (e.target as HTMLInputElement).setAttribute("data-plugin-dirty", "1");
+                                              (
+                                                e.target as HTMLInputElement
+                                              ).setAttribute(
+                                                "data-plugin-dirty",
+                                                "1",
+                                              );
                                             }}
                                           />
-                                          ${param.sensitive
-                                            ? html`
+                                          ${
+                                            param.sensitive
+                                              ? html`
                                                 <button
                                                   class="secret-toggle-btn"
                                                   type="button"
@@ -9563,20 +10432,24 @@ export class MilaidyApp extends LitElement {
                                                   aria-label=${this.isSensitiveFieldVisible(active.id, param.key) ? "Hide value" : "Show value"}
                                                 >${this.isSensitiveFieldVisible(active.id, param.key) ? "Hide" : "Show"}</button>
                                               `
-                                            : ""}
+                                              : ""
+                                          }
                                         </div>
                                       </div>
                                     `,
                                   )}
                                 `
-                              : ""}
-                            ${active.validationErrors.length > 0
-                              ? html`
+                                : ""
+                            }
+                            ${
+                              active.validationErrors.length > 0
+                                ? html`
                                   <div class="plugin-warn-box">
                                     ${active.validationErrors.map((err) => html`<div>${err.field}: ${err.message}</div>`)}
                                   </div>
                                 `
-                              : ""}
+                                : ""
+                            }
                             <div style="display:flex;gap:8px;justify-content:flex-end;">
                               <button
                                 class="btn plugin-pill-btn"
@@ -9586,36 +10459,52 @@ export class MilaidyApp extends LitElement {
                             </div>
                           </div>
                         `
-                      : activeApp.actionMode === "polymarket-bet"
-                      ? html`
+                          : activeApp.actionMode === "polymarket-bet"
+                            ? html`
                           <div class="plugin-settings-body">
                             <div style="font-size:12px;color:var(--muted);">Bet Slip</div>
                             <input
                               type="text"
                               placeholder="Market (e.g. Will BTC close above 100k this month?)"
                               .value=${this.polymarketMarket}
-                              @input=${(e: Event) => { this.polymarketMarket = (e.target as HTMLInputElement).value; }}
+                              @input=${(e: Event) => {
+                                this.polymarketMarket = (
+                                  e.target as HTMLInputElement
+                                ).value;
+                              }}
                             />
                             <input
                               type="text"
                               placeholder="Outcome (e.g. Yes)"
                               .value=${this.polymarketOutcome}
-                              @input=${(e: Event) => { this.polymarketOutcome = (e.target as HTMLInputElement).value; }}
+                              @input=${(e: Event) => {
+                                this.polymarketOutcome = (
+                                  e.target as HTMLInputElement
+                                ).value;
+                              }}
                             />
                             <input
                               type="text"
                               placeholder="Amount in USDC (e.g. 25)"
                               .value=${this.polymarketAmount}
-                              @input=${(e: Event) => { this.polymarketAmount = (e.target as HTMLInputElement).value; }}
+                              @input=${(e: Event) => {
+                                this.polymarketAmount = (
+                                  e.target as HTMLInputElement
+                                ).value;
+                              }}
                             />
                             <div style="display:flex;gap:8px;justify-content:flex-end;">
                               <button
                                 class="plugin-secondary-btn"
-                                @click=${() => { this.setTab("config"); }}
+                                @click=${() => {
+                                  this.setTab("config");
+                                }}
                               >Security</button>
                               <button
                                 class="plugin-secondary-btn"
-                                @click=${() => { this.setTab("chat"); }}
+                                @click=${() => {
+                                  this.setTab("chat");
+                                }}
                               >Open Chat</button>
                               <button
                                 class="btn plugin-pill-btn"
@@ -9625,7 +10514,7 @@ export class MilaidyApp extends LitElement {
                             </div>
                           </div>
                         `
-                      : html`
+                            : html`
                           <div class="plugin-settings-body">
                             <div style="font-size:12px;color:var(--muted);">
                               This app is connected. Use Chat to run actions with ${active.name}.
@@ -9636,35 +10525,44 @@ export class MilaidyApp extends LitElement {
                               </button>
                             </div>
                           </div>
-                        `}
+                        `
+                    }
 
-                    ${this.appActionStatus
-                      ? html`<div style="margin-top:8px;color:var(--muted);font-size:12px;">${this.appActionStatus}</div>`
-                      : ""}
+                    ${
+                      this.appActionStatus
+                        ? html`<div style="margin-top:8px;color:var(--muted);font-size:12px;">${this.appActionStatus}</div>`
+                        : ""
+                    }
                   </div>
                 `
-              : activeApp
-                ? html`
+                : activeApp
+                  ? html`
                     <div class="plugin-item apps-detail-card" style="flex-direction:column;align-items:stretch;min-height:120px;justify-content:center;">
                       <div style="font-size:12px;color:var(--muted);">Loading app details...</div>
                     </div>
                   `
-                : ""}
-          `}
+                  : ""
+            }
+          `
+      }
       </div>
     `;
   }
 
   private async handlePluginConfigSave(pluginId: string): Promise<void> {
     // Collect all input values for this plugin from the DOM
-    const inputs = this.shadowRoot?.querySelectorAll(`input[data-plugin-param^="${pluginId}:"]`);
+    const inputs = this.shadowRoot?.querySelectorAll(
+      `input[data-plugin-param^="${pluginId}:"]`,
+    );
     if (!inputs) return;
 
     const config: Record<string, string> = {};
     let changedCount = 0;
     const explicitlyProvided = new Set<string>();
     const plugin = this.plugins.find((p) => p.id === pluginId) ?? null;
-    const paramByKey = new Map((plugin?.parameters ?? []).map((p) => [p.key, p]));
+    const paramByKey = new Map(
+      (plugin?.parameters ?? []).map((p) => [p.key, p]),
+    );
     for (const input of inputs) {
       const attr = input.getAttribute("data-plugin-param") ?? "";
       const key = attr.split(":").slice(1).join(":");
@@ -9683,7 +10581,8 @@ export class MilaidyApp extends LitElement {
       explicitlyProvided.add(key);
 
       // For non-sensitive fields, avoid no-op writes when value is unchanged.
-      if (prev && !isSensitive && (prev.currentValue ?? "").trim() === value) continue;
+      if (prev && !isSensitive && (prev.currentValue ?? "").trim() === value)
+        continue;
 
       let normalizedValue = value;
       // Common paste artifact cleanup for API keys copied from env snippets:
@@ -9708,7 +10607,10 @@ export class MilaidyApp extends LitElement {
     // Some providers expose two fields for the same credential. If the user
     // edits one side, mirror it to the paired key unless they explicitly
     // provided both values.
-    const sharedCredentialPairsByPlugin: Record<string, Array<[string, string]>> = {
+    const sharedCredentialPairsByPlugin: Record<
+      string,
+      Array<[string, string]>
+    > = {
       openai: [["OPENAI_API_KEY", "OPENAI_EMBEDDING_API_KEY"]],
       "vercel-ai-gateway": [["AI_GATEWAY_API_KEY", "AIGATEWAY_API_KEY"]],
     };
@@ -9745,7 +10647,8 @@ export class MilaidyApp extends LitElement {
 
       const pluginAfterSave = this.plugins.find((p) => p.id === pluginId);
       const requiresRuntimeRestart =
-        pluginAfterSave?.category === "ai-provider" || pluginAfterSave?.category === "database";
+        pluginAfterSave?.category === "ai-provider" ||
+        pluginAfterSave?.category === "database";
       this.closePluginSettings(pluginId);
       this.showUiNotice("Settings saved.");
       if (requiresRuntimeRestart) {
@@ -9764,15 +10667,23 @@ export class MilaidyApp extends LitElement {
         }
         // Refresh plugin state after restart so UI reflects loaded keys/models.
         await this.loadPlugins();
-        if (restartAfter > 0 && restartBefore > 0 && restartAfter === restartBefore) {
-          this.showUiNotice("Provider settings saved. Restart still pending; press Restart once.");
+        if (
+          restartAfter > 0 &&
+          restartBefore > 0 &&
+          restartAfter === restartBefore
+        ) {
+          this.showUiNotice(
+            "Provider settings saved. Restart still pending; press Restart once.",
+          );
         } else {
           this.showUiNotice("Provider settings loaded.");
         }
       }
     } catch (err) {
       console.error("Failed to save plugin config:", err);
-      this.showUiNotice("Could not apply provider changes. Check settings and retry.");
+      this.showUiNotice(
+        "Could not apply provider changes. Check settings and retry.",
+      );
     }
   }
 
@@ -9793,10 +10704,10 @@ export class MilaidyApp extends LitElement {
     }
 
     const targetId =
-      this.getPreferredAiProviderForChat()?.id
-      ?? this.getSelectedAiProvider()?.id
-      ?? this.plugins.find((p) => p.category === "ai-provider")?.id
-      ?? "";
+      this.getPreferredAiProviderForChat()?.id ??
+      this.getSelectedAiProvider()?.id ??
+      this.plugins.find((p) => p.category === "ai-provider")?.id ??
+      "";
 
     if (!targetId) return;
     const next = new Set(this.pluginSettingsOpen);
@@ -9805,16 +10716,22 @@ export class MilaidyApp extends LitElement {
 
     await this.updateComplete;
     requestAnimationFrame(() => {
-      const el = this.shadowRoot?.querySelector(`[data-plugin-id="${targetId}"]`);
+      const el = this.shadowRoot?.querySelector(
+        `[data-plugin-id="${targetId}"]`,
+      );
       if (el instanceof HTMLElement) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });
   }
 
-  private async handlePluginToggle(pluginId: string, enabled: boolean): Promise<void> {
+  private async handlePluginToggle(
+    pluginId: string,
+    enabled: boolean,
+  ): Promise<void> {
     const plugin = this.plugins.find((p) => p.id === pluginId);
-    const requiresRuntimeRestart = plugin?.category === "ai-provider" || plugin?.category === "database";
+    const requiresRuntimeRestart =
+      plugin?.category === "ai-provider" || plugin?.category === "database";
 
     // Keep model providers strict, but let memory modules be user-clickable
     // even when optional config is incomplete.
@@ -9830,10 +10747,17 @@ export class MilaidyApp extends LitElement {
     }
 
     try {
-      if (enabled && plugin && (plugin.category === "ai-provider" || plugin.category === "database")) {
+      if (
+        enabled &&
+        plugin &&
+        (plugin.category === "ai-provider" || plugin.category === "database")
+      ) {
         const singleChoiceCategory = plugin.category;
         const otherEnabledInCategory = this.plugins.filter(
-          (p) => p.category === singleChoiceCategory && p.enabled && p.id !== pluginId,
+          (p) =>
+            p.category === singleChoiceCategory &&
+            p.enabled &&
+            p.id !== pluginId,
         );
         for (const other of otherEnabledInCategory) {
           await client.updatePlugin(other.id, { enabled: false });
@@ -9851,7 +10775,9 @@ export class MilaidyApp extends LitElement {
       if (requiresRuntimeRestart) {
         // Apply the toggle immediately in UI, then restart in background so
         // runtime-loaded plugin snapshots don't appear to "undo" the click.
-        this.showUiNotice("Applying model/memory change. Runtime may need a restart to load it (restarting now).");
+        this.showUiNotice(
+          "Applying model/memory change. Runtime may need a restart to load it (restarting now).",
+        );
         void this.handleRestart();
         setTimeout(() => {
           void this.loadPlugins();
@@ -9869,9 +10795,10 @@ export class MilaidyApp extends LitElement {
       <div style="margin-bottom:8px;">
         <button class="btn" data-action="refresh-skills" @click=${this.refreshSkills} style="font-size:12px;padding:4px 12px;">Refresh</button>
       </div>
-      ${this.skills.length === 0
-        ? html`<div class="empty-state">No skills loaded yet. Click Refresh to re-scan.</div>`
-        : html`
+      ${
+        this.skills.length === 0
+          ? html`<div class="empty-state">No skills loaded yet. Click Refresh to re-scan.</div>`
+          : html`
             <div class="plugin-list">
               ${this.skills.map(
                 (s) => html`
@@ -9885,7 +10812,8 @@ export class MilaidyApp extends LitElement {
                 `,
               )}
             </div>
-          `}
+          `
+      }
     `;
   }
 
@@ -9895,7 +10823,11 @@ export class MilaidyApp extends LitElement {
       this.extensionStatus = await client.getExtensionStatus();
       this.extensionCheckedAt = Date.now();
     } catch {
-      this.extensionStatus = { relayReachable: false, relayPort: 18792, extensionPath: null };
+      this.extensionStatus = {
+        relayReachable: false,
+        relayPort: 18792,
+        extensionPath: null,
+      };
     }
     this.extensionChecking = false;
   }
@@ -9907,7 +10839,9 @@ export class MilaidyApp extends LitElement {
   private openExternalUrl(url: string): void {
     const opened = window.open(url, "_blank", "noopener,noreferrer");
     if (!opened) {
-      this.showUiNotice("Popup blocked. Allow popups for this site to open external links in a new tab.");
+      this.showUiNotice(
+        "Popup blocked. Allow popups for this site to open external links in a new tab.",
+      );
     }
   }
 
@@ -9919,7 +10853,8 @@ export class MilaidyApp extends LitElement {
     // Load config/status first, then fetch live balances if at least one wallet exists.
     await this.loadWalletConfig();
     const hasWallet =
-      Boolean(this.walletConfig?.evmAddress) || Boolean(this.walletConfig?.solanaAddress);
+      Boolean(this.walletConfig?.evmAddress) ||
+      Boolean(this.walletConfig?.solanaAddress);
     if (hasWallet) {
       this.walletLoading = true;
       this.walletError = null;
@@ -9930,9 +10865,9 @@ export class MilaidyApp extends LitElement {
         this.polymarketPortfolio = snapshot.polymarket;
         await this.refreshSolUsdPrice();
         this.walletAccountUsername = snapshot.account.username
-          ? (snapshot.account.username.startsWith("@")
+          ? snapshot.account.username.startsWith("@")
             ? snapshot.account.username
-            : `@${snapshot.account.username}`)
+            : `@${snapshot.account.username}`
           : null;
       } catch (err) {
         this.walletError = `Failed to fetch wallet data: ${err instanceof Error ? err.message : "network error"}`;
@@ -9965,9 +10900,9 @@ export class MilaidyApp extends LitElement {
       this.polymarketPortfolio = snapshot.polymarket;
       await this.refreshSolUsdPrice();
       this.walletAccountUsername = snapshot.account.username
-        ? (snapshot.account.username.startsWith("@")
+        ? snapshot.account.username.startsWith("@")
           ? snapshot.account.username
-          : `@${snapshot.account.username}`)
+          : `@${snapshot.account.username}`
         : null;
     } catch (err) {
       this.walletError = `Failed to fetch balances: ${err instanceof Error ? err.message : "network error"}`;
@@ -9998,9 +10933,9 @@ export class MilaidyApp extends LitElement {
       const snapshot = await client.getWalletConnectedData();
       this.walletNfts = snapshot.nfts;
       this.walletAccountUsername = snapshot.account.username
-        ? (snapshot.account.username.startsWith("@")
+        ? snapshot.account.username.startsWith("@")
           ? snapshot.account.username
-          : `@${snapshot.account.username}`)
+          : `@${snapshot.account.username}`
         : null;
     } catch (err) {
       this.walletError = `Failed to fetch NFTs: ${err instanceof Error ? err.message : "network error"}`;
@@ -10019,7 +10954,8 @@ export class MilaidyApp extends LitElement {
 
   private renderInventory() {
     const hasWallet =
-      Boolean(this.walletConfig?.evmAddress) || Boolean(this.walletConfig?.solanaAddress);
+      Boolean(this.walletConfig?.evmAddress) ||
+      Boolean(this.walletConfig?.solanaAddress);
     // Do not auto-prompt profile/avatar customization from Portfolio.
     // Users already set their profile during onboarding; further edits live in Account.
     const shouldPromptAvatar = false;
@@ -10027,12 +10963,15 @@ export class MilaidyApp extends LitElement {
     return html`
       <h2>Portfolio</h2>
       <p class="subtitle" style="margin-bottom:10px;">Track your wallet balances and NFTs.</p>
-      ${this.walletAccountUsername
-        ? html`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Connected as <b>${this.walletAccountUsername}</b></div>`
-        : ""}
+      ${
+        this.walletAccountUsername
+          ? html`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Connected as <b>${this.walletAccountUsername}</b></div>`
+          : ""
+      }
 
-      ${hasWallet
-        ? html`
+      ${
+        hasWallet
+          ? html`
             <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
               <button
                 class="plugin-secondary-btn"
@@ -10043,23 +10982,30 @@ export class MilaidyApp extends LitElement {
                 class="plugin-secondary-btn"
                 @click=${() => {
                   this.walletConnectOpen = !this.walletConnectOpen;
-                  if (this.walletConnectOpen) this.walletConnectMode = "connect";
-                  if (!this.walletConnectOpen) this.selectedWalletLauncher = null;
+                  if (this.walletConnectOpen)
+                    this.walletConnectMode = "connect";
+                  if (!this.walletConnectOpen)
+                    this.selectedWalletLauncher = null;
                   this.walletConnectStatus = null;
                   this.walletError = null;
                 }}
               >${this.walletConnectOpen ? "Close wallet setup" : "Manage wallet"}</button>
             </div>
           `
-        : ""}
+          : ""
+      }
 
-      ${this.walletError ? html`
+      ${
+        this.walletError
+          ? html`
         <div style="margin-top:12px;padding:10px 14px;border:1px solid var(--danger, #e74c3c);background:rgba(231,76,60,0.06);font-size:12px;color:var(--danger, #e74c3c);">
           ${this.walletError}
         </div>
-      ` : ""}
+      `
+          : ""
+      }
 
-      ${(!hasWallet || this.walletConnectOpen) ? this.renderWalletConnectPrompt() : ""}
+      ${!hasWallet || this.walletConnectOpen ? this.renderWalletConnectPrompt() : ""}
       ${shouldPromptAvatar ? this.renderAvatarCustomizationPrompt() : ""}
       ${hasWallet ? this.renderInventoryContent() : ""}
     `;
@@ -10093,7 +11039,8 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderAvatarCustomizationPrompt() {
-    const choices = this.onboardingOptions?.names?.slice(0, 6) ?? RUNTIME_PRESET_NAMES;
+    const choices =
+      this.onboardingOptions?.names?.slice(0, 6) ?? RUNTIME_PRESET_NAMES;
 
     return html`
       <div class="setup-card" style="margin-top:12px;">
@@ -10112,7 +11059,10 @@ export class MilaidyApp extends LitElement {
                 @click=${async () => {
                   const ok = await this.saveUserDisplayName(name);
                   if (!ok) return;
-                  this.saveProfileAppearance(this.characterImage(name), theme.accent);
+                  this.saveProfileAppearance(
+                    this.characterImage(name),
+                    theme.accent,
+                  );
                   this.avatarCustomizeOpen = false;
                 }}
               >
@@ -10134,7 +11084,9 @@ export class MilaidyApp extends LitElement {
           })}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <button class="plugin-secondary-btn" @click=${() => { this.avatarCustomizeOpen = false; }}>Skip for now</button>
+          <button class="plugin-secondary-btn" @click=${() => {
+            this.avatarCustomizeOpen = false;
+          }}>Skip for now</button>
         </div>
       </div>
     `;
@@ -10150,8 +11102,12 @@ export class MilaidyApp extends LitElement {
     this.walletError = null;
     try {
       const res = await client.generateWallet(this.walletConnectChain);
-      const created = res.wallets.map((w) => `${w.chain.toUpperCase()} ${w.address}`).join(" • ");
-      this.walletConnectStatus = created ? `Connected: ${created}` : "Wallet generated.";
+      const created = res.wallets
+        .map((w) => `${w.chain.toUpperCase()} ${w.address}`)
+        .join(" • ");
+      this.walletConnectStatus = created
+        ? `Connected: ${created}`
+        : "Wallet generated.";
       this.walletConnectMode = "choose";
       this.walletConnectOpen = false;
       await this.loadWalletConfig();
@@ -10193,21 +11149,35 @@ export class MilaidyApp extends LitElement {
   private resolveInjectedSolanaProvider(preferredWallet: string): unknown {
     const w = window as unknown as Record<string, unknown>;
     const solana = w.solana as Record<string, unknown> | undefined;
-    const solanaMobileWalletAdapter = w.solanaMobileWalletAdapter as Record<string, unknown> | undefined;
+    const solanaMobileWalletAdapter = w.solanaMobileWalletAdapter as
+      | Record<string, unknown>
+      | undefined;
     const solanaMobile = w.solanaMobile as Record<string, unknown> | undefined;
-    const phantom = (w.phantom as Record<string, unknown> | undefined)?.solana ?? w.phantom;
-    const solflare = (w.solflare as Record<string, unknown> | undefined) ?? null;
-    const backpack = (w.backpack as Record<string, unknown> | undefined)?.solana ?? w.backpack;
-    const nightly = (w.nightly as Record<string, unknown> | undefined)?.solana ?? w.nightly;
+    const phantom =
+      (w.phantom as Record<string, unknown> | undefined)?.solana ?? w.phantom;
+    const solflare =
+      (w.solflare as Record<string, unknown> | undefined) ?? null;
+    const backpack =
+      (w.backpack as Record<string, unknown> | undefined)?.solana ?? w.backpack;
+    const nightly =
+      (w.nightly as Record<string, unknown> | undefined)?.solana ?? w.nightly;
     const glow =
       (w.glow as Record<string, unknown> | undefined)?.solana ??
       (w.glowSolana as Record<string, unknown> | undefined) ??
       null;
 
     const hasFlag = (provider: unknown, flag: string): boolean =>
-      Boolean(provider && typeof provider === "object" && (provider as Record<string, unknown>)[flag] === true);
+      Boolean(
+        provider &&
+          typeof provider === "object" &&
+          (provider as Record<string, unknown>)[flag] === true,
+      );
     const canConnect = (provider: unknown): boolean =>
-      Boolean(provider && typeof provider === "object" && typeof (provider as { connect?: unknown }).connect === "function");
+      Boolean(
+        provider &&
+          typeof provider === "object" &&
+          typeof (provider as { connect?: unknown }).connect === "function",
+      );
 
     switch (preferredWallet) {
       case "Phantom":
@@ -10230,26 +11200,30 @@ export class MilaidyApp extends LitElement {
         if (glow && hasFlag(glow, "isGlow")) return glow;
         if (solana && hasFlag(solana, "isGlow")) return solana;
         return null;
-      case "Seeker":
-        if (canConnect(solana) && (
-          hasFlag(solana, "isSeeker")
-          || hasFlag(solana, "isSolanaMobile")
-          || hasFlag(solana, "isMobileWalletAdapter")
-          || hasFlag(solana, "isSaga")
-        )) return solana;
-        if (canConnect(solanaMobileWalletAdapter)) return solanaMobileWalletAdapter;
+      case "Seeker": {
+        if (
+          canConnect(solana) &&
+          (hasFlag(solana, "isSeeker") ||
+            hasFlag(solana, "isSolanaMobile") ||
+            hasFlag(solana, "isMobileWalletAdapter") ||
+            hasFlag(solana, "isSaga"))
+        )
+          return solana;
+        if (canConnect(solanaMobileWalletAdapter))
+          return solanaMobileWalletAdapter;
         if (canConnect(solanaMobile)) return solanaMobile;
 
         // Some mobile wallets expose a providers[] array on window.solana.
         const providerList = (solana?.providers as unknown[] | undefined) ?? [];
         if (Array.isArray(providerList)) {
-          const mobileTagged = providerList.find((p) =>
-            canConnect(p) && (
-              hasFlag(p, "isSeeker")
-              || hasFlag(p, "isSolanaMobile")
-              || hasFlag(p, "isMobileWalletAdapter")
-              || hasFlag(p, "isSaga")
-            ));
+          const mobileTagged = providerList.find(
+            (p) =>
+              canConnect(p) &&
+              (hasFlag(p, "isSeeker") ||
+                hasFlag(p, "isSolanaMobile") ||
+                hasFlag(p, "isMobileWalletAdapter") ||
+                hasFlag(p, "isSaga")),
+          );
           if (mobileTagged) return mobileTagged;
           const firstConnectable = providerList.find((p) => canConnect(p));
           if (firstConnectable) return firstConnectable;
@@ -10265,24 +11239,30 @@ export class MilaidyApp extends LitElement {
           if (canConnect(glow)) return glow;
         }
         return null;
+      }
       default:
         return null;
     }
   }
 
-  private async connectInjectedSolanaWallet(preferredWallet: string): Promise<boolean> {
+  private async connectInjectedSolanaWallet(
+    preferredWallet: string,
+  ): Promise<boolean> {
     if (this.hasConnectedWallet()) {
       this.walletError = "Disconnect current wallet before connecting another.";
       return false;
     }
     const provider = this.resolveInjectedSolanaProvider(preferredWallet) as {
-      connect?: (opts?: Record<string, unknown>) => Promise<{ publicKey?: { toString: () => string } }>;
+      connect?: (
+        opts?: Record<string, unknown>,
+      ) => Promise<{ publicKey?: { toString: () => string } }>;
       publicKey?: { toString: () => string };
       address?: string;
     } | null;
     if (!provider || typeof provider.connect !== "function") {
       if (preferredWallet === "Seeker" && this.isLikelyMobileDevice()) {
-        this.walletError = "No mobile wallet adapter found. Open this app inside the Seeker wallet browser, then try Connect Seeker again.";
+        this.walletError =
+          "No mobile wallet adapter found. Open this app inside the Seeker wallet browser, then try Connect Seeker again.";
       }
       return false;
     }
@@ -10292,14 +11272,21 @@ export class MilaidyApp extends LitElement {
     this.walletError = null;
     try {
       let result: unknown = null;
-      const isSeekerMobileFlow = preferredWallet === "Seeker" && this.isLikelyMobileDevice();
-      const connectWithTimeout = async (task: Promise<unknown>, ms: number): Promise<unknown> => {
+      const isSeekerMobileFlow =
+        preferredWallet === "Seeker" && this.isLikelyMobileDevice();
+      const connectWithTimeout = async (
+        task: Promise<unknown>,
+        ms: number,
+      ): Promise<unknown> => {
         let timeoutHandle: number | undefined;
         try {
           return await Promise.race([
             task,
             new Promise<never>((_, reject) => {
-              timeoutHandle = window.setTimeout(() => reject(new Error("Wallet connect timed out")), ms);
+              timeoutHandle = window.setTimeout(
+                () => reject(new Error("Wallet connect timed out")),
+                ms,
+              );
             }),
           ]);
         } finally {
@@ -10359,76 +11346,251 @@ export class MilaidyApp extends LitElement {
         return key.includes(n) || normalized.includes(nNorm);
       });
 
-    if (has("polymarket")) return "https://www.google.com/s2/favicons?domain=polymarket.com&sz=64";
-    if (has("telegram")) return "https://www.google.com/s2/favicons?domain=telegram.org&sz=64";
-    if (has("discord")) return "https://www.google.com/s2/favicons?domain=discord.com&sz=64";
-    if (has("slack")) return "https://www.google.com/s2/favicons?domain=slack.com&sz=64";
-    if (has("whatsapp")) return "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=64";
-    if (has("signal")) return "https://www.google.com/s2/favicons?domain=signal.org&sz=64";
-    if (has("imessage")) return "https://www.google.com/s2/favicons?domain=apple.com&sz=64";
-    if (has("bluebubbles")) return "https://www.google.com/s2/favicons?domain=bluebubbles.app&sz=64";
-    if (has("bluesky")) return "https://www.google.com/s2/favicons?domain=bsky.app&sz=64";
-    if (has("blooio")) return "https://www.google.com/s2/favicons?domain=bloo.io&sz=64";
-    if (has("farcaster")) return "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=64";
-    if (has("feishu")) return "https://www.google.com/s2/favicons?domain=feishu.cn&sz=64";
-    if (has("github")) return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
-    if (has("gmail watch", "gmailwatch", "gmail")) return "https://www.google.com/s2/favicons?domain=gmail.com&sz=64";
-    if (has("google chat", "googlechat", "google-chat")) return "https://www.google.com/s2/favicons?domain=chat.google.com&sz=64";
-    if (has("instagram")) return "https://www.google.com/s2/favicons?domain=instagram.com&sz=64";
-    if (has("linear")) return "https://www.google.com/s2/favicons?domain=linear.app&sz=64";
-    if (has("line")) return "https://www.google.com/s2/favicons?domain=line.me&sz=64";
-    if (has("matrix")) return "https://www.google.com/s2/favicons?domain=matrix.org&sz=64";
-    if (has("nextcloud talk", "nextcloudtalk", "nextcloud")) return "https://www.google.com/s2/favicons?domain=nextcloud.com&sz=64";
-    if (has("nostr")) return "https://www.google.com/s2/favicons?domain=nostr.com&sz=64";
-    if (has("retake.tv", "retake")) return "https://www.google.com/s2/favicons?domain=retake.tv&sz=64";
-    if (has("tlon")) return "https://www.google.com/s2/favicons?domain=tlon.io&sz=64";
-    if (has("twilio")) return "https://www.google.com/s2/favicons?domain=twilio.com&sz=64";
-    if (has("twitch")) return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
-    if (has("twitter") || normalized === "x") return "https://www.google.com/s2/favicons?domain=x.com&sz=64";
+    if (has("polymarket"))
+      return "https://www.google.com/s2/favicons?domain=polymarket.com&sz=64";
+    if (has("telegram"))
+      return "https://www.google.com/s2/favicons?domain=telegram.org&sz=64";
+    if (has("discord"))
+      return "https://www.google.com/s2/favicons?domain=discord.com&sz=64";
+    if (has("slack"))
+      return "https://www.google.com/s2/favicons?domain=slack.com&sz=64";
+    if (has("whatsapp"))
+      return "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=64";
+    if (has("signal"))
+      return "https://www.google.com/s2/favicons?domain=signal.org&sz=64";
+    if (has("imessage")) return "https://img.icons8.com/color/96/imessage.png";
+    if (has("bluebubbles"))
+      return "https://www.google.com/s2/favicons?domain=bluebubbles.app&sz=64";
+    if (has("bluesky"))
+      return "https://www.google.com/s2/favicons?domain=bsky.app&sz=64";
+    if (has("blooio"))
+      return "https://www.google.com/s2/favicons?domain=bloo.io&sz=64";
+    if (has("farcaster"))
+      return "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=64";
+    if (has("feishu"))
+      return "https://www.google.com/s2/favicons?domain=feishu.cn&sz=64";
+    if (has("github"))
+      return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
+    if (has("gmail watch", "gmailwatch", "gmail"))
+      return "https://www.google.com/s2/favicons?domain=gmail.com&sz=64";
+    if (has("google chat", "googlechat", "google-chat"))
+      return "https://www.google.com/s2/favicons?domain=chat.google.com&sz=64";
+    if (has("instagram"))
+      return "https://www.google.com/s2/favicons?domain=instagram.com&sz=64";
+    if (has("linear"))
+      return "https://www.google.com/s2/favicons?domain=linear.app&sz=64";
+    if (has("line"))
+      return "https://www.google.com/s2/favicons?domain=line.me&sz=64";
+    if (has("matrix"))
+      return "https://www.google.com/s2/favicons?domain=matrix.org&sz=64";
+    if (has("nextcloud talk", "nextcloudtalk", "nextcloud"))
+      return "https://www.google.com/s2/favicons?domain=nextcloud.com&sz=64";
+    if (has("nostr"))
+      return "https://www.google.com/s2/favicons?domain=nostr.com&sz=64";
+    if (has("retake.tv", "retake"))
+      return "https://www.google.com/s2/favicons?domain=retake.tv&sz=64";
+    if (has("tlon"))
+      return "https://www.google.com/s2/favicons?domain=tlon.io&sz=64";
+    if (has("twilio"))
+      return "https://www.google.com/s2/favicons?domain=twilio.com&sz=64";
+    if (has("twitch streaming", "twitch-streaming"))
+      return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
+    if (has("twitch"))
+      return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
+    if (has("twitter") || normalized === "x")
+      return "https://www.google.com/s2/favicons?domain=x.com&sz=64";
+    if (has("babylon"))
+      return "https://www.google.com/s2/favicons?domain=babylon.market&sz=64";
+    if (has("clawbal", "clawbal-chat", "clawbalchat"))
+      return "https://www.google.com/s2/favicons?domain=clawhub.ai&sz=64";
+    if (has("minecraft"))
+      return "https://img.icons8.com/color/96/minecraft-logo.png";
+    if (has("roblox")) return "https://www.roblox.com/favicon.ico";
     if (has("zalo", "zalouser")) return "/brands/zalo.svg";
-    if (has("moltbook")) return "https://www.google.com/s2/favicons?domain=moltbook.com&sz=64";
-    if (has("n8n")) return "https://www.google.com/s2/favicons?domain=n8n.io&sz=64";
-    if (has("elevenlabs")) return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
-    if (has("webhooks")) return "https://www.google.com/s2/favicons?domain=webhook.site&sz=64";
-    if (has("rss")) return "https://www.google.com/s2/favicons?domain=rss.com&sz=64";
-    if (has("s3", "storage")) return "https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64";
-    if (has("evm")) return "https://www.google.com/s2/favicons?domain=ethereum.org&sz=64";
-    if (has("solana")) return "https://www.google.com/s2/favicons?domain=solana.com&sz=64";
-    if (has("x402")) return "https://www.google.com/s2/favicons?domain=x402.org&sz=64";
-    if (has("cron")) return "https://www.google.com/s2/favicons?domain=cron.com&sz=64";
-    if (has("browser")) return "https://www.google.com/s2/favicons?domain=google.com&sz=64";
-    if (has("computeruse")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
-    if (has("copilot")) return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
-    if (has("coding-agent", "codingagentswarms", "swarms")) return this.generatedConnectorIcon(appId);
-    if (has("robot voice", "simple voice", "tts")) return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
-    if (has("trajectory logger")) return this.generatedConnectorIcon(appId);
-    if (has("eliza classic")) return this.generatedConnectorIcon(appId);
-    if (has("vision")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
-    if (has("mysticism", "prose", "social alpha", "rlm", "tee", "acp")) return this.generatedConnectorIcon(appId);
-    if (has("iq")) return this.generatedConnectorIcon(appId);
-    if (has("msteams", "microsoftteams", "teams")) return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
+    if (has("moltbook"))
+      return "https://www.google.com/s2/favicons?domain=moltbook.com&sz=64";
+    if (has("n8n"))
+      return "https://www.google.com/s2/favicons?domain=n8n.io&sz=64";
+    if (has("elevenlabs"))
+      return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
+    if (has("webhooks"))
+      return "https://www.google.com/s2/favicons?domain=webhook.site&sz=64";
+    if (has("rss"))
+      return "https://www.google.com/s2/favicons?domain=rss.com&sz=64";
+    if (has("s3", "storage"))
+      return "https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64";
+    if (has("evm"))
+      return "https://www.google.com/s2/favicons?domain=ethereum.org&sz=64";
+    if (has("solana"))
+      return "https://www.google.com/s2/favicons?domain=solana.com&sz=64";
+    if (has("x402"))
+      return "https://www.google.com/s2/favicons?domain=x402.org&sz=64";
+    if (has("cron"))
+      return "https://www.google.com/s2/favicons?domain=cron.com&sz=64";
+    if (has("browser"))
+      return "https://www.google.com/s2/favicons?domain=google.com&sz=64";
+    if (has("agent orchestrator", "agent-orchestrator"))
+      return "/brands/agent-orchestrator.svg";
+    if (has("agent skills", "agent-skills")) return "/brands/agent-skills.svg";
+    if (has("computeruse"))
+      return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+    if (has("copilot"))
+      return "https://www.google.com/s2/favicons?domain=github.com&sz=64";
+    if (has("coding-agent", "codingagentswarms", "swarms"))
+      return "/brands/coding-agent.svg";
+    if (has("robot voice", "simple voice", "tts"))
+      return "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=64";
+    if (has("trajectory logger", "trajectory-logger"))
+      return "/brands/trajectory-logger.svg";
+    if (has("eliza classic", "eliza-classic"))
+      return "/brands/eliza-classic.svg";
+    if (has("vision"))
+      return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+    if (has("mysticism")) return "/brands/mysticism.svg";
+    if (has("prose")) return "/brands/prose.svg";
+    if (has("social alpha", "social-alpha", "socialalpha"))
+      return "https://www.google.com/s2/favicons?domain=dexscreener.com&sz=64";
+    if (has("rlm")) return "/brands/rlm.svg";
+    if (has("tee"))
+      return "https://www.google.com/s2/favicons?domain=phala.network&sz=64";
+    if (has("acp")) return "https://img.icons8.com/color/96/api-settings.png";
+    if (has("iq"))
+      return "https://www.google.com/s2/favicons?domain=iq.wiki&sz=64";
+    if (has("msteams", "microsoftteams", "teams"))
+      return "https://www.google.com/s2/favicons?domain=microsoft.com&sz=64";
     if (has("mattermost")) return "/brands/mattermost.svg";
-    if (has("auto-trader", "autotrader")) return this.generatedConnectorIcon(appId);
-    if (has("openai")) return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
-    if (has("anthropic")) return "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
-    if (has("google", "gemini")) return "https://www.google.com/s2/favicons?domain=ai.google.dev&sz=64";
-    if (has("groq")) return "https://www.google.com/s2/favicons?domain=groq.com&sz=64";
-    if (has("deepseek")) return "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
-    if (has("mistral")) return "https://www.google.com/s2/favicons?domain=mistral.ai&sz=64";
-    if (has("together")) return "https://www.google.com/s2/favicons?domain=together.ai&sz=64";
-    if (has("openrouter")) return "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
-    if (has("ollama")) return "https://www.google.com/s2/favicons?domain=ollama.com&sz=64";
+    if (has("todo")) return "/brands/todo.svg";
+    if (has("rolodex")) return "/brands/rolodex.svg";
+    if (has("trust")) return "/brands/trust.svg";
+    if (has("memory")) return "/brands/memory.svg";
+    if (has("plugin manager", "plugin-manager"))
+      return "/brands/plugin-manager.svg";
+    if (has("personality")) return "/brands/personality.svg";
+    if (has("knowledge")) return "/brands/knowledge.svg";
+    if (has("goals")) return "/brands/goals.svg";
+    if (has("shell")) return "/brands/shell.svg";
+    if (has("pdf")) return "/brands/pdf.svg";
+    if (has("streaming base", "streaming-base"))
+      return "/brands/streaming-base.svg";
+    if (has("youtube streaming", "youtube-streaming"))
+      return "https://www.google.com/s2/favicons?domain=youtube.com&sz=64";
+    if (has("custom rtmp", "custom-rtmp"))
+      return "https://www.google.com/s2/favicons?domain=obsproject.com&sz=64";
+    if (has("lp-manager", "lpmanager")) return "/brands/lp-manager.svg";
+    if (has("auto-trader", "autotrader"))
+      return "https://www.google.com/s2/favicons?domain=tradingview.com&sz=64";
+    if (has("openai"))
+      return "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+    if (has("anthropic"))
+      return "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
+    if (has("google", "gemini"))
+      return "https://www.google.com/s2/favicons?domain=ai.google.dev&sz=64";
+    if (has("groq"))
+      return "https://www.google.com/s2/favicons?domain=groq.com&sz=64";
+    if (has("deepseek"))
+      return "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
+    if (has("mistral"))
+      return "https://www.google.com/s2/favicons?domain=mistral.ai&sz=64";
+    if (has("together"))
+      return "https://www.google.com/s2/favicons?domain=together.ai&sz=64";
+    if (has("openrouter"))
+      return "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
+    if (has("ollama"))
+      return "https://www.google.com/s2/favicons?domain=ollama.com&sz=64";
     if (has("local ai", "local-ai", "localai")) return "/brands/local-ai.svg";
-    if (has("elizacloud", "eliza-cloud")) return "https://www.google.com/s2/favicons?domain=elizacloud.ai&sz=64";
+    if (has("elizacloud", "eliza-cloud"))
+      return "https://www.google.com/s2/favicons?domain=elizacloud.ai&sz=64";
     if (has("elizaos")) return this.generatedConnectorIcon(appId);
-    if (has("xai")) return "https://www.google.com/s2/favicons?domain=x.ai&sz=64";
-    if (has("pi-ai", "pi ai")) return "https://www.google.com/s2/favicons?domain=pi.ai&sz=64";
-    if (has("zai", "z.ai")) return "https://www.google.com/s2/favicons?domain=z.ai&sz=64";
-    if (has("vercel")) return "https://www.google.com/s2/favicons?domain=vercel.com&sz=64";
-    if (has("sql")) return "https://www.google.com/s2/favicons?domain=sqlite.org&sz=64";
+    if (has("xai"))
+      return "https://www.google.com/s2/favicons?domain=x.ai&sz=64";
+    if (has("pi-ai", "pi ai"))
+      return "https://www.google.com/s2/favicons?domain=pi.ai&sz=64";
+    if (has("zai", "z.ai"))
+      return "https://www.google.com/s2/favicons?domain=z.ai&sz=64";
+    if (has("vercel"))
+      return "https://www.google.com/s2/favicons?domain=vercel.com&sz=64";
+    if (has("sql"))
+      return "https://www.google.com/s2/favicons?domain=sqlite.org&sz=64";
     if (has("localdb")) return "/brands/localdb.svg";
     if (has("inmemorydb", "in-memory")) return "/brands/inmemorydb.svg";
-    if (has("mcp")) return "https://www.google.com/s2/favicons?domain=modelcontextprotocol.io&sz=64";
+    if (has("mcp"))
+      return "https://www.google.com/s2/favicons?domain=modelcontextprotocol.io&sz=64";
+    return this.generatedConnectorIcon(appId);
+  }
+
+  private appIconFallbackPath(appId: string): string {
+    const key = appId.toLowerCase();
+    const normalized = key.replace(/[\s_-]/g, "");
+    const has = (...needles: string[]): boolean =>
+      needles.some((needle) => {
+        const n = needle.toLowerCase();
+        const nNorm = n.replace(/[\s_-]/g, "");
+        return key.includes(n) || normalized.includes(nNorm);
+      });
+
+    if (has("polymarket")) return "/brands/polymarket.svg";
+    if (has("telegram")) return "/brands/telegram.svg";
+    if (has("discord")) return "/brands/discord.svg";
+    if (has("slack")) return "/brands/slack.svg";
+    if (has("whatsapp")) return "/brands/whatsapp.svg";
+    if (has("signal")) return "/brands/signal.svg";
+    if (has("imessage")) return "https://img.icons8.com/color/96/imessage.png";
+    if (has("bluebubbles")) return "/brands/bluebubbles.svg";
+    if (has("msteams", "microsoftteams", "teams")) return "/brands/msteams.svg";
+    if (has("mattermost")) return "/brands/mattermost.svg";
+    if (has("acp")) return "https://img.icons8.com/color/96/api-settings.png";
+    if (has("auto-trader", "autotrader"))
+      return "https://www.google.com/s2/favicons?domain=tradingview.com&sz=64";
+    if (has("babylon"))
+      return "https://www.google.com/s2/favicons?domain=babylon.market&sz=64";
+    if (has("blooio")) return "/brands/blooio.svg";
+    if (has("bluesky")) return "/brands/bluesky.svg";
+    if (has("browser")) return "/brands/browser.svg";
+    if (has("clawbal", "clawbal-chat", "clawbalchat"))
+      return "https://www.google.com/s2/favicons?domain=clawhub.ai&sz=64";
+    if (has("copilot")) return "/brands/copilot-proxy.svg";
+    if (has("custom rtmp", "custom-rtmp"))
+      return "https://www.google.com/s2/favicons?domain=obsproject.com&sz=64";
+    if (has("elevenlabs")) return "/brands/elevenlabs.svg";
+    if (has("farcaster")) return "/brands/farcaster.svg";
+    if (has("feishu")) return "/brands/feishu.svg";
+    if (has("github")) return "/brands/github.svg";
+    if (has("gmail watch", "gmailwatch", "gmail"))
+      return "/brands/gmail-watch.svg";
+    if (has("google chat", "googlechat", "google-chat"))
+      return "/brands/google-chat.svg";
+    if (has("instagram")) return "/brands/instagram.svg";
+    if (has("iq"))
+      return "https://www.google.com/s2/favicons?domain=iq.wiki&sz=64";
+    if (has("line")) return "/brands/line.svg";
+    if (has("linear")) return "/brands/linear.svg";
+    if (has("matrix")) return "/brands/matrix.svg";
+    if (has("minecraft"))
+      return "https://img.icons8.com/color/96/minecraft-logo.png";
+    if (has("moltbook"))
+      return "https://www.google.com/s2/favicons?domain=moltbook.com&sz=64";
+    if (has("n8n")) return "/brands/n8n.svg";
+    if (has("nextcloud talk", "nextcloudtalk", "nextcloud"))
+      return "/brands/nextcloud-talk.svg";
+    if (has("nostr")) return "/brands/nostr.svg";
+    if (has("retake.tv", "retake")) return "/brands/retake.svg";
+    if (has("roblox"))
+      return "https://www.google.com/s2/favicons?domain=roblox.com&sz=64";
+    if (has("s3", "storage")) return "/brands/s3-storage.svg";
+    if (has("social alpha", "social-alpha", "socialalpha"))
+      return "https://www.google.com/s2/favicons?domain=dexscreener.com&sz=64";
+    if (has("tee"))
+      return "https://www.google.com/s2/favicons?domain=phala.network&sz=64";
+    if (has("tlon")) return "/brands/tlon.svg";
+    if (has("twilio")) return "/brands/twilio.svg";
+    if (has("twitch streaming", "twitch-streaming"))
+      return "https://www.google.com/s2/favicons?domain=twitch.tv&sz=64";
+    if (has("twitch")) return "/brands/twitch.svg";
+    if (has("twitter") || normalized === "x") return "/brands/twitter.svg";
+    if (has("youtube streaming", "youtube-streaming"))
+      return "https://www.google.com/s2/favicons?domain=youtube.com&sz=64";
+    if (has("zalo", "zalouser")) return "/brands/zalo.svg";
+
     return this.generatedConnectorIcon(appId);
   }
 
@@ -10437,7 +11599,8 @@ export class MilaidyApp extends LitElement {
     const normalized = raw.replace(/[^a-z0-9]+/gi, " ").trim();
     const words = normalized.length > 0 ? normalized.split(/\s+/) : ["app"];
     const first = words[0]?.[0] ?? "A";
-    const second = words.length > 1 ? words[1]?.[0] ?? "" : words[0]?.[1] ?? "";
+    const second =
+      words.length > 1 ? (words[1]?.[0] ?? "") : (words[0]?.[1] ?? "");
     const initials = `${first}${second}`.toUpperCase();
 
     let hash = 0;
@@ -10456,37 +11619,57 @@ export class MilaidyApp extends LitElement {
     const idKey = `${plugin.id} ${plugin.name}`.toLowerCase();
     const directCopy = providerCopyForId(plugin.id);
     if (directCopy) return directCopy.description;
-    if (idKey.includes("google")) return AI_PROVIDER_COPY["google-genai"].description;
-    if (idKey.includes("gemini")) return AI_PROVIDER_COPY["google-genai"].description;
+    if (idKey.includes("google"))
+      return AI_PROVIDER_COPY["google-genai"].description;
+    if (idKey.includes("gemini"))
+      return AI_PROVIDER_COPY["google-genai"].description;
     if (idKey.includes("grok")) return AI_PROVIDER_COPY.xai.description;
     const fromPlugin = (plugin.description ?? "").trim();
     if (fromPlugin.length > 0) return fromPlugin;
     const key = idKey;
     if (key.includes("openai")) return AI_PROVIDER_COPY.openai.description;
-    if (key.includes("anthropic")) return AI_PROVIDER_COPY.anthropic.description;
+    if (key.includes("anthropic"))
+      return AI_PROVIDER_COPY.anthropic.description;
     if (key.includes("google") || key.includes("gemini"))
       return AI_PROVIDER_COPY["google-genai"].description;
     if (key.includes("groq")) return AI_PROVIDER_COPY.groq.description;
-    if (key.includes("openrouter")) return AI_PROVIDER_COPY.openrouter.description;
+    if (key.includes("openrouter"))
+      return AI_PROVIDER_COPY.openrouter.description;
     if (key.includes("ollama")) return AI_PROVIDER_COPY.ollama.description;
-    if (key.includes("local ai") || key.includes("local-ai") || key.includes("localai")) return "Run Runtime with local AI inference providers.";
+    if (
+      key.includes("local ai") ||
+      key.includes("local-ai") ||
+      key.includes("localai")
+    )
+      return "Run Runtime with local AI inference providers.";
     if (key.includes("xai")) return AI_PROVIDER_COPY.xai.description;
-    if (key.includes("vercel")) return "Use Vercel AI Gateway/runtime integrations.";
+    if (key.includes("vercel"))
+      return "Use Vercel AI Gateway/runtime integrations.";
     if (key.includes("sql")) return "Persist memory/state in SQL storage.";
-    if (key.includes("localdb")) return "Store memory locally in embedded database storage.";
-    if (key.includes("inmemorydb") || key.includes("in-memory")) return "Use in-memory database state for local runtime sessions.";
-    if (key.includes("mcp")) return "Connect external tools through MCP servers.";
-    if (key.includes("telegram")) return "Connect Telegram automation workflows.";
+    if (key.includes("localdb"))
+      return "Store memory locally in embedded database storage.";
+    if (key.includes("inmemorydb") || key.includes("in-memory"))
+      return "Use in-memory database state for local runtime sessions.";
+    if (key.includes("mcp"))
+      return "Connect external tools through MCP servers.";
+    if (key.includes("telegram"))
+      return "Connect Telegram automation workflows.";
     if (key.includes("discord")) return "Connect Discord automation workflows.";
-    if (key.includes("polymarket")) return "Enable Polymarket market and execution actions.";
+    if (key.includes("polymarket"))
+      return "Enable Polymarket market and execution actions.";
     if (key.includes("slack")) return "Connect Slack workspace actions.";
-    if (key.includes("whatsapp")) return "Connect WhatsApp messaging workflows.";
+    if (key.includes("whatsapp"))
+      return "Connect WhatsApp messaging workflows.";
     if (key.includes("signal")) return "Connect Signal messaging workflows.";
-    if (key.includes("bluesky")) return "Connect Bluesky posting and automation workflows.";
-    if (key.includes("blooio")) return "Connect Blooio iMessage and SMS workflows.";
+    if (key.includes("bluesky"))
+      return "Connect Bluesky posting and automation workflows.";
+    if (key.includes("blooio"))
+      return "Connect Blooio iMessage and SMS workflows.";
     if (key.includes("teams")) return "Connect Microsoft Teams actions.";
-    if (key.includes("mattermost")) return "Connect Mattermost channel actions.";
-    if (key.includes("auto-trader")) return "Automate Solana trading strategies and execution flows.";
+    if (key.includes("mattermost"))
+      return "Connect Mattermost channel actions.";
+    if (key.includes("auto-trader"))
+      return "Automate Solana trading strategies and execution flows.";
     if (key.includes("acp")) return "Agent capability protocol runtime module.";
     return plugin.category === "ai-provider"
       ? "Model module for Runtime."
@@ -10502,6 +11685,23 @@ export class MilaidyApp extends LitElement {
     img.src = fallback;
   }
 
+  private handlePluginIconError(e: Event, appId: string): void {
+    const img = e.currentTarget as HTMLImageElement;
+    const stage = img.dataset.fallbackStage ?? "0";
+
+    if (stage === "0") {
+      img.dataset.fallbackStage = "1";
+      img.src = this.appIconFallbackPath(appId);
+      return;
+    }
+
+    if (stage === "1") {
+      img.dataset.fallbackStage = "2";
+      img.src = this.generatedConnectorIcon(appId);
+      return;
+    }
+  }
+
   private isLikelyMobileDevice(): boolean {
     return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
@@ -10515,7 +11715,9 @@ export class MilaidyApp extends LitElement {
   }
 
   private refreshDeviceProfile(): void {
-    const detected: "standard" | "seeker" = this.isLikelySeekerDevice() ? "seeker" : "standard";
+    const detected: "standard" | "seeker" = this.isLikelySeekerDevice()
+      ? "seeker"
+      : "standard";
     this.deviceProfile = detected;
     localStorage.setItem(DEVICE_PROFILE_STORAGE_KEY, detected);
   }
@@ -10523,26 +11725,24 @@ export class MilaidyApp extends LitElement {
   private isLikelySeekerDevice(): boolean {
     const ua = navigator.userAgent.toLowerCase();
     const uaMatch =
-      ua.includes("seeker")
-      || ua.includes("solana mobile")
-      || ua.includes("solanamobile")
-      || ua.includes("saga");
+      ua.includes("seeker") ||
+      ua.includes("solana mobile") ||
+      ua.includes("solanamobile") ||
+      ua.includes("saga");
     const w = window as unknown as Record<string, unknown>;
     const solana = w.solana as Record<string, unknown> | undefined;
     const hasMobileInjectedSolana = Boolean(
-      solana
-      && typeof solana.connect === "function"
-      && this.isLikelyMobileDevice()
-      && ua.includes("android"),
+      solana &&
+        typeof solana.connect === "function" &&
+        this.isLikelyMobileDevice() &&
+        ua.includes("android"),
     );
     const providerMatch = Boolean(
-      solana
-      && (
-        solana.isSeeker === true
-        || solana.isSolanaMobile === true
-        || solana.isMobileWalletAdapter === true
-        || solana.isSaga === true
-      ),
+      solana &&
+        (solana.isSeeker === true ||
+          solana.isSolanaMobile === true ||
+          solana.isMobileWalletAdapter === true ||
+          solana.isSaga === true),
     );
     return uaMatch || providerMatch || hasMobileInjectedSolana;
   }
@@ -10576,25 +11776,41 @@ export class MilaidyApp extends LitElement {
       // Adapter path (no "fake connect").
       const mobilePkg = "@solana-mobile/wallet-adapter-mobile";
       const basePkg = "@solana/wallet-adapter-base";
-      const mobile = await import(/* @vite-ignore */ mobilePkg) as Record<string, unknown>;
-      const base = await import(/* @vite-ignore */ basePkg) as Record<string, unknown>;
+      const mobile = (await import(/* @vite-ignore */ mobilePkg)) as Record<
+        string,
+        unknown
+      >;
+      const base = (await import(/* @vite-ignore */ basePkg)) as Record<
+        string,
+        unknown
+      >;
 
       const AdapterCtor = mobile.SolanaMobileWalletAdapter as
-        | (new (opts: Record<string, unknown>) => {
-          connect: () => Promise<void>;
-          disconnect?: () => Promise<void>;
-          publicKey?: { toBase58?: () => string; toString?: () => string };
-        })
+        | (new (
+            opts: Record<string, unknown>,
+          ) => {
+            connect: () => Promise<void>;
+            disconnect?: () => Promise<void>;
+            publicKey?: { toBase58?: () => string; toString?: () => string };
+          })
         | undefined;
       if (!AdapterCtor) return null;
 
-      const networkEnum = (base.WalletAdapterNetwork as Record<string, string> | undefined) ?? {};
+      const networkEnum =
+        (base.WalletAdapterNetwork as Record<string, string> | undefined) ?? {};
       // WalletAdapterNetwork.Mainnet is the expected value; fall back to a string
       // to keep the UI resilient across adapter versions.
-      const cluster = networkEnum.Mainnet ?? networkEnum.MainnetBeta ?? "mainnet-beta";
-      const addressSelector = mobile.createDefaultAddressSelector as (() => unknown) | undefined;
-      const authCache = mobile.createDefaultAuthorizationResultCache as (() => unknown) | undefined;
-      const walletNotFound = mobile.createDefaultWalletNotFoundHandler as (() => unknown) | undefined;
+      const cluster =
+        networkEnum.Mainnet ?? networkEnum.MainnetBeta ?? "mainnet-beta";
+      const addressSelector = mobile.createDefaultAddressSelector as
+        | (() => unknown)
+        | undefined;
+      const authCache = mobile.createDefaultAuthorizationResultCache as
+        | (() => unknown)
+        | undefined;
+      const walletNotFound = mobile.createDefaultWalletNotFoundHandler as
+        | (() => unknown)
+        | undefined;
 
       const adapter = new AdapterCtor({
         addressSelector: addressSelector?.(),
@@ -10639,14 +11855,16 @@ export class MilaidyApp extends LitElement {
       const mwaAddress = await this.connectSolanaMobileWalletAdapter();
       if (!mwaAddress) {
         const isLocalDev =
-          window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
         this.walletError = isLocalDev
           ? "Mobile wallet adapter is unavailable in this UI build. Install UI deps, then reload, or open Runtime in your Seeker wallet browser."
           : "Mobile wallet adapter was not detected. Open Runtime in your Seeker wallet browser and try again.";
         return;
       }
       await client.updateWalletConfig({ SOLANA_ADDRESS: mwaAddress });
-      this.walletConnectStatus = "Mobile wallet connected. Live balances synced.";
+      this.walletConnectStatus =
+        "Mobile wallet connected. Live balances synced.";
       this.walletConnectMode = "choose";
       this.walletConnectOpen = false;
       this.selectedWalletLauncher = null;
@@ -10673,12 +11891,14 @@ export class MilaidyApp extends LitElement {
   }
 
   private hasConnectedWallet(): boolean {
-    return Boolean(this.walletConfig?.evmConfiguredAddress)
-      || Boolean(this.walletConfig?.solanaConfiguredAddress)
-      || Boolean(this.walletConfig?.evmAddress)
-      || Boolean(this.walletConfig?.solanaAddress)
-      || Boolean(this.walletAddresses?.evmAddress)
-      || Boolean(this.walletAddresses?.solanaAddress);
+    return (
+      Boolean(this.walletConfig?.evmConfiguredAddress) ||
+      Boolean(this.walletConfig?.solanaConfiguredAddress) ||
+      Boolean(this.walletConfig?.evmAddress) ||
+      Boolean(this.walletConfig?.solanaAddress) ||
+      Boolean(this.walletAddresses?.evmAddress) ||
+      Boolean(this.walletAddresses?.solanaAddress)
+    );
   }
 
   private async handleWalletDisconnect(): Promise<void> {
@@ -10707,7 +11927,8 @@ export class MilaidyApp extends LitElement {
       this.walletConnectMode = "choose";
       await this.loadWalletConfig();
       this.walletAddresses = await client.getWalletAddresses();
-      this.walletConnectStatus = "Wallet disconnected. You can connect a new wallet now.";
+      this.walletConnectStatus =
+        "Wallet disconnected. You can connect a new wallet now.";
     } catch (err) {
       this.walletError = `Failed to disconnect wallet: ${err instanceof Error ? err.message : "network error"}`;
     } finally {
@@ -10718,7 +11939,8 @@ export class MilaidyApp extends LitElement {
   private renderWalletConnectPrompt() {
     const hasConnectedWallet = this.hasConnectedWallet();
     const isMobileBrowser = this.isLikelyMobileDevice();
-    const seekerDetected = this.deviceProfile === "seeker" || this.isLikelySeekerDevice();
+    const seekerDetected =
+      this.deviceProfile === "seeker" || this.isLikelySeekerDevice();
     const prioritizeSeeker = isMobileBrowser || seekerDetected;
     const currentSolana = this.walletConfig?.solanaConfiguredAddress ?? null;
     const currentSolanaShort = currentSolana
@@ -10776,7 +11998,9 @@ export class MilaidyApp extends LitElement {
       {
         name: "Seeker",
         logo: "https://www.google.com/s2/favicons?domain=solanamobile.com&sz=64",
-        hint: seekerDetected ? "Mobile Wallet Adapter (recommended on Seeker)" : "Solana Mobile wallet flow",
+        hint: seekerDetected
+          ? "Mobile Wallet Adapter (recommended on Seeker)"
+          : "Solana Mobile wallet flow",
         url: "",
         kind: "seeker",
       },
@@ -10789,7 +12013,7 @@ export class MilaidyApp extends LitElement {
       });
     }
     const primarySeekerLauncher = prioritizeSeeker
-      ? walletLaunchers.find((w) => w.kind === "seeker") ?? null
+      ? (walletLaunchers.find((w) => w.kind === "seeker") ?? null)
       : null;
     const secondaryLaunchers = prioritizeSeeker
       ? walletLaunchers.filter((w) => w.kind !== "seeker")
@@ -10801,23 +12025,28 @@ export class MilaidyApp extends LitElement {
         <p style="margin-bottom:10px;">
           Choose your wallet provider, connect, and view live balances. Native SOL balance works with just a wallet connection; token and NFT enrichment use backend data providers.
         </p>
-        ${seekerDetected
-          ? html`
+        ${
+          seekerDetected
+            ? html`
               <div style="margin-bottom:10px;padding:8px 10px;border:1px solid color-mix(in srgb, var(--accent) 34%, var(--border-soft));background:var(--accent-subtle);font-size:12px;">
                 Seeker device detected. Mobile Wallet Adapter is prioritized first.
               </div>
             `
-          : ""}
-        ${currentSolanaShort
-          ? html`
+            : ""
+        }
+        ${
+          currentSolanaShort
+            ? html`
               <div style="margin-bottom:10px;padding:8px 10px;border:1px solid var(--border);background:var(--bg-muted);font-size:12px;">
                 Current Solana address: <code>${currentSolanaShort}</code>
               </div>
             `
-          : ""}
+            : ""
+        }
 
-        ${hasConnectedWallet
-          ? html`
+        ${
+          hasConnectedWallet
+            ? html`
               <div class="plugin-settings-body">
                 <div style="font-size:12px;color:var(--muted);">
                   A wallet is already connected. Disconnect it before connecting a different wallet.
@@ -10831,31 +12060,45 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : html`
+            : html`
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
           <button
             class="inventory-subtab ${this.walletConnectMode === "connect" || this.walletConnectMode === "choose" ? "active" : ""}"
-            @click=${() => { this.walletConnectMode = "connect"; this.walletConnectStatus = null; }}
+            @click=${() => {
+              this.walletConnectMode = "connect";
+              this.walletConnectStatus = null;
+            }}
           >Connect wallet</button>
           <button
             class="inventory-subtab ${this.walletConnectMode === "import" ? "active" : ""}"
-            @click=${() => { this.walletConnectMode = "import"; this.walletConnectStatus = null; this.selectedWalletLauncher = null; }}
+            @click=${() => {
+              this.walletConnectMode = "import";
+              this.walletConnectStatus = null;
+              this.selectedWalletLauncher = null;
+            }}
           >Import wallet</button>
           <button
             class="inventory-subtab ${this.walletConnectMode === "generate" ? "active" : ""}"
-            @click=${() => { this.walletConnectMode = "generate"; this.walletConnectStatus = null; this.selectedWalletLauncher = null; }}
+            @click=${() => {
+              this.walletConnectMode = "generate";
+              this.walletConnectStatus = null;
+              this.selectedWalletLauncher = null;
+            }}
           >Create wallet</button>
         </div>
 
-        ${this.walletConnectMode === "connect" || this.walletConnectMode === "choose"
-          ? html`
+        ${
+          this.walletConnectMode === "connect" ||
+          this.walletConnectMode === "choose"
+            ? html`
               <div class="plugin-settings-body">
                 <div style="font-size:12px;color:var(--muted);font-weight:600;">
                   Step 1: Choose your wallet app
                 </div>
-                ${primarySeekerLauncher
-                  ? html`
+                ${
+                  primarySeekerLauncher
+                    ? html`
                       <div class="wallet-launcher-priority">
                         <div class="wallet-launcher-priority-title">${seekerDetected ? "Seeker Recommended" : "Mobile Recommended"}</div>
                         <div class="wallet-launcher-card">
@@ -10876,14 +12119,18 @@ export class MilaidyApp extends LitElement {
                             class="btn plugin-pill-btn"
                             style="width:100%;"
                             ?disabled=${this.walletConnectBusy}
-                            @click=${() => { void this.handleSeekerConnectFlow(); }}
+                            @click=${() => {
+                              void this.handleSeekerConnectFlow();
+                            }}
                           >${this.walletConnectBusy ? "Connecting..." : "Connect Seeker"}</button>
                         </div>
                       </div>
                     `
-                  : ""}
+                    : ""
+                }
                 <div class=${seekerDetected ? "wallet-launcher-stack" : "wallet-launcher-grid"}>
-                  ${secondaryLaunchers.map((wallet) => html`
+                  ${secondaryLaunchers.map(
+                    (wallet) => html`
                     <div class="wallet-launcher-card">
                       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                         <img
@@ -10903,32 +12150,44 @@ export class MilaidyApp extends LitElement {
                         style="width:100%;"
                         ?disabled=${this.walletConnectBusy}
                         @click=${async () => {
-                          await this.launchWalletConnect(wallet.name, wallet.url);
+                          await this.launchWalletConnect(
+                            wallet.name,
+                            wallet.url,
+                          );
                         }}
                       >${this.walletConnectBusy ? "Connecting..." : `Connect ${wallet.name}`}</button>
                     </div>
-                  `)}
+                  `,
+                  )}
                 </div>
                 <div style="font-size:12px;color:var(--muted);">
-                  ${this.selectedWalletLauncher
-                    ? `After approving in ${this.selectedWalletLauncher}, Runtime reads your wallet address automatically.`
-                    : "After wallet approval, Runtime reads your wallet address automatically."}
+                  ${
+                    this.selectedWalletLauncher
+                      ? `After approving in ${this.selectedWalletLauncher}, Runtime reads your wallet address automatically.`
+                      : "After wallet approval, Runtime reads your wallet address automatically."
+                  }
                 </div>
               </div>
             `
-          : ""}
+            : ""
+        }
 
-        ${this.walletConnectMode === "generate"
-          ? html`
+        ${
+          this.walletConnectMode === "generate"
+            ? html`
               <div class="plugin-settings-body">
                 <div style="font-size:12px;color:var(--muted);">Choose chain(s)</div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  ${(["both", "evm", "solana"] as WalletChain[]).map((chain) => html`
+                  ${(["both", "evm", "solana"] as WalletChain[]).map(
+                    (chain) => html`
                     <button
                       class="filter-btn ${this.walletConnectChain === chain ? "active" : ""}"
-                      @click=${() => { this.walletConnectChain = chain; }}
+                      @click=${() => {
+                        this.walletConnectChain = chain;
+                      }}
                     >${chain === "both" ? "EVM + Solana" : chain.toUpperCase()}</button>
-                  `)}
+                  `,
+                  )}
                 </div>
                 <div style="display:flex;justify-content:flex-end;">
                   <button class="btn plugin-pill-btn" ?disabled=${this.walletConnectBusy} @click=${() => this.handleWalletGenerate()}>
@@ -10937,26 +12196,34 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : ""}
+            : ""
+        }
 
-        ${this.walletConnectMode === "import"
-          ? html`
+        ${
+          this.walletConnectMode === "import"
+            ? html`
               <div class="plugin-settings-body">
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button
                     class="filter-btn ${this.walletImportChain === "evm" ? "active" : ""}"
-                    @click=${() => { this.walletImportChain = "evm"; }}
+                    @click=${() => {
+                      this.walletImportChain = "evm";
+                    }}
                   >EVM</button>
                   <button
                     class="filter-btn ${this.walletImportChain === "solana" ? "active" : ""}"
-                    @click=${() => { this.walletImportChain = "solana"; }}
+                    @click=${() => {
+                      this.walletImportChain = "solana";
+                    }}
                   >Solana</button>
                 </div>
                 <input
                   type="password"
                   placeholder=${this.walletImportChain === "evm" ? "Paste EVM private key (0x...)" : "Paste Solana private key (base58)"}
                   .value=${this.walletImportKey}
-                  @input=${(e: Event) => { this.walletImportKey = (e.target as HTMLInputElement).value; }}
+                  @input=${(e: Event) => {
+                    this.walletImportKey = (e.target as HTMLInputElement).value;
+                  }}
                 />
                 <div style="display:flex;justify-content:flex-end;">
                   <button
@@ -10967,15 +12234,21 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : ""}
-        `}
+            : ""
+        }
+        `
+        }
 
-        ${this.walletConnectStatus
-          ? html`<div style="margin-top:8px;color:var(--ok);font-size:12px;">${this.walletConnectStatus}</div>`
-          : ""}
-        ${this.walletError
-          ? html`<div style="margin-top:8px;color:var(--danger, #c94f4f);font-size:12px;">${this.walletError}</div>`
-          : ""}
+        ${
+          this.walletConnectStatus
+            ? html`<div style="margin-top:8px;color:var(--ok);font-size:12px;">${this.walletConnectStatus}</div>`
+            : ""
+        }
+        ${
+          this.walletError
+            ? html`<div style="margin-top:8px;color:var(--danger, #c94f4f);font-size:12px;">${this.walletError}</div>`
+            : ""
+        }
       </div>
     `;
   }
@@ -10986,7 +12259,12 @@ export class MilaidyApp extends LitElement {
     currentSolanaShort: string | null;
     currentUrl: string;
   }) {
-    const { hasConnectedWallet, seekerDetected, currentSolanaShort, currentUrl } = input;
+    const {
+      hasConnectedWallet,
+      seekerDetected,
+      currentSolanaShort,
+      currentUrl,
+    } = input;
 
     const deepLinkPhantom = `https://phantom.app/ul/browse/${currentUrl}`;
     const deepLinkSolflare = `https://solflare.com/ul/v1/browse/${currentUrl}`;
@@ -10997,23 +12275,28 @@ export class MilaidyApp extends LitElement {
         <p style="margin-bottom:10px;">
           On mobile, connect using Solana Mobile Wallet Adapter for the cleanest flow.
         </p>
-        ${seekerDetected
-          ? html`
+        ${
+          seekerDetected
+            ? html`
               <div style="margin-bottom:10px;padding:8px 10px;border:1px solid color-mix(in srgb, var(--accent) 34%, var(--border-soft));background:var(--accent-subtle);font-size:12px;">
                 Seeker detected. Mobile Wallet Adapter is recommended.
               </div>
             `
-          : ""}
-        ${currentSolanaShort
-          ? html`
+            : ""
+        }
+        ${
+          currentSolanaShort
+            ? html`
               <div style="margin-bottom:10px;padding:8px 10px;border:1px solid var(--border);background:var(--bg-muted);font-size:12px;">
                 Current Solana address: <code>${currentSolanaShort}</code>
               </div>
             `
-          : ""}
+            : ""
+        }
 
-        ${hasConnectedWallet
-          ? html`
+        ${
+          hasConnectedWallet
+            ? html`
               <div class="plugin-settings-body">
                 <div style="font-size:12px;color:var(--muted);">
                   A wallet is already connected. Disconnect it before connecting a different wallet.
@@ -11027,20 +12310,24 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : html`
+            : html`
               <div class="plugin-settings-body" style="gap:10px;">
                 <div style="display:grid;gap:10px;">
                   <button
                     class="btn plugin-pill-btn"
                     style="width:100%;"
                     ?disabled=${this.walletConnectBusy}
-                    @click=${() => { void this.handleSeekerConnectFlow(); }}
+                    @click=${() => {
+                      void this.handleSeekerConnectFlow();
+                    }}
                   >${this.walletConnectBusy ? "Connecting..." : "Connect mobile wallet"}</button>
                   <button
                     class="plugin-secondary-btn"
                     style="width:100%;"
                     ?disabled=${this.walletConnectBusy}
-                    @click=${() => { this.openSeekerWalletDeepLink(); }}
+                    @click=${() => {
+                      this.openSeekerWalletDeepLink();
+                    }}
                   >Open in Seeker wallet</button>
                 </div>
 
@@ -11087,7 +12374,8 @@ export class MilaidyApp extends LitElement {
                   </div>
                 </div>
               </div>
-            `}
+            `
+        }
       </div>
     `;
   }
@@ -11097,24 +12385,38 @@ export class MilaidyApp extends LitElement {
       <div class="inv-toolbar">
         <div class="inv-toolbar-left">
           <button class="inventory-subtab ${this.inventoryView === "tokens" ? "active" : ""}"
-                  @click=${() => { this.inventoryView = "tokens"; if (!this.walletBalances) this.loadBalances(); }}>
+                  @click=${() => {
+                    this.inventoryView = "tokens";
+                    if (!this.walletBalances) this.loadBalances();
+                  }}>
             Tokens
           </button>
           <button class="inventory-subtab ${this.inventoryView === "nfts" ? "active" : ""}"
-                  @click=${() => { this.inventoryView = "nfts"; if (!this.walletNfts) this.loadNfts(); }}>
+                  @click=${() => {
+                    this.inventoryView = "nfts";
+                    if (!this.walletNfts) this.loadNfts();
+                  }}>
             NFTs
           </button>
         </div>
         <div class="inv-toolbar-right">
-          ${this.inventoryView === "tokens" ? html`
+          ${
+            this.inventoryView === "tokens"
+              ? html`
             <span class="inv-sort-label">Sort</span>
             <button class="sort-btn ${this.inventorySort === "value" ? "active" : ""}"
-                    @click=${() => { this.inventorySort = "value"; }}>Value</button>
+                    @click=${() => {
+                      this.inventorySort = "value";
+                    }}>Value</button>
             <button class="sort-btn ${this.inventorySort === "symbol" ? "active" : ""}"
-                    @click=${() => { this.inventorySort = "symbol"; }}>Name</button>
-          ` : ""}
+                    @click=${() => {
+                      this.inventorySort = "symbol";
+                    }}>Name</button>
+          `
+              : ""
+          }
           <button class="btn inv-refresh-btn"
-                  @click=${() => this.inventoryView === "tokens" ? this.loadBalances() : this.loadNfts()}>
+                  @click=${() => (this.inventoryView === "tokens" ? this.loadBalances() : this.loadNfts())}>
             Refresh
           </button>
         </div>
@@ -11150,14 +12452,21 @@ export class MilaidyApp extends LitElement {
 
     const chainTotals = new Map<string, number>();
     for (const row of rows) {
-      chainTotals.set(row.chain, (chainTotals.get(row.chain) ?? 0) + row.valueUsd);
+      chainTotals.set(
+        row.chain,
+        (chainTotals.get(row.chain) ?? 0) + row.valueUsd,
+      );
     }
     const chainRows = [...chainTotals.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
     const denom = totalUsd > 0 ? totalUsd : 1;
-    const solRow = rows.find((r) => r.chain === "Solana" && r.symbol.toUpperCase() === "SOL");
-    const memeRows = rows.filter((r) => r.chain === "Solana" && r.symbol.toUpperCase() !== "SOL");
+    const solRow = rows.find(
+      (r) => r.chain === "Solana" && r.symbol.toUpperCase() === "SOL",
+    );
+    const memeRows = rows.filter(
+      (r) => r.chain === "Solana" && r.symbol.toUpperCase() !== "SOL",
+    );
     const solValue = solRow?.valueUsd ?? 0;
     const memeValue = memeRows.reduce((sum, r) => sum + r.valueUsd, 0);
     const memeCount = memeRows.length;
@@ -11188,11 +12497,15 @@ export class MilaidyApp extends LitElement {
           ${!hasSol ? html`<span>No Solana wallet connected</span>` : ""}
         </div>
 
-        ${chainRows.length > 1
-          ? html`
+        ${
+          chainRows.length > 1
+            ? html`
               <div class="portfolio-chain-list">
                 ${chainRows.map(([chain, value]) => {
-                  const percent = Math.max(0, Math.min(100, (value / denom) * 100));
+                  const percent = Math.max(
+                    0,
+                    Math.min(100, (value / denom) * 100),
+                  );
                   return html`
                     <div class="portfolio-chain-row">
                       <div style="font-size:11px;color:var(--muted);">${chain}</div>
@@ -11205,10 +12518,12 @@ export class MilaidyApp extends LitElement {
                 })}
               </div>
             `
-          : ""}
+            : ""
+        }
 
-        ${hasSol
-          ? html`
+        ${
+          hasSol
+            ? html`
               <div class="portfolio-chain-list" style="margin-top:6px;">
                 <div class="portfolio-subsection-title">Holdings</div>
                 <div class="portfolio-chain-row">
@@ -11227,7 +12542,8 @@ export class MilaidyApp extends LitElement {
                 </div>
               </div>
             `
-          : ""}
+            : ""
+        }
       </div>
     `;
   }
@@ -11236,16 +12552,19 @@ export class MilaidyApp extends LitElement {
     const polymarket = this.plugins.find((p) => p.id === "polymarket");
     const polymarketEnabled = Boolean(polymarket?.enabled);
     const polymarketConfigured = Boolean(
-      polymarket && this.isPluginEffectivelyConfigured(polymarket) && polymarket.validationErrors.length === 0,
+      polymarket &&
+        this.isPluginEffectivelyConfigured(polymarket) &&
+        polymarket.validationErrors.length === 0,
     );
-    const polymarketExecutionEnabled = this.pluginExecutionToggles.polymarket === true;
+    const polymarketExecutionEnabled =
+      this.pluginExecutionToggles.polymarket === true;
     const polymarketWallet =
-      this.polymarketPortfolio?.wallet
-      ?? this.walletConfig?.evmConfiguredAddress
-      ?? this.walletConfig?.evmAddress
-      ?? this.walletConfig?.solanaConfiguredAddress
-      ?? this.walletConfig?.solanaAddress
-      ?? null;
+      this.polymarketPortfolio?.wallet ??
+      this.walletConfig?.evmConfiguredAddress ??
+      this.walletConfig?.evmAddress ??
+      this.walletConfig?.solanaConfiguredAddress ??
+      this.walletConfig?.solanaAddress ??
+      null;
     const livePositions = this.polymarketPortfolio?.positions ?? [];
     const liveFromApi = livePositions.length > 0;
     const fallbackBets = this.securityAuditActions
@@ -11263,7 +12582,8 @@ export class MilaidyApp extends LitElement {
       this.polymarketPortfolio?.unsettledPnlUsd == null
         ? "Unavailable"
         : this.formatUsd(this.polymarketPortfolio.unsettledPnlUsd);
-    const positionsCount = this.polymarketPortfolio?.openPositionsCount ?? livePositions.length;
+    const positionsCount =
+      this.polymarketPortfolio?.openPositionsCount ?? livePositions.length;
     const availableValue = this.polymarketPortfolio?.availableBalanceUsd;
     const exposureValue = this.polymarketPortfolio?.openExposureUsd;
     const pnlValue = this.polymarketPortfolio?.unsettledPnlUsd;
@@ -11271,7 +12591,8 @@ export class MilaidyApp extends LitElement {
       availableValue == null && exposureValue == null
         ? null
         : (availableValue ?? 0) + (exposureValue ?? 0);
-    const polymarketValueLabel = polymarketValue == null ? "Unavailable" : this.formatUsd(polymarketValue);
+    const polymarketValueLabel =
+      polymarketValue == null ? "Unavailable" : this.formatUsd(polymarketValue);
 
     return html`
       <div class="portfolio-overview" style="margin-top:12px;">
@@ -11291,14 +12612,18 @@ export class MilaidyApp extends LitElement {
         <div class="portfolio-chain-row">
           <div style="font-size:11px;color:var(--muted);">Trading Wallet</div>
           <div style="font-size:11px;color:var(--text-strong);">
-            ${polymarketWallet
-              ? html`<code>${polymarketWallet.slice(0, 6)}...${polymarketWallet.slice(-4)}</code>`
-              : "Not connected"}
+            ${
+              polymarketWallet
+                ? html`<code>${polymarketWallet.slice(0, 6)}...${polymarketWallet.slice(-4)}</code>`
+                : "Not connected"
+            }
           </div>
           <div>
-            ${!polymarketEnabled || !polymarketConfigured
-              ? html`<button class="plugin-secondary-btn" style="padding:4px 10px;font-size:11px;" @click=${() => this.setTab("apps")}>Open Markets & Apps</button>`
-              : ""}
+            ${
+              !polymarketEnabled || !polymarketConfigured
+                ? html`<button class="plugin-secondary-btn" style="padding:4px 10px;font-size:11px;" @click=${() => this.setTab("apps")}>Open Markets & Apps</button>`
+                : ""
+            }
           </div>
         </div>
         <div class="portfolio-balance-hero" style="margin-top:6px;">
@@ -11333,8 +12658,10 @@ export class MilaidyApp extends LitElement {
             <span>Outcome</span>
             <span>Amount</span>
           </div>
-          ${liveFromApi
-            ? livePositions.slice(0, 8).map((pos) => html`
+          ${
+            liveFromApi
+              ? livePositions.slice(0, 8).map(
+                  (pos) => html`
                 <div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-soft);font-size:12px;">
                   <div style="min-width:0;">
                     <div style="font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pos.market || "Polymarket position"}</div>
@@ -11343,18 +12670,19 @@ export class MilaidyApp extends LitElement {
                   <div style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pos.outcome || "—"}</div>
                   <div style="font-family:var(--mono);color:var(--text-strong);">${this.formatUsd(pos.sizeUsd)}</div>
                 </div>
-              `)
-            : fallbackBets.length === 0
-              ? html`<div style="padding:10px;font-size:12px;color:var(--muted);">No live bets in this session yet.</div>`
-              : fallbackBets.map((bet) => {
-                const detail = bet.detail;
-                const marketMatch = /Market:\s*\"([^\"]+)\"/i.exec(detail);
-                const outcomeMatch = /Outcome:\s*\"([^\"]+)\"/i.exec(detail);
-                const amountMatch = /\$([0-9]+(?:\.[0-9]+)?)/.exec(detail);
-                const market = marketMatch?.[1] ?? "Polymarket order";
-                const outcome = outcomeMatch?.[1] ?? "—";
-                const amount = amountMatch ? `$${amountMatch[1]}` : "—";
-                return html`
+              `,
+                )
+              : fallbackBets.length === 0
+                ? html`<div style="padding:10px;font-size:12px;color:var(--muted);">No live bets in this session yet.</div>`
+                : fallbackBets.map((bet) => {
+                    const detail = bet.detail;
+                    const marketMatch = /Market:\s*"([^"]+)"/i.exec(detail);
+                    const outcomeMatch = /Outcome:\s*"([^"]+)"/i.exec(detail);
+                    const amountMatch = /\$([0-9]+(?:\.[0-9]+)?)/.exec(detail);
+                    const market = marketMatch?.[1] ?? "Polymarket order";
+                    const outcome = outcomeMatch?.[1] ?? "—";
+                    const amount = amountMatch ? `$${amountMatch[1]}` : "—";
+                    return html`
                   <div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-soft);font-size:12px;">
                     <div style="min-width:0;">
                       <div style="font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${market}</div>
@@ -11364,7 +12692,8 @@ export class MilaidyApp extends LitElement {
                     <div style="font-family:var(--mono);color:var(--text-strong);">${amount}</div>
                   </div>
                 `;
-              })}
+                  })
+          }
         </div>
       </div>
     `;
@@ -11423,7 +12752,8 @@ export class MilaidyApp extends LitElement {
         balance: b.solana.solBalance,
         valueUsd: solValueFallback,
         balanceRaw: solBalance,
-        logoUrl: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+        logoUrl:
+          "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       });
       for (const t of b.solana.tokens) {
         rows.push({
@@ -11474,12 +12804,17 @@ export class MilaidyApp extends LitElement {
 
   private sortedBalances() {
     const rows = this.flattenBalances();
-    const solRows = rows.filter((r) => r.chain === "Solana" && r.symbol.toUpperCase() === "SOL");
-    const otherRows = rows.filter((r) => !(r.chain === "Solana" && r.symbol.toUpperCase() === "SOL"));
-    otherRows.sort((a, b) =>
-      b.valueUsd - a.valueUsd
-      || b.balanceRaw - a.balanceRaw
-      || a.symbol.localeCompare(b.symbol),
+    const solRows = rows.filter(
+      (r) => r.chain === "Solana" && r.symbol.toUpperCase() === "SOL",
+    );
+    const otherRows = rows.filter(
+      (r) => !(r.chain === "Solana" && r.symbol.toUpperCase() === "SOL"),
+    );
+    otherRows.sort(
+      (a, b) =>
+        b.valueUsd - a.valueUsd ||
+        b.balanceRaw - a.balanceRaw ||
+        a.symbol.localeCompare(b.symbol),
     );
     return [...solRows, ...otherRows];
   }
@@ -11517,24 +12852,34 @@ export class MilaidyApp extends LitElement {
             <tr>
               <th style="width:32px;"></th>
               <th class=${this.inventorySort === "symbol" ? "sorted" : ""}
-                  @click=${() => { this.inventorySort = "symbol"; }}>Token</th>
+                  @click=${() => {
+                    this.inventorySort = "symbol";
+                  }}>Token</th>
               <th class=${this.inventorySort === "chain" ? "sorted" : ""}
-                  @click=${() => { this.inventorySort = "chain"; }}>Chain</th>
+                  @click=${() => {
+                    this.inventorySort = "chain";
+                  }}>Chain</th>
               <th class="r ${this.inventorySort === "value" ? "sorted" : ""}"
-                  @click=${() => { this.inventorySort = "value"; }}>Balance</th>
+                  @click=${() => {
+                    this.inventorySort = "value";
+                  }}>Balance</th>
               <th class="r ${this.inventorySort === "value" ? "sorted" : ""}"
-                  @click=${() => { this.inventorySort = "value"; }}>Value</th>
+                  @click=${() => {
+                    this.inventorySort = "value";
+                  }}>Value</th>
             </tr>
           </thead>
           <tbody>
             ${rows.map((row) => {
               const icon = this.chainIcon(row.chain);
-              const logo = row.logoUrl || this.tokenLogoFallback(row.symbol, row.chain);
+              const logo =
+                row.logoUrl || this.tokenLogoFallback(row.symbol, row.chain);
               return html`
                 <tr>
                   <td>
-                    ${logo
-                      ? html`
+                    ${
+                      logo
+                        ? html`
                           <img
                             class="token-logo"
                             src=${logo}
@@ -11543,7 +12888,8 @@ export class MilaidyApp extends LitElement {
                             @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
                           />
                         `
-                      : html`<span class="chain-icon ${icon.cls}">${icon.code}</span>`}
+                        : html`<span class="chain-icon ${icon.cls}">${icon.code}</span>`
+                    }
                   </td>
                   <td>
                     <span class="td-symbol">${row.symbol}</span>
@@ -11571,12 +12917,22 @@ export class MilaidyApp extends LitElement {
 
     const n = this.walletNfts;
     // Flatten all NFTs into a single list with chain info
-    type NftItem = { chain: string; name: string; imageUrl: string; collectionName: string };
+    type NftItem = {
+      chain: string;
+      name: string;
+      imageUrl: string;
+      collectionName: string;
+    };
     const allNfts: NftItem[] = [];
 
     if (n.solana) {
       for (const nft of n.solana.nfts) {
-        allNfts.push({ chain: "Solana", name: nft.name, imageUrl: nft.imageUrl, collectionName: nft.collectionName });
+        allNfts.push({
+          chain: "Solana",
+          name: nft.name,
+          imageUrl: nft.imageUrl,
+          collectionName: nft.collectionName,
+        });
       }
     }
 
@@ -11591,16 +12947,18 @@ export class MilaidyApp extends LitElement {
           const chainLogo = this.chainLogoUrl(nft.chain);
           return html`
             <div class="nft-card">
-              ${nft.imageUrl
-                ? html`<img src="${nft.imageUrl}" alt="${nft.name}" loading="lazy" />`
-                : html`<div style="width:100%;height:150px;background:var(--bg-muted);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);">No image</div>`
+              ${
+                nft.imageUrl
+                  ? html`<img src="${nft.imageUrl}" alt="${nft.name}" loading="lazy" />`
+                  : html`<div style="width:100%;height:150px;background:var(--bg-muted);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);">No image</div>`
               }
               <div class="nft-info">
                 <div class="nft-name">${nft.name}</div>
                 <div class="nft-collection">${nft.collectionName}</div>
                 <div class="nft-chain">
-                  ${chainLogo
-                    ? html`
+                  ${
+                    chainLogo
+                      ? html`
                         <img
                           class="token-logo"
                           src=${chainLogo}
@@ -11610,7 +12968,8 @@ export class MilaidyApp extends LitElement {
                           @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
                         />
                       `
-                    : html`<span class="chain-icon ${icon.cls}" style="width:12px;height:12px;line-height:12px;font-size:7px;">${icon.code}</span>`}
+                      : html`<span class="chain-icon ${icon.cls}" style="width:12px;height:12px;line-height:12px;font-size:7px;">${icon.code}</span>`
+                  }
                   ${nft.chain}
                 </div>
               </div>
@@ -11655,7 +13014,11 @@ export class MilaidyApp extends LitElement {
       if (plugin.category === "database") return 1;
       if (plugin.category === "feature") return 2;
       if (plugin.category === "connector") return 3;
-      if (CURATED_APP_ID_SET.has(plugin.id) || this.isAppIntegrationPlugin(plugin)) return 4;
+      if (
+        CURATED_APP_ID_SET.has(plugin.id) ||
+        this.isAppIntegrationPlugin(plugin)
+      )
+        return 4;
       return 5;
     };
 
@@ -11670,7 +13033,11 @@ export class MilaidyApp extends LitElement {
   private autonomyCategoryLabel(plugin: PluginInfo): string {
     if (this.isAiProviderPlugin(plugin)) return "Model";
     if (plugin.category === "database") return "Memory";
-    if (CURATED_APP_ID_SET.has(plugin.id) || this.isAppIntegrationPlugin(plugin)) return "App";
+    if (
+      CURATED_APP_ID_SET.has(plugin.id) ||
+      this.isAppIntegrationPlugin(plugin)
+    )
+      return "App";
     if (plugin.category === "connector") return "Connector";
     return "Runtime";
   }
@@ -11693,11 +13060,19 @@ export class MilaidyApp extends LitElement {
   private renderAutonomySection() {
     const autonomyPlugins = this.autonomyScopePlugins();
     const totalModules = autonomyPlugins.length;
-    const enabledModules = autonomyPlugins.filter((plugin) => plugin.enabled).length;
-    const readyModules = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
-    const riskyModules = autonomyPlugins.filter((plugin) => this.pluginRisk(plugin) !== "SAFE").length;
+    const enabledModules = autonomyPlugins.filter(
+      (plugin) => plugin.enabled,
+    ).length;
+    const readyModules = autonomyPlugins.filter((plugin) =>
+      this.isPluginUserReady(plugin),
+    ).length;
+    const riskyModules = autonomyPlugins.filter(
+      (plugin) => this.pluginRisk(plugin) !== "SAFE",
+    ).length;
     const spendEnabledModules = autonomyPlugins.filter(
-      (plugin) => this.pluginRisk(plugin) === "CAN_SPEND" && this.pluginExecutionToggles[plugin.id] === true,
+      (plugin) =>
+        this.pluginRisk(plugin) === "CAN_SPEND" &&
+        this.pluginExecutionToggles[plugin.id] === true,
     ).length;
 
     return html`
@@ -11745,7 +13120,7 @@ export class MilaidyApp extends LitElement {
                       src=${this.appIconPath(plugin.id)}
                       alt=${`${plugin.name} icon`}
                       style="width:18px;height:18px;border-radius:5px;border:1px solid var(--border-soft);object-fit:cover;"
-                      @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                      @error=${(e: Event) => this.handlePluginIconError(e, plugin.id)}
                     />
                     <span style="font-size:12px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
                     <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
@@ -11775,8 +13150,14 @@ export class MilaidyApp extends LitElement {
 
   private renderConfig() {
     const audits = this.securityAuditActions.slice(0, 12);
-    const sol = this.walletConfig?.solanaConfiguredAddress ?? this.walletConfig?.solanaAddress ?? null;
-    const evm = this.walletConfig?.evmConfiguredAddress ?? this.walletConfig?.evmAddress ?? null;
+    const sol =
+      this.walletConfig?.solanaConfiguredAddress ??
+      this.walletConfig?.solanaAddress ??
+      null;
+    const evm =
+      this.walletConfig?.evmConfiguredAddress ??
+      this.walletConfig?.evmAddress ??
+      null;
     const solShort = sol ? `${sol.slice(0, 6)}...${sol.slice(-4)}` : null;
     const evmShort = evm ? `${evm.slice(0, 6)}...${evm.slice(-4)}` : null;
     const signingLabel = this.walletConfig?.solanaSigningEnabled
@@ -11785,27 +13166,45 @@ export class MilaidyApp extends LitElement {
         ? "Enabled (wallet app)"
         : "Disabled";
     const aiDiagnosticsPlugins = this.plugins
-      .filter((p) => !this.isHiddenSystemPlugin(p.id) && (p.category === "ai-provider" || p.category === "database"))
+      .filter(
+        (p) =>
+          !this.isHiddenSystemPlugin(p.id) &&
+          (p.category === "ai-provider" || p.category === "database"),
+      )
       .sort((a, b) => {
-        const aReady = a.enabled && this.isPluginEffectivelyConfigured(a) && a.validationErrors.length === 0;
-        const bReady = b.enabled && this.isPluginEffectivelyConfigured(b) && b.validationErrors.length === 0;
+        const aReady =
+          a.enabled &&
+          this.isPluginEffectivelyConfigured(a) &&
+          a.validationErrors.length === 0;
+        const bReady =
+          b.enabled &&
+          this.isPluginEffectivelyConfigured(b) &&
+          b.validationErrors.length === 0;
         if (aReady !== bReady) return aReady ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
     const aiReadyCount = aiDiagnosticsPlugins.filter(
-      (p) => p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0,
+      (p) =>
+        p.enabled &&
+        this.isPluginEffectivelyConfigured(p) &&
+        p.validationErrors.length === 0,
     ).length;
     const aiModuleTotal = aiDiagnosticsPlugins.length;
-    const aiModuleSummary = aiModuleTotal > 0 ? `${aiReadyCount}/${aiModuleTotal}` : "0";
+    const aiModuleSummary =
+      aiModuleTotal > 0 ? `${aiReadyCount}/${aiModuleTotal}` : "0";
     const sourceChecks = [
       {
         label: "EVM source",
-        status: this.walletConfig?.evmPublicSource ? "Connected (public mode)" : "Not available",
+        status: this.walletConfig?.evmPublicSource
+          ? "Connected (public mode)"
+          : "Not available",
         ok: Boolean(this.walletConfig?.evmPublicSource),
       },
       {
         label: "Solana source",
-        status: this.walletConfig?.solanaPublicSource ? "Connected (public mode)" : "Not available",
+        status: this.walletConfig?.solanaPublicSource
+          ? "Connected (public mode)"
+          : "Not available",
         ok: Boolean(this.walletConfig?.solanaPublicSource),
       },
       {
@@ -11815,7 +13214,10 @@ export class MilaidyApp extends LitElement {
           : this.walletConfig?.birdeyeKeySet
             ? "Configured (provider key set)"
             : "Optional / not available",
-        ok: Boolean(this.walletConfig?.pricePublicSource || this.walletConfig?.birdeyeKeySet),
+        ok: Boolean(
+          this.walletConfig?.pricePublicSource ||
+            this.walletConfig?.birdeyeKeySet,
+        ),
       },
       {
         label: "Helius key",
@@ -11829,7 +13231,9 @@ export class MilaidyApp extends LitElement {
       },
       {
         label: "Wallet key export",
-        status: this.walletConfig?.walletExportEnabled ? "Enabled (high risk)" : "Disabled (recommended)",
+        status: this.walletConfig?.walletExportEnabled
+          ? "Enabled (high risk)"
+          : "Disabled (recommended)",
         ok: !this.walletConfig?.walletExportEnabled,
       },
     ];
@@ -11850,7 +13254,9 @@ export class MilaidyApp extends LitElement {
               type="checkbox"
               .checked=${this.securityRequireExecuteConfirm}
               @change=${(e: Event) => {
-                this.securityRequireExecuteConfirm = (e.target as HTMLInputElement).checked;
+                this.securityRequireExecuteConfirm = (
+                  e.target as HTMLInputElement
+                ).checked;
                 this.saveSecurityState();
               }}
             />
@@ -11862,7 +13268,9 @@ export class MilaidyApp extends LitElement {
               .checked=${this.securityRequireSpendConfirm}
               ?disabled=${!this.securitySpendGuardEnabled}
               @change=${(e: Event) => {
-                this.securityRequireSpendConfirm = (e.target as HTMLInputElement).checked;
+                this.securityRequireSpendConfirm = (
+                  e.target as HTMLInputElement
+                ).checked;
                 this.saveSecurityState();
               }}
             />
@@ -11881,8 +13289,12 @@ export class MilaidyApp extends LitElement {
                   style="margin:0;height:30px;padding:4px 8px;"
                   .value=${String(this.securityBetPerTradeLimitUsd)}
                   @change=${(e: Event) => {
-                    const next = Number.parseFloat((e.target as HTMLInputElement).value);
-                    this.securityBetPerTradeLimitUsd = Number.isFinite(next) ? Math.max(1, next) : 20;
+                    const next = Number.parseFloat(
+                      (e.target as HTMLInputElement).value,
+                    );
+                    this.securityBetPerTradeLimitUsd = Number.isFinite(next)
+                      ? Math.max(1, next)
+                      : 20;
                     this.saveSecurityState();
                   }}
                 />
@@ -11900,8 +13312,12 @@ export class MilaidyApp extends LitElement {
                   style="margin:0;height:30px;padding:4px 8px;"
                   .value=${String(this.securityBetDailyLimitUsd)}
                   @change=${(e: Event) => {
-                    const next = Number.parseFloat((e.target as HTMLInputElement).value);
-                    this.securityBetDailyLimitUsd = Number.isFinite(next) ? Math.max(1, next) : 50;
+                    const next = Number.parseFloat(
+                      (e.target as HTMLInputElement).value,
+                    );
+                    this.securityBetDailyLimitUsd = Number.isFinite(next)
+                      ? Math.max(1, next)
+                      : 50;
                     this.saveSecurityState();
                   }}
                 />
@@ -11918,8 +13334,12 @@ export class MilaidyApp extends LitElement {
                   style="margin:0;height:30px;padding:4px 8px;width:96px;flex:0 0 96px;"
                   .value=${String(this.securityBetCooldownSec)}
                   @change=${(e: Event) => {
-                    const next = Number.parseFloat((e.target as HTMLInputElement).value);
-                    this.securityBetCooldownSec = Number.isFinite(next) ? Math.max(0, next) : 30;
+                    const next = Number.parseFloat(
+                      (e.target as HTMLInputElement).value,
+                    );
+                    this.securityBetCooldownSec = Number.isFinite(next)
+                      ? Math.max(0, next)
+                      : 30;
                     this.saveSecurityState();
                   }}
                 />
@@ -11965,9 +13385,11 @@ export class MilaidyApp extends LitElement {
           <div style="font-size:12px;color:var(--muted);">
             Controls whether Runtime can execute spend/bet actions after confirmation.
           </div>
-          ${!this.securitySpendGuardEnabled
-            ? html`<div style="font-size:12px;color:var(--warn);">Spend guard is off. Spend limits, cooldown, and spend confirmation are currently bypassed.</div>`
-            : ""}
+          ${
+            !this.securitySpendGuardEnabled
+              ? html`<div style="font-size:12px;color:var(--warn);">Spend guard is off. Spend limits, cooldown, and spend confirmation are currently bypassed.</div>`
+              : ""
+          }
         </div>
       </div>
 
@@ -11980,14 +13402,18 @@ export class MilaidyApp extends LitElement {
         </div>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div style="font-size:12px;color:var(--muted);">
-            Solana wallet: ${solShort
-              ? html`<span style="color:var(--ok);"><code>${solShort}</code></span>`
-              : html`<span>not connected</span>`}
+            Solana wallet: ${
+              solShort
+                ? html`<span style="color:var(--ok);"><code>${solShort}</code></span>`
+                : html`<span>not connected</span>`
+            }
           </div>
           <div style="font-size:12px;color:var(--muted);">
-            EVM wallet: ${evmShort
-              ? html`<span style="color:var(--ok);"><code>${evmShort}</code></span>`
-              : html`<span>not connected</span>`}
+            EVM wallet: ${
+              evmShort
+                ? html`<span style="color:var(--ok);"><code>${evmShort}</code></span>`
+                : html`<span>not connected</span>`
+            }
           </div>
           <div style="font-size:12px;color:var(--muted);">
             Solana signing: <span style="color:${this.walletConfig?.solanaSigningEnabled || this.walletConfig?.solanaWalletConnected ? "var(--ok)" : "var(--muted)"};">${signingLabel}</span>
@@ -12001,11 +13427,16 @@ export class MilaidyApp extends LitElement {
       <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <div style="font-weight:bold;font-size:14px;">Security activity</div>
-          <button class="plugin-secondary-btn" @click=${() => { this.securityAuditActions = []; this.saveSecurityState(); }}>Clear</button>
+          <button class="plugin-secondary-btn" @click=${() => {
+            this.securityAuditActions = [];
+            this.saveSecurityState();
+          }}>Clear</button>
         </div>
-        ${audits.length === 0
-          ? html`<div style="font-size:12px;color:var(--muted);">No security events yet. Bets, spend actions, confirmations, and policy blocks will appear here.</div>`
-          : html`${audits.map((a) => html`
+        ${
+          audits.length === 0
+            ? html`<div style="font-size:12px;color:var(--muted);">No security events yet. Bets, spend actions, confirmations, and policy blocks will appear here.</div>`
+            : html`${audits.map(
+                (a) => html`
             <div style="font-size:12px;padding:8px 0;border-top:1px solid var(--border-soft);">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <span style="font-weight:600;">${a.pluginName}</span>
@@ -12015,7 +13446,9 @@ export class MilaidyApp extends LitElement {
               </div>
               <div style="color:var(--muted);margin-top:2px;">${a.detail}</div>
             </div>
-          `)}`}
+          `,
+              )}`
+        }
       </div>
 
       <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
@@ -12043,14 +13476,23 @@ export class MilaidyApp extends LitElement {
 
         <div style="font-size:12px;font-weight:700;color:var(--text-strong);margin:4px 0 8px;">AI modules</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
-          ${aiDiagnosticsPlugins.length === 0
-            ? html`<div style="font-size:12px;color:var(--muted);border:1px solid var(--border-soft);border-radius:10px;padding:10px;background:rgba(255,255,255,0.72);">No model/memory modules discovered.</div>`
-            : aiDiagnosticsPlugins.map((p) => {
-              const setupComplete = p.enabled && this.isPluginEffectivelyConfigured(p) && p.validationErrors.length === 0;
-              const statusLabel = this.pluginStatusLabel(p);
-              const requiredCount = p.parameters.filter((param) => param.required).length;
-              const requiredSetCount = p.parameters.filter((param) => param.required && (param.isSet || Boolean(param.default))).length;
-              return html`
+          ${
+            aiDiagnosticsPlugins.length === 0
+              ? html`<div style="font-size:12px;color:var(--muted);border:1px solid var(--border-soft);border-radius:10px;padding:10px;background:rgba(255,255,255,0.72);">No model/memory modules discovered.</div>`
+              : aiDiagnosticsPlugins.map((p) => {
+                  const setupComplete =
+                    p.enabled &&
+                    this.isPluginEffectivelyConfigured(p) &&
+                    p.validationErrors.length === 0;
+                  const statusLabel = this.pluginStatusLabel(p);
+                  const requiredCount = p.parameters.filter(
+                    (param) => param.required,
+                  ).length;
+                  const requiredSetCount = p.parameters.filter(
+                    (param) =>
+                      param.required && (param.isSet || Boolean(param.default)),
+                  ).length;
+                  return html`
                 <div style="border:1px solid var(--border);border-radius:10px;padding:10px;background:rgba(255,255,255,0.88);">
                   <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
                     <div style="font-size:13px;font-weight:700;color:var(--text-strong);">${p.name}</div>
@@ -12061,12 +13503,14 @@ export class MilaidyApp extends LitElement {
                   </div>
                 </div>
               `;
-            })}
+                })
+          }
         </div>
 
         <div style="font-size:12px;font-weight:700;color:var(--text-strong);margin:12px 0 8px;">Wallet data sources</div>
         <div style="margin-top:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
-          ${sourceChecks.map((item) => html`
+          ${sourceChecks.map(
+            (item) => html`
             <div style="border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
               <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">${item.label}</div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -12074,7 +13518,8 @@ export class MilaidyApp extends LitElement {
                 <span class="plugin-state-tag ${item.ok ? "ok" : "warn"}">${item.ok ? "OK" : "Check"}</span>
               </div>
             </div>
-          `)}
+          `,
+          )}
         </div>
       </div>
 
@@ -12102,9 +13547,10 @@ export class MilaidyApp extends LitElement {
         <button class="btn" data-action="refresh-logs" @click=${this.loadLogs} style="font-size:12px;padding:4px 12px;">Refresh</button>
       </div>
       <div class="logs-container">
-        ${this.logs.length === 0
-          ? html`<div class="empty-state">No log entries yet.</div>`
-          : html`
+        ${
+          this.logs.length === 0
+            ? html`<div class="empty-state">No log entries yet.</div>`
+            : html`
               ${this.logs.map(
                 (entry) => html`
                   <div class="log-entry" style="
@@ -12127,7 +13573,8 @@ export class MilaidyApp extends LitElement {
                   </div>
                 `,
               )}
-            `}
+            `
+        }
       </div>
     `;
   }
@@ -12164,18 +13611,23 @@ export class MilaidyApp extends LitElement {
       <div class="app-shell">
         <div class="onboarding">
           <div class="onboarding-progress" aria-label="Onboarding progress">
-            ${[0, 1, 2, 3].map((step) => html`
+            ${[0, 1, 2, 3].map(
+              (step) => html`
               <span class="onboarding-progress-dot ${this.onboardingStep === step ? "active" : this.onboardingStep > step ? "done" : ""}"></span>
-            `)}
+            `,
+            )}
           </div>
-          ${keyed(this.onboardingStep, html`
+          ${keyed(
+            this.onboardingStep,
+            html`
             <div class="onboarding-step">
               ${this.onboardingStep === 0 ? this.renderOnboardingWelcome() : ""}
               ${this.onboardingStep === 1 ? this.renderOnboardingName(opts) : ""}
               ${this.onboardingStep === 2 ? this.renderOnboardingStyle(opts) : ""}
               ${this.onboardingStep === 3 ? this.renderOnboardingProvider(opts) : ""}
             </div>
-          `)}
+          `,
+          )}
         </div>
       </div>
     `;
@@ -12184,16 +13636,18 @@ export class MilaidyApp extends LitElement {
   private defaultOnboardingOptions(): OnboardingOptions {
     return {
       names: [...RUNTIME_PRESET_NAMES],
-      styles: [{
-        catchphrase: "Concise and reliable.",
-        hint: "Balanced",
-        bio: ["Helpful assistant", "Direct communicator"],
-        system: "Be concise, safe, and practical.",
-        style: { all: ["clear"], chat: ["direct"], post: ["concise"] },
-        adjectives: ["clear", "practical"],
-        topics: ["assistant", "setup"],
-        messageExamples: [[{ user: "user", content: { text: "hello" } }]],
-      }],
+      styles: [
+        {
+          catchphrase: "Concise and reliable.",
+          hint: "Balanced",
+          bio: ["Helpful assistant", "Direct communicator"],
+          system: "Be concise, safe, and practical.",
+          style: { all: ["clear"], chat: ["direct"], post: ["concise"] },
+          adjectives: ["clear", "practical"],
+          topics: ["assistant", "setup"],
+          messageExamples: [[{ user: "user", content: { text: "hello" } }]],
+        },
+      ],
       providers: [
         {
           id: "elizacloud",
@@ -12336,7 +13790,9 @@ export class MilaidyApp extends LitElement {
     };
   }
 
-  private normalizeOnboardingOptions(options: OnboardingOptions): OnboardingOptions {
+  private normalizeOnboardingOptions(
+    options: OnboardingOptions,
+  ): OnboardingOptions {
     const fallback = this.defaultOnboardingOptions();
     const byId = new Map<string, ProviderOption>();
     for (const p of options.providers ?? []) {
@@ -12485,11 +13941,19 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingName(opts: OnboardingOptions) {
     const colorOptions = this.themeColorOptions();
-    const customSelected = this.onboardingName.trim().length > 0 && !opts.names.includes(this.onboardingName.trim());
-    const selectedCustomAccent = this.onboardingCustomAccent || colorOptions[0].value;
+    const customSelected =
+      this.onboardingName.trim().length > 0 &&
+      !opts.names.includes(this.onboardingName.trim());
+    const selectedCustomAccent =
+      this.onboardingCustomAccent || colorOptions[0].value;
     const previewAccent = customSelected
       ? selectedCustomAccent
-      : this.characterTheme(this.onboardingName.trim() || opts.names[0] || RUNTIME_PRESET_NAMES[0] || "Runtime").accent;
+      : this.characterTheme(
+          this.onboardingName.trim() ||
+            opts.names[0] ||
+            RUNTIME_PRESET_NAMES[0] ||
+            "Runtime",
+        ).accent;
 
     return html`
       <img
@@ -12500,11 +13964,10 @@ export class MilaidyApp extends LitElement {
       />
       <div class="onboarding-speech">Pick your character to set your look and aura.</div>
       <div class="onboarding-character-grid">
-        ${opts.names.map(
-          (name) => {
-            const theme = this.characterTheme(name);
-            const selected = this.onboardingName === name;
-            return html`
+        ${opts.names.map((name) => {
+          const theme = this.characterTheme(name);
+          const selected = this.onboardingName === name;
+          return html`
             <div
               class="onboarding-character-card ${selected ? "selected" : ""}"
               style="border-color:${selected ? theme.accent : "var(--border)"};background:${selected ? theme.surface : "var(--card)"};"
@@ -12513,7 +13976,10 @@ export class MilaidyApp extends LitElement {
                 this.onboardingCustomAccent = "";
                 this.nameValidationMessage = null;
                 // Immediately apply the selected character image (fallback OK while the real one loads).
-                this.saveProfileAppearance(this.characterImage(name), theme.accent);
+                this.saveProfileAppearance(
+                  this.characterImage(name),
+                  theme.accent,
+                );
                 this.applyThemeFromAccent(theme.accent);
                 void this.ensureCharacterImage(name);
               }}
@@ -12534,14 +14000,15 @@ export class MilaidyApp extends LitElement {
               </div>
             </div>
           `;
-          },
-        )}
+        })}
       </div>
       <div class="onboarding-options" style="margin-top:10px;">
         <div
           class="onboarding-option ${this.onboardingName && !opts.names.includes(this.onboardingName) ? "selected" : ""}"
           @click=${(e: Event) => {
-            const input = (e.currentTarget as HTMLElement).querySelector("input");
+            const input = (e.currentTarget as HTMLElement).querySelector(
+              "input",
+            );
             if (input) input.focus();
           }}
         >
@@ -12558,14 +14025,20 @@ export class MilaidyApp extends LitElement {
                 if (!isPreset && !this.onboardingCustomAccent) {
                   this.onboardingCustomAccent = colorOptions[0].value;
                 }
-                const accent = (!isPreset && this.onboardingCustomAccent)
-                  ? this.onboardingCustomAccent
-                  : this.characterTheme(nextName).accent;
-                this.saveProfileAppearance(this.characterImage(nextName, accent), accent);
+                const accent =
+                  !isPreset && this.onboardingCustomAccent
+                    ? this.onboardingCustomAccent
+                    : this.characterTheme(nextName).accent;
+                this.saveProfileAppearance(
+                  this.characterImage(nextName, accent),
+                  accent,
+                );
                 this.applyThemeFromAccent(accent);
               }
             }}
-            @focus=${() => { /* clear preset selection when typing custom */ }}
+            @focus=${() => {
+              /* clear preset selection when typing custom */
+            }}
             style="
               border: none;
               background: transparent;
@@ -12580,8 +14053,9 @@ export class MilaidyApp extends LitElement {
           />
         </div>
       </div>
-      ${customSelected
-        ? html`
+      ${
+        customSelected
+          ? html`
             <div class="onboarding-options" style="margin-top:10px;">
               <label style="font-size:12px;color:var(--muted);font-weight:600;">Choose your color aura</label>
               <div class="theme-swatch-row">
@@ -12596,7 +14070,13 @@ export class MilaidyApp extends LitElement {
                       aria-label=${`Select ${opt.label}`}
                       @click=${() => {
                         this.onboardingCustomAccent = opt.value;
-                        this.saveProfileAppearance(this.characterImage(this.onboardingName.trim(), opt.value), opt.value);
+                        this.saveProfileAppearance(
+                          this.characterImage(
+                            this.onboardingName.trim(),
+                            opt.value,
+                          ),
+                          opt.value,
+                        );
                         this.applyThemeFromAccent(opt.value);
                       }}
                     >${selected ? "✓" : ""}</button>
@@ -12605,7 +14085,8 @@ export class MilaidyApp extends LitElement {
               </div>
             </div>
           `
-        : ""}
+          : ""
+      }
       <div class="onboarding-nav">
         <button class="plugin-secondary-btn" @click=${this.handleOnboardingBack}>Back</button>
         <button
@@ -12614,9 +14095,11 @@ export class MilaidyApp extends LitElement {
           ?disabled=${!this.onboardingName.trim()}
         >Next</button>
       </div>
-      ${this.nameValidationMessage
-        ? html`<div style="margin-top:8px;font-size:12px;color:#c94f4f;">${this.nameValidationMessage}</div>`
-        : ""}
+      ${
+        this.nameValidationMessage
+          ? html`<div style="margin-top:8px;font-size:12px;color:#c94f4f;">${this.nameValidationMessage}</div>`
+          : ""
+      }
     `;
   }
 
@@ -12654,9 +14137,7 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingProvider(opts: OnboardingOptions) {
     const providers = this.onboardingProviderCatalog();
-    const selected = providers.find(
-      (p) => p.id === this.onboardingProvider,
-    );
+    const selected = providers.find((p) => p.id === this.onboardingProvider);
     const needsKey = this.providerNeedsKey(selected);
     const hasKey = Boolean(this.onboardingApiKey.trim());
     const keyLooksValid = needsKey
@@ -12694,19 +14175,22 @@ export class MilaidyApp extends LitElement {
             type="password"
             placeholder="Paste provider API key to continue"
             .value=${this.onboardingApiKey}
-            @input=${(e: Event) => { this.onboardingApiKey = (e.target as HTMLInputElement).value; }}
+            @input=${(e: Event) => {
+              this.onboardingApiKey = (e.target as HTMLInputElement).value;
+            }}
           />
-          ${hasKey && !keyLooksValid
-            ? html`<div style="margin-top:8px;font-size:12px;color:#c94f4f;line-height:1.35;">
+          ${
+            hasKey && !keyLooksValid
+              ? html`<div style="margin-top:8px;font-size:12px;color:#c94f4f;line-height:1.35;">
                 That key doesn't look valid for ${selected?.name ?? "this provider"}. Check the prefix and try again.
               </div>`
-            : ""}
+              : ""
+          }
         `
       : "";
 
-    const elizaCloudAuthBox =
-      shouldShowElizaCloudAuthActions
-        ? html`
+    const elizaCloudAuthBox = shouldShowElizaCloudAuthActions
+      ? html`
             <div class="elizacloud-cta" style="grid-column:1 / -1;">
               <div style="min-width:180px;">
                 <div class="elizacloud-cta-head">
@@ -12726,14 +14210,16 @@ export class MilaidyApp extends LitElement {
                 <button
                   class="elizacloud-cta-btn"
                   @click=${() => {
-                    this.openExternalUrl("https://www.elizacloud.ai/login?intent=signup");
+                    this.openExternalUrl(
+                      "https://www.elizacloud.ai/login?intent=signup",
+                    );
                     void this.promptAndSaveElizaCloudApiKey();
                   }}
                 >Get started</button>
               </div>
             </div>
           `
-        : null;
+      : null;
 
     return html`
       <img class="onboarding-avatar" src="/onboarding-logo-test-v3.png" alt="Runtime" style="width:100px;height:100px;" />
@@ -12742,17 +14228,17 @@ export class MilaidyApp extends LitElement {
         Provider changes take effect after a restart. Runtime will restart automatically after setup.
       </div>
       <div class="onboarding-options">
-        ${providers.map(
-          (provider) => {
-            const selectedProvider = this.onboardingProvider === provider.id;
-            const showInlineElizaPromo =
-              provider.id === "elizacloud" &&
-              !(selectedProvider && shouldShowElizaCloudAuthActions);
-            return html`
+        ${providers.map((provider) => {
+          const selectedProvider = this.onboardingProvider === provider.id;
+          const showInlineElizaPromo =
+            provider.id === "elizacloud" &&
+            !(selectedProvider && shouldShowElizaCloudAuthActions);
+          return html`
               <div
                 class="onboarding-option ${selectedProvider ? "selected" : ""}"
                 @click=${() => {
-                  const switchingProvider = this.onboardingProvider !== provider.id;
+                  const switchingProvider =
+                    this.onboardingProvider !== provider.id;
                   this.onboardingProvider = provider.id;
                   if (switchingProvider) {
                     this.onboardingApiKey = "";
@@ -12761,16 +14247,19 @@ export class MilaidyApp extends LitElement {
               >
                 <div class="label">
                   ${provider.name}
-                  ${showInlineElizaPromo
-                    ? html`<span class="onboarding-provider-badge">$5 Free to Start!</span>`
-                    : ""}
+                  ${
+                    showInlineElizaPromo
+                      ? html`<span class="onboarding-provider-badge">$5 Free to Start!</span>`
+                      : ""
+                  }
                 </div>
                 <div class="hint">${provider.description}</div>
               </div>
               ${selectedProvider ? elizaCloudAuthBox : ""}
               ${selectedProvider ? apiKeyBox : ""}
-              ${selectedProvider && provider.id === "ollama"
-                ? html`
+              ${
+                selectedProvider && provider.id === "ollama"
+                  ? html`
                     <div style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);background:rgba(255,255,255,0.7);border-radius:12px;">
                       <div style="font-weight:800;font-size:12px;color:var(--text-strong);margin-bottom:4px;">
                         Ollama must be running on this device
@@ -12780,10 +14269,10 @@ export class MilaidyApp extends LitElement {
                       </div>
                     </div>
                   `
-                : ""}
+                  : ""
+              }
             `;
-          },
-        )}
+        })}
       </div>
       <div class="onboarding-nav">
         <button class="plugin-secondary-btn" @click=${this.handleOnboardingBack}>Back</button>
@@ -12793,16 +14282,20 @@ export class MilaidyApp extends LitElement {
           ?disabled=${this.onboardingFinishing || !this.onboardingProvider || (needsKey && hasKey && !keyLooksValid)}
         >${finishLabel}</button>
       </div>
-      ${missingKey
-        ? html`
+      ${
+        missingKey
+          ? html`
             <div style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.35;">
               You can add a key later in AI Settings. Chat will be locked until a provider key is connected.
             </div>
           `
-        : ""}
-      ${this.nameValidationMessage
-        ? html`<div style="margin-top:10px;font-size:12px;color:#c94f4f;line-height:1.35;">${this.nameValidationMessage}</div>`
-        : ""}
+          : ""
+      }
+      ${
+        this.nameValidationMessage
+          ? html`<div style="margin-top:10px;font-size:12px;color:#c94f4f;line-height:1.35;">${this.nameValidationMessage}</div>`
+          : ""
+      }
     `;
   }
 }

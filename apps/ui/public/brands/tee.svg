@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TEE icon">
+  <rect width="64" height="64" rx="14" fill="#365314"/>
+  <path d="M20 20l8-5h8l8 5 5 8-7 4-3-5v22H25V27l-3 5-7-4z" fill="#ecfccb"/>
+  <rect x="29" y="24" width="6" height="16" rx="2" fill="#365314"/>
+</svg>
