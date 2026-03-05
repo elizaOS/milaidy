@@ -446,7 +446,7 @@ export function Header() {
             <IconButtonTooltip label="Identity">
               <button
                 type="button"
-                onClick={() => setTab("identity")}
+                onClick={() => setTab("wallets")}
                 aria-label="On-chain identity"
                 className={iconBtnBase}
               >
