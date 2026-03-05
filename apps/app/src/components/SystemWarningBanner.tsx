@@ -23,10 +23,9 @@ export function SystemWarningBanner() {
     const timers = timersRef.current;
     for (const message of systemWarnings) {
       if (!timers.has(message)) {
-        const idx = systemWarnings.indexOf(message);
         const timer = setTimeout(() => {
           timers.delete(message);
-          dismissSystemWarning(idx);
+          dismissSystemWarning(message);
         }, AUTO_DISMISS_MS);
         timers.set(message, timer);
       }
@@ -68,7 +67,7 @@ export function SystemWarningBanner() {
           <span className="truncate">{message}</span>
           <button
             type="button"
-            onClick={() => dismissSystemWarning(index)}
+            onClick={() => dismissSystemWarning(message)}
             className="rounded px-2 py-0.5 text-[12px] text-amber-100 hover:bg-amber-600 transition-colors cursor-pointer shrink-0"
           >
             ✕

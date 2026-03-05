@@ -87,6 +87,9 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     expect(result.eventRouting).toBe(true);
     // Chat was called twice: initial + one retry after service found
     expect(wireChatBridge).toHaveBeenCalledTimes(2);
+    // WS/event succeeded initially — should NOT be retried
+    expect(wireWsBridge).toHaveBeenCalledTimes(1);
+    expect(wireEventRouting).toHaveBeenCalledTimes(1);
   });
 
   it("should not broadcast warning when service never appears (not configured)", async () => {

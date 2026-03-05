@@ -959,7 +959,7 @@ export interface AppActions {
   dismissBackendDisconnectedBanner: () => void;
   retryBackendConnection: () => void;
   restartBackend: () => Promise<void>;
-  dismissSystemWarning: (index: number) => void;
+  dismissSystemWarning: (message: string) => void;
 
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
@@ -2357,8 +2357,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     client.resetConnection();
   }, []);
 
-  const dismissSystemWarning = useCallback((index: number) => {
-    setSystemWarnings((prev) => prev.filter((_, i) => i !== index));
+  const dismissSystemWarning = useCallback((message: string) => {
+    setSystemWarnings((prev) => prev.filter((m) => m !== message));
   }, []);
 
   const restartBackend = useCallback(async () => {
