@@ -19,6 +19,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +36,18 @@ const ANIMATIONS_DIR = join(PUBLIC, "animations");
 const AVATARS_REPO = "https://github.com/milady-ai/avatars.git";
 const AVATARS_COMMIT = "50f6bf0ad6db583581d4cbaeb377ca005b45195b";
 const TAG = "[ensure-avatars]";
+
+// Additional VRM models sourced from external repos (not in milady-ai/avatars).
+const EXTRA_VRMS = [
+  {
+    url: "https://raw.githubusercontent.com/M3-org/avatars/main/eliza/eliza_hat.vrm",
+    dest: "eliza_hat.vrm",
+  },
+  {
+    url: "https://raw.githubusercontent.com/M3-org/avatars/main/eliza/eliza_hat.png",
+    dest: "previews/eliza_hat.png",
+  },
+];
 
 /** A VRM file is valid if it is > 1 KB (rules out LFS pointers & stubs). */
 export function hasValidVrm(dir) {
@@ -161,6 +174,24 @@ export function runEnsureAvatars({
       const glbCount = countFiles(join(ANIMATIONS_DIR, "emotes"), ".glb");
       const fbxCount = countFiles(join(ANIMATIONS_DIR, "mixamo"), ".fbx");
       log(`${TAG} Copied ${glbCount} emotes + ${fbxCount} mixamo animations`);
+    }
+
+    // Fetch additional VRM models from external sources
+    for (const { url, dest } of EXTRA_VRMS) {
+      const destPath = join(VRMS_DIR, dest);
+      if (!force && existsSync(destPath) && statSync(destPath).size > 1024) {
+        continue;
+      }
+      mkdirSync(dirname(destPath), { recursive: true });
+      try {
+        log(`${TAG} Downloading ${url}...`);
+        _exec(`curl -fsSL -o "${destPath}" "${url}"`, {
+          cwd: ROOT,
+          stdio: "inherit",
+        });
+      } catch (dlErr) {
+        logError(`${TAG} Failed to download ${url}: ${dlErr.message ?? dlErr}`);
+      }
     }
 
     // Verify the copy produced valid assets (use injected validators for testability)
