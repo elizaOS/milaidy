@@ -24,42 +24,52 @@ export function getAutonomySvc(
 export async function ensureAutonomySvc(
   runtime: AgentRuntime | null,
 ): Promise<AutonomyServiceLike | null> {
+  const sleep = async (ms: number): Promise<void> =>
+    await new Promise((resolve) => setTimeout(resolve, ms));
   let svc = getAutonomySvc(runtime);
   if (svc || !runtime) return svc;
 
-  // If the runtime already knows about this service type, wait for its loader.
-  try {
-    if (runtime.hasService("AUTONOMY")) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    // If the runtime already knows about this service type, wait for its loader.
+    try {
+      if (runtime.hasService("AUTONOMY")) {
+        await runtime.getServiceLoadPromise("AUTONOMY");
+        svc = getAutonomySvc(runtime);
+        if (svc) return svc;
+      }
+    } catch {
+      // continue to explicit start/registration fallback
+    }
+
+    // First attempt: core-provided start helper.
+    try {
+      await AutonomyService.start(runtime);
+      svc = getAutonomySvc(runtime);
+      if (svc) return svc;
+    } catch {
+      // continue to explicit registration fallback
+    }
+
+    // Second attempt: explicit runtime service registration.
+    try {
+      await runtime.registerService(AutonomyService);
+      svc = getAutonomySvc(runtime);
+      if (svc) return svc;
       await runtime.getServiceLoadPromise("AUTONOMY");
       svc = getAutonomySvc(runtime);
       if (svc) return svc;
+    } catch {
+      // continue with retry backoff
     }
-  } catch {
-    // continue to explicit start/registration fallback
+
+    if (attempt < 3) {
+      await sleep(attempt * 200);
+      svc = getAutonomySvc(runtime);
+      if (svc) return svc;
+    }
   }
 
-  // First attempt: core-provided start helper.
-  try {
-    await AutonomyService.start(runtime);
-    svc = getAutonomySvc(runtime);
-    if (svc) return svc;
-  } catch {
-    // continue to explicit registration fallback
-  }
-
-  // Second attempt: explicit runtime service registration.
-  try {
-    await runtime.registerService(AutonomyService);
-    svc = getAutonomySvc(runtime);
-    if (svc) return svc;
-    await runtime.getServiceLoadPromise("AUTONOMY");
-    svc = getAutonomySvc(runtime);
-    if (svc) return svc;
-  } catch {
-    // fall through and return null
-  }
-
-  return null;
+  return getAutonomySvc(runtime);
 }
 
 export function getAutonomyState(runtime: AgentRuntime | null): {

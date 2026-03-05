@@ -88,7 +88,11 @@ import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
-import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import {
+  ensureAutonomySvc,
+  getAutonomyState,
+  handleAutonomyRoutes,
+} from "./autonomy-routes";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -14354,6 +14358,11 @@ export async function startApiServer(opts?: {
   // Restore conversations from DB at initial boot (if runtime was passed in)
   if (opts?.runtime) {
     void restoreConversationsFromDb(opts.runtime);
+    void ensureAutonomySvc(opts.runtime).catch((err) => {
+      logger.warn(
+        `[milady-api] Failed to ensure AUTONOMY service at API boot: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   }
 
   /** Hot-swap the runtime reference (used after an in-process restart). */
@@ -14371,6 +14380,19 @@ export async function startApiServer(opts?: {
       phase: "running",
       attempt: 0,
     };
+    void ensureAutonomySvc(rt)
+      .then((svc) => {
+        if (!svc) {
+          logger.warn(
+            "[milady-api] AUTONOMY service unavailable after runtime update",
+          );
+        }
+      })
+      .catch((err) => {
+        logger.warn(
+          `[milady-api] Failed to ensure AUTONOMY service after runtime update: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
