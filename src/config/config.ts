@@ -89,6 +89,19 @@ export function loadMiladyConfig(): MiladyConfig {
     resolved.logging.level = "error";
   }
 
+  // Inject default bnbchain-mcp MCP server so all users get BNB Chain
+  // tool support out of the box.  Users can override or remove via config.
+  if (!resolved.mcp) resolved.mcp = {};
+  if (!resolved.mcp.servers) resolved.mcp.servers = {};
+  if (!resolved.mcp.servers["bnbchain-mcp"]) {
+    resolved.mcp.servers["bnbchain-mcp"] = {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@bnb-chain/mcp@latest"],
+      env: { PRIVATE_KEY: "" },
+    };
+  }
+
   const envVars = collectConfigEnvVars(resolved);
   for (const [key, value] of Object.entries(envVars)) {
     if (process.env[key] === undefined) {
