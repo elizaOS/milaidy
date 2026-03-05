@@ -4842,12 +4842,12 @@ export class MilaidyApp extends LitElement {
 
     try {
       this.activeChatRequestText = payloadText;
-      // Client-side timeout to prevent "stuck replying" if the network request
-      // never resolves (browser fetch has no default timeout).
+      // Keep chat timeout bounded so users get fast feedback when providers are
+      // unhealthy, out of credits, or backend is mid-restart.
       timeoutHandle = window.setTimeout(() => {
         didTimeout = true;
         abort.abort();
-      }, 60_000);
+      }, 25_000);
       let data;
       try {
         data = await client.sendChatRest(
@@ -4877,36 +4877,6 @@ export class MilaidyApp extends LitElement {
       }
       if (this.inFlightChatAbort !== abort) return;
       let assistantText = data.text;
-      if (this.isGenericAssistantFailureText(assistantText)) {
-        // Generic provider failures are often transient. Retry once in short mode
-        // before surfacing the fallback text to the user.
-        try {
-          const retryPrompt =
-            `${payloadText}\n\n` +
-            "Continue in short mode with concise, actionable steps only.";
-          const retryAbort = new AbortController();
-          const retryTimer = window.setTimeout(() => retryAbort.abort(), 15_000);
-          try {
-            const retried = await client.sendChatRest(
-              retryPrompt,
-              this.buildChatSecurityContext(),
-              retryAbort.signal,
-            );
-            if (!this.isGenericAssistantFailureText(retried.text)) {
-              assistantText = retried.text;
-              this.setProviderHealthState(
-                "Recovered",
-                "ok",
-                "Provider recovered after short retry",
-              );
-            }
-          } finally {
-            window.clearTimeout(retryTimer);
-          }
-        } catch {
-          // Keep original assistantText and proceed with diagnosis.
-        }
-      }
       if (this.isGenericAssistantFailureText(assistantText)) {
         const diagnosis = await this.diagnoseChatFailureFromLogs();
         if (diagnosis) {
@@ -4948,38 +4918,8 @@ export class MilaidyApp extends LitElement {
             ? (err as { name?: string }).name === "AbortError"
             : false);
       if (aborted && didTimeout) {
-        // One automatic short-mode retry before surfacing timeout to the user.
-        try {
-          const shortPrompt =
-            `${payloadText}\n\n` +
-            "Continue in short mode with concise, actionable steps only.";
-          const retryAbort = new AbortController();
-          const retryTimer = window.setTimeout(() => retryAbort.abort(), 12_000);
-          try {
-            const retried = await client.sendChatRest(
-              shortPrompt,
-              this.buildChatSecurityContext(),
-              retryAbort.signal,
-            );
-            if (this.inFlightChatAbort !== abort) return;
-            this.chatMessages = [
-              ...this.chatMessages,
-              { role: "assistant", text: retried.text, timestamp: Date.now() },
-            ];
-            this.setProviderHealthState("Recovered", "ok", "Timeout recovered via short-mode retry");
-            this.scrollChatToLatest("smooth", true);
-            this.saveChatMessages();
-            this.activeChatRequestText = null;
-            return;
-          } finally {
-            window.clearTimeout(retryTimer);
-          }
-        } catch (retryErr) {
-          this.setProviderHealthFromError(retryErr);
-        }
-
         const errorText =
-          "This request is taking longer than expected. Send “continue” and Runtime will resume in a shorter format.";
+          "Provider response timed out. Retry, switch model provider, or use a shorter request.";
         this.chatMessages = [
           ...this.chatMessages,
           { role: "assistant", text: errorText, timestamp: Date.now() },

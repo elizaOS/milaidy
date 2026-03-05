@@ -348,9 +348,8 @@ export class MilaidyClient {
     const makeRequest = async (token: string | null) => {
       const isChatRoute =
         path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
-      // Chat/provider calls can legitimately take longer (cold starts, model queueing).
-      // Keep chat timeout higher than generic API routes to avoid false timeouts.
-      const timeoutMs = isChatRoute ? 45000 : 12000;
+      // Keep chat bounded so users get quick feedback when provider/backends fail.
+      const timeoutMs = isChatRoute ? 25000 : 12000;
       const timeoutPromise = new Promise<never>((_, reject) => {
         const t = setTimeout(() => {
           clearTimeout(t);
@@ -375,7 +374,7 @@ export class MilaidyClient {
       // Non-chat routes can retry a bit longer during startup/restarts.
       const isChatRoute =
         path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
-      const maxAttempts = isChatRoute ? 3 : 10;
+      const maxAttempts = isChatRoute ? 1 : 10;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const res = await makeRequest(token);
         if (res.status !== 503) return res;
