@@ -4863,6 +4863,36 @@ export class MilaidyApp extends LitElement {
       if (this.inFlightChatAbort !== abort) return;
       let assistantText = data.text;
       if (this.isGenericAssistantFailureText(assistantText)) {
+        // Generic provider failures are often transient. Retry once in short mode
+        // before surfacing the fallback text to the user.
+        try {
+          const retryPrompt =
+            `${payloadText}\n\n` +
+            "Continue in short mode with concise, actionable steps only.";
+          const retryAbort = new AbortController();
+          const retryTimer = window.setTimeout(() => retryAbort.abort(), 15_000);
+          try {
+            const retried = await client.sendChatRest(
+              retryPrompt,
+              this.buildChatSecurityContext(),
+              retryAbort.signal,
+            );
+            if (!this.isGenericAssistantFailureText(retried.text)) {
+              assistantText = retried.text;
+              this.setProviderHealthState(
+                "Recovered",
+                "ok",
+                "Provider recovered after short retry",
+              );
+            }
+          } finally {
+            window.clearTimeout(retryTimer);
+          }
+        } catch {
+          // Keep original assistantText and proceed with diagnosis.
+        }
+      }
+      if (this.isGenericAssistantFailureText(assistantText)) {
         const diagnosis = await this.diagnoseChatFailureFromLogs();
         if (diagnosis) {
           assistantText = diagnosis.message;
@@ -8207,8 +8237,33 @@ export class MilaidyApp extends LitElement {
       const nextEnabled = !currentEnabled;
       const result = await client.setAgentAutonomy(nextEnabled);
       if (result.ok === false) {
-        this.chatAutonomyActionMessage = result.error
-          ?? "Autonomy service is unavailable on this backend runtime.";
+        const errorText =
+          result.error ?? "Autonomy service is unavailable on this backend runtime.";
+        const unavailable = /service unavailable/i.test(errorText);
+        if (nextEnabled && unavailable) {
+          this.chatAutonomyActionMessage =
+            "Autonomy service unavailable. Restarting runtime and retrying enable...";
+          try {
+            const restarted = await client.restartAgent();
+            this.setAgentStatus(restarted);
+            await this.waitForAgentAfterRestart(15_000);
+            const retry = await client.setAgentAutonomy(true);
+            if (retry.ok && retry.autonomy === true) {
+              this.chatAutonomyActionMessage = "Autonomy enabled after runtime restart.";
+              this.showUiNotice(this.chatAutonomyActionMessage);
+            } else {
+              this.chatAutonomyActionMessage =
+                retry.error ?? "Autonomy still unavailable after runtime restart.";
+            }
+          } catch (restartErr) {
+            this.chatAutonomyActionMessage =
+              restartErr instanceof Error
+                ? `Autonomy retry failed: ${restartErr.message}`
+                : "Autonomy retry failed after runtime restart.";
+          }
+        } else {
+          this.chatAutonomyActionMessage = errorText;
+        }
       } else if (result.autonomy !== nextEnabled) {
         this.chatAutonomyActionMessage = nextEnabled
           ? "Autonomy service is unavailable on this backend runtime."
