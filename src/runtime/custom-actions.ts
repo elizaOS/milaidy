@@ -1,7 +1,7 @@
 /**
  * Custom Actions runtime loader.
  *
- * Converts `CustomActionDef[]` from config into ElizaOS `Action[]` objects
+ * Converts `CustomActionDef[]` from config into elizaOS `Action[]` objects
  * so the agent can use them in conversations.
  *
  * @module runtime/custom-actions
@@ -40,7 +40,7 @@ export function setCustomActionsRuntime(runtime: IAgentRuntime): void {
 
 /**
  * Hot-register a CustomActionDef into the running agent.
- * Returns the ElizaOS Action that was registered, or null if no runtime.
+ * Returns the elizaOS Action that was registered, or null if no runtime.
  */
 export function registerCustomActionLive(def: CustomActionDef): Action | null {
   if (!_runtime) return null;
@@ -570,7 +570,7 @@ function buildHandler(
 }
 
 /**
- * Convert a single CustomActionDef into an ElizaOS Action.
+ * Convert a single CustomActionDef into an elizaOS Action.
  */
 function defToAction(def: CustomActionDef): Action {
   const handler = buildHandler(def.handler, def.parameters);
@@ -624,7 +624,7 @@ function defToAction(def: CustomActionDef): Action {
 }
 
 /**
- * Load custom actions from config and convert them to ElizaOS Action objects.
+ * Load custom actions from config and convert them to elizaOS Action objects.
  * Only returns enabled actions.
  */
 export function loadCustomActions(): Action[] {

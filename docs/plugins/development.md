@@ -1,10 +1,10 @@
 ---
 title: "Plugin Development"
 sidebarTitle: "Plugin Development"
-description: "Create, test, and publish plugins for Milady/ElizaOS."
+description: "Create, test, and publish plugins for Milady/elizaOS."
 ---
 
-This guide walks you through creating, testing, and publishing plugins for Milady/ElizaOS.
+This guide walks you through creating, testing, and publishing plugins for Milady/elizaOS.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ This guide walks you through creating, testing, and publishing plugins for Milad
 
 ## Plugin Architecture Overview
 
-A plugin is a modular extension that adds capabilities to an ElizaOS agent. Plugins can provide:
+A plugin is a modular extension that adds capabilities to an elizaOS agent. Plugins can provide:
 
 - **Actions** — Things the agent can do (send messages, generate images, restart)
 - **Providers** — Context injected into the agent's prompts (workspace files, session state)
@@ -1089,4 +1089,4 @@ const myPlugin: Plugin = {
 
 - [Skills Documentation](./skills.md) — Learn about markdown-based skill extensions
 - [Registry Guide](./registry.md) — Publishing to the plugin registry
-- [Contributing Guide](/guides/contribution-guide) — Contributing to Milady/ElizaOS
+- [Contributing Guide](/guides/contribution-guide) — Contributing to Milady/elizaOS

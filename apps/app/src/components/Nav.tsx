@@ -2,14 +2,30 @@ import { Menu, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import { getTabGroups, type TabGroup } from "../navigation";
+
+/** Map static navigation group labels to i18n keys. */
+const NAV_LABEL_I18N_KEY: Record<string, string> = {
+  Chat: "nav.chat",
+  Companion: "nav.companion",
+  Stream: "nav.stream",
+  Character: "nav.character",
+  Wallets: "nav.wallets",
+  Knowledge: "nav.knowledge",
+  Social: "nav.social",
+  Apps: "nav.apps",
+  Settings: "nav.settings",
+  Advanced: "nav.advanced",
+};
 
 interface NavProps {
   mobileLeft?: ReactNode;
 }
 
 export function Nav({ mobileLeft }: NavProps) {
-  const { tab, setTab, plugins } = useApp();
+  const { tab, setTab, plugins, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const streamingEnabled = useMemo(
@@ -51,7 +67,7 @@ export function Nav({ mobileLeft }: NavProps) {
             <div className="flex items-center gap-2">
               <activeGroup.icon className="w-4 h-4 text-accent" />
               <span className="text-[13px] font-semibold text-accent truncate">
-                {activeGroup.label}
+                {t(NAV_LABEL_I18N_KEY[activeGroup.label] ?? activeGroup.label)}
               </span>
             </div>
           )}
@@ -86,7 +102,7 @@ export function Nav({ mobileLeft }: NavProps) {
               title={group.description}
             >
               <Icon className="w-3.5 h-3.5" />
-              <span>{group.label}</span>
+              <span>{t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}</span>
             </button>
           );
         })}
@@ -160,7 +176,9 @@ export function Nav({ mobileLeft }: NavProps) {
                         />
                       </span>
                       <div className="flex-1 text-left">
-                        <div className="font-medium">{group.label}</div>
+                        <div className="font-medium">
+                          {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
+                        </div>
                         {group.description && (
                           <div className="text-[11px] text-muted mt-0.5">
                             {group.description}

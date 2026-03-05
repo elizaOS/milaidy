@@ -37,7 +37,7 @@ The `text` returned by `get()` is appended to the assembled context string. An e
 
 ## Context Injection Mechanism
 
-At each conversation turn, ElizaOS assembles the state by calling every registered provider:
+At each conversation turn, elizaOS assembles the state by calling every registered provider:
 
 ```
 Character.system (base system prompt)

@@ -1,7 +1,7 @@
 milady (2.0.0~alpha7-1) unstable; urgency=medium
 
   * Initial Debian packaging
-  * Personal AI assistant built on ElizaOS
+  * Personal AI assistant built on elizaOS
   * CLI with interactive onboarding
   * Multi-provider AI support (Anthropic, OpenAI, Google, Ollama, etc.)
   * Web dashboard on port 18789

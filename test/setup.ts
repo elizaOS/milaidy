@@ -105,11 +105,7 @@ afterAll(() => {
     if (!handle || typeof handle !== "object") continue;
     const name = (handle as { constructor?: { name?: string } }).constructor
       ?.name;
-    if (
-      name !== "FSWatcher" &&
-      name !== "FSEvent" &&
-      name !== "StatWatcher"
-    ) {
+    if (name !== "FSWatcher" && name !== "FSEvent" && name !== "StatWatcher") {
       continue;
     }
     try {

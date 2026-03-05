@@ -1,8 +1,8 @@
 /**
  * @milady/plugin-twitch -- Twitch RTMP streaming destination plugin.
  *
- * An ElizaOS plugin that provides Twitch streaming capability via RTMP ingest.
- * Exports both the Plugin object (for ElizaOS runtime) and a
+ * An elizaOS plugin that provides Twitch streaming capability via RTMP ingest.
+ * Exports both the Plugin object (for elizaOS runtime) and a
  * `createTwitchDestination()` factory (for the Milady streaming pipeline).
  *
  * For Twitch chat connectivity, use the separate @elizaos/plugin-twitch package.

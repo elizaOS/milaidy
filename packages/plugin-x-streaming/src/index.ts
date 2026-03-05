@@ -1,7 +1,7 @@
 /**
  * @milady/plugin-x-streaming -- X (Twitter) RTMP streaming destination plugin.
  *
- * An ElizaOS plugin that provides X/Twitter streaming capability via RTMPS.
+ * An elizaOS plugin that provides X/Twitter streaming capability via RTMPS.
  * X provides unique RTMP URLs per stream session from studio.x.com — users
  * must paste both URL and key into config.
  */

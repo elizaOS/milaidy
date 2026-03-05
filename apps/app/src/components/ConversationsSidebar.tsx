@@ -2,48 +2,49 @@
  * Conversations sidebar component — left sidebar with conversation list.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { type AgentSelfStatusSnapshot, client } from "../api-client";
+import { createTranslator } from "../i18n";
+import { ConversationListItem } from "./conversations/ConversationListItem";
+import { GameModalFooter } from "./conversations/GameModalFooter";
+
+export type ConversationsSidebarVariant = "default" | "game-modal";
+export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh";
 
 interface ConversationsSidebarProps {
   mobile?: boolean;
   onClose?: () => void;
-}
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString();
+  variant?: ConversationsSidebarVariant;
 }
 
 export function ConversationsSidebar({
   mobile = false,
   onClose,
+  variant = "default",
 }: ConversationsSidebarProps) {
   const {
     conversations,
     activeConversationId,
     unreadConversations,
+    agentStatus,
+    chatLastUsage,
     handleNewConversation,
     handleSelectConversation,
     handleDeleteConversation,
     handleRenameConversation,
+    uiLanguage,
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selfStatus, setSelfStatus] = useState<AgentSelfStatusSnapshot | null>(
+    null,
+  );
+  const [selfStatusLoading, setSelfStatusLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when editing starts
@@ -103,135 +104,155 @@ export function ConversationsSidebar({
     }
   };
 
+  const isGameModal = variant === "game-modal";
+
+  // Self-status polling for game-modal variant
+  useEffect(() => {
+    if (!isGameModal) return;
+
+    let cancelled = false;
+    let firstLoad = true;
+
+    const syncSelfStatus = async () => {
+      if (firstLoad) {
+        setSelfStatusLoading(true);
+      }
+      try {
+        const snapshot = await client.getAgentSelfStatus();
+        if (cancelled) return;
+        setSelfStatus(snapshot);
+      } catch {
+        if (cancelled) return;
+        setSelfStatus(null);
+      } finally {
+        if (!cancelled && firstLoad) {
+          setSelfStatusLoading(false);
+        }
+        firstLoad = false;
+      }
+    };
+
+    void syncSelfStatus();
+    const onSelfStatusRefresh = () => {
+      void syncSelfStatus();
+    };
+    const intervalId = window.setInterval(() => {
+      void syncSelfStatus();
+    }, 15000);
+    window.addEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
+    };
+  }, [isGameModal]);
+
   return (
     <aside
-      className={`${mobile ? "w-full min-w-0 h-full" : "w-48 min-w-48 xl:w-60 xl:min-w-60 border-r"} border-border bg-bg flex flex-col overflow-y-auto text-[13px]`}
+      className={
+        isGameModal
+          ? "chat-game-sidebar-root"
+          : `${mobile ? "w-full min-w-0 h-full" : "w-48 min-w-48 xl:w-60 xl:min-w-60 border-r"} border-border bg-bg flex flex-col overflow-y-auto text-[13px]`
+      }
       data-testid="conversations-sidebar"
+      data-variant={variant}
     >
-      {mobile && (
+      {/* Mobile header with close button */}
+      {!isGameModal && mobile && (
         <div className="px-3 py-2 border-b border-border flex items-center justify-between">
           <div className="text-xs uppercase tracking-wide text-muted">
-            Chats
+            {t("conversations.chats")}
           </div>
           <button
             type="button"
             className="inline-flex items-center justify-center w-7 h-7 border border-border bg-card text-sm text-muted cursor-pointer hover:border-accent hover:text-accent transition-colors"
             onClick={onClose}
-            aria-label="Close chats panel"
+            aria-label={t("conversations.closePanel")}
           >
             &times;
           </button>
         </div>
       )}
-      <div className="p-3 border-b border-border">
+
+      <div
+        className={
+          isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"
+        }
+      >
         <button
           type="button"
-          className="w-full px-3 py-1.5 border border-accent rounded-md bg-transparent text-accent text-[12px] font-medium cursor-pointer transition-colors hover:bg-accent hover:text-accent-fg"
+          className={
+            isGameModal
+              ? "chat-game-new-chat-btn"
+              : "w-full px-3 py-1.5 border border-accent rounded-md bg-transparent text-accent text-[12px] font-medium cursor-pointer transition-colors hover:bg-accent hover:text-accent-fg"
+          }
           onClick={() => {
             handleNewConversation();
             onClose?.();
           }}
         >
-          + New Chat
+          {t("conversations.newChat")}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div
+        className={
+          isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"
+        }
+      >
         {sortedConversations.length === 0 ? (
-          <div className="px-3 py-6 text-center text-muted text-xs">
-            No conversations yet
+          <div
+            className={
+              isGameModal
+                ? "chat-game-sidebar-empty"
+                : "px-3 py-6 text-center text-muted text-xs"
+            }
+          >
+            {t("conversations.none")}
           </div>
         ) : (
-          sortedConversations.map((conv) => {
-            const isActive = conv.id === activeConversationId;
-            const isEditing = editingId === conv.id;
-
-            return (
-              <div
-                key={conv.id}
-                data-testid="conv-item"
-                data-active={isActive || undefined}
-                className={`flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px] ${
-                  isActive
-                    ? "bg-bg-hover border-l-accent"
-                    : "border-l-transparent hover:bg-bg-hover"
-                } group`}
-              >
-                {isEditing ? (
-                  <input
-                    ref={inputRef}
-                    className="w-full px-1.5 py-1 border border-accent rounded bg-card text-txt text-[13px] outline-none"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={() => void handleEditSubmit(conv.id)}
-                    onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-0 p-0 m-0 text-left cursor-pointer"
-                      onClick={() => {
-                        setConfirmDeleteId(null);
-                        void handleSelectConversation(conv.id);
-                        onClose?.();
-                      }}
-                      onDoubleClick={() => handleDoubleClick(conv)}
-                    >
-                      {unreadConversations.has(conv.id) && (
-                        <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate text-txt">
-                          {conv.title}
-                        </div>
-                        <div className="text-[11px] text-muted mt-0.5">
-                          {formatRelativeTime(conv.updatedAt)}
-                        </div>
-                      </div>
-                    </button>
-                    {confirmDeleteId === conv.id ? (
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="text-[10px] text-danger">Delete?</span>
-                        <button
-                          type="button"
-                          className="px-1.5 py-0.5 text-[10px] border border-danger bg-danger text-white cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => void handleConfirmDelete(conv.id)}
-                          disabled={deletingId === conv.id}
-                        >
-                          {deletingId === conv.id ? "..." : "Yes"}
-                        </button>
-                        <button
-                          type="button"
-                          className="px-1.5 py-0.5 text-[10px] border border-border bg-card text-muted cursor-pointer hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => setConfirmDeleteId(null)}
-                          disabled={deletingId === conv.id}
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        data-testid="conv-delete"
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-danger hover:bg-destructive-subtle cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmDeleteId(conv.id);
-                        }}
-                        title="Delete conversation"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })
+          sortedConversations.map((conv) => (
+            <ConversationListItem
+              key={conv.id}
+              conv={conv}
+              isActive={conv.id === activeConversationId}
+              isEditing={editingId === conv.id}
+              isUnread={unreadConversations.has(conv.id)}
+              isGameModal={isGameModal}
+              editingTitle={editingTitle}
+              confirmDeleteId={confirmDeleteId}
+              deletingId={deletingId}
+              inputRef={inputRef}
+              t={t}
+              onSelect={(id) => {
+                setConfirmDeleteId(null);
+                void handleSelectConversation(id);
+                onClose?.();
+              }}
+              onDoubleClick={handleDoubleClick}
+              onEditingTitleChange={setEditingTitle}
+              onEditSubmit={(id) => void handleEditSubmit(id)}
+              onEditKeyDown={handleEditKeyDown}
+              onDelete={(id) => void handleDeleteConversation(id)}
+              onConfirmDelete={(id) => void handleConfirmDelete(id)}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              onSetConfirmDelete={setConfirmDeleteId}
+            />
+          ))
         )}
       </div>
+
+      {/* Game-modal footer: AI provider, capabilities, token usage */}
+      {isGameModal && (
+        <GameModalFooter
+          selfStatus={selfStatus}
+          selfStatusLoading={selfStatusLoading}
+          agentStatusModel={agentStatus?.model}
+          chatLastUsage={chatLastUsage}
+          t={t}
+        />
+      )}
     </aside>
   );
 }

@@ -66,14 +66,14 @@ export function GameView() {
   // Stream iframe frames to retake.tv when capture is active
   useRetakeCapture(iframeRef, retakeCapture);
 
-  // Send command to the agent - routes through ElizaOS which processes
+  // Send command to the agent - routes through elizaOS which processes
   // the message and decides what hyperscape actions to take
   const handleSendChat = useCallback(async () => {
     const content = chatInput.trim();
     if (!content) return;
     setSendingChat(true);
     try {
-      // Send message to ElizaOS agent - it will process and execute hyperscape actions
+      // Send message to elizaOS agent - it will process and execute hyperscape actions
       // Examples: "go chop some wood", "attack the goblin", "go to the bank"
       const response = await client.sendChatRest(content, "DM");
       setChatInput("");

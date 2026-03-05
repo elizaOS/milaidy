@@ -82,6 +82,9 @@ vi.mock("../../src/components/LoadingScreen", () => ({
 vi.mock("../../src/components/StreamView", () => ({
   StreamView: () => React.createElement("div", null, "StreamView"),
 }));
+vi.mock("../../src/components/CompanionView", () => ({
+  CompanionView: () => React.createElement("div", null, "CompanionView"),
+}));
 vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
   useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
 }));
@@ -126,6 +129,14 @@ describe("app startup routing (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       setActionNotice: vi.fn(),
+      uiShellMode: "native",
+      agentStatus: { state: "running", agentName: "Milady" },
+      unreadConversations: new Set(),
+      activeGameViewerUrl: null,
+      gameOverlayEnabled: false,
+      startupPhase: "ready",
+      startupError: null,
+      retryStartup: vi.fn(),
     });
   });
 
@@ -164,6 +175,14 @@ describe("app startup routing (e2e)", () => {
       tab: "wallets",
       actionNotice: null,
       setActionNotice: vi.fn(),
+      uiShellMode: "native",
+      agentStatus: { state: "running", agentName: "Milady" },
+      unreadConversations: new Set(),
+      activeGameViewerUrl: null,
+      gameOverlayEnabled: false,
+      startupPhase: "ready",
+      startupError: null,
+      retryStartup: vi.fn(),
     });
 
     let tree: TestRenderer.ReactTestRenderer;

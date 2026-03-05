@@ -1,6 +1,6 @@
 {
   "name": "@milady/plugin-pumpfun-streaming",
-  "description": "pump.fun RTMP streaming destination plugin for ElizaOS agents",
+  "description": "pump.fun RTMP streaming destination plugin for elizaOS agents",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -9,7 +9,13 @@
   "packageType": "plugin",
   "platform": "node",
   "license": "MIT",
-  "keywords": ["elizaos", "elizaos-plugin", "pumpfun", "streaming", "rtmp"],
+  "keywords": [
+    "elizaos",
+    "elizaos-plugin",
+    "pumpfun",
+    "streaming",
+    "rtmp"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/milady-ai/milady.git",

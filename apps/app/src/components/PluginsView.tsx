@@ -1308,9 +1308,11 @@ interface PluginListViewProps {
   label: string;
   /** Optional list mode for pre-filtered views like Connectors. */
   mode?: PluginsViewMode;
+  /** Whether the view is rendered in a full-screen gamified modal. */
+  inModal?: boolean;
 }
 
-function PluginListView({ label, mode = "all" }: PluginListViewProps) {
+function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const {
     plugins,
     pluginStatusFilter,
@@ -1791,17 +1793,18 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                   <img
                     src={icon}
                     alt=""
-                    className="w-4 h-4 rounded-sm object-cover"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
+                    className="w-5 h-5 rounded-sm object-contain"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
                   />
                 ) : (
                   <span className="text-sm">{icon}</span>
                 );
               }
               const IconComponent = icon;
-              return <IconComponent className="w-4 h-4" />;
+              return <IconComponent className="w-5 h-5" />;
             })()}
             {p.name}
           </span>
@@ -1993,6 +1996,238 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
     return null;
   }, [pluginSettingsOpen, nonDbPlugins]);
 
+  // ── Game-modal state ──────────────────────────────────────────────
+  const [gameSelectedId, setGameSelectedId] = useState<string | null>(null);
+  const [gameMobileDetail, setGameMobileDetail] = useState(false);
+  const gameNarrow =
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(max-width: 600px)").matches
+      : false;
+
+  // Auto-select first visible plugin in game modal
+  const gameVisiblePlugins = visiblePlugins.filter(
+    (p: PluginInfo) => p.id !== "__ui-showcase__",
+  );
+  const effectiveGameSelected = gameVisiblePlugins.find(
+    (p: PluginInfo) => p.id === gameSelectedId,
+  )
+    ? gameSelectedId
+    : (gameVisiblePlugins[0]?.id ?? null);
+  const selectedPlugin =
+    gameVisiblePlugins.find(
+      (p: PluginInfo) => p.id === effectiveGameSelected,
+    ) ?? null;
+
+  // ── Game-modal render ─────────────────────────────────────────────
+  if (inModal) {
+    const sectionTitle = mode === "connectors" ? "Channels" : label;
+    return (
+      <div className="plugins-game-modal">
+        <div
+          className={`plugins-game-list-panel${
+            gameNarrow && gameMobileDetail ? " is-hidden" : ""
+          }`}
+        >
+          <div className="plugins-game-list-head">
+            <div className="plugins-game-section-title">{sectionTitle}</div>
+          </div>
+          <div className="plugins-game-list-scroll">
+            {gameVisiblePlugins.length === 0 ? (
+              <div className="plugins-game-list-empty">
+                No {sectionTitle.toLowerCase()} found.
+              </div>
+            ) : (
+              gameVisiblePlugins.map((p: PluginInfo) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`plugins-game-card${
+                    effectiveGameSelected === p.id ? " is-selected" : ""
+                  }${!p.enabled ? " is-disabled" : ""}`}
+                  onClick={() => {
+                    setGameSelectedId(p.id);
+                    if (gameNarrow) setGameMobileDetail(true);
+                  }}
+                >
+                  <div className="plugins-game-card-icon-shell">
+                    <span className="plugins-game-card-icon">
+                      {(() => {
+                        const icon = resolveIcon(p);
+                        if (!icon) return "🧩";
+                        if (typeof icon === "string") {
+                          return icon.startsWith("http") ? (
+                            <img
+                              src={icon}
+                              alt=""
+                              className="plugins-game-card-icon"
+                              style={{ objectFit: "contain" }}
+                            />
+                          ) : (
+                            icon
+                          );
+                        }
+                        const IconComponent = icon;
+                        return <IconComponent className="w-5 h-5" />;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="plugins-game-card-body">
+                    <div className="plugins-game-card-name">{p.name}</div>
+                    <div className="plugins-game-card-meta">
+                      <span
+                        className={`plugins-game-badge ${
+                          p.enabled ? "is-on" : "is-off"
+                        }`}
+                      >
+                        {p.enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+        <div
+          className={`plugins-game-detail-panel${
+            gameNarrow && !gameMobileDetail ? " is-hidden" : ""
+          }`}
+        >
+          {selectedPlugin ? (
+            <>
+              <div className="plugins-game-detail-head">
+                {gameNarrow && (
+                  <button
+                    type="button"
+                    className="plugins-game-back-btn"
+                    onClick={() => setGameMobileDetail(false)}
+                  >
+                    ← Back
+                  </button>
+                )}
+                <div className="plugins-game-detail-title-row">
+                  <div className="plugins-game-detail-icon-shell">
+                    <span className="plugins-game-detail-icon">
+                      {(() => {
+                        const icon = resolveIcon(selectedPlugin);
+                        if (!icon) return "🧩";
+                        if (typeof icon === "string") {
+                          return icon.startsWith("http") ? (
+                            <img
+                              src={icon}
+                              alt=""
+                              className="plugins-game-detail-icon"
+                            />
+                          ) : (
+                            icon
+                          );
+                        }
+                        const IconComponent = icon;
+                        return <IconComponent className="w-6 h-6" />;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="plugins-game-detail-main">
+                    <div className="plugins-game-detail-name">
+                      {selectedPlugin.name}
+                    </div>
+                    {selectedPlugin.version && (
+                      <span className="plugins-game-version">
+                        v{selectedPlugin.version}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={`plugins-game-toggle ${
+                      selectedPlugin.enabled ? "is-on" : "is-off"
+                    }`}
+                    onClick={() =>
+                      void handleTogglePlugin(
+                        selectedPlugin.id,
+                        !selectedPlugin.enabled,
+                      )
+                    }
+                    disabled={togglingPlugins.has(selectedPlugin.id)}
+                  >
+                    {selectedPlugin.enabled ? "ON" : "OFF"}
+                  </button>
+                </div>
+              </div>
+              <div className="plugins-game-detail-description">
+                {selectedPlugin.description}
+              </div>
+              {selectedPlugin.parameters &&
+                selectedPlugin.parameters.length > 0 && (
+                  <div className="plugins-game-detail-config">
+                    {selectedPlugin.parameters.map((param: PluginParamDef) => (
+                      <div key={param.key} id={`field-${param.key}`}>
+                        <label
+                          htmlFor={`input-${param.key}`}
+                          className="text-[11px] tracking-wider text-muted block mb-1"
+                        >
+                          {param.key}
+                        </label>
+                        <input
+                          id={`input-${param.key}`}
+                          type={param.sensitive ? "password" : "text"}
+                          className="w-full px-2 py-1 text-[12px]"
+                          placeholder={param.description}
+                          value={
+                            pluginConfigs[selectedPlugin.id]?.[param.key] ??
+                            param.currentValue ??
+                            ""
+                          }
+                          onChange={(e) =>
+                            handleParamChange(
+                              selectedPlugin.id,
+                              param.key,
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              <div className="plugins-game-detail-actions">
+                <button
+                  type="button"
+                  className="plugins-game-action-btn"
+                  onClick={() => void handleTestConnection(selectedPlugin.id)}
+                >
+                  Test Connection
+                </button>
+                <button
+                  type="button"
+                  className={`plugins-game-save-btn${
+                    pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
+                  }`}
+                  onClick={() => void handleConfigSave(selectedPlugin.id)}
+                  disabled={pluginSaving.has(selectedPlugin.id)}
+                >
+                  {pluginSaving.has(selectedPlugin.id)
+                    ? "Saving..."
+                    : pluginSaveSuccess.has(selectedPlugin.id)
+                      ? "Saved!"
+                      : "Save"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="plugins-game-detail-empty">
+              <span className="plugins-game-detail-empty-icon">🧩</span>
+              <span className="plugins-game-detail-empty-text">
+                Select a {mode === "connectors" ? "channel" : "plugin"} to
+                configure.
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Main render ────────────────────────────────────────────────────
 
   return (
@@ -2146,10 +2381,7 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                           <img
                             src={icon}
                             alt=""
-                            className="w-4 h-4 rounded-sm object-cover"
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            crossOrigin="anonymous"
+                            className="w-5 h-5 rounded-sm object-contain"
                             onError={(e) => {
                               (
                                 e.currentTarget as HTMLImageElement
@@ -2161,7 +2393,7 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
                         );
                       }
                       const IconComponent = icon;
-                      return <IconComponent className="w-4 h-4" />;
+                      return <IconComponent className="w-5 h-5" />;
                     })()}
                     {p.name}
                   </span>
@@ -2394,11 +2626,18 @@ function PluginListView({ label, mode = "all" }: PluginListViewProps) {
 /* ── Exported views ────────────────────────────────────────────────── */
 
 /** Unified plugins view — tag-filtered plugin list. */
-export function PluginsView({ mode = "all" }: { mode?: PluginsViewMode }) {
+export function PluginsView({
+  mode = "all",
+  inModal,
+}: {
+  mode?: PluginsViewMode;
+  inModal?: boolean;
+}) {
   return (
     <PluginListView
       label={mode === "connectors" ? "Connectors" : "Plugins"}
       mode={mode}
+      inModal={inModal}
     />
   );
 }
