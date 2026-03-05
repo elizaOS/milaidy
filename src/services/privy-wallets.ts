@@ -58,31 +58,6 @@ function resolvePrivyConfig(
   const apiBaseUrl =
     normalizeEnvValue(env.PRIVY_API_BASE_URL) ?? PRIVY_DEFAULT_API_BASE_URL;
 
-  // Validate that the Privy API base URL uses HTTPS to prevent SSRF
-  // attacks that could leak credentials to arbitrary endpoints.
-  try {
-    const parsed = new URL(apiBaseUrl);
-    if (parsed.protocol !== "https:") {
-      logger.warn(
-        `[privy] PRIVY_API_BASE_URL must use https:, got ${parsed.protocol} — falling back to default.`,
-      );
-      return {
-        appId,
-        appSecret,
-        apiBaseUrl: PRIVY_DEFAULT_API_BASE_URL,
-      };
-    }
-  } catch {
-    logger.warn(
-      "[privy] PRIVY_API_BASE_URL is not a valid URL — falling back to default.",
-    );
-    return {
-      appId,
-      appSecret,
-      apiBaseUrl: PRIVY_DEFAULT_API_BASE_URL,
-    };
-  }
-
   return {
     appId,
     appSecret,

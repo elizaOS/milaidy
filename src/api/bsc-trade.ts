@@ -80,11 +80,6 @@ function normalizeRpcUrl(url: string | null | undefined): string | null {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
       return null;
-    if (parsed.protocol === "http:") {
-      logger.warn(
-        `BSC RPC URL uses http: (${parsed.host}) — MITM risk for trade execution. Use https: in production.`,
-      );
-    }
     return parsed.toString();
   } catch {
     return null;
@@ -262,7 +257,7 @@ async function readWrappedNativeAddress(rpcUrls: string[]): Promise<string> {
   }
 }
 
-export async function readTokenDecimals(
+async function readTokenDecimals(
   rpcUrls: string[],
   tokenAddress: string,
 ): Promise<number> {
@@ -538,10 +533,7 @@ export async function buildBscTradeQuote(
   if (typeof amountOutWei !== "bigint") {
     throw new Error("Router quote output type is invalid.");
   }
-  let minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
-  if (minReceiveWei === 0n && amountOutWei > 0n) {
-    minReceiveWei = 1n; // Prevent zero-slippage execution for small amounts
-  }
+  const minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
   const outDecimals = side === "buy" ? tokenDecimals : 18;
   const inSymbol = side === "buy" ? "BNB" : tokenSymbol;
   const outSymbol = side === "buy" ? tokenSymbol : "BNB";
@@ -580,18 +572,6 @@ export async function buildBscTradeQuote(
   };
 }
 
-/**
- * Assert that the quote's routerAddress matches the expected PancakeSwap V2 router.
- * Prevents a compromised or tampered quote from directing funds to an arbitrary address.
- */
-function assertRouterAddress(quote: BscTradeQuoteResponse): void {
-  if (quote.routerAddress !== PANCAKE_SWAP_V2_ROUTER) {
-    throw new Error(
-      `Unexpected router address in quote: ${quote.routerAddress}. Expected PancakeSwap V2 router ${PANCAKE_SWAP_V2_ROUTER}.`,
-    );
-  }
-}
-
 export function buildBscBuyUnsignedTx(
   quote: BscTradeQuoteResponse,
   recipientAddress: string | null,
@@ -600,7 +580,6 @@ export function buildBscBuyUnsignedTx(
   if (quote.side !== "buy") {
     throw new Error("Only buy execution is currently supported.");
   }
-  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");
@@ -636,7 +615,6 @@ export function buildBscSellUnsignedTx(
   if (quote.side !== "sell") {
     throw new Error("Only sell execution is supported for this payload.");
   }
-  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");
@@ -683,14 +661,7 @@ export function buildBscApproveUnsignedTx(
   if (!normalizedSpender) {
     throw new Error("Spender address is invalid for approval payload.");
   }
-  let amount: bigint;
-  try {
-    amount = BigInt(amountWei);
-  } catch {
-    throw new Error(
-      `Invalid approval amount: expected integer string, got "${String(amountWei).slice(0, 20)}"`,
-    );
-  }
+  const amount = BigInt(amountWei);
   if (amount <= 0n) {
     throw new Error("Approval amount must be greater than zero.");
   }

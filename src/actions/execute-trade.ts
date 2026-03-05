@@ -13,18 +13,70 @@
  * @module actions/execute-trade
  */
 
-import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
-import { logger } from "@elizaos/core";
-import {
-  buildAuthHeaders,
-  WALLET_ACTION_API_PORT,
-} from "./wallet-action-shared.js";
+import type { Action, HandlerOptions, Memory } from "@elizaos/core";
+
+/** API port for posting trade requests. */
+const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
 
 /** Timeout for the trade API call (includes on-chain confirmation). */
 const TRADE_TIMEOUT_MS = 60_000;
 
 /** Matches a 0x-prefixed 40-hex-char BSC address. */
 const BSC_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+/** Extract a 0x address from free text. */
+const ADDRESS_IN_TEXT_RE = /0x[0-9a-fA-F]{40}/;
+
+/** Extract a numeric amount from patterns like "0.01 bnb", "0.5 BNB", "buy 1.2" */
+const AMOUNT_IN_TEXT_RE = /(?:^|\s)([\d]+(?:\.[\d]+)?)\s*(?:bnb|BNB)\b/;
+
+/** Fallback: any decimal number that looks like an amount (not an address). */
+const GENERIC_AMOUNT_RE = /(?:^|\s)([\d]+(?:\.[\d]+)?)(?:\s|$)/;
+
+/**
+ * Try to extract trade parameters from the conversation text when the
+ * structured parameter extraction by ElizaOS fails or returns placeholders.
+ */
+function extractParamsFromText(message?: Memory): {
+  side?: string;
+  tokenAddress?: string;
+  amount?: string;
+  slippageBps?: number;
+} {
+  // Collect text from the message and recent conversation
+  const text = (message?.content?.text ?? "").trim();
+  if (!text) return {};
+
+  const result: ReturnType<typeof extractParamsFromText> = {};
+
+  // Side
+  const lower = text.toLowerCase();
+  if (lower.includes("buy") || lower.includes("swap")) result.side = "buy";
+  else if (lower.includes("sell")) result.side = "sell";
+
+  // Token address
+  const addrMatch = text.match(ADDRESS_IN_TEXT_RE);
+  if (addrMatch) result.tokenAddress = addrMatch[0];
+
+  // Amount
+  const amtMatch = text.match(AMOUNT_IN_TEXT_RE);
+  if (amtMatch) {
+    result.amount = amtMatch[1];
+  } else {
+    const genericMatch = text.match(GENERIC_AMOUNT_RE);
+    if (genericMatch && !genericMatch[1].startsWith("0x")) {
+      result.amount = genericMatch[1];
+    }
+  }
+
+  // Slippage
+  const slipMatch = text.match(/(\d+(?:\.\d+)?)\s*%\s*slippage/i);
+  if (slipMatch) {
+    result.slippageBps = Math.round(Number(slipMatch[1]) * 100);
+  }
+
+  return result;
+}
 
 /** Check if a value is a valid extracted param (not a placeholder). */
 function isValidParam(val: unknown): val is string {
@@ -49,30 +101,33 @@ export const executeTradeAction: Action = {
     "buy or sell a token on BSC/BNB Chain. The trade is routed through " +
     "PancakeSwap and respects the current trade permission mode.",
 
-  validate: async (runtime: IAgentRuntime) => {
-    const hasWallet =
-      runtime.getSetting("EVM_PRIVATE_KEY") ||
-      runtime.getSetting("PRIVY_APP_ID");
-    return Boolean(hasWallet);
-  },
+  validate: async () => true,
 
-  handler: async (_runtime, _message, _state, options) => {
+  handler: async (_runtime, message, _state, options) => {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
-      logger.debug(
-        `[EXECUTE_TRADE] handler called hasParams=${Boolean(params)}`,
+      console.log(
+        `[EXECUTE_TRADE] handler called with params:`,
+        JSON.stringify(params ?? {}),
       );
 
-      // ── Resolve side ───────────────────────────────────────────────
+      // Fallback: extract from message text when structured params are missing.
+      const textParams = extractParamsFromText(message as Memory | undefined);
+      console.log(
+        `[EXECUTE_TRADE] text-extracted params:`,
+        JSON.stringify(textParams),
+      );
+
+      // ── Resolve side (prefer structured, fallback to text) ───────────
       const rawSide = isValidParam(params?.side as string)
         ? (params?.side as string)
-        : undefined;
+        : textParams.side;
       const side =
         typeof rawSide === "string" ? rawSide.trim().toLowerCase() : undefined;
 
       if (side !== "buy" && side !== "sell") {
         return {
-          text: 'I need a valid trade side ("buy" or "sell"). Could you clarify whether you want to buy or sell?',
+          text: 'I need a valid trade side ("buy" or "sell").',
           success: false,
         };
       }
@@ -80,13 +135,13 @@ export const executeTradeAction: Action = {
       // ── Resolve tokenAddress ─────────────────────────────────────────
       const rawAddr = isValidParam(params?.tokenAddress as string)
         ? (params?.tokenAddress as string)
-        : undefined;
+        : textParams.tokenAddress;
       const tokenAddress =
         typeof rawAddr === "string" ? rawAddr.trim() : undefined;
 
       if (!tokenAddress || !BSC_ADDRESS_RE.test(tokenAddress)) {
         return {
-          text: "I need a valid BSC token contract address (0x-prefixed, 40 hex chars). Please provide the token address.",
+          text: "I need a valid BSC token contract address (0x-prefixed, 40 hex chars).",
           success: false,
         };
       }
@@ -96,7 +151,7 @@ export const executeTradeAction: Action = {
         ? (params?.amount as string)
         : typeof params?.amount === "number" && params.amount > 0
           ? String(params.amount)
-          : undefined;
+          : textParams.amount;
       const amountRaw = typeof rawAmt === "string" ? rawAmt.trim() : undefined;
 
       if (
@@ -105,7 +160,7 @@ export const executeTradeAction: Action = {
         Number(amountRaw) <= 0
       ) {
         return {
-          text: "I need a positive numeric amount for the trade. How much would you like to trade?",
+          text: "I need a positive numeric amount for the trade.",
           success: false,
         };
       }
@@ -117,7 +172,7 @@ export const executeTradeAction: Action = {
           : typeof params?.slippageBps === "string" &&
               params.slippageBps.trim() !== ""
             ? Number(params.slippageBps)
-            : 300;
+            : (textParams.slippageBps ?? 300);
 
       if (Number.isNaN(slippageBps) || slippageBps < 0) {
         return {
@@ -126,19 +181,18 @@ export const executeTradeAction: Action = {
         };
       }
 
-      logger.debug(
-        `[EXECUTE_TRADE] resolved trade parameters side=${side} hasToken=${Boolean(tokenAddress)}`,
+      console.log(
+        `[EXECUTE_TRADE] resolved: side=${side} token=${tokenAddress} amount=${amountRaw} slippage=${slippageBps}`,
       );
 
       // ── POST to trade execution API ──────────────────────────────────
       const response = await fetch(
-        `http://127.0.0.1:${WALLET_ACTION_API_PORT}/api/wallet/trade/execute`,
+        `http://127.0.0.1:${API_PORT}/api/wallet/trade/execute`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Milady-Agent-Action": "1",
-            ...buildAuthHeaders(),
           },
           body: JSON.stringify({
             side,
@@ -179,8 +233,17 @@ export const executeTradeAction: Action = {
         error?: string;
       };
 
-      logger.debug(
-        `[EXECUTE_TRADE] trade API responded status=${result.ok ? "ok" : "error"}`,
+      console.log(
+        `[EXECUTE_TRADE] API response:`,
+        JSON.stringify({
+          ok: result.ok,
+          side: result.side,
+          mode: result.mode,
+          executed: result.executed,
+          requiresUserSignature: result.requiresUserSignature,
+          hasExecution: !!result.execution,
+          error: result.error,
+        }),
       );
 
       if (!result.ok) {
