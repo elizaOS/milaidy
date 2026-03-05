@@ -67,7 +67,7 @@ Place documents in the knowledge directory specified in `milady.json`:
   "name": "MyAgent",
   "knowledge": [
     "This agent specializes in TypeScript and Node.js development.",
-    "The project uses ElizaOS core version 2.x.",
+    "The project uses elizaOS core version 2.x.",
     { "path": "./docs/api-reference.md" }
   ]
 }

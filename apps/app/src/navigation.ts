@@ -21,10 +21,13 @@ export const APPS_ENABLED = import.meta.env.DEV;
 
 /** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
 export const STREAM_ENABLED = import.meta.env.DEV;
-/** Companion tab is feature-flagged and disabled by default. */
+/**
+ * Companion tab — enabled by default since the VRM companion UI launch.
+ * Previously opt-in; now opt-out via VITE_ENABLE_COMPANION_MODE=false.
+ */
 export const COMPANION_ENABLED =
-  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "").toLowerCase() ===
-  "true";
+  String(import.meta.env.VITE_ENABLE_COMPANION_MODE ?? "true").toLowerCase() !==
+  "false";
 
 export type Tab =
   | "chat"
@@ -32,6 +35,7 @@ export type Tab =
   | "stream"
   | "apps"
   | "character"
+  | "character-select"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -78,7 +82,7 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
   },
   {
     label: "Character",
-    tabs: ["character"],
+    tabs: ["character", "character-select"],
     icon: Bot,
     description: "AI personality and behavior",
   },
@@ -149,6 +153,7 @@ const TAB_PATHS: Record<Tab, string> = {
   stream: "/stream",
   apps: "/apps",
   character: "/character",
+  "character-select": "/character-select",
   triggers: "/triggers",
   wallets: "/wallets",
   knowledge: "/knowledge",
@@ -244,6 +249,8 @@ export function titleForTab(tab: Tab): string {
       return "Apps";
     case "character":
       return "Character";
+    case "character-select":
+      return "Character Select";
     case "triggers":
       return "Triggers";
     case "wallets":

@@ -14,10 +14,10 @@ describe("@milady/capacitor-desktop", () => {
     if (!navigator.clipboard) {
       Object.defineProperty(navigator, "clipboard", {
         value: {
-          writeText: vi.fn(async () => { }),
+          writeText: vi.fn(async () => {}),
           readText: vi.fn(async () => ""),
           read: vi.fn(async () => []),
-          write: vi.fn(async () => { }),
+          write: vi.fn(async () => {}),
         },
         writable: true,
         configurable: true,
@@ -26,7 +26,7 @@ describe("@milady/capacitor-desktop", () => {
       // Ensure methods exist on already-stubbed clipboard
       if (!navigator.clipboard.writeText) {
         Object.defineProperty(navigator.clipboard, "writeText", {
-          value: vi.fn(async () => { }),
+          value: vi.fn(async () => {}),
           writable: true,
           configurable: true,
         });
@@ -42,7 +42,11 @@ describe("@milady/capacitor-desktop", () => {
 
     // jsdom doesn't provide AudioContext — stub it for beep()
     const gainNode = {
-      gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+      gain: {
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
       connect: vi.fn(),
     };
     gainNode.connect.mockReturnValue(gainNode);
@@ -70,9 +74,13 @@ describe("@milady/capacitor-desktop", () => {
     };
 
     // jsdom location.reload is read-only; replace location entirely
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).location = new URL("http://localhost/") as any;
-    (window as any).location.reload = vi.fn();
+    (window as unknown as Record<string, unknown>).location = new URL(
+      "http://localhost/",
+    ) as unknown as Location;
+    (window as unknown as Record<string, unknown>).location = {
+      ...(window as unknown as Record<string, unknown>).location,
+      reload: vi.fn(),
+    };
 
     d = new DesktopWeb();
   });

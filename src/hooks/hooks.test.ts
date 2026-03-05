@@ -8,7 +8,7 @@
  * - End-to-end: load → trigger → handler fires
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HookConfig, InternalHooksConfig } from "../config/types.hooks";
 import { checkEligibility, resolveHookConfig } from "./eligibility";
 import {

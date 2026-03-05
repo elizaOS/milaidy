@@ -131,7 +131,7 @@ export function registerPluginsCli(program: Command): void {
   const pluginsCommand = program
     .command("plugins")
     .description(
-      "Browse, search, install, and manage ElizaOS plugins from the registry",
+      "Browse, search, install, and manage elizaOS plugins from the registry",
     );
 
   // ── list ─────────────────────────────────────────────────────────────

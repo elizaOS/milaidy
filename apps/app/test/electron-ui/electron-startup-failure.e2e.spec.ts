@@ -1,8 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { __electronTestState } from "electron";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentManager } from "../../electron/src/native/agent";
 
@@ -76,7 +77,22 @@ function writeTestDist(appPath: string, opts?: { elizaJs?: string }): void {
 describe("electron agent startup failure cleanup", () => {
   const tempDirs: string[] = [];
 
+  beforeEach(() => {
+    // Replace dynamicImport with a version that uses vitest-transformed
+    // import() instead of `new Function("s", "return import(s)")` which
+    // doesn't work in vitest's forks pool.
+    vi.spyOn(AgentManager, "dynamicImport").mockImplementation(
+      async (specifier: string) => {
+        const fsPath = specifier.startsWith("file://")
+          ? fileURLToPath(specifier)
+          : specifier;
+        return import(fsPath);
+      },
+    );
+  });
+
   afterEach(() => {
+    vi.restoreAllMocks();
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
     }

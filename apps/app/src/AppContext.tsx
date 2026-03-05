@@ -17,12 +17,22 @@ import {
   type AgentStartupDiagnostics,
   type AgentStatus,
   type AppViewerAuthMessage,
+  type BscTradeExecuteRequest,
+  type BscTradeExecuteResponse,
+  type BscTradePreflightResponse,
+  type BscTradeQuoteRequest,
+  type BscTradeQuoteResponse,
+  type BscTradeTxStatusResponse,
+  type BscTransferExecuteRequest,
+  type BscTransferExecuteResponse,
   type CatalogSkill,
   type CharacterData,
+  type ChatTokenUsage,
   type CodingAgentSession,
   type Conversation,
   type ConversationChannelType,
   type ConversationMessage,
+  type ConversationMode,
   type CreateTriggerRequest,
   type CustomActionDef,
   client,
@@ -56,6 +66,9 @@ import {
   type WalletConfigStatus,
   type WalletExportResult,
   type WalletNftsResponse,
+  type WalletTradingProfileResponse,
+  type WalletTradingProfileSourceFilter,
+  type WalletTradingProfileWindow,
   type WhitelistStatus,
   type WorkbenchOverview,
 } from "./api-client";
@@ -74,6 +87,12 @@ import {
   normalizeSlashCommandName,
   splitCommandArgs,
 } from "./chat-commands";
+import {
+  DEFAULT_UI_LANGUAGE,
+  normalizeLanguage,
+  t as translateText,
+  type UiLanguage,
+} from "./i18n";
 import { isLifoPopoutMode } from "./lifo-popout";
 import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
@@ -81,8 +100,23 @@ import { mapServerTasksToSessions } from "./pty-session-hydrate";
 
 // ── VRM helpers ─────────────────────────────────────────────────────────
 
-/** Number of built-in milady VRM avatars shipped with the app. */
-export const VRM_COUNT = 8;
+/** Number of bundled VRM avatars shipped with the app. */
+const BASE_VRM_COUNT = 24;
+const OFFICIAL_VRM_COUNT = 8;
+
+/** Named VRM avatars that don't follow the milady-N convention.
+ *  flip: true  → model's eye-bone convention differs from milady; needs an
+ *               explicit 180° Y rotation instead of auto-detection.
+ */
+const NAMED_VRMS: {
+  file: string;
+  preview: string;
+  label: string;
+  flip?: boolean;
+}[] = [{ file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw", flip: true }];
+
+export const VRM_COUNT =
+  BASE_VRM_COUNT + OFFICIAL_VRM_COUNT + NAMED_VRMS.length;
 
 function normalizeAvatarIndex(index: number): number {
   if (!Number.isFinite(index)) return 1;
@@ -92,43 +126,122 @@ function normalizeAvatarIndex(index: number): number {
   return n;
 }
 
-/** Resolve a built-in VRM index (1–8) to its public asset URL. */
+/** Resolve a bundled VRM index (1–N) to its public asset URL. */
 export function getVrmUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/${safeIndex}.vrm`);
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
+  }
+  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
+    const officialIndex = safeIndex - BASE_VRM_COUNT;
+    return resolveAppAssetUrl(`vrms/milady-official-${officialIndex}.vrm`);
+  }
+  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+  return resolveAppAssetUrl(`vrms/${named.file}`);
 }
 
-/** Resolve a built-in VRM index (1–8) to its preview thumbnail URL. */
+/** Resolve a bundled VRM index (1–N) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
   const normalized = normalizeAvatarIndex(index);
   const safeIndex = normalized > 0 ? normalized : 1;
-  return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
+  }
+  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
+    const officialIndex = safeIndex - BASE_VRM_COUNT;
+    return resolveAppAssetUrl(
+      `vrms/previews/milady-official-${officialIndex}.png`,
+    );
+  }
+  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+  return resolveAppAssetUrl(`vrms/previews/${named.preview}`);
+}
+
+/** Resolve a bundled VRM index (1-N) to its custom background URL. */
+export function getVrmBackgroundUrl(index: number): string {
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  const EXT = "png";
+
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.${EXT}`);
+  }
+  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
+    const officialIndex = safeIndex - BASE_VRM_COUNT;
+    return resolveAppAssetUrl(
+      `vrms/backgrounds/milady-official-${officialIndex}.${EXT}`,
+    );
+  }
+  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+  const baseName = named.preview.split(".")[0];
+  return resolveAppAssetUrl(`vrms/backgrounds/${baseName}.${EXT}`);
+}
+
+/** Human-readable roster title for bundled avatars. */
+export function getVrmTitle(index: number): string {
+  const normalized = normalizeAvatarIndex(index);
+  const safeIndex = normalized > 0 ? normalized : 1;
+  if (safeIndex <= BASE_VRM_COUNT) {
+    return `MILADY-${String(safeIndex).padStart(2, "0")}`;
+  }
+  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
+    const officialIndex = safeIndex - BASE_VRM_COUNT;
+    return `OFFICIAL-${String(officialIndex).padStart(2, "0")}`;
+  }
+  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+  return named.label.toUpperCase();
+}
+
+/** Whether a bundled index points to the official Milady avatar set. */
+export function isOfficialVrmIndex(index: number): boolean {
+  const normalized = normalizeAvatarIndex(index);
+  return (
+    normalized > BASE_VRM_COUNT &&
+    normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT
+  );
+}
+
+/** Whether a VRM index requires an explicit 180° face-camera flip instead of auto-detection. */
+export function getVrmNeedsFlip(index: number): boolean {
+  const normalized = normalizeAvatarIndex(index);
+  if (normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) return false;
+  const named =
+    NAMED_VRMS[normalized - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+  return named?.flip ?? false;
 }
 
 // ── Theme ──────────────────────────────────────────────────────────────
 
 const THEME_STORAGE_KEY = "milady:theme";
+const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
+const UI_SHELL_MODE_STORAGE_KEY = "milady:ui-shell-mode";
+
+export type UiShellMode = "companion" | "native";
 
 export type ThemeName =
   | "milady"
+  | "milady-classic"
   | "qt314"
   | "web2000"
   | "programmer"
   | "haxor"
-  | "psycho";
+  | "psycho"
+  | "dark";
 
 export const THEMES: ReadonlyArray<{
   id: ThemeName;
   label: string;
   hint: string;
 }> = [
-  { id: "milady", label: "milady", hint: "clean black & white" },
+  { id: "milady", label: "milady", hint: "BSC yellow default" },
+  { id: "milady-classic", label: "milady classic", hint: "sage green retro" },
   { id: "qt314", label: "qt3.14", hint: "soft pastels" },
   { id: "web2000", label: "web2000", hint: "green hacker vibes" },
   { id: "programmer", label: "programmer", hint: "vscode dark" },
   { id: "haxor", label: "haxor", hint: "terminal green" },
   { id: "psycho", label: "psycho", hint: "pure chaos" },
+  { id: "dark", label: "dark", hint: "clean dark mode" },
 ];
 
 const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
@@ -150,6 +263,45 @@ function applyTheme(name: ThemeName) {
     localStorage.setItem(THEME_STORAGE_KEY, name);
   } catch {
     /* ignore */
+  }
+}
+
+function loadUiLanguage(): UiLanguage {
+  try {
+    const stored = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+    return normalizeLanguage(stored ?? DEFAULT_UI_LANGUAGE);
+  } catch {
+    return DEFAULT_UI_LANGUAGE;
+  }
+}
+
+function saveUiLanguage(language: UiLanguage): void {
+  try {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, normalizeLanguage(language));
+  } catch {
+    // ignore
+  }
+}
+
+function normalizeUiShellMode(mode: unknown): UiShellMode {
+  return mode === "native" ? "native" : "companion";
+}
+
+function loadUiShellMode(): UiShellMode {
+  try {
+    return normalizeUiShellMode(
+      localStorage.getItem(UI_SHELL_MODE_STORAGE_KEY),
+    );
+  } catch {
+    return "companion";
+  }
+}
+
+function saveUiShellMode(mode: UiShellMode): void {
+  try {
+    localStorage.setItem(UI_SHELL_MODE_STORAGE_KEY, normalizeUiShellMode(mode));
+  } catch {
+    // ignore
   }
 }
 
@@ -215,14 +367,36 @@ function saveChatVoiceMuted(value: boolean): void {
   }
 }
 
+/* ── Chat mode persistence ─────────────────────────────────────────────── */
+const CHAT_MODE_KEY = "milady:chat:mode";
+
+function loadChatMode(): ConversationMode {
+  try {
+    const stored = localStorage.getItem(CHAT_MODE_KEY);
+    return stored === "power" ? "power" : "simple";
+  } catch {
+    return "simple";
+  }
+}
+
+function saveChatMode(value: ConversationMode): void {
+  try {
+    localStorage.setItem(CHAT_MODE_KEY, value);
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Onboarding step type ───────────────────────────────────────────────
 
 export type OnboardingStep =
   | "welcome"
   | "name"
+  | "ownerName"
   | "avatar"
   | "style"
   | "theme"
+  | "setupMode"
   | "mint"
   | "runMode"
   | "dockerSetup"
@@ -644,12 +818,18 @@ function formatStartupErrorDetail(err: unknown): string | undefined {
   return undefined;
 }
 
+export interface ChatTurnUsage extends ChatTokenUsage {
+  updatedAt: number;
+}
+
 // ── Context value type ─────────────────────────────────────────────────
 
 export interface AppState {
   // Core
   tab: Tab;
+  uiShellMode: UiShellMode;
   currentTheme: ThemeName;
+  uiLanguage: UiLanguage;
   connected: boolean;
   agentStatus: AgentStatus | null;
   onboardingComplete: boolean;
@@ -675,6 +855,9 @@ export interface AppState {
   };
   backendDisconnectedBannerDismissed: boolean;
 
+  // System warnings
+  systemWarnings: string[];
+
   // Pairing
   pairingEnabled: boolean;
   pairingExpiresAt: number | null;
@@ -686,8 +869,10 @@ export interface AppState {
   chatInput: string;
   chatSending: boolean;
   chatFirstTokenReceived: boolean;
+  chatLastUsage: ChatTurnUsage | null;
   chatAvatarVisible: boolean;
   chatAgentVoiceMuted: boolean;
+  chatMode: ConversationMode;
   chatAvatarSpeaking: boolean;
   conversations: Conversation[];
   activeConversationId: string | null;
@@ -756,6 +941,7 @@ export interface AppState {
   walletExportVisible: boolean;
   walletApiKeySaving: boolean;
   inventorySort: "chain" | "symbol" | "value";
+  inventoryChainFocus: "bsc" | "all";
   walletError: string | null;
 
   // ERC-8004 Registry
@@ -788,6 +974,7 @@ export interface AppState {
   characterDraft: CharacterData;
   selectedVrmIndex: number;
   customVrmUrl: string;
+  customBackgroundUrl: string;
 
   // Cloud
   cloudEnabled: boolean;
@@ -857,6 +1044,8 @@ export interface AppState {
   onboardingStep: OnboardingStep;
   onboardingOptions: OnboardingOptions | null;
   onboardingName: string;
+  onboardingOwnerName: string;
+  onboardingSetupMode: "" | "quick" | "advanced";
   onboardingStyle: string;
   onboardingTheme: ThemeName;
   onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
@@ -937,7 +1126,9 @@ export interface AppState {
 export interface AppActions {
   // Navigation
   setTab: (tab: Tab) => void;
+  setUiShellMode: (mode: UiShellMode) => void;
   setTheme: (theme: ThemeName) => void;
+  setUiLanguage: (language: UiLanguage) => void;
 
   // Lifecycle
   handleStart: () => Promise<void>;
@@ -951,10 +1142,12 @@ export interface AppActions {
   dismissBackendDisconnectedBanner: () => void;
   retryBackendConnection: () => void;
   restartBackend: () => Promise<void>;
+  dismissSystemWarning: (message: string) => void;
 
   // Chat
   handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
   handleChatStop: () => void;
+  handleChatRetry: (assistantMsgId: string) => void;
   handleChatClear: () => Promise<void>;
   handleNewConversation: () => Promise<void>;
   setChatPendingImages: React.Dispatch<React.SetStateAction<ImageAttachment[]>>;
@@ -1010,8 +1203,35 @@ export interface AppActions {
   loadInventory: () => Promise<void>;
   loadBalances: () => Promise<void>;
   loadNfts: () => Promise<void>;
+  executeBscTrade: (
+    request: BscTradeExecuteRequest,
+  ) => Promise<BscTradeExecuteResponse>;
+  executeBscTransfer: (
+    request: BscTransferExecuteRequest,
+  ) => Promise<BscTransferExecuteResponse>;
+  getBscTradePreflight: (
+    tokenAddress?: string,
+  ) => Promise<BscTradePreflightResponse>;
+  getBscTradeQuote: (
+    request: BscTradeQuoteRequest,
+  ) => Promise<BscTradeQuoteResponse>;
+  getBscTradeTxStatus: (hash: string) => Promise<BscTradeTxStatusResponse>;
+  loadWalletTradingProfile: (
+    window?: WalletTradingProfileWindow,
+    source?: WalletTradingProfileSourceFilter,
+  ) => Promise<WalletTradingProfileResponse>;
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
+
+  // BSC Trading (optional — dynamically injected)
+  getBscTradePreflight?: () => Promise<void>;
+  getBscTradeQuote?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeQuoteResponse>;
+  executeBscTrade?: (
+    request?: Partial<BscTradeQuoteRequest>,
+  ) => Promise<BscTradeExecuteResponse>;
+  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 
   // Registry / Drop
   loadRegistryStatus: () => Promise<void>;
@@ -1093,7 +1313,10 @@ export function useApp(): AppContextValue {
 export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
   const [tab, setTabRaw] = useState<Tab>("chat");
+  const [uiShellMode, setUiShellModeState] =
+    useState<UiShellMode>(loadUiShellMode);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
+  const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -1135,6 +1358,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     backendDisconnectedBannerDismissed,
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
+  const [systemWarnings, setSystemWarnings] = useState<string[]>([]);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -1147,11 +1371,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatFirstTokenReceived, setChatFirstTokenReceived] = useState(false);
+  const [chatLastUsage, setChatLastUsage] = useState<ChatTurnUsage | null>(
+    null,
+  );
   const [chatAvatarVisible, setChatAvatarVisible] = useState(
     loadChatAvatarVisible,
   );
   const [chatAgentVoiceMuted, setChatAgentVoiceMuted] =
     useState(loadChatVoiceMuted);
+  const [chatMode, setChatMode] = useState<ConversationMode>(loadChatMode);
   const [chatAvatarSpeaking, setChatAvatarSpeaking] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<
@@ -1208,6 +1436,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveChatVoiceMuted(chatAgentVoiceMuted);
   }, [chatAgentVoiceMuted]);
+
+  useEffect(() => {
+    saveChatMode(chatMode);
+  }, [chatMode]);
 
   // --- Triggers ---
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
@@ -1294,6 +1526,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [inventorySort, setInventorySort] = useState<
     "chain" | "symbol" | "value"
   >("value");
+  const [inventoryChainFocus, setInventoryChainFocus] = useState<"bsc" | "all">(
+    "bsc",
+  );
   const [walletError, setWalletError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
@@ -1335,6 +1570,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [characterDraft, setCharacterDraft] = useState<CharacterData>({});
   const [selectedVrmIndex, setSelectedVrmIndexRaw] = useState(loadAvatarIndex);
   const [customVrmUrl, setCustomVrmUrl] = useState("");
+  const [customBackgroundUrl, setCustomBackgroundUrl] = useState("");
 
   // Wrap setter to also persist to localStorage
   const setSelectedVrmIndex = useCallback((v: number) => {
@@ -1435,6 +1671,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("");
+  const [onboardingOwnerName, setOnboardingOwnerName] = useState("anon");
+  const [onboardingSetupMode, setOnboardingSetupMode] = useState<
+    "" | "quick" | "advanced"
+  >("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
   const [onboardingRunMode, setOnboardingRunMode] = useState<
@@ -1625,6 +1865,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Sync to server so headless stream capture uses the same theme
     client.saveStreamSettings({ theme: name }).catch(() => {});
   }, []);
+
+  const setUiLanguage = useCallback(
+    (language: UiLanguage) => {
+      const nextLanguage = normalizeLanguage(language);
+      setUiLanguageState(nextLanguage);
+      void client.updateConfig({ ui: { language: nextLanguage } }).catch(() => {
+        setActionNotice(
+          translateText(nextLanguage, "settings.languageSyncFailed"),
+          "error",
+          3200,
+        );
+      });
+    },
+    [setActionNotice],
+  );
+
+  useEffect(() => {
+    saveUiLanguage(uiLanguage);
+    if (
+      typeof (client as unknown as { setUiLanguage?: unknown })
+        .setUiLanguage === "function"
+    ) {
+      (
+        client as unknown as { setUiLanguage: (lang: string) => void }
+      ).setUiLanguage(uiLanguage);
+    }
+  }, [uiLanguage]);
+
+  const setUiShellMode = useCallback((mode: UiShellMode) => {
+    setUiShellModeState(normalizeUiShellMode(mode));
+  }, []);
+
+  useEffect(() => {
+    saveUiShellMode(uiShellMode);
+  }, [uiShellMode]);
 
   // ── Navigation ─────────────────────────────────────────────────────
 
@@ -2051,6 +2326,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWalletNftsLoading(false);
   }, []);
 
+  const getBscTradePreflight = useCallback(
+    async (tokenAddress?: string): Promise<BscTradePreflightResponse> =>
+      client.getBscTradePreflight(tokenAddress),
+    [],
+  );
+
+  const getBscTradeQuote = useCallback(
+    async (request: BscTradeQuoteRequest): Promise<BscTradeQuoteResponse> =>
+      client.getBscTradeQuote(request),
+    [],
+  );
+
+  const getBscTradeTxStatus = useCallback(
+    async (hash: string): Promise<BscTradeTxStatusResponse> =>
+      client.getBscTradeTxStatus(hash),
+    [],
+  );
+
+  const loadWalletTradingProfile = useCallback(
+    async (
+      window: WalletTradingProfileWindow = "30d",
+      source: WalletTradingProfileSourceFilter = "all",
+    ): Promise<WalletTradingProfileResponse> =>
+      client.getWalletTradingProfile(window, source),
+    [],
+  );
+
+  const executeBscTrade = useCallback(
+    async (request: BscTradeExecuteRequest): Promise<BscTradeExecuteResponse> =>
+      client.executeBscTrade(request),
+    [],
+  );
+
+  const executeBscTransfer = useCallback(
+    async (
+      request: BscTransferExecuteRequest,
+    ): Promise<BscTransferExecuteResponse> =>
+      client.executeBscTransfer(request),
+    [],
+  );
+
   const loadInventory = useCallback(async () => {
     await loadWalletConfig();
   }, [loadWalletConfig]);
@@ -2292,6 +2608,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAgentStatus(s);
       setPendingRestart(false);
       setPendingRestartReasons([]);
+      void loadPlugins();
       setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
     } catch (err) {
       setActionNotice(
@@ -2316,6 +2633,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     beginLifecycleAction,
     finishLifecycleAction,
     setActionNotice,
+    loadPlugins,
   ]);
 
   const dismissRestartBanner = useCallback(() => {
@@ -2334,6 +2652,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const retryBackendConnection = useCallback(() => {
     setBackendDisconnectedBannerDismissed(false);
     client.resetConnection();
+  }, []);
+
+  const dismissSystemWarning = useCallback((message: string) => {
+    setSystemWarnings((prev) => prev.filter((m) => m !== message));
   }, []);
 
   const restartBackend = useCallback(async () => {
@@ -2817,6 +3139,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
               return changed ? next : prev;
             });
           }
+          // Capture token usage from the stream response
+          if (data.usage) {
+            setChatLastUsage({
+              promptTokens: data.usage.promptTokens,
+              completionTokens: data.usage.completionTokens,
+              totalTokens: data.usage.totalTokens,
+              model: data.usage.model,
+              updatedAt: Date.now(),
+            });
+          }
+
+          // Mark interrupted if stream ended without a "done" event
+          if (!data.completed && streamedAssistantText.trim()) {
+            setConversationMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMsgId
+                  ? { ...message, interrupted: true }
+                  : message,
+              ),
+            );
+          }
           void loadConversations();
         } catch (err) {
           const abortError = err as Error;
@@ -3016,6 +3359,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       client.stopCodingAgent(session.sessionId).catch(() => {});
     }
   }, [ptySessions]);
+
+  const handleChatRetry = useCallback(
+    (assistantMsgId: string) => {
+      setConversationMessages((prev) => {
+        // Find the interrupted assistant message
+        const assistantIdx = prev.findIndex(
+          (m) => m.id === assistantMsgId && m.role === "assistant",
+        );
+        if (assistantIdx < 0) return prev;
+
+        // Find the preceding user message
+        let userMsg: ConversationMessage | null = null;
+        for (let i = assistantIdx - 1; i >= 0; i--) {
+          if (prev[i].role === "user") {
+            userMsg = prev[i];
+            break;
+          }
+        }
+        if (!userMsg) return prev;
+
+        // Remove the interrupted assistant message
+        const next = prev.filter((m) => m.id !== assistantMsgId);
+
+        // Re-send the user's text by setting the input and triggering send
+        // (done outside setConversationMessages via queueMicrotask to avoid nested updates)
+        const retryText = userMsg.text;
+        queueMicrotask(() => {
+          setChatInput(retryText);
+          // Small delay to let state settle before triggering send
+          setTimeout(() => handleChatSend(), 50);
+        });
+
+        return next;
+      });
+    },
+    [handleChatSend],
+  );
 
   const handleChatClear = useCallback(async () => {
     const convId = activeConversationId;
@@ -3907,7 +4287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     const systemPrompt = style?.system
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
-      : `You are ${onboardingName}, an autonomous AI agent powered by ElizaOS. ${onboardingOptions.sharedStyleRules}`;
+      : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
 
     const isLocalMode =
       onboardingRunMode === "local-rawdog" ||
@@ -4029,6 +4409,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setOnboardingStep("name");
           break;
         case "name":
+          setOnboardingStep("ownerName");
+          break;
+        case "ownerName":
           setOnboardingStep("avatar");
           break;
         case "avatar":
@@ -4047,12 +4430,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ) {
             setOnboardingStep("mint");
           } else {
-            setOnboardingStep("runMode");
+            setOnboardingStep("setupMode");
           }
           break;
         }
         case "mint":
-          setOnboardingStep("runMode");
+          setOnboardingStep("setupMode");
+          break;
+        case "setupMode":
+          if (onboardingSetupMode === "quick") {
+            // Quick path: skip directly to LLM provider
+            setOnboardingStep("llmProvider");
+          } else {
+            // Advanced path: go through runMode, etc.
+            setOnboardingStep("runMode");
+          }
           break;
         case "runMode":
           if (onboardingRunMode === "cloud") {
@@ -4084,7 +4476,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setOnboardingStep("connectors");
           break;
         case "llmProvider":
-          setOnboardingStep("inventorySetup");
+          if (onboardingSetupMode === "quick") {
+            setOnboardingStep("permissions");
+          } else {
+            setOnboardingStep("inventorySetup");
+          }
           break;
         case "inventorySetup":
           setOnboardingStep("connectors");
@@ -4130,6 +4526,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingOptions,
       onboardingRunMode,
       onboardingTheme,
+      onboardingSetupMode,
       setTheme,
       cloudConnected,
       setActionNotice,
@@ -4145,8 +4542,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "name":
         setOnboardingStep("welcome");
         break;
-      case "avatar":
+      case "ownerName":
         setOnboardingStep("name");
+        break;
+      case "avatar":
+        setOnboardingStep("ownerName");
         break;
       case "style":
         setOnboardingStep("avatar");
@@ -4157,7 +4557,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "mint":
         setOnboardingStep("theme");
         break;
-      case "runMode":
+      case "setupMode":
         if (
           dropStatus?.dropEnabled &&
           !dropStatus.userHasMinted &&
@@ -4167,6 +4567,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           setOnboardingStep("theme");
         }
+        break;
+      case "runMode":
+        setOnboardingStep("setupMode");
         break;
       case "cloudProvider":
         setOnboardingStep("runMode");
@@ -4188,7 +4591,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOnboardingStep("runMode");
         break;
       case "llmProvider":
-        if (onboardingRunMode === "local-sandbox") {
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("setupMode");
+        } else if (onboardingRunMode === "local-sandbox") {
           setOnboardingStep("dockerSetup");
         } else {
           setOnboardingStep("runMode");
@@ -4206,12 +4611,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         break;
       case "permissions":
-        setOnboardingStep("connectors");
+        if (onboardingSetupMode === "quick") {
+          setOnboardingStep("llmProvider");
+        } else {
+          setOnboardingStep("connectors");
+        }
         break;
     }
   }, [
     onboardingStep,
     onboardingRunMode,
+    onboardingSetupMode,
     dropStatus?.dropEnabled,
     dropStatus?.userHasMinted,
     dropStatus?.mintedOut,
@@ -4446,7 +4856,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatInput: setChatInput,
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
+        chatLastUsage: setChatLastUsage,
+        chatMode: setChatMode,
         chatAvatarSpeaking: setChatAvatarSpeaking,
+        uiShellMode: setUiShellModeState,
+        uiLanguage: setUiLanguageState,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
         pairingCodeInput: setPairingCodeInput,
@@ -4466,6 +4880,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logSourceFilter: setLogSourceFilter,
         inventoryView: setInventoryView,
         inventorySort: setInventorySort,
+        inventoryChainFocus: setInventoryChainFocus,
         exportPassword: setExportPassword,
         exportIncludeLogs: setExportIncludeLogs,
         exportError: setExportError,
@@ -4475,6 +4890,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         importError: setImportError,
         importSuccess: setImportSuccess,
         onboardingName: setOnboardingName,
+        onboardingOwnerName: setOnboardingOwnerName,
+        onboardingSetupMode: setOnboardingSetupMode,
         onboardingStyle: setOnboardingStyle,
         onboardingTheme: setOnboardingTheme,
         onboardingRunMode: setOnboardingRunMode,
@@ -4504,6 +4921,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cloudEnabled: setCloudEnabled,
         selectedVrmIndex: setSelectedVrmIndex,
         customVrmUrl: setCustomVrmUrl,
+        customBackgroundUrl: setCustomBackgroundUrl,
         commandQuery: setCommandQuery,
         commandActiveIndex: setCommandActiveIndex,
         emotePickerOpen: setEmotePickerOpen,
@@ -5012,6 +5430,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hydratePtySessions();
       });
 
+      // Surface system-level warnings (connector failures, wiring exhaustion, etc.)
+      client.onWsEvent("system-warning", (data: Record<string, unknown>) => {
+        const message = typeof data.message === "string" ? data.message : "";
+        if (message) {
+          setSystemWarnings((prev) =>
+            prev.includes(message) ? prev : [...prev, message],
+          );
+        }
+      });
+
       // Re-hydrate when the tab becomes visible — browsers may throttle
       // or drop WS messages for background tabs.
       handleVisibilityRef = () => {
@@ -5287,6 +5715,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           setSelectedVrmIndex(1);
         }
+        // Restore custom background if one was uploaded
+        const hasBg = await client.hasCustomBackground();
+        if (hasBg) {
+          setCustomBackgroundUrl(
+            resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
+          );
+        }
       }
 
       // Cloud polling
@@ -5409,7 +5844,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     // State
     tab,
+    uiShellMode,
     currentTheme,
+    uiLanguage,
     connected,
     agentStatus,
     onboardingComplete,
@@ -5423,6 +5860,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pendingRestart,
     pendingRestartReasons,
     restartBannerDismissed,
+    backendConnection,
+    backendDisconnectedBannerDismissed,
     pairingEnabled,
     pairingExpiresAt,
     pairingCodeInput,
@@ -5431,8 +5870,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     chatInput,
     chatSending,
     chatFirstTokenReceived,
+    chatLastUsage,
     chatAvatarVisible,
     chatAgentVoiceMuted,
+    chatMode,
     chatAvatarSpeaking,
     conversations,
     activeConversationId,
@@ -5489,6 +5930,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     walletExportVisible,
     walletApiKeySaving,
     inventorySort,
+    inventoryChainFocus,
     walletError,
     registryStatus,
     registryLoading,
@@ -5513,6 +5955,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     characterDraft,
     selectedVrmIndex,
     customVrmUrl,
+    customBackgroundUrl,
     cloudEnabled,
     cloudConnected,
     cloudCredits,
@@ -5566,6 +6009,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingStep,
     onboardingOptions,
     onboardingName,
+    onboardingOwnerName,
+    onboardingSetupMode,
     onboardingStyle,
     onboardingTheme,
     onboardingRunMode,
@@ -5626,7 +6071,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Actions
     setTab,
+    setUiShellMode,
     setTheme,
+    setUiLanguage,
     handleStart,
     handleStop,
     handlePauseResume,
@@ -5635,13 +6082,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     retryStartup,
     dismissRestartBanner,
     triggerRestart,
-    backendConnection,
-    backendDisconnectedBannerDismissed,
     dismissBackendDisconnectedBanner,
     retryBackendConnection,
     restartBackend,
+    systemWarnings,
+    dismissSystemWarning,
     handleChatSend,
     handleChatStop,
+    handleChatRetry,
     handleChatClear,
     handleNewConversation,
     setChatPendingImages,
@@ -5676,6 +6124,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadInventory,
     loadBalances,
     loadNfts,
+    executeBscTrade,
+    executeBscTransfer,
+    getBscTradePreflight,
+    getBscTradeQuote,
+    getBscTradeTxStatus,
+    loadWalletTradingProfile,
     handleWalletApiKeySave,
     handleExportKeys,
     loadRegistryStatus,

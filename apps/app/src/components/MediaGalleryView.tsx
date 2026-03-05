@@ -65,7 +65,7 @@ function extractMediaFromRows(
     for (const val of Object.values(row)) {
       if (typeof val !== "string") continue;
 
-      // Try parsing as JSON content field (ElizaOS memories store JSON in content)
+      // Try parsing as JSON content field (elizaOS memories store JSON in content)
       const urls = extractUrlsFromValue(val);
       for (const url of urls) {
         const mediaType = classifyUrl(url);

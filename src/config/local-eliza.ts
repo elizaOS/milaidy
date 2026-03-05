@@ -1,7 +1,7 @@
 /**
- * Local ElizaOS installation utilities.
+ * Local elizaOS installation utilities.
  *
- * Provides functions to detect and resolve the local ElizaOS monorepo
+ * Provides functions to detect and resolve the local elizaOS monorepo
  * at ~/.milady/eliza for development purposes.
  *
  * @module config/local-eliza
@@ -29,14 +29,14 @@ const CORE_PACKAGE_PATH = join(ELIZA_DIR, "packages", "typescript");
 const SETUP_MARKER_PATH = join(MILADY_DIR, ".local-eliza-setup");
 
 /**
- * Check if local ElizaOS is set up at ~/.milady/eliza.
+ * Check if local elizaOS is set up at ~/.milady/eliza.
  */
 export function hasLocalEliza(): boolean {
   return existsSync(SETUP_MARKER_PATH) && existsSync(CORE_PACKAGE_PATH);
 }
 
 /**
- * Get the path to the local ElizaOS monorepo.
+ * Get the path to the local elizaOS monorepo.
  * Returns null if not set up.
  */
 export function getLocalElizaPath(): string | null {

@@ -18,6 +18,8 @@ apps/app/electron/tsc-out/
 # TypeScript declaration build outputs inside source dirs
 packages/*/src/**/*.d.ts
 packages/*/src/**/*.d.ts.map
+src/plugins/**/*.d.ts
+src/plugins/**/*.d.ts.map
 
 # Lock files (managed at repo root)
 package-lock.json
@@ -82,7 +84,7 @@ apps/app/test-results/
 /auth/
 :memory:/
 benchmarks/
-plugins/
+/plugins/
 !docs/plugins/
 
 # Electron build directories

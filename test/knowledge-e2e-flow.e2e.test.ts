@@ -111,12 +111,7 @@ describe("knowledge API endpoints", () => {
   });
 
   it("POST /api/knowledge/documents validates required fields", async () => {
-    const { status } = await req(
-      port,
-      "POST",
-      "/api/knowledge/documents",
-      {},
-    );
+    const { status } = await req(port, "POST", "/api/knowledge/documents", {});
     // Missing content/filename should be rejected
     expect([400, 500, 503]).toContain(status);
   });

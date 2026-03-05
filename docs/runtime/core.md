@@ -46,7 +46,7 @@ const runtime = new AgentRuntime({
 
 | Setting Key | Source | Description |
 |---|---|---|
-| `VALIDATION_LEVEL` | Hardcoded | Set to `"fast"` — controls ElizaOS validation depth |
+| `VALIDATION_LEVEL` | Hardcoded | Set to `"fast"` — controls elizaOS validation depth |
 | `MODEL_PROVIDER` | `agents.defaults.model.primary` | Primary model selection (e.g., `"anthropic/claude-sonnet-4-5"`) |
 | `BUNDLED_SKILLS_DIRS` | `@elizaos/skills` package | Absolute path to bundled skills directory |
 | `WORKSPACE_SKILLS_DIR` | workspace path + `/skills` | Per-agent skills override directory |

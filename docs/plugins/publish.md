@@ -12,7 +12,7 @@ Choose a package name that follows the established convention:
 
 | Scope | Pattern | Example |
 |-------|---------|---------|
-| Official ElizaOS | `@elizaos/plugin-{name}` | `@elizaos/plugin-openai` |
+| Official elizaOS | `@elizaos/plugin-{name}` | `@elizaos/plugin-openai` |
 | Community (scoped) | `@yourorg/plugin-{name}` | `@acme/plugin-analytics` |
 | Community (unscoped) | `elizaos-plugin-{name}` | `elizaos-plugin-weather` |
 
@@ -84,7 +84,7 @@ Follow [Semantic Versioning](https://semver.org/):
 | Bug fixes only | Patch (`1.0.0` → `1.0.1`) |
 | Breaking API change | Major (`1.0.0` → `2.0.0`) |
 
-For plugins targeting the ElizaOS `next` release line, use prerelease versions:
+For plugins targeting the elizaOS `next` release line, use prerelease versions:
 
 ```bash
 npm version prerelease --preid=next
@@ -123,7 +123,7 @@ Check that the output includes only `dist/`, `elizaos.plugin.json`, `package.jso
 npm publish --access public
 ```
 
-For prerelease versions targeting the ElizaOS `next` release line:
+For prerelease versions targeting the elizaOS `next` release line:
 
 ```bash
 npm publish --access public --tag next

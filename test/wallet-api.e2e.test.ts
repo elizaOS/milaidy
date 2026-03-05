@@ -174,7 +174,7 @@ describe("Wallet API E2E", () => {
       expect(data.solanaAddress).toBeDefined();
     });
 
-    it("reports correct chain list", async () => {
+    it("reports correct chain list including BSC", async () => {
       const { data } = await req(port, "GET", "/api/wallet/config");
       const chains = data.evmChains as string[];
       expect(chains).toContain("Ethereum");
@@ -182,6 +182,14 @@ describe("Wallet API E2E", () => {
       expect(chains).toContain("Arbitrum");
       expect(chains).toContain("Optimism");
       expect(chains).toContain("Polygon");
+      expect(chains).toContain("BSC");
+    });
+
+    it("reports BSC RPC readiness flags", async () => {
+      const { data } = await req(port, "GET", "/api/wallet/config");
+      expect(typeof data.nodeRealBscRpcSet).toBe("boolean");
+      expect(typeof data.quickNodeBscRpcSet).toBe("boolean");
+      expect(typeof data.managedBscRpcReady).toBe("boolean");
     });
   });
 
@@ -193,6 +201,9 @@ describe("Wallet API E2E", () => {
     const realHelius = process.env.HELIUS_API_KEY;
     const realBirdeye = process.env.BIRDEYE_API_KEY;
     const realSolanaRpc = process.env.SOLANA_RPC_URL;
+    const realNodeRealBsc = process.env.NODEREAL_BSC_RPC_URL;
+    const realQuickNodeBsc = process.env.QUICKNODE_BSC_RPC_URL;
+    const realBscRpc = process.env.BSC_RPC_URL;
 
     afterAll(() => {
       // Restore real keys so subsequent balance/NFT tests can use them
@@ -204,6 +215,13 @@ describe("Wallet API E2E", () => {
       else delete process.env.BIRDEYE_API_KEY;
       if (realSolanaRpc) process.env.SOLANA_RPC_URL = realSolanaRpc;
       else delete process.env.SOLANA_RPC_URL;
+      if (realNodeRealBsc) process.env.NODEREAL_BSC_RPC_URL = realNodeRealBsc;
+      else delete process.env.NODEREAL_BSC_RPC_URL;
+      if (realQuickNodeBsc)
+        process.env.QUICKNODE_BSC_RPC_URL = realQuickNodeBsc;
+      else delete process.env.QUICKNODE_BSC_RPC_URL;
+      if (realBscRpc) process.env.BSC_RPC_URL = realBscRpc;
+      else delete process.env.BSC_RPC_URL;
     });
 
     it("saves API keys and returns ok", async () => {
@@ -246,6 +264,31 @@ describe("Wallet API E2E", () => {
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
       expect(process.env.UNKNOWN_KEY).toBeUndefined();
+    });
+
+    it("saves BSC RPC URLs and reflects in config", async () => {
+      const { status, data } = await req(port, "PUT", "/api/wallet/config", {
+        NODEREAL_BSC_RPC_URL: "https://bsc-mainnet.nodereal.io/v1/test-key",
+        QUICKNODE_BSC_RPC_URL: "https://bsc.quiknode.pro/test-key",
+        BSC_RPC_URL: "https://bsc-dataseed.binance.org",
+      });
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+
+      // Verify env vars were set
+      expect(process.env.NODEREAL_BSC_RPC_URL).toBe(
+        "https://bsc-mainnet.nodereal.io/v1/test-key",
+      );
+      expect(process.env.QUICKNODE_BSC_RPC_URL).toBe(
+        "https://bsc.quiknode.pro/test-key",
+      );
+      expect(process.env.BSC_RPC_URL).toBe("https://bsc-dataseed.binance.org");
+
+      // Verify reflected in GET /api/wallet/config
+      const { data: config } = await req(port, "GET", "/api/wallet/config");
+      expect(config.nodeRealBscRpcSet).toBe(true);
+      expect(config.quickNodeBscRpcSet).toBe(true);
+      expect(config.managedBscRpcReady).toBe(true);
     });
   });
 

@@ -60,7 +60,7 @@ Returns the available options for the onboarding wizard — random name suggesti
   "cloudProviders": [
     {
       "id": "elizacloud",
-      "label": "ElizaOS Cloud"
+      "label": "elizaOS Cloud"
     }
   ],
   "models": [

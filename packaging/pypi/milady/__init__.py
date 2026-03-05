@@ -1,5 +1,5 @@
 """
-milady — Dynamic loader for Milady, a personal AI assistant built on ElizaOS.
+milady — Dynamic loader for Milady, a personal AI assistant built on elizaOS.
 
 This package provides a Python entry point that dynamically loads and runs
 the Milady Node.js runtime. It handles Node.js detection, automatic

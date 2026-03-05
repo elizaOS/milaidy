@@ -11,7 +11,7 @@
 #   brew install --cask milaidy
 
 class Milaidy < Formula
-  desc "Personal AI assistant built on ElizaOS"
+  desc "Personal AI assistant built on elizaOS"
   homepage "https://github.com/milady-ai/milaidy"
   url "https://registry.npmjs.org/milaidy/-/milaidy-2.0.0-alpha.21.tgz"
   sha256 "PLACEHOLDER_SHA256"

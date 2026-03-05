@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   classify:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       category: ${{ steps.classify.outputs.category }}
     steps:
@@ -66,7 +66,7 @@ jobs:
   review-pr:
     if: github.event_name == 'pull_request_target'
     needs: classify
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       verdict: ${{ steps.extract-verdict.outputs.verdict }}
       decision: ${{ steps.extract-verdict.outputs.decision }}
@@ -149,7 +149,7 @@ jobs:
             ## Review Protocol
 
             ### 1. Scope Check
-            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+            Milady is a personal AI assistant built on elizaOS. Contributions MUST be in scope:
 
             **IN SCOPE (welcome):**
             - Bug fixes (connector issues, crashes, regressions, error handling)
@@ -258,7 +258,7 @@ jobs:
             ## Review Protocol
 
             ### 1. Scope Check
-            Milady is a personal AI assistant built on ElizaOS. Contributions MUST be in scope:
+            Milady is a personal AI assistant built on elizaOS. Contributions MUST be in scope:
 
             **IN SCOPE (welcome):**
             - Bug fixes (connector issues, crashes, regressions, error handling)
@@ -387,7 +387,7 @@ jobs:
             }
 
             // Try to read Claude's execution output
-            const outputPath = '/home/runner/work/_temp/claude-execution-output.json';
+            const outputPath = `${process.env.RUNNER_TEMP || '/home/runner/work/_temp'}/claude-execution-output.json`;
             let reviewBody = '';
 
             if (fs.existsSync(outputPath)) {
@@ -579,7 +579,7 @@ jobs:
   review-postprocess:
     if: github.event_name == 'pull_request_target'
     needs: [classify, review-pr]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read        # read-only — trust scores are never written by CI
       pull-requests: write
@@ -791,7 +791,7 @@ jobs:
     name: Auto-merge approved PRs
     needs: [classify, review-pr]
     if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'approve' && github.event.pull_request.base.ref != 'main'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
       pull-requests: write
@@ -872,8 +872,8 @@ jobs:
   close-pr:
     name: Close PRs with CLOSE verdict
     needs: [review-pr]
-    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'close' && !contains(github.event.pull_request.labels.*.name, 'skip-auto-close')
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       pull-requests: write
       issues: write
@@ -894,7 +894,7 @@ jobs:
   triage-issue:
     if: github.event_name == 'issues'
     needs: classify
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       issues: write

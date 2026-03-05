@@ -25,6 +25,14 @@ import type { DropStatus, MintResult } from "../../../src/contracts/drop";
 import type { StylePreset } from "../../../src/contracts/onboarding";
 import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -34,6 +42,10 @@ import type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  TradePermissionMode as WalletTradePermissionMode,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
 } from "../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
@@ -62,6 +74,14 @@ export type {
 };
 export type { StylePreset };
 export type {
+  BscTradeExecuteRequest,
+  BscTradeExecuteResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
+  BscTradePreflightResponse,
+  BscTradeQuoteRequest,
+  BscTradeQuoteResponse,
+  BscTradeTxStatusResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -71,6 +91,12 @@ export type {
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
+  WalletTradingProfileResponse,
+  WalletTradingProfileSourceFilter,
+  WalletTradingProfileWindow,
+  BscTradeExecuteRequest,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
 };
 export type { DropStatus, MintResult };
 export type { VerificationResult };
@@ -177,6 +203,68 @@ export interface AgentStatus {
   pendingRestart?: boolean;
   pendingRestartReasons?: string[];
   startup?: AgentStartupDiagnostics;
+}
+
+export type AgentAutomationMode = "connectors-only" | "full";
+export type TradePermissionMode = WalletTradePermissionMode;
+
+export interface AgentAutomationModeResponse {
+  mode: AgentAutomationMode;
+  options: AgentAutomationMode[];
+}
+
+export interface TradePermissionModeResponse {
+  mode: TradePermissionMode;
+  options: TradePermissionMode[];
+}
+
+export interface ApplyProductionWalletDefaultsResponse {
+  ok: boolean;
+  profile: "pure-privy-safe";
+  walletMode: "privy";
+  tradePermissionMode: "user-sign-only";
+  bscExecutionEnabled: false;
+  clearedSecrets: string[];
+}
+
+export interface AgentSelfStatusSnapshot {
+  generatedAt: string;
+  state: AgentState;
+  agentName: string;
+  model: string | null;
+  provider: string | null;
+  automationMode: AgentAutomationMode;
+  tradePermissionMode: TradePermissionMode;
+  shellEnabled: boolean;
+  wallet: {
+    mode: "privy" | "hybrid";
+    evmAddress: string | null;
+    evmAddressShort: string | null;
+    solanaAddress: string | null;
+    solanaAddressShort: string | null;
+    hasWallet: boolean;
+    hasEvm: boolean;
+    hasSolana: boolean;
+    localSignerAvailable: boolean;
+    managedBscRpcReady: boolean;
+  };
+  plugins: {
+    totalActive: number;
+    active: string[];
+    aiProviders: string[];
+    connectors: string[];
+  };
+  capabilities: {
+    canTrade: boolean;
+    canLocalTrade: boolean;
+    canAutoTrade: boolean;
+    canUseBrowser: boolean;
+    canUseComputer: boolean;
+    canRunTerminal: boolean;
+    canInstallPlugins: boolean;
+    canConfigurePlugins: boolean;
+    canConfigureConnectors: boolean;
+  };
 }
 
 // WebSocket connection state tracking
@@ -490,6 +578,17 @@ export interface OnboardingData {
   githubToken?: string;
 }
 
+export interface SubscriptionProviderStatus {
+  provider: string;
+  configured: boolean;
+  valid: boolean;
+  expiresAt: number | null;
+}
+
+export interface SubscriptionStatusResponse {
+  providers: SubscriptionProviderStatus[];
+}
+
 export interface SandboxPlatformStatus {
   platform: string;
   arch?: string;
@@ -673,6 +772,8 @@ export interface ConversationMessage {
   source?: string;
   /** Username of the sender (e.g. retake viewer username, discord username). */
   from?: string;
+  /** True when the SSE stream was interrupted before receiving a "done" event. */
+  interrupted?: boolean;
 }
 
 export type ConversationChannelType =
@@ -681,6 +782,16 @@ export type ConversationChannelType =
   | "VOICE_DM"
   | "VOICE_GROUP"
   | "API";
+
+export interface ChatTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  llmCalls?: number;
+  model?: string;
+}
+
+export type ConversationMode = "simple" | "power";
 
 export interface SkillInfo {
   id: string;
@@ -1763,6 +1874,15 @@ export class MiladyClient {
   >();
   private readonly maxReconnectAttempts = 15;
 
+  // UI language propagation — set by AppContext so the backend can
+  // localise responses when needed.
+  private _uiLanguage: string | null = null;
+
+  /** Store the current UI language so it can be sent as a header on every request. */
+  setUiLanguage(lang: string): void {
+    this._uiLanguage = lang || null;
+  }
+
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
@@ -1888,6 +2008,9 @@ export class MiladyClient {
           headers: {
             "X-Milady-Client-Id": this.clientId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(this._uiLanguage
+              ? { "X-Milady-UI-Language": this._uiLanguage }
+              : {}),
             ...init?.headers,
           },
         });
@@ -1951,6 +2074,10 @@ export class MiladyClient {
     return this.fetch("/api/status");
   }
 
+  async getAgentSelfStatus(): Promise<AgentSelfStatusSnapshot> {
+    return this.fetch("/api/agent/self-status");
+  }
+
   async getRuntimeSnapshot(opts?: {
     depth?: number;
     maxArrayLength?: number;
@@ -1971,6 +2098,24 @@ export class MiladyClient {
     }
     const qs = params.toString();
     return this.fetch(`/api/runtime${qs ? `?${qs}` : ""}`);
+  }
+
+  async setAutomationMode(
+    mode: "connectors-only" | "full",
+  ): Promise<{ mode: string }> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  async setTradeMode(
+    mode: string,
+  ): Promise<{ ok: boolean; tradePermissionMode: string }> {
+    return this.fetch("/api/permissions/trade-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   async playEmote(emoteId: string): Promise<{ ok: boolean }> {
@@ -2058,15 +2203,8 @@ export class MiladyClient {
     });
   }
 
-  async getSubscriptionStatus(): Promise<{
-    providers: Array<{
-      provider: string;
-      configured: boolean;
-      valid: boolean;
-      expiresAt: number | null;
-    }>;
-  }> {
-    return this.fetch("/api/subscription/status");
+  async getSubscriptionStatus(): Promise<SubscriptionStatusResponse> {
+    return this.fetch<SubscriptionStatusResponse>("/api/subscription/status");
   }
 
   async deleteSubscription(provider: string): Promise<{ success: boolean }> {
@@ -2243,6 +2381,31 @@ export class MiladyClient {
     try {
       const res = await this.rawRequest(
         "/api/avatar/vrm",
+        { method: "HEAD" },
+        { allowNonOk: true },
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── Custom background image ─────────────────────────────────────────
+
+  async uploadCustomBackground(file: File): Promise<void> {
+    const buf = await file.arrayBuffer();
+    await this.fetch("/api/avatar/background", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buf,
+    });
+  }
+
+  /** Uses raw fetch instead of this.fetch() because HEAD returns no JSON body. */
+  async hasCustomBackground(): Promise<boolean> {
+    try {
+      const res = await this.rawRequest(
+        "/api/avatar/background",
         { method: "HEAD" },
         { allowNonOk: true },
       );
@@ -2936,6 +3099,70 @@ export class MiladyClient {
     return this.fetch("/api/wallet/export", {
       method: "POST",
       body: JSON.stringify({ confirm: true, exportToken }),
+    });
+  }
+
+  // BSC Trading
+
+  async getBscTradePreflight(
+    tokenAddress?: string,
+  ): Promise<BscTradePreflightResponse> {
+    return this.fetch("/api/wallet/trade/preflight", {
+      method: "POST",
+      body: JSON.stringify(
+        tokenAddress?.trim() ? { tokenAddress: tokenAddress.trim() } : {},
+      ),
+    });
+  }
+
+  async getBscTradeQuote(
+    request: BscTradeQuoteRequest,
+  ): Promise<BscTradeQuoteResponse> {
+    return this.fetch("/api/wallet/trade/quote", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async executeBscTrade(
+    request: BscTradeExecuteRequest,
+  ): Promise<BscTradeExecuteResponse> {
+    return this.fetch("/api/wallet/trade/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async executeBscTransfer(
+    request: BscTransferExecuteRequest,
+  ): Promise<BscTransferExecuteResponse> {
+    return this.fetch("/api/wallet/transfer/execute", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getBscTradeTxStatus(hash: string): Promise<BscTradeTxStatusResponse> {
+    return this.fetch(
+      `/api/wallet/trade/tx-status?hash=${encodeURIComponent(hash)}`,
+    );
+  }
+
+  async getWalletTradingProfile(
+    window: WalletTradingProfileWindow = "30d",
+    source: WalletTradingProfileSourceFilter = "all",
+  ): Promise<WalletTradingProfileResponse> {
+    const params = new URLSearchParams({
+      window,
+      source,
+    });
+    return this.fetch(`/api/wallet/trading/profile?${params.toString()}`);
+  }
+
+  async applyProductionWalletDefaults(): Promise<ApplyProductionWalletDefaultsResponse> {
+    return this.fetch("/api/wallet/production-defaults", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
     });
   }
 
@@ -3715,7 +3942,12 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     const res = await this.rawRequest(path, {
       method: "POST",
       headers: {
@@ -3740,6 +3972,8 @@ export class MiladyClient {
     let fullText = "";
     let doneText: string | null = null;
     let doneAgentName: string | null = null;
+    let doneUsage: ChatTokenUsage | undefined;
+    let receivedDone = false;
 
     const findSseEventBreak = (
       chunkBuffer: string,
@@ -3765,15 +3999,15 @@ export class MiladyClient {
         fullText?: string;
         agentName?: string;
         message?: string;
+        usage?: {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+          model?: string;
+        };
       };
       try {
-        parsed = JSON.parse(payload) as {
-          type?: string;
-          text?: string;
-          fullText?: string;
-          agentName?: string;
-          message?: string;
-        };
+        parsed = JSON.parse(payload) as typeof parsed;
       } catch {
         return;
       }
@@ -3788,9 +4022,18 @@ export class MiladyClient {
       }
 
       if (parsed.type === "done") {
+        receivedDone = true;
         if (typeof parsed.fullText === "string") doneText = parsed.fullText;
         if (typeof parsed.agentName === "string" && parsed.agentName.trim()) {
           doneAgentName = parsed.agentName;
+        }
+        if (parsed.usage) {
+          doneUsage = {
+            promptTokens: parsed.usage.promptTokens ?? 0,
+            completionTokens: parsed.usage.completionTokens ?? 0,
+            totalTokens: parsed.usage.totalTokens ?? 0,
+            model: parsed.usage.model,
+          };
         }
         return;
       }
@@ -3807,10 +4050,16 @@ export class MiladyClient {
     };
 
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      let readResult: ReadableStreamReadResult<Uint8Array>;
+      try {
+        readResult = await reader.read();
+      } catch (streamErr) {
+        console.warn("[api-client] SSE stream interrupted:", streamErr);
+        break;
+      }
+      if (readResult.done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(readResult.value, { stream: true });
       let eventBreak = findSseEventBreak(buffer);
       while (eventBreak) {
         const rawEvent = buffer.slice(0, eventBreak.index);
@@ -3833,6 +4082,8 @@ export class MiladyClient {
     return {
       text: resolvedText,
       agentName: doneAgentName ?? "Milady",
+      completed: receivedDone,
+      ...(doneUsage ? { usage: doneUsage } : {}),
     };
   }
 
@@ -3862,7 +4113,12 @@ export class MiladyClient {
     onToken: (token: string) => void,
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     return this.streamChatEndpoint(
       "/api/chat/stream",
       text,
@@ -3924,7 +4180,12 @@ export class MiladyClient {
     channelType: ConversationChannelType = "DM",
     signal?: AbortSignal,
     images?: ImageAttachment[],
-  ): Promise<{ text: string; agentName: string }> {
+  ): Promise<{
+    text: string;
+    agentName: string;
+    completed: boolean;
+    usage?: ChatTokenUsage;
+  }> {
     return this.streamChatEndpoint(
       `/api/conversations/${encodeURIComponent(id)}/messages/stream`,
       text,
@@ -4212,6 +4473,44 @@ export class MiladyClient {
       "/api/permissions/shell",
     );
     return result.enabled;
+  }
+
+  /**
+   * Get agent automation permission mode.
+   */
+  async getAgentAutomationMode(): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode");
+  }
+
+  /**
+   * Set agent automation permission mode.
+   */
+  async setAgentAutomationMode(
+    mode: AgentAutomationMode,
+  ): Promise<AgentAutomationModeResponse> {
+    return this.fetch("/api/permissions/automation-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  /**
+   * Get wallet trade execution permission mode.
+   */
+  async getTradePermissionMode(): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode");
+  }
+
+  /**
+   * Set wallet trade execution permission mode.
+   */
+  async setTradePermissionMode(
+    mode: TradePermissionMode,
+  ): Promise<TradePermissionModeResponse> {
+    return this.fetch("/api/permissions/trade-mode", {
+      method: "PUT",
+      body: JSON.stringify({ mode }),
+    });
   }
 
   disconnectWs(): void {

@@ -1,69 +1,68 @@
 /* Milady — Theme System */
 
 /* ═══════════════════════════════════════════════════════════════════════
-   milady — miladymaker.net inspired: sage greens, warm cream, Y2K web
+   milady — light Binance-inspired: warm yellow gradient + clean light UI
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root,
 [data-theme="milady"] {
-  /* Backgrounds — white base so components stay clean;
-     the green-to-white gradient lives on #root (see below) */
+  /* Backgrounds — keep original light feel */
   --bg: #ffffff;
-  --bg-accent: #f0f4ee;
-  --bg-elevated: #fafcf9;
-  --bg-hover: #eaf0e8;
-  --bg-muted: #f4f7f3;
+  --bg-accent: #faf7ec;
+  --bg-elevated: #fffdf6;
+  --bg-hover: #f8f1d7;
+  --bg-muted: #fcf9ef;
 
-  --card: #fafcf9;
-  --card-foreground: #2d4a3e;
+  --card: #fffdf6;
+  --card-foreground: #1e2329;
   --surface: #ffffff;
 
-  /* Text — forest greens */
-  --text: #2d4a3e;
-  --text-strong: #1a332b;
-  --chat-text: #2d4a3e;
-  --muted: #6b8e7a;
-  --muted-strong: #4d7362;
+  /* Text — dark neutral for readability on light surface */
+  --text: #1e2329;
+  --text-strong: #11161c;
+  --chat-text: #1e2329;
+  --muted: #6d737a;
+  --muted-strong: #4d535a;
 
-  /* Borders — bold forest green, not pastel */
-  --border: #5b8350;
-  --border-strong: #3d6b3a;
-  --border-hover: #2d5228;
-  --input: #5b8350;
-  --ring: #2d5228;
+  /* Borders */
+  --border: #d6d3c6;
+  --border-strong: #b8b29f;
+  --border-hover: #f0b90b;
+  --input: #d6d3c6;
+  --ring: #f0b90b;
 
-  /* Accent — signature milady green */
-  --accent: #4a7c59;
-  --accent-hover: #3d6b4a;
-  --accent-muted: #6b9e7a;
-  --accent-subtle: rgba(74, 124, 89, 0.1);
-  --accent-foreground: #f5f2eb;
-  --primary: #4a7c59;
-  --primary-foreground: #f5f2eb;
+  /* Accent — Binance yellow on light mode */
+  --accent: #f0b90b;
+  --accent-hover: #d8a108;
+  --accent-muted: #d8a108;
+  --accent-subtle: rgba(240, 185, 11, 0.12);
+  --accent-foreground: #1a1f26;
+  --primary: #f0b90b;
+  --primary-foreground: #1a1f26;
 
-  /* Status — warm-shifted to harmonise with green palette */
-  --ok: #4a7c59;
-  --ok-muted: rgba(74, 124, 89, 0.7);
-  --ok-subtle: rgba(74, 124, 89, 0.08);
-  --destructive: #c44536;
-  --destructive-foreground: #f5f2eb;
-  --destructive-subtle: rgba(196, 69, 54, 0.08);
-  --warn: #c49536;
-  --warn-muted: rgba(196, 149, 54, 0.7);
-  --warn-subtle: rgba(196, 149, 54, 0.08);
-  --danger: #c44536;
-  --info: #4a7c59;
+  /* Status */
+  --ok: #02c076;
+  --ok-muted: rgba(2, 192, 118, 0.7);
+  --ok-subtle: rgba(2, 192, 118, 0.12);
+  --destructive: #f6465d;
+  --destructive-foreground: #ffffff;
+  --destructive-subtle: rgba(246, 70, 93, 0.12);
+  --warn: #f0b90b;
+  --warn-muted: rgba(240, 185, 11, 0.7);
+  --warn-subtle: rgba(240, 185, 11, 0.12);
+  --danger: #f6465d;
+  --info: #2ebd85;
 
-  --focus: rgba(74, 124, 89, 0.15);
-  --focus-ring: 0 0 0 2px #4a7c59;
+  --focus: rgba(240, 185, 11, 0.18);
+  --focus-ring: 0 0 0 2px #f0b90b;
 
-  /* Header — rich forest green bar */
-  --header-bar-bg: #3d5c42;
-  --header-bar-fg: #f2f7f0;
-  --section-bar-bg: #eef3ec;
-  --section-bar-fg: #2d4a3e;
-  --link-color: #3d6b4a;
-  --link-hover-color: #c44536;
+  /* Header */
+  --header-bar-bg: #fff8dc;
+  --header-bar-fg: #1e2329;
+  --section-bar-bg: #fff5cf;
+  --section-bar-fg: #1e2329;
+  --link-color: #c08d00;
+  --link-hover-color: #a97900;
 
   --mono: "Courier New", Courier, monospace;
   --font-body:
@@ -73,12 +72,11 @@
     "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
     clean, sans-serif;
 
-  /* No shadows — flat retro web aesthetic */
+  /* Preserve classic flat styling from original milady theme */
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
 
-  /* Sharp corners — early web retro feel */
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -106,6 +104,114 @@
   --plugin-max-field-width: 32rem;
 
   color-scheme: light;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   milady-classic — miladymaker.net inspired: sage greens, warm cream, Y2K web
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="milady-classic"] {
+  --bg: #ffffff;
+  --bg-accent: #f0f4ee;
+  --bg-elevated: #fafcf9;
+  --bg-hover: #eaf0e8;
+  --bg-muted: #f4f7f3;
+
+  --card: #fafcf9;
+  --card-foreground: #2d4a3e;
+  --surface: #ffffff;
+
+  --text: #2d4a3e;
+  --text-strong: #1a332b;
+  --chat-text: #2d4a3e;
+  --muted: #6b8e7a;
+  --muted-strong: #4d7362;
+
+  --border: #5b8350;
+  --border-strong: #3d6b3a;
+  --border-hover: #2d5228;
+  --input: #5b8350;
+  --ring: #2d5228;
+
+  --accent: #4a7c59;
+  --accent-hover: #3d6b4a;
+  --accent-muted: #6b9e7a;
+  --accent-subtle: rgba(74, 124, 89, 0.1);
+  --accent-foreground: #f5f2eb;
+  --primary: #4a7c59;
+  --primary-foreground: #f5f2eb;
+
+  --ok: #4a7c59;
+  --ok-muted: rgba(74, 124, 89, 0.7);
+  --ok-subtle: rgba(74, 124, 89, 0.08);
+  --destructive: #c44536;
+  --destructive-foreground: #f5f2eb;
+  --destructive-subtle: rgba(196, 69, 54, 0.08);
+  --warn: #c49536;
+  --warn-muted: rgba(196, 149, 54, 0.7);
+  --warn-subtle: rgba(196, 149, 54, 0.08);
+  --danger: #c44536;
+  --info: #4a7c59;
+
+  --focus: rgba(74, 124, 89, 0.15);
+  --focus-ring: 0 0 0 2px #4a7c59;
+
+  --header-bar-bg: #3d5c42;
+  --header-bar-fg: #f2f7f0;
+  --section-bar-bg: #eef3ec;
+  --section-bar-fg: #2d4a3e;
+  --link-color: #3d6b4a;
+  --link-hover-color: #c44536;
+
+  --mono: "Courier New", Courier, monospace;
+  --font-body:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
+  --font-display:
+    "Hiragino Kaku Gothic Pro", Osaka, Meiryo, "MS PGothic", arial, helvetica,
+    clean, sans-serif;
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-full: 0px;
+  --radius: 0px;
+
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 250ms;
+
+  --plugin-field-gap: 1rem;
+  --plugin-group-gap: 1.5rem;
+  --plugin-section-padding: 1.5rem;
+  --plugin-label-size: 0.8125rem;
+  --plugin-help-size: 0.6875rem;
+  --plugin-error-size: 0.6875rem;
+  --plugin-label: var(--text);
+  --plugin-help: var(--muted);
+  --plugin-error: var(--destructive);
+  --plugin-border: var(--border);
+  --plugin-focus-ring: var(--accent);
+  --plugin-input-height: 2.25rem;
+  --plugin-max-field-width: 32rem;
+
+  color-scheme: light;
+}
+
+/* Milady Classic: green-to-white gradient */
+[data-theme="milady-classic"] #root {
+  background: linear-gradient(
+    180deg,
+    #b6d4a8 0%,
+    #d4e8cc 25%,
+    #eaf3e6 55%,
+    #ffffff 100%
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -233,11 +339,11 @@
   --input: #2a3d1a;
   --ring: #3d6018;
 
-  --accent: #1a2a0e;
-  --accent-hover: #2a3d1a;
-  --accent-muted: #111a09;
+  --accent: #5a9a2a;
+  --accent-hover: #6aaa3a;
+  --accent-muted: #4a7a24;
   --accent-subtle: rgba(90, 154, 42, 0.12);
-  --accent-foreground: #d4e8c4;
+  --accent-foreground: #0a0a0a;
   --primary: #5a9a2a;
   --primary-foreground: #0a0a0a;
 
@@ -429,11 +535,11 @@
   --input: #003b00;
   --ring: #00ff41;
 
-  --accent: #003300;
-  --accent-hover: #004400;
-  --accent-muted: #001a00;
+  --accent: #00ff41;
+  --accent-hover: #33ff66;
+  --accent-muted: #00aa2b;
   --accent-subtle: rgba(0, 255, 65, 0.08);
-  --accent-foreground: #00ff41;
+  --accent-foreground: #000000;
   --primary: #00ff41;
   --primary-foreground: #000000;
 
@@ -523,11 +629,11 @@
   --input: #ff00ff;
   --ring: #00ffff;
 
-  --accent: #330033;
-  --accent-hover: #4d004d;
-  --accent-muted: #1a001a;
+  --accent: #ff00ff;
+  --accent-hover: #ff33ff;
+  --accent-muted: #cc00cc;
   --accent-subtle: rgba(255, 0, 255, 0.12);
-  --accent-foreground: #ff00ff;
+  --accent-foreground: #000000;
   --primary: #00ffff;
   --primary-foreground: #000000;
 
@@ -595,15 +701,15 @@
    Theme-specific overrides
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* Milady: green-to-white gradient behind all content.
+/* Milady: yellow-to-white gradient behind all content.
    Targets explicit milady theme + default (no data-theme attr). */
 [data-theme="milady"] #root,
 html:not([data-theme]) #root {
   background: linear-gradient(
     180deg,
-    #b6d4a8 0%,
-    #d4e8cc 25%,
-    #eaf3e6 55%,
+    #f6df9e 0%,
+    #f9ecc0 25%,
+    #fdf6de 55%,
     #ffffff 100%
   );
 }

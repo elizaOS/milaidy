@@ -1,4 +1,4 @@
-# Homebrew formula for Milady — personal AI assistant built on ElizaOS
+# Homebrew formula for Milady — personal AI assistant built on elizaOS
 #
 # Installation:
 #   brew tap milady-ai/tap
@@ -8,7 +8,7 @@
 #   brew install milady-ai/tap/milady
 
 class Milady < Formula
-  desc "Personal AI assistant built on ElizaOS — cute agents for the acceleration"
+  desc "Personal AI assistant built on elizaOS — cute agents for the acceleration"
   homepage "https://milady.ai"
   url "https://registry.npmjs.org/miladyai/-/miladyai-2.0.0-alpha.6.tgz"
   sha256 "d0da83506fc528ab7f3b4d9b1e44aaec2761005aac874ca2478c37444e8ae6e5"

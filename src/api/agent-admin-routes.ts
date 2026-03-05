@@ -31,6 +31,9 @@ export interface AgentAdminRouteContext
     Pick<RouteHelpers, "json" | "error"> {
   state: AgentAdminRouteState;
   onRestart?: (() => Promise<AgentRuntime | null>) | undefined;
+  /** Called after a successful restart swaps state.runtime so the server can
+   *  re-bind streams and re-wire coordinator bridges. */
+  onRuntimeSwapped?: () => void;
   resolveStateDir: () => string;
   resolvePath: (value: string) => string;
   getHomeDir: () => string;
@@ -49,6 +52,7 @@ export async function handleAgentAdminRoutes(
     pathname,
     state,
     onRestart,
+    onRuntimeSwapped,
     json,
     error,
     resolveStateDir,
@@ -90,6 +94,7 @@ export async function handleAgentAdminRoutes(
         state.model = detectRuntimeModel(newRuntime);
         state.startedAt = Date.now();
         state.pendingRestartReasons = [];
+        onRuntimeSwapped?.();
         json(res, {
           ok: true,
           pendingRestart: false,
