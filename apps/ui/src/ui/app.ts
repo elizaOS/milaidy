@@ -422,6 +422,7 @@ export class MilaidyApp extends LitElement {
   private subscriptionStatusLoadedAt = 0;
   private extensionCheckedAt = 0;
   private chatAutonomyLoadedAt = 0;
+  private chatAutonomyPollTimer: ReturnType<typeof setInterval> | null = null;
   private pendingSecuritySection: string | null = null;
   private tabDataLoadRaf: number | null = null;
 
@@ -4223,6 +4224,7 @@ export class MilaidyApp extends LitElement {
       cancelAnimationFrame(this.chatScrollRaf);
       this.chatScrollRaf = null;
     }
+    this.stopChatAutonomyPolling();
     client.disconnectWs();
   }
 
@@ -8025,6 +8027,9 @@ export class MilaidyApp extends LitElement {
     const lastEventLabel = autonomy?.lastEventAt
       ? new Date(autonomy.lastEventAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       : "none";
+    const trackersSourceLabel = overview
+      ? (overview.triggersAvailable ? "connected" : "unavailable")
+      : "unknown";
     const triggerMeta = this.chatAutonomyLoading
       ? "syncing..."
       : summary
@@ -8089,6 +8094,10 @@ export class MilaidyApp extends LitElement {
               <span class="autonomy-line-k">Last event</span>
               <span class="autonomy-line-v">${lastEventLabel}</span>
             </div>
+            <div class="autonomy-line">
+              <span class="autonomy-line-k">Trackers source</span>
+              <span class="autonomy-line-v">${trackersSourceLabel}</span>
+            </div>
             ${pendingRestartReason
               ? html`
                   <div class="autonomy-line">
@@ -8125,9 +8134,26 @@ export class MilaidyApp extends LitElement {
 
   private handleChatAutonomyToggle = (event: Event): void => {
     const details = event.currentTarget as HTMLDetailsElement | null;
-    if (!details?.open) return;
+    if (!details?.open) {
+      this.stopChatAutonomyPolling();
+      return;
+    }
     void this.loadChatAutonomyOverview();
+    this.startChatAutonomyPolling();
   };
+
+  private startChatAutonomyPolling(): void {
+    if (this.chatAutonomyPollTimer != null) return;
+    this.chatAutonomyPollTimer = setInterval(() => {
+      void this.loadChatAutonomyOverview(true);
+    }, 3000);
+  }
+
+  private stopChatAutonomyPolling(): void {
+    if (this.chatAutonomyPollTimer == null) return;
+    clearInterval(this.chatAutonomyPollTimer);
+    this.chatAutonomyPollTimer = null;
+  }
 
   private async loadChatAutonomyOverview(force = false): Promise<void> {
     const now = Date.now();
@@ -8154,6 +8180,10 @@ export class MilaidyApp extends LitElement {
 
   private async handleChatAutonomyToggleClick(): Promise<void> {
     if (this.chatAutonomyToggleBusy) return;
+    if (this.agentStatus?.state !== "running") {
+      this.chatAutonomyError = "Runtime must be running before autonomy can be toggled.";
+      return;
+    }
     this.chatAutonomyToggleBusy = true;
     this.chatAutonomyError = null;
     try {
@@ -8161,7 +8191,15 @@ export class MilaidyApp extends LitElement {
       if (typeof currentEnabled !== "boolean") {
         currentEnabled = (await client.getAgentAutonomy()).enabled;
       }
-      await client.setAgentAutonomy(!currentEnabled);
+      const nextEnabled = !currentEnabled;
+      const result = await client.setAgentAutonomy(nextEnabled);
+      if (result.autonomy !== nextEnabled) {
+        this.chatAutonomyError = nextEnabled
+          ? "Autonomy service is unavailable on this backend runtime."
+          : "Autonomy did not disable cleanly. Try again.";
+      } else {
+        this.showUiNotice(nextEnabled ? "Autonomy enabled." : "Autonomy disabled.");
+      }
       await this.loadChatAutonomyOverview(true);
       try {
         const nextStatus = await client.getStatus();
