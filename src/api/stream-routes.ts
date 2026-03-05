@@ -188,6 +188,13 @@ export async function ensureXvfb(
     return false;
   }
 
+  // Validate resolution format early — must be WxH with numeric dimensions.
+  const [w, h] = resolution.split("x");
+  if (!w || !h || !/^\d+$/.test(w) || !/^\d+$/.test(h)) {
+    logger.warn(`[stream] Invalid resolution for Xvfb: ${resolution}`);
+    return false;
+  }
+
   // Check if the display is already active
   if (process.env.DISPLAY === display) return true;
 
@@ -203,12 +210,6 @@ export async function ensureXvfb(
       return true;
     } catch {
       // Not running -- start it
-    }
-
-    const [w, h] = resolution.split("x");
-    if (!w || !h || !/^\d+$/.test(w) || !/^\d+$/.test(h)) {
-      logger.warn(`[stream] Invalid resolution for Xvfb: ${resolution}`);
-      return false;
     }
     const { spawn: spawnProc } = await import("node:child_process");
     const xvfb = spawnProc(
