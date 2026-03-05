@@ -295,14 +295,26 @@ test("packaged DMG app starts and reaches chat/agent-ready state", async () => {
     );
     processLogs = collectProcessLogs(appProcess);
 
-    await waitForCdp(debugPort, 120_000);
+    const cdpTimeoutMs = process.env.CI ? 240_000 : 120_000;
+    try {
+      await waitForCdp(debugPort, cdpTimeoutMs);
+    } catch (e) {
+      const stdoutText = processLogs?.stdout.join("") ?? "";
+      const stderrText = processLogs?.stderr.join("") ?? "";
+      console.error(
+        `CDP endpoint never came up.\nApp stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
+      );
+      throw e;
+    }
     try {
       browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, {
         timeout: 120_000,
       });
     } catch (e) {
+      const stdoutText = processLogs?.stdout.join("") ?? "";
+      const stderrText = processLogs?.stderr.join("") ?? "";
       console.error(
-        `CDP connect failed!\nApp stdout:\n${processLogs?.stdout.join("")}\n\nApp stderr:\n${processLogs?.stderr.join("")}`,
+        `CDP connect failed!\nApp stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
       );
       throw e;
     }

@@ -334,7 +334,8 @@ Dev mode with hot reload:
 bun run dev
 ```
 
-Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).
+Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).  
+Why the release pipeline is built the way it is (strict shell, retries, ASAR crash dump, path safety, etc.): [Build and release](docs/build-and-release.md#release-workflow-design-and-whys).
 
 ---
 
