@@ -278,6 +278,7 @@ export class MilaidyApp extends LitElement {
   @state() sessionSearch = "";
   @state() chatSending = false;
   @state() providerHealth: ProviderHealthState | null = null;
+  @state() creditBlockedProviderId: string | null = null;
   @state() chatAutonomyOverview: WorkbenchOverviewResponse | null = null;
   @state() chatAutonomyLoading = false;
   @state() chatAutonomyToggleBusy = false;
@@ -4785,6 +4786,7 @@ export class MilaidyApp extends LitElement {
     const runtimeReady = await this.ensureAgentRunningForChat();
     if (!runtimeReady) return;
     const providerForChat = this.getPreferredAiProviderForChat();
+    const providerIdForChat = providerForChat ? canonicalProviderId(providerForChat.id) : null;
     const providerReady = Boolean(providerForChat && this.isChatProviderReady(providerForChat));
     if (!providerReady) {
       if (this.providerSetupApplying) {
@@ -4793,6 +4795,19 @@ export class MilaidyApp extends LitElement {
         this.showUiNotice("Connect an AI provider in AI Settings to start chatting.");
         this.setTab("ai-setup");
       }
+      return;
+    }
+    if (providerIdForChat && this.creditBlockedProviderId === providerIdForChat) {
+      const blockedText =
+        "No model credits left in the tank. Time to top up your credits or switch provider in AI Settings.";
+      this.chatMessages = [
+        ...this.chatMessages,
+        { role: "assistant", text: blockedText, timestamp: Date.now() },
+      ];
+      this.setProviderHealthState("Credits exhausted", "warn", "Insufficient provider credits");
+      this.scrollChatToLatest("smooth", true);
+      this.saveChatMessages();
+      this.activeChatRequestText = null;
       return;
     }
     let payloadText = text;
@@ -4901,6 +4916,12 @@ export class MilaidyApp extends LitElement {
             diagnosis.tone,
             diagnosis.detail,
           );
+          if (
+            providerIdForChat &&
+            this.isInsufficientCreditsSignal(diagnosis.message)
+          ) {
+            this.creditBlockedProviderId = providerIdForChat;
+          }
         }
       }
       this.chatMessages = [
@@ -4909,6 +4930,12 @@ export class MilaidyApp extends LitElement {
       ];
       if (!this.isGenericAssistantFailureText(assistantText)) {
         this.setProviderHealthState("Healthy", "ok", "Provider responding");
+        if (
+          providerIdForChat &&
+          this.creditBlockedProviderId === providerIdForChat
+        ) {
+          this.creditBlockedProviderId = null;
+        }
       }
       this.scrollChatToLatest("smooth", true);
       this.saveChatMessages();
@@ -4976,6 +5003,12 @@ export class MilaidyApp extends LitElement {
           this.setTab("ai-setup");
         }
         this.setProviderHealthFromError(err);
+        if (
+          providerIdForChat &&
+          this.isInsufficientCreditsSignal(err)
+        ) {
+          this.creditBlockedProviderId = providerIdForChat;
+        }
         let errorText = this.chatErrorMessage(err);
         if (lower.includes("agent is not running")) {
           errorText = await this.diagnoseAgentNotRunningMessage();
@@ -5156,6 +5189,33 @@ export class MilaidyApp extends LitElement {
     };
   }
 
+  private isInsufficientCreditsSignal(value: unknown): boolean {
+    const details =
+      typeof value === "object" && value !== null && "details" in value
+        ? (value as { details?: Record<string, unknown> }).details
+        : undefined;
+    const code =
+      details && typeof details.code === "string" ? details.code.toLowerCase() : "";
+    const raw =
+      value instanceof Error
+        ? value.message
+        : (typeof value === "string" ? value : "");
+    const lower = raw.trim().toLowerCase();
+    if (
+      code.includes("insufficient_credits") ||
+      code.includes("provider_credits") ||
+      code.includes("credit_exhausted")
+    ) {
+      return true;
+    }
+    return (
+      lower.includes("insufficient credits") ||
+      lower.includes("no model credits left in the tank") ||
+      lower.includes("required: $") ||
+      lower.includes("ai_apicallerror: insufficient credits")
+    );
+  }
+
   private setProviderHealthFromError(err: unknown): void {
     const details =
       typeof err === "object" && err !== null && "details" in err
@@ -5169,6 +5229,10 @@ export class MilaidyApp extends LitElement {
         : (typeof err === "string" ? err : "");
     const lower = raw.trim().toLowerCase();
 
+    if (this.isInsufficientCreditsSignal(err)) {
+      this.setProviderHealthState("Credits exhausted", "warn", "Insufficient provider credits");
+      return;
+    }
     if (code === "PROVIDER_QUOTA" || lower.includes("insufficient_quota") || lower.includes("quota")) {
       this.setProviderHealthState("Quota issue", "warn", "Billing/usage limit reached");
       return;
