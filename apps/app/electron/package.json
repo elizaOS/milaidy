@@ -1,6 +1,10 @@
 {
   "name": "Milady",
+<<<<<<< HEAD
   "version": "2.0.0-alpha.75",
+=======
+  "version": "2.0.0-alpha.79",
+>>>>>>> 50036426 (app: align NFA confirm dialog with wallet style (alpha.79))
   "description": "Cute agents for the acceleration",
   "homepage": "https://github.com/milady-ai/milady",
   "author": {

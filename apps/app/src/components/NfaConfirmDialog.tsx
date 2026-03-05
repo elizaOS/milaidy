@@ -43,25 +43,30 @@ export function NfaConfirmDialog({
 }: NfaConfirmDialogProps) {
   const [busy, setBusy] = useState(false);
   const label = OP_LABELS[operation];
+  const hasDetails = Array.isArray(details) && details.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="border border-border bg-bg p-5 max-w-sm w-full space-y-3">
-        <div className="text-sm font-bold">{label.title}</div>
+    <div className="wt__confirm-backdrop">
+      <div className="wt__confirm-modal nfa__confirm-modal">
+        <div className="wt__confirm-title">{label.title}</div>
         {label.warning && (
-          <div className="px-3 py-2 border border-danger bg-danger/5 text-[11px] text-danger">
+          <div className="nfa__confirm-warning">
             {label.warning}
           </div>
         )}
-        {details?.map((d) => (
-          <div key={d} className="text-xs text-muted font-mono truncate">
-            {d}
+        {hasDetails && (
+          <div className="wt__confirm-message">
+            {details!.map((d) => (
+              <div key={d} className="nfa__confirm-detail">
+                {d}
+              </div>
+            ))}
           </div>
-        ))}
-        <div className="flex gap-2 pt-1">
+        )}
+        <div className="wt__confirm-actions">
           <button
             type="button"
-            className="wt__btn flex-1"
+            className="wt__btn wt__confirm-btn"
             disabled={busy}
             onClick={() => onResult(false)}
           >
@@ -69,7 +74,7 @@ export function NfaConfirmDialog({
           </button>
           <button
             type="button"
-            className="wt__btn is-buy flex-1"
+            className="wt__btn wt__confirm-btn is-buy"
             disabled={busy}
             onClick={() => {
               setBusy(true);

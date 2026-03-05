@@ -939,6 +939,28 @@ kbd {
   );
 }
 
+.nfa__confirm-modal {
+  width: min(560px, 92vw);
+}
+
+.nfa__confirm-warning {
+  border: 1px solid rgba(231, 76, 60, 0.45);
+  border-radius: 10px;
+  background: rgba(231, 76, 60, 0.12);
+  padding: 9px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 188, 178, 0.95);
+}
+
+.nfa__confirm-detail {
+  overflow-wrap: anywhere;
+}
+
+.nfa__confirm-detail + .nfa__confirm-detail {
+  margin-top: 4px;
+}
+
 .wt__toolbar {
   display: flex;
   align-items: center;
