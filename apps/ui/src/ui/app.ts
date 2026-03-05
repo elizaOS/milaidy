@@ -2596,35 +2596,21 @@ export class MilaidyApp extends LitElement {
       color: var(--text-strong);
     }
 
-    .autonomy-kpi-row {
-      margin-top: 2px;
+    .autonomy-control {
+      border: 1px solid var(--border-soft);
+      border-radius: 9px;
+      padding: 7px 8px;
+      background: rgba(255, 255, 255, 0.78);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
 
-    .autonomy-kpi-toggle {
-      border: 1px solid var(--border-soft);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.95);
+    .autonomy-control-label {
+      font-size: 11px;
       color: var(--text-strong);
-      font-size: 10px;
-      font-family: var(--mono);
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      padding: 3px 8px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .autonomy-kpi-toggle:hover {
-      border-color: var(--border);
-    }
-
-    .autonomy-kpi-toggle:disabled {
-      opacity: 0.6;
-      cursor: default;
+      font-weight: 600;
     }
 
     .autonomy-lines {
@@ -8041,25 +8027,27 @@ export class MilaidyApp extends LitElement {
             </div>
             <div class="autonomy-kpi">
               <div class="autonomy-kpi-label">Orchestration</div>
-              <div class="autonomy-kpi-row">
-                <div class="autonomy-kpi-value">${orchestrationLabel}</div>
-                <button
-                  class="autonomy-kpi-toggle"
-                  @click=${() => void this.handleChatAutonomyToggleClick()}
-                  ?disabled=${this.chatAutonomyToggleBusy || this.chatAutonomyLoading}
-                >
-                  ${this.chatAutonomyToggleBusy
-                    ? "Updating..."
-                    : autonomyEnabled
-                      ? "Disable"
-                      : "Enable"}
-                </button>
-              </div>
+              <div class="autonomy-kpi-value">${orchestrationLabel}</div>
             </div>
             <div class="autonomy-kpi">
               <div class="autonomy-kpi-label">Autonomy</div>
               <div class="autonomy-kpi-value">${autonomyLabel}</div>
             </div>
+          </div>
+
+          <div class="autonomy-control">
+            <span class="autonomy-control-label">Autonomy Control</span>
+            <button
+              class="plugin-secondary-btn"
+              @click=${() => void this.handleChatAutonomyToggleClick()}
+              ?disabled=${this.chatAutonomyToggleBusy || this.chatAutonomyLoading}
+            >
+              ${this.chatAutonomyToggleBusy
+                ? "Updating..."
+                : autonomyEnabled
+                  ? "Disable Autonomy"
+                  : "Enable Autonomy"}
+            </button>
           </div>
 
           <div class="autonomy-lines">
