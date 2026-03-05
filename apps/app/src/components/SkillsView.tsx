@@ -1,236 +1,34 @@
 /**
  * Skills management view — create, enable/disable, and install skills.
  *
- * Professional card-grid layout with search, stats, polished toggle switches,
- * and a structured install modal. Follows the CSS variable design system used
- * throughout the app (--bg, --card, --border, --accent, --muted, --txt, etc.).
+ * Two-panel game-modal layout matching PluginsView: left list panel with 3D
+ * perspective, right detail panel, glass effects, gold accent, corner brackets.
+ * Reuses `.plugins-game-*` CSS classes from anime.css.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import type {
+  CatalogSkill,
   SkillInfo,
   SkillMarketplaceResult,
   SkillScanReportSummary,
 } from "../api-client";
 import { client } from "../api-client";
 import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
-import { StatusBadge } from "./shared/ui-badges";
-import { Switch } from "./shared/ui-switch";
 
 /* ── Shared style constants ─────────────────────────────────────────── */
 
 const inputCls =
-  "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs focus:border-[var(--accent)] focus:outline-none";
+  "px-2.5 py-1.5 border border-border bg-card text-txt text-xs focus:border-accent focus:outline-none";
 const btnPrimary =
-  "px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default";
+  "px-3 py-1.5 text-xs font-medium bg-accent text-accent-fg border border-accent cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default";
 const btnGhost =
-  "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default";
-const btnDanger =
-  "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors";
+  "px-3 py-1.5 text-xs bg-transparent text-muted border border-border cursor-pointer hover:text-txt hover:border-txt transition-colors disabled:opacity-40 disabled:cursor-default";
 
-/* ── Skill Card ─────────────────────────────────────────────────────── */
+type SkillStatusFilter = "all" | "enabled" | "agent" | "catalog";
 
-function SkillCard({
-  skill,
-  skillToggleAction,
-  skillReviewId,
-  skillReviewReport,
-  skillReviewLoading,
-  onToggle,
-  onEdit,
-  onDelete,
-  onReview,
-  onAcknowledge,
-  onDismissReview,
-}: {
-  skill: SkillInfo;
-  skillToggleAction: string;
-  skillReviewId: string;
-  skillReviewReport: ReturnType<typeof useApp>["skillReviewReport"];
-  skillReviewLoading: boolean;
-  onToggle: (id: string, enabled: boolean) => void;
-  onEdit: (skill: SkillInfo) => void;
-  onDelete: (id: string, name: string) => void;
-  onReview: (id: string) => void;
-  onAcknowledge: (id: string) => void;
-  onDismissReview: () => void;
-}) {
-  const isQuarantined =
-    skill.scanStatus === "warning" || skill.scanStatus === "critical";
-  const isBlocked = skill.scanStatus === "blocked";
-  const isReviewing = skillReviewId === skill.id;
-
-  return (
-    <div
-      className={`flex flex-col border bg-[var(--card)] transition-colors ${
-        isQuarantined || isBlocked
-          ? "border-[#e74c3c]/40"
-          : "border-[var(--border)] hover:border-[var(--accent)]/50"
-      }`}
-      data-skill-id={skill.id}
-    >
-      {/* Main content area */}
-      <div className="p-4">
-        {/* Top row: badge + toggle */}
-        <div className="flex items-center justify-between mb-2.5">
-          <StatusBadge
-            label={
-              skill.scanStatus === "blocked" || skill.scanStatus === "critical"
-                ? "Blocked"
-                : skill.scanStatus === "warning"
-                  ? "Warning"
-                  : skill.enabled
-                    ? "Active"
-                    : "Inactive"
-            }
-            tone={
-              skill.scanStatus === "blocked" ||
-              skill.scanStatus === "critical" ||
-              skill.scanStatus === "warning"
-                ? skill.scanStatus === "warning"
-                  ? "warning"
-                  : "danger"
-                : skill.enabled
-                  ? "success"
-                  : "muted"
-            }
-            withDot
-          />
-          {!isBlocked && !isQuarantined && (
-            <Switch
-              checked={skill.enabled}
-              disabled={skillToggleAction === skill.id}
-              onChange={(val) => onToggle(skill.id, val)}
-              size="compact"
-              trackOnClass="bg-[var(--accent)]"
-              trackOffClass="bg-[var(--border)]"
-              knobClass="bg-white shadow-sm"
-            />
-          )}
-          {isQuarantined && !isReviewing && (
-            <button
-              type="button"
-              className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
-              onClick={() => onReview(skill.id)}
-            >
-              Review Findings
-            </button>
-          )}
-        </div>
-
-        {/* Name + description */}
-        <div
-          className="font-semibold text-sm text-[var(--txt)] mb-1 truncate"
-          title={skill.name}
-        >
-          {skill.name}
-        </div>
-        <div className="text-[11px] text-[var(--muted)] line-clamp-2 min-h-[2em]">
-          {skill.description || "No description provided"}
-        </div>
-      </div>
-
-      {/* Footer actions */}
-      <div className="flex items-center gap-1.5 px-4 py-2.5 border-t border-[var(--border)] bg-[var(--bg)]">
-        <button
-          type="button"
-          className={btnGhost}
-          onClick={() => onEdit(skill)}
-        >
-          Edit
-        </button>
-        <ConfirmDeleteControl
-          triggerClassName={btnDanger}
-          confirmClassName="px-2 py-1 text-[11px] bg-[#e74c3c] text-white border border-[#e74c3c] cursor-pointer hover:opacity-90 transition-opacity"
-          cancelClassName={btnGhost}
-          confirmLabel="Yes"
-          cancelLabel="No"
-          onConfirm={() => onDelete(skill.id, skill.name)}
-        />
-        <span className="flex-1" />
-        <span
-          className="text-[10px] text-[var(--muted)] font-mono truncate max-w-[120px]"
-          title={skill.id}
-        >
-          {skill.id.length > 16 ? `${skill.id.slice(0, 16)}...` : skill.id}
-        </span>
-      </div>
-
-      {/* Inline review panel */}
-      {isReviewing && skillReviewReport ? (
-        <div className="border-t border-[var(--border)] p-4 bg-[var(--bg)]">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-semibold text-[var(--txt)]">
-              Scan Report
-            </span>
-            <span className="text-[11px] text-[#e74c3c] font-mono">
-              {skillReviewReport.summary.critical} critical
-            </span>
-            <span className="text-[11px] text-[#f39c12] font-mono">
-              {skillReviewReport.summary.warn} warnings
-            </span>
-          </div>
-          {skillReviewReport.findings.length > 0 && (
-            <div className="max-h-40 overflow-y-auto mb-3 border border-[var(--border)] bg-[var(--card)]">
-              {skillReviewReport.findings.map(
-                (
-                  f: SkillScanReportSummary["findings"][number],
-                  idx: number,
-                ) => (
-                  <div
-                    key={`${f.file}:${f.line}:${f.message}`}
-                    className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
-                      idx > 0 ? "border-t border-[var(--border)]" : ""
-                    }`}
-                  >
-                    <span
-                      className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
-                        f.severity === "critical"
-                          ? "bg-[#e74c3c]/15 text-[#e74c3c]"
-                          : "bg-[#f39c12]/15 text-[#f39c12]"
-                      }`}
-                    >
-                      {f.severity}
-                    </span>
-                    <span className="text-[var(--txt)] flex-1 min-w-0">
-                      {f.message}
-                    </span>
-                    <span className="text-[var(--muted)] shrink-0">
-                      {f.file}:{f.line}
-                    </span>
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={() => onAcknowledge(skill.id)}
-            >
-              Acknowledge &amp; Enable
-            </button>
-            <button
-              type="button"
-              className={btnGhost}
-              onClick={onDismissReview}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      ) : isReviewing && skillReviewLoading ? (
-        <div className="border-t border-[var(--border)] p-4 text-xs text-[var(--muted)] italic">
-          Loading scan report...
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/* ── Marketplace Result Card ────────────────────────────────────────── */
+/* ── Marketplace Result Card (inside InstallModal) ─────────────────── */
 
 function MarketplaceCard({
   item,
@@ -251,7 +49,6 @@ function MarketplaceCard({
 
   return (
     <div className="flex items-start gap-4 p-4 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50 transition-colors">
-      {/* Icon placeholder */}
       <div className="w-10 h-10 shrink-0 flex items-center justify-center bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-bold rounded">
         {item.name.charAt(0).toUpperCase()}
       </div>
@@ -288,7 +85,7 @@ function MarketplaceCard({
       {isInstalled ? (
         <button
           type="button"
-          className={btnDanger}
+          className="px-2 py-1 text-[11px] bg-transparent text-muted border border-border cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors"
           onClick={() => onUninstall(item.id, item.name)}
           disabled={isUninstalling}
         >
@@ -345,12 +142,13 @@ function InstallModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-[999] flex items-center justify-center"
+      style={{ background: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(8px)" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+        if (e.key === "Escape") {
           e.preventDefault();
           onClose();
         }
@@ -358,28 +156,60 @@ function InstallModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col border border-[var(--border)] bg-[var(--bg)] overflow-hidden mx-4">
+      <div
+        className="w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden mx-4"
+        style={{
+          background:
+            "linear-gradient(148deg, rgba(18, 22, 34, 0.94) 0%, rgba(8, 11, 20, 0.92) 52%, rgba(5, 8, 14, 0.9) 100%)",
+          border: "1px solid rgba(255, 255, 255, 0.17)",
+          borderRadius: 16,
+          boxShadow:
+            "0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}
+        >
           <div>
-            <div className="text-sm font-semibold text-[var(--txt)]">
+            <div
+              style={{
+                fontFamily: "var(--font-display), sans-serif",
+                fontSize: 14,
+                fontWeight: 800,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase" as const,
+                color: "#fff",
+              }}
+            >
               Install Skill
             </div>
-            <div className="text-[11px] text-[var(--muted)] mt-0.5">
+            <div
+              style={{
+                fontSize: 11,
+                color: "rgba(228, 232, 245, 0.74)",
+                marginTop: 2,
+              }}
+            >
               Add skills from the marketplace or a GitHub repository.
             </div>
           </div>
           <button
             type="button"
-            className="text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border-0 cursor-pointer text-lg px-2 transition-colors"
+            className="plugins-game-action-btn"
             onClick={onClose}
+            style={{ padding: "4px 10px" }}
           >
             ×
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[var(--border)]">
+        <div
+          className="flex"
+          style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}
+        >
           {(
             [
               { id: "search" as const, label: "Marketplace" },
@@ -389,11 +219,17 @@ function InstallModal({
             <button
               type="button"
               key={t.id}
-              className={`flex-1 px-4 py-2.5 text-xs font-medium bg-transparent border-0 border-b-2 cursor-pointer transition-colors ${
-                tab === t.id
-                  ? "text-[var(--accent)] border-b-[var(--accent)]"
-                  : "text-[var(--muted)] border-b-transparent hover:text-[var(--txt)]"
-              }`}
+              className={`plugins-game-chip flex-1 justify-center${tab === t.id ? " is-active" : ""}`}
+              style={{
+                borderRadius: 0,
+                border: "none",
+                borderBottom:
+                  tab === t.id
+                    ? "2px solid var(--pg-accent, #f0b232)"
+                    : "2px solid transparent",
+                padding: "10px 16px",
+                minWidth: 0,
+              }}
               onClick={() => setTab(t.id)}
             >
               {t.label}
@@ -402,12 +238,21 @@ function InstallModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div
+          className="flex-1 overflow-y-auto px-5 py-4"
+          style={{
+            scrollbarWidth: "thin" as const,
+            scrollbarColor: "rgba(255, 255, 255, 0.16) transparent",
+          }}
+        >
           {tab === "search" && (
             <>
-              <div className="flex gap-2 items-center mb-4">
+              <div
+                className="plugins-game-list-search-row"
+                style={{ marginBottom: 16 }}
+              >
                 <input
-                  className={`${inputCls} flex-1 min-w-[200px]`}
+                  className="plugins-game-search-input"
                   placeholder="Search skills by keyword..."
                   value={skillsMarketplaceQuery}
                   onChange={(e) =>
@@ -419,7 +264,8 @@ function InstallModal({
                 />
                 <button
                   type="button"
-                  className={btnPrimary}
+                  className="plugins-game-save-btn"
+                  style={{ minHeight: 36 }}
                   onClick={() => searchSkillsMarketplace()}
                   disabled={skillsMarketplaceLoading}
                 >
@@ -428,23 +274,35 @@ function InstallModal({
               </div>
 
               {skillsMarketplaceError && (
-                <div className="p-2.5 border border-[#e74c3c] text-[#e74c3c] text-xs mb-3">
+                <div
+                  className="plugins-game-detail-errors"
+                  style={{ marginBottom: 12 }}
+                >
                   {skillsMarketplaceError}
                 </div>
               )}
 
               {skillsMarketplaceResults.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-[var(--muted)] text-sm mb-1">
-                    No results
-                  </div>
-                  <div className="text-[var(--muted)] text-[11px]">
-                    Search above to discover skills from the marketplace.
-                  </div>
+                <div
+                  className="plugins-game-detail-empty"
+                  style={{ minHeight: 180 }}
+                >
+                  <span className="plugins-game-detail-empty-icon">🔍</span>
+                  <span className="plugins-game-detail-empty-text">
+                    Search above to discover skills.
+                  </span>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <div className="text-[11px] text-[var(--muted)] mb-1">
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "rgba(228, 232, 245, 0.74)",
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase" as const,
+                      marginBottom: 4,
+                    }}
+                  >
                     {skillsMarketplaceResults.length} result
                     {skillsMarketplaceResults.length !== 1 ? "s" : ""}
                   </div>
@@ -465,16 +323,30 @@ function InstallModal({
 
           {tab === "url" && (
             <div>
-              <div className="text-xs text-[var(--txt)] mb-1 font-medium">
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#fff",
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  marginBottom: 4,
+                }}
+              >
                 GitHub Repository URL
               </div>
-              <div className="text-[11px] text-[var(--muted)] mb-3">
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "rgba(228, 232, 245, 0.74)",
+                  marginBottom: 12,
+                }}
+              >
                 Paste a full GitHub URL or a /tree/... path to install a skill
                 directly.
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="plugins-game-list-search-row">
                 <input
-                  className={`${inputCls} flex-1`}
+                  className="plugins-game-search-input"
                   placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
                   value={skillsMarketplaceManualGithubUrl}
                   onChange={(e) =>
@@ -486,7 +358,8 @@ function InstallModal({
                 />
                 <button
                   type="button"
-                  className={btnPrimary}
+                  className="plugins-game-save-btn"
+                  style={{ minHeight: 36 }}
                   onClick={() => installSkillFromGithubUrl()}
                   disabled={
                     skillsMarketplaceAction === "install:manual" ||
@@ -500,7 +373,10 @@ function InstallModal({
               </div>
 
               {skillsMarketplaceError && (
-                <div className="p-2.5 border border-[#e74c3c] text-[#e74c3c] text-xs mt-3">
+                <div
+                  className="plugins-game-detail-errors"
+                  style={{ marginTop: 12 }}
+                >
                   {skillsMarketplaceError}
                 </div>
               )}
@@ -645,7 +521,6 @@ function EditSkillModal({
       e.preventDefault();
       if (hasChanges && !saving) void handleSave();
     }
-    // Allow tab to insert spaces
     if (e.key === "Tab") {
       e.preventDefault();
       const target = e.target as HTMLTextAreaElement;
@@ -759,6 +634,26 @@ function EditSkillModal({
   );
 }
 
+/* ── Unified list item (installed skill OR catalog skill) ──────────── */
+
+type ListItem =
+  | { kind: "installed"; skill: SkillInfo }
+  | { kind: "catalog"; catalog: CatalogSkill };
+
+function itemId(item: ListItem) {
+  return item.kind === "installed" ? item.skill.id : `cat:${item.catalog.slug}`;
+}
+
+function itemName(item: ListItem) {
+  return item.kind === "installed" ? item.skill.name : item.catalog.displayName;
+}
+
+function itemEnabled(item: ListItem) {
+  return item.kind === "installed"
+    ? item.skill.enabled
+    : item.catalog.installed === true;
+}
+
 /* ── Main Skills View ───────────────────────────────────────────────── */
 
 export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
@@ -778,6 +673,10 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
     skillsMarketplaceLoading,
     skillsMarketplaceAction,
     skillsMarketplaceManualGithubUrl,
+    catalogSkills,
+    catalogLoading,
+    catalogInstalling,
+    catalogUninstalling,
     loadSkills,
     refreshSkills,
     handleSkillToggle,
@@ -795,53 +694,132 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [editingSkill, setEditingSkill] = useState<SkillInfo | null>(null);
+  const [statusFilter, setStatusFilter] = useState<SkillStatusFilter>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Load installed skills + catalog on mount
   useEffect(() => {
     void loadSkills();
+    void loadCatalog();
   }, [loadSkills]);
 
-  // Group into: needs attention, active, inactive — with text filter
-  const { attention, active, inactive, activeCount, totalCount } =
-    useMemo(() => {
-      const attention: SkillInfo[] = [];
-      const active: SkillInfo[] = [];
-      const inactive: SkillInfo[] = [];
-      let activeCount = 0;
+  const loadCatalog = useCallback(async () => {
+    setState("catalogLoading", true);
+    try {
+      const res = await client.getSkillCatalog({ perPage: 50 });
+      setState("catalogSkills", res.skills);
+      setState("catalogTotal", res.total);
+      setState("catalogTotalPages", res.totalPages);
+    } catch {
+      /* catalog fetch can 429 — silently ignore */
+    }
+    setState("catalogLoading", false);
+  }, [setState]);
 
-      const query = filterText.toLowerCase();
+  const handleCatalogInstall = useCallback(
+    async (slug: string) => {
+      setState("catalogInstalling", new Set([...catalogInstalling, slug]));
+      try {
+        await client.installCatalogSkill(slug);
+        await loadCatalog();
+        void refreshSkills();
+      } catch {
+        /* ignore */
+      }
+      setState(
+        "catalogInstalling",
+        (() => {
+          const next = new Set(catalogInstalling);
+          next.delete(slug);
+          return next;
+        })(),
+      );
+    },
+    [catalogInstalling, setState, loadCatalog, refreshSkills],
+  );
 
-      for (const skill of skills) {
+  const handleCatalogUninstall = useCallback(
+    async (slug: string) => {
+      setState("catalogUninstalling", new Set([...catalogUninstalling, slug]));
+      try {
+        await client.uninstallCatalogSkill(slug);
+        await loadCatalog();
+        void refreshSkills();
+      } catch {
+        /* ignore */
+      }
+      setState(
+        "catalogUninstalling",
+        (() => {
+          const next = new Set(catalogUninstalling);
+          next.delete(slug);
+          return next;
+        })(),
+      );
+    },
+    [catalogUninstalling, setState, loadCatalog, refreshSkills],
+  );
+
+  // Build unified item list
+  const listItems = useMemo(() => {
+    const query = filterText.toLowerCase();
+    const items: ListItem[] = [];
+
+    // Installed skills
+    if (
+      statusFilter === "all" ||
+      statusFilter === "enabled" ||
+      statusFilter === "agent"
+    ) {
+      for (const s of skills) {
+        if (statusFilter === "enabled" && !s.enabled) continue;
+        if (statusFilter === "agent" && s.source !== "agent") continue;
         if (
           query &&
-          !skill.name.toLowerCase().includes(query) &&
-          !skill.description?.toLowerCase().includes(query)
-        ) {
+          !s.name.toLowerCase().includes(query) &&
+          !s.description?.toLowerCase().includes(query)
+        )
           continue;
-        }
-
-        if (skill.enabled) activeCount++;
-
-        if (
-          skill.scanStatus === "warning" ||
-          skill.scanStatus === "critical" ||
-          skill.scanStatus === "blocked"
-        ) {
-          attention.push(skill);
-        } else if (skill.enabled) {
-          active.push(skill);
-        } else {
-          inactive.push(skill);
-        }
+        items.push({ kind: "installed", skill: s });
       }
+    }
 
-      return {
-        attention,
-        active,
-        inactive,
-        activeCount,
-        totalCount: skills.length,
-      };
-    }, [skills, filterText]);
+    // Catalog skills
+    if (statusFilter === "all" || statusFilter === "catalog") {
+      for (const c of catalogSkills) {
+        if (
+          query &&
+          !c.displayName.toLowerCase().includes(query) &&
+          !c.summary?.toLowerCase().includes(query) &&
+          !c.slug.toLowerCase().includes(query)
+        )
+          continue;
+        items.push({ kind: "catalog", catalog: c });
+      }
+    }
+
+    return items;
+  }, [skills, catalogSkills, filterText, statusFilter]);
+
+  const enabledCount = useMemo(
+    () => skills.filter((s) => s.enabled).length,
+    [skills],
+  );
+
+  const agentCount = useMemo(
+    () => skills.filter((s) => s.source === "agent").length,
+    [skills],
+  );
+
+  // Effective selection
+  const effectiveSelected =
+    listItems.find((it) => itemId(it) === selectedId) != null
+      ? selectedId
+      : listItems.length > 0
+        ? itemId(listItems[0])
+        : null;
+  const selectedItem =
+    listItems.find((it) => itemId(it) === effectiveSelected) ?? null;
 
   const handleDismissReview = () => {
     setState("skillReviewId", "");
@@ -854,147 +832,410 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
     setState("skillCreateDescription", "");
   };
 
-  const allVisible = [...attention, ...active, ...inactive];
-
-  /** Render a group of skill cards in a grid with a section header. */
-  const renderGroup = (label: string, items: SkillInfo[], accent?: string) => {
-    if (items.length === 0) return null;
-    return (
-      <div className="mb-6">
-        <div
-          className="text-xs uppercase tracking-wider font-semibold mb-2 flex items-center gap-2"
-          style={accent ? { color: accent } : { color: "var(--muted)" }}
-        >
-          {label}
-          <span className="text-[10px] font-mono opacity-60">
-            ({items.length})
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {items.map((skill) => (
-            <SkillCard
-              key={skill.id}
-              skill={skill}
-              skillToggleAction={skillToggleAction}
-              skillReviewId={skillReviewId}
-              skillReviewReport={skillReviewReport}
-              skillReviewLoading={skillReviewLoading}
-              onToggle={handleSkillToggle}
-              onEdit={setEditingSkill}
-              onDelete={handleDeleteSkill}
-              onReview={handleReviewSkill}
-              onAcknowledge={handleAcknowledgeSkill}
-              onDismissReview={handleDismissReview}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
+  /* ── Render ────────────────────────────────────────────────────────── */
 
   return (
-    <div>
-      {/* Stats bar */}
-      <div className="flex items-center gap-4 mb-4 text-[11px] text-[var(--muted)]">
-        <span>
-          {totalCount} skill{totalCount !== 1 ? "s" : ""}
-        </span>
-        <span>{activeCount} active</span>
-        <span>{inactive.length} inactive</span>
-        {attention.length > 0 && (
-          <span className="text-[#f39c12]">
-            {attention.length} need{attention.length === 1 ? "s" : ""} attention
-          </span>
-        )}
+    <>
+      <div className="plugins-game-modal">
+        {/* ─── LEFT PANEL: List ─── */}
+        <div className="plugins-game-list-panel">
+          {/* Header */}
+          <div className="plugins-game-list-head">
+            <div className="plugins-game-section-title">Talents</div>
+            <div className="plugins-game-section-meta">
+              {skills.length} installed
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="plugins-game-list-search">
+            <div className="plugins-game-list-search-row">
+              <input
+                type="text"
+                className="plugins-game-search-input"
+                placeholder="Search skills..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+              />
+              <button
+                type="button"
+                className="plugins-game-add-btn"
+                onClick={() => setInstallModalOpen(true)}
+              >
+                <span className="plugins-game-add-symbol">+</span> Install
+              </button>
+            </div>
+          </div>
+
+          {/* Filter chips + actions */}
+          <div className="plugins-game-chip-row plugins-game-chip-row-wrap">
+            {(
+              [
+                {
+                  key: "all" as const,
+                  label: `ALL (${skills.length + catalogSkills.length})`,
+                },
+                { key: "enabled" as const, label: `ON (${enabledCount})` },
+                {
+                  key: "agent" as const,
+                  label: `AGENT (${agentCount})`,
+                },
+                {
+                  key: "catalog" as const,
+                  label: `CATALOG (${catalogSkills.length})`,
+                },
+              ] as const
+            ).map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`plugins-game-chip plugins-game-chip-small${statusFilter === f.key ? " is-active" : ""}`}
+                onClick={() => setStatusFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Scrollable card list */}
+          <div className="plugins-game-list-scroll">
+            {listItems.length === 0 ? (
+              <div className="plugins-game-list-empty">
+                {catalogLoading
+                  ? "Loading catalog..."
+                  : filterText
+                    ? `No skills match "${filterText}"`
+                    : "No skills found."}
+              </div>
+            ) : (
+              listItems.map((item) => {
+                const id = itemId(item);
+                const name = itemName(item);
+                const enabled = itemEnabled(item);
+                const isCat = item.kind === "catalog";
+                const isAgent =
+                  item.kind === "installed" && item.skill.source === "agent";
+                const isBusy =
+                  item.kind === "installed"
+                    ? skillToggleAction === item.skill.id
+                    : catalogInstalling.has(item.catalog.slug) ||
+                      catalogUninstalling.has(item.catalog.slug);
+
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`plugins-game-card${effectiveSelected === id ? " is-selected" : ""}${!enabled ? " is-disabled" : ""}`}
+                    onClick={() => setSelectedId(id)}
+                  >
+                    <div className="plugins-game-card-icon-shell">
+                      <span className="plugins-game-card-icon">
+                        {name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="plugins-game-card-body">
+                      <div className="plugins-game-card-name">{name}</div>
+                      <div className="plugins-game-card-meta">
+                        <span
+                          className={`plugins-game-badge ${enabled ? "is-on" : "is-off"}${isBusy ? " is-busy" : ""}`}
+                        >
+                          {isBusy ? "..." : enabled ? "ON" : "OFF"}
+                        </span>
+                        {isCat && (
+                          <span className="plugins-game-badge">CATALOG</span>
+                        )}
+                        {isAgent && (
+                          <span
+                            className="plugins-game-badge"
+                            style={{ color: "var(--accent)" }}
+                          >
+                            AGENT
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ─── RIGHT PANEL: Detail ─── */}
+        <div className="plugins-game-detail-panel">
+          {selectedItem ? (
+            <>
+              {/* Detail head */}
+              <div className="plugins-game-detail-head">
+                <div className="plugins-game-detail-title-row">
+                  <div className="plugins-game-detail-icon-shell">
+                    <span className="plugins-game-detail-icon">
+                      {itemName(selectedItem).charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="plugins-game-detail-main">
+                    <div className="plugins-game-detail-name">
+                      {itemName(selectedItem)}
+                    </div>
+                    {selectedItem.kind === "catalog" &&
+                      selectedItem.catalog.latestVersion && (
+                        <span className="plugins-game-version">
+                          v{selectedItem.catalog.latestVersion.version}
+                        </span>
+                      )}
+                  </div>
+                  {/* Toggle */}
+                  {selectedItem.kind === "installed" ? (
+                    <button
+                      type="button"
+                      className={`plugins-game-toggle ${selectedItem.skill.enabled ? "is-on" : "is-off"}`}
+                      onClick={() =>
+                        handleSkillToggle(
+                          selectedItem.skill.id,
+                          !selectedItem.skill.enabled,
+                        )
+                      }
+                      disabled={skillToggleAction === selectedItem.skill.id}
+                    >
+                      {skillToggleAction === selectedItem.skill.id
+                        ? "APPLYING"
+                        : selectedItem.skill.enabled
+                          ? "ON"
+                          : "OFF"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`plugins-game-toggle ${selectedItem.catalog.installed ? "is-on" : "is-off"}`}
+                      onClick={() =>
+                        selectedItem.catalog.installed
+                          ? handleCatalogUninstall(selectedItem.catalog.slug)
+                          : handleCatalogInstall(selectedItem.catalog.slug)
+                      }
+                      disabled={
+                        catalogInstalling.has(selectedItem.catalog.slug) ||
+                        catalogUninstalling.has(selectedItem.catalog.slug)
+                      }
+                    >
+                      {catalogInstalling.has(selectedItem.catalog.slug) ||
+                      catalogUninstalling.has(selectedItem.catalog.slug)
+                        ? "APPLYING"
+                        : selectedItem.catalog.installed
+                          ? "ON"
+                          : "OFF"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Agent-created indicator */}
+              {selectedItem.kind === "installed" &&
+                selectedItem.skill.source === "agent" && (
+                  <div
+                    style={{
+                      padding: "6px 12px",
+                      margin: "0 16px 8px",
+                      background: "rgba(var(--accent-rgb, 212 175 55), 0.08)",
+                      border: "1px solid var(--accent)",
+                      fontSize: 11,
+                      color: "var(--accent)",
+                    }}
+                  >
+                    Self-created by agent
+                  </div>
+                )}
+
+              {/* Description */}
+              <div className="plugins-game-detail-description">
+                {selectedItem.kind === "installed"
+                  ? selectedItem.skill.description || "No description provided."
+                  : selectedItem.catalog.summary || "No description available."}
+              </div>
+
+              {/* Metadata for catalog items */}
+              {selectedItem.kind === "catalog" && (
+                <div
+                  className="plugins-game-detail-meta"
+                  style={{
+                    marginBottom: 14,
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {Object.keys(selectedItem.catalog.tags || {})
+                    .slice(0, 5)
+                    .map((tag) => (
+                      <span key={tag} className="plugins-game-badge">
+                        {tag}
+                      </span>
+                    ))}
+                  {selectedItem.catalog.stats.downloads > 0 && (
+                    <span className="plugins-game-badge">
+                      {selectedItem.catalog.stats.downloads.toLocaleString()}{" "}
+                      downloads
+                    </span>
+                  )}
+                  {selectedItem.catalog.stats.stars > 0 && (
+                    <span className="plugins-game-badge">
+                      {selectedItem.catalog.stats.stars.toLocaleString()} stars
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Scan review panel (installed skills only) */}
+              {selectedItem.kind === "installed" &&
+                (selectedItem.skill.scanStatus === "warning" ||
+                  selectedItem.skill.scanStatus === "critical" ||
+                  selectedItem.skill.scanStatus === "blocked") && (
+                  <div className="plugins-game-detail-errors">
+                    <div>
+                      Scan status:{" "}
+                      <strong>{selectedItem.skill.scanStatus}</strong>
+                    </div>
+                    {skillReviewId === selectedItem.skill.id &&
+                    skillReviewReport ? (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ marginBottom: 4 }}>
+                          {skillReviewReport.summary.critical} critical,{" "}
+                          {skillReviewReport.summary.warn} warnings
+                        </div>
+                        {skillReviewReport.findings.map(
+                          (
+                            f: SkillScanReportSummary["findings"][number],
+                            idx: number,
+                          ) => (
+                            <div
+                              key={`${f.file}:${f.line}:${f.message}`}
+                              style={{
+                                fontSize: 11,
+                                fontFamily: "monospace",
+                                borderTop:
+                                  idx > 0
+                                    ? "1px solid rgba(255,255,255,0.08)"
+                                    : undefined,
+                                padding: "3px 0",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color:
+                                    f.severity === "critical"
+                                      ? "#ef4444"
+                                      : "#f39c12",
+                                  fontWeight: "bold",
+                                  marginRight: 6,
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                {f.severity}
+                              </span>
+                              {f.message}{" "}
+                              <span style={{ opacity: 0.5 }}>
+                                {f.file}:{f.line}
+                              </span>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : skillReviewId === selectedItem.skill.id &&
+                      skillReviewLoading ? (
+                      <div style={{ marginTop: 8, fontStyle: "italic" }}>
+                        Loading scan report...
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+              {/* Create form (shown in detail panel when active) */}
+              {skillCreateFormOpen && (
+                <div style={{ marginBottom: 14 }}>
+                  <CreateSkillForm
+                    skillCreateName={skillCreateName}
+                    skillCreateDescription={skillCreateDescription}
+                    skillCreating={skillCreating}
+                    setState={setState}
+                    onCancel={handleCancelCreate}
+                    onCreate={handleCreateSkill}
+                  />
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="plugins-game-detail-actions">
+                {selectedItem.kind === "installed" &&
+                  (selectedItem.skill.scanStatus === "warning" ||
+                    selectedItem.skill.scanStatus === "critical") &&
+                  skillReviewId !== selectedItem.skill.id && (
+                    <button
+                      type="button"
+                      className="plugins-game-action-btn"
+                      onClick={() => handleReviewSkill(selectedItem.skill.id)}
+                    >
+                      Review Findings
+                    </button>
+                  )}
+                {selectedItem.kind === "installed" &&
+                  skillReviewId === selectedItem.skill.id &&
+                  skillReviewReport && (
+                    <>
+                      <button
+                        type="button"
+                        className="plugins-game-action-btn"
+                        onClick={handleDismissReview}
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        className="plugins-game-save-btn"
+                        onClick={() =>
+                          handleAcknowledgeSkill(selectedItem.skill.id)
+                        }
+                      >
+                        Acknowledge &amp; Enable
+                      </button>
+                    </>
+                  )}
+                {selectedItem.kind === "installed" && (
+                  <>
+                    <button
+                      type="button"
+                      className="plugins-game-action-btn"
+                      onClick={() => setEditingSkill(selectedItem.skill)}
+                    >
+                      Edit Source
+                    </button>
+                    <ConfirmDeleteControl
+                      triggerClassName="plugins-game-action-btn"
+                      confirmClassName="plugins-game-save-btn"
+                      cancelClassName="plugins-game-action-btn"
+                      confirmLabel="Yes, Delete"
+                      cancelLabel="Cancel"
+                      onConfirm={() =>
+                        handleDeleteSkill(
+                          selectedItem.skill.id,
+                          selectedItem.skill.name,
+                        )
+                      }
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="plugins-game-detail-empty">
+              <span className="plugins-game-detail-empty-icon">✦</span>
+              <span className="plugins-game-detail-empty-text">
+                Select a skill to configure.
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Filter skills..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          className={`${inputCls} w-[200px]`}
-        />
-
-        <span className="flex-1" />
-
-        <button
-          type="button"
-          className={skillCreateFormOpen ? btnGhost : btnPrimary}
-          onClick={() => setState("skillCreateFormOpen", !skillCreateFormOpen)}
-        >
-          {skillCreateFormOpen ? "Cancel" : "+ New Skill"}
-        </button>
-        <button
-          type="button"
-          className={btnPrimary}
-          onClick={() => setInstallModalOpen(true)}
-        >
-          Install
-        </button>
-        <button
-          type="button"
-          className={btnGhost}
-          onClick={() => refreshSkills()}
-          title="Refresh skills list"
-        >
-          Refresh
-        </button>
-      </div>
-
-      {/* Create form */}
-      {skillCreateFormOpen && (
-        <CreateSkillForm
-          skillCreateName={skillCreateName}
-          skillCreateDescription={skillCreateDescription}
-          skillCreating={skillCreating}
-          setState={setState}
-          onCancel={handleCancelCreate}
-          onCreate={handleCreateSkill}
-        />
-      )}
-
-      {/* Skill grid — grouped by status */}
-      {skills.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-[var(--muted)] text-sm mb-2">
-            No skills installed
-          </div>
-          <div className="text-[var(--muted)] text-[11px] mb-4">
-            Install skills from the marketplace or create a new one.
-          </div>
-          <div className="flex justify-center gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
-              onClick={() => setInstallModalOpen(true)}
-            >
-              Browse Marketplace
-            </button>
-            <button
-              type="button"
-              className={btnGhost}
-              onClick={() => setState("skillCreateFormOpen", true)}
-            >
-              Create Skill
-            </button>
-          </div>
-        </div>
-      ) : allVisible.length === 0 ? (
-        <div className="text-center py-12 text-[var(--muted)] text-xs">
-          No skills match "{filterText}"
-        </div>
-      ) : (
-        <div>
-          {renderGroup("Needs Attention", attention, "#f39c12")}
-          {renderGroup("Active", active, "var(--ok, #16a34a)")}
-          {renderGroup("Inactive", inactive)}
-        </div>
-      )}
-
-      {/* Edit modal */}
+      {/* Modals rendered OUTSIDE game-modal to escape 3D stacking context */}
       {editingSkill && (
         <EditSkillModal
           skillId={editingSkill.id}
@@ -1004,7 +1245,6 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
         />
       )}
 
-      {/* Install modal */}
       {installModalOpen && (
         <InstallModal
           skills={skills}
@@ -1022,6 +1262,6 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
           onClose={() => setInstallModalOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }

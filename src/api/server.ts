@@ -453,6 +453,8 @@ interface SkillEntry {
   enabled: boolean;
   /** Set automatically when a scan report exists for this skill. */
   scanStatus?: "clean" | "warning" | "critical" | "blocked" | null;
+  /** How this skill was created. */
+  source?: "user" | "agent" | "catalog" | "bundled" | null;
 }
 
 interface LogEntry {
@@ -1676,12 +1678,26 @@ async function discoverSkills(
               }
             }
 
+            // Determine source: check for .agent-created marker
+            let source: SkillEntry["source"] = null;
+            if (
+              s.source === "agent" ||
+              fs.existsSync(path.join(s.path, ".agent-created"))
+            ) {
+              source = "agent";
+            } else if (s.source === "bundled" || s.source === "package") {
+              source = "bundled";
+            } else if (s.source === "catalog" || s.source === "marketplace") {
+              source = "catalog";
+            }
+
             return {
               id: s.slug,
               name: s.name || s.slug,
               description: (s.description || "").slice(0, 200),
               enabled: resolveSkillEnabled(s.slug, config, dbPrefs),
               scanStatus,
+              source,
             };
           });
 
@@ -1737,6 +1753,15 @@ async function discoverSkills(
   const workspaceSkills = path.join(workspaceDir, "skills");
   if (fs.existsSync(workspaceSkills)) {
     skillsDirs.add(workspaceSkills);
+  }
+
+  // Repo-local skills (skills/ directory at project root)
+  const thisDir =
+    import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = findOwnPackageRoot(thisDir);
+  const repoSkills = path.join(repoRoot, "skills");
+  if (fs.existsSync(repoSkills) && repoSkills !== workspaceSkills) {
+    skillsDirs.add(repoSkills);
   }
 
   // Extra dirs from config
@@ -1825,11 +1850,17 @@ function scanSkillsDir(
           description = descLine?.trim() ?? "";
         }
 
+        // Detect agent-created skills via marker file
+        const isAgentCreated = fs.existsSync(
+          path.join(entryPath, ".agent-created"),
+        );
+
         skills.push({
           id: entry,
           name: skillName,
           description: description.slice(0, 200),
           enabled: resolveSkillEnabled(entry, config, dbPrefs),
+          source: isAgentCreated ? "agent" : null,
         });
       } catch {
         /* skip unreadable */

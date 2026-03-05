@@ -321,6 +321,7 @@ export function PermissionsSection() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
+  const [selfEvolutionEnabled, setSelfEvolutionEnabled] = useState(true);
   const { handleRequest, handleOpenSettings } =
     usePermissionActions(setPermissions);
 
@@ -329,12 +330,21 @@ export function PermissionsSection() {
     void (async () => {
       setLoading(true);
       try {
-        const [perms, isShell] = await Promise.all([
+        const [perms, isShell, config] = await Promise.all([
           client.getPermissions(),
           client.isShellEnabled(),
+          client.getConfig(),
         ]);
         setPermissions(perms);
         setShellEnabled(isShell);
+        // Self-evolution defaults to true
+        const feats = config?.features as Record<string, unknown> | undefined;
+        const flag = feats?.selfEvolution;
+        setSelfEvolutionEnabled(
+          flag !== false &&
+            (typeof flag !== "object" ||
+              (flag as Record<string, unknown>)?.enabled !== false),
+        );
         // Detect platform from permissions (accessibility only on darwin)
         if (perms.accessibility?.status !== "not-applicable") {
           setPlatform("darwin");
@@ -370,6 +380,18 @@ export function PermissionsSection() {
       setPermissions((prev) => (prev ? { ...prev, shell: state } : prev));
     } catch (err) {
       console.error("Failed to toggle shell:", err);
+    }
+  }, []);
+
+  /** Toggle self-evolution. */
+  const handleToggleSelfEvolution = useCallback(async (enabled: boolean) => {
+    try {
+      await client.updateConfig({
+        features: { selfEvolution: enabled },
+      });
+      setSelfEvolutionEnabled(enabled);
+    } catch (err) {
+      console.error("Failed to toggle self-evolution:", err);
     }
   }, []);
 
@@ -485,6 +507,46 @@ export function PermissionsSection() {
         <div className="text-[11px] text-[var(--muted)] mt-2">
           Capabilities require their underlying system permissions to be
           granted. Enable capabilities to unlock agent features.
+        </div>
+      </div>
+
+      {/* Self-Evolution Toggle */}
+      <div>
+        <div className="font-bold text-sm mb-3">Agent Intelligence</div>
+        <div
+          className={`flex items-center gap-3 p-3 border border-[var(--border)] ${
+            selfEvolutionEnabled ? "bg-[var(--accent)]/10" : "bg-[var(--card)]"
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[13px]">Self-Evolution</span>
+              {selfEvolutionEnabled && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/20 text-[var(--accent)]">
+                  Active
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">
+              Agent learns from errors, creates skills, and improves over time
+            </div>
+          </div>
+          <Switch
+            checked={selfEvolutionEnabled}
+            onChange={handleToggleSelfEvolution}
+            trackOnClass="bg-[var(--accent)]"
+            trackOffClass="bg-[var(--border)]"
+            title={
+              selfEvolutionEnabled
+                ? "Disable self-evolution"
+                : "Enable self-evolution"
+            }
+          />
+        </div>
+        <div className="text-[11px] text-[var(--muted)] mt-2">
+          When enabled, the agent records learnings from mistakes, creates new
+          skills autonomously, and can fine-tune local models from interaction
+          history.
         </div>
       </div>
     </div>

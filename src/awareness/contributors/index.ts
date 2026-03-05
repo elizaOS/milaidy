@@ -3,10 +3,12 @@ import { opinionContributor } from "../../plugins/opinion/awareness/opinion-cont
 import { cloudContributor } from "./cloud";
 import { connectorsContributor } from "./connectors";
 import { featuresContributor } from "./features";
+import { learningsContributor } from "./learnings";
 import { permissionsContributor } from "./permissions";
 import { pluginHealthContributor } from "./plugin-health";
 import { providerContributor } from "./provider";
 import { runtimeContributor } from "./runtime";
+import { selfTrainingContributor } from "./self-training";
 import { walletContributor } from "./wallet";
 
 export const builtinContributors: AwarenessContributor[] = [
@@ -19,4 +21,6 @@ export const builtinContributors: AwarenessContributor[] = [
   connectorsContributor,
   cloudContributor,
   featuresContributor,
+  learningsContributor,
+  selfTrainingContributor,
 ];

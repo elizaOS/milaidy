@@ -794,6 +794,7 @@ export interface SkillInfo {
   description: string;
   enabled: boolean;
   scanStatus?: "clean" | "warning" | "critical" | "blocked" | null;
+  source?: "user" | "agent" | "catalog" | "bundled" | null;
 }
 
 export interface SkillScanReportSummary {
