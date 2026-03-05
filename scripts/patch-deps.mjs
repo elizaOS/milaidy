@@ -723,6 +723,26 @@ const validateActionRegex = () => true;`;
     console.log("[patch-deps] polymarket initializeClobClientWithCreds signature changed; skip patch.");
   }
 
+  // Patch: Expand placeOrder action keywords so it triggers on natural
+  // trading phrases like "buy", "sell", "bet", "trade", "fire", "execute"
+  // instead of only matching "polymarket", "place", "order".
+  const narrowKeywords = `const __avKeywords = ["polymarket", "place", "order"];`;
+  const expandedKeywords = `const __avKeywords = ["polymarket", "place", "order", "buy", "sell", "bet", "trade", "fire", "execute", "wager", "market"];`;
+
+  const narrowRegex = `const __avRegex = /\\b(?:polymarket|place|order)\\b/i;`;
+  const expandedRegex = `const __avRegex = /\\b(?:polymarket|place|order|buy|sell|bet|trade|fire|execute|wager|market)\\b/i;`;
+
+  if (polymarketSrc.includes(expandedKeywords)) {
+    console.log("[patch-deps] polymarket placeOrder keyword expansion already present.");
+  } else if (polymarketSrc.includes(narrowKeywords)) {
+    polymarketSrc = polymarketSrc.replace(narrowKeywords, expandedKeywords);
+    polymarketSrc = polymarketSrc.replace(narrowRegex, expandedRegex);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket placeOrder keyword expansion patch.");
+  } else {
+    console.log("[patch-deps] polymarket placeOrder keywords changed; skip patch.");
+  }
+
   if (polymarketPatched > 0) {
     writeFileSync(polymarketTarget, polymarketSrc, "utf8");
     console.log(
