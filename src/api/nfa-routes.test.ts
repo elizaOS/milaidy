@@ -19,7 +19,9 @@ vi.mock("@milady/plugin-bnb-identity", () => {
         : [leafHashes[1], leafHashes[0]];
     return sha256(a + b);
   }
-  function parseLearnings(markdown: string): Array<{ date: string; content: string; hash: string }> {
+  function parseLearnings(
+    markdown: string,
+  ): Array<{ date: string; content: string; hash: string }> {
     const lines = markdown.split("\n");
     const entries: Array<{ date: string; content: string; hash: string }> = [];
     let currentDate = "undated";

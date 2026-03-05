@@ -26,7 +26,7 @@ type NfaPlugin = {
   sha256: (data: string) => string;
 };
 
-let nfaPlugin: NfaPlugin | null | undefined = undefined;
+let nfaPlugin: NfaPlugin | null | undefined;
 
 async function getNfaPlugin(): Promise<NfaPlugin | null> {
   if (nfaPlugin !== undefined) return nfaPlugin;
