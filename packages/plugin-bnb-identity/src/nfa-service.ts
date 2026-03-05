@@ -8,16 +8,12 @@
  */
 
 import type { IAgentRuntime } from "@elizaos/core";
-import type {
-  Bap578NfaConfig,
-  MintNfaResult,
-  NfaInfoResult,
-} from "./types.js";
 import {
-  type McpToolResponse,
   assertMcpToolSuccess,
+  type McpToolResponse,
   parseMcpResult,
 } from "./service.js";
+import type { Bap578NfaConfig, MintNfaResult, NfaInfoResult } from "./types.js";
 
 export class Bap578NfaService {
   private runtime: IAgentRuntime;
@@ -59,7 +55,7 @@ export class Bap578NfaService {
    */
   async updateLearningRoot(
     tokenId: string,
-    merkleRoot: string
+    merkleRoot: string,
   ): Promise<{ txHash: string }> {
     this.assertPrivateKey();
     return this.callMcpTool<{ txHash: string }>("update_bap578_learning_root", {
@@ -75,16 +71,25 @@ export class Bap578NfaService {
     if (!this.config.privateKey) {
       throw new Error(
         "BNB_PRIVATE_KEY is required for write operations. " +
-          "Add it to ~/.milady/.env or milady.json plugin parameters."
+          "Add it to ~/.milady/.env or milady.json plugin parameters.",
       );
     }
   }
 
   private async callMcpTool<T>(
     toolName: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<T> {
-    const mcpClient = (this.runtime as any).mcpClient;
+    const mcpClient = (
+      this.runtime as unknown as {
+        mcpClient?: {
+          callTool: (request: {
+            name: string;
+            arguments: Record<string, unknown>;
+          }) => Promise<unknown>;
+        };
+      }
+    ).mcpClient;
     if (mcpClient?.callTool) {
       const result = (await mcpClient.callTool({
         name: toolName,
@@ -94,8 +99,15 @@ export class Bap578NfaService {
       return parseMcpResult<T>(result, toolName);
     }
 
-    // Fallback: direct HTTP call to local MCP dev server
+    // Fallback: direct HTTP call to local MCP dev server.
+    // SECURITY: restrict to localhost to prevent private key exfiltration.
     const baseUrl = process.env.BNB_MCP_URL ?? "http://localhost:3001";
+    const parsedUrl = new URL(baseUrl);
+    if (!["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname)) {
+      throw new Error(
+        `BNB_MCP_URL must be localhost when transmitting private keys. Got: ${parsedUrl.hostname}`,
+      );
+    }
     const res = await fetch(`${baseUrl}/tools/${toolName}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

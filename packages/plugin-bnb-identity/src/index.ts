@@ -42,13 +42,23 @@ import {
 } from "./nfa-actions.js";
 
 export {
+  buildMerkleRoot,
+  computeLearningsData,
+  parseLearnings,
+  sha256,
+} from "./merkle.js";
+export {
   buildAgentMetadata,
   metadataToDataUri,
   metadataToHostedUri,
 } from "./metadata.js";
-export { buildMerkleRoot, computeLearningsData, parseLearnings, sha256 } from "./merkle.js";
 export { Bap578NfaService } from "./nfa-service.js";
-export { clearNfaRecord, patchNfaRecord, readNfaRecord, writeNfaRecord } from "./nfa-store.js";
+export {
+  clearNfaRecord,
+  patchNfaRecord,
+  readNfaRecord,
+  writeNfaRecord,
+} from "./nfa-store.js";
 export { BnbIdentityService } from "./service.js";
 export { patchIdentity, readIdentity, writeIdentity } from "./store.js";
 export type {

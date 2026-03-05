@@ -141,6 +141,7 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
+import { handleNfaRoutes } from "./nfa-routes";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
@@ -7100,6 +7101,19 @@ async function handleRequest(
       readDir: fs.readdirSync,
       unlinkFile: fs.unlinkSync,
       joinPath: path.join,
+    })
+  ) {
+    return;
+  }
+
+  if (
+    await handleNfaRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      json,
+      error,
     })
   ) {
     return;

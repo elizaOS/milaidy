@@ -6,9 +6,9 @@
  * and can be read by other plugins and API routes.
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import type { NfaRecord } from "./types.js";
 
 const MILADY_DIR = join(homedir(), ".milady");
@@ -32,13 +32,11 @@ export async function writeNfaRecord(record: NfaRecord): Promise<void> {
 
 /** Updates specific fields on the existing record, or throws if none exists. */
 export async function patchNfaRecord(
-  patch: Partial<NfaRecord>
+  patch: Partial<NfaRecord>,
 ): Promise<NfaRecord> {
   const existing = await readNfaRecord();
   if (!existing) {
-    throw new Error(
-      "No NFA record found. Mint first with: mint nfa"
-    );
+    throw new Error("No NFA record found. Mint first with: mint nfa");
   }
   const updated: NfaRecord = {
     ...existing,

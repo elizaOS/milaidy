@@ -16,23 +16,28 @@ import type {
   Memory,
   State,
 } from "@elizaos/core";
-
-import { Bap578NfaService } from "./nfa-service.js";
-import { readNfaRecord, writeNfaRecord, patchNfaRecord } from "./nfa-store.js";
 import { computeLearningsData } from "./merkle.js";
+import { Bap578NfaService } from "./nfa-service.js";
+import { patchNfaRecord, readNfaRecord, writeNfaRecord } from "./nfa-store.js";
 import type { Bap578NfaConfig } from "./types.js";
+import {
+  deletePending,
+  getPending,
+  setPending,
+  userConfirmed,
+} from "./utils.js";
 
 function loadConfig(runtime: IAgentRuntime): Bap578NfaConfig {
-  const contractAddress = String(runtime.getSetting("BAP578_CONTRACT_ADDRESS") ?? "");
+  const contractAddress = String(
+    runtime.getSetting("BAP578_CONTRACT_ADDRESS") ?? "",
+  );
   if (!contractAddress) {
     throw new Error(
-      "BAP578_CONTRACT_ADDRESS is required. Set it in your environment or milady.json plugin parameters."
+      "BAP578_CONTRACT_ADDRESS is required. Set it in your environment or milady.json plugin parameters.",
     );
   }
 
-  const rawNetwork = String(
-    runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet"
-  )
+  const rawNetwork = String(runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet")
     .trim()
     .toLowerCase();
 
@@ -41,9 +46,10 @@ function loadConfig(runtime: IAgentRuntime): Bap578NfaConfig {
 
   return {
     contractAddress,
-    privateKey: runtime.getSetting("BNB_PRIVATE_KEY") != null
-      ? String(runtime.getSetting("BNB_PRIVATE_KEY"))
-      : undefined,
+    privateKey:
+      runtime.getSetting("BNB_PRIVATE_KEY") != null
+        ? String(runtime.getSetting("BNB_PRIVATE_KEY"))
+        : undefined,
     network,
   };
 }
@@ -56,11 +62,6 @@ function bscscanUrl(network: string, txHash: string): string {
   const base =
     network === "bsc" ? "https://bscscan.com" : "https://testnet.bscscan.com";
   return `${base}/tx/${txHash}`;
-}
-
-function userConfirmed(message: Memory): boolean {
-  const text = message.content?.text?.toLowerCase() ?? "";
-  return text.includes("confirm") || text.includes("yes");
 }
 
 async function loadLearningsMarkdown(): Promise<string | null> {
@@ -76,9 +77,7 @@ async function loadLearningsMarkdown(): Promise<string | null> {
     for (const p of paths) {
       try {
         return await readFile(p, "utf8");
-      } catch {
-        continue;
-      }
+      } catch {}
     }
     return null;
   } catch {
@@ -87,6 +86,14 @@ async function loadLearningsMarkdown(): Promise<string | null> {
 }
 
 // ── Action: NFA_GET_INFO ──────────────────────────────────────────────────
+
+export function nfaMintPendingKey(agentId: string): string {
+  return `nfa-mint:${agentId}`;
+}
+
+export function nfaUpdatePendingKey(agentId: string): string {
+  return `nfa-update:${agentId}`;
+}
 
 export const getNfaInfoAction: Action = {
   name: "NFA_GET_INFO",
@@ -103,7 +110,7 @@ export const getNfaInfoAction: Action = {
 
   validate: async (
     _runtime: IAgentRuntime,
-    _message: Memory
+    _message: Memory,
   ): Promise<boolean> => true,
 
   handler: async (
@@ -111,7 +118,7 @@ export const getNfaInfoAction: Action = {
     _message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     const record = await readNfaRecord();
     if (!record) {
@@ -203,21 +210,23 @@ export const mintNfaAction: Action = {
 
   validate: async (
     _runtime: IAgentRuntime,
-    _message: Memory
+    _message: Memory,
   ): Promise<boolean> => true,
 
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State | undefined,
+    _state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     let config: Bap578NfaConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({ text: `Configuration error: ${(err as Error).message}` });
+      await callback({
+        text: `Configuration error: ${(err as Error).message}`,
+      });
       return;
     }
 
@@ -246,8 +255,8 @@ export const mintNfaAction: Action = {
     const markdown = await loadLearningsMarkdown();
     const learnings = computeLearningsData(markdown ?? "");
 
-    const pendingKey = "nfa_mint_pending";
-    if (!state?.[pendingKey]) {
+    const pendingKey = nfaMintPendingKey(runtime.agentId);
+    if (!getPending(pendingKey)) {
       await callback({
         text:
           `Ready to mint NFA on **${networkLabel(config.network)}**.\n\n` +
@@ -256,13 +265,13 @@ export const mintNfaAction: Action = {
           `**Merkle root:** \`${learnings.merkleRoot.slice(0, 16)}...\`\n\n` +
           `This will send a transaction from your wallet. Reply **confirm** to proceed.`,
       });
-      if (state) state[pendingKey] = { merkleRoot: learnings.merkleRoot };
+      setPending(pendingKey, { merkleRoot: learnings.merkleRoot });
       return;
     }
 
     if (!userConfirmed(message)) {
       await callback({ text: "Minting cancelled." });
-      if (state) delete state[pendingKey];
+      deletePending(pendingKey);
       return;
     }
 
@@ -308,7 +317,7 @@ export const mintNfaAction: Action = {
       });
     }
 
-    if (state) delete state[pendingKey];
+    deletePending(pendingKey);
   },
 
   examples: [
@@ -344,7 +353,7 @@ export const updateLearningRootAction: Action = {
 
   validate: async (
     _runtime: IAgentRuntime,
-    _message: Memory
+    _message: Memory,
   ): Promise<boolean> => {
     const record = await readNfaRecord();
     return record !== null;
@@ -353,15 +362,17 @@ export const updateLearningRootAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State | undefined,
+    _state: State | undefined,
     _options: Record<string, unknown>,
-    callback: HandlerCallback
+    callback: HandlerCallback,
   ): Promise<void> => {
     let config: Bap578NfaConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({ text: `Configuration error: ${(err as Error).message}` });
+      await callback({
+        text: `Configuration error: ${(err as Error).message}`,
+      });
       return;
     }
 
@@ -383,8 +394,7 @@ export const updateLearningRootAction: Action = {
     const markdown = await loadLearningsMarkdown();
     if (!markdown) {
       await callback({
-        text:
-          "No LEARNINGS.md found. Expected at `~/.milady/LEARNINGS.md` or in the current directory.",
+        text: "No LEARNINGS.md found. Expected at `~/.milady/LEARNINGS.md` or in the current directory.",
       });
       return;
     }
@@ -401,8 +411,8 @@ export const updateLearningRootAction: Action = {
       return;
     }
 
-    const pendingKey = "nfa_update_root_pending";
-    if (!state?.[pendingKey]) {
+    const pendingKey = nfaUpdatePendingKey(runtime.agentId);
+    if (!getPending(pendingKey)) {
       await callback({
         text:
           `Ready to update NFA learning root on **${networkLabel(existing.network)}**.\n\n` +
@@ -412,13 +422,13 @@ export const updateLearningRootAction: Action = {
           `**Entries:** ${learnings.totalEntries}\n\n` +
           `This will send a transaction. Reply **confirm** to proceed.`,
       });
-      if (state) state[pendingKey] = { merkleRoot: learnings.merkleRoot };
+      setPending(pendingKey, { merkleRoot: learnings.merkleRoot });
       return;
     }
 
     if (!userConfirmed(message)) {
       await callback({ text: "Update cancelled." });
-      if (state) delete state[pendingKey];
+      deletePending(pendingKey);
       return;
     }
 
@@ -428,7 +438,7 @@ export const updateLearningRootAction: Action = {
     try {
       const result = await svc.updateLearningRoot(
         existing.tokenId,
-        learnings.merkleRoot
+        learnings.merkleRoot,
       );
 
       await patchNfaRecord({ merkleRoot: learnings.merkleRoot });
@@ -447,7 +457,7 @@ export const updateLearningRootAction: Action = {
       });
     }
 
-    if (state) delete state[pendingKey];
+    deletePending(pendingKey);
   },
 
   examples: [
