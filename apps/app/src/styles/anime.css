@@ -577,6 +577,197 @@
   opacity: 1;
 }
 
+/* ── Identity Popover (BAP-578 / ERC-8004) ────────────────────────── */
+
+.anime-header-identity-shell {
+  position: relative;
+  --ac-accent: #f0b232;
+  --ac-accent-rgb: 240, 178, 50;
+}
+
+.anime-identity-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 380px;
+  background:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      rgba(240, 178, 50, 0.14),
+      transparent 54%
+    ),
+    linear-gradient(165deg, rgba(17, 23, 34, 0.96), rgba(7, 10, 18, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  max-height: min(70vh, 600px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transform-origin: top right;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  z-index: 40;
+}
+
+.anime-identity-popover::-webkit-scrollbar {
+  width: 6px;
+}
+
+.anime-identity-popover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+}
+
+.anime-identity-popover.is-open {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.anime-identity-popover-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.anime-identity-popover-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.02em;
+}
+
+.anime-identity-popover-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--ff-mono, monospace);
+}
+
+.anime-identity-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.anime-identity-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.anime-identity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.anime-identity-row > span:first-child {
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.anime-identity-row > span:last-child,
+.anime-identity-row > code {
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--ff-mono, monospace);
+  font-size: 11px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anime-identity-link {
+  color: rgb(240, 178, 50);
+  text-decoration: none;
+  font-family: var(--ff-mono, monospace);
+  font-size: 11px;
+}
+
+.anime-identity-link:hover {
+  text-decoration: underline;
+  color: rgb(255, 210, 100);
+}
+
+.anime-identity-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.anime-identity-badge.is-active {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.anime-identity-badge.is-paused {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.anime-identity-badge.is-free {
+  color: #f0b232;
+  background: rgba(240, 178, 50, 0.15);
+  border: 1px solid rgba(240, 178, 50, 0.3);
+}
+
+.anime-identity-loading {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 16px 0;
+}
+
+.anime-identity-error {
+  font-size: 11px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.anime-identity-empty {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 20px 12px;
+  line-height: 1.6;
+}
+
+.anime-identity-empty strong {
+  color: rgba(240, 178, 50, 0.9);
+}
+
+/* ── end Identity Popover ─────────────────────────────────────────── */
+
 .anime-wallet-popover-head {
   display: flex;
   justify-content: space-between;

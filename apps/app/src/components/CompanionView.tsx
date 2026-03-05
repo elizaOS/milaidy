@@ -298,6 +298,11 @@ export function CompanionView() {
     handlePauseResume,
     handleRestart,
     setActionNotice,
+    // Identity
+    nfaStatus,
+    nfaStatusLoading,
+    nfaStatusError,
+    loadNfaStatus,
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
@@ -337,6 +342,7 @@ export function CompanionView() {
   const solAddress = walletAddresses?.solanaAddress ?? null;
 
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
+  const [identityPanelOpen, setIdentityPanelOpen] = useState(false);
   const [walletActionMode, setWalletActionMode] = useState<
     "send" | "swap" | "receive"
   >("receive");
@@ -411,6 +417,7 @@ export function CompanionView() {
   const recentTxRefreshAtRef = useRef<Record<string, number>>({});
 
   const walletPanelRef = useRef<HTMLDivElement | null>(null);
+  const identityPanelRef = useRef<HTMLDivElement | null>(null);
   const vrmFileInputRef = useRef<HTMLInputElement | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1329,6 +1336,28 @@ export function CompanionView() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [walletPanelOpen]);
+
+  useEffect(() => {
+    if (!identityPanelOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!identityPanelRef.current?.contains(event.target as Node)) {
+        setIdentityPanelOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIdentityPanelOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [identityPanelOpen]);
 
   useEffect(() => {
     if (!walletPanelOpen) return;
@@ -2989,6 +3018,222 @@ export function CompanionView() {
                 </div>
               )}
             </div>
+
+              {/* Identity (BAP-578 / ERC-8004) */}
+              <div className="anime-header-identity-shell" ref={identityPanelRef}>
+                <button
+                  type="button"
+                  className={`anime-header-pill anime-header-wallet-trigger ${identityPanelOpen ? "is-open" : ""}`}
+                  onClick={() => {
+                    if (!identityPanelOpen) void loadNfaStatus();
+                    setIdentityPanelOpen((prev) => !prev);
+                  }}
+                  aria-expanded={identityPanelOpen}
+                  aria-haspopup="dialog"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 10a2 2 0 1 0 4 0 2 2 0 1 0-4 0" />
+                    <path d="M2 12C2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 10-10 10S2 17.5 2 12" />
+                    <path d="M7 20.7a7 7 0 0 1 10 0" />
+                  </svg>
+                  <span className="anime-header-pill-text">ID</span>
+                  <svg
+                    className={`anime-header-wallet-caret ${identityPanelOpen ? "is-open" : ""}`}
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                <div
+                  className={`anime-identity-popover ${identityPanelOpen ? "is-open" : ""}`}
+                  role="dialog"
+                  aria-label="On-chain Identity"
+                >
+                  <div className="anime-identity-popover-head">
+                    <div className="anime-identity-popover-title">On-Chain Identity</div>
+                    <div className="anime-identity-popover-sub">
+                      {nfaStatus?.nfa
+                        ? `NFA #${nfaStatus.nfa.tokenId}`
+                        : nfaStatus?.identity
+                          ? `Agent ${nfaStatus.identity.agentId}`
+                          : "Not registered"}
+                    </div>
+                  </div>
+
+                  {nfaStatusLoading && (
+                    <div className="anime-identity-loading">Loading...</div>
+                  )}
+
+                  {nfaStatusError && (
+                    <div className="anime-identity-error">{nfaStatusError}</div>
+                  )}
+
+                  {!nfaStatusLoading && !nfaStatus?.identity && !nfaStatus?.nfa && (
+                    <div className="anime-identity-empty">
+                      No on-chain identity registered.
+                      <br />
+                      Use chat to <strong>register milady on bnb chain</strong> or <strong>mint nfa</strong>.
+                    </div>
+                  )}
+
+                  {/* ERC-8004 */}
+                  {nfaStatus?.identity && (
+                    <div className="anime-identity-section">
+                      <div className="anime-identity-section-title">ERC-8004 Agent Registry</div>
+                      <div className="anime-identity-row">
+                        <span>Agent ID</span>
+                        <code>{nfaStatus.identity.agentId}</code>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Network</span>
+                        <span>{nfaStatus.identity.network}</span>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Owner</span>
+                        <a
+                          href={`https://bscscan.com/address/${nfaStatus.identity.ownerAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="anime-identity-link"
+                        >
+                          {`${nfaStatus.identity.ownerAddress.slice(0, 6)}...${nfaStatus.identity.ownerAddress.slice(-4)}`}
+                        </a>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Registered</span>
+                        <span>{new Date(nfaStatus.identity.registeredAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BAP-578 NFA */}
+                  {nfaStatus?.nfa && (
+                    <div className="anime-identity-section">
+                      <div className="anime-identity-section-title">
+                        BAP-578 NFA
+                        <span className={`anime-identity-badge ${nfaStatus.onChain?.active !== false ? "is-active" : "is-paused"}`}>
+                          {nfaStatus.onChain?.active !== false ? "Active" : "Paused"}
+                        </span>
+                        {nfaStatus.nfa.freeMint && (
+                          <span className="anime-identity-badge is-free">Free Mint</span>
+                        )}
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Token ID</span>
+                        <a
+                          href={`https://bscscan.com/token/0x8cc16Dd6d816A33A6822344C3F8958e6dfEfcA34?a=${nfaStatus.nfa.tokenId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="anime-identity-link"
+                        >
+                          #{nfaStatus.nfa.tokenId}
+                        </a>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Owner</span>
+                        <a
+                          href={`https://bscscan.com/address/${nfaStatus.nfa.owner}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="anime-identity-link"
+                        >
+                          {`${nfaStatus.nfa.owner.slice(0, 6)}...${nfaStatus.nfa.owner.slice(-4)}`}
+                        </a>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Network</span>
+                        <span>{nfaStatus.nfa.network}</span>
+                      </div>
+                      {nfaStatus.nfa.logicContract && (
+                        <div className="anime-identity-row">
+                          <span>Logic</span>
+                          <a
+                            href={`https://bscscan.com/address/${nfaStatus.nfa.logicContract}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="anime-identity-link"
+                          >
+                            {`${nfaStatus.nfa.logicContract.slice(0, 6)}...${nfaStatus.nfa.logicContract.slice(-4)}`}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Learning */}
+                  {nfaStatus?.nfa && (
+                    <div className="anime-identity-section">
+                      <div className="anime-identity-section-title">Learning History</div>
+                      <div className="anime-identity-row">
+                        <span>Entries</span>
+                        <span>{nfaStatus.nfa.learningCount}</span>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Merkle Root</span>
+                        <code title={nfaStatus.nfa.learningRoot}>
+                          {nfaStatus.nfa.learningRoot
+                            ? `${nfaStatus.nfa.learningRoot.slice(0, 10)}...${nfaStatus.nfa.learningRoot.slice(-6)}`
+                            : "—"}
+                        </code>
+                      </div>
+                      <div className="anime-identity-row">
+                        <span>Last Anchored</span>
+                        <span>
+                          {nfaStatus.nfa.lastAnchoredAt
+                            ? new Date(nfaStatus.nfa.lastAnchoredAt).toLocaleDateString()
+                            : "Never"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* On-Chain Metadata */}
+                  {nfaStatus?.onChain?.metadata && (
+                    <div className="anime-identity-section">
+                      <div className="anime-identity-section-title">On-Chain Metadata</div>
+                      {nfaStatus.onChain.metadata.persona && (
+                        <div className="anime-identity-row">
+                          <span>Persona</span>
+                          <span>{nfaStatus.onChain.metadata.persona}</span>
+                        </div>
+                      )}
+                      {nfaStatus.onChain.metadata.experience && (
+                        <div className="anime-identity-row">
+                          <span>Experience</span>
+                          <span>{nfaStatus.onChain.metadata.experience}</span>
+                        </div>
+                      )}
+                      {nfaStatus.onChain.metadata.vaultHash && (
+                        <div className="anime-identity-row">
+                          <span>Vault Hash</span>
+                          <code title={nfaStatus.onChain.metadata.vaultHash}>
+                            {`${nfaStatus.onChain.metadata.vaultHash.slice(0, 10)}...`}
+                          </code>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
           </div>
 
           <div className="anime-comp-header-right">

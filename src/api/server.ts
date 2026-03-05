@@ -124,6 +124,7 @@ import {
   sendJsonError,
 } from "./http-helpers";
 import { handleKnowledgeRoutes } from "./knowledge-routes";
+import { handleNfaRoutes } from "./nfa-routes";
 import {
   evictOldestConversation,
   getOrReadCachedFile,
@@ -9395,6 +9396,26 @@ async function handleRequest(
       readJsonBody,
       json,
       error,
+    })
+  ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // NFA / Identity routes (BAP-578)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (
+    await handleNfaRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      json,
+      error,
+      nfaContractAddress: process.env.BAP578_CONTRACT_ADDRESS,
+      workspaceDir:
+        state.config.agents?.defaults?.workspace ??
+        resolveDefaultAgentWorkspaceDir(),
     })
   ) {
     return;
