@@ -71,6 +71,7 @@ import {
   type WalletTradingProfileWindow,
   type WhitelistStatus,
   type WorkbenchOverview,
+  type NfaStatusResponse,
 } from "./api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
 import {
@@ -947,6 +948,11 @@ export interface AppState {
   registryRegistering: boolean;
   registryError: string | null;
 
+  // NFA (BAP-578)
+  nfaStatus: NfaStatusResponse | null;
+  nfaStatusLoading: boolean;
+  nfaStatusError: string | null;
+
   // Drop / Mint
   dropStatus: DropStatus | null;
   dropLoading: boolean;
@@ -1225,6 +1231,7 @@ export interface AppActions {
   loadDropStatus: () => Promise<void>;
   mintFromDrop: (shiny: boolean) => Promise<void>;
   loadWhitelistStatus: () => Promise<void>;
+  loadNfaStatus: () => Promise<void>;
 
   // Character
   loadCharacter: () => Promise<void>;
@@ -1522,6 +1529,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryRegistering, setRegistryRegistering] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
+
+  // --- NFA (BAP-578) ---
+  const [nfaStatus, setNfaStatus] = useState<NfaStatusResponse | null>(null);
+  const [nfaStatusLoading, setNfaStatusLoading] = useState(false);
+  const [nfaStatusError, setNfaStatusError] = useState<string | null>(null);
 
   // --- Drop / Mint ---
   const [dropStatus, setDropStatus] = useState<DropStatus | null>(null);
@@ -4088,6 +4100,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadNfaStatus = useCallback(async () => {
+    try {
+      setNfaStatusLoading(true);
+      setNfaStatusError(null);
+      const s = await client.getNfaStatus();
+      setNfaStatus(s);
+    } catch (err) {
+      setNfaStatusError(err instanceof Error ? err.message : "Failed to load NFA status");
+    } finally {
+      setNfaStatusLoading(false);
+    }
+  }, [client]);
+
   // ── Character actions ──────────────────────────────────────────────
 
   const handleSaveCharacter = useCallback(async () => {
@@ -5858,6 +5883,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     registryLoading,
     registryRegistering,
     registryError,
+    nfaStatus,
+    nfaStatusLoading,
+    nfaStatusError,
     dropStatus,
     dropLoading,
     mintInProgress,
@@ -6057,6 +6085,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadDropStatus,
     mintFromDrop,
     loadWhitelistStatus,
+    loadNfaStatus,
     loadCharacter,
     handleSaveCharacter,
     handleCharacterFieldInput,
