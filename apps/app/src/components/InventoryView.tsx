@@ -462,6 +462,10 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const [trackedBscTokens, setTrackedBscTokens] =
     useState<TrackedBscToken[]>(loadTrackedBscTokens);
   const [showRecents, setShowRecents] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    message: string;
+    onResult: (confirmed: boolean) => void;
+  } | null>(null);
   const recentsRef = useRef<HTMLDivElement>(null);
 
   // Close recents dropdown on outside click
@@ -954,23 +958,22 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       return;
     }
     const sideLabel = latestQuote.side.toUpperCase();
-    const sideAction = latestQuote.side === "buy" ? "Spend" : "Sell";
-    const confirmFn =
-      typeof window !== "undefined" && typeof window.confirm === "function"
-        ? window.confirm.bind(window)
-        : () => true;
-    const confirmed = confirmFn(
-      t("wallet.confirmExecute", {
-        sideLabel,
-        sideAction,
-        inAmount: latestQuote.quoteIn.amount,
-        inSymbol: latestQuote.quoteIn.symbol,
-        outAmount: latestQuote.quoteOut.amount,
-        outSymbol: latestQuote.quoteOut.symbol,
-        minAmount: latestQuote.minReceive.amount,
-        minSymbol: latestQuote.minReceive.symbol,
-      }),
-    );
+    const message = t("wallet.confirmExecute", {
+      side: sideLabel,
+      sideLabel,
+      sideAction: latestQuote.side === "buy" ? "Spend" : "Sell",
+      inAmount: latestQuote.quoteIn.amount,
+      inSymbol: latestQuote.quoteIn.symbol,
+      outAmount: latestQuote.quoteOut.amount,
+      outSymbol: latestQuote.quoteOut.symbol,
+      minAmount: latestQuote.minReceive.amount,
+      minSymbol: latestQuote.minReceive.symbol,
+    });
+
+    const confirmed = await new Promise<boolean>((resolve) => {
+      setPendingConfirm({ message, onResult: resolve });
+    });
+    setPendingConfirm(null);
     if (!confirmed) return;
 
     setExecuteBusy(true);
@@ -1075,6 +1078,34 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         </div>
       )}
       {needsSetup ? renderSetup() : renderContent()}
+
+      {/* ── Wallet-styled confirmation dialog ───────────────────────── */}
+      {pendingConfirm && (
+        <div className="wt__confirm-backdrop">
+          <div className="wt__confirm-modal">
+            <div className="wt__confirm-title">{t("wallet.confirmTrade")}</div>
+            <div className="wt__confirm-message">
+              {pendingConfirm.message}
+            </div>
+            <div className="wt__confirm-actions">
+              <button
+                type="button"
+                className="wt__btn wt__confirm-btn"
+                onClick={() => pendingConfirm.onResult(false)}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="wt__btn wt__confirm-btn is-buy"
+                onClick={() => pendingConfirm.onResult(true)}
+              >
+                {t("wallet.confirmAction")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

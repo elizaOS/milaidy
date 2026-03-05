@@ -91,18 +91,27 @@ beforeEach(() => {
 });
 
 describe("POST /api/nfa/mint", () => {
-  it("returns 400 if agentURI is missing", async () => {
+  it("builds a fallback data URI if agentURI is missing", async () => {
     const ctx = makeCtx("POST", "/api/nfa/mint", {});
     process.env.BNB_PRIVATE_KEY = "0xabc123";
+    mockServiceInstance.mintNfa.mockResolvedValue({
+      tokenId: "42",
+      txHash: "0xtx",
+      owner: "0xowner",
+      network: "bsc",
+      freeMint: true,
+    });
 
     const handled = await handleNfaRoutes(ctx);
 
     expect(handled).toBe(true);
-    expect(ctx.error).toHaveBeenCalledWith(
-      ctx.res,
-      expect.stringContaining("agentURI"),
-      400,
+    expect(mockServiceInstance.mintNfa).toHaveBeenCalledWith(
+      expect.stringMatching(/^data:application\/json;base64,/),
+      expect.objectContaining({
+        vaultHash: "0x" + "0".repeat(64),
+      }),
     );
+    expect(ctx.error).not.toHaveBeenCalled();
   });
 
   it("calls mintNfa and returns success", async () => {

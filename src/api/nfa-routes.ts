@@ -126,12 +126,7 @@ export async function handleNfaRoutes(
     try {
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
-      const agentURI = body.agentURI as string | undefined;
-
-      if (!agentURI) {
-        error(ctx.res, "Missing required field: agentURI", 400);
-        return true;
-      }
+      const agentURI = await resolveAgentUri(body);
 
       const svc = buildService(privateKey, nfaContractAddress, body.network as string | undefined);
 
@@ -357,6 +352,31 @@ function buildService(
     gatewayPort: 0,
     nfaContractAddress,
   });
+}
+
+/** Resolve agentURI from request, identity store, or safe data: URI fallback. */
+async function resolveAgentUri(body: Record<string, unknown>): Promise<string> {
+  const requestUri = typeof body.agentURI === "string" ? body.agentURI.trim() : "";
+  if (requestUri) return requestUri;
+
+  const identity = await readIdentity();
+  const storedUri = identity?.agentURI?.trim();
+  if (storedUri) return storedUri;
+
+  const fallbackMetadata = {
+    name: "Milady",
+    description:
+      "Milady local AI agent metadata used as fallback URI for BAP-578 minting.",
+    version: "0.1.0",
+    created: new Date().toISOString(),
+    services: [],
+    capabilities: ["local-execution", "privacy-preserving"],
+    platforms: ["webchat"],
+  };
+  const encoded = Buffer.from(JSON.stringify(fallbackMetadata), "utf8").toString(
+    "base64",
+  );
+  return `data:application/json;base64,${encoded}`;
 }
 
 /** Parse LEARNINGS.md into structured entries. */
