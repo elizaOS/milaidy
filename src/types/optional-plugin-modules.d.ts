@@ -1,3 +1,4 @@
+/** Optional: used by NFA routes when present. WHY: allows typecheck without resolving packages/ (excluded from tsconfig). */
 declare module "@milady/plugin-bnb-identity" {
   export function buildMerkleRoot(leafHashes: string[]): string;
   export function parseLearnings(

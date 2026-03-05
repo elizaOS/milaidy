@@ -7,6 +7,10 @@
  * Uses @milady/plugin-bnb-identity when available (workspace or installed).
  * If the plugin is missing, /api/nfa/status still works; /api/nfa/learnings
  * returns empty entries and a fallback empty Merkle root.
+ *
+ * WHY optional plugin: Core and CI can build/test without the plugin; the API
+ * stays usable and we avoid hard dependency on a workspace package that may
+ * not be present in all environments.
  */
 
 import { createHash } from "node:crypto";
@@ -26,8 +30,14 @@ type NfaPlugin = {
   sha256: (data: string) => string;
 };
 
+/** Cached plugin module or null if unavailable. Undefined = not yet loaded. */
 let nfaPlugin: NfaPlugin | null | undefined;
 
+/**
+ * Load @milady/plugin-bnb-identity once and cache. Returns null if the package
+ * is missing or doesn't export the required functions. WHY dynamic import:
+ * keeps the dependency optional so core works without the plugin installed.
+ */
 async function getNfaPlugin(): Promise<NfaPlugin | null> {
   if (nfaPlugin !== undefined) return nfaPlugin;
   try {
