@@ -18,6 +18,7 @@
     "@elizaos/plugin-openai": "next",
     "@elizaos/plugin-polymarket": "next",
     "@elizaos/plugin-sql": "next",
+    "@ethersproject/wallet": "^5.7.0",
     "@polymarket/clob-client": "^5.2.0",
     "@zenobius/ink-mouse": "1.0.4",
     "dotenv": "^16.6.1",
