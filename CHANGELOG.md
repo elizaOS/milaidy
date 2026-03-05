@@ -6,6 +6,7 @@ All notable changes to Milady are documented here. Format is [Keep a Changelog](
 
 ### Added
 
+- **Companion UI — VRM engine, animations, themes, i18n:** 3D VRM avatar engine with animation system (idle, wave, dance, retargeting), companion view with chat integration, bubble emotes, theme switching, full i18n support (en, zh-CN), and plugin logos for installed ElizaOS plugins. Includes BSC wallet trading panel, wallet portfolio display, and trading profile modal. (#812) thanks @Dexploarer
 - **Multi-destination streaming registry:** Replace single `destination?` with `Map<string, StreamingDestination>` + `activeDestinationId`, enabling runtime switching between streaming targets via `POST /api/streaming/destination`. New `getActiveDestination()` helper provides backward-compatible fallback for single-destination configs. (#788) thanks @Dexploarer
 - **pump.fun streaming plugin:** `@milady/plugin-pumpfun-streaming` adds pump.fun RTMP destination using the shared `createStreamingPlugin()` factory. (#788) thanks @Dexploarer
 - **X/Twitter streaming plugin:** `@milady/plugin-x-streaming` adds X/Twitter RTMPS destination using the shared factory. (#788) thanks @Dexploarer
