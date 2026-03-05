@@ -113,6 +113,7 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { createMiladyPlugin } from "./milady-plugin";
+import { isPiAiEnabledFromEnv } from "./pi-ai";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
@@ -597,13 +598,6 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 };
 
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";
-
-function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.MILADY_USE_PI_AI;
-  if (!raw) return false;
-  const value = String(raw).trim().toLowerCase();
-  return value === "1" || value === "true" || value === "yes";
-}
 
 /** Maps environment variable names to model-provider plugin packages. */
 const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {

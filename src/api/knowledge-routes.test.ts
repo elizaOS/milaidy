@@ -1,10 +1,15 @@
 import * as dns from "node:dns/promises";
+import { EventEmitter } from "node:events";
+import type http from "node:http";
 import type { AgentRuntime, Memory, UUID } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createRouteInvoker } from "../test-support/route-test-helpers.js";
+import { createMockHttpResponse } from "../test-support/test-helpers.js";
+import { readJsonBody } from "./http-helpers.js";
 import {
   __setPinnedFetchImplForTests,
   handleKnowledgeRoutes,
+  type KnowledgeRouteContext,
 } from "./knowledge-routes.js";
 
 vi.mock("node:dns/promises", () => ({
@@ -885,5 +890,111 @@ describe("knowledge routes", () => {
     expect((result.payload as { error?: string }).error).toContain("timed out");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Create a mock request that defers data/end emission until a "data"
+   * listener is attached. This avoids a race where queueMicrotask fires
+   * before the consumer (readRequestBodyBuffer) sets up handlers — which
+   * happens when an async call (getKnowledgeService) sits between request
+   * creation and readJsonBody.
+   */
+  function createDeferredMockRequest(opts: {
+    method: string;
+    url: string;
+    bodyChunks: Buffer[];
+  }): http.IncomingMessage {
+    const req = new EventEmitter() as http.IncomingMessage &
+      EventEmitter & { destroy: () => void };
+    req.method = opts.method;
+    req.url = opts.url;
+    req.headers = {};
+    req.destroy = vi.fn();
+
+    let emitted = false;
+    const originalOn = req.on.bind(req);
+    req.on = ((event: string, listener: (...args: unknown[]) => void) => {
+      originalOn(event, listener);
+      if (event === "data" && !emitted) {
+        emitted = true;
+        queueMicrotask(() => {
+          for (const chunk of opts.bodyChunks) {
+            req.emit("data", chunk);
+          }
+          req.emit("end");
+        });
+      }
+      return req;
+    }) as typeof req.on;
+
+    return req;
+  }
+
+  test("returns 413 with human-readable message when single document upload exceeds 32 MB", async () => {
+    // Use a small buffer with a lowered maxBytes to verify the tooLargeMessage
+    // plumbing without allocating 32 MB in tests.
+    const req = createDeferredMockRequest({
+      method: "POST",
+      url: "/api/knowledge/documents",
+      bodyChunks: [Buffer.alloc(1024, "a")],
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    const readJsonBodySmallLimit: KnowledgeRouteContext["readJsonBody"] = (
+      req,
+      res,
+      opts,
+    ) => readJsonBody(req, res, { ...opts, maxBytes: 512 });
+
+    await handleKnowledgeRoutes({
+      req,
+      res,
+      method: "POST",
+      pathname: "/api/knowledge/documents",
+      url: new URL("/api/knowledge/documents", "http://localhost:2138"),
+      runtime,
+      readJsonBody: readJsonBodySmallLimit,
+      json: () => {},
+      error: () => {},
+    } as unknown as KnowledgeRouteContext);
+
+    expect(getStatus()).toBe(413);
+    expect(getJson()).toEqual({
+      error:
+        "Document upload exceeds the 32 MB limit. Split large files into smaller parts before uploading.",
+    });
+  });
+
+  test("returns 413 with human-readable message when bulk document upload exceeds 32 MB", async () => {
+    const req = createDeferredMockRequest({
+      method: "POST",
+      url: "/api/knowledge/documents/bulk",
+      bodyChunks: [Buffer.alloc(1024, "a")],
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    const readJsonBodySmallLimit: KnowledgeRouteContext["readJsonBody"] = (
+      req,
+      res,
+      opts,
+    ) => readJsonBody(req, res, { ...opts, maxBytes: 512 });
+
+    await handleKnowledgeRoutes({
+      req,
+      res,
+      method: "POST",
+      pathname: "/api/knowledge/documents/bulk",
+      url: new URL("/api/knowledge/documents/bulk", "http://localhost:2138"),
+      runtime,
+      readJsonBody: readJsonBodySmallLimit,
+      json: () => {},
+      error: () => {},
+    } as unknown as KnowledgeRouteContext);
+
+    expect(getStatus()).toBe(413);
+    expect(getJson()).toEqual({
+      error:
+        "Document upload exceeds the 32 MB limit. Split large files into smaller parts before uploading.",
+    });
   });
 });

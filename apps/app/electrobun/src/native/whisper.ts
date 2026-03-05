@@ -76,10 +76,9 @@ export async function transcribe(
     const whisper =
       (whisperModule as { default?: unknown }).default ?? whisperModule;
     if (typeof (whisper as { whisper?: unknown }).whisper === "function") {
-      const result = await (whisper as { whisper: Function }).whisper(
-        _audioPath,
-        _options,
-      );
+      const result = await (
+        whisper as { whisper: (...args: unknown[]) => Promise<unknown> }
+      ).whisper(_audioPath, _options);
       return result as WhisperResult;
     }
     return null;
