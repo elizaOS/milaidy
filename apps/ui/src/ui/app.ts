@@ -6915,74 +6915,79 @@ export class MilaidyApp extends LitElement {
       } catch {
         // ignore
       }
+      // Persist onboarding to backend first, then enter the app.
+      let onboardingSaved = false;
+      const payload = {
+        name: agentName,
+        bio: style?.bio ?? ["An autonomous AI agent."],
+        systemPrompt,
+        style: style?.style,
+        adjectives: style?.adjectives,
+        topics: style?.topics,
+        messageExamples: style?.messageExamples,
+        provider: this.onboardingProvider || undefined,
+        providerApiKey: this.onboardingApiKey || undefined,
+        telegramBotToken: this.onboardingTelegramToken || undefined,
+        discordBotToken: this.onboardingDiscordToken || undefined,
+      };
+      for (let attempt = 0; attempt < 3 && !onboardingSaved; attempt++) {
+        try {
+          await client.submitOnboarding(payload);
+          onboardingSaved = true;
+        } catch (err) {
+          console.error(`Onboarding submit failed (attempt ${attempt + 1}/3):`, err);
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+          }
+        }
+      }
+
+      if (!onboardingSaved) {
+        this.providerSetupApplying = false;
+        this.nameValidationMessage =
+          "Could not save setup right now. Please try again.";
+        this.showUiNotice(
+          "Setup could not be saved. Your provider key was not applied.",
+        );
+        return;
+      }
+
+      const selectedProviderId = (this.onboardingProvider || "").trim();
+      const selectedProviderKey = this.onboardingApiKey.trim();
+      if (selectedProviderId) {
+        try {
+          await client.switchProvider(
+            selectedProviderId,
+            selectedProviderKey || undefined,
+          );
+        } catch (err) {
+          console.warn("Provider switch after onboarding failed:", err);
+        }
+      }
+
       this.onboardingComplete = true;
       // Always land in Chat after onboarding even if the URL previously pointed
       // to another tab (e.g. after a reset flow).
       this.applyTab("chat", { pushHistory: true });
 
-      // Do backend sync in background so mobile users never get stuck on Enter.
-      void (async () => {
-        let onboardingSaved = false;
-        const payload = {
-          name: agentName,
-          bio: style?.bio ?? ["An autonomous AI agent."],
-          systemPrompt,
-          style: style?.style,
-          adjectives: style?.adjectives,
-          topics: style?.topics,
-          messageExamples: style?.messageExamples,
-          provider: this.onboardingProvider || undefined,
-          providerApiKey: this.onboardingApiKey || undefined,
-          telegramBotToken: this.onboardingTelegramToken || undefined,
-          discordBotToken: this.onboardingDiscordToken || undefined,
-        };
-        for (let attempt = 0; attempt < 3 && !onboardingSaved; attempt++) {
-          try {
-            await client.submitOnboarding(payload);
-            onboardingSaved = true;
-          } catch (err) {
-            console.error(`Onboarding submit failed (attempt ${attempt + 1}/3):`, err);
-            if (attempt < 2) {
-              await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-            }
-          }
-        }
-
-        if (onboardingSaved) {
-          const selectedProviderId = (this.onboardingProvider || "").trim();
-          const selectedProviderKey = this.onboardingApiKey.trim();
-          if (selectedProviderId) {
-            try {
-              await client.switchProvider(
-                selectedProviderId,
-                selectedProviderKey || undefined,
-              );
-            } catch (err) {
-              console.warn("Provider switch after onboarding failed:", err);
-            }
-          }
-
-          // Persist profile/theme to backend config so it survives across devices.
-          await this.syncProfileToServer();
-          try {
-            this.setAgentStatus(await client.restartAgent());
-          } catch {
-            // ignore
-          }
-          // Refresh plugins so the chat lock can clear without a manual reload.
-          try {
-            await this.loadPlugins();
-          } catch {
-            // ignore
-          } finally {
-            this.providerSetupApplying = false;
-          }
-        } else {
-          this.providerSetupApplying = false;
-        }
-      })();
+      // Persist profile/theme to backend config so it survives across devices.
+      await this.syncProfileToServer();
+      try {
+        this.setAgentStatus(await client.restartAgent());
+      } catch {
+        // ignore
+      }
+      // Refresh plugins so the chat lock can clear without a manual reload.
+      try {
+        await this.loadPlugins();
+      } catch {
+        // ignore
+      } finally {
+        this.providerSetupApplying = false;
+      }
     } catch (err) {
       console.error("Onboarding finish failed:", err);
+      this.providerSetupApplying = false;
       this.nameValidationMessage = "Could not finish setup. Try again.";
     } finally {
       this.onboardingFinishing = false;
@@ -12730,7 +12735,13 @@ export class MilaidyApp extends LitElement {
             return html`
               <div
                 class="onboarding-option ${selectedProvider ? "selected" : ""}"
-                @click=${() => { this.onboardingProvider = provider.id; this.onboardingApiKey = ""; }}
+                @click=${() => {
+                  const switchingProvider = this.onboardingProvider !== provider.id;
+                  this.onboardingProvider = provider.id;
+                  if (switchingProvider) {
+                    this.onboardingApiKey = "";
+                  }
+                }}
               >
                 <div class="label">
                   ${provider.name}
