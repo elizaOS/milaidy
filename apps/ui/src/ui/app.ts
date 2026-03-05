@@ -8206,7 +8206,10 @@ export class MilaidyApp extends LitElement {
       }
       const nextEnabled = !currentEnabled;
       const result = await client.setAgentAutonomy(nextEnabled);
-      if (result.autonomy !== nextEnabled) {
+      if (result.ok === false) {
+        this.chatAutonomyActionMessage = result.error
+          ?? "Autonomy service is unavailable on this backend runtime.";
+      } else if (result.autonomy !== nextEnabled) {
         this.chatAutonomyActionMessage = nextEnabled
           ? "Autonomy service is unavailable on this backend runtime."
           : "Autonomy did not disable cleanly. Try again.";

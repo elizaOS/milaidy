@@ -15,7 +15,10 @@ export function getAutonomySvc(
   runtime: AgentRuntime | null,
 ): AutonomyServiceLike | null {
   if (!runtime) return null;
-  return runtime.getService("AUTONOMY") as AutonomyServiceLike | null;
+  return (
+    (runtime.getService("AUTONOMY") as AutonomyServiceLike | null) ??
+    (runtime.getService("autonomy") as AutonomyServiceLike | null)
+  );
 }
 
 export function getAutonomyState(runtime: AgentRuntime | null): {
@@ -52,7 +55,17 @@ export async function handleAutonomyRoutes(
     if (!body) return true;
 
     const svc = getAutonomySvc(runtime);
-    if (typeof body.enabled === "boolean" && svc) {
+    if (typeof body.enabled === "boolean") {
+      if (!svc) {
+        const autonomy = getAutonomyState(runtime);
+        json(res, {
+          ok: false,
+          error: "Autonomy service unavailable on this runtime.",
+          autonomy: autonomy.enabled,
+          thinking: autonomy.thinking,
+        });
+        return true;
+      }
       if (body.enabled) await svc.enableAutonomy();
       else await svc.disableAutonomy();
     }

@@ -175,6 +175,7 @@ export interface AgentAutonomyUpdateResponse {
   ok: boolean;
   autonomy: boolean;
   thinking: boolean;
+  error?: string;
 }
 
 // Wallet types
