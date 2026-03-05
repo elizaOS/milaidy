@@ -73,17 +73,17 @@ function findAllByTestId(
   );
 }
 
-/** Find session card buttons (the w-full text-left ones) */
+/** Find session card toggle elements (div[role="button"] with w-full text-left) */
 function sessionCardButtons(
   root: TestRenderer.ReactTestInstance,
 ): TestRenderer.ReactTestInstance[] {
-  return root
-    .findAllByType("button")
-    .filter(
-      (btn) =>
-        typeof btn.props.className === "string" &&
-        btn.props.className.includes("w-full text-left"),
-    );
+  return root.findAll(
+    (node) =>
+      node.type === "div" &&
+      node.props.role === "button" &&
+      typeof node.props.className === "string" &&
+      node.props.className.includes("w-full text-left"),
+  );
 }
 
 async function flush(): Promise<void> {

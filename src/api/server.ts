@@ -4349,11 +4349,6 @@ export function canUseLocalTradeExecution(
 type AgentAutomationMode = "connectors-only" | "full";
 
 const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
-const _TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
-  "user-sign-only",
-  "manual-local-key",
-  "agent-auto",
-]);
 const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
   "connectors-only",
   "full",
