@@ -7,6 +7,12 @@ import { EnhancedTelegramMessageManager } from "./message-manager.js";
  * We deliberately use `unknown` casts and biome-ignore directives for the
  * class-extension pattern; this is the only reasonable approach when wrapping
  * an untyped external module.
+ *
+ * Handler wiring note: TelegramService.setupMessageHandlers() registers bot
+ * callbacks that access `this.messageManager` via property lookup at call
+ * time (not captured by closure). Reassigning `service.messageManager` after
+ * `start()` returns is safe — subsequent message dispatches resolve the new
+ * manager instance through the live property reference.
  */
 
 // biome-ignore lint/suspicious/noExplicitAny: TelegramService ships without type declarations — extending it requires an untyped cast

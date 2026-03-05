@@ -6,5 +6,10 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js"
+  },
+  "dependencies": {
+    "@elizaos/core": "next",
+    "@elizaos/plugin-telegram": "next",
+    "telegraf": "^4.16.3"
   }
 }

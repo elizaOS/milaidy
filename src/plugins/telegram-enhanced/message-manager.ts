@@ -6,7 +6,7 @@ import { smartChunkTelegramText } from "./chunking.js";
 import { DraftStreamer, simulateSentenceStream } from "./draft-stream.js";
 
 const TYPING_INTERVAL_MS = 4000;
-const SIMULATED_STREAM_DELAY_MS = 200;
+const SIMULATED_STREAM_DELAY_MS = 0;
 const RECEIPT_REACTIONS = ["👀", "⏳"] as const;
 
 /** Minimal shape for a Telegram inline button. */
