@@ -682,6 +682,47 @@ const validateActionRegex = () => true;`;
     );
   }
 
+  // Patch: initializeClobClientWithCreds should inherit proxy wallet settings
+  // from the PolymarketService instead of requiring separate env vars.
+  // Without this, orders are submitted with signatureType=0 (EOA) instead of
+  // signatureType=2 (proxy), causing silent failures on Polymarket.
+  const clobClientBuggy = `  const signatureType = parseSignatureType(signatureTypeSetting);
+  const funderAddress = normalizeSetting(funderSetting);
+  const client = new ClobClient(clobApiUrl, POLYGON_CHAIN_ID, signer, creds, signatureType, funderAddress);
+  return client;
+}`;
+
+  const clobClientFixed = `  let signatureType = parseSignatureType(signatureTypeSetting);
+  let funderAddress = normalizeSetting(funderSetting);
+  // Auto-inherit proxy wallet settings from PolymarketService if not set via env
+  if (!funderAddress) {
+    try {
+      const service = await getPolymarketService(runtime);
+      if (service?.authenticatedClient) {
+        const svcFunder = service.authenticatedClient.funderAddress;
+        const svcSigType = service.authenticatedClient.signatureType;
+        if (svcFunder) {
+          funderAddress = svcFunder;
+          signatureType = svcSigType ?? 2;
+          runtime.logger?.info?.("[initializeClobClientWithCreds] Inherited proxy wallet from service: " + funderAddress);
+        }
+      }
+    } catch {}
+  }
+  const client = new ClobClient(clobApiUrl, POLYGON_CHAIN_ID, signer, creds, signatureType, funderAddress);
+  return client;
+}`;
+
+  if (polymarketSrc.includes("Inherited proxy wallet from service")) {
+    console.log("[patch-deps] polymarket proxy-wallet inheritance patch already present.");
+  } else if (polymarketSrc.includes(clobClientBuggy)) {
+    polymarketSrc = polymarketSrc.replace(clobClientBuggy, clobClientFixed);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket proxy-wallet inheritance patch.");
+  } else {
+    console.log("[patch-deps] polymarket initializeClobClientWithCreds signature changed; skip patch.");
+  }
+
   if (polymarketPatched > 0) {
     writeFileSync(polymarketTarget, polymarketSrc, "utf8");
     console.log(

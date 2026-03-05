@@ -719,7 +719,7 @@ async function bootstrapOnchainDev() {
   return {
     env: {
       MILADY_CONFIG_PATH: configPath,
-      EVM_PRIVATE_KEY: DEFAULT_EVM_DEV_PRIVATE_KEY,
+      EVM_PRIVATE_KEY: process.env.EVM_PRIVATE_KEY || DEFAULT_EVM_DEV_PRIVATE_KEY,
       MILADY_DEV_CHAIN_ID: String(ANVIL_CHAIN_ID),
       MILADY_DEV_CHAIN_RPC: ANVIL_RPC_URL,
       MILADY_DEV_REGISTRY_ADDRESS: registryAddress,
