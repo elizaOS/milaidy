@@ -1820,9 +1820,36 @@ export function applyX402ConfigToEnv(config: MiladyConfig): void {
 }
 
 function resolveDefaultPgliteDataDir(config: MiladyConfig): string {
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
-  return path.join(resolveUserPath(workspaceDir), ".eliza", ".elizadb");
+  return path.join(resolveEffectiveAgentWorkspaceDir(config), ".eliza", ".elizadb");
+}
+
+function resolveEffectiveAgentWorkspaceDir(config: MiladyConfig): string {
+  const configuredWorkspace = config.agents?.defaults?.workspace?.trim();
+  if (!configuredWorkspace) {
+    return resolveDefaultAgentWorkspaceDir();
+  }
+
+  const resolvedConfiguredWorkspace = resolveUserPath(configuredWorkspace);
+  const stateOverride = process.env.MILADY_STATE_DIR?.trim();
+  if (!stateOverride) {
+    return resolvedConfiguredWorkspace;
+  }
+
+  // Back-compat: when config persisted the legacy default workspace under
+  // ~/.milady, map it to the active MILADY_STATE_DIR workspace root.
+  const legacyStateDir = path.join(os.homedir(), ".milady");
+  const legacyWorkspace = path.join(legacyStateDir, "workspace");
+  const parentDir = path.dirname(resolvedConfiguredWorkspace);
+  const baseName = path.basename(resolvedConfiguredWorkspace);
+  const isLegacyDefault =
+    resolvedConfiguredWorkspace === legacyWorkspace ||
+    (parentDir === legacyStateDir && baseName.startsWith("workspace-"));
+
+  if (isLegacyDefault) {
+    return path.join(resolveStateDir(), baseName);
+  }
+
+  return resolvedConfiguredWorkspace;
 }
 
 /** @internal Exported for testing. */
@@ -3061,8 +3088,7 @@ export async function startEliza(
   const primaryModel = resolvePrimaryModel(config);
 
   // 4. Ensure workspace exists with bootstrap files
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
+  const workspaceDir = resolveEffectiveAgentWorkspaceDir(config);
   await ensureAgentWorkspace({ dir: workspaceDir, ensureBootstrapFiles: true });
 
   // 4b. Ensure custom plugins directory exists for drop-in plugins
@@ -3665,8 +3691,7 @@ export async function startEliza(
 
           // Recreate Milady plugin with fresh workspace
           const freshMiladyPlugin = createMiladyPlugin({
-            workspaceDir:
-              freshConfig.agents?.defaults?.workspace ?? workspaceDir,
+            workspaceDir: resolveEffectiveAgentWorkspaceDir(freshConfig),
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
 
             agentId:

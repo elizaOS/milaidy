@@ -1040,7 +1040,12 @@ describe("applyX402ConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "MILADY_PROFILE",
+    "MILADY_STATE_DIR",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1073,19 +1078,49 @@ describe("applyDatabaseConfigToEnv", () => {
     );
   });
 
+  it("defaults PGLITE_DATA_DIR under MILADY_STATE_DIR when set", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+
+    applyDatabaseConfigToEnv({} as MiladyConfig);
+
+    expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
+  it("maps legacy default workspace in config to MILADY_STATE_DIR workspace", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+
+    const config = {
+      agents: {
+        defaults: {
+          workspace: path.join(os.homedir(), ".milady", "workspace"),
+        },
+      },
+    } as MiladyConfig;
+
+    applyDatabaseConfigToEnv(config);
+
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
   it("honors custom pglite.dataDir and clears stale POSTGRES_URL", () => {
     process.env.POSTGRES_URL = "postgresql://localhost:5432/old";
+    const customDataDir = "./.tmp/test-pglite-data-dir";
     const config = {
       database: {
         provider: "pglite",
-        pglite: { dataDir: "~/milady-pglite" },
+        pglite: { dataDir: customDataDir },
       },
     } as MiladyConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(path.join(os.homedir(), "milady-pglite")),
+      path.resolve(customDataDir),
     );
   });
 
@@ -1124,7 +1159,12 @@ describe("applyDatabaseConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "MILADY_PROFILE",
+    "MILADY_STATE_DIR",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
