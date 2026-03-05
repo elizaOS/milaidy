@@ -2495,6 +2495,184 @@ export class MilaidyApp extends LitElement {
       color: var(--danger, #e74c3c);
     }
 
+    .autonomy-dropdown {
+      position: relative;
+    }
+
+    .autonomy-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      list-style: none;
+    }
+
+    .autonomy-trigger::-webkit-details-marker {
+      display: none;
+    }
+
+    .autonomy-trigger::marker {
+      content: "";
+    }
+
+    .autonomy-trigger-meta {
+      font-size: 10px;
+      color: var(--text-strong);
+      text-transform: none;
+      letter-spacing: 0;
+      font-family: inherit;
+    }
+
+    .autonomy-caret {
+      font-size: 9px;
+      color: var(--muted);
+      transition: transform 140ms ease;
+    }
+
+    .autonomy-dropdown[open] .autonomy-caret {
+      transform: rotate(180deg);
+    }
+
+    .autonomy-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: min(460px, 92vw);
+      max-height: min(70vh, 640px);
+      overflow: auto;
+      z-index: 40;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: linear-gradient(165deg, rgba(255, 254, 252, 0.96), rgba(255, 250, 242, 0.96));
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+      display: grid;
+      gap: 10px;
+    }
+
+    .autonomy-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .autonomy-sub {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .autonomy-kpis {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .autonomy-kpi {
+      border: 1px solid var(--border-soft);
+      border-radius: 9px;
+      padding: 7px 8px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .autonomy-kpi-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .autonomy-kpi-value {
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .autonomy-lines {
+      border: 1px solid var(--border-soft);
+      border-radius: 9px;
+      padding: 8px 9px;
+      background: rgba(255, 255, 255, 0.75);
+      display: grid;
+      gap: 6px;
+    }
+
+    .autonomy-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 11px;
+    }
+
+    .autonomy-line-k {
+      color: var(--muted);
+    }
+
+    .autonomy-line-v {
+      color: var(--text-strong);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .autonomy-line-v.warn {
+      color: var(--warn);
+    }
+
+    .autonomy-modules {
+      border: 1px solid var(--border-soft);
+      border-radius: 9px;
+      padding: 8px 9px;
+      background: rgba(255, 255, 255, 0.75);
+    }
+
+    .autonomy-modules summary {
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--text-strong);
+      font-weight: 700;
+    }
+
+    .autonomy-module-list {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .autonomy-module-item {
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 7px;
+      background: rgba(255, 255, 255, 0.86);
+      display: grid;
+      gap: 4px;
+    }
+
+    .autonomy-module-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .autonomy-module-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .autonomy-module-policy {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .autonomy-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
 	    .chat-messages {
 	      flex: 1;
 	      overflow-y: auto;
@@ -3754,6 +3932,12 @@ export class MilaidyApp extends LitElement {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
+      }
+
+      .autonomy-menu {
+        position: static;
+        width: 100%;
+        max-height: none;
       }
 
       .chat-msg {
@@ -7551,37 +7735,6 @@ export class MilaidyApp extends LitElement {
     const hiddenMessageCount = hasMessageOverflow
       ? this.chatMessages.length - renderedMessages.length
       : 0;
-    const autonomyPlugins = this.autonomyScopePlugins();
-    const autonomyEnabledCount = autonomyPlugins.filter((plugin) => plugin.enabled).length;
-    const autonomyReadyCount = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
-    const autonomyRiskEnabledCount = autonomyPlugins.filter(
-      (plugin) => plugin.enabled && this.pluginRisk(plugin) !== "SAFE",
-    ).length;
-    const orchestrationModules = autonomyPlugins.filter((plugin) => {
-      const key = `${plugin.id} ${plugin.name}`.toLowerCase();
-      return plugin.category === "feature"
-        || key.includes("orchestr")
-        || key.includes("autonomy")
-        || key.includes("loop")
-        || key.includes("swarms")
-        || key.includes("coding-agent");
-    });
-    const runtimeSnapshot = this.agentStatus as unknown as {
-      startup?: {
-        phase?: string;
-      };
-      pendingRestart?: boolean;
-      pendingRestartReasons?: string[];
-    };
-    const loopPhase = runtimeSnapshot.startup?.phase ?? (state === "running" ? "running" : state);
-    const pendingRestartReason =
-      Array.isArray(runtimeSnapshot.pendingRestartReasons) && runtimeSnapshot.pendingRestartReasons.length > 0
-        ? runtimeSnapshot.pendingRestartReasons[0]
-        : null;
-    const loopStatusLabel = runtimeSnapshot.pendingRestart
-      ? "pending restart"
-      : loopPhase;
-
 		    if (state === "not_started" || (state === "stopped" && !this.chatResumePending)) {
 		      return html`
 	        <h2>Chat</h2>
@@ -7609,90 +7762,7 @@ export class MilaidyApp extends LitElement {
 	            </div>
 	          </div>
 	          <div class="chat-header-actions">
-              <details style="position:relative;">
-                <summary class="clear-btn" style="list-style:none;">Autonomy</summary>
-                <div
-                  style="
-                    position:absolute;
-                    right:0;
-                    top:calc(100% + 6px);
-                    width:min(420px,88vw);
-                    max-height:62vh;
-                    overflow:auto;
-                    z-index:40;
-                    border:1px solid var(--border);
-                    background:var(--card);
-                    border-radius:12px;
-                    padding:10px;
-                    box-shadow:0 12px 28px rgba(0,0,0,0.18);
-                  "
-                >
-                  <div style="font-size:12px;font-weight:700;color:var(--text-strong);margin-bottom:8px;">
-                    Agent autonomy / orchestration / loop
-                  </div>
-                  <div style="display:grid;gap:6px;margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
-                      <span style="color:var(--muted);">Loop state</span>
-                      <span style="color:var(--text-strong);font-weight:600;">${loopStatusLabel}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
-                      <span style="color:var(--muted);">Orchestration modules</span>
-                      <span style="color:var(--text-strong);font-weight:600;">${orchestrationModules.length}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
-                      <span style="color:var(--muted);">Modules</span>
-                      <span style="color:var(--text-strong);font-weight:600;">${autonomyReadyCount}/${autonomyPlugins.length} ready · ${autonomyEnabledCount} enabled</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
-                      <span style="color:var(--muted);">Risk-on modules</span>
-                      <span style="color:${autonomyRiskEnabledCount > 0 ? "var(--warn)" : "var(--ok)"};font-weight:600;">${autonomyRiskEnabledCount}</span>
-                    </div>
-                    ${pendingRestartReason
-                      ? html`
-                          <div style="font-size:11px;color:var(--warn);line-height:1.35;">
-                            Pending restart: ${pendingRestartReason}
-                          </div>
-                        `
-                      : ""}
-                  </div>
-                  <details>
-                    <summary style="cursor:pointer;font-size:11px;color:var(--text-strong);font-weight:700;">
-                      Show all modules (${autonomyPlugins.length})
-                    </summary>
-                    <div style="display:grid;gap:6px;margin-top:8px;">
-                      ${autonomyPlugins.map((plugin) => {
-                        const statusLabel = this.pluginStatusLabel(plugin);
-                        const ready = this.isPluginUserReady(plugin);
-                        const risk = this.pluginRisk(plugin);
-                        return html`
-                          <div style="border:1px solid var(--border-soft);border-radius:8px;padding:7px;background:rgba(255,255,255,0.82);display:grid;gap:4px;">
-                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                              <img
-                                src=${this.appIconPath(plugin.id)}
-                                alt=${`${plugin.name} icon`}
-                                style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-soft);object-fit:cover;"
-                                @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
-                              />
-                              <span style="font-size:11px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
-                              <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
-                              <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
-                              <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
-                                ${statusLabel}
-                              </span>
-                              <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
-                                ${risk}
-                              </span>
-                            </div>
-                            <div style="font-size:10px;color:var(--muted);">
-                              ${this.autonomyPolicyLabel(plugin)}
-                            </div>
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  </details>
-                </div>
-              </details>
+              ${this.renderChatAutonomyDropdown()}
 	            <button class="clear-btn" @click=${() => this.createNewSession()}>New Chat</button>
 	            ${this.activeSessionId
 	              ? html`<button class="clear-btn" title="Delete current chat" @click=${this.handleHeaderClearActiveChat}>X</button>`
@@ -7857,6 +7927,137 @@ export class MilaidyApp extends LitElement {
           : ""}
       </div>
       ${this.renderClearChatDialog()}
+    `;
+  }
+
+  private renderChatAutonomyDropdown() {
+    const state = this.agentStatus?.state ?? "not_started";
+    const autonomyPlugins = this.autonomyScopePlugins();
+    const enabledCount = autonomyPlugins.filter((plugin) => plugin.enabled).length;
+    const readyCount = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
+    const riskyEnabledCount = autonomyPlugins.filter(
+      (plugin) => plugin.enabled && this.pluginRisk(plugin) !== "SAFE",
+    ).length;
+    const orchestrationModules = autonomyPlugins.filter((plugin) => {
+      const key = `${plugin.id} ${plugin.name}`.toLowerCase();
+      return plugin.category === "feature"
+        || key.includes("orchestr")
+        || key.includes("autonomy")
+        || key.includes("loop")
+        || key.includes("swarms")
+        || key.includes("coding-agent");
+    });
+    const orchestrationEnabledCount = orchestrationModules.filter((plugin) => plugin.enabled).length;
+    const runtimeSnapshot = this.agentStatus as unknown as {
+      startup?: {
+        phase?: string;
+      };
+      pendingRestart?: boolean;
+      pendingRestartReasons?: string[];
+    };
+    const loopPhase = runtimeSnapshot.startup?.phase ?? (state === "running" ? "running" : state);
+    const pendingRestartReason =
+      Array.isArray(runtimeSnapshot.pendingRestartReasons) && runtimeSnapshot.pendingRestartReasons.length > 0
+        ? runtimeSnapshot.pendingRestartReasons[0]
+        : null;
+    const loopStatusLabel = runtimeSnapshot.pendingRestart ? "pending restart" : loopPhase;
+
+    return html`
+      <details class="autonomy-dropdown">
+        <summary class="clear-btn autonomy-trigger">
+          <span>Autonomy</span>
+          <span class="autonomy-trigger-meta">${readyCount}/${autonomyPlugins.length} ready</span>
+          <span class="autonomy-caret">▼</span>
+        </summary>
+        <div class="autonomy-menu">
+          <div>
+            <div class="autonomy-title">Agent autonomy / orchestration / loop</div>
+            <div class="autonomy-sub">
+              Live runtime and module posture from chat context.
+            </div>
+          </div>
+
+          <div class="autonomy-kpis">
+            <div class="autonomy-kpi">
+              <div class="autonomy-kpi-label">Loop</div>
+              <div class="autonomy-kpi-value">${loopStatusLabel}</div>
+            </div>
+            <div class="autonomy-kpi">
+              <div class="autonomy-kpi-label">Modules</div>
+              <div class="autonomy-kpi-value">${readyCount}/${autonomyPlugins.length} ready</div>
+            </div>
+            <div class="autonomy-kpi">
+              <div class="autonomy-kpi-label">Orchestration</div>
+              <div class="autonomy-kpi-value">${orchestrationEnabledCount}/${orchestrationModules.length} enabled</div>
+            </div>
+            <div class="autonomy-kpi">
+              <div class="autonomy-kpi-label">Risk-on</div>
+              <div class="autonomy-kpi-value">${riskyEnabledCount}</div>
+            </div>
+          </div>
+
+          <div class="autonomy-lines">
+            <div class="autonomy-line">
+              <span class="autonomy-line-k">Enabled modules</span>
+              <span class="autonomy-line-v">${enabledCount}</span>
+            </div>
+            <div class="autonomy-line">
+              <span class="autonomy-line-k">Spend guard</span>
+              <span class="autonomy-line-v">${this.securitySpendGuardEnabled ? "on" : "off"}</span>
+            </div>
+            <div class="autonomy-line">
+              <span class="autonomy-line-k">Execution confirm</span>
+              <span class="autonomy-line-v">${this.securityRequireExecuteConfirm ? "required" : "disabled"}</span>
+            </div>
+            ${pendingRestartReason
+              ? html`
+                  <div class="autonomy-line">
+                    <span class="autonomy-line-k">Pending restart</span>
+                    <span class="autonomy-line-v warn">${pendingRestartReason}</span>
+                  </div>
+                `
+              : ""}
+          </div>
+
+          <details class="autonomy-modules">
+            <summary>Show all modules (${autonomyPlugins.length})</summary>
+            <div class="autonomy-module-list">
+              ${autonomyPlugins.map((plugin) => {
+                const statusLabel = this.pluginStatusLabel(plugin);
+                const ready = this.isPluginUserReady(plugin);
+                const risk = this.pluginRisk(plugin);
+                return html`
+                  <div class="autonomy-module-item">
+                    <div class="autonomy-module-head">
+                      <img
+                        src=${this.appIconPath(plugin.id)}
+                        alt=${`${plugin.name} icon`}
+                        style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-soft);object-fit:cover;"
+                        @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                      />
+                      <span class="autonomy-module-name">${plugin.name}</span>
+                      <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
+                      <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
+                      <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
+                        ${statusLabel}
+                      </span>
+                      <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
+                        ${risk}
+                      </span>
+                    </div>
+                    <div class="autonomy-module-policy">${this.autonomyPolicyLabel(plugin)}</div>
+                  </div>
+                `;
+              })}
+            </div>
+          </details>
+
+          <div class="autonomy-actions">
+            <button class="plugin-secondary-btn" @click=${() => this.setTab("ai-setup")}>AI Settings</button>
+            <button class="plugin-secondary-btn" @click=${() => this.setTab("config")}>Security</button>
+          </div>
+        </div>
+      </details>
     `;
   }
 
