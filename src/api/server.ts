@@ -125,6 +125,7 @@ import {
 import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
+import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import type {
   CoordinationLLMResponse,
@@ -141,7 +142,6 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
-import { handleNfaRoutes } from "./nfa-routes";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
