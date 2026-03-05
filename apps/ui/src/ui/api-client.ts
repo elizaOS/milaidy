@@ -17,6 +17,16 @@ export interface AgentStatus {
   model: string | undefined;
   uptime: number | undefined;
   startedAt: number | undefined;
+  startup?: {
+    phase?: string;
+    attempt?: number;
+  };
+  pendingRestart?: boolean;
+  pendingRestartReasons?: string[];
+  cloud?: {
+    connectionStatus?: string;
+    activeAgentId?: string | null;
+  };
 }
 
 export interface MessageExample {
@@ -131,6 +141,29 @@ export interface ExtensionStatus {
   relayReachable: boolean;
   relayPort: number;
   extensionPath: string | null;
+}
+
+export interface WorkbenchAutonomyOverview {
+  enabled: boolean;
+  thinking: boolean;
+  lastEventAt: number | null;
+}
+
+export interface WorkbenchSummaryOverview {
+  totalTasks: number;
+  completedTasks: number;
+  totalTriggers: number;
+  activeTriggers: number;
+  totalTodos: number;
+  completedTodos: number;
+}
+
+export interface WorkbenchOverviewResponse {
+  summary: WorkbenchSummaryOverview;
+  autonomy: WorkbenchAutonomyOverview;
+  tasksAvailable: boolean;
+  triggersAvailable: boolean;
+  todosAvailable: boolean;
 }
 
 // Wallet types
@@ -368,6 +401,10 @@ export class MilaidyClient {
 
   async getStatus(): Promise<AgentStatus> {
     return this.fetch("/api/status");
+  }
+
+  async getWorkbenchOverview(): Promise<WorkbenchOverviewResponse> {
+    return this.fetch("/api/workbench/overview");
   }
 
   async getOnboardingStatus(): Promise<{ complete: boolean }> {

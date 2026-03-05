@@ -29,6 +29,7 @@ import {
   type WalletChain,
   type WalletConfigStatus,
   type PolymarketPortfolioResponse,
+  type WorkbenchOverviewResponse,
 } from "./api-client.js";
 import { basePathFromLocation, tabFromPath, pathForTab, type Tab, titleForTab } from "./navigation.js";
 
@@ -277,6 +278,9 @@ export class MilaidyApp extends LitElement {
   @state() sessionSearch = "";
   @state() chatSending = false;
   @state() providerHealth: ProviderHealthState | null = null;
+  @state() chatAutonomyOverview: WorkbenchOverviewResponse | null = null;
+  @state() chatAutonomyLoading = false;
+  @state() chatAutonomyError: string | null = null;
   @state() chatResumePending = false;
   @state() plugins: PluginInfo[] = [];
   @state() pluginFilter: "all" | "ai-provider" | "database" | "runtime" | "connector" | "feature" = "all";
@@ -416,6 +420,7 @@ export class MilaidyApp extends LitElement {
   private inventoryLoadedAt = 0;
   private subscriptionStatusLoadedAt = 0;
   private extensionCheckedAt = 0;
+  private chatAutonomyLoadedAt = 0;
   private tabDataLoadRaf: number | null = null;
 
   static styles = css`
@@ -7943,49 +7948,56 @@ export class MilaidyApp extends LitElement {
   }
 
   private renderChatAutonomyDropdown() {
-    const state = this.agentStatus?.state ?? "not_started";
-    const autonomyPlugins = this.autonomyScopePlugins();
-    const enabledCount = autonomyPlugins.filter((plugin) => plugin.enabled).length;
-    const readyCount = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
-    const riskyEnabledCount = autonomyPlugins.filter(
-      (plugin) => plugin.enabled && this.pluginRisk(plugin) !== "SAFE",
-    ).length;
-    const orchestrationModules = autonomyPlugins.filter((plugin) => {
-      const key = `${plugin.id} ${plugin.name}`.toLowerCase();
-      return plugin.category === "feature"
-        || key.includes("orchestr")
-        || key.includes("autonomy")
-        || key.includes("loop")
-        || key.includes("swarms")
-        || key.includes("coding-agent");
-    });
-    const orchestrationEnabledCount = orchestrationModules.filter((plugin) => plugin.enabled).length;
-    const runtimeSnapshot = this.agentStatus as unknown as {
-      startup?: {
-        phase?: string;
-      };
-      pendingRestart?: boolean;
-      pendingRestartReasons?: string[];
-    };
-    const loopPhase = runtimeSnapshot.startup?.phase ?? (state === "running" ? "running" : state);
+    const status = this.agentStatus;
+    const overview = this.chatAutonomyOverview;
+    const summary = overview?.summary;
+    const autonomy = overview?.autonomy;
     const pendingRestartReason =
-      Array.isArray(runtimeSnapshot.pendingRestartReasons) && runtimeSnapshot.pendingRestartReasons.length > 0
-        ? runtimeSnapshot.pendingRestartReasons[0]
+      Array.isArray(status?.pendingRestartReasons) && status.pendingRestartReasons.length > 0
+        ? status.pendingRestartReasons[0]
         : null;
-    const loopStatusLabel = runtimeSnapshot.pendingRestart ? "pending restart" : loopPhase;
+    const loopStatusLabel = status?.pendingRestart
+      ? "pending restart"
+      : status?.state !== "running"
+        ? (status?.state ?? "not_started")
+        : autonomy?.thinking
+          ? "running"
+          : autonomy?.enabled
+            ? "idle"
+            : (status.startup?.phase ?? "running");
+    const orchestrationLabel = summary
+      ? `${summary.activeTriggers}/${summary.totalTriggers}`
+      : "…/…";
+    const autonomyLabel = autonomy
+      ? (autonomy.enabled ? (autonomy.thinking ? "enabled (thinking)" : "enabled") : "disabled")
+      : "unknown";
+    const tasksLabel = summary
+      ? `${summary.completedTasks}/${summary.totalTasks}`
+      : "…/…";
+    const todosLabel = summary
+      ? `${summary.completedTodos}/${summary.totalTodos}`
+      : "…/…";
+    const lastEventLabel = autonomy?.lastEventAt
+      ? new Date(autonomy.lastEventAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      : "none";
+    const triggerMeta = this.chatAutonomyLoading
+      ? "syncing..."
+      : summary
+        ? `${summary.activeTriggers}/${summary.totalTriggers} orchestration`
+        : "backend";
 
     return html`
-      <details class="autonomy-dropdown">
+      <details class="autonomy-dropdown" @toggle=${this.handleChatAutonomyToggle}>
         <summary class="clear-btn autonomy-trigger">
           <span>Autonomy</span>
-          <span class="autonomy-trigger-meta">${readyCount}/${autonomyPlugins.length} ready</span>
+          <span class="autonomy-trigger-meta">${triggerMeta}</span>
           <span class="autonomy-caret">▼</span>
         </summary>
         <div class="autonomy-menu">
           <div>
             <div class="autonomy-title">Agent autonomy / orchestration / loop</div>
             <div class="autonomy-sub">
-              Live runtime and module posture from chat context.
+              Backend runtime signals for loop and orchestration.
             </div>
           </div>
 
@@ -7995,31 +8007,27 @@ export class MilaidyApp extends LitElement {
               <div class="autonomy-kpi-value">${loopStatusLabel}</div>
             </div>
             <div class="autonomy-kpi">
-              <div class="autonomy-kpi-label">Modules</div>
-              <div class="autonomy-kpi-value">${readyCount}/${autonomyPlugins.length} ready</div>
-            </div>
-            <div class="autonomy-kpi">
               <div class="autonomy-kpi-label">Orchestration</div>
-              <div class="autonomy-kpi-value">${orchestrationEnabledCount}/${orchestrationModules.length} enabled</div>
+              <div class="autonomy-kpi-value">${orchestrationLabel}</div>
             </div>
             <div class="autonomy-kpi">
-              <div class="autonomy-kpi-label">Risk-on</div>
-              <div class="autonomy-kpi-value">${riskyEnabledCount}</div>
+              <div class="autonomy-kpi-label">Autonomy</div>
+              <div class="autonomy-kpi-value">${autonomyLabel}</div>
             </div>
           </div>
 
           <div class="autonomy-lines">
             <div class="autonomy-line">
-              <span class="autonomy-line-k">Enabled modules</span>
-              <span class="autonomy-line-v">${enabledCount}</span>
+              <span class="autonomy-line-k">Tasks completed</span>
+              <span class="autonomy-line-v">${tasksLabel}</span>
             </div>
             <div class="autonomy-line">
-              <span class="autonomy-line-k">Spend guard</span>
-              <span class="autonomy-line-v">${this.securitySpendGuardEnabled ? "on" : "off"}</span>
+              <span class="autonomy-line-k">Todos completed</span>
+              <span class="autonomy-line-v">${todosLabel}</span>
             </div>
             <div class="autonomy-line">
-              <span class="autonomy-line-k">Execution confirm</span>
-              <span class="autonomy-line-v">${this.securityRequireExecuteConfirm ? "required" : "disabled"}</span>
+              <span class="autonomy-line-k">Last event</span>
+              <span class="autonomy-line-v">${lastEventLabel}</span>
             </div>
             ${pendingRestartReason
               ? html`
@@ -8029,40 +8037,23 @@ export class MilaidyApp extends LitElement {
                   </div>
                 `
               : ""}
-          </div>
-
-          <details class="autonomy-modules">
-            <summary>Show all modules (${autonomyPlugins.length})</summary>
-            <div class="autonomy-module-list">
-              ${autonomyPlugins.map((plugin) => {
-                const statusLabel = this.pluginStatusLabel(plugin);
-                const ready = this.isPluginUserReady(plugin);
-                const risk = this.pluginRisk(plugin);
-                return html`
-                  <div class="autonomy-module-item">
-                    <div class="autonomy-module-head">
-                      <img
-                        src=${this.appIconPath(plugin.id)}
-                        alt=${`${plugin.name} icon`}
-                        style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-soft);object-fit:cover;"
-                        @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
-                      />
-                      <span class="autonomy-module-name">${plugin.name}</span>
-                      <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
-                      <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
-                      <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
-                        ${statusLabel}
-                      </span>
-                      <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
-                        ${risk}
-                      </span>
-                    </div>
-                    <div class="autonomy-module-policy">${this.autonomyPolicyLabel(plugin)}</div>
+            ${this.chatAutonomyLoading
+              ? html`
+                  <div class="autonomy-line">
+                    <span class="autonomy-line-k">Status</span>
+                    <span class="autonomy-line-v">Refreshing backend status…</span>
                   </div>
-                `;
-              })}
-            </div>
-          </details>
+                `
+              : ""}
+            ${this.chatAutonomyError
+              ? html`
+                  <div class="autonomy-line">
+                    <span class="autonomy-line-k">Backend</span>
+                    <span class="autonomy-line-v warn">${this.chatAutonomyError}</span>
+                  </div>
+                `
+              : ""}
+          </div>
 
           <div class="autonomy-actions">
             <button class="plugin-secondary-btn" @click=${() => this.setTab("ai-setup")}>AI Settings</button>
@@ -8071,6 +8062,35 @@ export class MilaidyApp extends LitElement {
         </div>
       </details>
     `;
+  }
+
+  private handleChatAutonomyToggle = (event: Event): void => {
+    const details = event.currentTarget as HTMLDetailsElement | null;
+    if (!details?.open) return;
+    void this.loadChatAutonomyOverview();
+  };
+
+  private async loadChatAutonomyOverview(force = false): Promise<void> {
+    const now = Date.now();
+    if (
+      !force
+      && this.chatAutonomyOverview
+      && now - this.chatAutonomyLoadedAt < 10_000
+    ) {
+      return;
+    }
+    this.chatAutonomyLoading = true;
+    this.chatAutonomyError = null;
+    try {
+      this.chatAutonomyOverview = await client.getWorkbenchOverview();
+      this.chatAutonomyLoadedAt = Date.now();
+    } catch (err) {
+      this.chatAutonomyError = err instanceof Error
+        ? err.message
+        : "Could not load autonomy backend status.";
+    } finally {
+      this.chatAutonomyLoading = false;
+    }
   }
 
   private renderClearChatDialog() {
