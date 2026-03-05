@@ -14,7 +14,7 @@ permissions:
 jobs:
   label-pr:
     if: github.event_name == 'pull_request_target'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/labeler@v5
         with:
@@ -23,7 +23,7 @@ jobs:
 
   label-issue:
     if: github.event_name == 'issues'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/github-script@v7
         with:
