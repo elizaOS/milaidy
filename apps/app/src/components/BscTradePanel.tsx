@@ -61,7 +61,7 @@ function formatBalance(balance: string): string {
 export function BscTradePanel({
   tradeReady,
   bnbBalance,
-  trackedTokens,
+  trackedTokens: _trackedTokens,
   onAddToken,
   copyToClipboard,
   setActionNotice,

@@ -167,6 +167,19 @@ export function persistRecentTrades(rows: WalletRecentTrade[]): void {
   }
 }
 
+/**
+ * Returns a safe explorer URL, falling back to bscscan if the provided URL
+ * does not use an https/http scheme (prevents javascript: URI injection).
+ */
+export function safeExplorerHref(
+  explorerUrl: string | undefined | null,
+  hash: string,
+): string {
+  const fallback = `https://bscscan.com/tx/${hash}`;
+  if (!explorerUrl) return fallback;
+  return /^https?:\/\//i.test(explorerUrl) ? explorerUrl : fallback;
+}
+
 export function shortHash(hash: string): string {
   const normalized = hash.trim();
   if (normalized.length <= 14) return normalized;

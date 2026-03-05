@@ -13,8 +13,10 @@ vi.mock("../client.js", () => ({
   },
 }));
 
-import { opinionContextProvider } from "../providers/opinion-context.js";
-import { _resetPositionCache } from "../providers/opinion-context.js";
+import {
+  _resetPositionCache,
+  opinionContextProvider,
+} from "../providers/opinion-context.js";
 
 describe("opinionContextProvider", () => {
   beforeEach(() => {

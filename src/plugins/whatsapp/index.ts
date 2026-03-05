@@ -21,9 +21,9 @@
  *   the lockfile to verify the resolved commit hash before deploying.
  */
 
-import type { Plugin, IAgentRuntime, ServiceClass } from "@elizaos/core";
-import { WhatsAppBaileysService } from "./service";
+import type { IAgentRuntime, Plugin, ServiceClass } from "@elizaos/core";
 import { sendWhatsAppMessage } from "./actions";
+import { WhatsAppBaileysService } from "./service";
 
 export const whatsappPlugin: Plugin = {
   name: "whatsapp",

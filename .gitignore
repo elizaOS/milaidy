@@ -82,7 +82,7 @@ apps/app/test-results/
 /auth/
 :memory:/
 benchmarks/
-plugins/
+/plugins/
 !docs/plugins/
 
 # Electron build directories

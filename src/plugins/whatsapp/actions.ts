@@ -7,12 +7,12 @@
 
 import type {
   Action,
+  ActionExample,
+  Content,
+  HandlerCallback,
   IAgentRuntime,
   Memory,
   State,
-  HandlerCallback,
-  Content,
-  ActionExample,
   TargetInfo,
 } from "@elizaos/core";
 
@@ -46,7 +46,10 @@ export const sendWhatsAppMessage: Action = {
     },
   ],
 
-  validate: async (runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     return runtime.hasService("whatsapp");
   },
 
@@ -116,8 +119,7 @@ export const sendWhatsAppMessage: Action = {
 
       return { success: true };
     } catch (err) {
-      const errMsg =
-        err instanceof Error ? err.message : String(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
       runtime.logger.error(
         `[whatsapp] Failed to send WhatsApp message: ${errMsg}`,
       );
