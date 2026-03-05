@@ -8272,7 +8272,7 @@ export class MilaidyApp extends LitElement {
         }
       } else if (result.autonomy !== nextEnabled) {
         this.chatAutonomyActionMessage = nextEnabled
-          ? "Autonomy service is unavailable on this backend runtime."
+          ? "Autonomy did not enable. Backend API process appears stale; full backend restart required (agent restart is not enough)."
           : "Autonomy did not disable cleanly. Try again.";
       } else {
         this.chatAutonomyActionMessage = nextEnabled
