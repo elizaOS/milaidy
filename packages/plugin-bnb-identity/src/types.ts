@@ -81,3 +81,54 @@ export interface AddressResult {
 
 export const SUPPORTED_BNB_NETWORKS = ["bsc", "bsc-testnet"] as const;
 export type SupportedBnbNetwork = (typeof SUPPORTED_BNB_NETWORKS)[number];
+
+// ── BAP-578 NFA types (co-authored by Dexploarer) ──────────────────────────
+
+/** Persisted NFA state written to ~/.milady/bap578-nfa.json. */
+export interface NfaRecord {
+  tokenId: string;
+  contractAddress: string;
+  network: string;
+  ownerAddress: string;
+  mintTxHash: string;
+  merkleRoot: string;
+  mintedAt: string; // ISO 8601
+  lastUpdatedAt: string; // ISO 8601
+}
+
+/** Runtime config for BAP-578 NFA, derived from env + pluginParameters. */
+export interface Bap578NfaConfig {
+  contractAddress: string;
+  privateKey?: string; // undefined = read-only mode
+  network: string;
+}
+
+/** Result from minting an NFA token. */
+export interface MintNfaResult {
+  tokenId: string;
+  txHash: string;
+  network: string;
+}
+
+/** Result from querying NFA on-chain state. */
+export interface NfaInfoResult {
+  tokenId: string;
+  owner: string;
+  merkleRoot: string;
+  paused: boolean;
+  network: string;
+}
+
+/** A parsed learning entry from LEARNINGS.md. */
+export interface LearningEntry {
+  date: string;
+  content: string;
+  hash: string;
+}
+
+/** Aggregated learnings response. */
+export interface LearningsData {
+  entries: LearningEntry[];
+  merkleRoot: string;
+  totalEntries: number;
+}
