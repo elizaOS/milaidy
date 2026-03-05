@@ -6885,10 +6885,21 @@ async function handleRequest(
       error(res, "Failed to save configuration", 500);
       return;
     }
+    const selectedProviderId =
+      typeof body.provider === "string" ? body.provider.trim() : "";
+    const providerRestartRequired =
+      runMode === "local" && selectedProviderId.length > 0;
+    if (providerRestartRequired) {
+      scheduleRuntimeRestart(`Onboarding provider selected: ${selectedProviderId}`);
+    }
     logger.info(
       `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
     );
-    json(res, { ok: true });
+    json(res, {
+      ok: true,
+      restarting: providerRestartRequired,
+      pendingRestartReasons: [...state.pendingRestartReasons],
+    });
     return;
   }
 

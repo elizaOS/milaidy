@@ -3290,6 +3290,7 @@ describe("API Server E2E (no runtime)", () => {
         providerApiKey: openAiKey,
       });
       expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
 
       const cfg = await req(port, "GET", "/api/config");
       const data = cfg.data as {
@@ -3314,6 +3315,7 @@ describe("API Server E2E (no runtime)", () => {
         providerApiKey: cloudKey,
       });
       expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
 
       const cfg = await req(port, "GET", "/api/config");
       const data = cfg.data as {
