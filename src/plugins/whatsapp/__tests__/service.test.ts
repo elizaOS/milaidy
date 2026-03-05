@@ -301,6 +301,47 @@ describe("WhatsAppBaileysService", () => {
       // Should not throw
       await expect(svc.stop()).resolves.toBeUndefined();
     });
+
+    it("flushes credentials before closing socket", async () => {
+      const runtime = createMockRuntime();
+      const svc = new WhatsAppBaileysService(runtime);
+      const mockSaveCreds = vi.fn().mockResolvedValue(undefined);
+      const mockEnd = vi.fn();
+
+      Object.assign(svc, {
+        sock: { end: mockEnd },
+        connected: true,
+        saveCreds: mockSaveCreds,
+      });
+
+      await svc.stop();
+
+      expect(mockSaveCreds).toHaveBeenCalledTimes(1);
+      // saveCreds should be called before sock.end
+      const saveCredsOrder = mockSaveCreds.mock.invocationCallOrder[0];
+      const endOrder = mockEnd.mock.invocationCallOrder[0];
+      expect(saveCredsOrder).toBeLessThan(endOrder);
+    });
+
+    it("completes even when saveCreds throws", async () => {
+      const runtime = createMockRuntime();
+      const svc = new WhatsAppBaileysService(runtime);
+      const mockSaveCreds = vi.fn().mockRejectedValue(new Error("disk full"));
+      const mockEnd = vi.fn();
+
+      Object.assign(svc, {
+        sock: { end: mockEnd },
+        connected: true,
+        saveCreds: mockSaveCreds,
+      });
+
+      await expect(svc.stop()).resolves.toBeUndefined();
+      expect(mockSaveCreds).toHaveBeenCalled();
+      expect(mockEnd).toHaveBeenCalled();
+      expect(runtime.logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to flush credentials"),
+      );
+    });
   });
 
   // -----------------------------------------------------------------------

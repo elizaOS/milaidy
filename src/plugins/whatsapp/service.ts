@@ -91,6 +91,7 @@ export class WhatsAppBaileysService extends Service {
   connected = false;
   private reconnectDelay = 3000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveCreds: (() => Promise<void>) | null = null;
 
   // -- ServiceClass static interface -----------------------------------------
 
@@ -151,6 +152,7 @@ export class WhatsAppBaileysService extends Service {
     const logger = pino({ level: "silent" });
 
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    this.saveCreds = saveCreds;
     const { version } = await fetchLatestBaileysVersion();
 
     const connect = async () => {
@@ -190,6 +192,14 @@ export class WhatsAppBaileysService extends Service {
           if (statusCode === DisconnectReason.loggedOut) {
             this.runtime.logger.warn(
               "[whatsapp] Logged out — device was removed from WhatsApp. Re-pair via QR to reconnect.",
+            );
+            (this.runtime.emitEvent as (event: string[], params: Record<string, unknown>) => Promise<void>)?.(
+              ["WHATSAPP_DISCONNECTED"],
+              {
+                runtime: this.runtime,
+                reason: "logged_out",
+                message: "WhatsApp device was removed. Re-pair via QR to reconnect.",
+              },
             );
             this.sock = null;
             return;
@@ -237,6 +247,16 @@ export class WhatsAppBaileysService extends Service {
     };
 
     await connect();
+
+    if (this.connected) {
+      this.runtime.logger.info(
+        "[whatsapp] Session restored successfully from saved credentials",
+      );
+    } else {
+      this.runtime.logger.info(
+        "[whatsapp] Session restoration pending — waiting for connection confirmation",
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -244,6 +264,15 @@ export class WhatsAppBaileysService extends Service {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.saveCreds) {
+      try {
+        await this.saveCreds();
+      } catch (err) {
+        this.runtime?.logger?.warn(
+          `[whatsapp] Failed to flush credentials on stop: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
     try {
       this.sock?.end(undefined);
