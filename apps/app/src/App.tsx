@@ -19,6 +19,7 @@ import { CustomActionsPanel } from "./components/CustomActionsPanel";
 import { EmotePicker } from "./components/EmotePicker";
 import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
+import { IdentityView } from "./components/IdentityView";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { LifoSandboxView } from "./components/LifoSandboxView";
@@ -73,6 +74,8 @@ function ViewRouter() {
     case "character":
     case "character-select":
       return <CharacterView />;
+    case "identity":
+      return <IdentityView />;
     case "wallets":
       return <InventoryView />;
     case "knowledge":

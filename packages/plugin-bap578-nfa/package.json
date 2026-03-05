@@ -1,0 +1,71 @@
+{
+  "name": "@milady/plugin-bap578-nfa",
+  "description": "BAP-578 Non-Fungible Agent (NFA) plugin for Milady — on-chain agent identity with Merkle-rooted learning provenance",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "VPL-1.0",
+  "keywords": [
+    "elizaos",
+    "elizaos-plugin",
+    "bnb-chain",
+    "bsc",
+    "bap578",
+    "nfa",
+    "non-fungible-agent",
+    "merkle-tree"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "packages/plugin-bap578-nfa"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "bun": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": ["dist", "package.json"],
+  "dependencies": {
+    "@elizaos/core": "next"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "test": "bun test"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "BAP578_CONTRACT_ADDRESS": {
+        "type": "string",
+        "description": "Address of the BAP-578 NFA contract. Must be set via environment — never hardcode.",
+        "required": true,
+        "sensitive": false
+      },
+      "BNB_PRIVATE_KEY": {
+        "type": "string",
+        "description": "Hex private key for the wallet that owns the NFA token. Required for write operations (mint, transfer, pause). Read-only actions work without it.",
+        "required": false,
+        "sensitive": true
+      },
+      "BNB_NETWORK": {
+        "type": "string",
+        "description": "Target network: 'bsc' (mainnet) or 'bsc-testnet'. Defaults to bsc-testnet for safety.",
+        "required": false,
+        "default": "bsc-testnet"
+      }
+    }
+  }
+}

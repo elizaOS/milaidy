@@ -1815,6 +1815,39 @@ export interface RegistryConfig {
   explorerUrl: string;
 }
 
+export interface NfaStatusResponse {
+  nfa: {
+    tokenId: string;
+    contractAddress: string;
+    network: string;
+    ownerAddress: string;
+    merkleRoot: string;
+    mintTxHash: string;
+    mintedAt: string;
+    lastUpdatedAt: string;
+    bscscanUrl: string;
+  } | null;
+  identity: {
+    agentId: string;
+    network: string;
+    ownerAddress: string;
+    agentURI: string;
+    registeredAt: string;
+    scanUrl: string;
+  } | null;
+  configured: boolean;
+}
+
+export interface NfaLearningsResponse {
+  entries: Array<{
+    date: string;
+    content: string;
+    hash: string;
+  }>;
+  merkleRoot: string;
+  totalEntries: number;
+}
+
 export interface WhitelistStatus {
   eligible: boolean;
   twitterVerified: boolean;
@@ -4497,6 +4530,18 @@ export class MiladyClient {
     this.disconnectedAt = null;
     this.connectionState = "disconnected";
     this.emitConnectionStateChange();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  BAP-578 NFA
+  // ═══════════════════════════════════════════════════════════════════════
+
+  async getNfaStatus(): Promise<NfaStatusResponse> {
+    return this.fetch("/api/nfa/status");
+  }
+
+  async getNfaLearnings(): Promise<NfaLearningsResponse> {
+    return this.fetch("/api/nfa/learnings");
   }
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -149,6 +149,7 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
+import { handleNfaRoutes } from "./nfa-routes";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
@@ -9393,6 +9394,22 @@ async function handleRequest(
       resolveWalletExportRejection,
       scheduleRuntimeRestart,
       readJsonBody,
+      json,
+      error,
+    })
+  ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BAP-578 NFA Routes
+  // ═══════════════════════════════════════════════════════════════════════
+  if (
+    await handleNfaRoutes({
+      req,
+      res,
+      method,
+      pathname,
       json,
       error,
     })

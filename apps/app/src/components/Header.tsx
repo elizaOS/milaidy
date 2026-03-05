@@ -3,13 +3,15 @@ import {
   Bug,
   Check,
   CircleDollarSign,
+  Fingerprint,
   Loader2,
   Pause,
   Play,
   RotateCcw,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { client, type NfaStatusResponse } from "../api-client";
 import { useApp } from "../AppContext";
 import { useBugReport } from "../hooks/useBugReport";
 import { createTranslator } from "../i18n";
@@ -120,6 +122,21 @@ export function Header() {
   useEffect(() => {
     void loadDropStatus();
   }, [loadDropStatus]);
+
+  // Identity status for the popover
+  const [identityStatus, setIdentityStatus] =
+    useState<NfaStatusResponse | null>(null);
+  const loadIdentityStatus = useCallback(async () => {
+    try {
+      const data = await client.getNfaStatus();
+      setIdentityStatus(data);
+    } catch {
+      // non-critical — silently ignore
+    }
+  }, []);
+  useEffect(() => {
+    void loadIdentityStatus();
+  }, [loadIdentityStatus]);
 
   // Clear copied state after 2 seconds
   useEffect(() => {
@@ -357,6 +374,89 @@ export function Header() {
                 <Bug className="w-5 h-5" />
               </button>
             </IconButtonTooltip>
+
+            {/* Identity Popover */}
+            {identityStatus?.configured && (
+              <div className="identity-wrapper relative inline-flex shrink-0 group">
+                <IconButtonTooltip label="Agent Identity">
+                  <button
+                    type="button"
+                    onClick={() => setTab("identity")}
+                    aria-label="View agent identity"
+                    className={`${iconBtnBase} ${identityStatus.nfa ? "border-[#d4af37] text-[#d4af37]" : ""}`}
+                  >
+                    <Fingerprint className="w-5 h-5" />
+                  </button>
+                </IconButtonTooltip>
+
+                {/* Identity Popover */}
+                <div className="identity-tooltip hidden group-hover:block group-focus-within:block absolute top-full right-0 mt-2 p-3 border border-border bg-bg-elevated z-50 min-w-[280px] shadow-xl rounded-lg">
+                  <div className="text-[11px] text-muted uppercase tracking-wide mb-2 px-1">
+                    On-Chain Identity
+                  </div>
+
+                  {identityStatus.identity && (
+                    <div className="py-1.5 px-1">
+                      <div className="flex items-center gap-2 text-xs mb-1">
+                        <span className="font-bold text-muted min-w-[60px]">
+                          ERC-8004
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] bg-ok/15 text-ok border border-ok/30">
+                          <span className="w-1 h-1 rounded-full bg-ok" />
+                          Active
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-mono text-txt-strong truncate">
+                        Agent #{identityStatus.identity.agentId}
+                      </div>
+                      <div className="text-[10px] text-muted">
+                        {identityStatus.identity.network}
+                      </div>
+                      <a
+                        href={identityStatus.identity.scanUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-accent hover:underline"
+                      >
+                        View on 8004Scan
+                      </a>
+                    </div>
+                  )}
+
+                  {identityStatus.nfa && (
+                    <div className="py-1.5 px-1 border-t border-border mt-1">
+                      <div className="flex items-center gap-2 text-xs mb-1">
+                        <span className="font-bold text-muted min-w-[60px]">
+                          NFA
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] bg-[#d4af37]/15 text-[#d4af37] border border-[#d4af37]/30">
+                          <span className="w-1 h-1 rounded-full bg-[#d4af37]" />
+                          Token #{identityStatus.nfa.tokenId}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-mono text-txt-strong truncate">
+                        Root: {identityStatus.nfa.merkleRoot.slice(0, 16)}...
+                      </div>
+                      <div className="text-[10px] text-muted">
+                        {identityStatus.nfa.network}
+                      </div>
+                      <a
+                        href={identityStatus.nfa.bscscanUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-accent hover:underline"
+                      >
+                        View on BscScan
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="mt-2 pt-2 border-t border-border text-[10px] text-muted text-center">
+                    Click to view full identity details
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Wallet Dropdown */}
             {(evmShort || solShort) && (

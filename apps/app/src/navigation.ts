@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bot,
   Brain,
+  Fingerprint,
   Gamepad2,
   Heart,
   MessageSquare,
@@ -33,6 +34,7 @@ export type Tab =
   | "apps"
   | "character"
   | "character-select"
+  | "identity"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -82,6 +84,12 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
     tabs: ["character", "character-select"],
     icon: Bot,
     description: "AI personality and behavior",
+  },
+  {
+    label: "Identity",
+    tabs: ["identity"],
+    icon: Fingerprint,
+    description: "On-chain agent identity and NFA",
   },
   {
     label: "Wallets",
@@ -152,6 +160,7 @@ const TAB_PATHS: Record<Tab, string> = {
   character: "/character",
   "character-select": "/character-select",
   triggers: "/triggers",
+  identity: "/identity",
   wallets: "/wallets",
   knowledge: "/knowledge",
   connectors: "/connectors",
@@ -250,6 +259,8 @@ export function titleForTab(tab: Tab): string {
       return "Character Select";
     case "triggers":
       return "Triggers";
+    case "identity":
+      return "Identity";
     case "wallets":
       return "Wallets";
     case "knowledge":
