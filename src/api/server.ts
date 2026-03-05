@@ -6648,7 +6648,9 @@ async function handleRequest(
       const providerApiKey =
         typeof body.providerApiKey === "string"
           ? body.providerApiKey.trim()
-          : "";
+          : typeof body.apiKey === "string"
+            ? body.apiKey.trim()
+            : "";
 
       // Persist vars back onto config.env
       (envCfg as Record<string, unknown>).vars = vars;
@@ -6714,11 +6716,19 @@ async function handleRequest(
         config.cloud.enabled = true;
         (config.env as Record<string, string>).ELIZAOS_CLOUD_ENABLED = "true";
         process.env.ELIZAOS_CLOUD_ENABLED = "true";
-        if (providerApiKey) {
-          config.cloud.apiKey = providerApiKey;
+        const existingCloudKey =
+          typeof config.cloud.apiKey === "string" ? config.cloud.apiKey.trim() : "";
+        const existingEnvKey = (
+          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY ?? ""
+        ).trim();
+        const runtimeEnvKey = (process.env.ELIZAOS_CLOUD_API_KEY ?? "").trim();
+        const resolvedCloudKey =
+          providerApiKey || existingCloudKey || existingEnvKey || runtimeEnvKey;
+        if (resolvedCloudKey) {
+          config.cloud.apiKey = resolvedCloudKey;
           (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY =
-            providerApiKey;
-          process.env.ELIZAOS_CLOUD_API_KEY = providerApiKey;
+            resolvedCloudKey;
+          process.env.ELIZAOS_CLOUD_API_KEY = resolvedCloudKey;
         }
       }
     }

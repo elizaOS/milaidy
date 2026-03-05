@@ -3335,6 +3335,56 @@ describe("API Server E2E (no runtime)", () => {
         "@elizaos/plugin-elizacloud",
       );
     });
+
+    it("POST /api/onboarding accepts legacy apiKey field for ElizaCloud", async () => {
+      const cloudKey = "eliza_test_legacy_api_key_field";
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudLegacyField",
+        runMode: "local",
+        provider: "elizacloud",
+        apiKey: cloudKey,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        cloud?: { enabled?: boolean; apiKey?: string };
+      };
+
+      expect(data.cloud?.enabled).toBe(true);
+      expect(data.cloud?.apiKey).toBe(cloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+    });
+
+    it("POST /api/onboarding keeps existing ElizaCloud key when key is omitted", async () => {
+      const existingCloudKey = "eliza_existing_cloud_key_should_be_preserved";
+      const first = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudPersisted1",
+        runMode: "local",
+        provider: "elizacloud",
+        providerApiKey: existingCloudKey,
+      });
+      expect(first.status).toBe(200);
+
+      const second = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudPersisted2",
+        runMode: "local",
+        provider: "elizacloud",
+      });
+      expect(second.status).toBe(200);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        cloud?: { enabled?: boolean; apiKey?: string };
+      };
+
+      expect(data.cloud?.enabled).toBe(true);
+      expect(data.cloud?.apiKey).toBe(existingCloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(existingCloudKey);
+    });
   });
 
   // -- Config --

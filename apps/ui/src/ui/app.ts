@@ -7691,6 +7691,8 @@ export class MilaidyApp extends LitElement {
   private async promptAndSaveElizaCloudApiKey(): Promise<void> {
     const token = window.prompt("Paste your Eliza Cloud API key");
     if (!token?.trim()) return;
+    const trimmedToken = token.trim();
+    this.onboardingApiKey = trimmedToken;
     const plugin = this.plugins.find((p) => p.id === "elizacloud") ?? this.aiPluginCatalog().find((p) => p.id === "elizacloud") ?? null;
     if (!plugin) {
       this.showUiNotice("Eliza Cloud provider is not available right now.");
@@ -7699,7 +7701,7 @@ export class MilaidyApp extends LitElement {
     try {
       const nextConfig: Record<string, unknown> = {
         ...(plugin.configured ? { _preserveConfiguredState: true } : {}),
-        ELIZAOS_CLOUD_API_KEY: token.trim(),
+        ELIZAOS_CLOUD_API_KEY: trimmedToken,
       };
       await client.updatePlugin(plugin.id, nextConfig);
       await this.loadPlugins();
