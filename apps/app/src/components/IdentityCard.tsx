@@ -1,6 +1,6 @@
 /**
  * IdentityCard — on-chain NFA identity status and actions.
- * Renders inside the Inventory view as a self-contained card.
+ * Renders inside the wallet popover using anime-wallet-identity-* CSS classes.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,24 +29,11 @@ function TxResultBanner({
   }, [onDismiss]);
 
   return (
-    <div
-      className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
-      style={{
-        border: `1px solid ${ok ? "var(--ok)" : "var(--danger, #f44)"}`,
-        background: ok
-          ? "color-mix(in srgb, var(--ok) 8%, var(--bg) 92%)"
-          : "color-mix(in srgb, var(--danger, #f44) 8%, var(--bg) 92%)",
-        color: ok ? "var(--ok)" : "var(--danger, #f44)",
-      }}
-    >
-      <span className="truncate">{message}</span>
-      <button
-        type="button"
-        className="shrink-0 opacity-60 hover:opacity-100"
-        onClick={onDismiss}
-      >
-        x
-      </button>
+    <div className={`anime-wallet-identity-tx ${ok ? "is-ok" : "is-error"}`}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {message}
+      </span>
+      <button type="button" onClick={onDismiss}>×</button>
     </div>
   );
 }
@@ -78,32 +65,54 @@ function OverflowMenu({
   if (visible.length === 0) return null;
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+    <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
-        className="wt__btn"
-        style={{ minWidth: 32 }}
-        onClick={() => setOpen((v) => !v)}
+        className="anime-wallet-identity-btn"
+        style={{ padding: "7px 10px", flex: "none" }}
+        onClick={() => setOpen(!open)}
       >
-        ...
+        ···
       </button>
       {open && (
         <div
           style={{
             position: "absolute",
             right: 0,
-            top: "calc(100% + 4px)",
-            zIndex: 20,
-            minWidth: 160,
-            border: "1px solid var(--border)",
-            background: "var(--bg)",
+            bottom: "calc(100% + 4px)",
+            minWidth: 120,
+            background: "linear-gradient(165deg, rgba(17, 23, 34, 0.98), rgba(7, 10, 18, 0.98))",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            borderRadius: 8,
+            boxShadow: "0 12px 28px rgba(0,0,0,0.5)",
+            zIndex: 50,
+            overflow: "hidden",
           }}
         >
           {visible.map((item) => (
             <button
               key={item.label}
               type="button"
-              className="block w-full text-left px-3 py-2 text-xs hover:bg-[var(--border)]"
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "7px 10px",
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase" as const,
+                color: "rgba(241, 244, 252, 0.85)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                (e.target as HTMLElement).style.background = "rgba(255,255,255,0.06)";
+              }}
+              onMouseLeave={(e) => {
+                (e.target as HTMLElement).style.background = "none";
+              }}
               onClick={() => {
                 setOpen(false);
                 item.onClick();
@@ -187,7 +196,7 @@ export function IdentityCard() {
           case "anchor": {
             const res = await client.anchorLearnings({ useWalletKey });
             if (!res.success) throw new Error(res.error || "Anchor failed");
-            msg = `Anchored ${res.count ?? "?"} learnings. root: ${res.root?.slice(0, 14) ?? "?"}...`;
+            msg = `Learnings anchored. tx: ${res.txHash ?? "pending"}`;
             break;
           }
           case "transfer": {
@@ -267,9 +276,9 @@ export function IdentityCard() {
 
   if (loading) {
     return (
-      <div className="wt__portfolio">
-        <div className="wt__portfolio-label">On-Chain Agent Identity</div>
-        <div className="text-xs text-muted">Loading...</div>
+      <div className="anime-wallet-identity">
+        <div className="anime-wallet-identity-title">On-Chain Agent Identity</div>
+        <div className="anime-wallet-identity-desc">Loading...</div>
       </div>
     );
   }
@@ -282,7 +291,7 @@ export function IdentityCard() {
   const paused = nfa?.paused ?? !(onChain?.active ?? true);
 
   return (
-    <div className="wt__portfolio">
+    <div className="anime-wallet-identity">
       {/* Confirm dialog */}
       {pendingOp && (
         <NfaConfirmDialog
@@ -304,15 +313,12 @@ export function IdentityCard() {
       {!isRegistered ? (
         /* ── Unregistered state ────────────────────────────────── */
         <>
-          <div className="wt__portfolio-label">On-Chain Agent Identity</div>
-          <div className="text-xs text-muted" style={{ marginTop: 6 }}>
+          <div className="anime-wallet-identity-title">On-Chain Agent Identity</div>
+          <div className="anime-wallet-identity-desc">
             No NFA minted yet. Mint a Non-Fungible Agent to anchor your
             identity and learnings on-chain.
           </div>
-          <label
-            className="flex items-center gap-2 text-xs text-muted"
-            style={{ marginTop: 8, cursor: "pointer" }}
-          >
+          <label className="anime-wallet-identity-toggle">
             <input
               type="checkbox"
               checked={useWalletKey}
@@ -320,41 +326,30 @@ export function IdentityCard() {
             />
             Use wallet key as NFA owner
           </label>
-          <button
-            type="button"
-            className="wt__btn is-buy"
-            style={{ marginTop: 10, width: "100%" }}
-            onClick={() => setPendingOp({ op: "mint" })}
-          >
-            Mint NFA
-          </button>
+          <div className="anime-wallet-identity-actions">
+            <button
+              type="button"
+              className="anime-wallet-identity-btn is-primary"
+              onClick={() => setPendingOp({ op: "mint" })}
+            >
+              Mint NFA
+            </button>
+          </div>
         </>
       ) : (
         /* ── Registered state ──────────────────────────────────── */
         <>
           {/* Header row */}
-          <div className="flex items-center justify-between">
-            <div className="wt__portfolio-label" style={{ margin: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="anime-wallet-identity-title">
               NFA #{nfa.tokenId}
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="text-[10px] px-1.5 py-0.5"
-                style={{
-                  border: `1px solid ${paused ? "var(--warn)" : "var(--ok)"}`,
-                  color: paused ? "var(--warn)" : "var(--ok)",
-                }}
-              >
+            <div className="anime-wallet-identity-badges">
+              <span className={`anime-wallet-identity-badge ${paused ? "is-paused" : "is-active"}`}>
                 {paused ? "Paused" : "Active"}
               </span>
               {nfa.freeMint && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5"
-                  style={{
-                    border: "1px solid var(--accent)",
-                    color: "var(--accent)",
-                  }}
-                >
+                <span className="anime-wallet-identity-badge is-free">
                   Free Mint
                 </span>
               )}
@@ -362,66 +357,47 @@ export function IdentityCard() {
           </div>
 
           {/* Owner */}
-          <div style={{ marginTop: 8 }}>
-            <span className="text-xs text-muted">Owner: </span>
-            <a
-              className="wt__quote-link font-mono text-xs"
-              href={explorerUrl(network, `address/${nfa.owner}`)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {shortAddr(nfa.owner)}
-            </a>
+          <div className="anime-wallet-identity-row" style={{ marginTop: 6 }}>
+            <span className="anime-wallet-identity-row-label">Owner</span>
+            <span className="anime-wallet-identity-row-value">
+              <a
+                href={explorerUrl(network, `address/${nfa.owner}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortAddr(nfa.owner)}
+              </a>
+            </span>
           </div>
 
           {/* ERC-8004 agent ID */}
           {identity && (
-            <div style={{ marginTop: 4 }}>
-              <span className="text-xs text-muted">ERC-8004 Agent: </span>
-              <span className="font-mono text-xs">{identity.agentId}</span>
+            <div className="anime-wallet-identity-row">
+              <span className="anime-wallet-identity-row-label">ERC-8004</span>
+              <span className="anime-wallet-identity-row-value">{identity.agentId}</span>
             </div>
           )}
 
           {/* Learnings summary */}
-          <div className="wt__bnb-sub" style={{ marginTop: 8 }}>
-            <span>
-              {nfa.learningCount} learning{nfa.learningCount !== 1 ? "s" : ""}{" "}
-              anchored
-            </span>
+          <div className="anime-wallet-identity-learning">
+            {nfa.learningCount} learning{nfa.learningCount !== 1 ? "s" : ""} anchored
             {nfa.lastAnchoredAt && (
-              <span className="text-muted">
-                {" "}
-                &middot; last:{" "}
-                {new Date(nfa.lastAnchoredAt).toLocaleDateString()}
-              </span>
+              <span> · last: {new Date(nfa.lastAnchoredAt).toLocaleDateString()}</span>
             )}
           </div>
 
           {/* Merkle root */}
           {nfa.learningRoot && (
-            <div className="font-mono text-[10px] text-muted truncate" style={{ marginTop: 4 }}>
+            <div className="anime-wallet-identity-root">
               root: {nfa.learningRoot}
             </div>
           )}
 
-          {/* Wallet key toggle */}
-          <label
-            className="flex items-center gap-2 text-xs text-muted"
-            style={{ marginTop: 8, cursor: "pointer" }}
-          >
-            <input
-              type="checkbox"
-              checked={useWalletKey}
-              onChange={(e) => setUseWalletKey(e.target.checked)}
-            />
-            Use wallet key as NFA owner
-          </label>
-
           {/* Action buttons */}
-          <div className="flex items-center gap-2" style={{ marginTop: 10 }}>
+          <div className="anime-wallet-identity-actions">
             <button
               type="button"
-              className="wt__btn is-buy flex-1"
+              className="anime-wallet-identity-btn is-primary"
               onClick={() => setPendingOp({ op: "anchor" })}
             >
               Anchor Learnings
