@@ -3549,6 +3549,20 @@ function setPrimaryProviderModel(
   defaults.model = model;
 }
 
+function clearNonSelectedProviderApiKeys(
+  config: MiladyConfig,
+  keepEnvKey: string | null,
+): void {
+  if (!config.env) config.env = {};
+  const envCfg = config.env as Record<string, string>;
+  for (const provider of getProviderOptions()) {
+    const envKey = provider.envKey;
+    if (!envKey || envKey === keepEnvKey) continue;
+    delete envCfg[envKey];
+    delete process.env[envKey];
+  }
+}
+
 function getCloudProviderOptions(): Array<{
   id: string;
   name: string;
@@ -6650,6 +6664,15 @@ async function handleRequest(
         // active after restart, without requiring a manual plugin toggle.
         enablePluginInConfig(config, providerOpt.pluginName);
         setPrimaryProviderModel(config, providerOpt.pluginName);
+      }
+
+      if (runMode === "local" && providerId) {
+        const keepEnvKey =
+          providerId === "anthropic-subscription" &&
+          providerApiKey.startsWith("sk-ant-")
+            ? "ANTHROPIC_API_KEY"
+            : (providerOpt?.envKey ?? null);
+        clearNonSelectedProviderApiKeys(config, keepEnvKey);
       }
 
       if (runMode === "local" && providerId === "pi-ai") {

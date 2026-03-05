@@ -3327,6 +3327,7 @@ describe("API Server E2E (no runtime)", () => {
       expect(data.cloud?.apiKey).toBe(cloudKey);
       expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
       expect(data.env?.ELIZAOS_CLOUD_ENABLED).toBe("true");
+      expect(data.env?.OPENAI_API_KEY).toBeUndefined();
       expect(data.plugins?.entries?.elizacloud?.enabled).toBe(true);
       expect(data.agents?.defaults?.model?.primary).toBe(
         "@elizaos/plugin-elizacloud",
