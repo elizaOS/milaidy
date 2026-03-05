@@ -88,7 +88,11 @@ import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
-import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
+import {
+  ensureAutonomySvc,
+  getAutonomyState,
+  handleAutonomyRoutes,
+} from "./autonomy-routes";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -1171,8 +1175,12 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       const entries = index.plugins
         .map((p) => {
-          // Use manifest category if available, otherwise fall back to hardcoded categorization
-          const category = p.category ?? categorizePlugin(p.id);
+          // Use manifest category if available, otherwise fall back to hardcoded categorization.
+          // Eliza Cloud should be grouped with AI providers in Runtime UI.
+          const category =
+            p.id === "elizacloud"
+              ? "ai-provider"
+              : (p.category ?? categorizePlugin(p.id));
           const envKey = p.envKey;
           const filteredConfigKeys = p.configKeys.filter(
             (k) => !HIDDEN_KEYS.has(k),
@@ -2223,6 +2231,18 @@ function getInsufficientCreditsReplyFromError(err: unknown): string | null {
 function isNoResponsePlaceholder(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed);
+}
+
+function normalizePluginRuntimeName(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^@[^/]+\//, "")
+    .replace(/^plugin-/, "")
+    .replace(/[^a-z0-9-]/g, "");
+  // Runtime/export naming aliases.
+  if (normalized === "elizaoscloud") return "elizacloud";
+  return normalized;
 }
 
 function normalizeChatResponseText(
@@ -3408,7 +3428,7 @@ function getProviderOptions(): Array<{
       description: "Access multiple models via one API key.",
     },
     {
-      id: "gemini",
+      id: "google-genai",
       name: "Gemini",
       envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
       pluginName: "@elizaos/plugin-google-genai",
@@ -3416,7 +3436,7 @@ function getProviderOptions(): Array<{
       description: "Google's Gemini models.",
     },
     {
-      id: "grok",
+      id: "xai",
       name: "Grok",
       envKey: "XAI_API_KEY",
       pluginName: "@elizaos/plugin-xai",
@@ -3430,6 +3450,22 @@ function getProviderOptions(): Array<{
       pluginName: "@elizaos/plugin-groq",
       keyPrefix: "gsk_",
       description: "Fast inference.",
+    },
+    {
+      id: "vercel-ai-gateway",
+      name: "Vercel AI Gateway",
+      envKey: "AI_GATEWAY_API_KEY",
+      pluginName: "@elizaos/plugin-vercel-ai-gateway",
+      keyPrefix: null,
+      description: "Unified model routing via Vercel AI Gateway.",
+    },
+    {
+      id: "local-ai",
+      name: "Local AI",
+      envKey: null,
+      pluginName: "@elizaos/plugin-local-ai",
+      keyPrefix: null,
+      description: "Run local models without external API keys.",
     },
     {
       id: "deepseek",
@@ -3472,6 +3508,59 @@ function getProviderOptions(): Array<{
       description: "GLM models via z.ai Coding Plan.",
     },
   ];
+}
+
+function providerPluginIdFromPackageName(pluginName: string): string {
+  const withoutScope = pluginName.split("/").at(-1) ?? pluginName;
+  return withoutScope.startsWith("plugin-")
+    ? withoutScope.slice("plugin-".length)
+    : withoutScope;
+}
+
+function enablePluginInConfig(config: MiladyConfig, pluginName: string): void {
+  const pluginId = providerPluginIdFromPackageName(pluginName);
+  if (!pluginId) return;
+  if (!config.plugins) config.plugins = {};
+  if (!config.plugins.entries) config.plugins.entries = {};
+  const existing =
+    (config.plugins.entries as Record<string, Record<string, unknown>>)[
+      pluginId
+    ] ?? {};
+  (config.plugins.entries as Record<string, Record<string, unknown>>)[
+    pluginId
+  ] = { ...existing, enabled: true };
+}
+
+function setPrimaryProviderModel(
+  config: MiladyConfig,
+  providerPluginName: string,
+): void {
+  if (!config.agents) config.agents = {};
+  if (!config.agents.defaults) config.agents.defaults = {};
+  const defaults = config.agents.defaults as Record<string, unknown>;
+  const model =
+    defaults.model && typeof defaults.model === "object"
+      ? ({ ...(defaults.model as Record<string, unknown>) } as Record<
+          string,
+          unknown
+        >)
+      : {};
+  model.primary = providerPluginName;
+  defaults.model = model;
+}
+
+function clearNonSelectedProviderApiKeys(
+  config: MiladyConfig,
+  keepEnvKey: string | null,
+): void {
+  if (!config.env) config.env = {};
+  const envCfg = config.env as Record<string, string>;
+  for (const provider of getProviderOptions()) {
+    const envKey = provider.envKey;
+    if (!envKey || envKey === keepEnvKey) continue;
+    delete envCfg[envKey];
+    delete process.env[envKey];
+  }
 }
 
 function getCloudProviderOptions(): Array<{
@@ -5678,6 +5767,67 @@ async function handleRequest(
       type: "restart-required",
       reasons: [...state.pendingRestartReasons],
     });
+
+    // In hosts with an in-process restart handler (dev-server / desktop),
+    // apply the restart automatically so provider/plugin changes take effect
+    // without requiring a manual /api/agent/restart call.
+    if (ctx?.onRestart && state.agentState !== "restarting") {
+      const previousState = state.agentState;
+      state.agentState = "restarting";
+      state.broadcastStatus?.();
+
+      void (async () => {
+        try {
+          const newRuntime = await ctx.onRestart?.();
+          if (newRuntime) {
+            state.runtime = newRuntime;
+            state.chatConnectionReady = null;
+            state.chatConnectionPromise = null;
+            state.agentState = "running";
+            state.agentName = newRuntime.character.name ?? "Milady";
+            state.model = detectRuntimeModel(newRuntime);
+            state.startedAt = Date.now();
+            state.pendingRestartReasons = [];
+            state.broadcastWs?.({
+              type: "restart-applied",
+              reason,
+            });
+          } else {
+            state.agentState = previousState;
+            logger.warn(
+              "[milady-api] Restart handler returned null while applying pending restart",
+            );
+          }
+        } catch (err) {
+          state.agentState = previousState;
+          logger.warn(
+            `[milady-api] Failed to auto-apply pending restart: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        } finally {
+          state.broadcastStatus?.();
+        }
+      })();
+    }
+  };
+
+  const runtimeUnavailableMessage = (): string | null => {
+    if (!state.runtime) return "Agent is not running";
+    if (state.agentState === "running" || state.agentState === "paused") {
+      return null;
+    }
+    const parts: string[] = ["Agent is not running"];
+    if (state.startup.phase && state.startup.phase !== "running") {
+      parts.push(`Startup phase: ${state.startup.phase}`);
+    }
+    const pendingReason = state.pendingRestartReasons[0];
+    if (pendingReason) {
+      parts.push(`Pending restart reason: ${pendingReason}`);
+    }
+    if (state.startup.lastError) {
+      parts.push(`Last runtime issue: ${state.startup.lastError}`);
+    }
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]}. ${parts.slice(1).join(". ")}.`;
   };
 
   const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
@@ -5914,6 +6064,35 @@ async function handleRequest(
       openrouter: "OPENROUTER_API_KEY",
     };
 
+    const PROVIDER_PRIMARY_MODEL_MAP: Record<string, string> = {
+      elizacloud: "@elizaos/plugin-elizacloud",
+      "pi-ai": "@elizaos/plugin-pi-ai",
+      openai: "@elizaos/plugin-openai",
+      anthropic: "@elizaos/plugin-anthropic",
+      deepseek: "@elizaos/plugin-deepseek",
+      google: "@elizaos/plugin-google-genai",
+      groq: "@elizaos/plugin-groq",
+      xai: "@elizaos/plugin-xai",
+      openrouter: "@elizaos/plugin-openrouter",
+    };
+
+    const setPrimaryModelForProvider = (providerId: string): void => {
+      const primary = PROVIDER_PRIMARY_MODEL_MAP[providerId];
+      if (!primary) return;
+      if (!config.agents) config.agents = {};
+      if (!config.agents.defaults) config.agents.defaults = {};
+      const defaults = config.agents.defaults as Record<string, unknown>;
+      const model =
+        defaults.model && typeof defaults.model === "object"
+          ? ({ ...(defaults.model as Record<string, unknown>) } as Record<
+              string,
+              unknown
+            >)
+          : {};
+      model.primary = primary;
+      defaults.model = model;
+    };
+
     // Helper: clear all direct API keys from env (except the one we're switching to)
     const clearOtherApiKeys = (keepKey?: string) => {
       for (const [, envKey] of Object.entries(PROVIDER_ENV_KEYS)) {
@@ -5956,10 +6135,18 @@ async function handleRequest(
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
+        setPrimaryModelForProvider("elizacloud");
         // Restore cloud config — the actual API key should already be in
         // config.cloud.apiKey from the original cloud login.  If it was
         // wiped, the user will need to re-login via cloud.
         (config.cloud as Record<string, unknown>).enabled = true;
+        const cloudApiKey =
+          typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+        if (cloudApiKey) {
+          config.cloud.apiKey = cloudApiKey;
+          envCfg.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+          process.env.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+        }
         if (config.cloud.apiKey) {
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
           process.env.ELIZAOS_CLOUD_ENABLED = "true";
@@ -5971,6 +6158,7 @@ async function handleRequest(
         clearOtherApiKeys();
         process.env.MILAIDY_USE_PI_AI = "1";
         envCfg.MILAIDY_USE_PI_AI = "1";
+        setPrimaryModelForProvider("pi-ai");
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6042,6 +6230,7 @@ async function handleRequest(
         clearCloud();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
+        setPrimaryModelForProvider(provider);
         const envKey = PROVIDER_ENV_KEYS[provider];
         clearOtherApiKeys(envKey);
         const apiKey = body.apiKey;
@@ -6459,6 +6648,16 @@ async function handleRequest(
       const envCfg = config.env as Record<string, unknown>;
       const vars = (envCfg.vars ?? {}) as Record<string, string>;
       const providerId = typeof body.provider === "string" ? body.provider : "";
+      const providerOpt =
+        runMode === "local" && providerId
+          ? getProviderOptions().find((p) => p.id === providerId)
+          : undefined;
+      const providerApiKey =
+        typeof body.providerApiKey === "string"
+          ? body.providerApiKey.trim()
+          : typeof body.apiKey === "string"
+            ? body.apiKey.trim()
+            : "";
 
       // Persist vars back onto config.env
       (envCfg as Record<string, unknown>).vars = vars;
@@ -6468,6 +6667,22 @@ async function handleRequest(
         delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
         delete process.env.MILAIDY_USE_PI_AI;
       };
+
+      if (providerOpt) {
+        // Selecting a provider during onboarding should make it immediately
+        // active after restart, without requiring a manual plugin toggle.
+        enablePluginInConfig(config, providerOpt.pluginName);
+        setPrimaryProviderModel(config, providerOpt.pluginName);
+      }
+
+      if (runMode === "local" && providerId) {
+        const keepEnvKey =
+          providerId === "anthropic-subscription" &&
+          providerApiKey.startsWith("sk-ant-")
+            ? "ANTHROPIC_API_KEY"
+            : (providerOpt?.envKey ?? null);
+        clearNonSelectedProviderApiKeys(config, keepEnvKey);
+      }
 
       if (runMode === "local" && providerId === "pi-ai") {
         vars.MILAIDY_USE_PI_AI = "1";
@@ -6493,14 +6708,36 @@ async function handleRequest(
       }
 
       // API-key providers (envKey backed)
-      if (runMode === "local" && providerId && body.providerApiKey) {
-        const providerOpt = getProviderOptions().find(
-          (p) => p.id === providerId,
-        );
+      if (runMode === "local" && providerId && providerApiKey) {
         if (providerOpt?.envKey) {
           (config.env as Record<string, string>)[providerOpt.envKey] =
-            body.providerApiKey as string;
-          process.env[providerOpt.envKey] = body.providerApiKey as string;
+            providerApiKey;
+          process.env[providerOpt.envKey] = providerApiKey;
+        }
+      }
+
+      // ElizaCloud selected during onboarding should apply immediately as
+      // the active provider (same UX expectation as direct API-key providers).
+      if (runMode === "local" && providerId === "elizacloud") {
+        if (!config.cloud) config.cloud = {};
+        config.cloud.enabled = true;
+        (config.env as Record<string, string>).ELIZAOS_CLOUD_ENABLED = "true";
+        process.env.ELIZAOS_CLOUD_ENABLED = "true";
+        const existingCloudKey =
+          typeof config.cloud.apiKey === "string"
+            ? config.cloud.apiKey.trim()
+            : "";
+        const existingEnvKey = (
+          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY ?? ""
+        ).trim();
+        const runtimeEnvKey = (process.env.ELIZAOS_CLOUD_API_KEY ?? "").trim();
+        const resolvedCloudKey =
+          providerApiKey || existingCloudKey || existingEnvKey || runtimeEnvKey;
+        if (resolvedCloudKey) {
+          config.cloud.apiKey = resolvedCloudKey;
+          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY =
+            resolvedCloudKey;
+          process.env.ELIZAOS_CLOUD_API_KEY = resolvedCloudKey;
         }
       }
     }
@@ -6514,10 +6751,7 @@ async function handleRequest(
       (body.provider === "anthropic-subscription" ||
         body.provider === "openai-subscription")
     ) {
-      if (!config.agents) config.agents = {};
-      if (!config.agents.defaults) config.agents.defaults = {};
-      (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
-        body.provider;
+      applySubscriptionProviderConfig(config, body.provider);
       logger.info(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
@@ -6670,10 +6904,23 @@ async function handleRequest(
       error(res, "Failed to save configuration", 500);
       return;
     }
+    const selectedProviderId =
+      typeof body.provider === "string" ? body.provider.trim() : "";
+    const providerRestartRequired =
+      runMode === "local" && selectedProviderId.length > 0;
+    if (providerRestartRequired) {
+      scheduleRuntimeRestart(
+        `Onboarding provider selected: ${selectedProviderId}`,
+      );
+    }
     logger.info(
       `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
     );
-    json(res, { ok: true });
+    json(res, {
+      ok: true,
+      restarting: providerRestartRequired,
+      pendingRestartReasons: [...state.pendingRestartReasons],
+    });
     return;
   }
 
@@ -6685,6 +6932,7 @@ async function handleRequest(
       pathname,
       state,
       json,
+      error,
     })
   ) {
     return;
@@ -6874,6 +7122,46 @@ async function handleRequest(
       freshConfig = state.config;
     }
 
+    // Keep provider env vars hydrated from persisted config so Settings can
+    // reflect real key state even when runtime has not started yet.
+    const persistedEnv =
+      freshConfig.env && typeof freshConfig.env === "object"
+        ? (freshConfig.env as Record<string, unknown>)
+        : {};
+    const persistedVars =
+      persistedEnv.vars &&
+      typeof persistedEnv.vars === "object" &&
+      !Array.isArray(persistedEnv.vars)
+        ? (persistedEnv.vars as Record<string, unknown>)
+        : {};
+    const hydrateProviderEnvKey = (key: string): void => {
+      if (process.env[key]?.trim()) return;
+      const directVal = persistedEnv[key];
+      if (typeof directVal === "string" && directVal.trim()) {
+        process.env[key] = directVal.trim();
+        return;
+      }
+      const varsVal = persistedVars[key];
+      if (typeof varsVal === "string" && varsVal.trim()) {
+        process.env[key] = varsVal.trim();
+      }
+    };
+    for (const provider of getProviderOptions()) {
+      if (provider.envKey) {
+        hydrateProviderEnvKey(provider.envKey);
+      }
+    }
+    const cloudApiKey =
+      typeof freshConfig.cloud?.apiKey === "string"
+        ? freshConfig.cloud.apiKey.trim()
+        : "";
+    if (cloudApiKey && !process.env.ELIZAOS_CLOUD_API_KEY?.trim()) {
+      process.env.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
+    }
+    if (freshConfig.cloud?.enabled) {
+      process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    }
+
     // Merge user-installed plugins into the list (they don't exist in plugins.json)
     const bundledIds = new Set(state.plugins.map((p) => p.id));
     const installedEntries = discoverInstalledPlugins(freshConfig, bundledIds);
@@ -6887,18 +7175,29 @@ async function handleRequest(
     const loadedNames = state.runtime
       ? state.runtime.plugins.map((p) => p.name)
       : [];
+    const normalizedLoadedNames = loadedNames.map((name) =>
+      normalizePluginRuntimeName(name),
+    );
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
+      const normalizedId = normalizePluginRuntimeName(plugin.id);
+      const normalizedSuffix = normalizePluginRuntimeName(suffix);
+      const normalizedPackage = normalizePluginRuntimeName(packageName);
       const isLoaded =
         loadedNames.length > 0 &&
-        loadedNames.some((name) => {
+        loadedNames.some((name, idx) => {
+          const normalizedName = normalizedLoadedNames[idx];
           return (
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
             name.endsWith(`/${suffix}`) ||
-            name.includes(plugin.id)
+            name.includes(plugin.id) ||
+            normalizedName === normalizedId ||
+            normalizedName === normalizedSuffix ||
+            normalizedName === normalizedPackage ||
+            normalizedName.includes(normalizedId)
           );
         });
       plugin.isActive = isLoaded;
@@ -7072,6 +7371,25 @@ async function handleRequest(
           (state.config.env as Record<string, unknown>)[key] = value;
         }
       }
+
+      // Keep ElizaCloud plugin saves aligned with runtime cloud source-of-truth.
+      // Runtime provider precedence reads config.cloud, not just config.env.
+      if (pluginId === "elizacloud") {
+        if (!state.config.cloud) {
+          state.config.cloud = {} as NonNullable<typeof state.config.cloud>;
+        }
+
+        const cloudApiKey = body.config.ELIZAOS_CLOUD_API_KEY;
+        if (typeof cloudApiKey === "string" && cloudApiKey.trim()) {
+          state.config.cloud.apiKey = cloudApiKey.trim();
+          state.config.cloud.enabled = true;
+        }
+
+        const cloudBaseUrl = body.config.ELIZAOS_CLOUD_BASE_URL;
+        if (typeof cloudBaseUrl === "string" && cloudBaseUrl.trim()) {
+          state.config.cloud.baseUrl = cloudBaseUrl.trim();
+        }
+      }
       plugin.configured = true;
 
       // Save config even when only config values changed (no enable toggle)
@@ -7082,6 +7400,11 @@ async function handleRequest(
           logger.warn(
             `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
+        }
+
+        // Apply cloud model/provider updates cleanly after settings saves.
+        if (pluginId === "elizacloud") {
+          scheduleRuntimeRestart("Eliza Cloud configuration updated");
         }
       }
     }
@@ -7241,7 +7564,7 @@ async function handleRequest(
       // Find the plugin in the runtime
       const allPlugins = state.runtime?.plugins ?? [];
       const normalizePluginId = (value: string): string =>
-        value.replace(/^@[^/]+\//, "").replace(/^plugin-/, "");
+        normalizePluginRuntimeName(value);
 
       const normalizedPluginId = normalizePluginId(pluginId);
 
@@ -8865,6 +9188,186 @@ async function handleRequest(
     return;
   }
 
+  const HANDLE_LOCK_MS = 48 * 60 * 60 * 1000;
+
+  const getHandleStore = (): {
+    ownership: Record<string, string>;
+    ownerCurrent: Record<string, string>;
+    locks: Record<string, number>;
+  } => {
+    if (!state.config.ui) state.config.ui = {};
+    const uiConfig = state.config.ui as Record<string, unknown>;
+    const handleStore =
+      uiConfig.handleStore && typeof uiConfig.handleStore === "object"
+        ? (uiConfig.handleStore as Record<string, unknown>)
+        : {};
+    uiConfig.handleStore = handleStore;
+
+    const ownership =
+      handleStore.ownership && typeof handleStore.ownership === "object"
+        ? (handleStore.ownership as Record<string, string>)
+        : {};
+    const ownerCurrent =
+      handleStore.ownerCurrent && typeof handleStore.ownerCurrent === "object"
+        ? (handleStore.ownerCurrent as Record<string, string>)
+        : {};
+    const locks =
+      handleStore.locks && typeof handleStore.locks === "object"
+        ? (handleStore.locks as Record<string, number>)
+        : {};
+
+    handleStore.ownership = ownership;
+    handleStore.ownerCurrent = ownerCurrent;
+    handleStore.locks = locks;
+
+    return { ownership, ownerCurrent, locks };
+  };
+
+  const saveHandleStore = (): void => {
+    try {
+      saveMiladyConfig(state.config);
+    } catch (err) {
+      logger.warn(
+        `[api] Failed to save handle store: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  const normalizeHandle = (value: string): string => value.trim().toLowerCase();
+  const resolveHandleOwnerId = (
+    explicitOwnerId: string | null | undefined,
+  ): string => {
+    const fromClient = (explicitOwnerId ?? "").trim();
+    if (fromClient) return fromClient;
+    // Backend fallback for clients that fail to persist local ownerId.
+    return "local-default-owner";
+  };
+
+  // ── GET /api/polymarket/portfolio ───────────────────────────────────────
+  if (method === "GET" && pathname === "/api/polymarket/portfolio") {
+    const configuredWallet =
+      process.env.EVM_ADDRESS?.trim() ||
+      process.env.SOLANA_ADDRESS?.trim() ||
+      null;
+    json(res, {
+      wallet: configuredWallet,
+      connected: Boolean(configuredWallet),
+      availableBalanceUsd: null,
+      openExposureUsd: null,
+      unsettledPnlUsd: null,
+      openPositionsCount: 0,
+      positions: [],
+    });
+    return;
+  }
+
+  // ── GET /api/handles/check ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/handles/check") {
+    const urlObj = new URL(
+      req.url ?? "",
+      `http://${req.headers.host ?? "127.0.0.1"}`,
+    );
+    const handle = normalizeHandle(urlObj.searchParams.get("handle") ?? "");
+    const ownerId = resolveHandleOwnerId(urlObj.searchParams.get("ownerId"));
+    const { ownership, locks } = getHandleStore();
+
+    const handleOwnerId = ownership[handle] ?? null;
+    const lockUntilRaw = locks[ownerId] ?? null;
+    const lockUntil =
+      typeof lockUntilRaw === "number" && Number.isFinite(lockUntilRaw)
+        ? lockUntilRaw
+        : null;
+    const lockActive = lockUntil != null && lockUntil > Date.now();
+
+    const owner: "self" | "other" | "none" = !handleOwnerId
+      ? "none"
+      : handleOwnerId === ownerId
+        ? "self"
+        : "other";
+    const available = owner === "none" || owner === "self";
+
+    json(res, {
+      ok: true,
+      handle,
+      available,
+      owner,
+      lockUntil: lockActive ? lockUntil : null,
+    });
+    return;
+  }
+
+  // ── POST /api/handles/claim ──────────────────────────────────────────────
+  if (method === "POST" && pathname === "/api/handles/claim") {
+    const body = await readJsonBody<{
+      handle?: string;
+      ownerId?: string;
+      previousHandle?: string;
+    }>(req, res);
+    if (!body) return;
+
+    const handle = normalizeHandle(body.handle ?? "");
+    const ownerId = resolveHandleOwnerId(body.ownerId);
+    const previousHandle = normalizeHandle(body.previousHandle ?? "");
+
+    if (!handle) {
+      error(res, "handle is required", 400);
+      return;
+    }
+    if (!/^[a-z0-9._-]{2,32}$/.test(handle)) {
+      error(res, "Invalid handle format", 422);
+      return;
+    }
+
+    const { ownership, ownerCurrent, locks } = getHandleStore();
+    const now = Date.now();
+    const lockUntil = locks[ownerId];
+    const currentHandle = ownerCurrent[ownerId] ?? "";
+    const hasActiveLock =
+      typeof lockUntil === "number" &&
+      Number.isFinite(lockUntil) &&
+      lockUntil > now;
+
+    if (hasActiveLock && currentHandle && handle !== currentHandle) {
+      json(
+        res,
+        {
+          error: "Handle change is temporarily locked",
+          details: { lockUntil },
+        },
+        429,
+      );
+      return;
+    }
+
+    const existingOwnerId = ownership[handle];
+    if (existingOwnerId && existingOwnerId !== ownerId) {
+      error(res, "Handle is already taken", 409);
+      return;
+    }
+
+    if (
+      previousHandle &&
+      ownership[previousHandle] === ownerId &&
+      previousHandle !== handle
+    ) {
+      delete ownership[previousHandle];
+    }
+
+    ownership[handle] = ownerId;
+    ownerCurrent[ownerId] = handle;
+    const nextLockUntil = now + HANDLE_LOCK_MS;
+    locks[ownerId] = nextLockUntil;
+
+    saveHandleStore();
+
+    json(res, {
+      ok: true,
+      handle,
+      lockUntil: nextLockUntil,
+    });
+    return;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   //  ERC-8004 Registry Routes
   // ═══════════════════════════════════════════════════════════════════════
@@ -10203,12 +10706,13 @@ async function handleRequest(
       };
 
       try {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           writeSseData(
             res,
             JSON.stringify({
               error: {
-                message: "Agent is not running",
+                message: unavailable,
                 type: "service_unavailable",
               },
             }),
@@ -10223,7 +10727,11 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
+          if (!runtime) {
+            throw new Error(
+              runtimeUnavailableMessage() ?? "Agent is not running",
+            );
+          }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -10290,12 +10798,13 @@ async function handleRequest(
       let responseText: string;
 
       {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           json(
             res,
             {
               error: {
-                message: "Agent is not running",
+                message: unavailable,
                 type: "service_unavailable",
               },
             },
@@ -10304,6 +10813,11 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
+        if (!runtime) {
+          throw new Error(
+            runtimeUnavailableMessage() ?? "Agent is not running",
+          );
+        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -10422,14 +10936,15 @@ async function handleRequest(
       });
 
       try {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           writeSseJson(
             res,
             {
               type: "error",
               error: {
                 type: "service_unavailable",
-                message: "Agent is not running",
+                message: unavailable,
               },
             },
             "error",
@@ -10482,7 +10997,11 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
+          if (!runtime) {
+            throw new Error(
+              runtimeUnavailableMessage() ?? "Agent is not running",
+            );
+          }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -10555,13 +11074,14 @@ async function handleRequest(
       let responseText: string;
 
       {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           json(
             res,
             {
               error: {
                 type: "service_unavailable",
-                message: "Agent is not running",
+                message: unavailable,
               },
             },
             503,
@@ -10569,6 +11089,11 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
+        if (!runtime) {
+          throw new Error(
+            runtimeUnavailableMessage() ?? "Agent is not running",
+          );
+        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -10732,6 +11257,11 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
 
+    const unavailableConversationStream = runtimeUnavailableMessage();
+    if (unavailableConversationStream) {
+      error(res, unavailableConversationStream, 503);
+      return;
+    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -10887,6 +11417,11 @@ async function handleRequest(
     });
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
+    const unavailableConversationPost = runtimeUnavailableMessage();
+    if (unavailableConversationPost) {
+      error(res, unavailableConversationPost, 503);
+      return;
+    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -11101,8 +11636,9 @@ async function handleRequest(
 
     // Cloud proxy path
 
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
+    const unavailableChatStream = runtimeUnavailableMessage();
+    if (unavailableChatStream) {
+      error(res, unavailableChatStream, 503);
       return;
     }
 
@@ -11114,6 +11650,9 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
@@ -11197,13 +11736,17 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType } = chatPayload;
 
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
+    const unavailableChat = runtimeUnavailableMessage();
+    if (unavailableChat) {
+      error(res, unavailableChat, 503);
       return;
     }
 
     try {
       const runtime = state.runtime;
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
@@ -14043,6 +14586,11 @@ export async function startApiServer(opts?: {
   // Restore conversations from DB at initial boot (if runtime was passed in)
   if (opts?.runtime) {
     void restoreConversationsFromDb(opts.runtime);
+    void ensureAutonomySvc(opts.runtime).catch((err) => {
+      logger.warn(
+        `[milady-api] Failed to ensure AUTONOMY service at API boot: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   }
 
   /** Hot-swap the runtime reference (used after an in-process restart). */
@@ -14060,6 +14608,19 @@ export async function startApiServer(opts?: {
       phase: "running",
       attempt: 0,
     };
+    void ensureAutonomySvc(rt)
+      .then((svc) => {
+        if (!svc) {
+          logger.warn(
+            "[milady-api] AUTONOMY service unavailable after runtime update",
+          );
+        }
+      })
+      .catch((err) => {
+        logger.warn(
+          `[milady-api] Failed to ensure AUTONOMY service after runtime update: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -14119,112 +14680,151 @@ export async function startApiServer(opts?: {
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
   return new Promise((resolve, reject) => {
-    let currentPort = port;
+    const isPortAvailable = async (candidatePort: number): Promise<boolean> => {
+      return await new Promise<boolean>((resolveProbe) => {
+        const probe = net.createServer();
+        const cleanup = () => {
+          probe.removeAllListeners("error");
+          probe.removeAllListeners("listening");
+        };
+        probe.once("error", (err: NodeJS.ErrnoException) => {
+          cleanup();
+          if (err.code === "EADDRINUSE") {
+            resolveProbe(false);
+            return;
+          }
+          resolveProbe(false);
+        });
+        probe.once("listening", () => {
+          cleanup();
+          probe.close(() => resolveProbe(true));
+        });
+        probe.listen(candidatePort, host);
+      });
+    };
 
-    server.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EADDRINUSE") {
-        console.warn(
-          `[milady-api] Port ${currentPort} is already in use. Checking fallback...`,
-        );
-        if (currentPort !== 0) {
-          console.warn(`[milady-api] Retrying with dynamic port (0)...`);
-          currentPort = 0;
-          server.listen(0, host);
-          return;
+    const choosePort = async (): Promise<number> => {
+      if (port === 0) return 0;
+      if (await isPortAvailable(port)) return port;
+      console.warn(
+        `[milady-api] Port ${port} is already in use. Checking fallback...`,
+      );
+      for (let candidate = port + 1; candidate <= port + 20; candidate += 1) {
+        if (await isPortAvailable(candidate)) {
+          console.warn(`[milady-api] Using fallback port ${candidate}.`);
+          return candidate;
         }
-      } else {
-        console.error(
-          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
-        );
       }
-      reject(err);
-    });
+      throw new Error(
+        `No available fallback port found in range ${port + 1}-${port + 20}`,
+      );
+    };
 
-    server.listen(port, host, () => {
-      console.log(
-        `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
-      );
-      const addr = server.address();
-      const actualPort =
-        typeof addr === "object" && addr ? addr.port : currentPort;
-      const displayHost =
-        typeof addr === "object" && addr ? addr.address : host;
-      addLog(
-        "info",
-        `API server listening on http://${displayHost}:${actualPort}`,
-        "system",
-        ["server", "system"],
-      );
-      logger.info(
-        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
-      );
-      startDeferredStartupWork();
-      resolve({
-        port: actualPort,
-        close: () =>
-          new Promise<void>((r) => {
-            const closeAllConnections = (
-              server as { closeAllConnections?: () => void }
-            ).closeAllConnections;
-            const closeIdleConnections = (
-              server as { closeIdleConnections?: () => void }
-            ).closeIdleConnections;
+    void (async () => {
+      let bindPort: number;
+      try {
+        bindPort = await choosePort();
+      } catch (err) {
+        console.error(
+          `[milady-api] ${err instanceof Error ? err.message : String(err)}`,
+        );
+        reject(err);
+        return;
+      }
 
-            clearInterval(statusInterval);
-            if (detachRuntimeStreams) {
-              detachRuntimeStreams();
-              detachRuntimeStreams = null;
-            }
-            if (detachTrainingStream) {
-              detachTrainingStream();
-              detachTrainingStream = null;
-            }
-            for (const ws of wsClients) {
-              if (ws.readyState === 1 || ws.readyState === 0) {
-                ws.terminate();
+      server.once("error", (err: NodeJS.ErrnoException) => {
+        console.error(
+          `[milady-api] Server error while binding ${bindPort}: ${err.message} (code: ${err.code})`,
+        );
+        reject(err);
+      });
+
+      server.listen(bindPort, host, () => {
+        console.log(
+          `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
+        );
+        const addr = server.address();
+        const actualPort =
+          typeof addr === "object" && addr ? addr.port : bindPort;
+        const displayHost =
+          typeof addr === "object" && addr ? addr.address : host;
+        addLog(
+          "info",
+          `API server listening on http://${displayHost}:${actualPort}`,
+          "system",
+          ["server", "system"],
+        );
+        logger.info(
+          `[milady-api] Listening on http://${displayHost}:${actualPort}`,
+        );
+        startDeferredStartupWork();
+        resolve({
+          port: actualPort,
+          close: () =>
+            new Promise<void>((r) => {
+              const closeAllConnections = (
+                server as { closeAllConnections?: () => void }
+              ).closeAllConnections;
+              const closeIdleConnections = (
+                server as { closeIdleConnections?: () => void }
+              ).closeIdleConnections;
+
+              clearInterval(statusInterval);
+              if (detachRuntimeStreams) {
+                detachRuntimeStreams();
+                detachRuntimeStreams = null;
               }
-            }
-            wsClients.clear();
-            // Clean up WhatsApp pairing sessions
-            if (state.whatsappPairingSessions) {
-              for (const s of state.whatsappPairingSessions.values()) {
-                try {
-                  s.stop();
-                } catch {
-                  /* non-fatal */
+              if (detachTrainingStream) {
+                detachTrainingStream();
+                detachTrainingStream = null;
+              }
+              for (const ws of wsClients) {
+                if (ws.readyState === 1 || ws.readyState === 0) {
+                  ws.terminate();
                 }
               }
-              state.whatsappPairingSessions.clear();
-            }
-            wss.close();
-            const closeTimeout = setTimeout(() => r(), 5_000);
-            const resolved = { done: false };
-            const finalize = () => {
-              if (!resolved.done) {
-                resolved.done = true;
-                clearTimeout(closeTimeout);
-                r();
+              wsClients.clear();
+              // Clean up WhatsApp pairing sessions
+              if (state.whatsappPairingSessions) {
+                for (const s of state.whatsappPairingSessions.values()) {
+                  try {
+                    s.stop();
+                  } catch {
+                    /* non-fatal */
+                  }
+                }
+                state.whatsappPairingSessions.clear();
               }
-            };
-            if (typeof closeAllConnections === "function") {
-              try {
-                closeAllConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              wss.close();
+              const closeTimeout = setTimeout(() => r(), 5_000);
+              const resolved = { done: false };
+              const finalize = () => {
+                if (!resolved.done) {
+                  resolved.done = true;
+                  clearTimeout(closeTimeout);
+                  r();
+                }
+              };
+              if (typeof closeAllConnections === "function") {
+                try {
+                  closeAllConnections();
+                } catch {
+                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+                }
               }
-            }
-            if (typeof closeIdleConnections === "function") {
-              try {
-                closeIdleConnections();
-              } catch {
-                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              if (typeof closeIdleConnections === "function") {
+                try {
+                  closeIdleConnections();
+                } catch {
+                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+                }
               }
-            }
-            server.close(finalize);
-          }),
-        updateRuntime,
-        updateStartup,
+              server.close(finalize);
+            }),
+          updateRuntime,
+          updateStartup,
+        });
       });
-    });
+    })();
   });
 }

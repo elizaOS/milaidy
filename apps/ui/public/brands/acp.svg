@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ACP icon">
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  <path d="M32 12l16 9v18l-16 9-16-9V21z" fill="#93c5fd" opacity="0.25"/>
+  <path d="M32 18l10 6v12l-10 6-10-6V24z" fill="#dbeafe"/>
+  <path d="M26 31h12" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+</svg>

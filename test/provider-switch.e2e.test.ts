@@ -191,6 +191,18 @@ describe("POST /api/provider/switch", () => {
       });
     }
 
+    it("switches to elizacloud and persists API key when provided", async () => {
+      const cloudKey = "eliza_test_provider_switch_key";
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        provider: "elizacloud",
+        apiKey: cloudKey,
+      });
+      expect(status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.provider).toBe("elizacloud");
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+    });
+
     // Direct key providers need apiKey
     const directProviders = [
       { provider: "openai", key: "sk-test-openai-key-1234" },

@@ -16,6 +16,10 @@ import process from "node:process";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import { startApiServer } from "../api/server";
+import {
+  applyDevServerStatePaths,
+  resolveDevServerStatePaths,
+} from "./dev-server-state";
 import { startEliza } from "./eliza";
 import { setRestartHandler } from "./restart";
 
@@ -30,6 +34,19 @@ try {
 }
 
 console.log(`[milady] dotenv loaded (${Date.now() - SCRIPT_START}ms)`);
+
+const resolvedStatePaths = resolveDevServerStatePaths(
+  process.cwd(),
+  process.env,
+);
+applyDevServerStatePaths(resolvedStatePaths, process.env);
+for (const note of resolvedStatePaths.notes) {
+  logger.warn(`[milady] ${note}`);
+}
+if (resolvedStatePaths.changed) {
+  logger.info(`[milady] Runtime state path: ${resolvedStatePaths.stateDir}`);
+  logger.info(`[milady] Runtime config path: ${resolvedStatePaths.configPath}`);
+}
 
 const port = Number(process.env.MILADY_PORT) || 31337;
 
@@ -242,13 +259,48 @@ async function handleRestart(reason?: string): Promise<void> {
       state: "starting",
     });
 
-    const rt = await createRuntime();
-    const agentName = rt.character.name ?? "Milady";
-    logger.info(`[milady] Runtime restarted — agent: ${agentName}`);
+    try {
+      const rt = await createRuntime();
+      const agentName = rt.character.name ?? "Milady";
+      logger.info(`[milady] Runtime restarted — agent: ${agentName}`);
 
-    // Hot-swap the API server's runtime reference.
-    if (apiUpdateRuntime) {
-      apiUpdateRuntime(rt);
+      // Hot-swap the API server's runtime reference.
+      if (apiUpdateRuntime) {
+        apiUpdateRuntime(rt);
+      }
+
+      runtimeBootAttempt = 0;
+      runtimeBootFirstFailureAt = null;
+      apiUpdateStartup?.({
+        phase: "running",
+        attempt: 0,
+        lastError: undefined,
+        lastErrorAt: undefined,
+        nextRetryAt: undefined,
+        state: "running",
+      });
+    } catch (err) {
+      const now = Date.now();
+      runtimeBootAttempt += 1;
+      if (!runtimeBootFirstFailureAt) {
+        runtimeBootFirstFailureAt = now;
+      }
+      const delayMs = nextRetryDelayMs(runtimeBootAttempt);
+      const shouldMarkError =
+        runtimeBootAttempt >= RUNTIME_BOOT_ERROR_ATTEMPT_THRESHOLD ||
+        now - runtimeBootFirstFailureAt >= RUNTIME_BOOT_ERROR_DURATION_MS;
+      apiUpdateStartup?.({
+        phase: shouldMarkError ? "runtime-error" : "runtime-retry",
+        attempt: runtimeBootAttempt,
+        lastError: formatError(err),
+        lastErrorAt: now,
+        nextRetryAt: now + delayMs,
+        state: shouldMarkError ? "error" : "starting",
+      });
+      logger.error(
+        `[milady] Runtime restart failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s${shouldMarkError ? " (UI state set to error)" : ""}`,
+      );
+      scheduleRuntimeBootstrap(delayMs, "restart-retry");
     }
   } finally {
     isRestarting = false;

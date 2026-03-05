@@ -63,6 +63,7 @@
     "dev:android": "cd apps/app && ../../scripts/rt.sh run android",
     "dev:desktop": "cd apps/app/electron && ../../../scripts/rt.sh run electron:start-live",
     "dev:ios": "cd apps/app && ../../scripts/rt.sh run ios",
+    "dev:runtime": "bash scripts/dev-runtime.sh",
     "dev:ui": "scripts/rt.sh scripts/dev-ui.mjs --ui-only",
     "docs:bin": "scripts/rt.sh scripts/docs-list.js --build-bin",
     "docs:build": "cd docs && bun exec mint broken-links",

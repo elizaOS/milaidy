@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Custom RTMP icon">
+  <rect width="64" height="64" rx="14" fill="#1f2937"/>
+  <circle cx="32" cy="36" r="4" fill="#e5e7eb"/>
+  <path d="M32 20v10" stroke="#e5e7eb" stroke-width="3" stroke-linecap="round"/>
+  <path d="M20 34a12 12 0 0 1 24 0" fill="none" stroke="#93c5fd" stroke-width="2.5"/>
+  <path d="M14 34a18 18 0 0 1 36 0" fill="none" stroke="#60a5fa" stroke-width="2.5"/>
+</svg>

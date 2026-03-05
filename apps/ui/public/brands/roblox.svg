@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Roblox icon">
+  <rect width="64" height="64" rx="14" fill="#111827"/>
+  <g transform="translate(32 32) rotate(15) translate(-32 -32)">
+    <rect x="18" y="18" width="28" height="28" fill="#f3f4f6"/>
+    <rect x="29" y="29" width="6" height="6" fill="#111827"/>
+  </g>
+</svg>

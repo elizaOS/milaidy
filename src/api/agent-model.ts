@@ -3,6 +3,7 @@ import type { AgentRuntime } from "@elizaos/core";
 const MODEL_PLACEHOLDERS = new Set(["", "n/a", "na", "unknown", "provided"]);
 
 const PROVIDER_HINTS = [
+  "elizacloud",
   "openai-codex",
   "openai-subscription",
   "anthropic-subscription",

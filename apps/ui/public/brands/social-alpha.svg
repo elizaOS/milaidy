@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Social Alpha icon">
+  <rect width="64" height="64" rx="14" fill="#064e3b"/>
+  <circle cx="18" cy="24" r="4" fill="#99f6e4"/>
+  <circle cx="32" cy="18" r="4" fill="#99f6e4"/>
+  <circle cx="46" cy="24" r="4" fill="#99f6e4"/>
+  <circle cx="24" cy="40" r="4" fill="#99f6e4"/>
+  <circle cx="40" cy="40" r="4" fill="#99f6e4"/>
+  <path d="M22 24l8-4m4 0l8 4M21 27l3 10m19-10l-3 10m-12 3h8" stroke="#99f6e4" stroke-width="2" stroke-linecap="round"/>
+</svg>

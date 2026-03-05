@@ -3280,6 +3280,111 @@ describe("API Server E2E (no runtime)", () => {
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
+
+    it("POST /api/onboarding with OpenAI key enables and activates OpenAI provider", async () => {
+      const openAiKey = "sk-test-onboarding-openai-key";
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderOpenAI",
+        runMode: "local",
+        provider: "openai",
+        providerApiKey: openAiKey,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        plugins?: { entries?: Record<string, { enabled?: boolean }> };
+        agents?: { defaults?: { model?: { primary?: string } } };
+      };
+
+      expect(data.env?.OPENAI_API_KEY).toBe(openAiKey);
+      expect(data.plugins?.entries?.openai?.enabled).toBe(true);
+      expect(data.agents?.defaults?.model?.primary).toBe(
+        "@elizaos/plugin-openai",
+      );
+    });
+
+    it("POST /api/onboarding with ElizaCloud key enables and activates ElizaCloud provider", async () => {
+      const cloudKey = "eliza_test_onboarding_cloud_key";
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloud",
+        runMode: "local",
+        provider: "elizacloud",
+        providerApiKey: cloudKey,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        cloud?: { enabled?: boolean; apiKey?: string };
+        plugins?: { entries?: Record<string, { enabled?: boolean }> };
+        agents?: { defaults?: { model?: { primary?: string } } };
+      };
+
+      expect(data.cloud?.enabled).toBe(true);
+      expect(data.cloud?.apiKey).toBe(cloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_ENABLED).toBe("true");
+      expect(data.env?.OPENAI_API_KEY).toBeUndefined();
+      expect(data.plugins?.entries?.elizacloud?.enabled).toBe(true);
+      expect(data.agents?.defaults?.model?.primary).toBe(
+        "@elizaos/plugin-elizacloud",
+      );
+    });
+
+    it("POST /api/onboarding accepts legacy apiKey field for ElizaCloud", async () => {
+      const cloudKey = "eliza_test_legacy_api_key_field";
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudLegacyField",
+        runMode: "local",
+        provider: "elizacloud",
+        apiKey: cloudKey,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(true);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        cloud?: { enabled?: boolean; apiKey?: string };
+      };
+
+      expect(data.cloud?.enabled).toBe(true);
+      expect(data.cloud?.apiKey).toBe(cloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+    });
+
+    it("POST /api/onboarding keeps existing ElizaCloud key when key is omitted", async () => {
+      const existingCloudKey = "eliza_existing_cloud_key_should_be_preserved";
+      const first = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudPersisted1",
+        runMode: "local",
+        provider: "elizacloud",
+        providerApiKey: existingCloudKey,
+      });
+      expect(first.status).toBe(200);
+
+      const second = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudPersisted2",
+        runMode: "local",
+        provider: "elizacloud",
+      });
+      expect(second.status).toBe(200);
+
+      const cfg = await req(port, "GET", "/api/config");
+      const data = cfg.data as {
+        env?: Record<string, string>;
+        cloud?: { enabled?: boolean; apiKey?: string };
+      };
+
+      expect(data.cloud?.enabled).toBe(true);
+      expect(data.cloud?.apiKey).toBe(existingCloudKey);
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(existingCloudKey);
+    });
   });
 
   // -- Config --

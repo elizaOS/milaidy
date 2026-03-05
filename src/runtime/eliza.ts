@@ -76,7 +76,6 @@ import * as pluginShell from "@elizaos/plugin-shell";
 // statically to enable TypeScript type checking. Plugins without types or not
 // installed will fall back to dynamic import at runtime.
 import * as pluginSql from "@elizaos/plugin-sql";
-import * as pluginTelegram from "@elizaos/plugin-telegram";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
@@ -155,7 +154,6 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-twitch": pluginTwitch,
   "@elizaos/plugin-computeruse": pluginComputeruse,
   "@elizaos/plugin-cli": pluginCli,
-  "@elizaos/plugin-telegram": pluginTelegram,
   "@elizaos/plugin-elevenlabs": pluginElevenlabs,
   "@elizaos/plugin-edge-tts": pluginEdgeTts,
   "@elizaos/plugin-todo": pluginTodo,
@@ -1822,9 +1820,40 @@ export function applyX402ConfigToEnv(config: MiladyConfig): void {
 }
 
 function resolveDefaultPgliteDataDir(config: MiladyConfig): string {
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
-  return path.join(resolveUserPath(workspaceDir), ".eliza", ".elizadb");
+  return path.join(
+    resolveEffectiveAgentWorkspaceDir(config),
+    ".eliza",
+    ".elizadb",
+  );
+}
+
+function resolveEffectiveAgentWorkspaceDir(config: MiladyConfig): string {
+  const configuredWorkspace = config.agents?.defaults?.workspace?.trim();
+  if (!configuredWorkspace) {
+    return resolveDefaultAgentWorkspaceDir();
+  }
+
+  const resolvedConfiguredWorkspace = resolveUserPath(configuredWorkspace);
+  const stateOverride = process.env.MILADY_STATE_DIR?.trim();
+  if (!stateOverride) {
+    return resolvedConfiguredWorkspace;
+  }
+
+  // Back-compat: when config persisted the legacy default workspace under
+  // ~/.milady, map it to the active MILADY_STATE_DIR workspace root.
+  const legacyStateDir = path.join(os.homedir(), ".milady");
+  const legacyWorkspace = path.join(legacyStateDir, "workspace");
+  const parentDir = path.dirname(resolvedConfiguredWorkspace);
+  const baseName = path.basename(resolvedConfiguredWorkspace);
+  const isLegacyDefault =
+    resolvedConfiguredWorkspace === legacyWorkspace ||
+    (parentDir === legacyStateDir && baseName.startsWith("workspace-"));
+
+  if (isLegacyDefault) {
+    return path.join(resolveStateDir(), baseName);
+  }
+
+  return resolvedConfiguredWorkspace;
 }
 
 /** @internal Exported for testing. */
@@ -1925,6 +1954,16 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   const hasMigrationsSchema =
     haystack.includes("create schema if not exists migrations") ||
     haystack.includes("failed query: create schema if not exists migrations");
+  const hasMigrationsMetadataLookupFailure =
+    haystack.includes("from migrations._migrations") ||
+    haystack.includes('relation "migrations._migrations" does not exist') ||
+    haystack.includes("no such table: migrations._migrations");
+  const hasMigrationFailureSummary =
+    haystack.includes("migration(s) failed") ||
+    haystack.includes("some migrations failed");
+  const hasExitStatusCrash =
+    haystack.includes("program terminated with exit(1)") ||
+    haystack.includes("exitstatus");
   const hasRecoverableStorageSignal = [
     "database disk image is malformed",
     "file is not a database",
@@ -1938,6 +1977,12 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   ].some((needle) => haystack.includes(needle));
 
   if (hasMigrationsSchema) return true;
+  // Newer plugin-sql builds may fail while reading migration metadata
+  // (migrations._migrations) before CREATE SCHEMA appears in the error chain.
+  if (hasMigrationsMetadataLookupFailure) return true;
+  // Some plugin-sql failures collapse to a generic migration summary where
+  // each plugin error is "Program terminated with exit(1)" from PGlite.
+  if (hasMigrationFailureSummary && hasExitStatusCrash) return true;
   if (hasAbort && hasPglite) return true;
   if (hasRecoverableStorageSignal && (hasPglite || hasSqlite)) return true;
   return false;
@@ -3054,8 +3099,7 @@ export async function startEliza(
   const primaryModel = resolvePrimaryModel(config);
 
   // 4. Ensure workspace exists with bootstrap files
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
+  const workspaceDir = resolveEffectiveAgentWorkspaceDir(config);
   await ensureAgentWorkspace({ dir: workspaceDir, ensureBootstrapFiles: true });
 
   // 4b. Ensure custom plugins directory exists for drop-in plugins
@@ -3658,8 +3702,7 @@ export async function startEliza(
 
           // Recreate Milady plugin with fresh workspace
           const freshMiladyPlugin = createMiladyPlugin({
-            workspaceDir:
-              freshConfig.agents?.defaults?.workspace ?? workspaceDir,
+            workspaceDir: resolveEffectiveAgentWorkspaceDir(freshConfig),
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
 
             agentId:

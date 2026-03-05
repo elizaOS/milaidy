@@ -1040,7 +1040,12 @@ describe("applyX402ConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "MILADY_PROFILE",
+    "MILADY_STATE_DIR",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1073,20 +1078,48 @@ describe("applyDatabaseConfigToEnv", () => {
     );
   });
 
+  it("defaults PGLITE_DATA_DIR under MILADY_STATE_DIR when set", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+
+    applyDatabaseConfigToEnv({} as MiladyConfig);
+
+    expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
+  it("maps legacy default workspace in config to MILADY_STATE_DIR workspace", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+
+    const config = {
+      agents: {
+        defaults: {
+          workspace: path.join(os.homedir(), ".milady", "workspace"),
+        },
+      },
+    } as MiladyConfig;
+
+    applyDatabaseConfigToEnv(config);
+
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
   it("honors custom pglite.dataDir and clears stale POSTGRES_URL", () => {
     process.env.POSTGRES_URL = "postgresql://localhost:5432/old";
+    const customDataDir = "./.tmp/test-pglite-data-dir";
     const config = {
       database: {
         provider: "pglite",
-        pglite: { dataDir: "~/milady-pglite" },
+        pglite: { dataDir: customDataDir },
       },
     } as MiladyConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(path.join(os.homedir(), "milady-pglite")),
-    );
+    expect(process.env.PGLITE_DATA_DIR).toBe(path.resolve(customDataDir));
   });
 
   it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
@@ -1124,7 +1157,12 @@ describe("applyDatabaseConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "MILADY_PROFILE",
+    "MILADY_STATE_DIR",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1203,6 +1241,32 @@ describe("isRecoverablePgliteInitError", () => {
       "Failed query: CREATE SCHEMA IF NOT EXISTS migrations",
     );
     expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true for migration summary with PGlite exit status crashes", () => {
+    const err = new Error(
+      "1 migration(s) failed:\n  worlds: Program terminated with exit(1)",
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when migration metadata lookup hits migrations._migrations", () => {
+    const err = new Error(
+      "Failed query: SELECT id, hash, created_at FROM migrations._migrations WHERE plugin_name = $1",
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when migrations._migrations relation is missing", () => {
+    const err = new Error('relation "migrations._migrations" does not exist');
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns false for migration failures without recoverable signals", () => {
+    const err = new Error(
+      '1 migration(s) failed:\n  worlds: relation "foo" does not exist',
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(false);
   });
 
   it("returns false for unrelated errors", () => {
