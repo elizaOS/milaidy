@@ -784,6 +784,75 @@ const validateActionRegex = () => true;`;
     console.log("[patch-deps] polymarket placeOrder keywords changed; skip patch.");
   }
 
+  // Patch: Fix placeOrderAction price handling — add debug logging and robust
+  // fallbacks so price never stays 0/NaN. Also treat non-0x non-MARKET_NAME_LOOKUP
+  // tokenIds as market name lookups (LLM sometimes returns random strings).
+  const priceHandlerBuggy = `    let tokenId = llmResult?.tokenId ?? "";
+    let side = llmResult?.side?.toUpperCase() ?? "BUY";
+    let price = llmResult?.price ?? 0;
+    let orderType = llmResult?.orderType?.toUpperCase() ?? "GTC";
+    const feeRateBps = llmResult?.feeRateBps ?? "0";
+    const marketName = llmResult?.marketName;
+    const outcome = llmResult?.outcome;`;
+
+  const priceHandlerFixed = `    let tokenId = llmResult?.tokenId ?? "";
+    let side = llmResult?.side?.toUpperCase() ?? "BUY";
+    let price = Number(llmResult?.price) || 0;
+    let orderType = llmResult?.orderType?.toUpperCase() ?? "GTC";
+    const feeRateBps = llmResult?.feeRateBps ?? "0";
+    let marketName = llmResult?.marketName;
+    const outcome = llmResult?.outcome;
+    runtime.logger.info("[placeOrderAction] LLM extracted: " + JSON.stringify({ tokenId, side, price, orderType, marketName, outcome, dollarAmount: llmResult?.dollarAmount, shares: llmResult?.shares }));
+    // If tokenId is not a valid 0x condition ID and not MARKET_NAME_LOOKUP,
+    // treat it as a market name search instead (LLM sometimes returns garbage)
+    if (tokenId && tokenId !== "MARKET_NAME_LOOKUP" && !tokenId.startsWith("0x") && marketName) {
+      runtime.logger.info("[placeOrderAction] tokenId '" + tokenId + "' is not 0x/MARKET_NAME_LOOKUP, falling back to marketName search");
+      tokenId = "MARKET_NAME_LOOKUP";
+    }
+    if (!tokenId && marketName) {
+      tokenId = "MARKET_NAME_LOOKUP";
+    }`;
+
+  if (polymarketSrc.includes("[placeOrderAction] LLM extracted")) {
+    console.log("[patch-deps] polymarket placeOrder price-fix patch already present.");
+  } else if (polymarketSrc.includes(priceHandlerBuggy)) {
+    polymarketSrc = polymarketSrc.replace(priceHandlerBuggy, priceHandlerFixed);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket placeOrder price-fix patch.");
+  } else {
+    console.log("[patch-deps] polymarket placeOrder handler changed; skip price-fix patch.");
+  }
+
+  // Patch: After order book lookup, ensure price is a valid finite number and
+  // provide better fallback. Also log at each price decision point.
+  const priceValidationBuggy = `    price = Math.round(price * 100) / 100;
+    if (price <= 0 || price >= 1) {
+      await sendError(callback, \`Invalid price: $\${price}. Price must be between $0.01 and $0.99.\`);
+      return { success: false, text: \`Invalid price: \${price}\`, error: "invalid_price" };
+    }`;
+
+  const priceValidationFixed = `    // Ensure price is a finite number before rounding
+    if (!Number.isFinite(price) || price <= 0) {
+      runtime.logger.warn("[placeOrderAction] Price invalid before rounding: " + price + ", defaulting to 0.50");
+      price = 0.5;
+    }
+    price = Math.round(price * 100) / 100;
+    runtime.logger.info("[placeOrderAction] Final price after rounding: " + price);
+    if (price <= 0 || price >= 1) {
+      await sendError(callback, \`Invalid price: $\${price}. Price must be between $0.01 and $0.99.\`);
+      return { success: false, text: \`Invalid price: \${price}\`, error: "invalid_price" };
+    }`;
+
+  if (polymarketSrc.includes("Price invalid before rounding")) {
+    console.log("[patch-deps] polymarket placeOrder price-validation patch already present.");
+  } else if (polymarketSrc.includes(priceValidationBuggy)) {
+    polymarketSrc = polymarketSrc.replace(priceValidationBuggy, priceValidationFixed);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket placeOrder price-validation patch.");
+  } else {
+    console.log("[patch-deps] polymarket placeOrder price validation changed; skip patch.");
+  }
+
   if (polymarketPatched > 0) {
     writeFileSync(polymarketTarget, polymarketSrc, "utf8");
     console.log(
