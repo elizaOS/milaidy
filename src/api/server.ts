@@ -99,6 +99,7 @@ import {
   resolveCompatRoomKey,
 } from "./compat-utils";
 import { ConnectorHealthMonitor } from "./connector-health";
+import { wireCoordinatorBridgesWhenReady } from "./coordinator-wiring";
 import {
   isInsufficientCreditsError,
   isInsufficientCreditsMessage,
@@ -4207,6 +4208,7 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
+  onRuntimeSwapped?: () => void;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -7020,6 +7022,7 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
+      onRuntimeSwapped: ctx?.onRuntimeSwapped,
       json,
       error,
       resolveStateDir,
@@ -13575,7 +13578,19 @@ export async function startApiServer(opts?: {
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, { onRestart });
+      await handleRequest(req, res, state, {
+        onRestart,
+        onRuntimeSwapped: () => {
+          bindRuntimeStreams(state.runtime);
+          void wireCoordinatorBridgesWhenReady(state, {
+            wireChatBridge: wireCodingAgentChatBridge,
+            wireWsBridge: wireCodingAgentWsBridge,
+            wireEventRouting: wireCoordinatorEventRouting,
+            context: "restart",
+            logger,
+          });
+        },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -14017,40 +14032,15 @@ export async function startApiServer(opts?: {
   bindRuntimeStreams(opts?.runtime ?? null);
   bindTrainingStream();
 
-  // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
+  // Wire coding-agent bridges at initial boot (event-driven via getServiceLoadPromise)
   if (opts?.runtime) {
-    let chatOk = wireCodingAgentChatBridge(state);
-    let wsOk = wireCodingAgentWsBridge(state);
-    let eventOk = wireCoordinatorEventRouting(state);
-    if (!chatOk || !wsOk || !eventOk) {
-      let wireAttempts = 0;
-      const wireInterval = setInterval(() => {
-        wireAttempts++;
-        chatOk = chatOk || wireCodingAgentChatBridge(state);
-        wsOk = wsOk || wireCodingAgentWsBridge(state);
-        eventOk = eventOk || wireCoordinatorEventRouting(state);
-        if (chatOk && wsOk && eventOk) {
-          clearInterval(wireInterval);
-        } else if (wireAttempts >= 15) {
-          clearInterval(wireInterval);
-          const missing = [
-            !chatOk && "chat",
-            !wsOk && "ws",
-            !eventOk && "event-routing",
-          ]
-            .filter(Boolean)
-            .join(", ");
-          logger.warn(
-            `[milady-api] Coordinator wiring exhausted after 15 attempts (missing: ${missing})`,
-          );
-          state.broadcastWs?.({
-            type: "system-warning",
-            message: `Coordinator wiring failed after 15 attempts. Coding agent features may not work. Missing bridges: ${missing}`,
-            ts: Date.now(),
-          });
-        }
-      }, 1000);
-    }
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "boot",
+      logger,
+    });
   }
 
   // Handle upgrade requests for WebSocket
@@ -14411,41 +14401,14 @@ export async function startApiServer(opts?: {
     // Broadcast status update immediately after restart
     broadcastStatus();
 
-    // Wire coding-agent bridges (coordinator may not exist yet — retry)
-    {
-      let chatOk = wireCodingAgentChatBridge(state);
-      let wsOk = wireCodingAgentWsBridge(state);
-      let eventOk = wireCoordinatorEventRouting(state);
-      if (!chatOk || !wsOk || !eventOk) {
-        let wireAttempts = 0;
-        const wireInterval = setInterval(() => {
-          wireAttempts++;
-          chatOk = chatOk || wireCodingAgentChatBridge(state);
-          wsOk = wsOk || wireCodingAgentWsBridge(state);
-          eventOk = eventOk || wireCoordinatorEventRouting(state);
-          if (chatOk && wsOk && eventOk) {
-            clearInterval(wireInterval);
-          } else if (wireAttempts >= 15) {
-            clearInterval(wireInterval);
-            const missing = [
-              !chatOk && "chat",
-              !wsOk && "ws",
-              !eventOk && "event-routing",
-            ]
-              .filter(Boolean)
-              .join(", ");
-            logger.warn(
-              `[milady-api] Coordinator wiring exhausted after restart (15 attempts, missing: ${missing})`,
-            );
-            state.broadcastWs?.({
-              type: "system-warning",
-              message: `Coordinator wiring failed after restart. Coding agent features may not work. Missing bridges: ${missing}`,
-              ts: Date.now(),
-            });
-          }
-        }, 1000);
-      }
-    }
+    // Wire coding-agent bridges (event-driven via getServiceLoadPromise)
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "restart",
+      logger,
+    });
   };
 
   const updateStartup = (
