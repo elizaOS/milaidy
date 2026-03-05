@@ -10,16 +10,15 @@
  * - Auto-reconnect on transient disconnects
  */
 
-import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import {
-  Service,
+  type Content,
   createUniqueUuid,
   type IAgentRuntime,
   type Memory,
-  type Content,
-  type ServiceClass,
+  Service,
   type UUID,
 } from "@elizaos/core";
 
@@ -101,15 +100,9 @@ export class WhatsAppBaileysService extends Service {
     return service;
   }
 
-  static registerSendHandlers(
-    runtime: IAgentRuntime,
-    service: Service,
-  ): void {
+  static registerSendHandlers(runtime: IAgentRuntime, service: Service): void {
     const svc = service as WhatsAppBaileysService;
-    runtime.registerSendHandler(
-      "whatsapp",
-      svc.handleSendMessage.bind(svc),
-    );
+    runtime.registerSendHandler("whatsapp", svc.handleSendMessage.bind(svc));
     runtime.logger.info("[whatsapp] Registered send handler");
   }
 
@@ -172,8 +165,7 @@ export class WhatsAppBaileysService extends Service {
         if (connection === "open") {
           this.connected = true;
           this.reconnectDelay = 3000;
-          this.phoneNumber =
-            this.sock?.user?.id?.split(":")[0] ?? null;
+          this.phoneNumber = this.sock?.user?.id?.split(":")[0] ?? null;
           this.runtime.logger.info(
             `[whatsapp] Connected as +${this.phoneNumber ?? "unknown"}`,
           );
@@ -193,14 +185,17 @@ export class WhatsAppBaileysService extends Service {
             this.runtime.logger.warn(
               "[whatsapp] Logged out — device was removed from WhatsApp. Re-pair via QR to reconnect.",
             );
-            (this.runtime.emitEvent as (event: string[], params: Record<string, unknown>) => Promise<void>)?.(
-              ["WHATSAPP_DISCONNECTED"],
-              {
-                runtime: this.runtime,
-                reason: "logged_out",
-                message: "WhatsApp device was removed. Re-pair via QR to reconnect.",
-              },
-            );
+            (
+              this.runtime.emitEvent as (
+                event: string[],
+                params: Record<string, unknown>,
+              ) => Promise<void>
+            )?.(["WHATSAPP_DISCONNECTED"], {
+              runtime: this.runtime,
+              reason: "logged_out",
+              message:
+                "WhatsApp device was removed. Re-pair via QR to reconnect.",
+            });
             this.sock = null;
             return;
           }
@@ -236,7 +231,9 @@ export class WhatsAppBaileysService extends Service {
 
         for (const msg of messages) {
           try {
-            await this.handleIncomingMessage(msg as unknown as Record<string, unknown>);
+            await this.handleIncomingMessage(
+              msg as unknown as Record<string, unknown>,
+            );
           } catch (err) {
             this.runtime.logger.error(
               `[whatsapp] Error handling incoming message: ${err instanceof Error ? err.message : String(err)}`,
@@ -287,13 +284,16 @@ export class WhatsAppBaileysService extends Service {
 
   async handleSendMessage(
     runtime: IAgentRuntime,
-    target: { channelId?: string; entityId?: string; roomId?: UUID; source?: string },
+    target: {
+      channelId?: string;
+      entityId?: string;
+      roomId?: UUID;
+      source?: string;
+    },
     content: Content,
   ): Promise<void> {
     if (!this.sock || !this.connected) {
-      throw new Error(
-        "WhatsApp is not connected. Pair via QR code first.",
-      );
+      throw new Error("WhatsApp is not connected. Pair via QR code first.");
     }
 
     // Determine the JID to send to
@@ -338,11 +338,13 @@ export class WhatsAppBaileysService extends Service {
   private async handleIncomingMessage(
     msg: Record<string, unknown>,
   ): Promise<void> {
-    const key = msg.key as {
-      fromMe?: boolean;
-      remoteJid?: string;
-      id?: string;
-    } | undefined;
+    const key = msg.key as
+      | {
+          fromMe?: boolean;
+          remoteJid?: string;
+          id?: string;
+        }
+      | undefined;
     if (!key) return;
 
     // Skip our own messages
@@ -420,10 +422,7 @@ export class WhatsAppBaileysService extends Service {
         await this.sock?.sendMessage(remoteJid, { text: replyText });
 
         const replyMemory: Memory = {
-          id: createUniqueUuid(
-            this.runtime,
-            `wa-reply-${Date.now()}`,
-          ),
+          id: createUniqueUuid(this.runtime, `wa-reply-${Date.now()}`),
           entityId: this.runtime.agentId,
           agentId: this.runtime.agentId,
           roomId,
@@ -467,15 +466,17 @@ export class WhatsAppBaileysService extends Service {
       this.runtime.logger.debug(
         "[whatsapp] Using event-based handling for inbound message",
       );
-      await (this.runtime.emitEvent as (event: string[], params: Record<string, unknown>) => Promise<void>)(
-        ["MESSAGE_RECEIVED"],
-        {
-          runtime: this.runtime,
-          message: memory,
-          callback,
-          source: "whatsapp",
-        },
-      );
+      await (
+        this.runtime.emitEvent as (
+          event: string[],
+          params: Record<string, unknown>,
+        ) => Promise<void>
+      )(["MESSAGE_RECEIVED"], {
+        runtime: this.runtime,
+        message: memory,
+        callback,
+        source: "whatsapp",
+      });
     }
   }
 
@@ -493,11 +494,9 @@ export class WhatsAppBaileysService extends Service {
       "elizaOS" in rt &&
       typeof rt.elizaOS === "object" &&
       rt.elizaOS !== null &&
-      typeof (rt.elizaOS as Record<string, unknown>).sendMessage ===
-        "function"
+      typeof (rt.elizaOS as Record<string, unknown>).sendMessage === "function"
     ) {
-      return rt.elizaOS as ReturnType<typeof this.getMessagingAPI> &
-        object;
+      return rt.elizaOS as ReturnType<typeof this.getMessagingAPI> & object;
     }
     return null;
   }
