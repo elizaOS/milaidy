@@ -1,5 +1,4 @@
-import { createRequire } from "node:module";
-import { logger } from "@elizaos/core";
+import * as telegramPluginModule from "@elizaos/plugin-telegram";
 
 const TELEGRAM_MESSAGE_LIMIT = 4096;
 const DEFAULT_HEADROOM = 120;
@@ -9,52 +8,44 @@ type MarkdownChunker = (
   markdownText: string,
   maxChars?: number,
 ) => TelegramChunkCandidate[] | undefined;
-type TelegramPluginLike = { markdownToTelegramChunks?: MarkdownChunker };
-type ErrorLike = { message?: string; toString?: () => string };
 
 function fallbackMarkdownChunker(
   markdownText: string,
   maxChars?: number,
 ): TelegramChunkCandidate[] {
-  const safeMax = maxChars ?? TELEGRAM_MESSAGE_LIMIT - DEFAULT_HEADROOM;
-  const limit = Math.max(1, safeMax);
+  const limit = Math.max(1, maxChars ?? TELEGRAM_MESSAGE_LIMIT - DEFAULT_HEADROOM);
   const chunks: TelegramChunkCandidate[] = [];
+  let remaining = markdownText;
 
-  for (let offset = 0; offset < markdownText.length; offset += limit) {
-    const end = offset + limit;
-    const piece = markdownText.slice(offset, end);
+  while (remaining.length > 0) {
+    if (remaining.length <= limit) {
+      chunks.push({ html: remaining, text: remaining });
+      break;
+    }
+
+    // Split on word boundary to avoid mid-word cuts
+    let splitAt = remaining.lastIndexOf(" ", limit);
+    if (splitAt <= 0) {
+      splitAt = remaining.lastIndexOf("\n", limit);
+    }
+    if (splitAt <= 0) {
+      splitAt = limit;
+    }
+
+    const piece = remaining.slice(0, splitAt);
     chunks.push({ html: piece, text: piece });
+    remaining = remaining.slice(splitAt).trimStart();
   }
+
   return chunks;
 }
 
-const markdownToTelegramChunks = (() => {
-  try {
-    const requireFromModule = createRequire(import.meta.url);
-    const pluginModule = requireFromModule(
-      "@elizaos/plugin-telegram",
-    ) as TelegramPluginLike;
-
-    const chunker = pluginModule?.markdownToTelegramChunks;
-    if (typeof chunker === "function") {
-      return chunker;
-    }
-  } catch (error) {
-    const errorLike: ErrorLike | null =
-      typeof error === "object" && error !== null ? (error as ErrorLike) : null;
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : String(errorLike?.message ?? errorLike?.toString?.() ?? error);
-    logger.warn(
-      `[milady] Telegram plugin load failed: ${
-        errorMessage
-      }; using fallback chunker`,
-    );
-    return fallbackMarkdownChunker;
-  }
-  return fallbackMarkdownChunker;
-})();
+// biome-ignore lint/suspicious/noExplicitAny: untyped external module
+const pluginAny = telegramPluginModule as any;
+const markdownToTelegramChunks: MarkdownChunker =
+  typeof pluginAny?.markdownToTelegramChunks === "function"
+    ? pluginAny.markdownToTelegramChunks
+    : fallbackMarkdownChunker;
 
 export type TelegramChunk = {
   html: string;

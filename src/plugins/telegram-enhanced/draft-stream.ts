@@ -258,7 +258,7 @@ export class DraftStreamer {
 export async function simulateSentenceStream(
   text: string,
   onChunk: (currentText: string) => Promise<void> | void,
-  delayMs = 200,
+  delayMs = 0,
 ): Promise<void> {
   const sentences = splitIntoSentenceChunks(text);
   let current = "";
