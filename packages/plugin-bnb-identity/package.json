@@ -38,7 +38,8 @@
     "package.json"
   ],
   "dependencies": {
-    "@elizaos/core": "next"
+    "@elizaos/core": "next",
+    "ethers": "^6.16.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
@@ -76,7 +77,7 @@
       "BAP578_CONTRACT_ADDRESS": {
         "type": "string",
         "description": "Deployed BAP-578 NFA contract address on BNB Chain. Required to mint or query NFA tokens.",
-        "required": false
+        "required": true
       }
     }
   }

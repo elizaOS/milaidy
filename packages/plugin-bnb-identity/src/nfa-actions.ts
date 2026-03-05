@@ -23,6 +23,7 @@ import type { Bap578NfaConfig } from "./types.js";
 import {
   deletePending,
   getPending,
+  normalizeBnbNetwork,
   setPending,
   userConfirmed,
 } from "./utils.js";
@@ -37,12 +38,9 @@ function loadConfig(runtime: IAgentRuntime): Bap578NfaConfig {
     );
   }
 
-  const rawNetwork = String(runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet")
-    .trim()
-    .toLowerCase();
-
-  const network =
-    rawNetwork === "bsc" || rawNetwork === "mainnet" ? "bsc" : "bsc-testnet";
+  const { network } = normalizeBnbNetwork(
+    String(runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet"),
+  );
 
   return {
     contractAddress,
@@ -149,7 +147,7 @@ export const getNfaInfoAction: Action = {
     }
 
     // Try to fetch fresh on-chain data
-    const svc = new Bap578NfaService(runtime, config);
+    const svc = new Bap578NfaService(config);
     try {
       const info = await svc.getNfaInfo(record.tokenId);
       await callback({
@@ -277,7 +275,7 @@ export const mintNfaAction: Action = {
 
     await callback({ text: "Sending mint transaction..." });
 
-    const svc = new Bap578NfaService(runtime, config);
+    const svc = new Bap578NfaService(config);
     try {
       const result = await svc.mintNfa(learnings.merkleRoot);
 
@@ -434,7 +432,7 @@ export const updateLearningRootAction: Action = {
 
     await callback({ text: "Sending update transaction..." });
 
-    const svc = new Bap578NfaService(runtime, config);
+    const svc = new Bap578NfaService(config);
     try {
       const result = await svc.updateLearningRoot(
         existing.tokenId,
