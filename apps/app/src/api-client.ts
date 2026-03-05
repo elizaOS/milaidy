@@ -25,11 +25,14 @@ import type { DropStatus, MintResult } from "../../../src/contracts/drop";
 import type { StylePreset } from "../../../src/contracts/onboarding";
 import type { VerificationResult } from "../../../src/contracts/verification";
 import type {
+  BscTradeExecuteRequest,
   BscTradeExecuteResponse,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
+  BscTransferExecuteRequest,
+  BscTransferExecuteResponse,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
@@ -42,9 +45,6 @@ import type {
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
-  BscTradeExecuteRequest,
-  BscTransferExecuteRequest,
-  BscTransferExecuteResponse,
 } from "../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
