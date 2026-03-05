@@ -93,6 +93,7 @@ export const AUTH_PROVIDER_PLUGINS: Record<string, string> = {
   OBSIDAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   REPOPROMPT_CLI_PATH: "@elizaos/plugin-repoprompt",
   CLAUDE_CODE_WORKBENCH_ENABLED: "@elizaos/plugin-claude-code-workbench",
+  POLYMARKET_PRIVATE_KEY: "@elizaos/plugin-polymarket",
 };
 
 const FEATURE_PLUGINS: Record<string, string> = {
@@ -379,6 +380,17 @@ export function applyPluginAutoEnable(
       pluginId,
       changes,
       `env: ${envKey}`,
+    );
+  }
+
+  // Polymarket requires EVM plugin as a dependency
+  if (pluginsConfig.allow.includes("polymarket")) {
+    addToAllowlist(
+      pluginsConfig.allow,
+      "@elizaos/plugin-evm",
+      "evm",
+      changes,
+      "polymarket dependency",
     );
   }
 

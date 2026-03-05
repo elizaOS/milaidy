@@ -113,7 +113,10 @@ const NAMED_VRMS: {
   preview: string;
   label: string;
   flip?: boolean;
-}[] = [{ file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw", flip: true }];
+}[] = [
+  { file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw", flip: true },
+  { file: "eliza_hat.vrm", preview: "eliza_hat.png", label: "Eliza Hat" },
+];
 
 export const VRM_COUNT =
   BASE_VRM_COUNT + OFFICIAL_VRM_COUNT + NAMED_VRMS.length;

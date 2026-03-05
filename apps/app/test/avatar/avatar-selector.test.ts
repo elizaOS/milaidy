@@ -11,8 +11,8 @@ import {
 
 describe("Avatar VRM Utilities", () => {
   describe("VRM_COUNT", () => {
-    it("is 33 for all bundled avatars (24 base + 8 official + 1 named)", () => {
-      expect(VRM_COUNT).toBe(33);
+    it("is 34 for all bundled avatars (24 base + 8 official + 2 named)", () => {
+      expect(VRM_COUNT).toBe(34);
     });
   });
 
@@ -29,12 +29,13 @@ describe("Avatar VRM Utilities", () => {
       }
     });
 
-    it("returns correct path for named VRMs (33)", () => {
+    it("returns correct path for named VRMs (33-34)", () => {
       expect(getVrmUrl(33)).toBe("/vrms/shaw.vrm");
+      expect(getVrmUrl(34)).toBe("/vrms/eliza_hat.vrm");
     });
 
     it("clamps invalid indices to avatar 1", () => {
-      expect(getVrmUrl(34)).toBe("/vrms/milady-1.vrm");
+      expect(getVrmUrl(35)).toBe("/vrms/milady-1.vrm");
       expect(getVrmUrl(-3)).toBe("/vrms/milady-1.vrm");
       expect(getVrmUrl(Number.NaN)).toBe("/vrms/milady-1.vrm");
       expect(getVrmUrl(0)).toBe("/vrms/milady-1.vrm");
@@ -56,8 +57,9 @@ describe("Avatar VRM Utilities", () => {
       }
     });
 
-    it("returns named VRM preview for named VRMs (33)", () => {
+    it("returns named VRM preview for named VRMs (33-34)", () => {
       expect(getVrmPreviewUrl(33)).toBe("/vrms/previews/shaw.jpg");
+      expect(getVrmPreviewUrl(34)).toBe("/vrms/previews/eliza_hat.png");
     });
 
     it("clamps invalid preview indices to avatar 1", () => {
@@ -80,6 +82,7 @@ describe("Avatar VRM Utilities", () => {
 
     it("returns label for named VRMs", () => {
       expect(getVrmTitle(33)).toBe("SHAW");
+      expect(getVrmTitle(34)).toBe("ELIZA HAT");
     });
   });
 });
@@ -122,7 +125,7 @@ describe("Avatar Selection State", () => {
     });
 
     it("falls back to 1 for invalid stored values", () => {
-      const testCases = ["", "abc", "-1", "34", "NaN"];
+      const testCases = ["", "abc", "-1", "35", "NaN"];
 
       for (const invalid of testCases) {
         const n = Number(invalid);
