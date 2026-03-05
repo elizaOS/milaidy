@@ -1,7 +1,6 @@
 /**
  * Merkle tree utilities for BAP-578 NFA learning provenance.
- *
- * Co-authored by Dexploarer (github.com/Dexploarer) — PR #835
+
  *
  * Hashes LEARNINGS.md content into a Merkle tree so the root can be
  * stored on-chain as proof of the agent's learning history.

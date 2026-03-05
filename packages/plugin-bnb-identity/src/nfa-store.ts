@@ -1,7 +1,6 @@
 /**
  * Lightweight file-based persistence for BAP-578 NFA state.
- *
- * Co-authored by Dexploarer (github.com/Dexploarer) — PR #835
+
  *
  * Writes to ~/.milady/bap578-nfa.json so NFA state survives restarts
  * and can be read by other plugins and API routes.

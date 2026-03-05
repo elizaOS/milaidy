@@ -1,7 +1,6 @@
 /**
  * Bap578NfaService — wraps BAP-578 NFA contract interactions.
- *
- * Co-authored by Dexploarer (github.com/Dexploarer) — PR #835
+
  *
  * Read-only operations (getNfaInfo) work without a private key.
  * Write operations (mintNfa, updateLearningRoot) require a private key

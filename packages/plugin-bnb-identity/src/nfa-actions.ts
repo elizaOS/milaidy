@@ -1,7 +1,6 @@
 /**
  * ElizaOS Actions for BAP-578 NFA (merged into @milady/plugin-bnb-identity).
- *
- * Co-authored by Dexploarer (github.com/Dexploarer) — PR #835
+
  *
  * Actions:
  *   NFA_GET_INFO   — read-only: display current NFA status

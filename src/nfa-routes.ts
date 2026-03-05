@@ -1,7 +1,6 @@
 /**
  * API routes for BAP-578 NFA (Non-Fungible Agent) status and learnings.
- *
- * Co-authored by Dexploarer (github.com/Dexploarer) — PR #835
+
  *
  *   GET /api/nfa/status    — NFA state composed with ERC-8004 identity
  *   GET /api/nfa/learnings — Parsed LEARNINGS.md with Merkle root
