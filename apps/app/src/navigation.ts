@@ -33,7 +33,6 @@ export type Tab =
   | "apps"
   | "character"
   | "character-select"
-  | "identity"
   | "wallets"
   | "knowledge"
   | "connectors"
@@ -152,7 +151,6 @@ const TAB_PATHS: Record<Tab, string> = {
   apps: "/apps",
   character: "/character",
   "character-select": "/character-select",
-  identity: "/identity",
   triggers: "/triggers",
   wallets: "/wallets",
   knowledge: "/knowledge",
@@ -250,8 +248,6 @@ export function titleForTab(tab: Tab): string {
       return "Character";
     case "character-select":
       return "Character Select";
-    case "identity":
-      return "Identity";
     case "triggers":
       return "Triggers";
     case "wallets":

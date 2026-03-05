@@ -61,7 +61,6 @@ import {
   type TriggerSummary,
   type UpdateStatus,
   type UpdateTriggerRequest,
-  type NfaStatusResponse,
   type WalletAddresses,
   type WalletBalancesResponse,
   type WalletConfigStatus,
@@ -942,11 +941,6 @@ export interface AppState {
   inventoryChainFocus: "bsc" | "all";
   walletError: string | null;
 
-  // NFA / Identity (BAP-578)
-  nfaStatus: NfaStatusResponse | null;
-  nfaStatusLoading: boolean;
-  nfaStatusError: string | null;
-
   // ERC-8004 Registry
   registryStatus: RegistryStatus | null;
   registryLoading: boolean;
@@ -1199,9 +1193,6 @@ export interface AppActions {
 
   // Logs
   loadLogs: () => Promise<void>;
-
-  // NFA / Identity
-  loadNfaStatus: () => Promise<void>;
 
   // Inventory
   loadInventory: () => Promise<void>;
@@ -1523,11 +1514,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     "bsc",
   );
   const [walletError, setWalletError] = useState<string | null>(null);
-
-  // --- NFA / Identity (BAP-578) ---
-  const [nfaStatus, setNfaStatus] = useState<NfaStatusResponse | null>(null);
-  const [nfaStatusLoading, setNfaStatusLoading] = useState(false);
-  const [nfaStatusError, setNfaStatusError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
   const [registryStatus, setRegistryStatus] = useState<RegistryStatus | null>(
@@ -2294,20 +2280,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         `Failed to load wallet config: ${err instanceof Error ? err.message : "network error"}`,
       );
     }
-  }, []);
-
-  const loadNfaStatus = useCallback(async () => {
-    setNfaStatusLoading(true);
-    setNfaStatusError(null);
-    try {
-      const s = await client.getNfaStatus();
-      setNfaStatus(s);
-    } catch (err) {
-      setNfaStatusError(
-        `Failed to fetch NFA status: ${err instanceof Error ? err.message : "network error"}`,
-      );
-    }
-    setNfaStatusLoading(false);
   }, []);
 
   const loadBalances = useCallback(async () => {
@@ -5882,9 +5854,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     inventorySort,
     inventoryChainFocus,
     walletError,
-    nfaStatus,
-    nfaStatusLoading,
-    nfaStatusError,
     registryStatus,
     registryLoading,
     registryRegistering,
@@ -6071,7 +6040,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     uninstallMarketplaceSkill,
     installSkillFromGithubUrl,
     loadLogs,
-    loadNfaStatus,
     loadInventory,
     loadBalances,
     loadNfts,
