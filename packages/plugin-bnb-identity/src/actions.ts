@@ -17,6 +17,7 @@
 import type {
   Action,
   ActionExample,
+  Handler,
   HandlerCallback,
   IAgentRuntime,
   Memory,
@@ -69,7 +70,7 @@ export const registerAction: Action = {
 
   validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => true,
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
@@ -133,7 +134,7 @@ export const registerAction: Action = {
         `**MCP endpoint:** ${metadata.services[0]?.url}\n\n` +
         `This will send a transaction from your wallet. Reply **confirm** to proceed.`,
     });
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -146,7 +147,7 @@ export const registerAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: BNB_IDENTITY_CONFIRM ───────────────────────────────────────────
@@ -173,7 +174,7 @@ export const confirmAction: Action = {
     return regPending !== undefined || updPending !== undefined;
   },
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
@@ -280,7 +281,7 @@ export const confirmAction: Action = {
         await callback({ text: `❌ Update failed: ${(err as Error).message}` });
       }
     }
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -297,7 +298,7 @@ export const confirmAction: Action = {
         content: { text: "Sending update transaction...", action: "BNB_IDENTITY_CONFIRM" },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: BNB_IDENTITY_UPDATE ────────────────────────────────────────────
@@ -319,7 +320,7 @@ export const updateIdentityAction: Action = {
     return existing !== null;
   },
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
@@ -385,7 +386,7 @@ export const updateIdentityAction: Action = {
         `**New platforms:** ${metadata.platforms.join(", ")}\n\n` +
         `Reply **confirm** to send the update transaction.`,
     });
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -398,7 +399,7 @@ export const updateIdentityAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: BNB_IDENTITY_RESOLVE ───────────────────────────────────────────
@@ -419,7 +420,7 @@ export const resolveIdentityAction: Action = {
 
   validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => true,
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
@@ -477,7 +478,7 @@ export const resolveIdentityAction: Action = {
         text: `❌ Could not resolve agent \`${agentId}\`: ${(err as Error).message}`,
       });
     }
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -494,5 +495,5 @@ export const resolveIdentityAction: Action = {
         content: { text: "Resolving agent `7` on bsc-testnet…", action: "BNB_IDENTITY_RESOLVE" },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };

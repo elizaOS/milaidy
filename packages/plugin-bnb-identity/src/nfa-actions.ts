@@ -11,6 +11,7 @@
 import type {
   Action,
   ActionExample,
+  Handler,
   HandlerCallback,
   IAgentRuntime,
   Memory,
@@ -106,7 +107,7 @@ export const getNfaInfoAction: Action = {
     _message: Memory,
   ): Promise<boolean> => true,
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state: State | undefined,
@@ -169,7 +170,7 @@ export const getNfaInfoAction: Action = {
           `_Showing cached data — could not reach the contract._`,
       });
     }
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -185,7 +186,7 @@ export const getNfaInfoAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: NFA_MINT ──────────────────────────────────────────────────────
@@ -206,7 +207,7 @@ export const mintNfaAction: Action = {
     _message: Memory,
   ): Promise<boolean> => true,
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
@@ -306,7 +307,7 @@ export const mintNfaAction: Action = {
     }
 
     deletePending(pendingKey);
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -322,7 +323,7 @@ export const mintNfaAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: NFA_UPDATE_ROOT ───────────────────────────────────────────────
@@ -347,7 +348,7 @@ export const updateLearningRootAction: Action = {
     return record !== null;
   },
 
-  handler: async (
+  handler: (async (
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
@@ -446,7 +447,7 @@ export const updateLearningRootAction: Action = {
     }
 
     deletePending(pendingKey);
-  },
+  }) as unknown as Handler,
 
   examples: [
     [
@@ -462,5 +463,5 @@ export const updateLearningRootAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };

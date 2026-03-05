@@ -2,7 +2,7 @@
  * REST API server for the Milady Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
- * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
+ * elizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
  * dev server proxies /api and /ws here (see scripts/dev-ui.mjs).
  */
 
@@ -112,6 +112,12 @@ import {
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
 } from "./compat-utils";
+import { ConnectorHealthMonitor } from "./connector-health";
+import { wireCoordinatorBridgesWhenReady } from "./coordinator-wiring";
+import {
+  isInsufficientCreditsError,
+  isInsufficientCreditsMessage,
+} from "./credit-detection";
 import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 import { DropService } from "./drop-service";
@@ -133,6 +139,7 @@ import {
 import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
+import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import type {
   CoordinationLLMResponse,
@@ -152,6 +159,7 @@ import {
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
+import { shouldServeSpaFallback } from "./spa-fallback-guard";
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
@@ -343,7 +351,7 @@ interface ServerState {
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
-  /** App manager for launching and managing ElizaOS apps. */
+  /** App manager for launching and managing elizaOS apps. */
   appManager: AppManager;
   /** Fine-tuning/training orchestration service. */
   trainingService: TrainingServiceLike | null;
@@ -387,6 +395,8 @@ interface ServerState {
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
   connectorRouteHandlers: ConnectorRouteHandler[];
+  /** Connector health monitor for detecting dead connectors. */
+  connectorHealthMonitor: ConnectorHealthMonitor | null;
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
@@ -938,6 +948,9 @@ const BLOCKED_ENV_KEYS = new Set([
   // Wallet private keys — writable via API would enable key theft / replacement
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
+  // Opinion Trade plugin secrets
+  "OPINION_PRIVATE_KEY",
+  "OPINION_API_KEY",
   // Third-party auth tokens
   "GITHUB_TOKEN",
   // Database connection strings
@@ -1322,10 +1335,7 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-            icon:
-              ((p as unknown as Record<string, string | undefined>).logoUrl ??
-                (p as unknown as Record<string, string | undefined>).icon) ||
-              null,
+            icon: p.logoUrl ?? p.icon ?? null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -2280,9 +2290,6 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
-const INSUFFICIENT_CREDITS_RE =
-  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
-
 const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
   "Sorry, we're out of credits right now. Please top up your credits and try again.",
   "No model credits left in the tank. Time to top up your credits.",
@@ -2298,10 +2305,6 @@ function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return fallback;
-}
-
-function isInsufficientCreditsMessage(message: string): boolean {
-  return INSUFFICIENT_CREDITS_RE.test(message);
 }
 
 function pickInsufficientCreditsChatReply(): string {
@@ -2334,8 +2337,7 @@ function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
 }
 
 function getInsufficientCreditsReplyFromError(err: unknown): string | null {
-  const msg = getErrorMessage(err, "");
-  return isInsufficientCreditsMessage(msg)
+  return isInsufficientCreditsError(err)
     ? pickInsufficientCreditsChatReply()
     : null;
 }
@@ -2822,7 +2824,7 @@ export function validateChatImages(images: unknown): string | null {
  * action handlers (e.g. POST_TWEET) while the message is in-memory. The
  * extra fields are intentionally stripped before the message is persisted.
  *
- * Note: `_data`/`_mimeType` survive only because ElizaOS passes the
+ * Note: `_data`/`_mimeType` survive only because elizaOS passes the
  * `userMessage` object reference directly to action handlers without
  * deep-cloning or serializing it. If that ever changes, action handlers
  * that read these fields will silently receive `undefined`.
@@ -4495,6 +4497,7 @@ function _rejectAgentMutation(
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
+  onRuntimeSwapped?: () => void;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -5793,7 +5796,7 @@ import { parseActionBlock } from "./parse-action-block";
 /**
  * Wire the SwarmCoordinator's agentDecisionCallback so coordinator events
  * (blocked prompts, turn completions) route through Milaidy's full
- * ElizaOS pipeline (memory, personality, actions) so she has conversation
+ * elizaOS pipeline (memory, personality, actions) so she has conversation
  * context to make informed decisions. The pipeline's model size is
  * The pipeline's model size is temporarily overridden to TEXT_SMALL
  * via the private `runtime.llmModeOption` (no public setter exists).
@@ -6637,6 +6640,58 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/health ──────────────────────────────────────────────────────
+  // Structured health check endpoint returning subsystem status.
+  if (method === "GET" && pathname === "/api/health") {
+    const runtime = state.runtime;
+    const uptime = state.startedAt
+      ? Math.floor((Date.now() - state.startedAt) / 1000)
+      : 0;
+
+    const loadedPlugins = state.plugins.filter((p) => p.enabled);
+    const failedPlugins = state.plugins.filter(
+      (p) => !p.enabled && !p.configured,
+    );
+
+    let coordinatorStatus: "ok" | "not_wired" = "not_wired";
+    try {
+      if (runtime?.getService("SWARM_COORDINATOR")) {
+        coordinatorStatus = "ok";
+      }
+    } catch {
+      // not available
+    }
+
+    const connectors: Record<string, string> = state.connectorHealthMonitor
+      ? state.connectorHealthMonitor.getConnectorStatuses()
+      : {};
+    if (Object.keys(connectors).length === 0 && state.config.connectors) {
+      for (const [name, cfg] of Object.entries(state.config.connectors)) {
+        if (
+          cfg &&
+          typeof cfg === "object" &&
+          (cfg as Record<string, unknown>).enabled !== false
+        ) {
+          connectors[name] = "configured";
+        }
+      }
+    }
+
+    json(res, {
+      runtime: runtime ? "ok" : "not_initialized",
+      database: runtime ? "ok" : "unknown",
+      plugins: {
+        loaded: loadedPlugins.length,
+        failed: failedPlugins.length,
+      },
+      coordinator: coordinatorStatus,
+      connectors,
+      uptime,
+      agentState: state.agentState,
+    });
+    return;
+  }
+
   // ── GET /api/runtime ───────────────────────────────────────────────────
   // Deep runtime introspection endpoint for advanced debugging UI.
   if (method === "GET" && pathname === "/api/runtime") {
@@ -7256,6 +7311,7 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
+      onRuntimeSwapped: ctx?.onRuntimeSwapped,
       json,
       error,
       resolveStateDir,
@@ -7333,6 +7389,19 @@ async function handleRequest(
       readDir: fs.readdirSync,
       unlinkFile: fs.unlinkSync,
       joinPath: path.join,
+    })
+  ) {
+    return;
+  }
+
+  if (
+    await handleNfaRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      json,
+      error,
     })
   ) {
     return;
@@ -12755,7 +12824,7 @@ async function handleRequest(
   }
 
   // ── POST /api/chat (legacy — routes to default conversation) ───────
-  // Routes messages through the full ElizaOS message pipeline so the agent
+  // Routes messages through the full elizaOS message pipeline so the agent
   // has conversation memory, context, and always responds (DM + client_chat
   // bypass the shouldRespond LLM evaluation).
   //
@@ -14478,7 +14547,7 @@ async function handleRequest(
   // connectorRouteHandlers below). Endpoints: /api/stream/*
 
   // ── LTCG Autonomy routes ─────────────────────────────────────────────
-  // The LTCG plugin registers these as ElizaOS plugin routes, but Milady's
+  // The LTCG plugin registers these as elizaOS plugin routes, but Milady's
   // server doesn't dispatch plugin routes. Wire them up directly here.
   if (pathname.startsWith("/api/ltcg/autonomy")) {
     try {
@@ -14693,6 +14762,7 @@ export async function startApiServer(opts?: {
     tradePermissionMode: resolveTradePermissionMode(config),
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
+    connectorHealthMonitor: null,
   };
 
   // Closure-captured refs for auto-TTS triggering in the event pipeline.
@@ -14908,7 +14978,19 @@ export async function startApiServer(opts?: {
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, { onRestart });
+      await handleRequest(req, res, state, {
+        onRestart,
+        onRuntimeSwapped: () => {
+          bindRuntimeStreams(state.runtime);
+          void wireCoordinatorBridgesWhenReady(state, {
+            wireChatBridge: wireCodingAgentChatBridge,
+            wireWsBridge: wireCodingAgentWsBridge,
+            wireEventRouting: wireCoordinatorEventRouting,
+            context: "restart",
+            logger,
+          });
+        },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -15125,6 +15207,16 @@ export async function startApiServer(opts?: {
       }
     })();
 
+    // ── Connector health monitoring ──────────────────────────────────────────
+    if (state.runtime && state.config.connectors) {
+      state.connectorHealthMonitor = new ConnectorHealthMonitor({
+        runtime: state.runtime,
+        config: state.config,
+        broadcastWs,
+      });
+      state.connectorHealthMonitor.start();
+    }
+
     // ── Dynamic streaming + connector route loading ────────────────────────
     // Always register generic stream routes. If a streaming destination is
     // configured, inject it so /api/stream/live can fetch credentials.
@@ -15178,24 +15270,26 @@ export async function startApiServer(opts?: {
         }
 
         // Custom RTMP
-        if (streaming?.customRtmp && typeof streaming.customRtmp === "object") {
-          const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
-          if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
-            try {
-              const { createCustomRtmpDestination } = await import(
-                "../plugins/custom-rtmp/index.js"
-              );
-              destinations.set(
-                "custom-rtmp",
-                createCustomRtmpDestination(
-                  rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
-                ),
-              );
-            } catch (err) {
-              logger.warn(
-                `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+        if (
+          isStreamingDestinationConfigured("customRtmp", streaming?.customRtmp)
+        ) {
+          try {
+            const { createCustomRtmpDestination } = await import(
+              "../plugins/custom-rtmp/index.js"
+            );
+            destinations.set(
+              "custom-rtmp",
+              createCustomRtmpDestination(
+                streaming?.customRtmp as {
+                  rtmpUrl?: string;
+                  rtmpKey?: string;
+                },
+              ),
+            );
+          } catch (err) {
+            logger.warn(
+              `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
 
@@ -15338,23 +15432,15 @@ export async function startApiServer(opts?: {
   bindRuntimeStreams(opts?.runtime ?? null);
   bindTrainingStream();
 
-  // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
+  // Wire coding-agent bridges at initial boot (event-driven via getServiceLoadPromise)
   if (opts?.runtime) {
-    const chatOk = wireCodingAgentChatBridge(state);
-    const wsOk = wireCodingAgentWsBridge(state);
-    const eventOk = wireCoordinatorEventRouting(state);
-    if (!chatOk || !wsOk || !eventOk) {
-      let wireAttempts = 0;
-      const wireInterval = setInterval(() => {
-        wireAttempts++;
-        const chatDone = chatOk || wireCodingAgentChatBridge(state);
-        const wsDone = wsOk || wireCodingAgentWsBridge(state);
-        const eventDone = eventOk || wireCoordinatorEventRouting(state);
-        if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
-          clearInterval(wireInterval);
-        }
-      }, 1000);
-    }
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "boot",
+      logger,
+    });
   }
 
   // Handle upgrade requests for WebSocket
@@ -15716,24 +15802,14 @@ export async function startApiServer(opts?: {
     // Broadcast status update immediately after restart
     broadcastStatus();
 
-    // Wire coding-agent bridges (coordinator may not exist yet — retry)
-    {
-      const chatOk = wireCodingAgentChatBridge(state);
-      const wsOk = wireCodingAgentWsBridge(state);
-      const eventOk = wireCoordinatorEventRouting(state);
-      if (!chatOk || !wsOk || !eventOk) {
-        let wireAttempts = 0;
-        const wireInterval = setInterval(() => {
-          wireAttempts++;
-          const chatDone = chatOk || wireCodingAgentChatBridge(state);
-          const wsDone = wsOk || wireCodingAgentWsBridge(state);
-          const eventDone = eventOk || wireCoordinatorEventRouting(state);
-          if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
-            clearInterval(wireInterval);
-          }
-        }, 1000);
-      }
-    }
+    // Wire coding-agent bridges (event-driven via getServiceLoadPromise)
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "restart",
+      logger,
+    });
   };
 
   const updateStartup = (
@@ -15818,6 +15894,10 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
+            if (state.connectorHealthMonitor) {
+              state.connectorHealthMonitor.stop();
+              state.connectorHealthMonitor = null;
+            }
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;

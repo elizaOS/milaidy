@@ -4261,11 +4261,13 @@ describe("API Server E2E (chat SSE)", () => {
     expect(String(headers["content-type"])).toContain("text/event-stream");
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
-    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "done",
+        fullText: "Hello world",
+        agentName: "ChatStreamAgent",
+      }),
+    );
   });
 
   it("POST /api/conversations/:id/messages/stream emits token and done events", async () => {
@@ -4289,10 +4291,12 @@ describe("API Server E2E (chat SSE)", () => {
     expect(status).toBe(200);
     expect(events).toContainEqual({ type: "token", text: "Hello " });
     expect(events).toContainEqual({ type: "token", text: "world" });
-    expect(events).toContainEqual({
-      type: "done",
-      fullText: "Hello world",
-      agentName: "ChatStreamAgent",
-    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "done",
+        fullText: "Hello world",
+        agentName: "ChatStreamAgent",
+      }),
+    );
   });
 });
