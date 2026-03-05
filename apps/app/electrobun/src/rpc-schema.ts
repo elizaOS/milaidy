@@ -636,12 +636,14 @@ export type MiladyRPCSchema = {
       lifoGetPipState: { params: undefined; response: PipState };
       lifoSetPip: { params: PipState; response: undefined };
     };
+    // biome-ignore lint/complexity/noBannedTypes: empty message schema placeholder for future audio streaming
     messages: {
       // Messages the webview sends TO bun (rare - most communication
       // is request/response). Audio chunks for streaming could go here.
     };
   }>;
   webview: RPCSchema<{
+    // biome-ignore lint/complexity/noBannedTypes: empty request schema — built-in methods added by Electroview
     requests: {
       // Built-in: evaluateJavascriptWithResponse is added by Electroview
     };
