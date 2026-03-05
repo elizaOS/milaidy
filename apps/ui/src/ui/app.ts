@@ -8627,7 +8627,7 @@ export class MilaidyApp extends LitElement {
           ? html`
               <details style="margin-top:10px;border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
                 <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-strong);">
-                  Full module scope (${aiSetupPluginsAll.length}) · Runtime/connector modules (${aiExtendedPlugins.length})
+                  Module matrix (${aiSetupPluginsAll.length})
                 </summary>
                 <div style="margin-top:8px;display:grid;gap:8px;">
                   ${aiSetupPluginsAll.map((plugin) => {
