@@ -246,6 +246,8 @@ export function useWalletPanelState(props: WalletPanelProps) {
 
   // ---- Effects ----
 
+  // Reset sub-flows on mount. The callbacks are stable (useCallback with no
+  // deps) so the dep arrays never re-trigger — this runs exactly once.
   useEffect(() => {
     swap.resetSwapFlow();
   }, [swap.resetSwapFlow]);

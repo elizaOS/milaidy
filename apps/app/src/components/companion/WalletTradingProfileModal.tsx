@@ -5,6 +5,7 @@ import type {
 } from "../../api-client";
 import type { TranslatorFn } from "./walletUtils";
 
+/** TODO: Integrated by CompanionView in PR #812's companion shell. */
 export function WalletTradingProfileModal({
   open,
   loading,
