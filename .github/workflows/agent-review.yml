@@ -387,7 +387,7 @@ jobs:
             }
 
             // Try to read Claude's execution output
-            const outputPath = '/home/runner/work/_temp/claude-execution-output.json';
+            const outputPath = `${process.env.RUNNER_TEMP || '/home/runner/work/_temp'}/claude-execution-output.json`;
             let reviewBody = '';
 
             if (fs.existsSync(outputPath)) {
