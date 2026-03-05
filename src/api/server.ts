@@ -98,6 +98,12 @@ import {
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
 } from "./compat-utils";
+import { ConnectorHealthMonitor } from "./connector-health";
+import { wireCoordinatorBridgesWhenReady } from "./coordinator-wiring";
+import {
+  isInsufficientCreditsError,
+  isInsufficientCreditsMessage,
+} from "./credit-detection";
 import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 import { DropService } from "./drop-service";
@@ -309,6 +315,8 @@ interface ServerState {
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
   connectorRouteHandlers: ConnectorRouteHandler[];
+  /** Connector health monitor for detecting dead connectors. */
+  connectorHealthMonitor: ConnectorHealthMonitor | null;
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
@@ -860,6 +868,9 @@ const BLOCKED_ENV_KEYS = new Set([
   // Wallet private keys — writable via API would enable key theft / replacement
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
+  // Opinion Trade plugin secrets
+  "OPINION_PRIVATE_KEY",
+  "OPINION_API_KEY",
   // Third-party auth tokens
   "GITHUB_TOKEN",
   // Database connection strings
@@ -2192,9 +2203,6 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
-const INSUFFICIENT_CREDITS_RE =
-  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
-
 const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
   "Sorry, we're out of credits right now. Please top up your credits and try again.",
   "No model credits left in the tank. Time to top up your credits.",
@@ -2210,10 +2218,6 @@ function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return fallback;
-}
-
-function isInsufficientCreditsMessage(message: string): boolean {
-  return INSUFFICIENT_CREDITS_RE.test(message);
 }
 
 function pickInsufficientCreditsChatReply(): string {
@@ -2246,8 +2250,7 @@ function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
 }
 
 function getInsufficientCreditsReplyFromError(err: unknown): string | null {
-  const msg = getErrorMessage(err, "");
-  return isInsufficientCreditsMessage(msg)
+  return isInsufficientCreditsError(err)
     ? pickInsufficientCreditsChatReply()
     : null;
 }
@@ -4205,6 +4208,7 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
+  onRuntimeSwapped?: () => void;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -6369,8 +6373,10 @@ async function handleRequest(
       // not available
     }
 
-    const connectors: Record<string, string> = {};
-    if (state.config.connectors) {
+    const connectors: Record<string, string> = state.connectorHealthMonitor
+      ? state.connectorHealthMonitor.getConnectorStatuses()
+      : {};
+    if (Object.keys(connectors).length === 0 && state.config.connectors) {
       for (const [name, cfg] of Object.entries(state.config.connectors)) {
         if (
           cfg &&
@@ -7016,6 +7022,7 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
+      onRuntimeSwapped: ctx?.onRuntimeSwapped,
       json,
       error,
       resolveStateDir,
@@ -13355,6 +13362,7 @@ export async function startApiServer(opts?: {
     shellEnabled: config.features?.shellEnabled !== false,
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
+    connectorHealthMonitor: null,
   };
 
   // Closure-captured refs for auto-TTS triggering in the event pipeline.
@@ -13570,7 +13578,19 @@ export async function startApiServer(opts?: {
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, { onRestart });
+      await handleRequest(req, res, state, {
+        onRestart,
+        onRuntimeSwapped: () => {
+          bindRuntimeStreams(state.runtime);
+          void wireCoordinatorBridgesWhenReady(state, {
+            wireChatBridge: wireCodingAgentChatBridge,
+            wireWsBridge: wireCodingAgentWsBridge,
+            wireEventRouting: wireCoordinatorEventRouting,
+            context: "restart",
+            logger,
+          });
+        },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -13787,6 +13807,16 @@ export async function startApiServer(opts?: {
       }
     })();
 
+    // ── Connector health monitoring ──────────────────────────────────────────
+    if (state.runtime && state.config.connectors) {
+      state.connectorHealthMonitor = new ConnectorHealthMonitor({
+        runtime: state.runtime,
+        config: state.config,
+        broadcastWs,
+      });
+      state.connectorHealthMonitor.start();
+    }
+
     // ── Dynamic streaming + connector route loading ────────────────────────
     // Always register generic stream routes. If a streaming destination is
     // configured, inject it so /api/stream/live can fetch credentials.
@@ -14002,40 +14032,15 @@ export async function startApiServer(opts?: {
   bindRuntimeStreams(opts?.runtime ?? null);
   bindTrainingStream();
 
-  // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
+  // Wire coding-agent bridges at initial boot (event-driven via getServiceLoadPromise)
   if (opts?.runtime) {
-    let chatOk = wireCodingAgentChatBridge(state);
-    let wsOk = wireCodingAgentWsBridge(state);
-    let eventOk = wireCoordinatorEventRouting(state);
-    if (!chatOk || !wsOk || !eventOk) {
-      let wireAttempts = 0;
-      const wireInterval = setInterval(() => {
-        wireAttempts++;
-        chatOk = chatOk || wireCodingAgentChatBridge(state);
-        wsOk = wsOk || wireCodingAgentWsBridge(state);
-        eventOk = eventOk || wireCoordinatorEventRouting(state);
-        if (chatOk && wsOk && eventOk) {
-          clearInterval(wireInterval);
-        } else if (wireAttempts >= 15) {
-          clearInterval(wireInterval);
-          const missing = [
-            !chatOk && "chat",
-            !wsOk && "ws",
-            !eventOk && "event-routing",
-          ]
-            .filter(Boolean)
-            .join(", ");
-          logger.warn(
-            `[milady-api] Coordinator wiring exhausted after 15 attempts (missing: ${missing})`,
-          );
-          state.broadcastWs?.({
-            type: "system-warning",
-            message: `Coordinator wiring failed after 15 attempts. Coding agent features may not work. Missing bridges: ${missing}`,
-            ts: Date.now(),
-          });
-        }
-      }, 1000);
-    }
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "boot",
+      logger,
+    });
   }
 
   // Handle upgrade requests for WebSocket
@@ -14396,41 +14401,14 @@ export async function startApiServer(opts?: {
     // Broadcast status update immediately after restart
     broadcastStatus();
 
-    // Wire coding-agent bridges (coordinator may not exist yet — retry)
-    {
-      let chatOk = wireCodingAgentChatBridge(state);
-      let wsOk = wireCodingAgentWsBridge(state);
-      let eventOk = wireCoordinatorEventRouting(state);
-      if (!chatOk || !wsOk || !eventOk) {
-        let wireAttempts = 0;
-        const wireInterval = setInterval(() => {
-          wireAttempts++;
-          chatOk = chatOk || wireCodingAgentChatBridge(state);
-          wsOk = wsOk || wireCodingAgentWsBridge(state);
-          eventOk = eventOk || wireCoordinatorEventRouting(state);
-          if (chatOk && wsOk && eventOk) {
-            clearInterval(wireInterval);
-          } else if (wireAttempts >= 15) {
-            clearInterval(wireInterval);
-            const missing = [
-              !chatOk && "chat",
-              !wsOk && "ws",
-              !eventOk && "event-routing",
-            ]
-              .filter(Boolean)
-              .join(", ");
-            logger.warn(
-              `[milady-api] Coordinator wiring exhausted after restart (15 attempts, missing: ${missing})`,
-            );
-            state.broadcastWs?.({
-              type: "system-warning",
-              message: `Coordinator wiring failed after restart. Coding agent features may not work. Missing bridges: ${missing}`,
-              ts: Date.now(),
-            });
-          }
-        }, 1000);
-      }
-    }
+    // Wire coding-agent bridges (event-driven via getServiceLoadPromise)
+    void wireCoordinatorBridgesWhenReady(state, {
+      wireChatBridge: wireCodingAgentChatBridge,
+      wireWsBridge: wireCodingAgentWsBridge,
+      wireEventRouting: wireCoordinatorEventRouting,
+      context: "restart",
+      logger,
+    });
   };
 
   const updateStartup = (
@@ -14515,6 +14493,10 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
+            if (state.connectorHealthMonitor) {
+              state.connectorHealthMonitor.stop();
+              state.connectorHealthMonitor = null;
+            }
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;

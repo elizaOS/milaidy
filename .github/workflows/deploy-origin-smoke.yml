@@ -26,7 +26,7 @@ permissions:
 jobs:
   smoke-api-status:
     name: Smoke /api/status on deploy origins
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     env:
       MARKETING_ORIGIN: ${{ github.event.inputs.marketing_origin || github.event.client_payload.marketing_origin || 'https://milady.ai' }}

@@ -106,6 +106,7 @@ type AppHarnessState = {
   cloudLoginBusy: boolean;
   cloudLoginError: string;
   cloudUserId: string;
+  uiShellMode: string;
   [key: string]: unknown;
 };
 
@@ -190,6 +191,12 @@ vi.mock("../../src/components/ChatView", () => ({
 }));
 vi.mock("../../src/components/LoadingScreen", () => ({
   LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
+}));
+vi.mock("../../src/components/CompanionView", () => ({
+  CompanionView: () => React.createElement("div", null, "CompanionView"),
+}));
+vi.mock("../../src/components/ChatModalView.js", () => ({
+  ChatModalView: () => React.createElement("div", null, "ChatModalView"),
 }));
 vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
   useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
@@ -319,6 +326,7 @@ function createHarnessState(): AppHarnessState {
     cloudLoginBusy: false,
     cloudLoginError: "",
     cloudUserId: "",
+    uiShellMode: "native",
   };
 }
 

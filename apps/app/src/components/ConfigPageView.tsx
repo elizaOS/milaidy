@@ -36,6 +36,12 @@ const EVM_RPC_OPTIONS = [
   { id: "ankr", label: "Ankr" },
 ] as const;
 
+const BSC_RPC_OPTIONS = [
+  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "nodereal", label: "NodeReal" },
+  { id: "quicknode", label: "QuickNode" },
+] as const;
+
 const SOLANA_RPC_OPTIONS = [
   { id: "eliza-cloud", label: "Eliza Cloud" },
   { id: "helius-birdeye", label: "Helius + Birdeye" },
@@ -346,26 +352,22 @@ function CloudServicesSection() {
 
   const handleToggle = useCallback(
     async (key: CloudServiceKey) => {
-      const prev = { ...services }; // snapshot BEFORE mutation
-      const updated = { ...services, [key]: !services[key] };
+      const newValue = !services[key];
+      const updated = { ...services, [key]: newValue };
       setServices(updated);
       setSaving(true);
 
-      const payload: {
-        cloud: { services: typeof updated; inferenceMode?: string };
-      } = {
-        cloud: { services: updated },
-      };
-      if (key === "inference") {
-        payload.cloud.inferenceMode = updated.inference ? "cloud" : "byok";
-      }
+      // Also set inferenceMode based on inference toggle
+      const inferenceMode = updated.inference ? "cloud" : "byok";
 
       try {
-        await client.updateConfig(payload);
+        await client.updateConfig({
+          cloud: { services: updated, inferenceMode },
+        });
         setNeedsRestart(true);
       } catch (err) {
-        // Revert to pre-toggle snapshot
-        setServices(prev);
+        // Revert on error
+        setServices(services);
         console.error("[config] Failed to save cloud services:", err);
       } finally {
         setSaving(false);
@@ -381,14 +383,9 @@ function CloudServicesSection() {
       <div className="flex items-center justify-between mb-3">
         <div className="font-bold text-sm">Cloud Services</div>
         {needsRestart && (
-          <button
-            type="button"
-            className="text-[11px] text-[var(--warning,#f59e0b)] font-medium cursor-pointer bg-transparent border-none p-0"
-            onClick={() => setNeedsRestart(false)}
-            title="Dismiss"
-          >
-            Restart required for changes to take effect &times;
-          </button>
+          <span className="text-[11px] text-[var(--warning,#f59e0b)] font-medium">
+            Restart required for changes to take effect
+          </span>
         )}
       </div>
       <p className="text-[12px] text-[var(--muted)] mb-4">
@@ -397,12 +394,17 @@ function CloudServicesSection() {
       </p>
       <div className="space-y-2">
         {CLOUD_SERVICE_DEFS.map(({ key, label, description }) => (
-          <label
+          <div
             key={key}
             className="flex items-center justify-between p-2.5 border border-[var(--border)] rounded cursor-pointer hover:border-[var(--accent)] transition-colors"
           >
             <div className="flex-1 min-w-0 mr-3">
-              <div className="text-[13px] font-medium">{label}</div>
+              <div
+                className="text-[13px] font-medium"
+                id={`cloud-service-${key}`}
+              >
+                {label}
+              </div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
                 {description}
               </div>
@@ -411,6 +413,7 @@ function CloudServicesSection() {
               type="button"
               role="switch"
               aria-checked={services[key]}
+              aria-labelledby={`cloud-service-${key}`}
               disabled={saving}
               onClick={() => void handleToggle(key)}
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${
@@ -423,7 +426,7 @@ function CloudServicesSection() {
                 }`}
               />
             </button>
-          </label>
+          </div>
         ))}
       </div>
     </div>
@@ -469,6 +472,9 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
   const [selectedEvmRpc, setSelectedEvmRpc] = useState<
     "eliza-cloud" | "alchemy" | "infura" | "ankr"
   >("eliza-cloud");
+  const [selectedBscRpc, setSelectedBscRpc] = useState<
+    "eliza-cloud" | "nodereal" | "quicknode"
+  >("eliza-cloud");
   const [selectedSolanaRpc, setSelectedSolanaRpc] = useState<
     "eliza-cloud" | "helius-birdeye"
   >("eliza-cloud");
@@ -493,6 +499,23 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
         configKey: "ANKR_API_KEY",
         label: "Ankr API Key",
         isSet: walletConfig?.ankrKeySet ?? false,
+      },
+    ],
+  };
+
+  const bscRpcConfigs: RpcSectionConfigMap = {
+    nodereal: [
+      {
+        configKey: "NODEREAL_BSC_RPC_URL",
+        label: "NodeReal BSC RPC URL",
+        isSet: walletConfig?.nodeRealBscRpcSet ?? false,
+      },
+    ],
+    quicknode: [
+      {
+        configKey: "QUICKNODE_BSC_RPC_URL",
+        label: "QuickNode BSC RPC URL",
+        isSet: walletConfig?.quickNodeBscRpcSet ?? false,
       },
     ],
   };
@@ -563,7 +586,21 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* BSC */}
+          <RpcConfigSection
+            title="BSC"
+            description="BNB Smart Chain — trading and market feed"
+            options={BSC_RPC_OPTIONS}
+            selectedProvider={selectedBscRpc}
+            onSelect={setSelectedBscRpc}
+            providerConfigs={bscRpcConfigs}
+            rpcFieldValues={rpcFieldValues}
+            onRpcFieldChange={handleRpcFieldChange}
+            cloud={cloudStatusProps}
+            containerClassName="grid grid-cols-3 gap-1.5"
+          />
+
           {/* EVM */}
           <RpcConfigSection
             title="EVM"

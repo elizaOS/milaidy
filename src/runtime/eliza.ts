@@ -954,6 +954,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     pluginsToLoad.add("@elizaos/plugin-x402");
   }
 
+  // Opinion plugin — auto-load when API key is present.
+  // NOT in PROVIDER_PLUGIN_MAP because it is a feature plugin, not a model
+  // provider, and would be incorrectly removed during provider precedence.
+  if (process.env.OPINION_API_KEY?.trim()) {
+    pluginsToLoad.add("@milady/plugin-opinion");
+  }
+
   // User-installed plugins from config.plugins.installs
   // These are plugins that were installed via the plugin-manager at runtime
   // and tracked in milady.json so they persist across restarts.
@@ -3213,22 +3220,12 @@ export async function startEliza(
   }
 
   // 7. Create the AgentRuntime with Milady plugin + resolved plugins
-  //    plugin-sql must be registered first so its database adapter is available
-  //    before other plugins (e.g. plugin-personality) run their init functions.
-  //    runtime.initialize() registers all characterPlugins in parallel, so we
-  //    pre-register plugin-sql here to avoid the race condition.
-  //
-  //    plugin-local-embedding must also be pre-registered so its TEXT_EMBEDDING
-  //    handler (priority 10) is available before any services start.  Without
-  //    this, the bootstrap plugin's ActionFilterService and EmbeddingGeneration
-  //    service can race ahead and use the cloud plugin's TEXT_EMBEDDING handler
-  //    (priority 0) — which hits a paid API — because local-embedding's init()
-  //    takes longer (environment setup, model path validation) and hasn't
-  //    registered its model handler yet when services start generating embeddings.
-  const PREREGISTER_PLUGINS = new Set([
-    "@elizaos/plugin-sql",
-    "@elizaos/plugin-local-embedding",
-  ]);
+  //    All CORE_PLUGINS are pre-registered sequentially (in CORE_PLUGINS
+  //    order) before runtime.initialize() so that cross-plugin getService()
+  //    calls always resolve.  runtime.initialize() registers remaining
+  //    characterPlugins (connectors, providers, custom) in parallel — those
+  //    are NOT core and don't have ordering dependencies.
+  const PREREGISTER_PLUGINS = new Set(CORE_PLUGINS);
   const sqlPlugin = resolvedPlugins.find(
     (p) => p.name === "@elizaos/plugin-sql",
   );
@@ -3470,6 +3467,33 @@ export async function startEliza(
         "will fall back to whatever TEXT_EMBEDDING handler is registered by " +
         "other plugins (may incur cloud API costs)",
     );
+  }
+
+  // 7e. Pre-register remaining core plugins sequentially in CORE_PLUGINS order.
+  //     Each registerPlugin() call runs the plugin's init() before proceeding
+  //     to the next, guaranteeing that cross-plugin getService() calls resolve.
+  {
+    const alreadyPreRegistered = new Set([
+      "@elizaos/plugin-sql",
+      "@elizaos/plugin-local-embedding",
+    ]);
+    for (const name of CORE_PLUGINS) {
+      if (alreadyPreRegistered.has(name)) continue;
+      const resolved = resolvedPlugins.find((p) => p.name === name);
+      if (!resolved) {
+        logger.debug(
+          `[milady] Core plugin ${name} not resolved — skipping pre-registration`,
+        );
+        continue;
+      }
+      try {
+        await runtime.registerPlugin(resolved.plugin);
+      } catch (err) {
+        logger.warn(
+          `[milady] Core plugin ${name} pre-registration failed: ${formatError(err)}`,
+        );
+      }
+    }
   }
 
   const warmAgentSkillsService = async (): Promise<void> => {
@@ -3799,6 +3823,26 @@ export async function startEliza(
               freshConfig,
             );
             await newRuntime.registerPlugin(freshLocalEmbeddingPlugin.plugin);
+          }
+
+          // Pre-register remaining core plugins sequentially (same as startup)
+          {
+            const alreadyPreRegistered = new Set([
+              "@elizaos/plugin-sql",
+              "@elizaos/plugin-local-embedding",
+            ]);
+            for (const name of CORE_PLUGINS) {
+              if (alreadyPreRegistered.has(name)) continue;
+              const resolved = resolvedPlugins.find((p) => p.name === name);
+              if (!resolved) continue;
+              try {
+                await newRuntime.registerPlugin(resolved.plugin);
+              } catch (err) {
+                logger.warn(
+                  `[milady] Hot-reload: core plugin ${name} pre-registration failed: ${formatError(err)}`,
+                );
+              }
+            }
           }
 
           await newRuntime.initialize();
