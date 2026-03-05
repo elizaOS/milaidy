@@ -26,11 +26,10 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./src/index.ts",
       "bun": "./src/index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
     }
   },
   "files": [
