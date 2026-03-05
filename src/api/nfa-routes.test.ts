@@ -14,6 +14,7 @@ vi.mock("node:os", () => ({
 }));
 
 import { readFile } from "node:fs/promises";
+
 const mockReadFile = vi.mocked(readFile);
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -91,10 +92,7 @@ describe("GET /api/nfa/status", () => {
   test("returns { nfa: null, identity: null, configured: false } when no JSON files exist", async () => {
     mockReadFile.mockRejectedValue(new Error("ENOENT"));
 
-    const { handled, status, payload } = await invoke(
-      "GET",
-      "/api/nfa/status",
-    );
+    const { handled, status, payload } = await invoke("GET", "/api/nfa/status");
 
     expect(handled).toBe(true);
     expect(status).toBe(200);
@@ -104,17 +102,13 @@ describe("GET /api/nfa/status", () => {
   test("returns composed shape when both JSON files are present", async () => {
     mockReadFile.mockImplementation(async (path) => {
       const p = String(path);
-      if (p.endsWith("bap578-nfa.json"))
-        return JSON.stringify(NFA_RECORD);
+      if (p.endsWith("bap578-nfa.json")) return JSON.stringify(NFA_RECORD);
       if (p.endsWith("bnb-identity.json"))
         return JSON.stringify(IDENTITY_RECORD);
       throw new Error("ENOENT");
     });
 
-    const { handled, status, payload } = await invoke(
-      "GET",
-      "/api/nfa/status",
-    );
+    const { handled, status, payload } = await invoke("GET", "/api/nfa/status");
 
     expect(handled).toBe(true);
     expect(status).toBe(200);
@@ -125,9 +119,7 @@ describe("GET /api/nfa/status", () => {
     const nfa = data.nfa as Record<string, unknown>;
     expect(nfa.tokenId).toBe("42");
     expect(nfa.network).toBe("bsc-testnet");
-    expect(nfa.bscscanUrl).toBe(
-      "https://testnet.bscscan.com/tx/0xmint",
-    );
+    expect(nfa.bscscanUrl).toBe("https://testnet.bscscan.com/tx/0xmint");
 
     // Identity shape
     const identity = data.identity as Record<string, unknown>;
@@ -144,7 +136,10 @@ describe("GET /api/nfa/status", () => {
     });
 
     const { payload } = await invoke("GET", "/api/nfa/status");
-    const nfa = (payload as Record<string, unknown>).nfa as Record<string, unknown>;
+    const nfa = (payload as Record<string, unknown>).nfa as Record<
+      string,
+      unknown
+    >;
     expect(nfa.bscscanUrl).toBe("https://bscscan.com/tx/0xmint");
   });
 
