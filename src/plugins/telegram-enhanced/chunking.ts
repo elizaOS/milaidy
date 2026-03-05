@@ -13,7 +13,10 @@ function fallbackMarkdownChunker(
   markdownText: string,
   maxChars?: number,
 ): TelegramChunkCandidate[] {
-  const limit = Math.max(1, maxChars ?? TELEGRAM_MESSAGE_LIMIT - DEFAULT_HEADROOM);
+  const limit = Math.max(
+    1,
+    maxChars ?? TELEGRAM_MESSAGE_LIMIT - DEFAULT_HEADROOM,
+  );
   const chunks: TelegramChunkCandidate[] = [];
   let remaining = markdownText;
 

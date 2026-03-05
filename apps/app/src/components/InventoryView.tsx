@@ -719,7 +719,7 @@ export function InventoryView() {
                           data-testid="wallet-token-untrack"
                           className="ml-2 px-1.5 py-0 border border-border text-[9px] text-muted font-mono cursor-pointer hover:border-danger hover:text-danger"
                           onClick={() =>
-                            handleUntrackToken(row.contractAddress!)
+                            handleUntrackToken(row.contractAddress ?? "")
                           }
                         >
                           untrack

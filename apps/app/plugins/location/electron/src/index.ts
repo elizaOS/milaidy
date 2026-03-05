@@ -131,7 +131,10 @@ export class LocationElectron implements LocationPlugin {
           }
         };
         this.ipcHandlers.set(watchId, handler as IpcListener);
-        window.electron.ipcRenderer.on("location:update", handler as IpcListener);
+        window.electron.ipcRenderer.on(
+          "location:update",
+          handler as IpcListener,
+        );
 
         return { watchId };
       } catch {
@@ -176,7 +179,10 @@ export class LocationElectron implements LocationPlugin {
     // Remove the IPC listener if one was registered for this watch
     const ipcHandler = this.ipcHandlers.get(options.watchId);
     if (ipcHandler) {
-      window.electron?.ipcRenderer.removeListener("location:update", ipcHandler);
+      window.electron?.ipcRenderer.removeListener(
+        "location:update",
+        ipcHandler,
+      );
       this.ipcHandlers.delete(options.watchId);
     }
 

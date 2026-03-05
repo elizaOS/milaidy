@@ -17,6 +17,7 @@ import {
 
 /** Strip control characters and newlines from external API strings. */
 function sanitizeMarketText(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — strips control chars from external API data
   return text.replace(/[\x00-\x1f\x7f]/g, "").trim();
 }
 

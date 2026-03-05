@@ -118,12 +118,8 @@ describe("OpinionWsService", () => {
         expect(warnSpy).toHaveBeenCalledWith(
           expect.stringContaining("price alert"),
         );
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining("up"),
-        );
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining("15.0%"),
-        );
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("up"));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("15.0%"));
       });
 
       it("does not log when price moves < 10%", async () => {
@@ -164,12 +160,8 @@ describe("OpinionWsService", () => {
           data: { tokenId: "tok-3", price: "0.80", marketId: 44 },
         });
 
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining("down"),
-        );
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining("20.0%"),
-        );
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("down"));
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("20.0%"));
       });
 
       it("does not alert on first price (no baseline)", async () => {
