@@ -4798,6 +4798,10 @@ export class MilaidyApp extends LitElement {
       return;
     }
     if (providerIdForChat && this.creditBlockedProviderId === providerIdForChat) {
+      const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
+      if (textarea) textarea.value = "";
+      this.chatInput = "";
+      this.updateChatCountDisplay(0);
       const blockedText =
         "No model credits left in the tank. Time to top up your credits or switch provider in AI Settings.";
       this.chatMessages = [
@@ -7833,11 +7837,19 @@ export class MilaidyApp extends LitElement {
     const activeProvider = this.getActiveAiProvider();
     const selectedProvider = this.getSelectedAiProvider();
     const providerForChat = this.getPreferredAiProviderForChat();
-    const chatProviderReady = providerForChat ? this.isChatProviderReady(providerForChat) : false;
+    const providerIdForChat = providerForChat ? canonicalProviderId(providerForChat.id) : null;
+    const providerBlockedByCredits = Boolean(
+      providerIdForChat && this.creditBlockedProviderId === providerIdForChat,
+    );
+    const chatProviderReady = providerForChat
+      ? this.isChatProviderReady(providerForChat) && !providerBlockedByCredits
+      : false;
     const chatProviderIssue =
       chatProviderReady
         ? null
-        : this.providerSetupApplying
+        : providerBlockedByCredits
+          ? "Provider credits are exhausted. Top up credits or switch provider in AI Settings."
+          : this.providerSetupApplying
           ? "Applying your model provider settings. Runtime will unlock chat after restart."
           : providerForChat
             ? !providerForChat.enabled
@@ -7995,7 +8007,9 @@ export class MilaidyApp extends LitElement {
             class="chat-input"
             rows="1"
             placeholder=${!chatProviderReady
-              ? "Connect a model provider in AI Settings to chat..."
+              ? providerBlockedByCredits
+                ? "Provider credits exhausted. Top up or switch provider..."
+                : "Connect a model provider in AI Settings to chat..."
               : runtimeNeedsStart
                 ? "Start the agent to begin chatting..."
               : this.chatResumePending
