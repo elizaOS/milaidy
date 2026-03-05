@@ -1004,10 +1004,6 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     );
     return;
   }
-  console.warn(
-    "[trajectory-persistence] installDatabaseTrajectoryLogger: patched logger!",
-  );
-
   const loggerObject = logger as unknown as object;
   if (patchedLoggers.has(loggerObject)) return;
 

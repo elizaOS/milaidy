@@ -5757,6 +5757,26 @@ async function handleRequest(
     }
   };
 
+  const runtimeUnavailableMessage = (): string | null => {
+    if (!state.runtime) return "Agent is not running";
+    if (state.agentState === "running" || state.agentState === "paused") {
+      return null;
+    }
+    const parts: string[] = ["Agent is not running"];
+    if (state.startup.phase && state.startup.phase !== "running") {
+      parts.push(`Startup phase: ${state.startup.phase}`);
+    }
+    const pendingReason = state.pendingRestartReasons[0];
+    if (pendingReason) {
+      parts.push(`Pending restart reason: ${pendingReason}`);
+    }
+    if (state.startup.lastError) {
+      parts.push(`Last runtime issue: ${state.startup.lastError}`);
+    }
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]}. ${parts.slice(1).join(". ")}.`;
+  };
+
   const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
     const fromEnv = process.env.HYPERSCAPE_API_URL?.trim();
     if (fromEnv) {
@@ -10518,12 +10538,13 @@ async function handleRequest(
       };
 
       try {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           writeSseData(
             res,
             JSON.stringify({
               error: {
-                message: "Agent is not running",
+                message: unavailable,
                 type: "service_unavailable",
               },
             }),
@@ -10538,7 +10559,9 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
+          if (!runtime) {
+            throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+          }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -10605,12 +10628,13 @@ async function handleRequest(
       let responseText: string;
 
       {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           json(
             res,
             {
               error: {
-                message: "Agent is not running",
+                message: unavailable,
                 type: "service_unavailable",
               },
             },
@@ -10619,6 +10643,9 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
+        if (!runtime) {
+          throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -10737,14 +10764,15 @@ async function handleRequest(
       });
 
       try {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           writeSseJson(
             res,
             {
               type: "error",
               error: {
                 type: "service_unavailable",
-                message: "Agent is not running",
+                message: unavailable,
               },
             },
             "error",
@@ -10797,7 +10825,9 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) throw new Error("Agent is not running");
+          if (!runtime) {
+            throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+          }
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -10870,13 +10900,14 @@ async function handleRequest(
       let responseText: string;
 
       {
-        if (!state.runtime) {
+        const unavailable = runtimeUnavailableMessage();
+        if (unavailable) {
           json(
             res,
             {
               error: {
                 type: "service_unavailable",
-                message: "Agent is not running",
+                message: unavailable,
               },
             },
             503,
@@ -10884,6 +10915,9 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
+        if (!runtime) {
+          throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -11047,6 +11081,11 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
 
+    const unavailableConversationStream = runtimeUnavailableMessage();
+    if (unavailableConversationStream) {
+      error(res, unavailableConversationStream, 503);
+      return;
+    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -11202,6 +11241,11 @@ async function handleRequest(
     });
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
+    const unavailableConversationPost = runtimeUnavailableMessage();
+    if (unavailableConversationPost) {
+      error(res, unavailableConversationPost, 503);
+      return;
+    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
@@ -11416,8 +11460,9 @@ async function handleRequest(
 
     // Cloud proxy path
 
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
+    const unavailableChatStream = runtimeUnavailableMessage();
+    if (unavailableChatStream) {
+      error(res, unavailableChatStream, 503);
       return;
     }
 
@@ -11429,6 +11474,9 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
@@ -11512,13 +11560,17 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType } = chatPayload;
 
-    if (!state.runtime) {
-      error(res, "Agent is not running", 503);
+    const unavailableChat = runtimeUnavailableMessage();
+    if (unavailableChat) {
+      error(res, unavailableChat, 503);
       return;
     }
 
     try {
       const runtime = state.runtime;
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
+      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
