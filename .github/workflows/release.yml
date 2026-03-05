@@ -59,6 +59,7 @@ jobs:
     name: Build ${{ matrix.platform.name }}
     needs: prepare
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
     # WHY: Fail on first error, undefined var, or pipe failure; without this a failing command can be ignored and the step still "succeeds".
     defaults:
       run:
@@ -95,15 +96,25 @@ jobs:
       - name: Install setuptools for distutils (Python 3.12+)
         run: pip install setuptools
 
+      # WHY v3 + check-latest: false — v4 has slow post-action and nodejs.org timeouts; v3 uses runner toolcache.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      # WHY cache global Bun cache: avoids re-downloading deps each run; see docs/build-and-release.md "Node.js and Bun in CI".
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
 
       # WHY retry + final run: if all retries fail the loop exits without failing the step; the final run ensures we fail with a clear install error.
       - name: Install root dependencies
@@ -580,6 +591,7 @@ jobs:
     name: Create Release
     needs: [prepare, build-desktop]
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:

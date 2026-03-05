@@ -26,9 +26,10 @@ jobs:
           python-version: "3.12"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Install validation dependencies
         run: pip install pyyaml build twine
@@ -49,9 +50,10 @@ jobs:
           python-version: "3.12"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Build
         working-directory: packaging/pypi
@@ -134,9 +136,10 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Build and test
         working-directory: packaging/pypi
