@@ -21,6 +21,16 @@ export function getAutonomySvc(
   );
 }
 
+export async function ensureAutonomySvc(
+  runtime: AgentRuntime | null,
+): Promise<AutonomyServiceLike | null> {
+  let svc = getAutonomySvc(runtime);
+  if (svc || !runtime) return svc;
+  await AutonomyService.start(runtime);
+  svc = getAutonomySvc(runtime);
+  return svc;
+}
+
 export function getAutonomyState(runtime: AgentRuntime | null): {
   enabled: boolean;
   thinking: boolean;
@@ -60,8 +70,7 @@ export async function handleAutonomyRoutes(
       // enabling autonomy, attempt a lazy service start before failing.
       if (!svc && body.enabled && runtime) {
         try {
-          await AutonomyService.start(runtime);
-          svc = getAutonomySvc(runtime);
+          svc = await ensureAutonomySvc(runtime);
         } catch (err) {
           const autonomy = getAutonomyState(runtime);
           json(res, {

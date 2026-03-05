@@ -1,6 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { detectRuntimeModel } from "./agent-model";
-import { getAutonomySvc } from "./autonomy-routes";
+import { ensureAutonomySvc, getAutonomySvc } from "./autonomy-routes";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 type AgentStateStatus =
@@ -47,7 +47,7 @@ export async function handleAgentLifecycleRoutes(
 
     // Enable the autonomy task — the core TaskService will pick it up
     // and fire the first tick immediately (updatedAt starts at 0).
-    const svc = getAutonomySvc(state.runtime);
+    const svc = (getAutonomySvc(state.runtime) ?? await ensureAutonomySvc(state.runtime));
     if (svc) await svc.enableAutonomy();
 
     json(res, {
@@ -117,7 +117,7 @@ export async function handleAgentLifecycleRoutes(
 
     // Re-enable the autonomy task — first tick fires immediately
     // because the new task is created with updatedAt: 0.
-    const svc = getAutonomySvc(state.runtime);
+    const svc = (getAutonomySvc(state.runtime) ?? await ensureAutonomySvc(state.runtime));
     if (svc) await svc.enableAutonomy();
 
     state.agentState = "running";
