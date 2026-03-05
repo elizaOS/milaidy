@@ -105,7 +105,19 @@ export function resolvePrimaryBscRpcUrl(
   input: BscTradeRpcConfig,
 ): string | null {
   const urls = resolveBscRpcUrls(input);
-  return urls.length > 0 ? urls[0] : null;
+  if (urls.length === 0) return null;
+  const primary = urls[0];
+  try {
+    const parsed = new URL(primary);
+    if (parsed.protocol === "http:") {
+      logger.warn(
+        `BSC RPC URL uses http: (${parsed.host}) — MITM risk for trade execution. Use https: in production.`,
+      );
+    }
+  } catch {
+    // URL parsing failed; normalizeRpcUrl already validated it, so this shouldn't happen
+  }
+  return primary;
 }
 
 function hostLabel(url: string): string {
@@ -257,7 +269,7 @@ async function readWrappedNativeAddress(rpcUrls: string[]): Promise<string> {
   }
 }
 
-async function readTokenDecimals(
+export async function readTokenDecimals(
   rpcUrls: string[],
   tokenAddress: string,
 ): Promise<number> {
@@ -533,7 +545,10 @@ export async function buildBscTradeQuote(
   if (typeof amountOutWei !== "bigint") {
     throw new Error("Router quote output type is invalid.");
   }
-  const minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
+  let minReceiveWei = (amountOutWei * BigInt(10_000 - slippageBps)) / 10_000n;
+  if (minReceiveWei === 0n && amountOutWei > 0n) {
+    minReceiveWei = 1n; // Prevent zero-slippage execution for small amounts
+  }
   const outDecimals = side === "buy" ? tokenDecimals : 18;
   const inSymbol = side === "buy" ? "BNB" : tokenSymbol;
   const outSymbol = side === "buy" ? tokenSymbol : "BNB";
@@ -572,11 +587,24 @@ export async function buildBscTradeQuote(
   };
 }
 
+/**
+ * Assert that the quote's routerAddress matches the expected PancakeSwap V2 router.
+ * Prevents a compromised or tampered quote from directing funds to an arbitrary address.
+ */
+function assertRouterAddress(quote: BscTradeQuoteResponse): void {
+  if (quote.routerAddress !== PANCAKE_SWAP_V2_ROUTER) {
+    throw new Error(
+      `Unexpected router address in quote: ${quote.routerAddress}. Expected PancakeSwap V2 router ${PANCAKE_SWAP_V2_ROUTER}.`,
+    );
+  }
+}
+
 export function buildBscBuyUnsignedTx(
   quote: BscTradeQuoteResponse,
   recipientAddress: string | null,
   deadlineSeconds?: number,
 ): BscUnsignedTradeTx {
+  assertRouterAddress(quote);
   if (quote.side !== "buy") {
     throw new Error("Only buy execution is currently supported.");
   }
@@ -612,6 +640,7 @@ export function buildBscSellUnsignedTx(
   recipientAddress: string | null,
   deadlineSeconds?: number,
 ): BscUnsignedTradeTx {
+  assertRouterAddress(quote);
   if (quote.side !== "sell") {
     throw new Error("Only sell execution is supported for this payload.");
   }
@@ -661,7 +690,14 @@ export function buildBscApproveUnsignedTx(
   if (!normalizedSpender) {
     throw new Error("Spender address is invalid for approval payload.");
   }
-  const amount = BigInt(amountWei);
+  let amount: bigint;
+  try {
+    amount = BigInt(amountWei);
+  } catch {
+    throw new Error(
+      `Invalid approval amount: expected integer string, got "${String(amountWei).slice(0, 20)}"`,
+    );
+  }
   if (amount <= 0n) {
     throw new Error("Approval amount must be greater than zero.");
   }

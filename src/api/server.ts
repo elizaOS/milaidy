@@ -100,6 +100,7 @@ import {
   buildBscSellUnsignedTx,
   buildBscTradePreflight,
   buildBscTradeQuote,
+  readTokenDecimals,
   resolvePrimaryBscRpcUrl,
 } from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
@@ -674,7 +675,7 @@ function _extractResponseBlocks(
 // ---------------------------------------------------------------------------
 
 export function findOwnPackageRoot(startDir: string): string {
-  const KNOWN_NAMES = new Set(["milady", "milady", "miladyai"]);
+  const KNOWN_NAMES = new Set(["milady", "milaidy", "miladyai"]);
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, "package.json");
@@ -4384,15 +4385,6 @@ function resolveAgentAutomationModeFromConfig(
   return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
 }
 
-function _parseTradePermissionMode(value: unknown): TradePermissionMode | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (!TRADE_PERMISSION_MODES.has(normalized as TradePermissionMode)) {
-    return null;
-  }
-  return normalized as TradePermissionMode;
-}
-
 function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
   const raw = req.headers[AGENT_AUTOMATION_HEADER];
   if (typeof raw !== "string") return false;
@@ -4423,72 +4415,6 @@ function persistAgentAutomationMode(
     enabled: true,
     mode,
   };
-}
-
-function _persistTradePermissionMode(
-  state: ServerState,
-  mode: TradePermissionMode,
-): void {
-  state.tradePermissionMode = mode;
-  process.env.MILADY_TRADE_PERMISSION_MODE = mode;
-
-  if (!state.config.features) {
-    state.config.features = {};
-  }
-  const features = state.config.features as Record<
-    string,
-    boolean | { enabled?: boolean; [k: string]: unknown }
-  >;
-  const current = features.tradeExecution;
-  const currentObject =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? (current as Record<string, unknown>)
-      : {};
-  features.tradeExecution = {
-    ...currentObject,
-    enabled: true,
-    mode,
-  };
-
-  if (!state.config.env || typeof state.config.env !== "object") {
-    state.config.env = {};
-  }
-  (state.config.env as Record<string, string>).MILADY_TRADE_PERMISSION_MODE =
-    mode;
-
-  const bscEnabled = mode === "agent-auto" ? "true" : "false";
-  process.env.MILADY_BSC_EXECUTION_ENABLED = bscEnabled;
-  (state.config.env as Record<string, string>).MILADY_BSC_EXECUTION_ENABLED =
-    bscEnabled;
-}
-
-function _rejectAgentMutation(
-  req: http.IncomingMessage,
-  state: ServerState,
-  target:
-    | { kind: "connectors" }
-    | { kind: "plugins"; pluginNameOrId: string }
-    | { kind: "config" },
-): string | null {
-  if (!isAgentAutomationRequest(req)) return null;
-  const mode = state.agentAutomationMode ?? "full";
-  if (mode === "full") return null;
-
-  if (target.kind === "connectors") return null;
-
-  if (target.kind === "plugins") {
-    const shortId = target.pluginNameOrId
-      .trim()
-      .replace(/^@[^/]+\/plugin-/, "")
-      .replace(/^@[^/]+\//, "")
-      .replace(/^plugin-/, "");
-    const known = state.plugins.find((entry) => entry.id === shortId);
-    const category = known?.category ?? "feature";
-    if (category === "connector") return null;
-    return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
-  }
-
-  return `Blocked by automation mode "${mode}". Agent may only modify connectors in this mode.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -11302,6 +11228,26 @@ async function handleRequest(
 
     const isBnb = body.assetSymbol.toUpperCase() === "BNB";
 
+    // Fetch actual token decimals to avoid wrong amounts for USDC (6), USDT (6), etc.
+    let decimals = 18;
+    if (body.tokenAddress) {
+      try {
+        const tokenContract = new ethers.Contract(
+          body.tokenAddress,
+          ["function decimals() view returns (uint8)"],
+          new ethers.JsonRpcProvider(
+            resolvePrimaryBscRpcUrl({
+              nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+              quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+            }) ?? "https://bsc-dataseed1.binance.org/",
+          ),
+        );
+        decimals = Number(await tokenContract.decimals());
+      } catch {
+        // Fallback to 18 if decimals call fails
+      }
+    }
+
     // Build unsigned transfer tx for user-sign mode
     const unsignedTx = {
       chainId: 56,
@@ -11313,7 +11259,6 @@ async function handleRequest(
             const iface = new ethers.Interface([
               "function transfer(address to, uint256 amount) returns (bool)",
             ]);
-            const decimals = 18; // default; token-specific decimals not fetched here
             return iface.encodeFunctionData("transfer", [
               toAddress,
               ethers.parseUnits(body.amount?.trim(), decimals),

@@ -14,9 +14,10 @@
  */
 
 import type { Action, HandlerOptions } from "@elizaos/core";
-
-/** API port for posting transfer requests. */
-const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
+import {
+  buildAuthHeaders,
+  WALLET_ACTION_API_PORT,
+} from "./wallet-action-shared.js";
 
 /** Timeout for the transfer API call (includes on-chain confirmation). */
 const TRANSFER_TIMEOUT_MS = 60_000;
@@ -104,12 +105,13 @@ export const transferTokenAction: Action = {
       }
 
       const response = await fetch(
-        `http://127.0.0.1:${API_PORT}/api/wallet/transfer/execute`,
+        `http://127.0.0.1:${WALLET_ACTION_API_PORT}/api/wallet/transfer/execute`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Milady-Agent-Action": "1",
+            ...buildAuthHeaders(),
           },
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS),

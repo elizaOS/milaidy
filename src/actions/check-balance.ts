@@ -18,9 +18,10 @@ import type {
   EvmChainBalance,
   WalletBalancesResponse,
 } from "../contracts/wallet.js";
-
-/** API port for fetching wallet balances. */
-const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
+import {
+  buildAuthHeaders,
+  WALLET_ACTION_API_PORT,
+} from "./wallet-action-shared.js";
 
 /** Timeout for the balance API call. */
 const BALANCE_TIMEOUT_MS = 10_000;
@@ -172,8 +173,11 @@ export const checkBalanceAction: Action = {
 
       // ── Fetch balances from API ──────────────────────────────────────
       const response = await fetch(
-        `http://127.0.0.1:${API_PORT}/api/wallet/balances`,
+        `http://127.0.0.1:${WALLET_ACTION_API_PORT}/api/wallet/balances`,
         {
+          headers: {
+            ...buildAuthHeaders(),
+          },
           signal: AbortSignal.timeout(BALANCE_TIMEOUT_MS),
         },
       );
