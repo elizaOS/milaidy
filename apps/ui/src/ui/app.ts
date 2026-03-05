@@ -282,6 +282,7 @@ export class MilaidyApp extends LitElement {
   @state() chatAutonomyLoading = false;
   @state() chatAutonomyToggleBusy = false;
   @state() chatAutonomyError: string | null = null;
+  @state() chatAutonomyActionMessage: string | null = null;
   @state() chatResumePending = false;
   @state() plugins: PluginInfo[] = [];
   @state() pluginFilter: "all" | "ai-provider" | "database" | "runtime" | "connector" | "feature" = "all";
@@ -8071,7 +8072,7 @@ export class MilaidyApp extends LitElement {
             <button
               class="plugin-secondary-btn"
               @click=${() => void this.handleChatAutonomyToggleClick()}
-              ?disabled=${this.chatAutonomyToggleBusy || this.chatAutonomyLoading}
+              ?disabled=${this.chatAutonomyToggleBusy}
             >
               ${this.chatAutonomyToggleBusy
                 ? "Updating..."
@@ -8119,6 +8120,16 @@ export class MilaidyApp extends LitElement {
                   <div class="autonomy-line">
                     <span class="autonomy-line-k">Backend</span>
                     <span class="autonomy-line-v warn">${this.chatAutonomyError}</span>
+                  </div>
+                `
+              : ""}
+            ${this.chatAutonomyActionMessage
+              ? html`
+                  <div class="autonomy-line">
+                    <span class="autonomy-line-k">Autonomy action</span>
+                    <span class="autonomy-line-v ${this.chatAutonomyActionMessage.toLowerCase().includes("enabled.") || this.chatAutonomyActionMessage.toLowerCase().includes("disabled.") ? "" : "warn"}">
+                      ${this.chatAutonomyActionMessage}
+                    </span>
                   </div>
                 `
               : ""}
@@ -8182,10 +8193,12 @@ export class MilaidyApp extends LitElement {
     if (this.chatAutonomyToggleBusy) return;
     if (this.agentStatus?.state !== "running") {
       this.chatAutonomyError = "Runtime must be running before autonomy can be toggled.";
+      this.chatAutonomyActionMessage = "No change: runtime is not running.";
       return;
     }
     this.chatAutonomyToggleBusy = true;
     this.chatAutonomyError = null;
+    this.chatAutonomyActionMessage = null;
     try {
       let currentEnabled = this.chatAutonomyOverview?.autonomy.enabled;
       if (typeof currentEnabled !== "boolean") {
@@ -8194,11 +8207,14 @@ export class MilaidyApp extends LitElement {
       const nextEnabled = !currentEnabled;
       const result = await client.setAgentAutonomy(nextEnabled);
       if (result.autonomy !== nextEnabled) {
-        this.chatAutonomyError = nextEnabled
+        this.chatAutonomyActionMessage = nextEnabled
           ? "Autonomy service is unavailable on this backend runtime."
           : "Autonomy did not disable cleanly. Try again.";
       } else {
-        this.showUiNotice(nextEnabled ? "Autonomy enabled." : "Autonomy disabled.");
+        this.chatAutonomyActionMessage = nextEnabled
+          ? "Autonomy enabled."
+          : "Autonomy disabled.";
+        this.showUiNotice(this.chatAutonomyActionMessage);
       }
       await this.loadChatAutonomyOverview(true);
       try {
