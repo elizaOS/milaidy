@@ -188,7 +188,8 @@ export async function ensureXvfb(
     return false;
   }
 
-  // Validate resolution format early — must be WxH with numeric dimensions.
+  // Validate resolution early so callers get a clear failure before we
+  // touch the display or spawn processes.
   const [w, h] = resolution.split("x");
   if (!w || !h || !/^\d+$/.test(w) || !/^\d+$/.test(h)) {
     logger.warn(`[stream] Invalid resolution for Xvfb: ${resolution}`);
