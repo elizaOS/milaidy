@@ -7551,9 +7551,39 @@ export class MilaidyApp extends LitElement {
     const hiddenMessageCount = hasMessageOverflow
       ? this.chatMessages.length - renderedMessages.length
       : 0;
+    const autonomyPlugins = this.autonomyScopePlugins();
+    const autonomyEnabledCount = autonomyPlugins.filter((plugin) => plugin.enabled).length;
+    const autonomyReadyCount = autonomyPlugins.filter((plugin) => this.isPluginUserReady(plugin)).length;
+    const autonomyRiskEnabledCount = autonomyPlugins.filter(
+      (plugin) => plugin.enabled && this.pluginRisk(plugin) !== "SAFE",
+    ).length;
+    const orchestrationModules = autonomyPlugins.filter((plugin) => {
+      const key = `${plugin.id} ${plugin.name}`.toLowerCase();
+      return plugin.category === "feature"
+        || key.includes("orchestr")
+        || key.includes("autonomy")
+        || key.includes("loop")
+        || key.includes("swarms")
+        || key.includes("coding-agent");
+    });
+    const runtimeSnapshot = this.agentStatus as unknown as {
+      startup?: {
+        phase?: string;
+      };
+      pendingRestart?: boolean;
+      pendingRestartReasons?: string[];
+    };
+    const loopPhase = runtimeSnapshot.startup?.phase ?? (state === "running" ? "running" : state);
+    const pendingRestartReason =
+      Array.isArray(runtimeSnapshot.pendingRestartReasons) && runtimeSnapshot.pendingRestartReasons.length > 0
+        ? runtimeSnapshot.pendingRestartReasons[0]
+        : null;
+    const loopStatusLabel = runtimeSnapshot.pendingRestart
+      ? "pending restart"
+      : loopPhase;
 
-	    if (state === "not_started" || (state === "stopped" && !this.chatResumePending)) {
-	      return html`
+		    if (state === "not_started" || (state === "stopped" && !this.chatResumePending)) {
+		      return html`
 	        <h2>Chat</h2>
 	        <div class="start-agent-box">
 	          <p>Runtime is paused. Start the agent to begin chatting.</p>
@@ -7573,17 +7603,101 @@ export class MilaidyApp extends LitElement {
           <div class="chat-title-group">
             <h2 class="chat-title">Runtime Chat</h2>
             <div class="chat-title-sub">Chat-based conversation with memory + tools</div>
-            <div class="chat-header-chips">
-              <span class="chat-head-chip">Session: ${sessionName}</span>
-              <span class="chat-head-chip">Tools: ${enabledToolCount}</span>
-            </div>
-          </div>
-          <div class="chat-header-actions">
-            <button class="clear-btn" @click=${() => this.createNewSession()}>New Chat</button>
-            ${this.activeSessionId
-              ? html`<button class="clear-btn" title="Delete current chat" @click=${this.handleHeaderClearActiveChat}>X</button>`
-              : ""}
-          </div>
+	            <div class="chat-header-chips">
+	              <span class="chat-head-chip">Session: ${sessionName}</span>
+	              <span class="chat-head-chip">Tools: ${enabledToolCount}</span>
+	            </div>
+	          </div>
+	          <div class="chat-header-actions">
+              <details style="position:relative;">
+                <summary class="clear-btn" style="list-style:none;">Autonomy</summary>
+                <div
+                  style="
+                    position:absolute;
+                    right:0;
+                    top:calc(100% + 6px);
+                    width:min(420px,88vw);
+                    max-height:62vh;
+                    overflow:auto;
+                    z-index:40;
+                    border:1px solid var(--border);
+                    background:var(--card);
+                    border-radius:12px;
+                    padding:10px;
+                    box-shadow:0 12px 28px rgba(0,0,0,0.18);
+                  "
+                >
+                  <div style="font-size:12px;font-weight:700;color:var(--text-strong);margin-bottom:8px;">
+                    Agent autonomy / orchestration / loop
+                  </div>
+                  <div style="display:grid;gap:6px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+                      <span style="color:var(--muted);">Loop state</span>
+                      <span style="color:var(--text-strong);font-weight:600;">${loopStatusLabel}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+                      <span style="color:var(--muted);">Orchestration modules</span>
+                      <span style="color:var(--text-strong);font-weight:600;">${orchestrationModules.length}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+                      <span style="color:var(--muted);">Modules</span>
+                      <span style="color:var(--text-strong);font-weight:600;">${autonomyReadyCount}/${autonomyPlugins.length} ready · ${autonomyEnabledCount} enabled</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;">
+                      <span style="color:var(--muted);">Risk-on modules</span>
+                      <span style="color:${autonomyRiskEnabledCount > 0 ? "var(--warn)" : "var(--ok)"};font-weight:600;">${autonomyRiskEnabledCount}</span>
+                    </div>
+                    ${pendingRestartReason
+                      ? html`
+                          <div style="font-size:11px;color:var(--warn);line-height:1.35;">
+                            Pending restart: ${pendingRestartReason}
+                          </div>
+                        `
+                      : ""}
+                  </div>
+                  <details>
+                    <summary style="cursor:pointer;font-size:11px;color:var(--text-strong);font-weight:700;">
+                      Show all modules (${autonomyPlugins.length})
+                    </summary>
+                    <div style="display:grid;gap:6px;margin-top:8px;">
+                      ${autonomyPlugins.map((plugin) => {
+                        const statusLabel = this.pluginStatusLabel(plugin);
+                        const ready = this.isPluginUserReady(plugin);
+                        const risk = this.pluginRisk(plugin);
+                        return html`
+                          <div style="border:1px solid var(--border-soft);border-radius:8px;padding:7px;background:rgba(255,255,255,0.82);display:grid;gap:4px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                              <img
+                                src=${this.appIconPath(plugin.id)}
+                                alt=${`${plugin.name} icon`}
+                                style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border-soft);object-fit:cover;"
+                                @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
+                              />
+                              <span style="font-size:11px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
+                              <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
+                              <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
+                              <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
+                                ${statusLabel}
+                              </span>
+                              <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
+                                ${risk}
+                              </span>
+                            </div>
+                            <div style="font-size:10px;color:var(--muted);">
+                              ${this.autonomyPolicyLabel(plugin)}
+                            </div>
+                          </div>
+                        `;
+                      })}
+                    </div>
+                  </details>
+                </div>
+              </details>
+	            <button class="clear-btn" @click=${() => this.createNewSession()}>New Chat</button>
+	            ${this.activeSessionId
+	              ? html`<button class="clear-btn" title="Delete current chat" @click=${this.handleHeaderClearActiveChat}>X</button>`
+	              : ""}
+	          </div>
         </div>
         <div class="chat-presence">
           <span class="chat-presence-dot"></span>
