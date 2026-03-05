@@ -190,10 +190,25 @@ jobs:
         shell: pwsh
         run: |
           # node-pty requires Spectre-mitigated libs (MSB8040). Add the component via VS Installer.
-          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
-          if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community" } } }
-          & $installer modify --installPath $installPath --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --passive --wait
+          $ErrorActionPreference = "Stop"
+          $pf86        = ${env:ProgramFiles(x86)}
+          $installer   = "$pf86\Microsoft Visual Studio\Installer\vs_installer.exe"
+          $installPath = "$pf86\Microsoft Visual Studio\2022\BuildTools"
+          if (!(Test-Path $installPath)) { $installPath = "$pf86\Microsoft Visual Studio\2022\Enterprise"   }
+          if (!(Test-Path $installPath)) { $installPath = "$pf86\Microsoft Visual Studio\2022\Professional" }
+          if (!(Test-Path $installPath)) { $installPath = "$pf86\Microsoft Visual Studio\2022\Community"    }
+          if (!(Test-Path $installPath)) { Write-Error "No VS 2022 install found."; exit 1 }
+
+          $componentId  = "Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre"
+          $vswhere      = "$pf86\Microsoft Visual Studio\Installer\vswhere.exe"
+          $hasComponent = $null
+          if (Test-Path $vswhere) {
+            $hasComponent = & $vswhere -products * -requires $componentId -property installationPath -latest -format value 2>$null
+          }
+          if (-not $hasComponent) {
+            Write-Host "Installing $componentId..."
+            & $installer modify --installPath $installPath --add $componentId --quiet --norestart --wait
+          }
 
       - name: Build Electron app
         run: bun run build
