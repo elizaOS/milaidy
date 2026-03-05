@@ -335,7 +335,7 @@ bun run dev
 ```
 
 Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).  
-Why the release pipeline and CI Node/Bun setup are built the way they are (strict shell, retries, setup-node v3/Blacksmith, Bun cache, timeouts): [Build and release](docs/build-and-release.md#release-workflow-design-and-whys).
+Why the release pipeline and CI Node/Bun setup are built the way they are (strict shell, retries, setup-node v3/Blacksmith, Bun cache, timeouts): [Build and release](docs/build-and-release.md).
 
 ---
 
