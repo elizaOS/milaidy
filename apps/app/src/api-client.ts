@@ -3145,6 +3145,61 @@ export class MiladyClient {
     return this.fetch("/api/nfa/learnings");
   }
 
+  /** Mint a new NFA. */
+  async mintNfa(opts: {
+    useWalletKey?: boolean;
+    persona?: string;
+    experience?: string;
+    agentURI?: string;
+  }): Promise<{ success: boolean; txHash?: string; tokenId?: string; error?: string }> {
+    return this.fetch("/api/nfa/mint", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Anchor learnings on-chain. */
+  async anchorLearnings(opts: {
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; root?: string; count?: number; error?: string }> {
+    return this.fetch("/api/nfa/anchor", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Transfer NFA to another address. */
+  async transferNfa(opts: {
+    to: string;
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    return this.fetch("/api/nfa/transfer", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Upgrade NFA logic contract. */
+  async upgradeNfaLogic(opts: {
+    logicAddress: string;
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    return this.fetch("/api/nfa/upgrade-logic", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Toggle NFA pause state. */
+  async toggleNfaPause(opts: {
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; paused?: boolean; error?: string }> {
+    return this.fetch("/api/nfa/pause", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
   // Wallet
 
   async getWalletAddresses(): Promise<WalletAddresses> {
