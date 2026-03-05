@@ -51,6 +51,7 @@
         "@elizaos/plugin-trust": "next",
         "@elizaos/plugin-twitch": "2.0.0-alpha.8",
         "@elizaos/plugin-vision": "next",
+        "@elizaos/plugin-xai": "next",
         "@elizaos/prompts": "next",
         "@elizaos/sweagent-root": "next",
         "@elizaos/tui": "next",
@@ -886,6 +887,8 @@
     "@elizaos/plugin-twitch": ["@elizaos/plugin-twitch@2.0.0-alpha.8", "", { "dependencies": { "@twurple/auth": "^7.2.0", "@twurple/chat": "^7.2.0", "zod": "^4.3.6" }, "peerDependencies": { "@elizaos/core": "2.0.0-alpha.3" } }, "sha512-VaFWPaXfbHyc21QpfEL1IIFt1igBrVNq6wrROo0LrvIbdBSTH6WuHoW/CJd7F7Za/oOMAH2HRyfuMWOjGvqx5g=="],
 
     "@elizaos/plugin-vision": ["@elizaos/plugin-vision@2.0.0-alpha.9", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "axios": "^1.7.2", "canvas": "^3.1.2", "face-api.js": "^0.22.2", "sharp": "^0.34.3", "tesseract.js": "^6.0.1", "zod": "^4.3.6" }, "optionalDependencies": { "@tensorflow-models/coco-ssd": "^2.2.3", "@tensorflow-models/mobilenet": "^2.1.0", "@tensorflow-models/pose-detection": "^2.1.0", "@tensorflow-models/posenet": "^2.2.2", "@tensorflow/tfjs-node": "^4.22.0" } }, "sha512-cIwRxlzCJsG4KRSiOENYEP6mkBKCS/vDXNCDrTkHuHljAYJMrVcfKDHSRXUIIkU0abzL8STtnuq4ClKtFZr8QA=="],
+
+    "@elizaos/plugin-xai": ["@elizaos/plugin-xai@2.0.0-alpha.6", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "twitter-api-v2": "^1.28.0" } }, "sha512-0INyFGb6ABpLazULHKyNd7IaM4GZKgENJxcIHrJTY6E9BYDPXyKh0c/wTDfgL89haoS7YM/JY/NeCIWbY4j7LA=="],
 
     "@elizaos/prompts": ["@elizaos/prompts@2.0.0-alpha.12", "", {}, "sha512-7LOsluBw9FvyXy6O9UAUYDVkGe8q4ElLD46mCQUKK19XDYuA6rdS4gsuMuKwhZ6vzIlRYoz7eW5eD95uC9BGlQ=="],
 
@@ -3786,6 +3789,8 @@
     "tsx": ["tsx@4.21.0", "", { "dependencies": { "esbuild": "~0.27.0", "get-tsconfig": "^4.7.5" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": { "tsx": "dist/cli.mjs" } }, "sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw=="],
 
     "tunnel-agent": ["tunnel-agent@0.6.0", "", { "dependencies": { "safe-buffer": "^5.0.1" } }, "sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w=="],
+
+    "twitter-api-v2": ["twitter-api-v2@1.29.0", "", {}, "sha512-v473q5bwme4N+DWSg6qY+JCvfg1nSJRWwui3HUALafxfqCvVkKiYmS/5x/pVeJwTmyeBxexMbzHwnzrH4h6oYQ=="],
 
     "type-check": ["type-check@0.4.0", "", { "dependencies": { "prelude-ls": "^1.2.1" } }, "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew=="],
 
