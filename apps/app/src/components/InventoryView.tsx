@@ -11,6 +11,7 @@ import type {
   EvmChainBalance,
 } from "../api-client";
 import { createTranslator } from "../i18n";
+import { IdentityCard } from "./IdentityCard";
 import {
   buildWalletPreflightNotice,
   getWalletPreflightChecks,
@@ -1090,8 +1091,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           {t("wallet.setup.rpcNotConfigured")}
         </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          Connect via Eliza Cloud or configure a custom BSC RPC provider
-          (NodeReal / QuickNode) to enable market feed and trading.
+          Connect via Eliza Cloud or use Public Node (or a custom BSC RPC URL)
+          to enable market feed and trading.
         </p>
         <button
           type="button"
@@ -1149,6 +1150,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
     return (
       <div className="space-y-2 mt-3">
+        <IdentityCard />
         {/* ── Block 1: Portfolio header ─────────────────────────── */}
         <div className="wt__portfolio">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1267,8 +1269,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                 {t("wallet.setup.rpcNotConfigured")}
               </div>
               <div className="text-[var(--muted)] leading-relaxed">
-                Connect via Eliza Cloud or configure a custom BSC RPC provider
-                (NodeReal / QuickNode) to enable trading.
+                Connect via Eliza Cloud or use Public Node (or a custom BSC RPC
+                URL) to enable trading.
               </div>
               <div className="mt-2">
                 <button
