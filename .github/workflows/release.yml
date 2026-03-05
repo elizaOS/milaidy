@@ -464,7 +464,7 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
-      # WHY if [ -d ... ]: with set -e, [ -d x ] && du x fails the step when x is missing; if/then avoids that. WHY milady-dist: both unpacked regions contribute to artifact size.
+      # WHY if [ -d ... ]: with set -e, [ -d x ] && du x fails the step when x is missing; if/then avoids that. WHY milady-dist: both unpacked regions contribute to artifact size. WHY allow 141: du|sort|head — head closes pipe so sort gets SIGPIPE; don't fail step.
       - name: Report packaged app size
         run: |
           if [ "${MATRIX_OS:-}" = "macos" ]; then
@@ -477,12 +477,14 @@ jobs:
             if [ -d "$unpacked/node_modules" ]; then
               echo "=== Top 20 largest in app.asar.unpacked/node_modules ==="
               du -sh "$unpacked/node_modules"/* 2>/dev/null | sort -hr | head -20
+              r=$?; [[ $r -eq 0 || $r -eq 141 ]] || exit $r
             fi
             if [ -d "$unpacked/milady-dist" ]; then
               echo "=== app.asar.unpacked/milady-dist ==="
               du -sh "$unpacked/milady-dist" 2>/dev/null || true
               if [ -d "$unpacked/milady-dist/node_modules" ]; then
                 du -sh "$unpacked/milady-dist/node_modules"/* 2>/dev/null | sort -hr | head -10
+                r=$?; [[ $r -eq 0 || $r -eq 141 ]] || exit $r
               fi
             fi
           elif [ "${MATRIX_OS:-}" = "linux" ]; then
@@ -491,6 +493,7 @@ jobs:
             if [ -d "dist/linux-unpacked/resources/app.asar.unpacked/node_modules" ]; then
               echo "=== Top 20 largest in app.asar.unpacked/node_modules ==="
               du -sh dist/linux-unpacked/resources/app.asar.unpacked/node_modules/* 2>/dev/null | sort -hr | head -20
+              r=$?; [[ $r -eq 0 || $r -eq 141 ]] || exit $r
             fi
             if [ -d "dist/linux-unpacked/resources/app.asar.unpacked/milady-dist" ]; then
               du -sh dist/linux-unpacked/resources/app.asar.unpacked/milady-dist 2>/dev/null || true
