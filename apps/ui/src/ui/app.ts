@@ -8228,14 +8228,20 @@ export class MilaidyApp extends LitElement {
     }
     this.chatAutonomyToggleBusy = true;
     this.chatAutonomyError = null;
-    this.chatAutonomyActionMessage = null;
+    this.chatAutonomyActionMessage = "Sending autonomy toggle request...";
+    this.showUiNotice("Updating autonomy...");
     try {
       let currentEnabled = this.chatAutonomyOverview?.autonomy.enabled;
       if (typeof currentEnabled !== "boolean") {
         currentEnabled = (await client.getAgentAutonomy()).enabled;
       }
       const nextEnabled = !currentEnabled;
-      const result = await client.setAgentAutonomy(nextEnabled);
+      const result = await Promise.race([
+        client.setAgentAutonomy(nextEnabled),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Autonomy toggle request timed out.")), 15_000),
+        ),
+      ]);
       if (result.ok === false) {
         const errorText =
           result.error ?? "Autonomy service is unavailable on this backend runtime.";
