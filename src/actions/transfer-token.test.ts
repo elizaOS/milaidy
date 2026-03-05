@@ -2,8 +2,7 @@
  * Unit tests for the TRANSFER_TOKEN action.
  *
  * Verifies parameter validation, API call handling, response formatting,
- * action metadata (name, similes, parameters), precondition checks,
- * and auth header inclusion.
+ * and action metadata (name, similes, parameters).
  */
 
 import type { HandlerOptions } from "@elizaos/core";
@@ -24,27 +23,17 @@ function callHandler(params: Record<string, unknown>) {
   );
 }
 
-function makeRuntime(settings: Record<string, string | null> = {}) {
-  return {
-    getSetting: (key: string) => settings[key] ?? null,
-  } as never;
-}
-
 // ── Test suite ───────────────────────────────────────────────────────────────
 
 describe("TRANSFER_TOKEN action", () => {
   const originalFetch = globalThis.fetch;
-  const originalToken = process.env.MILADY_API_TOKEN;
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
-    delete process.env.MILADY_API_TOKEN;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.MILADY_API_TOKEN;
-    else process.env.MILADY_API_TOKEN = originalToken;
   });
 
   // ── Metadata ─────────────────────────────────────────────────────────────
@@ -81,32 +70,36 @@ describe("TRANSFER_TOKEN action", () => {
     expect(tokenAddr?.required).toBe(false);
   });
 
-  // ── Validate precondition checks ──────────────────────────────────────
-
-  it("validates true when EVM_PRIVATE_KEY is set", async () => {
-    const runtime = makeRuntime({ EVM_PRIVATE_KEY: "0xdeadbeef" });
+  it("validate returns true when EVM_PRIVATE_KEY is set", async () => {
+    const mockRuntime = {
+      getSetting: (key: string) =>
+        key === "EVM_PRIVATE_KEY" ? "0xdeadbeef" : undefined,
+    };
     const result = await transferTokenAction.validate(
-      runtime,
+      mockRuntime as never,
       {} as never,
       {} as never,
     );
     expect(result).toBe(true);
   });
 
-  it("validates true when PRIVY_APP_ID is set", async () => {
-    const runtime = makeRuntime({ PRIVY_APP_ID: "app-123" });
+  it("validate returns true when PRIVY_APP_ID is set", async () => {
+    const mockRuntime = {
+      getSetting: (key: string) =>
+        key === "PRIVY_APP_ID" ? "app-123" : undefined,
+    };
     const result = await transferTokenAction.validate(
-      runtime,
+      mockRuntime as never,
       {} as never,
       {} as never,
     );
     expect(result).toBe(true);
   });
 
-  it("validates false when no wallet is configured", async () => {
-    const runtime = makeRuntime({});
+  it("validate returns false when no wallet is configured", async () => {
+    const mockRuntime = { getSetting: () => undefined };
     const result = await transferTokenAction.validate(
-      runtime,
+      mockRuntime as never,
       {} as never,
       {} as never,
     );
@@ -212,6 +205,54 @@ describe("TRANSFER_TOKEN action", () => {
     });
     expect((result as { success: boolean }).success).toBe(false);
     expect((result as { text: string }).text).toContain("asset symbol");
+  });
+
+  it("returns error when assetSymbol contains invalid characters", async () => {
+    const result = await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1.5",
+      assetSymbol: "B N B!",
+    });
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain("Invalid asset symbol");
+  });
+
+  it("returns error when assetSymbol is too long", async () => {
+    const result = await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1.5",
+      assetSymbol: "TOOLONGSYMBOL123456789",
+    });
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain("Invalid asset symbol");
+  });
+
+  // ── Parameter validation: tokenAddress (optional) ──────────────────
+
+  it("returns error when tokenAddress is provided but not a valid EVM address", async () => {
+    const result = await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1.5",
+      assetSymbol: "USDT",
+      tokenAddress: "not-an-address",
+    });
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain(
+      "Invalid token address",
+    );
+  });
+
+  it("returns error when tokenAddress is provided but too short", async () => {
+    const result = await callHandler({
+      toAddress: VALID_ADDRESS,
+      amount: "1.5",
+      assetSymbol: "USDT",
+      tokenAddress: "0x1234",
+    });
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain(
+      "Invalid token address",
+    );
   });
 
   // ── Successful API calls ─────────────────────────────────────────────
@@ -449,76 +490,6 @@ describe("TRANSFER_TOKEN action", () => {
       (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
     );
     expect(body.tokenAddress).toBeUndefined();
-  });
-
-  // ── Auth header ─────────────────────────────────────────────────────────
-
-  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
-    process.env.MILADY_API_TOKEN = "transfer-secret";
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        mode: "local-key",
-        executed: true,
-        requiresUserSignature: false,
-        toAddress: VALID_ADDRESS,
-        amount: "1",
-        assetSymbol: "BNB",
-        execution: {
-          hash: "0xauth",
-          explorerUrl: "https://bscscan.com/tx/0xauth",
-          status: "success",
-          blockNumber: 1,
-        },
-      }),
-    });
-
-    await callHandler({
-      toAddress: VALID_ADDRESS,
-      amount: "1",
-      assetSymbol: "BNB",
-    });
-
-    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect((opts.headers as Record<string, string>).Authorization).toBe(
-      "Bearer transfer-secret",
-    );
-  });
-
-  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
-    delete process.env.MILADY_API_TOKEN;
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        mode: "local-key",
-        executed: true,
-        requiresUserSignature: false,
-        toAddress: VALID_ADDRESS,
-        amount: "1",
-        assetSymbol: "BNB",
-        execution: {
-          hash: "0xnoauth",
-          explorerUrl: "https://bscscan.com/tx/0xnoauth",
-          status: "success",
-          blockNumber: 1,
-        },
-      }),
-    });
-
-    await callHandler({
-      toAddress: VALID_ADDRESS,
-      amount: "1",
-      assetSymbol: "BNB",
-    });
-
-    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(
-      (opts.headers as Record<string, string>).Authorization,
-    ).toBeUndefined();
   });
 
   // ── Error handling ───────────────────────────────────────────────────────

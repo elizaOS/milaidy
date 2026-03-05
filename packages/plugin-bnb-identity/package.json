@@ -26,11 +26,10 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./src/index.ts",
       "bun": "./src/index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -46,6 +45,7 @@
   },
   "scripts": {
     "build": "bun run build.ts",
+    "prepare": "bun run build.ts",
     "test": "bun test"
   },
   "agentConfig": {

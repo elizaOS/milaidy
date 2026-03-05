@@ -56,14 +56,15 @@ export const executeTradeAction: Action = {
     return Boolean(hasWallet);
   },
 
-  handler: async (_runtime, _message, _state, options) => {
+  handler: async (_runtime, message, _state, options) => {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
       logger.debug(
-        `[EXECUTE_TRADE] handler called hasParams=${Boolean(params)}`,
+        `[EXECUTE_TRADE] handler called with params:`,
+        JSON.stringify(params ?? {}),
       );
 
-      // ── Resolve side ───────────────────────────────────────────────
+      // ── Resolve side ─────────────────────────────────────────────────
       const rawSide = isValidParam(params?.side as string)
         ? (params?.side as string)
         : undefined;
@@ -72,7 +73,7 @@ export const executeTradeAction: Action = {
 
       if (side !== "buy" && side !== "sell") {
         return {
-          text: 'I need a valid trade side ("buy" or "sell"). Could you clarify whether you want to buy or sell?',
+          text: 'I need a valid trade side ("buy" or "sell").',
           success: false,
         };
       }
@@ -86,7 +87,7 @@ export const executeTradeAction: Action = {
 
       if (!tokenAddress || !BSC_ADDRESS_RE.test(tokenAddress)) {
         return {
-          text: "I need a valid BSC token contract address (0x-prefixed, 40 hex chars). Please provide the token address.",
+          text: "I need a valid BSC token contract address (0x-prefixed, 40 hex chars).",
           success: false,
         };
       }
@@ -105,7 +106,7 @@ export const executeTradeAction: Action = {
         Number(amountRaw) <= 0
       ) {
         return {
-          text: "I need a positive numeric amount for the trade. How much would you like to trade?",
+          text: "I need a positive numeric amount for the trade.",
           success: false,
         };
       }
@@ -127,7 +128,7 @@ export const executeTradeAction: Action = {
       }
 
       logger.debug(
-        `[EXECUTE_TRADE] resolved trade parameters side=${side} hasToken=${Boolean(tokenAddress)}`,
+        `[EXECUTE_TRADE] resolved: side=${side} token=${tokenAddress} amount=${amountRaw} slippage=${slippageBps}`,
       );
 
       // ── POST to trade execution API ──────────────────────────────────
@@ -180,7 +181,16 @@ export const executeTradeAction: Action = {
       };
 
       logger.debug(
-        `[EXECUTE_TRADE] trade API responded status=${result.ok ? "ok" : "error"}`,
+        `[EXECUTE_TRADE] API response:`,
+        JSON.stringify({
+          ok: result.ok,
+          side: result.side,
+          mode: result.mode,
+          executed: result.executed,
+          requiresUserSignature: result.requiresUserSignature,
+          hasExecution: !!result.execution,
+          error: result.error,
+        }),
       );
 
       if (!result.ok) {

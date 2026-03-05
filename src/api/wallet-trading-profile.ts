@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths.js";
 import type {
   BscTradeSide,
@@ -131,19 +130,9 @@ function normalizeStatus(value: unknown): BscTradeTxStatus {
 }
 
 function normalizeSide(value: unknown): BscTradeSide {
-  if (typeof value !== "string") {
-    logger.warn(
-      `wallet-trading-profile: invalid trade side value (${typeof value}), defaulting to buy`,
-    );
-    return "buy";
-  }
+  if (typeof value !== "string") return "buy";
   const normalized = value.trim().toLowerCase() as BscTradeSide;
-  if (!TRADE_SIDE_SET.has(normalized)) {
-    logger.warn(
-      `wallet-trading-profile: unrecognized trade side "${normalized}", defaulting to buy`,
-    );
-    return "buy";
-  }
+  if (!TRADE_SIDE_SET.has(normalized)) return "buy";
   return normalized;
 }
 
@@ -323,9 +312,6 @@ export function readWalletTradeLedgerStore(
   } catch {
     try {
       const corruptPath = `${filePath}.corrupt-${Date.now()}.json`;
-      logger.warn(
-        `[wallet-trading-profile] Ledger file corrupt, renaming to ${corruptPath}`,
-      );
       fs.renameSync(filePath, corruptPath);
     } catch {
       // Best effort backup; continue with empty store.

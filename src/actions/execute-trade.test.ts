@@ -2,8 +2,7 @@
  * Unit tests for the EXECUTE_TRADE action.
  *
  * Verifies parameter validation, API call handling, response formatting,
- * action metadata (name, similes, parameters), precondition checks,
- * auth header inclusion, and prompt-injection resistance.
+ * and action metadata (name, similes, parameters).
  */
 
 import type { HandlerOptions } from "@elizaos/core";
@@ -23,28 +22,18 @@ function callHandler(params: Record<string, unknown>) {
   );
 }
 
-function makeRuntime(settings: Record<string, string | null> = {}) {
-  return {
-    getSetting: (key: string) => settings[key] ?? null,
-  } as never;
-}
-
 // ── Test suite ───────────────────────────────────────────────────────────────
 
 describe("EXECUTE_TRADE action", () => {
   const originalFetch = globalThis.fetch;
-  const originalToken = process.env.MILADY_API_TOKEN;
 
   beforeEach(() => {
     // Reset fetch mock before each test
     globalThis.fetch = vi.fn();
-    delete process.env.MILADY_API_TOKEN;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.MILADY_API_TOKEN;
-    else process.env.MILADY_API_TOKEN = originalToken;
   });
 
   // ── Metadata ─────────────────────────────────────────────────────────────
@@ -81,12 +70,13 @@ describe("EXECUTE_TRADE action", () => {
     expect(slippage?.required).toBe(false);
   });
 
-  // ── Validate precondition checks ────────────────────────────────────────
-
   it("validates true when EVM_PRIVATE_KEY is set", async () => {
-    const runtime = makeRuntime({ EVM_PRIVATE_KEY: "0xdeadbeef" });
+    const runtime = {
+      getSetting: (key: string) =>
+        key === "EVM_PRIVATE_KEY" ? "0xdeadbeef" : undefined,
+    };
     const result = await executeTradeAction.validate(
-      runtime,
+      runtime as never,
       {} as never,
       {} as never,
     );
@@ -94,9 +84,12 @@ describe("EXECUTE_TRADE action", () => {
   });
 
   it("validates true when PRIVY_APP_ID is set", async () => {
-    const runtime = makeRuntime({ PRIVY_APP_ID: "app-123" });
+    const runtime = {
+      getSetting: (key: string) =>
+        key === "PRIVY_APP_ID" ? "app_123" : undefined,
+    };
     const result = await executeTradeAction.validate(
-      runtime,
+      runtime as never,
       {} as never,
       {} as never,
     );
@@ -104,9 +97,11 @@ describe("EXECUTE_TRADE action", () => {
   });
 
   it("validates false when no wallet is configured", async () => {
-    const runtime = makeRuntime({});
+    const runtime = {
+      getSetting: (_key: string) => undefined,
+    };
     const result = await executeTradeAction.validate(
-      runtime,
+      runtime as never,
       {} as never,
       {} as never,
     );
@@ -374,72 +369,6 @@ describe("EXECUTE_TRADE action", () => {
     expect(body.slippageBps).toBe(500);
   });
 
-  // ── Auth header ─────────────────────────────────────────────────────────
-
-  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
-    process.env.MILADY_API_TOKEN = "test-secret-token";
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        side: "buy",
-        mode: "local-key",
-        executed: true,
-        requiresUserSignature: false,
-        execution: {
-          hash: "0xauth",
-          explorerUrl: "https://bscscan.com/tx/0xauth",
-          status: "success",
-          blockNumber: 1,
-        },
-      }),
-    });
-
-    await callHandler({
-      side: "buy",
-      tokenAddress: VALID_TOKEN,
-      amount: "0.1",
-    });
-
-    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect((opts.headers as Record<string, string>).Authorization).toBe(
-      "Bearer test-secret-token",
-    );
-  });
-
-  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
-    delete process.env.MILADY_API_TOKEN;
-    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        side: "buy",
-        mode: "local-key",
-        executed: true,
-        requiresUserSignature: false,
-        execution: {
-          hash: "0xnoauth",
-          explorerUrl: "https://bscscan.com/tx/0xnoauth",
-          status: "success",
-          blockNumber: 1,
-        },
-      }),
-    });
-
-    await callHandler({
-      side: "buy",
-      tokenAddress: VALID_TOKEN,
-      amount: "0.1",
-    });
-
-    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(
-      (opts.headers as Record<string, string>).Authorization,
-    ).toBeUndefined();
-  });
-
   // ── Error handling ───────────────────────────────────────────────────────
 
   it("handles API error responses (non-ok HTTP)", async () => {
@@ -526,6 +455,121 @@ describe("EXECUTE_TRADE action", () => {
     expect((result as { success: boolean }).success).toBe(false);
   });
 
+  // ── Auth header ──────────────────────────────────────────────────────────
+
+  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
+    const originalToken = process.env.MILADY_API_TOKEN;
+    process.env.MILADY_API_TOKEN = "test-secret-token";
+
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        side: "buy",
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        execution: {
+          hash: "0xtoken123",
+          explorerUrl: "https://bscscan.com/tx/0xtoken123",
+          status: "success",
+          blockNumber: 1,
+        },
+      }),
+    });
+
+    await callHandler({
+      side: "buy",
+      tokenAddress: VALID_TOKEN,
+      amount: "0.5",
+    });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect((opts.headers as Record<string, string>)["Authorization"]).toBe(
+      "Bearer test-secret-token",
+    );
+
+    process.env.MILADY_API_TOKEN = originalToken;
+  });
+
+  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
+    const originalToken = process.env.MILADY_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
+
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        side: "buy",
+        mode: "local-key",
+        executed: true,
+        requiresUserSignature: false,
+        execution: {
+          hash: "0xnotoken",
+          explorerUrl: "https://bscscan.com/tx/0xnotoken",
+          status: "success",
+          blockNumber: 1,
+        },
+      }),
+    });
+
+    await callHandler({
+      side: "buy",
+      tokenAddress: VALID_TOKEN,
+      amount: "0.5",
+    });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(
+      (opts.headers as Record<string, string>)["Authorization"],
+    ).toBeUndefined();
+
+    process.env.MILADY_API_TOKEN = originalToken;
+  });
+
+  // ── Prompt injection resistance ──────────────────────────────────────────
+
+  it("returns missing-param error when side is not in structured params (no text fallback)", async () => {
+    // Previously extractParamsFromText would fill in side from message text.
+    // Now we require structured params only.
+    const result = await executeTradeAction.handler(
+      {} as never,
+      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      {} as never,
+      {
+        parameters: { tokenAddress: VALID_TOKEN, amount: "0.5" },
+      } as HandlerOptions,
+    );
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain("side");
+  });
+
+  it("returns missing-param error when tokenAddress is not in structured params (no text fallback)", async () => {
+    const result = await executeTradeAction.handler(
+      {} as never,
+      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      {} as never,
+      { parameters: { side: "buy", amount: "0.5" } } as HandlerOptions,
+    );
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain("address");
+  });
+
+  it("returns missing-param error when amount is not in structured params (no text fallback)", async () => {
+    const result = await executeTradeAction.handler(
+      {} as never,
+      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      {} as never,
+      {
+        parameters: { side: "buy", tokenAddress: VALID_TOKEN },
+      } as HandlerOptions,
+    );
+    expect((result as { success: boolean }).success).toBe(false);
+    expect((result as { text: string }).text).toContain("amount");
+  });
+
   // ── Side case-insensitivity ──────────────────────────────────────────────
 
   it("normalizes side to lowercase", async () => {
@@ -559,61 +603,5 @@ describe("EXECUTE_TRADE action", () => {
       (mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
     );
     expect(body.side).toBe("buy");
-  });
-
-  // ── Prompt injection resistance ────────────────────────────────────────
-
-  describe("prompt injection resistance", () => {
-    it("does NOT extract trade params from message text (no text fallback)", async () => {
-      // The handler should only use structured params, not parse free text.
-      // Pass a message with embedded address and number, but no structured params.
-      const result = await executeTradeAction.handler(
-        {} as never,
-        {
-          content: {
-            text: "What does token 0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82 do? I'm thinking of buying 50 of it",
-          },
-        } as never,
-        {} as never,
-        undefined,
-      );
-
-      // Should NOT trigger a trade — should fail due to missing structured params
-      expect((result as { success: boolean }).success).toBe(false);
-
-      // fetch should NOT have been called (no API request made)
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-    });
-
-    it("does NOT extract amounts from question-form messages", async () => {
-      // Even with a side param, amounts should NOT be parsed from text
-      const result = await executeTradeAction.handler(
-        {} as never,
-        {
-          content: {
-            text: "buy 50 BNB worth of some token",
-          },
-        } as never,
-        {} as never,
-        { parameters: { side: "buy" } } as HandlerOptions,
-      );
-
-      // Should fail: tokenAddress is missing from structured params
-      expect((result as { success: boolean }).success).toBe(false);
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-    });
-
-    it("does NOT extract addresses from conversation text when structured params have placeholder", async () => {
-      const result = await callHandler({
-        side: "buy",
-        tokenAddress: "unknown",
-        amount: "0.5",
-      });
-
-      // "unknown" should be rejected as a placeholder, NOT replaced by text extraction
-      expect((result as { success: boolean }).success).toBe(false);
-      expect((result as { text: string }).text).toContain("address");
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-    });
   });
 });

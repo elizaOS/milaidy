@@ -34,11 +34,11 @@ export const transferTokenAction: Action = {
     "Transfer tokens or native BNB to another address. Use this when a user " +
     "asks to send, transfer, or pay tokens to a recipient address on BSC.",
 
-  validate: async (runtime: IAgentRuntime) => {
-    const hasWallet =
+  validate: async (runtime: IAgentRuntime): Promise<boolean> => {
+    return Boolean(
       runtime.getSetting("EVM_PRIVATE_KEY") ||
-      runtime.getSetting("PRIVY_APP_ID");
-    return Boolean(hasWallet);
+        runtime.getSetting("PRIVY_APP_ID"),
+    );
   },
 
   handler: async (_runtime, _message, _state, options) => {
@@ -90,7 +90,7 @@ export const transferTokenAction: Action = {
         };
       }
 
-      if (assetSymbol && !/^[A-Za-z0-9]{1,20}$/.test(assetSymbol)) {
+      if (!/^[A-Za-z0-9]{1,20}$/.test(assetSymbol)) {
         return { text: "Invalid asset symbol format.", success: false };
       }
 
@@ -101,6 +101,10 @@ export const transferTokenAction: Action = {
           ? params.tokenAddress.trim()
           : undefined;
 
+      if (tokenAddress && !EVM_ADDRESS_RE.test(tokenAddress)) {
+        return { text: "Invalid token address format.", success: false };
+      }
+
       // ── POST to transfer execution API ─────────────────────────────────
       const body: Record<string, unknown> = {
         toAddress,
@@ -110,12 +114,6 @@ export const transferTokenAction: Action = {
       };
 
       if (tokenAddress) {
-        if (!EVM_ADDRESS_RE.test(tokenAddress)) {
-          return {
-            text: "Token address must be a valid EVM address (0x-prefixed, 40 hex chars).",
-            success: false,
-          };
-        }
         body.tokenAddress = tokenAddress;
       }
 

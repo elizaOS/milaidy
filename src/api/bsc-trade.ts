@@ -80,11 +80,6 @@ function normalizeRpcUrl(url: string | null | undefined): string | null {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
       return null;
-    if (parsed.protocol === "http:") {
-      logger.warn(
-        `BSC RPC URL uses http: (${parsed.host}) — MITM risk for trade execution. Use https: in production.`,
-      );
-    }
     return parsed.toString();
   } catch {
     return null;
@@ -110,7 +105,19 @@ export function resolvePrimaryBscRpcUrl(
   input: BscTradeRpcConfig,
 ): string | null {
   const urls = resolveBscRpcUrls(input);
-  return urls.length > 0 ? urls[0] : null;
+  if (urls.length === 0) return null;
+  const primary = urls[0];
+  try {
+    const parsed = new URL(primary);
+    if (parsed.protocol === "http:") {
+      logger.warn(
+        `BSC RPC URL uses http: (${parsed.host}) — MITM risk for trade execution. Use https: in production.`,
+      );
+    }
+  } catch {
+    // URL parsing failed; normalizeRpcUrl already validated it, so this shouldn't happen
+  }
+  return primary;
 }
 
 function hostLabel(url: string): string {
@@ -597,10 +604,10 @@ export function buildBscBuyUnsignedTx(
   recipientAddress: string | null,
   deadlineSeconds?: number,
 ): BscUnsignedTradeTx {
+  assertRouterAddress(quote);
   if (quote.side !== "buy") {
     throw new Error("Only buy execution is currently supported.");
   }
-  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");
@@ -633,10 +640,10 @@ export function buildBscSellUnsignedTx(
   recipientAddress: string | null,
   deadlineSeconds?: number,
 ): BscUnsignedTradeTx {
+  assertRouterAddress(quote);
   if (quote.side !== "sell") {
     throw new Error("Only sell execution is supported for this payload.");
   }
-  assertRouterAddress(quote);
   const normalizedRecipient = normalizeAddress(recipientAddress);
   if (!normalizedRecipient) {
     throw new Error("Recipient wallet address is required.");

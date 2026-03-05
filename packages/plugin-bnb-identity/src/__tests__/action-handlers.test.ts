@@ -95,10 +95,13 @@ mock.module("../service.js", () => ({
 
 // ── Test helpers ──────────────────────────────────────────────────────────
 
-function makeRuntime(overrides: Partial<Record<string, string>> = {}): IAgentRuntime {
+function makeRuntime(
+  overrides: Partial<Record<string, string>> = {},
+): IAgentRuntime {
   const settings: Record<string, string> = {
     BNB_NETWORK: "bsc-testnet",
-    BNB_PRIVATE_KEY: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    BNB_PRIVATE_KEY:
+      "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
     MILADY_GATEWAY_PORT: "18789",
     ...overrides,
   };
@@ -119,10 +122,14 @@ function makeMessage(text: string): Memory {
   } as unknown as Memory;
 }
 
-function collectCallbacks(): { calls: Array<{ text: string }>; fn: HandlerCallback } {
+function collectCallbacks(): {
+  calls: Array<{ text: string }>;
+  fn: HandlerCallback;
+} {
   const calls: Array<{ text: string }> = [];
   const fn: HandlerCallback = async (response) => {
     calls.push(response as { text: string });
+    return [];
   };
   return { calls, fn };
 }
@@ -151,7 +158,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("register milady on bnb chain");
       const { calls, fn } = collectCallbacks();
 
-      await registerAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await registerAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       // Should have set pending
       const pendingKey = registerPendingKey("test-agent-id");
@@ -180,7 +193,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("register milady on bnb chain");
       const { calls, fn } = collectCallbacks();
 
-      await registerAction.handler(runtimeNoKey, message, undefined as unknown as State, {}, fn);
+      await registerAction.handler(
+        runtimeNoKey,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       const lastCall = calls[calls.length - 1];
       expect(lastCall.text).toContain("BNB_PRIVATE_KEY");
@@ -207,7 +226,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("register milady on bnb chain");
       const { calls, fn } = collectCallbacks();
 
-      await registerAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await registerAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       const lastCall = calls[calls.length - 1];
       expect(lastCall.text).toContain("already has an on-chain identity");
@@ -236,7 +261,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("yes");
       const { calls, fn } = collectCallbacks();
 
-      await confirmAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await confirmAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       // Pending should be cleared
       expect(getPending(pendingKey)).toBeUndefined();
@@ -267,7 +298,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("no");
       const { calls, fn } = collectCallbacks();
 
-      await confirmAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await confirmAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       // Pending should be cleared
       expect(getPending(pendingKey)).toBeUndefined();
@@ -285,7 +322,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("yes");
       const { calls, fn } = collectCallbacks();
 
-      await confirmAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await confirmAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       const lastCall = calls[calls.length - 1];
       expect(lastCall.text).toContain("No pending");
@@ -372,7 +415,13 @@ describe("BNB Identity action handlers", () => {
       const message = makeMessage("yes");
       const { calls, fn } = collectCallbacks();
 
-      await confirmAction.handler(runtime, message, undefined as unknown as State, {}, fn);
+      await confirmAction.handler(
+        runtime,
+        message,
+        undefined as unknown as State,
+        {},
+        fn,
+      );
 
       const lastCall = calls[calls.length - 1];
       expect(lastCall.text).toContain("No pending");
