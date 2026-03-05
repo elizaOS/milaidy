@@ -375,7 +375,7 @@ jobs:
             find "$nm" -type d \( -name 'build-tmp*' -o -name 'node_gyp_bins' \) 2>/dev/null | while read -r d; do
               echo "Removing build artifact: $d"
               rm -rf "$d"
-            done
+            done || true
           done
         working-directory: apps/app/electron
 
