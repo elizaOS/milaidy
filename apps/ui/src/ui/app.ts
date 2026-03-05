@@ -5231,6 +5231,14 @@ export class MilaidyApp extends LitElement {
     const lower = msg.toLowerCase();
 
     if (
+      lower.includes("insufficient credits") ||
+      lower.includes("required: $") ||
+      lower.includes("ai_apicallerror: insufficient credits")
+    ) {
+      return "Provider credits are exhausted. Add credits or switch providers in AI Settings.";
+    }
+
+    if (
       lower.includes("quota") ||
       lower.includes("insufficient_quota") ||
       lower.includes("you exceeded your current quota") ||
@@ -5388,6 +5396,18 @@ export class MilaidyApp extends LitElement {
           label: "Auth issue",
           tone: "risk",
           detail: "Invalid or expired API key",
+        };
+      }
+      if (
+        joined.includes("insufficient credits") ||
+        joined.includes("required: $") ||
+        joined.includes("ai_apicallerror: insufficient credits")
+      ) {
+        return {
+          message: "Provider credits are exhausted. Add credits to the current provider or switch to another provider in AI Settings.",
+          label: "Credits exhausted",
+          tone: "warn",
+          detail: "Insufficient provider credits",
         };
       }
       if (
