@@ -193,9 +193,11 @@ describe("GET /api/nfa/learnings", () => {
       entries: Array<{ date: string; content: string; hash: string }>;
       merkleRoot: string;
       totalEntries: number;
+      source: string | null;
     };
 
     expect(data.totalEntries).toBe(2);
+    expect(data.source).toMatch(/LEARNINGS\.md$/);
     expect(data.entries[0].date).toBe("2025-01-01");
     expect(data.entries[1].date).toBe("2025-01-02");
 

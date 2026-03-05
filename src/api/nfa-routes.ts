@@ -49,6 +49,9 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 /**
  * Inline Merkle utilities — avoids importing from plugin package which
  * may not be installed. Mirrors the plugin's merkle.ts logic.
+ *
+ * Must stay in sync with packages/plugin-bnb-identity/src/merkle.ts.
+ * If the hashing algorithm or tree construction changes there, update here too.
  */
 function sha256Hex(data: string): string {
   return createHash("sha256").update(data, "utf8").digest("hex");
@@ -162,9 +165,11 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
     ];
 
     let markdown: string | null = null;
+    let resolvedSource: string | null = null;
     for (const p of learningsPaths) {
       try {
         markdown = await readFile(p, "utf8");
+        resolvedSource = p;
         break;
       } catch {}
     }
@@ -187,6 +192,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       entries,
       merkleRoot,
       totalEntries: entries.length,
+      source: resolvedSource,
     });
     return true;
   }

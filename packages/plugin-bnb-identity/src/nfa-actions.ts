@@ -21,6 +21,7 @@ import { Bap578NfaService } from "./nfa-service.js";
 import { patchNfaRecord, readNfaRecord, writeNfaRecord } from "./nfa-store.js";
 import type { Bap578NfaConfig } from "./types.js";
 import {
+  bscscanTxUrl,
   deletePending,
   getPending,
   normalizeBnbNetwork,
@@ -54,12 +55,6 @@ function loadConfig(runtime: IAgentRuntime): Bap578NfaConfig {
 
 function networkLabel(network: string): string {
   return network === "bsc" ? "BSC Mainnet" : `${network} (testnet)`;
-}
-
-function bscscanUrl(network: string, txHash: string): string {
-  const base =
-    network === "bsc" ? "https://bscscan.com" : "https://testnet.bscscan.com";
-  return `${base}/tx/${txHash}`;
 }
 
 async function loadLearningsMarkdown(): Promise<string | null> {
@@ -159,7 +154,7 @@ export const getNfaInfoAction: Action = {
           `**Merkle Root:** \`${info.merkleRoot}\`\n` +
           `**Paused:** ${info.paused ? "Yes" : "No"}\n` +
           `**Minted:** ${record.mintedAt}\n` +
-          `**BscScan:** ${bscscanUrl(info.network, record.mintTxHash)}`,
+          `**BscScan:** ${bscscanTxUrl(info.network, record.mintTxHash)}`,
       });
     } catch {
       // Fall back to local record
@@ -279,24 +274,19 @@ export const mintNfaAction: Action = {
     try {
       const result = await svc.mintNfa(learnings.merkleRoot);
 
+      // Derive owner address locally from the private key — no RPC needed.
+      const ownerAddress = svc.getOwnerAddress() ?? "";
+
       const record = {
         tokenId: result.tokenId,
         contractAddress: config.contractAddress,
         network: result.network,
-        ownerAddress: "", // populated on next getNfaInfo call
+        ownerAddress,
         mintTxHash: result.txHash,
         merkleRoot: learnings.merkleRoot,
         mintedAt: new Date().toISOString(),
         lastUpdatedAt: new Date().toISOString(),
       };
-
-      // Try to get owner address
-      try {
-        const info = await svc.getNfaInfo(result.tokenId);
-        record.ownerAddress = info.owner;
-      } catch {
-        // non-fatal
-      }
 
       await writeNfaRecord(record);
 
@@ -305,7 +295,7 @@ export const mintNfaAction: Action = {
           `NFA minted successfully!\n\n` +
           `**Token ID:** \`${result.tokenId}\`\n` +
           `**Network:** ${networkLabel(result.network)}\n` +
-          `**Tx:** ${bscscanUrl(result.network, result.txHash)}\n` +
+          `**Tx:** ${bscscanTxUrl(result.network, result.txHash)}\n` +
           `**Merkle Root:** \`${learnings.merkleRoot.slice(0, 16)}...\`\n\n` +
           `Milady's learning history is now provably anchored on-chain.`,
       });
@@ -445,7 +435,7 @@ export const updateLearningRootAction: Action = {
         text:
           `Learning root updated!\n\n` +
           `**Token ID:** \`${existing.tokenId}\`\n` +
-          `**Tx:** ${bscscanUrl(existing.network, result.txHash)}\n` +
+          `**Tx:** ${bscscanTxUrl(existing.network, result.txHash)}\n` +
           `**New root:** \`${learnings.merkleRoot.slice(0, 16)}...\`\n` +
           `**Entries:** ${learnings.totalEntries}`,
       });

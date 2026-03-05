@@ -101,6 +101,12 @@ export function resolveScanBase(network: string): string {
     : "https://testnet.8004scan.io";
 }
 
+export function bscscanTxUrl(network: string, txHash: string): string {
+  const base =
+    network === "bsc" ? "https://bscscan.com" : "https://testnet.bscscan.com";
+  return `${base}/tx/${txHash}`;
+}
+
 export function networkLabelForDisplay(network: string): string {
   return network === "bsc"
     ? "BSC Mainnet 🔴 REAL MONEY"

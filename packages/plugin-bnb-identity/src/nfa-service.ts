@@ -102,6 +102,16 @@ export class Bap578NfaService {
   }
 
   /**
+   * Returns the wallet address derived from the configured private key.
+   * No RPC call needed — address is computed locally from the key.
+   * Returns null if no private key is configured.
+   */
+  getOwnerAddress(): string | null {
+    if (!this.config.privateKey) return null;
+    return new Wallet(this.config.privateKey).address;
+  }
+
+  /**
    * Updates the on-chain Merkle root for an existing NFA token.
    * Caller must own the token and obtain user confirmation first.
    */
