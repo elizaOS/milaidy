@@ -8312,12 +8312,10 @@ export class MilaidyApp extends LitElement {
       this.isAccountConnectionPlugin(p) && !this.isAppIntegrationPlugin(p),
     );
     const sourcePlugins = viewMode === "ai" ? this.aiPluginCatalog() : this.plugins;
-    const aiSetupPluginsAll = sourcePlugins.filter((p) =>
+    const aiCorePlugins = sourcePlugins.filter((p) =>
       !this.isHiddenSystemPlugin(p.id) &&
-      (this.isAiProviderPlugin(p) || p.category === "database" || p.category === "connector" || p.category === "feature"),
+      (this.isAiProviderPlugin(p) || p.category === "database"),
     );
-    const aiCorePlugins = aiSetupPluginsAll.filter((p) => this.isAiProviderPlugin(p) || p.category === "database");
-    const aiExtendedPlugins = aiSetupPluginsAll.filter((p) => !(this.isAiProviderPlugin(p) || p.category === "database"));
     const availableConnections = viewMode === "accounts" ? accountPlugins : aiCorePlugins;
     const searchLower = this.pluginSearch.toLowerCase();
     const baseFiltered = availableConnections.filter((p) => {
@@ -8623,46 +8621,6 @@ export class MilaidyApp extends LitElement {
             : ""}
         </div>
 
-        ${viewMode === "ai" && aiExtendedPlugins.length > 0
-          ? html`
-              <details style="margin-top:10px;border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,0.72);">
-                <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-strong);">
-                  Module matrix (${aiSetupPluginsAll.length})
-                </summary>
-                <div style="margin-top:8px;display:grid;gap:8px;">
-                  ${aiSetupPluginsAll.map((plugin) => {
-                    const statusLabel = this.pluginStatusLabel(plugin);
-                    const ready = this.isPluginUserReady(plugin);
-                    const risk = this.pluginRisk(plugin);
-                    return html`
-                      <div style="border:1px solid var(--border-soft);border-radius:8px;padding:8px;background:rgba(255,255,255,0.88);display:grid;gap:6px;">
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                          <img
-                            src=${this.appIconPath(plugin.id)}
-                            alt=${`${plugin.name} icon`}
-                            style="width:18px;height:18px;border-radius:5px;border:1px solid var(--border-soft);object-fit:cover;"
-                            @error=${(e: Event) => this.handleIconError(e, "/brands/generic-app.svg")}
-                          />
-                          <span style="font-size:12px;font-weight:700;color:var(--text-strong);">${plugin.name}</span>
-                          <span class="plugin-state-tag">${this.autonomyCategoryLabel(plugin)}</span>
-                          <span class="plugin-state-tag ${ready ? "ok" : "warn"}">${ready ? "Ready" : "Needs setup"}</span>
-                          <span class="plugin-state-tag ${statusLabel === "Loaded" ? "ok" : statusLabel === "Missing keys" || statusLabel === "Missing auth" ? "warn" : ""}">
-                            ${statusLabel}
-                          </span>
-                          <span class="plugin-state-tag ${risk === "CAN_SPEND" ? "risk" : risk === "CAN_EXECUTE" ? "warn" : ""}">
-                            ${risk}
-                          </span>
-                        </div>
-                        <div style="font-size:11px;color:var(--muted);">
-                          ${this.autonomyPolicyLabel(plugin)}
-                        </div>
-                      </div>
-                    `;
-                  })}
-                </div>
-              </details>
-            `
-          : ""}
       </div>
 
       ${baseFiltered.length === 0
