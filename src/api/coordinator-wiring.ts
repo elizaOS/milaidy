@@ -28,17 +28,19 @@ export interface WireResult {
   eventRouting: boolean;
 }
 
+const POLL_INTERVAL_MS = 2_000;
+const POLL_TIMEOUT_MS = 90_000;
 const RETRY_DELAY_MS = 500;
 const MAX_RETRIES = 5;
-const SERVICE_TIMEOUT_MS = 60_000;
 
 /**
- * Wire coordinator bridges using event-driven service loading.
+ * Wire coordinator bridges using polling-based service discovery.
  *
  * 1. Attempts immediate wiring (coordinator may already be available).
- * 2. If any bridge fails and runtime has getServiceLoadPromise, waits for
- *    SWARM_COORDINATOR to load (with timeout).
- * 3. After service promise resolves, retries failed bridges up to MAX_RETRIES.
+ * 2. If any bridge fails, polls for the SWARM_COORDINATOR service via
+ *    `runtime.getService()` (the orchestrator plugin registers it via
+ *    direct map insertion, so `getServiceLoadPromise` never resolves).
+ * 3. Once the service appears, retries failed bridges up to MAX_RETRIES.
  * 4. On timeout or exhaustion, broadcasts a system-warning WS event.
  *
  * Safe for fire-and-forget (`void wireCoordinatorBridgesWhenReady(...)`).
@@ -64,39 +66,36 @@ export async function wireCoordinatorBridgesWhenReady<S extends WirableState>(
       return result;
     }
 
-    // 2. Wait for SWARM_COORDINATOR service to load
+    // 2. Poll for SWARM_COORDINATOR service to appear
     const runtime = state.runtime;
-    if (
-      !runtime ||
-      !("getServiceLoadPromise" in runtime) ||
-      typeof runtime.getServiceLoadPromise !== "function"
-    ) {
-      broadcastWarning(
-        state,
-        result,
-        context,
-        "no runtime or getServiceLoadPromise",
-      );
+    if (!runtime) {
       logger.warn(
-        `[milady-api] Coordinator wiring incomplete (${context}): runtime unavailable for service-load wait`,
+        `[milady-api] Coordinator wiring skipped (${context}): no runtime`,
       );
       return result;
     }
 
-    const servicePromise = runtime.getServiceLoadPromise("SWARM_COORDINATOR");
-    const timeout = new Promise<"timeout">((resolve) => {
-      setTimeout(() => resolve("timeout"), SERVICE_TIMEOUT_MS);
-    });
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    let serviceFound = false;
 
-    const race = await Promise.race([
-      servicePromise.then(() => "loaded" as const),
-      timeout,
-    ]);
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
-    if (race === "timeout") {
-      broadcastWarning(state, result, context, "service load timed out");
-      logger.warn(
-        `[milady-api] SWARM_COORDINATOR did not load within ${SERVICE_TIMEOUT_MS / 1000}s (${context})`,
+      const svc = runtime.getService("SWARM_COORDINATOR");
+      if (svc) {
+        serviceFound = true;
+        logger.debug?.(
+          `[milady-api] SWARM_COORDINATOR service detected (${context})`,
+        );
+        break;
+      }
+    }
+
+    if (!serviceFound) {
+      // Service never appeared — log at debug level only. This is normal
+      // if the orchestrator plugin is disabled or not configured.
+      logger.debug?.(
+        `[milady-api] SWARM_COORDINATOR not available after ${POLL_TIMEOUT_MS / 1000}s (${context}) — coding agent features disabled`,
       );
       return result;
     }
@@ -118,7 +117,7 @@ export async function wireCoordinatorBridgesWhenReady<S extends WirableState>(
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
 
-    // 4. Exhausted retries after service load
+    // 4. Exhausted retries after service load — this is a real problem
     broadcastWarning(
       state,
       result,

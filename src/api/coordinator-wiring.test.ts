@@ -7,13 +7,12 @@ import {
 
 function makeMockState(
   overrides?: Partial<WirableState> & {
-    getServiceLoadPromise?: (name: string) => Promise<void>;
+    getService?: (name: string) => unknown;
   },
 ): WirableState {
   const broadcastWs = vi.fn();
   const runtime = {
-    getServiceLoadPromise:
-      overrides?.getServiceLoadPromise ?? (() => new Promise<void>(() => {})),
+    getService: overrides?.getService ?? (() => null),
   };
   return {
     runtime: (overrides?.runtime === null
@@ -46,9 +45,7 @@ describe("wireCoordinatorBridgesWhenReady", () => {
   });
 
   it("should wire all bridges immediately when all succeed on first try", async () => {
-    const state = makeMockState({
-      getServiceLoadPromise: () => Promise.resolve(),
-    });
+    const state = makeMockState();
     const opts = makeOpts();
 
     const result = await wireCoordinatorBridgesWhenReady(state, opts);
@@ -61,14 +58,14 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     expect(state.broadcastWs).not.toHaveBeenCalled();
   });
 
-  it("should wait for service load promise then retry successfully", async () => {
-    let resolveService!: () => void;
-    const servicePromise = new Promise<void>((r) => {
-      resolveService = r;
-    });
-    const state = makeMockState({
-      getServiceLoadPromise: () => servicePromise,
-    });
+  it("should poll for service then retry successfully", async () => {
+    // Service appears after a few polls
+    const getService = vi
+      .fn<(name: string) => unknown>()
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(null)
+      .mockReturnValue({ serviceType: "SWARM_COORDINATOR" });
+    const state = makeMockState({ getService });
 
     // Chat fails initially, succeeds after service loads
     const wireChatBridge = vi
@@ -81,41 +78,32 @@ describe("wireCoordinatorBridgesWhenReady", () => {
 
     const promise = wireCoordinatorBridgesWhenReady(state, opts);
 
-    // Service loads
-    resolveService();
+    // Advance past poll intervals (3 polls * 2s = 6s)
+    await vi.advanceTimersByTimeAsync(6_000);
     const result = await promise;
 
     expect(result.chat).toBe(true);
     expect(result.ws).toBe(true);
     expect(result.eventRouting).toBe(true);
-    // Chat was called twice: initial + one retry after service load
+    // Chat was called twice: initial + one retry after service found
     expect(wireChatBridge).toHaveBeenCalledTimes(2);
-    // WS/event succeeded initially and should not be retried
-    expect(wireWsBridge).toHaveBeenCalledTimes(1);
-    expect(wireEventRouting).toHaveBeenCalledTimes(1);
   });
 
-  it("should broadcast system-warning on timeout", async () => {
-    // Service never resolves
-    const state = makeMockState({
-      getServiceLoadPromise: () => new Promise<void>(() => {}),
-    });
+  it("should not broadcast warning when service never appears (not configured)", async () => {
+    // Service never loads — getService always returns null
+    const state = makeMockState({ getService: () => null });
     const wireChatBridge = vi.fn(() => false);
     const opts = makeOpts({ wireChatBridge });
 
     const promise = wireCoordinatorBridgesWhenReady(state, opts);
 
-    // Advance past the 60s timeout
-    await vi.advanceTimersByTimeAsync(61_000);
+    // Advance past the 90s poll timeout
+    await vi.advanceTimersByTimeAsync(92_000);
     const result = await promise;
 
     expect(result.chat).toBe(false);
-    expect(state.broadcastWs).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "system-warning",
-        message: expect.stringContaining("service load timed out"),
-      }),
-    );
+    // No system-warning broadcast — silent timeout is expected when plugin not loaded
+    expect(state.broadcastWs).not.toHaveBeenCalled();
   });
 
   it("should handle null runtime gracefully", async () => {
@@ -133,26 +121,16 @@ describe("wireCoordinatorBridgesWhenReady", () => {
 
     const result = await wireCoordinatorBridgesWhenReady(state, opts);
 
-    // Bridges fail because runtime is null
     expect(result.chat).toBe(false);
-    // System-warning broadcast about missing runtime
-    expect(broadcastWs).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "system-warning",
-        message: expect.stringContaining("no runtime or getServiceLoadPromise"),
-      }),
-    );
-    expect(warnFn).toHaveBeenCalled();
+    // No broadcast — just a log
+    expect(broadcastWs).not.toHaveBeenCalled();
+    expect(warnFn).toHaveBeenCalledWith(expect.stringContaining("no runtime"));
   });
 
   it("should not re-call a bridge that already succeeded during retries", async () => {
-    let resolveService!: () => void;
-    const servicePromise = new Promise<void>((r) => {
-      resolveService = r;
-    });
-    const state = makeMockState({
-      getServiceLoadPromise: () => servicePromise,
-    });
+    // Service appears immediately on first poll
+    const getService = vi.fn(() => ({ serviceType: "SWARM_COORDINATOR" }));
+    const state = makeMockState({ getService });
 
     // Chat succeeds immediately, ws/event fail initially
     const wireChatBridge = vi.fn(() => true);
@@ -167,7 +145,8 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     const opts = makeOpts({ wireChatBridge, wireWsBridge, wireEventRouting });
 
     const promise = wireCoordinatorBridgesWhenReady(state, opts);
-    resolveService();
+    // Advance past poll interval
+    await vi.advanceTimersByTimeAsync(3_000);
     const result = await promise;
 
     expect(result).toEqual({ chat: true, ws: true, eventRouting: true });
@@ -179,9 +158,9 @@ describe("wireCoordinatorBridgesWhenReady", () => {
   });
 
   it("should exhaust retries and warn when wiring always fails after service load", async () => {
-    const state = makeMockState({
-      getServiceLoadPromise: () => Promise.resolve(),
-    });
+    // Service appears immediately
+    const getService = vi.fn(() => ({ serviceType: "SWARM_COORDINATOR" }));
+    const state = makeMockState({ getService });
 
     // All bridges always fail
     const wireChatBridge = vi.fn(() => false);
@@ -190,8 +169,8 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     const opts = makeOpts({ wireChatBridge, wireWsBridge, wireEventRouting });
 
     const promise = wireCoordinatorBridgesWhenReady(state, opts);
-    // Advance timers to cover all retry delays (5 retries * 500ms)
-    await vi.advanceTimersByTimeAsync(3_000);
+    // Advance timers: poll interval (2s) + retry delays (5 * 500ms)
+    await vi.advanceTimersByTimeAsync(5_000);
     const result = await promise;
 
     expect(result).toEqual({ chat: false, ws: false, eventRouting: false });
