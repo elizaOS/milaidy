@@ -232,6 +232,30 @@ describe("Agent Orchestrator Plugin Loading", () => {
     // The stub should export this for coordinator access
     expect(typeof mod.getCoordinator).toBe("function");
   });
+
+  it("installed version is >= 0.3.4 with ready-event timeout fallback (F-12)", async () => {
+    // Read the installed package version to verify the bump took effect
+    const pkgPath = path.resolve(
+      packageRoot,
+      "node_modules/@elizaos/plugin-agent-orchestrator/package.json",
+    );
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      version: string;
+    };
+    const [major, minor, patch] = pkg.version.split(".").map(Number);
+    expect(
+      major > 0 || minor > 3 || (minor === 3 && patch >= 4),
+      `Expected >= 0.3.4, got ${pkg.version}`,
+    ).toBe(true);
+
+    // Verify the timeout fallback code is present in the bundle
+    const distPath = path.resolve(
+      packageRoot,
+      "node_modules/@elizaos/plugin-agent-orchestrator/dist/index.js",
+    );
+    const dist = fs.readFileSync(distPath, "utf-8");
+    expect(dist).toContain("ready event not received");
+  });
 });
 
 // ===================================================================
