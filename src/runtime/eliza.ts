@@ -1950,6 +1950,10 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   const hasMigrationsSchema =
     haystack.includes("create schema if not exists migrations") ||
     haystack.includes("failed query: create schema if not exists migrations");
+  const hasMigrationsMetadataLookupFailure =
+    haystack.includes("from migrations._migrations") ||
+    haystack.includes('relation "migrations._migrations" does not exist') ||
+    haystack.includes("no such table: migrations._migrations");
   const hasMigrationFailureSummary =
     haystack.includes("migration(s) failed") ||
     haystack.includes("some migrations failed");
@@ -1969,6 +1973,9 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   ].some((needle) => haystack.includes(needle));
 
   if (hasMigrationsSchema) return true;
+  // Newer plugin-sql builds may fail while reading migration metadata
+  // (migrations._migrations) before CREATE SCHEMA appears in the error chain.
+  if (hasMigrationsMetadataLookupFailure) return true;
   // Some plugin-sql failures collapse to a generic migration summary where
   // each plugin error is "Program terminated with exit(1)" from PGlite.
   if (hasMigrationFailureSummary && hasExitStatusCrash) return true;

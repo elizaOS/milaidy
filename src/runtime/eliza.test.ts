@@ -1252,6 +1252,18 @@ describe("isRecoverablePgliteInitError", () => {
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 
+  it("returns true when migration metadata lookup hits migrations._migrations", () => {
+    const err = new Error(
+      "Failed query: SELECT id, hash, created_at FROM migrations._migrations WHERE plugin_name = $1",
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when migrations._migrations relation is missing", () => {
+    const err = new Error('relation "migrations._migrations" does not exist');
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
   it("returns false for migration failures without recoverable signals", () => {
     const err = new Error(
       "1 migration(s) failed:\n  worlds: relation \"foo\" does not exist",
