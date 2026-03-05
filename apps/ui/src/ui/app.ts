@@ -2537,17 +2537,18 @@ export class MilaidyApp extends LitElement {
       position: absolute;
       right: 0;
       top: calc(100% + 8px);
-      width: min(460px, 92vw);
-      max-height: min(70vh, 640px);
+      width: min(390px, calc(100vw - 48px));
+      max-height: min(54dvh, 460px);
       overflow: auto;
       z-index: 40;
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 10px;
+      padding: 8px;
       background: linear-gradient(165deg, rgba(255, 254, 252, 0.96), rgba(255, 250, 242, 0.96));
       box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
       display: grid;
-      gap: 10px;
+      gap: 8px;
+      box-sizing: border-box;
     }
 
     .autonomy-title {
@@ -2565,13 +2566,13 @@ export class MilaidyApp extends LitElement {
     .autonomy-kpis {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
     }
 
     .autonomy-kpi {
       border: 1px solid var(--border-soft);
       border-radius: 9px;
-      padding: 7px 8px;
+      padding: 6px 7px;
       background: rgba(255, 255, 255, 0.82);
     }
 
@@ -2584,7 +2585,7 @@ export class MilaidyApp extends LitElement {
 
     .autonomy-kpi-value {
       margin-top: 2px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text-strong);
     }
@@ -2592,10 +2593,10 @@ export class MilaidyApp extends LitElement {
     .autonomy-lines {
       border: 1px solid var(--border-soft);
       border-radius: 9px;
-      padding: 8px 9px;
+      padding: 7px 8px;
       background: rgba(255, 255, 255, 0.75);
       display: grid;
-      gap: 6px;
+      gap: 5px;
     }
 
     .autonomy-line {
@@ -2623,7 +2624,7 @@ export class MilaidyApp extends LitElement {
     .autonomy-modules {
       border: 1px solid var(--border-soft);
       border-radius: 9px;
-      padding: 8px 9px;
+      padding: 7px 8px;
       background: rgba(255, 255, 255, 0.75);
     }
 
@@ -2635,15 +2636,15 @@ export class MilaidyApp extends LitElement {
     }
 
     .autonomy-module-list {
-      margin-top: 8px;
+      margin-top: 6px;
       display: grid;
-      gap: 6px;
+      gap: 5px;
     }
 
     .autonomy-module-item {
       border: 1px solid var(--border-soft);
       border-radius: 8px;
-      padding: 7px;
+      padding: 6px;
       background: rgba(255, 255, 255, 0.86);
       display: grid;
       gap: 4px;
@@ -2670,7 +2671,7 @@ export class MilaidyApp extends LitElement {
     .autonomy-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
@@ -3933,6 +3934,22 @@ export class MilaidyApp extends LitElement {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
+      }
+
+      .autonomy-dropdown {
+        width: 100%;
+      }
+
+      .autonomy-trigger {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .autonomy-menu {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-height: min(50dvh, 400px);
       }
 
       .chat-msg {
