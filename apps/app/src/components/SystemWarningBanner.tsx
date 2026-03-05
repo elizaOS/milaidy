@@ -20,6 +20,7 @@ export function SystemWarningBanner() {
 
   // Auto-dismiss warnings after AUTO_DISMISS_MS
   useEffect(() => {
+    if (!systemWarnings?.length) return;
     const timers = timersRef.current;
     for (const message of systemWarnings) {
       if (!timers.has(message)) {
