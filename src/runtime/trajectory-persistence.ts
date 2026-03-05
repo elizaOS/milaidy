@@ -323,6 +323,15 @@ function warnRuntime(
   }
 }
 
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in (value as Record<string, unknown>) &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
 async function ensureTrajectoriesTable(
   runtime: IAgentRuntime,
 ): Promise<boolean> {
@@ -1034,7 +1043,12 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   logger.logLlmCall = ((...args: unknown[]) => {
     if (originalLogLlmCall) {
       try {
-        originalLogLlmCall(...args);
+        const originalResult = originalLogLlmCall(...args);
+        if (isPromiseLike(originalResult)) {
+          void originalResult.catch((err: unknown) => {
+            warnRuntime(runtime, "Trajectory logger logLlmCall rejected", err);
+          });
+        }
       } catch (err) {
         warnRuntime(runtime, "Trajectory logger logLlmCall threw", err);
       }
@@ -1059,7 +1073,16 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   logger.logProviderAccess = ((...args: unknown[]) => {
     if (originalLogProviderAccess) {
       try {
-        originalLogProviderAccess(...args);
+        const originalResult = originalLogProviderAccess(...args);
+        if (isPromiseLike(originalResult)) {
+          void originalResult.catch((err: unknown) => {
+            warnRuntime(
+              runtime,
+              "Trajectory logger logProviderAccess rejected",
+              err,
+            );
+          });
+        }
       } catch (err) {
         warnRuntime(runtime, "Trajectory logger logProviderAccess threw", err);
       }
