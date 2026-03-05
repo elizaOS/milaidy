@@ -11677,8 +11677,6 @@ export class MilaidyApp extends LitElement {
       <h2>Security</h2>
       <p class="subtitle">Protect spend and execution actions with confirmations, wallet safeguards, and audit history.</p>
 
-      ${this.renderAutonomySection()}
-
       <div style="margin-top:12px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="font-weight:bold;font-size:14px;margin-bottom:8px;">Action confirmations</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
@@ -11810,6 +11808,8 @@ export class MilaidyApp extends LitElement {
             : ""}
         </div>
       </div>
+
+      ${this.renderAutonomySection()}
 
       <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="font-weight:bold;font-size:14px;margin-bottom:8px;">Wallet protection</div>
