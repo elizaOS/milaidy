@@ -9443,6 +9443,7 @@ async function handleRequest(
       pathname,
       json,
       error,
+      readJsonBody: () => readJsonBody(req, res),
       nfaContractAddress: process.env.BAP578_CONTRACT_ADDRESS,
       workspaceDir:
         state.config.agents?.defaults?.workspace ??
