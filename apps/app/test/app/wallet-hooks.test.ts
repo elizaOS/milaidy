@@ -14,11 +14,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   HEX_ADDRESS_RE,
-  mapWalletTradeError,
-  safeExplorerHref,
   loadRecentTrades,
-  persistRecentTrades,
   MAX_WALLET_RECENT_TRADES,
+  mapWalletTradeError,
+  persistRecentTrades,
+  safeExplorerHref,
   type TranslatorFn,
   type WalletRecentTrade,
 } from "../../src/components/companion/walletUtils";
@@ -114,9 +114,7 @@ describe("safeExplorerHref", () => {
   });
 
   it("returns fallback when explorerUrl is empty string", () => {
-    expect(safeExplorerHref("", "0xabc")).toBe(
-      "https://bscscan.com/tx/0xabc",
-    );
+    expect(safeExplorerHref("", "0xabc")).toBe("https://bscscan.com/tx/0xabc");
   });
 });
 
@@ -174,12 +172,12 @@ describe("swap validation logic", () => {
 
   it("maps trade errors to human-readable messages", () => {
     const t = mockT({ "wallet.failedFetchQuote": "Quote failed" });
-    expect(mapWalletTradeError(new Error("Bad token"), t, "wallet.failedFetchQuote")).toBe(
-      "Bad token",
-    );
-    expect(mapWalletTradeError("String error", t, "wallet.failedFetchQuote")).toBe(
-      "String error",
-    );
+    expect(
+      mapWalletTradeError(new Error("Bad token"), t, "wallet.failedFetchQuote"),
+    ).toBe("Bad token");
+    expect(
+      mapWalletTradeError("String error", t, "wallet.failedFetchQuote"),
+    ).toBe("String error");
     expect(mapWalletTradeError(null, t, "wallet.failedFetchQuote")).toBe(
       "Quote failed",
     );
@@ -265,9 +263,7 @@ describe("trade history logic", () => {
     const newEntries: WalletRecentTrade[] = [];
     for (const swap of ledgerSwaps) {
       if (existingHashes.has(swap.hash)) continue;
-      newEntries.push(
-        makeTrade({ hash: swap.hash, createdAt: 1800 }),
-      );
+      newEntries.push(makeTrade({ hash: swap.hash, createdAt: 1800 }));
     }
 
     const merged = [...newEntries, ...localTrades]
@@ -320,10 +316,7 @@ describe("trade history logic", () => {
       makeTrade({ hash: "0x4", status: "pending" }),
     ];
 
-    const filterByStatus = (
-      items: WalletRecentTrade[],
-      filter: string,
-    ) => {
+    const filterByStatus = (items: WalletRecentTrade[], filter: string) => {
       if (filter === "all") return items;
       return items.filter((e) => e.status === filter);
     };

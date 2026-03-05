@@ -124,10 +124,7 @@ export function WalletTradeHistory({
                           {getWalletTxStatusLabel(entry.status, t)}
                         </span>
                         <a
-                          href={safeExplorerHref(
-                            entry.explorerUrl,
-                            entry.hash,
-                          )}
+                          href={safeExplorerHref(entry.explorerUrl, entry.hash)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="anime-wallet-tx-link anime-wallet-recent-link"

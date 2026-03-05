@@ -98,9 +98,7 @@ export function WalletTradingProfileModal({
         ))}
       </div>
 
-      {error && (
-        <div className="anime-wallet-popover-error">{error}</div>
-      )}
+      {error && <div className="anime-wallet-popover-error">{error}</div>}
 
       {summary && (
         <div className="anime-wallet-trading-profile-summary">
