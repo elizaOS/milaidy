@@ -422,6 +422,7 @@ export class MilaidyApp extends LitElement {
   private subscriptionStatusLoadedAt = 0;
   private extensionCheckedAt = 0;
   private chatAutonomyLoadedAt = 0;
+  private pendingSecuritySection: string | null = null;
   private tabDataLoadRaf: number | null = null;
 
   static styles = css`
@@ -4505,6 +4506,31 @@ export class MilaidyApp extends LitElement {
     this.applyTab(tab, { pushHistory: true });
   }
 
+  private openSecuritySection(section: string): void {
+    this.pendingSecuritySection = section;
+    this.setTab("config");
+    this.scrollToPendingSecuritySection();
+  }
+
+  private scrollToPendingSecuritySection(): void {
+    const section = this.pendingSecuritySection;
+    if (!section) return;
+    const selector = `[data-security-section="${section}"]`;
+    const tryScroll = (attempt: number): void => {
+      const target = this.shadowRoot?.querySelector<HTMLElement>(selector);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        this.pendingSecuritySection = null;
+        return;
+      }
+      if (attempt >= 8) return;
+      setTimeout(() => tryScroll(attempt + 1), 60);
+    };
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => tryScroll(0));
+    });
+  }
+
   // Centralized top-of-app transient notice surface.
   // Use this instead of adding one-off popup banners in feature sections.
   private showUiNotice(message: string): void {
@@ -8090,7 +8116,7 @@ export class MilaidyApp extends LitElement {
           </div>
 
           <div class="autonomy-actions">
-            <button class="plugin-secondary-btn" @click=${() => this.setTab("config")}>Security</button>
+            <button class="plugin-secondary-btn" @click=${() => this.openSecuritySection("autonomy")}>Security</button>
           </div>
         </div>
       </details>
@@ -11539,7 +11565,7 @@ export class MilaidyApp extends LitElement {
     ).length;
 
     return html`
-      <div style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
+      <div data-security-section="autonomy" style="margin-top:24px;padding:16px;border:1px solid var(--border);background:var(--card);">
         <div style="font-weight:bold;font-size:14px;margin-bottom:8px;">Agent autonomy</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
           Full module scope and execution posture. This includes model, memory, runtime, connector, and app modules.
