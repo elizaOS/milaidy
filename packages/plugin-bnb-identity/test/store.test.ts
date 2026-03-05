@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  clearIdentity,
+  patchIdentity,
   readIdentity,
   writeIdentity,
-  patchIdentity,
-  clearIdentity,
+  readNfa,
+  writeNfa,
+  patchNfa,
+  clearNfa,
 } from "../src/store.js";
-import type { IdentityRecord } from "../src/types.js";
+import type { IdentityRecord, NfaRecord } from "../src/types.js";
 
 const mockRecord: IdentityRecord = {
   agentId: "42",
@@ -70,12 +74,68 @@ describe("identity store", () => {
 
   it("throws on patchIdentity when no record exists", async () => {
     expect(patchIdentity({ agentURI: "ipfs://Qm" })).rejects.toThrow(
-      "No identity record found"
+      "No identity record found",
     );
   });
 
   it("clearIdentity is idempotent — does not throw if file is missing", async () => {
     await clearIdentity(); // file already gone from beforeEach
     await expect(clearIdentity()).resolves.toBeUndefined();
+  });
+});
+
+const mockNfa: NfaRecord = {
+  tokenId: "1",
+  network: "bsc-testnet",
+  owner: "0xabc123",
+  learningRoot: "0x" + "0".repeat(64),
+  learningCount: 0,
+  lastAnchoredAt: "2026-03-05T00:00:00.000Z",
+  paused: false,
+  mintTxHash: "0xdeadbeef",
+};
+
+describe("nfa store", () => {
+  beforeEach(async () => {
+    await clearNfa();
+  });
+
+  afterEach(async () => {
+    await clearNfa();
+  });
+
+  it("returns null when no NFA file exists", async () => {
+    const result = await readNfa();
+    expect(result).toBeNull();
+  });
+
+  it("writes and reads back an NFA record", async () => {
+    await writeNfa(mockNfa);
+    const result = await readNfa();
+    expect(result).not.toBeNull();
+    expect(result?.tokenId).toBe("1");
+    expect(result?.paused).toBe(false);
+  });
+
+  it("patches specific NFA fields while preserving others", async () => {
+    await writeNfa(mockNfa);
+    const patched = await patchNfa({
+      learningRoot: "0x" + "a".repeat(64),
+      learningCount: 5,
+    });
+    expect(patched.learningRoot).toBe("0x" + "a".repeat(64));
+    expect(patched.learningCount).toBe(5);
+    expect(patched.tokenId).toBe("1");
+  });
+
+  it("throws on patchNfa when no record exists", async () => {
+    expect(patchNfa({ paused: true })).rejects.toThrow(
+      "No NFA record found",
+    );
+  });
+
+  it("clearNfa is idempotent", async () => {
+    await clearNfa();
+    await expect(clearNfa()).resolves.toBeUndefined();
   });
 });

@@ -35,7 +35,8 @@
   },
   "files": ["dist", "package.json"],
   "dependencies": {
-    "@elizaos/core": "next"
+    "@elizaos/core": "next",
+    "ethers": "^6.13.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

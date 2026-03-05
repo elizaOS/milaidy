@@ -3,8 +3,8 @@ import {
   assertMcpToolSuccess,
   extractMcpPayload,
   extractMcpTextPayload,
-  parseMcpResult,
   type McpToolResponse,
+  parseMcpResult,
 } from "../src/service.js";
 
 const toolName = "some_mcp_tool";
@@ -55,8 +55,13 @@ describe("extractMcpTextPayload", () => {
 
 describe("parseMcpResult", () => {
   it("parses result object payload", () => {
-    const input: McpToolResponse = { result: { value: 1, network: "bsc-testnet" } };
-    const value = parseMcpResult<{ value: number; network: string }>(input, toolName);
+    const input: McpToolResponse = {
+      result: { value: 1, network: "bsc-testnet" },
+    };
+    const value = parseMcpResult<{ value: number; network: string }>(
+      input,
+      toolName,
+    );
     expect(value).toEqual({ value: 1, network: "bsc-testnet" });
   });
 
@@ -64,7 +69,10 @@ describe("parseMcpResult", () => {
     const input: McpToolResponse = {
       content: '{"value":2,"agentId":"42"}',
     };
-    const value = parseMcpResult<{ value: number; agentId: string }>(input, toolName);
+    const value = parseMcpResult<{ value: number; agentId: string }>(
+      input,
+      toolName,
+    );
     expect(value).toEqual({ value: 2, agentId: "42" });
   });
 
@@ -72,7 +80,10 @@ describe("parseMcpResult", () => {
     const input: McpToolResponse = {
       content: [{ text: '{"agentId":"42","network":"bsc"}' }],
     };
-    const value = parseMcpResult<{ agentId: string; network: string }>(input, toolName);
+    const value = parseMcpResult<{ agentId: string; network: string }>(
+      input,
+      toolName,
+    );
     expect(value).toEqual({ agentId: "42", network: "bsc" });
   });
 
@@ -87,7 +98,7 @@ describe("parseMcpResult", () => {
   it("throws on non-JSON content text", () => {
     const input: McpToolResponse = { content: "not-json" };
     expect(() => parseMcpResult<unknown>(input, toolName)).toThrow(
-      "returned non-JSON text response: not-json"
+      "returned non-JSON text response: not-json",
     );
   });
 });
@@ -101,7 +112,7 @@ describe("assertMcpToolSuccess", () => {
       message: "also ignored",
     };
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
-      "MCP tool some_mcp_tool error: failure from tool"
+      "MCP tool some_mcp_tool error: failure from tool",
     );
   });
 
@@ -111,7 +122,7 @@ describe("assertMcpToolSuccess", () => {
       error: "explicit error",
     };
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
-      "MCP tool some_mcp_tool error: explicit error"
+      "MCP tool some_mcp_tool error: explicit error",
     );
   });
 
@@ -121,7 +132,7 @@ describe("assertMcpToolSuccess", () => {
       message: "message error",
     };
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
-      "MCP tool some_mcp_tool error: message error"
+      "MCP tool some_mcp_tool error: message error",
     );
   });
 
@@ -130,7 +141,40 @@ describe("assertMcpToolSuccess", () => {
       isError: true,
     };
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
-      "MCP tool some_mcp_tool error: Unknown MCP tool failure."
+      "MCP tool some_mcp_tool error: Unknown MCP tool failure.",
     );
+  });
+});
+
+import type {
+  NfaMintResult,
+  NfaUpdateLearningResult,
+  NfaPauseResult,
+} from "../src/types.js";
+
+describe("parseMcpResult with NFA types", () => {
+  it("parses NfaMintResult from content text", () => {
+    const input: McpToolResponse = {
+      content: '{"tokenId":"1","txHash":"0xabc","owner":"0x123","network":"bsc-testnet"}',
+    };
+    const value = parseMcpResult<NfaMintResult>(input, "mint_bap578_nfa");
+    expect(value.tokenId).toBe("1");
+    expect(value.owner).toBe("0x123");
+  });
+
+  it("parses NfaUpdateLearningResult", () => {
+    const input: McpToolResponse = {
+      content: `{"txHash":"0xabc","previousRoot":"0x${"0".repeat(64)}","newRoot":"0x${"a".repeat(64)}","network":"bsc-testnet"}`,
+    };
+    const value = parseMcpResult<NfaUpdateLearningResult>(input, "update_bap578_learning");
+    expect(value.newRoot).toBe("0x" + "a".repeat(64));
+  });
+
+  it("parses NfaPauseResult", () => {
+    const input: McpToolResponse = {
+      content: '{"txHash":"0xabc","paused":true,"network":"bsc-testnet"}',
+    };
+    const value = parseMcpResult<NfaPauseResult>(input, "pause_bap578_nfa");
+    expect(value.paused).toBe(true);
   });
 });
