@@ -887,8 +887,6 @@ export async function handleKnowledgeRoutes(
   if (method === "POST" && pathname === "/api/knowledge/documents") {
     const body = await readJsonBody<KnowledgeUploadDocumentBody>(req, res, {
       maxBytes: KNOWLEDGE_UPLOAD_MAX_BODY_BYTES,
-      tooLargeMessage:
-        "Document upload exceeds the 32 MB limit. Split large files into smaller parts before uploading.",
     });
     if (!body) return true;
 
@@ -914,8 +912,6 @@ export async function handleKnowledgeRoutes(
       documents?: KnowledgeUploadDocumentBody[];
     }>(req, res, {
       maxBytes: KNOWLEDGE_UPLOAD_MAX_BODY_BYTES,
-      tooLargeMessage:
-        "Document upload exceeds the 32 MB limit. Split large files into smaller parts before uploading.",
     });
     if (!body) return true;
 
