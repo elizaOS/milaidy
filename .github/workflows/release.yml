@@ -185,6 +185,16 @@ jobs:
           done
         working-directory: apps/app/electron
 
+      - name: Install Spectre-mitigated libs (Windows)
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          # node-pty requires Spectre-mitigated libs (MSB8040). Add the component via VS Installer.
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
+          if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community" } } }
+          & $installer modify --installPath $installPath --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --passive --wait
+
       - name: Build Electron app
         run: bun run build
         working-directory: apps/app/electron
