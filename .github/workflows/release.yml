@@ -176,15 +176,6 @@ jobs:
         run: bun run cap:sync:electron
         working-directory: apps/app
 
-      - name: Install Electron dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install --no-save && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
-        working-directory: apps/app/electron
-
       - name: Install Spectre-mitigated libs (Windows)
         if: matrix.platform.os == 'windows'
         shell: pwsh
@@ -209,6 +200,15 @@ jobs:
             Write-Host "Installing $componentId..."
             & $installer modify --installPath $installPath --add $componentId --quiet --norestart --wait
           }
+
+      - name: Install Electron dependencies
+        run: |
+          for i in 1 2 3; do
+            bun install --no-save && break
+            echo "Retry $i: bun install failed, retrying..."
+            sleep 5
+          done
+        working-directory: apps/app/electron
 
       - name: Build Electron app
         run: bun run build
