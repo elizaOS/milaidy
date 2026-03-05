@@ -7825,6 +7825,8 @@ export class MilaidyApp extends LitElement {
 
   private renderChat() {
     const state = this.agentStatus?.state ?? "not_started";
+    const runtimeNeedsStart =
+      state === "not_started" || (state === "stopped" && !this.chatResumePending);
     const activeSession = this.chatSessions.find((s) => s.id === this.activeSessionId) ?? null;
     const sessionName = activeSession?.name ?? "Current Chat";
     const enabledToolCount = this.plugins.filter((p) => p.enabled).length;
@@ -7864,7 +7866,7 @@ export class MilaidyApp extends LitElement {
       : "";
     const inputLen = this.chatInput.trim().length;
     const showStop = this.chatSending;
-    const showStartResume = !this.chatSending && this.chatResumePending;
+    const showStartResume = !this.chatSending && this.chatResumePending && !runtimeNeedsStart;
     const hasMessageOverflow =
       !this.chatShowAllMessages && this.chatMessages.length > MAX_VISIBLE_CHAT_MESSAGES;
     const renderedMessages = hasMessageOverflow
@@ -7873,21 +7875,6 @@ export class MilaidyApp extends LitElement {
     const hiddenMessageCount = hasMessageOverflow
       ? this.chatMessages.length - renderedMessages.length
       : 0;
-		    if (state === "not_started" || (state === "stopped" && !this.chatResumePending)) {
-		      return html`
-	        <h2>Chat</h2>
-	        <div class="start-agent-box">
-	          <p>Runtime is paused. Start the agent to begin chatting.</p>
-	          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-	            <button class="btn" style="min-width:180px;" @click=${this.handleStart}>Start Agent</button>
-	            <button class="btn btn-outline" style="min-width:180px;" @click=${() => void this.toggleStyleSettings()}>Response mode</button>
-	          </div>
-	        </div>
-          ${chatLockBanner}
-	        ${this.styleSettingsOpen ? this.renderChatStylePanel() : ""}
-	      `;
-	    }
-
     return html`
       <div class="chat-container">
         <div class="chat-header-row">
@@ -7912,12 +7899,25 @@ export class MilaidyApp extends LitElement {
           <span>
             ${this.chatSending
               ? "Runtime is working on your request."
+              : runtimeNeedsStart
+                ? "Runtime is not running. Start the agent to chat."
               : this.chatResumePending
                 ? "Response stopped. Add context if needed, then press Start."
                 : "Runtime is live."}
           </span>
         </div>
         ${chatLockBanner}
+        ${runtimeNeedsStart
+          ? html`
+              <div class="start-agent-box" style="margin-bottom:10px;">
+                <p>Runtime is paused. Start the agent to begin chatting.</p>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <button class="btn" style="min-width:180px;" @click=${this.handleStart}>Start Agent</button>
+                  <button class="btn btn-outline" style="min-width:180px;" @click=${() => void this.toggleStyleSettings()}>Response mode</button>
+                </div>
+              </div>
+            `
+          : ""}
 	        <div class="chat-messages" @scroll=${this.handleChatScroll}>
           ${hasMessageOverflow
             ? html`
@@ -7996,13 +7996,15 @@ export class MilaidyApp extends LitElement {
             rows="1"
             placeholder=${!chatProviderReady
               ? "Connect a model provider in AI Settings to chat..."
+              : runtimeNeedsStart
+                ? "Start the agent to begin chatting..."
               : this.chatResumePending
                 ? "Add new context before restarting..."
                 : "Message Runtime..."}
             .value=${this.chatInput}
             @input=${this.handleChatInput}
             @keydown=${this.handleChatKeydown}
-            ?disabled=${this.chatSending || !chatProviderReady}
+            ?disabled=${this.chatSending || !chatProviderReady || runtimeNeedsStart}
           ></textarea>
           <div class="chat-send-stack">
             ${(showStop || showStartResume) && chatProviderReady
@@ -8020,7 +8022,7 @@ export class MilaidyApp extends LitElement {
             <button
               class="chat-send-btn btn"
               @click=${() => void this.handleChatSend()}
-              ?disabled=${this.chatSending || !chatProviderReady}
+              ?disabled=${this.chatSending || !chatProviderReady || runtimeNeedsStart}
             >
               ${this.chatSending ? "..." : "Send"}
             </button>
