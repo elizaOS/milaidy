@@ -15,8 +15,9 @@ await build({
 });
 
 console.log("Generating type declarations...");
+// Use -p typescript so npx runs the compiler from the typescript package, not the joke package "tsc".
 execSync(
-  "npx tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist",
+  "npx -p typescript tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist",
   {
     stdio: "inherit",
   },

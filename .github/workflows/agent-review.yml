@@ -377,13 +377,23 @@ jobs:
             const runAttempt = process.env.GITHUB_RUN_ATTEMPT || '1';
             const runMarker = `<!-- agent-review-run:${runId}:${runAttempt}:${context.payload.pull_request.head.sha} -->`;
 
-            // Check if comment already exists
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: prNumber, per_page: 100,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(runMarker));
-            if (existing) {
-              console.log(`Comment already posted by action: ${existing.html_url}`);
+            // Check if review was already posted (issue comment OR PR review — Claude/Codex may post as either)
+            const [comments, reviews] = await Promise.all([
+              github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100,
+              }),
+              github.paginate(github.rest.pulls.listReviews, {
+                owner, repo, pull_number: prNumber, per_page: 100,
+              }),
+            ]);
+            const existingComment = comments.find(c => c.body && c.body.includes(runMarker));
+            const existingReview = reviews.find(r => r.body && r.body.includes(runMarker));
+            if (existingComment) {
+              console.log(`Comment already posted by action: ${existingComment.html_url}`);
+              return;
+            }
+            if (existingReview) {
+              console.log(`Review already posted by action (skip duplicate issue comment): ${existingReview.html_url}`);
               return;
             }
 

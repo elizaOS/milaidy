@@ -24,6 +24,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # WHY setup-node before bun install: optional deps like @discordjs/opus fall back to node-gyp; Node 22 + colocated cache avoids nodejs.org header download. Engines require >=22.
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
@@ -42,6 +56,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -67,6 +83,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
@@ -84,6 +113,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -99,6 +130,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
       - name: Install canvas native dependencies
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
@@ -116,6 +160,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall

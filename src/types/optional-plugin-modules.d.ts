@@ -1,3 +1,12 @@
+/** Optional: used by NFA routes when present. WHY: allows typecheck without resolving packages/ (excluded from tsconfig). */
+declare module "@milady/plugin-bnb-identity" {
+  export function buildMerkleRoot(leafHashes: string[]): string;
+  export function parseLearnings(
+    markdown: string,
+  ): Array<{ date: string; content: string; hash: string }>;
+  export function sha256(data: string): string;
+}
+
 declare module "@elizaos/plugin-secrets-manager" {
   const plugin: import("@elizaos/core").Plugin;
   export default plugin;

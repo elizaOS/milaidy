@@ -3,6 +3,51 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { handleNfaRoutes } from "./nfa-routes.js";
 
+// ── optional plugin mock (so tests pass when workspace package is missing) ───
+
+vi.mock("@milady/plugin-bnb-identity", () => {
+  const { createHash } = require("node:crypto");
+  function sha256(data: string): string {
+    return createHash("sha256").update(data, "utf8").digest("hex");
+  }
+  function buildMerkleRoot(leafHashes: string[]): string {
+    if (leafHashes.length === 0) return sha256("");
+    if (leafHashes.length === 1) return leafHashes[0];
+    const [a, b] =
+      leafHashes[0] < leafHashes[1]
+        ? [leafHashes[0], leafHashes[1]]
+        : [leafHashes[1], leafHashes[0]];
+    return sha256(a + b);
+  }
+  function parseLearnings(
+    markdown: string,
+  ): Array<{ date: string; content: string; hash: string }> {
+    const lines = markdown.split("\n");
+    const entries: Array<{ date: string; content: string; hash: string }> = [];
+    let currentDate = "undated";
+    let currentContent: string[] = [];
+    const flushEntry = () => {
+      const content = currentContent.join("\n").trim();
+      if (content) {
+        entries.push({ date: currentDate, content, hash: sha256(content) });
+      }
+      currentContent = [];
+    };
+    for (const line of lines) {
+      const dateMatch = line.match(/^##\s+(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        flushEntry();
+        currentDate = dateMatch[1];
+      } else {
+        currentContent.push(line);
+      }
+    }
+    flushEntry();
+    return entries;
+  }
+  return { buildMerkleRoot, parseLearnings, sha256 };
+});
+
 // ── fs/os mocks ────────────────────────────────────────────────────────────
 
 vi.mock("node:fs/promises", () => ({
