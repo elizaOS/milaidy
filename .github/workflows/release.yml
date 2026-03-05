@@ -190,9 +190,53 @@ jobs:
         shell: pwsh
         run: |
           # node-pty requires Spectre-mitigated libs (MSB8040). Add the component via VS Installer.
-          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
-          if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional"; if (!(Test-Path $installPath)) { $installPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community" } } }
+          $ErrorActionPreference = "Stop"
+
+          # Locate vswhere (preferred way to find the VS installation path)
+          $vswherePath = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswherePath)) {
+            $vswherePath = "vswhere.exe"
+          }
+
+          $installPath = $null
+          if (Get-Command $vswherePath -ErrorAction SilentlyContinue) {
+            try {
+              # Use vswhere to find the latest VS instance with core build components
+              $installPath = & $vswherePath -latest -products * -requires Microsoft.Component.MSBuild -property installationPath 2>$null
+            } catch {
+              $installPath = $null
+            }
+          }
+
+          # Fallback: probe common VS 2022 install locations under both ProgramFiles and ProgramFiles(x86)
+          if (-not $installPath) {
+            $candidateRoots = @()
+            if ($env:ProgramFiles) { $candidateRoots += $env:ProgramFiles }
+            if (${env:ProgramFiles(x86)}) { $candidateRoots += ${env:ProgramFiles(x86)} }
+
+            $candidatePaths = @()
+            foreach ($root in $candidateRoots) {
+              $candidatePaths += @(
+                (Join-Path $root "Microsoft Visual Studio\2022\BuildTools")
+                (Join-Path $root "Microsoft Visual Studio\2022\Enterprise")
+                (Join-Path $root "Microsoft Visual Studio\2022\Professional")
+                (Join-Path $root "Microsoft Visual Studio\2022\Community")
+              )
+            }
+
+            $installPath = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+
+          if (-not $installPath) {
+            Write-Error "Unable to locate a valid Visual Studio 2022 installation (checked via vswhere and under ProgramFiles/ProgramFiles(x86)). Cannot install Spectre-mitigated libraries."
+            exit 1
+          }
+
+          $installer = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vs_installer.exe"
+          if (-not (Test-Path $installer)) {
+            Write-Error "Visual Studio installer not found at '$installer'. Cannot install Spectre-mitigated libraries."
+            exit 1
+          }
           & $installer modify --installPath $installPath --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --passive --wait
 
       - name: Build Electron app
