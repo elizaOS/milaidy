@@ -87,6 +87,7 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                     : "border-border hover:border-border-hover"
                 }`}
               >
+                {/* biome-ignore lint/a11y/useSemanticElements: intentional div — <button> causes React hydration error due to nested <button> for Stop action */}
                 <div
                   role="button"
                   tabIndex={0}

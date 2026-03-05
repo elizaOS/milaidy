@@ -27,6 +27,11 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
+import type {
+  CoordinationLLMResponse,
+  SwarmEvent,
+  TaskContext,
+} from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -100,7 +105,6 @@ import {
   buildBscSellUnsignedTx,
   buildBscTradePreflight,
   buildBscTradeQuote,
-  readTokenDecimals,
   resolvePrimaryBscRpcUrl,
 } from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
@@ -142,12 +146,7 @@ import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
-import type {
-  CoordinationLLMResponse,
-  PTYService,
-  SwarmEvent,
-  TaskContext,
-} from "./parse-action-block";
+import type { PTYService } from "./parse-action-block";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -160,7 +159,7 @@ import {
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
-import { shouldServeSpaFallback } from "./spa-fallback-guard";
+
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
@@ -4350,7 +4349,7 @@ export function canUseLocalTradeExecution(
 type AgentAutomationMode = "connectors-only" | "full";
 
 const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
-const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
+const _TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
   "user-sign-only",
   "manual-local-key",
   "agent-auto",

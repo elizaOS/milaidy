@@ -1,35 +1,4 @@
-/**
- * Local type stubs for @elizaos/plugin-agent-orchestrator.
- *
- * The installed version (0.2.0) has a broken `types` entry in package.json
- * (points to dist/index.d.ts which doesn't exist — actual types are at
- * dist/src/index.d.ts). Rather than patching the package, we define minimal
- * interfaces here covering only what server.ts actually uses.
- */
-
-/** Coordination decision returned by the LLM when evaluating a swarm event. */
-export interface CoordinationLLMResponse {
-  action: "respond" | "escalate" | "ignore" | "complete";
-  response?: string;
-  useKeys?: boolean;
-  keys?: string[];
-  reasoning: string;
-}
-
-/** Swarm coordinator event broadcast over WS. */
-export interface SwarmEvent {
-  type: string;
-  [key: string]: unknown;
-}
-
-/** Per-session task context provided to the coordinator. */
-export interface TaskContext {
-  sessionId: string;
-  agentType: string;
-  label: string;
-  originalTask: string;
-  workdir: string;
-}
+import type { CoordinationLLMResponse } from "@elizaos/plugin-agent-orchestrator";
 
 /** Console bridge exposed by PTYService for terminal I/O. */
 export interface ConsoleBridge {
