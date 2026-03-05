@@ -3510,6 +3510,45 @@ function getProviderOptions(): Array<{
   ];
 }
 
+function providerPluginIdFromPackageName(pluginName: string): string {
+  const withoutScope = pluginName.split("/").at(-1) ?? pluginName;
+  return withoutScope.startsWith("plugin-")
+    ? withoutScope.slice("plugin-".length)
+    : withoutScope;
+}
+
+function enablePluginInConfig(config: MiladyConfig, pluginName: string): void {
+  const pluginId = providerPluginIdFromPackageName(pluginName);
+  if (!pluginId) return;
+  if (!config.plugins) config.plugins = {};
+  if (!config.plugins.entries) config.plugins.entries = {};
+  const existing =
+    (config.plugins.entries as Record<string, Record<string, unknown>>)[
+      pluginId
+    ] ?? {};
+  (config.plugins.entries as Record<string, Record<string, unknown>>)[
+    pluginId
+  ] = { ...existing, enabled: true };
+}
+
+function setPrimaryProviderModel(
+  config: MiladyConfig,
+  providerPluginName: string,
+): void {
+  if (!config.agents) config.agents = {};
+  if (!config.agents.defaults) config.agents.defaults = {};
+  const defaults = config.agents.defaults as Record<string, unknown>;
+  const model =
+    defaults.model && typeof defaults.model === "object"
+      ? ({ ...(defaults.model as Record<string, unknown>) } as Record<
+          string,
+          unknown
+        >)
+      : {};
+  model.primary = providerPluginName;
+  defaults.model = model;
+}
+
 function getCloudProviderOptions(): Array<{
   id: string;
   name: string;
@@ -6588,6 +6627,14 @@ async function handleRequest(
       const envCfg = config.env as Record<string, unknown>;
       const vars = (envCfg.vars ?? {}) as Record<string, string>;
       const providerId = typeof body.provider === "string" ? body.provider : "";
+      const providerOpt =
+        runMode === "local" && providerId
+          ? getProviderOptions().find((p) => p.id === providerId)
+          : undefined;
+      const providerApiKey =
+        typeof body.providerApiKey === "string"
+          ? body.providerApiKey.trim()
+          : "";
 
       // Persist vars back onto config.env
       (envCfg as Record<string, unknown>).vars = vars;
@@ -6597,6 +6644,13 @@ async function handleRequest(
         delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
         delete process.env.MILAIDY_USE_PI_AI;
       };
+
+      if (providerOpt) {
+        // Selecting a provider during onboarding should make it immediately
+        // active after restart, without requiring a manual plugin toggle.
+        enablePluginInConfig(config, providerOpt.pluginName);
+        setPrimaryProviderModel(config, providerOpt.pluginName);
+      }
 
       if (runMode === "local" && providerId === "pi-ai") {
         vars.MILAIDY_USE_PI_AI = "1";
@@ -6622,14 +6676,26 @@ async function handleRequest(
       }
 
       // API-key providers (envKey backed)
-      if (runMode === "local" && providerId && body.providerApiKey) {
-        const providerOpt = getProviderOptions().find(
-          (p) => p.id === providerId,
-        );
+      if (runMode === "local" && providerId && providerApiKey) {
         if (providerOpt?.envKey) {
           (config.env as Record<string, string>)[providerOpt.envKey] =
-            body.providerApiKey as string;
-          process.env[providerOpt.envKey] = body.providerApiKey as string;
+            providerApiKey;
+          process.env[providerOpt.envKey] = providerApiKey;
+        }
+      }
+
+      // ElizaCloud selected during onboarding should apply immediately as
+      // the active provider (same UX expectation as direct API-key providers).
+      if (runMode === "local" && providerId === "elizacloud") {
+        if (!config.cloud) config.cloud = {};
+        config.cloud.enabled = true;
+        (config.env as Record<string, string>).ELIZAOS_CLOUD_ENABLED = "true";
+        process.env.ELIZAOS_CLOUD_ENABLED = "true";
+        if (providerApiKey) {
+          config.cloud.apiKey = providerApiKey;
+          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY =
+            providerApiKey;
+          process.env.ELIZAOS_CLOUD_API_KEY = providerApiKey;
         }
       }
     }
@@ -6643,10 +6709,7 @@ async function handleRequest(
       (body.provider === "anthropic-subscription" ||
         body.provider === "openai-subscription")
     ) {
-      if (!config.agents) config.agents = {};
-      if (!config.agents.defaults) config.agents.defaults = {};
-      (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
-        body.provider;
+      applySubscriptionProviderConfig(config, body.provider);
       logger.info(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
