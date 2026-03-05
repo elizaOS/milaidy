@@ -1,11 +1,7 @@
-import type { useApp } from "../../AppContext";
 import type { AgentState } from "../../api-client";
 import type { UiLanguage } from "../../i18n/messages";
 import type { Tab } from "../../navigation";
-import { CompanionWalletPanel } from "./CompanionWalletPanel";
 import type { TranslatorFn } from "./walletUtils";
-
-type AppCtx = ReturnType<typeof useApp>;
 
 export interface CompanionHeaderProps {
   // Chat toggle
@@ -14,9 +10,6 @@ export interface CompanionHeaderProps {
   // Character roster toggle
   characterRosterOpen: boolean;
   setCharacterRosterOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  // Wallet profile trigger
-  walletProfileOpen: boolean;
-  setWalletProfileOpen: (open: boolean) => void;
   // Agent identity & state
   name: string;
   agentState: AgentState | string;
@@ -34,25 +27,9 @@ export interface CompanionHeaderProps {
   cloudCredits: number | null;
   creditColor: string;
   cloudTopUpUrl: string;
-  // Wallets
+  // Wallets (display only — full trading panel in separate PR)
   evmShort: string | null;
   solShort: string | null;
-  copyToClipboard: AppCtx["copyToClipboard"];
-  setActionNotice: AppCtx["setActionNotice"];
-  walletAddresses: AppCtx["walletAddresses"];
-  walletBalances: AppCtx["walletBalances"];
-  walletNfts: AppCtx["walletNfts"];
-  walletLoading: AppCtx["walletLoading"];
-  walletNftsLoading: AppCtx["walletNftsLoading"];
-  walletError: AppCtx["walletError"];
-  loadBalances: AppCtx["loadBalances"];
-  loadNfts: AppCtx["loadNfts"];
-  getBscTradePreflight: AppCtx["getBscTradePreflight"];
-  getBscTradeQuote: AppCtx["getBscTradeQuote"];
-  getBscTradeTxStatus: AppCtx["getBscTradeTxStatus"];
-  loadWalletTradingProfile: AppCtx["loadWalletTradingProfile"];
-  executeBscTrade: AppCtx["executeBscTrade"];
-  executeBscTransfer: AppCtx["executeBscTransfer"];
   // Character / UI
   setTab: (tab: Tab) => void;
   handleSwitchToNativeShell: () => void;
@@ -68,8 +45,6 @@ export function CompanionHeader(props: CompanionHeaderProps) {
     setChatDockOpen,
     characterRosterOpen,
     setCharacterRosterOpen,
-    walletProfileOpen,
-    setWalletProfileOpen,
     name,
     agentState,
     stateColor,
@@ -86,22 +61,6 @@ export function CompanionHeader(props: CompanionHeaderProps) {
     cloudTopUpUrl,
     evmShort,
     solShort,
-    copyToClipboard,
-    setActionNotice,
-    walletAddresses,
-    walletBalances,
-    walletNfts,
-    walletLoading,
-    walletNftsLoading,
-    walletError,
-    loadBalances,
-    loadNfts,
-    getBscTradePreflight,
-    getBscTradeQuote,
-    getBscTradeTxStatus,
-    loadWalletTradingProfile,
-    executeBscTrade,
-    executeBscTransfer,
     setTab,
     handleSwitchToNativeShell,
     uiLanguage,
@@ -325,27 +284,16 @@ export function CompanionHeader(props: CompanionHeaderProps) {
               </span>
             ))}
 
-          {/* Wallets */}
+          {/* Wallet addresses (trading panel in separate PR) */}
           {(evmShort || solShort) && (
-            <CompanionWalletPanel
-              copyToClipboard={copyToClipboard}
-              setActionNotice={setActionNotice}
-              walletAddresses={walletAddresses}
-              walletBalances={walletBalances}
-              walletNfts={walletNfts}
-              walletLoading={walletLoading}
-              walletNftsLoading={walletNftsLoading}
-              walletError={walletError}
-              loadBalances={loadBalances}
-              loadNfts={loadNfts}
-              getBscTradePreflight={getBscTradePreflight}
-              getBscTradeQuote={getBscTradeQuote}
-              getBscTradeTxStatus={getBscTradeTxStatus}
-              loadWalletTradingProfile={loadWalletTradingProfile}
-              executeBscTrade={executeBscTrade}
-              executeBscTransfer={executeBscTransfer}
-              t={t}
-            />
+            <span
+              className="anime-header-pill"
+              data-testid="wallet-address-pill"
+            >
+              <span className="anime-header-pill-text">
+                {evmShort || solShort}
+              </span>
+            </span>
           )}
         </div>
       </div>
@@ -453,33 +401,6 @@ export function CompanionHeader(props: CompanionHeaderProps) {
             </button>
           </fieldset>
         </div>
-
-        <button
-          type="button"
-          className={`anime-character-profile-trigger ${walletProfileOpen ? "is-open" : ""}`}
-          onClick={() => setWalletProfileOpen(true)}
-          title={t("wallet.profile.title")}
-          aria-label={t("wallet.profile.title")}
-          data-testid="wallet-profile-trigger"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M8 21h8" />
-            <path d="M12 17v4" />
-            <path d="M7 4h10v2a5 5 0 0 1-10 0z" />
-            <path d="M5 6H3a2 2 0 0 0 2 4h2" />
-            <path d="M19 6h2a2 2 0 0 1-2 4h-2" />
-          </svg>
-        </button>
       </div>
     </header>
   );

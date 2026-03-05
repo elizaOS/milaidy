@@ -1,74 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 import { useApp } from "../../AppContext";
-import type {
-  WalletTradingProfileResponse,
-  WalletTradingProfileSourceFilter,
-  WalletTradingProfileWindow,
-} from "../../api-client";
 import { client } from "../../api-client";
 import { resolveApiUrl } from "../../asset-url";
 import type { TranslatorFn } from "./walletUtils";
-import { isBscChainName } from "./walletUtils";
 
-/** Trading-profile modal state + VRM/background upload callbacks. */
-export function useCompanionViewState(t: TranslatorFn) {
-  const {
-    selectedVrmIndex,
-    setState,
-    walletBalances,
-    loadWalletTradingProfile,
-  } = useApp();
+/** VRM/background upload callbacks for CompanionView. */
+export function useCompanionViewState(_t: TranslatorFn) {
+  const { selectedVrmIndex, setState } = useApp();
 
-  // ── Trading profile state ──────────────────────────────────────────
-  const [walletProfileOpen, setWalletProfileOpen] = useState(false);
-  const [walletProfileLoading, setWalletProfileLoading] = useState(false);
-  const [walletProfileError, setWalletProfileError] = useState<string | null>(
-    null,
-  );
-  const [walletProfileWindow, setWalletProfileWindow] =
-    useState<WalletTradingProfileWindow>("30d");
-  const [walletProfileSource, setWalletProfileSource] =
-    useState<WalletTradingProfileSourceFilter>("all");
-  const [walletProfileData, setWalletProfileData] =
-    useState<WalletTradingProfileResponse | null>(null);
-
-  const walletBnbUsdEstimate = useMemo(() => {
-    const bscNative = walletBalances?.evm?.chains.find((chain) =>
-      isBscChainName(chain.chain),
-    );
-    if (!bscNative) return null;
-    const nativeBalance = Number.parseFloat(bscNative.nativeBalance);
-    const nativeValueUsd = Number.parseFloat(bscNative.nativeValueUsd);
-    if (!Number.isFinite(nativeBalance) || nativeBalance <= 0) return null;
-    if (!Number.isFinite(nativeValueUsd) || nativeValueUsd <= 0) return null;
-    const estimate = nativeValueUsd / nativeBalance;
-    return Number.isFinite(estimate) && estimate > 0 ? estimate : null;
-  }, [walletBalances]);
-
-  const refreshWalletTradingProfile = useCallback(async () => {
-    setWalletProfileLoading(true);
-    setWalletProfileError(null);
-    try {
-      const profile = await loadWalletTradingProfile(
-        walletProfileWindow,
-        walletProfileSource,
-      );
-      setWalletProfileData(profile);
-    } catch (err) {
-      setWalletProfileError(
-        err instanceof Error ? err.message : t("wallet.profile.loadFailed"),
-      );
-    } finally {
-      setWalletProfileLoading(false);
-    }
-  }, [loadWalletTradingProfile, t, walletProfileSource, walletProfileWindow]);
-
-  useEffect(() => {
-    if (!walletProfileOpen) return;
-    void refreshWalletTradingProfile();
-  }, [walletProfileOpen, refreshWalletTradingProfile]);
-
-  // ── VRM / Background upload callbacks ──────────────────────────────
   const handleRosterVrmUpload = useCallback(
     (file: File) => {
       if (!file.name.toLowerCase().endsWith(".vrm")) return;
@@ -136,19 +75,6 @@ export function useCompanionViewState(t: TranslatorFn) {
   );
 
   return {
-    // Trading profile modal
-    walletProfileOpen,
-    setWalletProfileOpen,
-    walletProfileLoading,
-    walletProfileError,
-    walletProfileData,
-    walletBnbUsdEstimate,
-    walletProfileWindow,
-    setWalletProfileWindow,
-    walletProfileSource,
-    setWalletProfileSource,
-    refreshWalletTradingProfile,
-    // Upload callbacks
     handleRosterVrmUpload,
     handleBgUpload,
   };

@@ -15,7 +15,6 @@ import { CompanionHeader } from "./companion/CompanionHeader";
 import { CompanionHubNav } from "./companion/CompanionHubNav";
 import { useCompanionViewState } from "./companion/useCompanionViewState";
 import { VrmStage } from "./companion/VrmStage";
-import { WalletTradingProfileModal } from "./companion/WalletTradingProfileModal";
 
 export function CompanionView() {
   const {
@@ -23,7 +22,6 @@ export function CompanionView() {
     selectedVrmIndex,
     customVrmUrl,
     customBackgroundUrl,
-    copyToClipboard,
     uiLanguage,
     setUiLanguage,
     setTab,
@@ -37,24 +35,10 @@ export function CompanionView() {
     cloudCreditsLow,
     cloudTopUpUrl,
     walletAddresses,
-    walletBalances,
-    walletNfts,
-    walletLoading,
-    walletNftsLoading,
-    walletError,
-    loadBalances,
-    loadNfts,
-    getBscTradePreflight,
-    getBscTradeQuote,
-    getBscTradeTxStatus,
-    loadWalletTradingProfile,
-    executeBscTrade,
-    executeBscTransfer,
     lifecycleBusy,
     lifecycleAction,
     handlePauseResume,
     handleRestart,
-    setActionNotice,
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
@@ -98,22 +82,8 @@ export function CompanionView() {
   const vrmFileInputRef = useRef<HTMLInputElement | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Trading profile + upload state (extracted hook)
-  const {
-    walletProfileOpen,
-    setWalletProfileOpen,
-    walletProfileLoading,
-    walletProfileError,
-    walletProfileData,
-    walletBnbUsdEstimate,
-    walletProfileWindow,
-    setWalletProfileWindow,
-    walletProfileSource,
-    setWalletProfileSource,
-    refreshWalletTradingProfile,
-    handleRosterVrmUpload,
-    handleBgUpload,
-  } = useCompanionViewState(t);
+  // Upload state (extracted hook)
+  const { handleRosterVrmUpload, handleBgUpload } = useCompanionViewState(t);
 
   const handleSwitchToNativeShell = useCallback(() => {
     setUiShellMode("native");
@@ -177,8 +147,6 @@ export function CompanionView() {
           setChatDockOpen={setChatDockOpen}
           characterRosterOpen={characterRosterOpen}
           setCharacterRosterOpen={setCharacterRosterOpen}
-          walletProfileOpen={walletProfileOpen}
-          setWalletProfileOpen={setWalletProfileOpen}
           name={name}
           agentState={agentState}
           stateColor={stateColor}
@@ -195,22 +163,6 @@ export function CompanionView() {
           cloudTopUpUrl={cloudTopUpUrl}
           evmShort={evmShort}
           solShort={solShort}
-          copyToClipboard={copyToClipboard}
-          setActionNotice={setActionNotice}
-          walletAddresses={walletAddresses}
-          walletBalances={walletBalances}
-          walletNfts={walletNfts}
-          walletLoading={walletLoading}
-          walletNftsLoading={walletNftsLoading}
-          walletError={walletError}
-          loadBalances={loadBalances}
-          loadNfts={loadNfts}
-          getBscTradePreflight={getBscTradePreflight}
-          getBscTradeQuote={getBscTradeQuote}
-          getBscTradeTxStatus={getBscTradeTxStatus}
-          loadWalletTradingProfile={loadWalletTradingProfile}
-          executeBscTrade={executeBscTrade}
-          executeBscTransfer={executeBscTransfer}
           setTab={setTab}
           handleSwitchToNativeShell={handleSwitchToNativeShell}
           uiLanguage={uiLanguage}
@@ -252,27 +204,6 @@ export function CompanionView() {
             <CompanionHubNav setTab={setTab} t={t} />
           </aside>
         </div>
-
-        <WalletTradingProfileModal
-          open={walletProfileOpen}
-          loading={walletProfileLoading}
-          error={walletProfileError}
-          profile={walletProfileData}
-          bnbUsdEstimate={walletBnbUsdEstimate}
-          windowFilter={walletProfileWindow}
-          sourceFilter={walletProfileSource}
-          onClose={() => setWalletProfileOpen(false)}
-          onRefresh={() => {
-            void refreshWalletTradingProfile();
-          }}
-          onWindowFilterChange={(windowFilter) =>
-            setWalletProfileWindow(windowFilter)
-          }
-          onSourceFilterChange={(sourceFilter) =>
-            setWalletProfileSource(sourceFilter)
-          }
-          t={t}
-        />
       </div>
     </div>
   );
