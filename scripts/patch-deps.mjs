@@ -690,4 +690,84 @@ const validateActionRegex = () => true;`;
   }
 }
 
+/**
+ * Patch @elizaos/plugin-evm to fix requireActionSpec / requireProviderSpec
+ * throwing on mismatched spec names (e.g. "BRIDGE" vs "CROSS_CHAIN_TRANSFER").
+ *
+ * The generated action/provider spec maps use canonical names but the code
+ * looks them up by simile names. We patch the require functions to return
+ * a fallback { name, description } instead of throwing.
+ * Remove once plugin-evm publishes a fix.
+ */
+const evmTarget = resolve(
+  root,
+  "node_modules/@elizaos/plugin-evm/dist/index.js",
+);
+
+if (!existsSync(evmTarget)) {
+  console.log("[patch-deps] plugin-evm dist not found, skipping patch.");
+} else {
+  let evmSrc = readFileSync(evmTarget, "utf8");
+  let evmPatched = 0;
+
+  const evmBuggyRequireAction = `function requireActionSpec(name) {
+  const spec = getActionSpec(name);
+  if (!spec) {
+    throw new Error(\`Action spec not found: \${name}\`);
+  }
+  return spec;
+}`;
+
+  const evmFixedRequireAction = `function requireActionSpec(name) {
+  const spec = getActionSpec(name);
+  if (!spec) {
+    return { name, description: name };
+  }
+  return spec;
+}`;
+
+  const evmBuggyRequireProvider = `function requireProviderSpec(name) {
+  const spec = getProviderSpec(name);
+  if (!spec) {
+    throw new Error(\`Provider spec not found: \${name}\`);
+  }
+  return spec;
+}`;
+
+  const evmFixedRequireProvider = `function requireProviderSpec(name) {
+  const spec = getProviderSpec(name);
+  if (!spec) {
+    return { name, description: name, dynamic: true };
+  }
+  return spec;
+}`;
+
+  if (evmSrc.includes('return { name, description: name };')) {
+    console.log("[patch-deps] plugin-evm requireActionSpec patch already present.");
+  } else if (evmSrc.includes(evmBuggyRequireAction)) {
+    evmSrc = evmSrc.replace(evmBuggyRequireAction, evmFixedRequireAction);
+    evmPatched += 1;
+    console.log("[patch-deps] Applied plugin-evm requireActionSpec fallback patch.");
+  } else {
+    console.log("[patch-deps] plugin-evm requireActionSpec signature changed; skip patch.");
+  }
+
+  if (evmSrc.includes('return { name, description: name, dynamic: true };')) {
+    console.log("[patch-deps] plugin-evm requireProviderSpec patch already present.");
+  } else if (evmSrc.includes(evmBuggyRequireProvider)) {
+    evmSrc = evmSrc.replace(evmBuggyRequireProvider, evmFixedRequireProvider);
+    evmPatched += 1;
+    console.log("[patch-deps] Applied plugin-evm requireProviderSpec fallback patch.");
+  } else {
+    console.log("[patch-deps] plugin-evm requireProviderSpec signature changed; skip patch.");
+  }
+
+  if (evmPatched > 0) {
+    writeFileSync(evmTarget, evmSrc, "utf8");
+    console.log(
+      `[patch-deps] Wrote ${evmPatched} plugin-evm patch(es).`,
+    );
+  }
+}
+
 patchBunExports(root, "@elizaos/plugin-coding-agent");

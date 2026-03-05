@@ -650,6 +650,8 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   "coding-agent": "@elizaos/plugin-agent-orchestrator",
   "twitch-streaming": "@milady/plugin-twitch-streaming",
   "youtube-streaming": "@milady/plugin-youtube-streaming",
+  evm: "@elizaos/plugin-evm",
+  polymarket: "@elizaos/plugin-polymarket",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -1245,20 +1247,26 @@ async function resolvePlugins(
   const failedPlugins: Array<{ name: string; error: string }> = [];
   const repairedInstallRecords = new Set<string>();
 
-  applyPluginAutoEnable({
+  const autoEnableResult = applyPluginAutoEnable({
     config,
     env: process.env,
   } satisfies ApplyPluginAutoEnableParams);
+  const effectiveConfig = autoEnableResult.config;
+  if (autoEnableResult.changes.length > 0) {
+    logger.info(
+      `[milady] Plugin auto-enable: ${autoEnableResult.changes.join(", ")}`,
+    );
+  }
 
-  const pluginsToLoad = collectPluginNames(config);
+  const pluginsToLoad = collectPluginNames(effectiveConfig);
   const corePluginSet = new Set<string>(CORE_PLUGINS);
 
   // Build a mutable map of install records so we can merge drop-in discoveries
   const installRecords: Record<string, PluginInstallRecord> = {
-    ...(config.plugins?.installs ?? {}),
+    ...(effectiveConfig.plugins?.installs ?? {}),
   };
 
-  const denyList = new Set(config.plugins?.deny ?? []);
+  const denyList = new Set(effectiveConfig.plugins?.deny ?? []);
 
   // ── Auto-discover ejected plugins ───────────────────────────────────────
   // Ejected plugins override npm/core versions, so they are tracked
@@ -1282,7 +1290,7 @@ async function resolvePlugins(
   // Scan well-known dir + any extra dirs from plugins.load.paths (first wins).
   const scanDirs = [
     path.join(resolveStateDir(), CUSTOM_PLUGINS_DIRNAME),
-    ...(config.plugins?.load?.paths ?? []).map(resolveUserPath),
+    ...(effectiveConfig.plugins?.load?.paths ?? []).map(resolveUserPath),
   ];
   const dropInRecords: Record<string, PluginInstallRecord> = {};
   for (const dir of scanDirs) {
