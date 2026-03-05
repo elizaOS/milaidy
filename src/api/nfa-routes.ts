@@ -1,15 +1,18 @@
 /**
  * API routes for BAP-578 NFA (Non-Fungible Agent) status and learnings.
-
  *
  *   GET /api/nfa/status    — NFA state composed with ERC-8004 identity
  *   GET /api/nfa/learnings — Parsed LEARNINGS.md with Merkle root
  */
 
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  buildMerkleRoot,
+  parseLearnings,
+  sha256,
+} from "@milady/plugin-bnb-identity";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 export interface NfaRouteContext
@@ -44,72 +47,6 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
   } catch {
     return null;
   }
-}
-
-/**
- * Inline Merkle utilities — avoids importing from plugin package which
- * may not be installed. Mirrors the plugin's merkle.ts logic.
- *
- * Must stay in sync with packages/plugin-bnb-identity/src/merkle.ts.
- * If the hashing algorithm or tree construction changes there, update here too.
- */
-function sha256Hex(data: string): string {
-  return createHash("sha256").update(data, "utf8").digest("hex");
-}
-
-function buildMerkleRoot(leafHashes: string[]): string {
-  if (leafHashes.length === 0) return sha256Hex("");
-  if (leafHashes.length === 1) return leafHashes[0];
-  let level = [...leafHashes];
-  while (level.length > 1) {
-    const next: string[] = [];
-    for (let i = 0; i < level.length; i += 2) {
-      if (i + 1 < level.length) {
-        const [a, b] =
-          level[i] < level[i + 1]
-            ? [level[i], level[i + 1]]
-            : [level[i + 1], level[i]];
-        next.push(sha256Hex(a + b));
-      } else {
-        next.push(level[i]);
-      }
-    }
-    level = next;
-  }
-  return level[0];
-}
-
-interface LearningEntry {
-  date: string;
-  content: string;
-  hash: string;
-}
-
-function parseLearnings(markdown: string): LearningEntry[] {
-  const lines = markdown.split("\n");
-  const entries: LearningEntry[] = [];
-  let currentDate = "undated";
-  let currentContent: string[] = [];
-
-  const flush = () => {
-    const content = currentContent.join("\n").trim();
-    if (content) {
-      entries.push({ date: currentDate, content, hash: sha256Hex(content) });
-    }
-    currentContent = [];
-  };
-
-  for (const line of lines) {
-    const m = line.match(/^##\s+(\d{4}-\d{2}-\d{2})/);
-    if (m) {
-      flush();
-      currentDate = m[1];
-    } else {
-      currentContent.push(line);
-    }
-  }
-  flush();
-  return entries;
 }
 
 export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
@@ -177,7 +114,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
     if (!markdown) {
       json(res, {
         entries: [],
-        merkleRoot: sha256Hex(""),
+        merkleRoot: sha256(""),
         totalEntries: 0,
         source: null,
       });
