@@ -280,6 +280,7 @@ export class MilaidyApp extends LitElement {
   @state() providerHealth: ProviderHealthState | null = null;
   @state() chatAutonomyOverview: WorkbenchOverviewResponse | null = null;
   @state() chatAutonomyLoading = false;
+  @state() chatAutonomyToggleBusy = false;
   @state() chatAutonomyError: string | null = null;
   @state() chatResumePending = false;
   @state() plugins: PluginInfo[] = [];
@@ -2593,6 +2594,37 @@ export class MilaidyApp extends LitElement {
       font-size: 11px;
       font-weight: 700;
       color: var(--text-strong);
+    }
+
+    .autonomy-kpi-row {
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .autonomy-kpi-toggle {
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--text-strong);
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 3px 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .autonomy-kpi-toggle:hover {
+      border-color: var(--border);
+    }
+
+    .autonomy-kpi-toggle:disabled {
+      opacity: 0.6;
+      cursor: default;
     }
 
     .autonomy-lines {
@@ -7971,6 +8003,7 @@ export class MilaidyApp extends LitElement {
     const autonomyLabel = autonomy
       ? (autonomy.enabled ? (autonomy.thinking ? "enabled (thinking)" : "enabled") : "disabled")
       : "unknown";
+    const autonomyEnabled = autonomy?.enabled === true;
     const tasksLabel = summary
       ? `${summary.completedTasks}/${summary.totalTasks}`
       : "…/…";
@@ -8008,7 +8041,20 @@ export class MilaidyApp extends LitElement {
             </div>
             <div class="autonomy-kpi">
               <div class="autonomy-kpi-label">Orchestration</div>
-              <div class="autonomy-kpi-value">${orchestrationLabel}</div>
+              <div class="autonomy-kpi-row">
+                <div class="autonomy-kpi-value">${orchestrationLabel}</div>
+                <button
+                  class="autonomy-kpi-toggle"
+                  @click=${() => void this.handleChatAutonomyToggleClick()}
+                  ?disabled=${this.chatAutonomyToggleBusy || this.chatAutonomyLoading}
+                >
+                  ${this.chatAutonomyToggleBusy
+                    ? "Updating..."
+                    : autonomyEnabled
+                      ? "Disable"
+                      : "Enable"}
+                </button>
+              </div>
             </div>
             <div class="autonomy-kpi">
               <div class="autonomy-kpi-label">Autonomy</div>
@@ -8090,6 +8136,32 @@ export class MilaidyApp extends LitElement {
         : "Could not load autonomy backend status.";
     } finally {
       this.chatAutonomyLoading = false;
+    }
+  }
+
+  private async handleChatAutonomyToggleClick(): Promise<void> {
+    if (this.chatAutonomyToggleBusy) return;
+    this.chatAutonomyToggleBusy = true;
+    this.chatAutonomyError = null;
+    try {
+      let currentEnabled = this.chatAutonomyOverview?.autonomy.enabled;
+      if (typeof currentEnabled !== "boolean") {
+        currentEnabled = (await client.getAgentAutonomy()).enabled;
+      }
+      await client.setAgentAutonomy(!currentEnabled);
+      await this.loadChatAutonomyOverview(true);
+      try {
+        const nextStatus = await client.getStatus();
+        this.setAgentStatus(nextStatus);
+      } catch {
+        // ignore status refresh failures; dropdown data already updated
+      }
+    } catch (err) {
+      this.chatAutonomyError = err instanceof Error
+        ? err.message
+        : "Could not update autonomy state.";
+    } finally {
+      this.chatAutonomyToggleBusy = false;
     }
   }
 

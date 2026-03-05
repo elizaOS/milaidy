@@ -166,6 +166,17 @@ export interface WorkbenchOverviewResponse {
   todosAvailable: boolean;
 }
 
+export interface AgentAutonomyResponse {
+  enabled: boolean;
+  thinking: boolean;
+}
+
+export interface AgentAutonomyUpdateResponse {
+  ok: boolean;
+  autonomy: boolean;
+  thinking: boolean;
+}
+
 // Wallet types
 
 export interface WalletAddresses { evmAddress: string | null; solanaAddress: string | null }
@@ -405,6 +416,17 @@ export class MilaidyClient {
 
   async getWorkbenchOverview(): Promise<WorkbenchOverviewResponse> {
     return this.fetch("/api/workbench/overview");
+  }
+
+  async getAgentAutonomy(): Promise<AgentAutonomyResponse> {
+    return this.fetch("/api/agent/autonomy");
+  }
+
+  async setAgentAutonomy(enabled: boolean): Promise<AgentAutonomyUpdateResponse> {
+    return this.fetch("/api/agent/autonomy", {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
   }
 
   async getOnboardingStatus(): Promise<{ complete: boolean }> {
