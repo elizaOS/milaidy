@@ -54,6 +54,7 @@ skills/*
 !skills/integration-dod-map/
 skills/integration-dod-map/*
 !skills/integration-dod-map/SKILL.md
+!skills/bnbchain-mcp-skill/
 apps/app/electron/.eliza
 apps/app/electron/skills/
 
