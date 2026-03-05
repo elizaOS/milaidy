@@ -646,4 +646,48 @@ if (pdfTargets.length === 0) {
 // Patch @elizaos packages whose exports["."].bun points to ./src/index.ts.
 // Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
 // ---------------------------------------------------------------------------
+/**
+ * Patch @elizaos/plugin-polymarket to handle removed validateActionRegex/
+ * validateActionKeywords exports from @elizaos/core alpha.12+.
+ *
+ * The plugin was built against core alpha.7 which had these exports.
+ * We replace the import and usage with no-op stubs so the plugin loads.
+ * Remove once plugin-polymarket publishes a version compatible with core alpha.12+.
+ */
+const polymarketTarget = resolve(
+  root,
+  "node_modules/@elizaos/plugin-polymarket/dist/index.js",
+);
+
+if (!existsSync(polymarketTarget)) {
+  console.log("[patch-deps] plugin-polymarket dist not found, skipping patch.");
+} else {
+  let polymarketSrc = readFileSync(polymarketTarget, "utf8");
+  let polymarketPatched = 0;
+
+  const polymarketBuggyImport = `import { logger as logger3, validateActionKeywords, validateActionRegex } from "@elizaos/core";`;
+  const polymarketFixedImport = `import { logger as logger3 } from "@elizaos/core";
+const validateActionKeywords = () => true;
+const validateActionRegex = () => true;`;
+
+  if (polymarketSrc.includes("const validateActionKeywords = () => true")) {
+    console.log("[patch-deps] polymarket validateAction patch already present.");
+  } else if (polymarketSrc.includes(polymarketBuggyImport)) {
+    polymarketSrc = polymarketSrc.replace(polymarketBuggyImport, polymarketFixedImport);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket validateAction stub patch.");
+  } else {
+    console.log(
+      "[patch-deps] polymarket import pattern changed — patch may no longer be needed.",
+    );
+  }
+
+  if (polymarketPatched > 0) {
+    writeFileSync(polymarketTarget, polymarketSrc, "utf8");
+    console.log(
+      `[patch-deps] Wrote ${polymarketPatched} plugin-polymarket patch(es).`,
+    );
+  }
+}
+
 patchBunExports(root, "@elizaos/plugin-coding-agent");
