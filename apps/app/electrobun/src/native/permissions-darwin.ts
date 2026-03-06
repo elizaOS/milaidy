@@ -29,7 +29,7 @@ let _nativeLib: {
 function getNativeLib() {
   if (_nativeLib) return _nativeLib;
   try {
-    const dylibPath = path.join(import.meta.dir, "libMacWindowEffects.dylib");
+    const dylibPath = path.join(import.meta.dir, "../libMacWindowEffects.dylib");
     const { symbols } = dlopen(dylibPath, {
       requestAccessibilityPermission: { args: [], returns: FFIType.bool },
       checkAccessibilityPermission: { args: [], returns: FFIType.bool },
