@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#import <ApplicationServices/ApplicationServices.h>
 
 static NSString *const kElectrobunVibrancyViewIdentifier =
 	@"ElectrobunVibrancyView";
@@ -47,6 +48,25 @@ static ElectrobunNativeDragView *findNativeDragView(NSView *contentView) {
 	}
 
 	return nil;
+}
+
+/**
+ * Request accessibility permission with a system prompt.
+ * Calls AXIsProcessTrustedWithOptions({kAXTrustedCheckOptionPrompt: true}),
+ * which registers the app in System Preferences → Accessibility and shows the
+ * authorization dialog. Must be called from within the app process.
+ * Returns true if already trusted, false if the prompt was shown.
+ */
+extern "C" bool requestAccessibilityPermission(void) {
+	NSDictionary *options = @{(__bridge id)kAXTrustedCheckOptionPrompt: @YES};
+	return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+}
+
+/**
+ * Check accessibility trust without prompting.
+ */
+extern "C" bool checkAccessibilityPermission(void) {
+	return AXIsProcessTrusted();
 }
 
 extern "C" bool enableWindowVibrancy(void *windowPtr) {

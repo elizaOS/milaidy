@@ -7,11 +7,42 @@
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { dlopen, FFIType } from "bun:ffi";
 
 import type {
   PermissionCheckResult,
   SystemPermissionId,
 } from "./permissions-shared";
+
+// Load AXIsProcessTrustedWithOptions from the native dylib so it runs in the
+// app's process context — required for macOS to register Milady in the
+// Accessibility list in System Preferences.
+let _nativeLib: {
+  requestAccessibilityPermission: () => boolean;
+  checkAccessibilityPermission: () => boolean;
+} | null = null;
+
+function getNativeLib() {
+  if (_nativeLib) return _nativeLib;
+  try {
+    const dylibPath = path.join(import.meta.dir, "libMacWindowEffects.dylib");
+    const { symbols } = dlopen(dylibPath, {
+      requestAccessibilityPermission: {
+        args: [],
+        returns: FFIType.bool,
+      },
+      checkAccessibilityPermission: {
+        args: [],
+        returns: FFIType.bool,
+      },
+    });
+    _nativeLib = symbols as typeof _nativeLib;
+    return _nativeLib;
+  } catch (err) {
+    console.warn("[Permissions] Failed to load native dylib:", err);
+    return null;
+  }
+}
 
 const APP_BUNDLE_ID = "com.miladyai.milady";
 
@@ -103,11 +134,15 @@ export async function checkPermission(
 ): Promise<PermissionCheckResult> {
   switch (id) {
     case "accessibility": {
-      const result = await runCommand(
-        "osascript -e 'tell application \"System Events\" to return name of first process' 2>&1",
-      );
-      const granted = !result.includes("error") && result.length > 0;
-      return { status: granted ? "granted" : "denied", canRequest: true };
+      const lib = getNativeLib();
+      const granted = lib
+        ? lib.checkAccessibilityPermission()
+        : (() => {
+            // Fallback: osascript heuristic
+            // biome-ignore lint/suspicious/noAsyncPromiseExecutor: sync fallback
+            return false;
+          })();
+      return { status: granted ? "granted" : "not-determined", canRequest: true };
     }
 
     case "screen-recording": {
@@ -137,10 +172,23 @@ export async function checkPermission(
 export async function requestPermission(
   id: SystemPermissionId,
 ): Promise<PermissionCheckResult> {
-  // On macOS, requesting permissions typically triggers system dialogs
-  // We can open System Preferences to the right pane
   switch (id) {
-    case "accessibility":
+    case "accessibility": {
+      // AXIsProcessTrustedWithOptions({prompt:true}) shows the macOS auth dialog
+      // AND registers the app in System Preferences → Accessibility.
+      const lib = getNativeLib();
+      if (lib) {
+        const trusted = lib.requestAccessibilityPermission();
+        if (!trusted) {
+          // Dialog was shown; open System Preferences so user can toggle it
+          await openPrivacySettings(id);
+        }
+        return { status: trusted ? "granted" : "not-determined", canRequest: true };
+      }
+      // Fallback: open Settings directly
+      await openPrivacySettings(id);
+      return checkPermission(id);
+    }
     case "screen-recording":
     case "microphone":
     case "camera":
