@@ -244,13 +244,13 @@ async function polymarketResolveNames(
       const resp = await fetchFn(url, { signal: AbortSignal.timeout(5000) });
       if (!resp.ok) continue;
       const markets = (await resp.json()) as Array<{
-        condition_id?: string;
+        conditionId?: string;
         question?: string;
       }>;
       for (const m of markets) {
-        if (m.condition_id && m.question) {
-          result.set(m.condition_id, m.question);
-          _polymarketNameCache.set(m.condition_id, {
+        if (m.conditionId && m.question) {
+          result.set(m.conditionId, m.question);
+          _polymarketNameCache.set(m.conditionId, {
             question: m.question,
             ts: now,
           });
@@ -6731,7 +6731,7 @@ async function handleRequest(
       // Resolve condition IDs → market questions via Gamma API (cached)
       const marketNames = await polymarketResolveNames(
         conditionIds,
-        runtime.fetch?.bind(runtime) ?? globalThis.fetch,
+        globalThis.fetch,
       );
 
       // Attach resolved question to each item
