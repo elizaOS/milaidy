@@ -34,9 +34,8 @@ export default {
         // Dynamic executable memory (required alongside allow-jit)
         "com.apple.security.cs.allow-unsigned-executable-memory": true,
         // Library validation disabled (required for third-party native binaries: whisper.cpp, sharp)
+        // This also covers unsigned dylib loading — allow-dyld-environment-variables is not needed.
         "com.apple.security.cs.disable-library-validation": true,
-        // Code-signing hardened runtime — allow dyld env vars (e.g. DYLD_INSERT_LIBRARIES)
-        "com.apple.security.cs.allow-dyld-environment-variables": true,
         // Network access (API calls, local agent/gateway server)
         "com.apple.security.network.client": true,
         "com.apple.security.network.server": true,

@@ -318,16 +318,18 @@ jobs:
         run: |
           echo "${{ secrets.RELEASE_UPLOAD_KEY }}" > /tmp/release_key
           chmod 600 /tmp/release_key
+          # Fetch and verify the host key before connecting (avoids MITM risk of StrictHostKeyChecking=no)
+          ssh-keyscan -H milady.ai >> ~/.ssh/known_hosts 2>/dev/null
           # Upload all update files to the release channel directory
           CHANNEL="${{ needs.prepare.outputs.env }}"
           VERSION="${{ needs.prepare.outputs.version }}"
           rsync -av --delete-after \
-            -e "ssh -i /tmp/release_key -o StrictHostKeyChecking=no" \
+            -e "ssh -i /tmp/release_key" \
             release-files/ \
             releases@milady.ai:/var/www/releases/${CHANNEL}/${VERSION}/
           # Overwrite the channel-level update.json so auto-updater finds latest
           if [ -f "release-files/update.json" ]; then
-            scp -i /tmp/release_key -o StrictHostKeyChecking=no \
+            scp -i /tmp/release_key \
               release-files/update.json \
               releases@milady.ai:/var/www/releases/${CHANNEL}/update.json
           fi
