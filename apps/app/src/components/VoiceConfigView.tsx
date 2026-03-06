@@ -566,13 +566,17 @@ export function VoiceConfigView() {
             : undefined,
         elevenlabs: normalizedElevenLabs,
       };
-      // Also persist swabble (wake word) config
+      // Also persist swabble (wake word) config — fall back to server config
+      // if the plugin isn't available on this platform (e.g. Electrobun).
       let swabbleCfg: Partial<SwabbleConfig> | undefined;
       try {
         const { config: sc } = await Swabble.getConfig();
         if (sc) swabbleCfg = sc;
       } catch {
         // Not available on this platform
+      }
+      if (!swabbleCfg && swabbleServerConfig) {
+        swabbleCfg = swabbleServerConfig;
       }
 
       await client.updateConfig({
@@ -594,7 +598,7 @@ export function VoiceConfigView() {
       setSaveError(err instanceof Error ? err.message : "Failed to save");
     }
     setSaving(false);
-  }, [voiceConfig]);
+  }, [swabbleServerConfig, voiceConfig]);
 
   if (loading) {
     return (

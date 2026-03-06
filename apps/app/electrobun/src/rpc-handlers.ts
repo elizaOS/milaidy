@@ -23,6 +23,22 @@ import type { PipState } from "./rpc-schema";
 // PiP state (simple in-memory store — no dedicated manager needed)
 let pipState: PipState = { enabled: false };
 
+/** Push current OS permission states to the agent REST API in-process. */
+async function syncPermissionsToRestApi(): Promise<void> {
+  const port = getAgentManager().getPort();
+  if (!port) return;
+  try {
+    const permissions = await getPermissionManager().checkAllPermissions();
+    await fetch(`http://localhost:${port}/api/permissions/state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions }),
+    });
+  } catch {
+    // non-fatal — renderer will still get data via IPC response
+  }
+}
+
 type SendToWebview = (message: string, payload?: unknown) => void;
 
 /**
@@ -191,9 +207,20 @@ export function registerRpcHandlers(
     }) => permissions.checkFeaturePermissions(params.featureId),
     permissionsRequest: async (params: {
       id: Parameters<typeof permissions.requestPermission>[0];
-    }) => permissions.requestPermission(params.id),
-    permissionsGetAll: async (params: { forceRefresh?: boolean } | undefined) =>
-      permissions.checkAllPermissions(params?.forceRefresh),
+    }) => {
+      const result = await permissions.requestPermission(params.id);
+      syncPermissionsToRestApi();
+      return result;
+    },
+    permissionsGetAll: async (
+      params: { forceRefresh?: boolean } | undefined,
+    ) => {
+      const result = await permissions.checkAllPermissions(
+        params?.forceRefresh,
+      );
+      syncPermissionsToRestApi();
+      return result;
+    },
     permissionsGetPlatform: async () => process.platform,
     permissionsIsShellEnabled: async () => permissions.isShellEnabled(),
     permissionsSetShellEnabled: async (params: { enabled: boolean }) => {

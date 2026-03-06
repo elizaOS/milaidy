@@ -757,7 +757,7 @@ type LoadConversationMessagesResult =
   | { ok: true }
   | { ok: false; status?: number; message: string };
 
-export type StartupPhase = "starting-backend" | "initializing-agent";
+export type StartupPhase = "starting-backend" | "initializing-agent" | "ready";
 
 export type StartupErrorReason =
   | "backend-timeout"
@@ -4637,7 +4637,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const resp = await client.cloudLogin();
       if (!resp.ok) throw new Error("Failed to start login session");
-      window.open(resp.browserUrl, "_blank");
+      // Use desktop IPC to open in the system browser — window.open() is
+      // a no-op in WKWebView (Electrobun) for external URLs.
+      const electronApi = (
+        window as {
+          electron?: {
+            ipcRenderer: {
+              invoke: (ch: string, p?: unknown) => Promise<unknown>;
+            };
+          };
+        }
+      ).electron;
+      if (electronApi?.ipcRenderer) {
+        await electronApi.ipcRenderer.invoke("desktop:openExternal", {
+          url: resp.browserUrl,
+        });
+      } else {
+        window.open(resp.browserUrl, "_blank");
+      }
       // Poll for completion
       let attempts = 0;
       cloudLoginPollTimer.current = window.setInterval(async () => {
@@ -5319,6 +5336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       setStartupError(null);
+      setStartupPhase("ready");
       setOnboardingLoading(false);
 
       // Load conversations — if none exist, create one and request a greeting

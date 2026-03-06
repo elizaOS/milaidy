@@ -282,11 +282,33 @@ export class DesktopManager {
     // This single handler covers both native actions (show/quit) and
     // renderer notifications, eliminating the need for a duplicate handler
     // in index.ts.
+    const triggerAgentRestart = () => {
+      // Lazy import to avoid circular dependency (agent → desktop → agent).
+      import("./agent").then(({ getAgentManager }) => {
+        getAgentManager()
+          .restart()
+          .catch((err: unknown) => {
+            console.error("[Desktop] Agent restart failed:", err);
+          });
+      });
+    };
+
+    Electrobun.events.on(
+      "application-menu-clicked",
+      (e: { data: { action: string } }) => {
+        if (e?.data?.action === "restart-agent") {
+          triggerAgentRestart();
+        }
+      },
+    );
+
     Electrobun.events.on("context-menu-clicked", (action: string) => {
       // Native actions
       if (action === "show") {
         this.mainWindow?.show();
         this.mainWindow?.focus();
+      } else if (action === "restart-agent") {
+        triggerAgentRestart();
       } else if (action === "quit") {
         this.onBeforeQuit?.();
         process.exit(0);
