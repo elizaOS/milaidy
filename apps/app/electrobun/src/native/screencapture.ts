@@ -26,6 +26,26 @@ import path from "node:path";
 import { BrowserWindow } from "electrobun/bun";
 
 /**
+ * Allow-list for game-capture URLs.
+ * Only localhost, 127.0.0.1, and file:// origins are permitted.
+ * External URLs are rejected to prevent a compromised renderer or malicious
+ * IPC call from opening an invisible native window that loads arbitrary
+ * external content with full desktop privileges.
+ */
+function isAllowedCaptureUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.protocol === "file:"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Structural type for accessing evaluateJavascriptWithResponse via requestProxy.
  * requestProxy is present at runtime on every createRPC result but is not
  * part of the base RPCWithTransport interface exported by electrobun.
@@ -344,6 +364,13 @@ export class ScreenCaptureManager {
     endpoint: string,
     interval: number,
   ): Promise<{ available: boolean; reason?: string }> {
+    if (!isAllowedCaptureUrl(gameUrl)) {
+      return {
+        available: false,
+        reason: `gameUrl blocked: only localhost, 127.0.0.1, and file:// are permitted`,
+      };
+    }
+
     try {
       const win = new BrowserWindow({
         title: "Milady Game Capture",
