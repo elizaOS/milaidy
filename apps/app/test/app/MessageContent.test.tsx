@@ -21,7 +21,13 @@ vi.mock("../../src/api-client", () => ({
   },
 }));
 
-import { MessageContent } from "../../src/components/MessageContent";
+import {
+  compilePatches,
+  findPatchRegions,
+  looksLikePatch,
+  MessageContent,
+  tryParsePatch,
+} from "../../src/components/MessageContent";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,6 +56,145 @@ function renderText(text: string): string {
 
   return collectText(tree.root).trim();
 }
+
+// ---------------------------------------------------------------------------
+// Tests — JSONL patch detection (the json-render renderer path)
+// ---------------------------------------------------------------------------
+
+describe("looksLikePatch", () => {
+  it("matches compact JSON patch", () => {
+    expect(looksLikePatch('{"op":"add","path":"/root","value":"x"}')).toBe(
+      true,
+    );
+  });
+
+  it("matches spaced JSON patch (Claude output style)", () => {
+    expect(
+      looksLikePatch('{ "op": "add", "path": "/root", "value": "x" }'),
+    ).toBe(true);
+  });
+
+  it("rejects plain text", () => {
+    expect(looksLikePatch("Hello world")).toBe(false);
+  });
+
+  it("rejects JSON without op field", () => {
+    expect(looksLikePatch('{"type":"Card","props":{}}')).toBe(false);
+  });
+
+  it("rejects code fence lines", () => {
+    expect(looksLikePatch("```json")).toBe(false);
+    expect(looksLikePatch("```")).toBe(false);
+  });
+});
+
+describe("tryParsePatch", () => {
+  it("parses compact add patch", () => {
+    const p = tryParsePatch('{"op":"add","path":"/root","value":"card-1"}');
+    expect(p).not.toBeNull();
+    expect(p?.op).toBe("add");
+    expect(p?.path).toBe("/root");
+  });
+
+  it("parses spaced add patch", () => {
+    const p = tryParsePatch(
+      '{ "op": "add", "path": "/root", "value": "card-1" }',
+    );
+    expect(p).not.toBeNull();
+    expect(p?.op).toBe("add");
+    expect(p?.path).toBe("/root");
+  });
+
+  it("returns null for plain text", () => {
+    expect(tryParsePatch("Sure, here is your form:")).toBeNull();
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(tryParsePatch('{"op":"add","path":"/root"')).toBeNull();
+  });
+});
+
+describe("compilePatches", () => {
+  it("builds a valid UiSpec from add patches", () => {
+    const patches = [
+      { op: "add" as const, path: "/root", value: "card-1" },
+      {
+        op: "add" as const,
+        path: "/elements/card-1",
+        value: { type: "Card", props: { title: "Test" }, children: [] },
+      },
+      { op: "add" as const, path: "/state/amount", value: 0 },
+    ];
+    const spec = compilePatches(patches);
+    expect(spec).not.toBeNull();
+    expect(spec?.root).toBe("card-1");
+    expect(spec?.elements["card-1"]).toBeDefined();
+    expect(spec?.state.amount).toBe(0);
+  });
+
+  it("returns null if /root is missing", () => {
+    const patches = [
+      {
+        op: "add" as const,
+        path: "/elements/card-1",
+        value: { type: "Card", props: {}, children: [] },
+      },
+    ];
+    expect(compilePatches(patches)).toBeNull();
+  });
+});
+
+describe("findPatchRegions", () => {
+  it("detects bare compact JSONL patches", () => {
+    const text = [
+      "Sure, here you go:",
+      '{"op":"add","path":"/root","value":"card-1"}',
+      '{"op":"add","path":"/elements/card-1","value":{"type":"Card","props":{"title":"Hi"},"children":[]}}',
+      '{"op":"add","path":"/state","value":{}}',
+    ].join("\n");
+    const regions = findPatchRegions(text);
+    expect(regions).toHaveLength(1);
+    expect(regions[0].spec.root).toBe("card-1");
+  });
+
+  it("detects spaced JSONL patches (Claude output style)", () => {
+    const text = [
+      "Here is your dashboard:",
+      '{ "op": "add", "path": "/root", "value": "card-1" }',
+      '{ "op": "add", "path": "/elements/card-1", "value": { "type": "Card", "props": { "title": "Dashboard" }, "children": [] } }',
+      '{ "op": "add", "path": "/state", "value": {} }',
+    ].join("\n");
+    const regions = findPatchRegions(text);
+    expect(regions).toHaveLength(1);
+    expect(regions[0].spec.root).toBe("card-1");
+  });
+
+  it("detects patches inside a code fence", () => {
+    const text = [
+      "Here is the UI:",
+      "```json",
+      '{"op":"add","path":"/root","value":"card-1"}',
+      '{"op":"add","path":"/elements/card-1","value":{"type":"Card","props":{"title":"Fenced"},"children":[]}}',
+      '{"op":"add","path":"/state","value":{}}',
+      "```",
+    ].join("\n");
+    const regions = findPatchRegions(text);
+    expect(regions).toHaveLength(1);
+    expect(regions[0].spec.root).toBe("card-1");
+  });
+
+  it("returns empty array for plain text", () => {
+    expect(findPatchRegions("Hello! How can I help you today?")).toHaveLength(
+      0,
+    );
+  });
+
+  it("returns empty array if /root patch is missing", () => {
+    const text =
+      '{"op":"add","path":"/elements/card-1","value":{"type":"Card","props":{},"children":[]}}';
+    expect(findPatchRegions(text)).toHaveLength(0);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests — XML stripping regression

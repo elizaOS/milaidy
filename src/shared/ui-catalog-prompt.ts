@@ -665,6 +665,42 @@ export const COMPONENT_CATALOG: Record<string, ComponentMeta> = {
     },
   },
 
+  // ── Metric / KPI display ────────────────────────────────────────────
+
+  Metric: {
+    description:
+      "KPI / metric card showing a label, primary value, and optional change indicator. Ideal for wallet balances, prices, and stats.",
+    props: {
+      label: {
+        type: "string",
+        description: "Metric label (e.g. 'BNB Balance')",
+        required: true,
+      },
+      value: {
+        type: "string | number",
+        description:
+          'Primary display value. Supports dynamic { "$path": "state.path" } reference.',
+        required: true,
+      },
+      unit: {
+        type: "string",
+        description: "Unit suffix after value (e.g. 'BNB', 'USD')",
+        required: false,
+      },
+      change: {
+        type: "string | number",
+        description: "Change delta shown below value (e.g. '+2.4%')",
+        required: false,
+      },
+      trend: {
+        type: '"up" | "down" | "neutral"',
+        description:
+          "Trend direction — colours change indicator green/red/grey",
+        required: false,
+      },
+    },
+  },
+
   // ── Visualization ───────────────────────────────────────────────────
 
   BarGraph: {
@@ -833,51 +869,83 @@ export interface CatalogPromptOptions {
   includeExamples?: boolean;
   /** Only include these component types (subset of catalog). */
   componentFilter?: string[];
+  /**
+   * Output mode:
+   *   "generate" (default) — AI outputs ONLY JSONL patches, no prose. Use for
+   *                          standalone UI builders and playgrounds.
+   *   "chat"               — AI responds conversationally first, then emits
+   *                          JSONL patches on their own lines when UI is needed.
+   *                          Text-only replies are allowed (greetings, questions).
+   *                          Use for conversational interfaces.
+   */
+  mode?: "generate" | "chat";
 }
 
 /**
  * Builds a system prompt string describing the UiSpec JSON format and
  * all available components so an LLM can generate valid specs.
+ *
+ * Two modes:
+ *   "generate" (default) — AI outputs only JSONL patches, no prose.
+ *   "chat"               — AI can respond conversationally and embed JSONL
+ *                          patches inline when rich UI is appropriate.
  */
 export function generateCatalogPrompt(options?: CatalogPromptOptions): string {
   const parts: string[] = [];
+  const mode = options?.mode ?? "generate";
 
   // ── 1. Header ───────────────────────────────────────────────────────
 
-  parts.push(
-    "You are generating UI specifications in JSON format. Output ONLY valid JSON matching the UiSpec schema.",
-  );
+  if (mode === "chat") {
+    parts.push(
+      `You can generate interactive UI components inline in your responses using JSONL patches.
 
-  // ── 2. Spec format ──────────────────────────────────────────────────
+When the user's request calls for a form, chart, slider, metric display, wallet control, or any interactive element, respond conversationally first (one or two sentences), then emit the JSONL patches on their own lines immediately after. Each patch must be on its own line with no extra whitespace or code fences.
+
+When no UI is needed (greetings, factual questions, clarifications) — reply with text only. Never emit patches unless they genuinely add value.`,
+    );
+  } else {
+    parts.push(
+      "You are generating UI specifications as JSONL patches. Output ONLY the patches — one JSON object per line, no prose, no markdown, no code fences.",
+    );
+  }
+
+  // ── 2. Patch format ─────────────────────────────────────────────────
 
   parts.push(`
-## Spec format
+## Output format — JSONL patches (RFC 6902)
 
-A UiSpec is a JSON object with three top-level keys:
+Each line of UI output is a single JSON patch operation:
 
 \`\`\`
+{"op":"add","path":"/root","value":"card-1"}
+{"op":"add","path":"/elements/card-1","value":{"type":"Card","props":{"title":"My Form"},"children":["input-1","btn-1"]}}
+{"op":"add","path":"/elements/input-1","value":{"type":"Input","props":{"label":"Amount","type":"number","statePath":"amount"},"children":[]}}
+{"op":"add","path":"/elements/btn-1","value":{"type":"Button","props":{"label":"Submit"},"children":[]}}
+{"op":"add","path":"/state/amount","value":0}
+\`\`\`
+
+**Path conventions:**
+- \`/root\` — set the root element ID (required, must be first)
+- \`/elements/<id>\` — add/replace an element
+- \`/state/<key>\` — set initial state value
+- \`/state\` — set the entire state object at once
+
+**Element schema:**
+\`\`\`
 {
-  "root": "<elementId>",       // ID of the root element
-  "elements": { ... },         // Map of elementId -> UiElement
-  "state": { ... }             // Initial state object (arbitrary keys)
+  "type": "<ComponentType>",
+  "props": { ... },
+  "children": ["child-id-1", "child-id-2"],
+  "on": { ... },          // optional event bindings
+  "visible": { ... },     // optional visibility condition
+  "validation": { ... },  // optional validation
+  "repeat": { ... }       // optional list rendering
 }
 \`\`\`
 
-Each element in \`elements\` has this shape:
-
-\`\`\`
-{
-  "type": "<ComponentType>",   // One of the component types listed below
-  "props": { ... },            // Component-specific properties
-  "children": ["id1", "id2"],  // Array of child element IDs (empty [] if none)
-  "on": { ... },               // Optional event bindings
-  "visible": { ... },          // Optional visibility condition
-  "validation": { ... },       // Optional validation config
-  "repeat": { ... }            // Optional list rendering config
-}
-\`\`\`
-
-Element IDs must be unique strings. The \`children\` array references other element IDs to form a tree.`);
+Always emit \`/root\` first, then all \`/elements\` entries, then \`/state\` values.
+Element IDs must be unique kebab-case strings (e.g. \`send-btn\`, \`amount-slider\`).`);
 
   // ── 3. Available components ─────────────────────────────────────────
 
@@ -1042,62 +1110,48 @@ ${options.customRules.map((r) => `- ${r}`).join("\n")}`);
   // ── 11. Example ─────────────────────────────────────────────────────
 
   if (options?.includeExamples) {
-    parts.push(`
-## Example
+    if (mode === "chat") {
+      parts.push(`
+## Example — chat mode
 
-\`\`\`json
-{
-  "root": "main",
-  "elements": {
-    "main": {
-      "type": "Card",
-      "props": { "title": "Contact Us" },
-      "children": ["heading", "desc", "emailInput", "submitBtn"]
-    },
-    "heading": {
-      "type": "Heading",
-      "props": { "text": "Get in Touch", "level": "h2" },
-      "children": []
-    },
-    "desc": {
-      "type": "Text",
-      "props": { "text": "Fill out the form below and we will respond within 24 hours.", "variant": "muted" },
-      "children": []
-    },
-    "emailInput": {
-      "type": "Input",
-      "props": {
-        "label": "Email",
-        "type": "email",
-        "placeholder": "you@example.com",
-        "statePath": "form.email"
-      },
-      "children": [],
-      "validation": {
-        "checks": [
-          { "fn": "required", "message": "Email is required" },
-          { "fn": "email", "message": "Enter a valid email address" }
-        ],
-        "validateOn": "blur"
-      }
-    },
-    "submitBtn": {
-      "type": "Button",
-      "props": { "label": "Send Message", "variant": "primary" },
-      "children": [],
-      "on": {
-        "press": {
-          "action": "submitContact",
-          "params": { "email": { "$path": "form.email" } }
-        }
-      }
-    }
-  },
-  "state": {
-    "form": { "email": "" }
-  }
-}
+User: "Help me send some BNB to a friend"
+
+Your response:
+
+\`\`\`
+Sure! Here's a quick send form — enter the amount and recipient address:
+
+{"op":"add","path":"/root","value":"send-card"}
+{"op":"add","path":"/elements/send-card","value":{"type":"Card","props":{"title":"Send BNB"},"children":["amount-slider","amount-display","addr-input","send-btn"]}}
+{"op":"add","path":"/elements/amount-slider","value":{"type":"Slider","props":{"label":"Amount (BNB)","min":0,"max":10,"step":0.01,"statePath":"amount"},"children":[]}}
+{"op":"add","path":"/elements/amount-display","value":{"type":"Metric","props":{"label":"Selected","value":{"$path":"amount"},"unit":"BNB"},"children":[]}}
+{"op":"add","path":"/elements/addr-input","value":{"type":"Input","props":{"label":"Recipient Address","placeholder":"0x...","statePath":"address"},"children":[],"validation":{"checks":[{"fn":"required","message":"Address is required"}],"validateOn":"blur"}}}
+{"op":"add","path":"/elements/send-btn","value":{"type":"Button","props":{"label":"Send BNB","variant":"primary"},"children":[],"on":{"press":{"action":"sendBnb","params":{"amount":{"$path":"amount"},"address":{"$path":"address"}},"confirm":{"title":"Confirm transfer","message":"Send BNB to this address?","confirmLabel":"Send","cancelLabel":"Cancel"}}}}}
+{"op":"add","path":"/state/amount","value":0.1}
+{"op":"add","path":"/state/address","value":""}
+\`\`\`
+
+---
+
+User: "What does BNB stand for?"
+
+Your response: BNB stands for Binance Coin — it's the native token of the BNB Chain (formerly Binance Smart Chain).
+
+(text-only reply — no patches needed)`);
+    } else {
+      parts.push(`
+## Example — generate mode
+
+\`\`\`
+{"op":"add","path":"/root","value":"main"}
+{"op":"add","path":"/elements/main","value":{"type":"Card","props":{"title":"Contact Us"},"children":["heading","desc","email-input","submit-btn"]}}
+{"op":"add","path":"/elements/heading","value":{"type":"Heading","props":{"text":"Get in Touch","level":"h2"},"children":[]}}
+{"op":"add","path":"/elements/desc","value":{"type":"Text","props":{"text":"Fill out the form and we will respond within 24 hours.","variant":"muted"},"children":[]}}
+{"op":"add","path":"/elements/email-input","value":{"type":"Input","props":{"label":"Email","type":"email","placeholder":"you@example.com","statePath":"form.email"},"children":[],"validation":{"checks":[{"fn":"required","message":"Email is required"},{"fn":"email","message":"Enter a valid email"}],"validateOn":"blur"}}}
+{"op":"add","path":"/elements/submit-btn","value":{"type":"Button","props":{"label":"Send Message","variant":"primary"},"children":[],"on":{"press":{"action":"submitContact","params":{"email":{"$path":"form.email"}}}}}}
+{"op":"add","path":"/state/form","value":{"email":""}}
 \`\`\``);
+    }
   }
 
   return parts.join("\n");
