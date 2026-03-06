@@ -310,7 +310,7 @@ function parseGithubUrl(rawUrl: string): {
 
   const repository = normalizeRepo(`${parts[0]}/${parts[1]}`);
 
-  if (parts[2] === "tree" && parts.length >= 5) {
+  if (parts[2] === "tree" && parts.length >= 4) {
     const ref = parts[3];
     validateGitRef(ref);
     const treePath = parts.slice(4).join("/");
@@ -636,11 +636,11 @@ export async function searchSkillsMarketplace(
 
 async function runGitCloneSubset(
   repository: string,
-  ref: string,
+  ref: string | null,
   skillPath: string,
   targetDir: string,
 ): Promise<void> {
-  validateGitRef(ref);
+  if (ref) validateGitRef(ref);
   if (skillPath !== ".") {
     sanitizeSkillPath(skillPath);
   }
@@ -669,43 +669,67 @@ async function runGitCloneSubset(
 
 async function resolveSkillPathInRepo(
   repository: string,
-  ref: string,
+  ref: string | null,
   requestedPath: string | null,
 ): Promise<string> {
-  validateGitRef(ref);
+  if (ref) validateGitRef(ref);
   if (requestedPath) return sanitizeSkillPath(requestedPath);
 
-  return withTemporarySparseCheckout(repository, ref, ".", async (cloneDir) => {
-    const rootSkill = path.join(cloneDir, "SKILL.md");
-    const hasRoot = await fs
-      .stat(rootSkill)
-      .then((s) => s.isFile())
-      .catch(() => false);
-    if (hasRoot) return ".";
+  // Use --no-checkout + git ls-tree to discover SKILL.md without relying on
+  // sparse-checkout cone mode, which only fetches root-level files when
+  // checkoutPath="." and silently omits skills/ subdirectories.
+  const repoUrl = `https://github.com/${repository}.git`;
+  const tmpBase = await fs.mkdtemp(path.join(stateDirBase(), "skill-probe-"));
+  const cloneDir = path.join(tmpBase, "repo");
+  try {
+    const cloneArgs = [
+      "clone",
+      "--depth",
+      "1",
+      "--filter=blob:none",
+      "--no-checkout",
+      ...(ref ? ["--branch", ref] : []),
+      repoUrl,
+      cloneDir,
+    ];
+    await execFileAsync("git", cloneArgs, { timeout: GIT_TIMEOUT_MS });
 
-    const skillsDir = path.join(cloneDir, "skills");
-    const entries = await fs
-      .readdir(skillsDir, { withFileTypes: true })
-      .catch(() => []);
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const candidate = path.join(skillsDir, entry.name, "SKILL.md");
-      const exists = await fs
-        .stat(candidate)
-        .then((s) => s.isFile())
-        .catch(() => false);
-      if (exists) return path.posix.join("skills", entry.name);
+    const { stdout } = await execFileAsync(
+      "git",
+      ["-C", cloneDir, "ls-tree", "-r", "--name-only", "HEAD"],
+      { timeout: GIT_TIMEOUT_MS },
+    );
+    const allPaths = stdout
+      .split("\n")
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (allPaths.includes("SKILL.md")) return ".";
+
+    for (const filePath of allPaths) {
+      const parts = filePath.split("/");
+      if (
+        parts.length === 3 &&
+        parts[0] === "skills" &&
+        parts[2] === "SKILL.md"
+      ) {
+        return sanitizeSkillPath(`${parts[0]}/${parts[1]}`);
+      }
     }
 
     throw new Error(
       "Could not determine skill path automatically. Provide an explicit GitHub tree URL or path.",
     );
-  });
+  } finally {
+    await fs
+      .rm(tmpBase, { recursive: true, force: true })
+      .catch(() => undefined);
+  }
 }
 
 async function withTemporarySparseCheckout<T>(
   repository: string,
-  ref: string,
+  ref: string | null,
   checkoutPath: string,
   task: (cloneDir: string) => Promise<T>,
 ): Promise<T> {
@@ -714,21 +738,17 @@ async function withTemporarySparseCheckout<T>(
   const cloneDir = path.join(tmpBase, "repo");
 
   try {
-    await execFileAsync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "--branch",
-        ref,
-        repoUrl,
-        cloneDir,
-      ],
-      { timeout: GIT_TIMEOUT_MS },
-    );
+    const cloneArgs = [
+      "clone",
+      "--depth",
+      "1",
+      "--filter=blob:none",
+      "--sparse",
+      ...(ref ? ["--branch", ref] : []),
+      repoUrl,
+      cloneDir,
+    ];
+    await execFileAsync("git", cloneArgs, { timeout: GIT_TIMEOUT_MS });
     await execFileAsync(
       "git",
       ["-C", cloneDir, "sparse-checkout", "set", checkoutPath],
@@ -753,7 +773,7 @@ export async function installMarketplaceSkill(
     ? normalizeRepo(input.repository)
     : null;
   let requestedPath = input.path?.trim() ? sanitizeSkillPath(input.path) : null;
-  let gitRef = "main";
+  let gitRef: string | null = null;
 
   if (input.githubUrl?.trim()) {
     const parsed = parseGithubUrl(input.githubUrl.trim());

@@ -19,7 +19,7 @@ import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { paramsToSchema } from "./PluginsView";
 import { UiRenderer } from "./ui-renderer";
-import type { UiSpec } from "./ui-spec";
+import type { PatchOp, UiSpec } from "./ui-spec";
 
 /** Reject prototype-pollution plugin IDs that could slip through the regex. */
 const BLOCKED_IDS = new Set(["__proto__", "constructor", "prototype"]);
@@ -37,7 +37,7 @@ type Segment =
 
 // ── Detection ───────────────────────────────────────────────────────
 
-const CONFIG_RE = /\[CONFIG:(\w[\w-]*)\]/g;
+const CONFIG_RE = /\[CONFIG:([@\w][\w@./:-]*)\]/g;
 const FENCED_JSON_RE = /```(?:json)?\s*\n([\s\S]*?)```/g;
 
 /**
@@ -66,8 +66,159 @@ function isUiSpec(obj: unknown): obj is UiSpec {
   );
 }
 
+// ── JSONL patch support (Chat Mode) ─────────────────────────────────
+
 /**
- * Parse message text for [CONFIG:id] markers and fenced UiSpec JSON.
+ * Quick pre-check: does this line look like a JSON patch object?
+ * Handles both compact `{"op":` and spaced `{ "op":` formats.
+ */
+export function looksLikePatch(trimmed: string): boolean {
+  if (!trimmed.startsWith("{")) return false;
+  return trimmed.includes('"op"') && trimmed.includes('"path"');
+}
+
+/** Try to parse a single line as an RFC 6902 JSON Patch operation. */
+export function tryParsePatch(line: string): PatchOp | null {
+  const t = line.trim();
+  if (!looksLikePatch(t)) return null;
+  try {
+    const obj = JSON.parse(t) as Record<string, unknown>;
+    if (typeof obj.op === "string" && typeof obj.path === "string")
+      return obj as unknown as PatchOp;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Apply a list of RFC 6902 patches to build a UiSpec.
+ *
+ * Only handles the paths the catalog emits:
+ *   /root              → spec.root
+ *   /elements/<id>     → spec.elements[id]
+ *   /state/<key>       → spec.state[key]
+ *   /state             → spec.state (whole object)
+ */
+export function compilePatches(patches: PatchOp[]): UiSpec | null {
+  const spec: {
+    root?: string;
+    elements: Record<string, unknown>;
+    state: Record<string, unknown>;
+  } = { elements: {}, state: {} };
+
+  for (const patch of patches) {
+    if (patch.op !== "add" && patch.op !== "replace") continue;
+    const { path, value } = patch as {
+      op: string;
+      path: string;
+      value: unknown;
+    };
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length === 0) continue;
+
+    if (parts[0] === "root" && parts.length === 1) {
+      spec.root = value as string;
+    } else if (parts[0] === "elements" && parts.length === 2) {
+      spec.elements[parts[1]] = value;
+    } else if (parts[0] === "state" && parts.length === 1) {
+      spec.state = (value as Record<string, unknown>) ?? {};
+    } else if (parts[0] === "state" && parts.length >= 2) {
+      // Nested state path: /state/key or /state/key/subkey
+      let cursor = spec.state;
+      for (let i = 1; i < parts.length - 1; i++) {
+        const k = parts[i];
+        if (!cursor[k] || typeof cursor[k] !== "object") cursor[k] = {};
+        cursor = cursor[k] as Record<string, unknown>;
+      }
+      cursor[parts[parts.length - 1]] = value;
+    }
+  }
+
+  return isUiSpec(spec) ? (spec as unknown as UiSpec) : null;
+}
+
+/**
+ * Scan `text` for blocks of consecutive JSONL patch lines and return
+ * their character regions plus the compiled UiSpec.
+ *
+ * A patch block is a run of lines where each non-empty line parses as a
+ * valid PatchOp. A single empty line between patch lines is allowed.
+ */
+export function findPatchRegions(
+  text: string,
+): Array<{ start: number; end: number; spec: UiSpec; raw: string }> {
+  const results: Array<{
+    start: number;
+    end: number;
+    spec: UiSpec;
+    raw: string;
+  }> = [];
+  const lines = text.split("\n");
+
+  let blockStart = -1;
+  let blockEnd = 0;
+  let patches: PatchOp[] = [];
+  let rawLines: string[] = [];
+  let pos = 0;
+
+  const flush = () => {
+    if (patches.length >= 1) {
+      const spec = compilePatches(patches);
+      if (spec) {
+        results.push({
+          start: blockStart,
+          end: blockEnd,
+          spec,
+          raw: rawLines.join("\n"),
+        });
+      }
+    }
+    blockStart = -1;
+    patches = [];
+    rawLines = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // +1 for the newline that split() consumed (except the very last line)
+    const lineLen = line.length + (i < lines.length - 1 ? 1 : 0);
+    const trimmed = line.trim();
+
+    if (looksLikePatch(trimmed)) {
+      const patch = tryParsePatch(trimmed);
+      if (patch) {
+        if (blockStart === -1) blockStart = pos;
+        patches.push(patch);
+        rawLines.push(line);
+        blockEnd = pos + lineLen;
+        pos += lineLen;
+        continue;
+      }
+    }
+
+    // Empty line: peek ahead to see if the next non-empty line is a patch
+    if (trimmed.length === 0 && blockStart !== -1) {
+      const nextPatch = lines.slice(i + 1).find((l) => l.trim().length > 0);
+      if (nextPatch && looksLikePatch(nextPatch.trim())) {
+        // Allow the gap and keep going
+        pos += lineLen;
+        continue;
+      }
+    }
+
+    // Non-patch content — flush any open block
+    if (blockStart !== -1) flush();
+    pos += lineLen;
+  }
+
+  if (blockStart !== -1) flush();
+  return results;
+}
+
+/**
+ * Parse message text for [CONFIG:id] markers, fenced UiSpec JSON, and
+ * inline JSONL patch blocks (Chat Mode).
  * Returns an array of segments for rendering.
  */
 function parseSegments(text: string): Segment[] {
@@ -90,7 +241,7 @@ function parseSegments(text: string): Segment[] {
     m = CONFIG_RE.exec(cleaned);
   }
 
-  // 2. Find fenced JSON that is a UiSpec
+  // 2. Find fenced JSON that is a UiSpec (Generate Mode / legacy format)
   FENCED_JSON_RE.lastIndex = 0;
   m = FENCED_JSON_RE.exec(cleaned);
   while (m !== null) {
@@ -104,6 +255,21 @@ function parseSegments(text: string): Segment[] {
       });
     }
     m = FENCED_JSON_RE.exec(cleaned);
+  }
+
+  // 3. Find inline JSONL patch blocks (Chat Mode)
+  for (const patch of findPatchRegions(cleaned)) {
+    // Skip if this region overlaps with an already-found fenced block
+    const overlaps = regions.some(
+      (r) => patch.start < r.end && patch.end > r.start,
+    );
+    if (!overlaps) {
+      regions.push({
+        start: patch.start,
+        end: patch.end,
+        segment: { kind: "ui-spec", spec: patch.spec, raw: patch.raw },
+      });
+    }
   }
 
   // No special content found — return plain text
@@ -140,7 +306,13 @@ function parseSegments(text: string): Segment[] {
 
 // ── InlinePluginConfig ──────────────────────────────────────────────
 
-function InlinePluginConfig({ pluginId }: { pluginId: string }) {
+/** Normalize plugin ID: strip @scope/plugin- prefix so both "discord" and "@elizaos/plugin-discord" resolve. */
+function normalizePluginId(id: string): string {
+  return id.replace(/^@[^/]+\/plugin-/, "");
+}
+
+function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
+  const pluginId = normalizePluginId(rawPluginId);
   const [plugin, setPlugin] = useState<PluginInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, unknown>>({});
