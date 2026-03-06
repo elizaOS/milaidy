@@ -86,21 +86,28 @@ export class TalkModeManager {
     this.speaking = true;
     this.setState("speaking");
     try {
-      let cmd: string[];
+      let proc: ReturnType<typeof Bun.spawn>;
       if (process.platform === "darwin") {
-        cmd = ["say", text];
+        proc = Bun.spawn(["say", text], { stderr: "pipe" });
       } else if (process.platform === "linux") {
-        cmd = ["espeak", text];
+        proc = Bun.spawn(["espeak", text], { stderr: "pipe" });
       } else {
-        // Windows: PowerShell speech synthesizer
-        const escaped = text.replace(/"/g, '\\"');
-        cmd = [
-          "powershell",
-          "-Command",
-          `Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("${escaped}")`,
-        ];
+        // Windows: PowerShell speech synthesizer.
+        // Pass text via env var to avoid command-injection — never interpolate
+        // user-controlled strings into the -Command argument.
+        proc = Bun.spawn(
+          [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak($env:MILADY_TTS_TEXT)",
+          ],
+          {
+            stderr: "pipe",
+            env: { ...process.env, MILADY_TTS_TEXT: text },
+          },
+        );
       }
-      const proc = Bun.spawn(cmd, { stderr: "pipe" });
       await proc.exited;
       this.sendToWebview?.("talkmodeSpeakComplete");
     } catch (err) {
