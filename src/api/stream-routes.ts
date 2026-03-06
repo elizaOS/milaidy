@@ -88,12 +88,33 @@ export interface StreamRouteState {
       fps?: number;
       quality?: number;
       endpoint?: string;
+      gameUrl?: string;
     }): Promise<void>;
+    stopFrameCapture?(): void;
   };
-  /** Active streaming destination (Retake, custom RTMP, etc.). */
-  destination?: StreamingDestination;
+  /** All configured streaming destinations keyed by platform ID. */
+  destinations: Map<string, StreamingDestination>;
+  /** Currently active destination ID (user-switchable). */
+  activeDestinationId?: string;
+  /** Active stream capture source (stream-tab, game, or custom URL). */
+  activeStreamSource: {
+    type: "stream-tab" | "game" | "custom-url";
+    url?: string;
+  };
   /** Access to agent config for TTS settings. */
   config?: { messages?: { tts?: TtsConfig } };
+}
+
+/** Resolve the active streaming destination from the registry. */
+export function getActiveDestination(
+  state: StreamRouteState,
+): StreamingDestination | undefined {
+  if (state.activeDestinationId) {
+    return state.destinations.get(state.activeDestinationId);
+  }
+  // Fallback: first destination in map (backward compat for single-destination configs)
+  const first = state.destinations.values().next();
+  return first.done ? undefined : first.value;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +188,14 @@ export async function ensureXvfb(
     return false;
   }
 
+  // Validate resolution early so callers get a clear failure before we
+  // touch the display or spawn processes.
+  const [w, h] = resolution.split("x");
+  if (!w || !h || !/^\d+$/.test(w) || !/^\d+$/.test(h)) {
+    logger.warn(`[stream] Invalid resolution for Xvfb: ${resolution}`);
+    return false;
+  }
+
   // Check if the display is already active
   if (process.env.DISPLAY === display) return true;
 
@@ -182,12 +211,6 @@ export async function ensureXvfb(
       return true;
     } catch {
       // Not running -- start it
-    }
-
-    const [w, h] = resolution.split("x");
-    if (!w || !h || !/^\d+$/.test(w) || !/^\d+$/.test(h)) {
-      logger.warn(`[stream] Invalid resolution for Xvfb: ${resolution}`);
-      return false;
     }
     const { spawn: spawnProc } = await import("node:child_process");
     const xvfb = spawnProc(
@@ -231,10 +254,11 @@ async function startStreamPipeline(
   }
 
   // Seed plugin-default overlay layout on first stream start
-  if (state.destination) {
-    seedOverlayDefaults(state.destination);
+  const activeDest = getActiveDestination(state);
+  if (activeDest) {
+    seedOverlayDefaults(activeDest);
   }
-  const destId = state.destination?.id ?? null;
+  const destId = activeDest?.id ?? null;
 
   const mode = detectCaptureMode();
 
@@ -281,11 +305,23 @@ async function startStreamPipeline(
       // requiring a manual button click in the renderer.
       if (state.screenCapture && !state.screenCapture.isFrameCaptureActive()) {
         try {
-          await state.screenCapture.startFrameCapture({
+          const captureOpts: {
+            fps: number;
+            quality: number;
+            endpoint: string;
+            gameUrl?: string;
+          } = {
             fps: 15,
             quality: 70,
             endpoint: "/api/stream/frame",
-          });
+          };
+          if (
+            state.activeStreamSource.type !== "stream-tab" &&
+            state.activeStreamSource.url
+          ) {
+            captureOpts.gameUrl = state.activeStreamSource.url;
+          }
+          await state.screenCapture.startFrameCapture(captureOpts);
           logger.info("[stream] Auto-started Electron frame capture");
         } catch (err) {
           logger.warn(`[stream] Failed to auto-start frame capture: ${err}`);
@@ -478,26 +514,27 @@ export async function handleStreamRoute(
       return true;
     }
 
-    if (!state.destination) {
+    const dest = getActiveDestination(state);
+    if (!dest) {
       error(res, "No streaming destination configured", 400);
       return true;
     }
 
     try {
-      const { rtmpUrl, rtmpKey } = await state.destination.getCredentials();
+      const { rtmpUrl, rtmpKey } = await dest.getCredentials();
       const { inputMode, audioSource } = await startStreamPipeline(
         state,
         rtmpUrl,
         rtmpKey,
       );
-      await state.destination.onStreamStart?.();
+      await dest.onStreamStart?.();
       json(res, {
         ok: true,
         live: true,
         rtmpUrl,
         inputMode,
         audioSource,
-        destination: state.destination.id,
+        destination: dest.id,
       });
     } catch (err) {
       error(res, err instanceof Error ? err.message : "Failed to go live", 500);
@@ -523,7 +560,7 @@ export async function handleStreamRoute(
       }
       // Notify destination
       try {
-        await state.destination?.onStreamStop?.();
+        await getActiveDestination(state)?.onStreamStop?.();
       } catch {
         // Destination notification failure is non-fatal
       }
@@ -629,10 +666,11 @@ export async function handleStreamRoute(
   // ── GET /api/stream/status -- local stream health ────────────────────
   if (method === "GET" && pathname === "/api/stream/status") {
     const health = state.streamManager.getHealth();
-    const dest = state.destination
-      ? { id: state.destination.id, name: state.destination.name }
+    const activeDest = getActiveDestination(state);
+    const destInfo = activeDest
+      ? { id: activeDest.id, name: activeDest.name }
       : null;
-    json(res, { ok: true, ...health, destination: dest });
+    json(res, { ok: true, ...health, destination: destInfo });
     return true;
   }
 
@@ -699,17 +737,19 @@ export async function handleStreamRoute(
 
   // ── GET /api/streaming/destinations -- list configured destination ───
   if (method === "GET" && pathname === "/api/streaming/destinations") {
-    const destinations = state.destination
-      ? [{ id: state.destination.id, name: state.destination.name }]
-      : [];
+    const destinations = Array.from(state.destinations.values()).map((d) => ({
+      id: d.id,
+      name: d.name,
+      active:
+        d.id ===
+        (state.activeDestinationId ?? state.destinations.keys().next().value),
+    }));
     json(res, { ok: true, destinations });
     return true;
   }
 
   // ── POST /api/streaming/destination -- set active destination ────────
   if (method === "POST" && pathname === "/api/streaming/destination") {
-    // Placeholder for multi-destination future. Currently a no-op that
-    // validates the request shape but doesn't change state.
     try {
       const body = await readRequestBody(req);
       const parsed = typeof body === "string" ? JSON.parse(body) : body;
@@ -718,13 +758,12 @@ export async function handleStreamRoute(
         error(res, "destinationId is required", 400);
         return true;
       }
-      if (state.destination && state.destination.id === destinationId) {
+      const target = state.destinations.get(destinationId);
+      if (target) {
+        state.activeDestinationId = destinationId;
         json(res, {
           ok: true,
-          destination: {
-            id: state.destination.id,
-            name: state.destination.name,
-          },
+          destination: { id: target.id, name: target.name },
         });
       } else {
         error(res, `Unknown destination: ${destinationId}`, 404);
@@ -744,7 +783,7 @@ export async function handleStreamRoute(
   if (method === "GET" && pathname === "/api/stream/overlay-layout") {
     try {
       const destId = parseDestinationQuery(req.url);
-      const layout = readOverlayLayout(destId, state.destination);
+      const layout = readOverlayLayout(destId, getActiveDestination(state));
       json(res, { ok: true, layout, destinationId: destId ?? null });
     } catch (err) {
       error(
@@ -819,6 +858,90 @@ export async function handleStreamRoute(
       error(
         res,
         err instanceof Error ? err.message : "Failed to save settings",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── GET /api/stream/source -- get active stream source ───────────────
+  if (method === "GET" && pathname === "/api/stream/source") {
+    json(res, { source: state.activeStreamSource });
+    return true;
+  }
+
+  // ── POST /api/stream/source -- set active stream source ──────────────
+  if (method === "POST" && pathname === "/api/stream/source") {
+    try {
+      const body = await readRequestBody(req);
+      const { sourceType, customUrl } = JSON.parse(
+        typeof body === "string" ? body : JSON.stringify(body),
+      );
+
+      if (!["stream-tab", "game", "custom-url"].includes(sourceType)) {
+        error(res, "Invalid sourceType", 400);
+        return true;
+      }
+      if (sourceType === "custom-url" && !customUrl) {
+        error(res, "customUrl required for custom-url source", 400);
+        return true;
+      }
+      if (sourceType === "game" && !customUrl) {
+        error(res, "customUrl required for game source", 400);
+        return true;
+      }
+
+      // Validate URL scheme to prevent file:// or javascript: URI injection.
+      // Only http/https are permitted as capture targets.
+      if (
+        (sourceType === "game" || sourceType === "custom-url") &&
+        customUrl &&
+        !/^https?:\/\//i.test(customUrl)
+      ) {
+        error(res, "customUrl must use http:// or https:// scheme", 400);
+        return true;
+      }
+
+      // Stop current frame capture if active
+      if (state.screenCapture?.isFrameCaptureActive()) {
+        state.screenCapture.stopFrameCapture?.();
+      }
+
+      // Build capture options
+      const captureOpts: {
+        fps: number;
+        quality: number;
+        endpoint: string;
+        gameUrl?: string;
+      } = {
+        fps: 15,
+        quality: 70,
+        endpoint: "/api/stream/frame",
+      };
+
+      if (sourceType === "game" || sourceType === "custom-url") {
+        captureOpts.gameUrl = customUrl;
+      }
+
+      // Update state
+      state.activeStreamSource = { type: sourceType, url: customUrl };
+
+      // Restart frame capture if stream is running
+      if (state.streamManager.isRunning() && state.screenCapture) {
+        try {
+          await state.screenCapture.startFrameCapture(captureOpts);
+        } catch (err) {
+          logger.warn(
+            `[stream] Failed to restart frame capture after source switch: ${err}`,
+          );
+        }
+      }
+
+      json(res, { ok: true, source: state.activeStreamSource });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Failed to switch source",
         500,
       );
     }

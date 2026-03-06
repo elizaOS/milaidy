@@ -742,7 +742,7 @@ async function bootstrapOnchainDev() {
 const SUPPRESS_RE = /^\s*(Info|Warn|Debug|Trace)\s/;
 const SUPPRESS_UNSTRUCTURED_RE = /^\[dotenv[@\d]/;
 const STARTUP_RE =
-  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|runtime created|api server ready|plugin.*load|startup.*complete|\d+ms|\[PTYService/i;
+  /\[milady(?:-api)?\]|runtime bootstrap|runtime ready|runtime created|api server ready|plugin.*load|startup.*complete|\d+ms|\[PTYService|\[SwarmCoordinator\]|Triage:/i;
 
 function createErrorFilter(dest) {
   let buf = "";
@@ -860,9 +860,57 @@ function waitForPort(port, { timeout = 120_000, interval = 500 } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Orphan cleanup — kill leftover processes from a previous crash / SIGKILL
+// ---------------------------------------------------------------------------
+
+function killOrphanedWorkspaceProcesses() {
+  if (process.platform === "win32") return; // spawn-helper is Unix only
+
+  try {
+    // Kill orphaned node-pty spawn-helpers and any processes running inside
+    // .milaidy/workspaces (vite, esbuild, etc.) that survived a crash.
+    const out = execSync(
+      `ps axo pid,command 2>/dev/null | grep -E '\\.mil(aidy|ady)/workspaces' | grep -v grep`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] },
+    );
+    const pids = out
+      .split("\n")
+      .map((l) => l.trim().split(/\s+/)[0])
+      .filter(Boolean);
+    if (pids.length) {
+      console.log(
+        `[dev-ui] Killing ${pids.length} orphaned workspace process(es)…`,
+      );
+      execSync(`kill -9 ${pids.join(" ")} 2>/dev/null`, { stdio: "ignore" });
+    }
+  } catch {
+    // No orphans found — clean slate
+  }
+
+  try {
+    // Kill orphaned pty-worker processes (Node workers from pty-manager)
+    const out = execSync(
+      `ps axo pid,command 2>/dev/null | grep 'pty-worker.js' | grep -v grep`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] },
+    );
+    const pids = out
+      .split("\n")
+      .map((l) => l.trim().split(/\s+/)[0])
+      .filter(Boolean);
+    if (pids.length) {
+      console.log(`[dev-ui] Killing ${pids.length} orphaned pty-worker(s)…`);
+      execSync(`kill -9 ${pids.join(" ")} 2>/dev/null`, { stdio: "ignore" });
+    }
+  } catch {
+    // No orphans found
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
+killOrphanedWorkspaceProcesses();
 killPort(UI_PORT);
 if (!uiOnly) {
   killPort(API_PORT);
@@ -896,6 +944,11 @@ function cleanup(exitCode = 0) {
   terminateChild(anchorProcess);
   terminateChild(anvilProcess);
 
+  // Give children a moment to propagate SIGTERM, then sweep orphans
+  setTimeout(() => {
+    killOrphanedWorkspaceProcesses();
+  }, 200);
+
   if (tempOnchainDir) {
     try {
       rmSync(tempOnchainDir, { recursive: true, force: true });
@@ -906,7 +959,7 @@ function cleanup(exitCode = 0) {
 
   setTimeout(() => {
     process.exit(exitCode);
-  }, 400).unref();
+  }, 600).unref();
 }
 
 process.on("SIGINT", () => cleanup(0));

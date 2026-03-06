@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -13,14 +14,33 @@ concurrency:
 jobs:
   lint:
     name: Lint & Format
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -31,6 +51,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -43,14 +65,33 @@ jobs:
 
   typecheck:
     name: Type Check
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -61,6 +102,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -70,14 +113,33 @@ jobs:
 
   test:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -88,6 +150,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall
@@ -97,14 +161,33 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp when native prebuilds missing)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -115,6 +198,8 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
       - name: Run repository postinstall patches
         run: bun run postinstall

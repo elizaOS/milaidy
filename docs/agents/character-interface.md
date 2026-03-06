@@ -1,7 +1,7 @@
 ---
 title: "Character Interface"
 sidebarTitle: "Character Interface"
-description: "Schema, field reference, and examples for the ElizaOS Character object used by Milady agents."
+description: "Schema, field reference, and examples for the elizaOS Character object used by Milady agents."
 ---
 
 The Character object is the primary definition of an agent's identity. Milady builds a Character at startup from `milady.json` using `buildCharacterFromConfig()`, then passes it to `AgentRuntime`. All personality fields are sourced from `config.agents.list[0]` (set during onboarding or edited directly).
@@ -11,8 +11,8 @@ The Character object is the primary definition of an agent's identity. Milady bu
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `name` | `string` | Yes | Agent display name. Resolved from `agents.list[0].name`, then `ui.assistant.name`, then `"Milady"`. |
-| `bio` | `string[]` | No | Array of biography lines injected into the system context. Defaults to `["{{name}} is an AI assistant powered by Milady and ElizaOS."]` |
-| `system` | `string` | No | System prompt template. Defaults to `"You are {{name}}, an autonomous AI agent powered by ElizaOS."` |
+| `bio` | `string[]` | No | Array of biography lines injected into the system context. Defaults to `["{{name}} is an AI assistant powered by Milady and elizaOS."]` |
+| `system` | `string` | No | System prompt template. Defaults to `"You are {{name}}, an autonomous AI agent powered by elizaOS."` |
 | `style` | `object` | No | Communication style rules object. Contains `all`, `chat`, and `post` sub-arrays. |
 | `adjectives` | `string[]` | No | Personality adjectives (e.g., `["witty", "playful", "direct"]`). Used in prompt composition. |
 | `topics` | `string[]` | No | Subject areas the agent engages with (e.g., `["crypto", "art", "philosophy"]`). |
@@ -50,8 +50,8 @@ const agentEntry = config.agents?.list?.[0];
 const name = agentEntry?.name ?? config.ui?.assistant?.name ?? "Milady";
 
 // Personality from agent config entry (set during onboarding)
-const bio      = agentEntry?.bio ?? ["{{name}} is an AI assistant powered by Milady and ElizaOS."];
-const system   = agentEntry?.system ?? "You are {{name}}, an autonomous AI agent powered by ElizaOS.";
+const bio      = agentEntry?.bio ?? ["{{name}} is an AI assistant powered by Milady and elizaOS."];
+const system   = agentEntry?.system ?? "You are {{name}}, an autonomous AI agent powered by elizaOS.";
 const style    = agentEntry?.style;
 const adjectives = agentEntry?.adjectives;
 const topics   = agentEntry?.topics;

@@ -650,3 +650,120 @@ describe("decodeMp3ToPcm via speak()", () => {
     vi.unstubAllGlobals();
   });
 });
+
+// ===========================================================================
+// 6. Cloud TTS disabled — MILADY_CLOUD_TTS_DISABLED env var
+// ===========================================================================
+
+describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
+  it("uses cloud API key when TTS is NOT disabled", () => {
+    withEnv(
+      {
+        ELEVENLABS_API_KEY: undefined,
+        OPENAI_API_KEY: undefined,
+        ELIZAOS_CLOUD_ENABLED: "true",
+        MILADY_CLOUD_TTS_DISABLED: undefined,
+        ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
+      },
+      () => {
+        const config: TtsConfig = {
+          provider: "elevenlabs",
+          // No direct API key — should fall through to cloud key
+        };
+        const result = resolveTtsConfig(config);
+
+        // Cloud key should be used for ElevenLabs
+        expect(result?.provider).toBe("elevenlabs");
+        expect(result?.elevenlabs?.apiKey).toBe("cloud-key-123");
+      },
+    );
+  });
+
+  it("skips cloud API key when MILADY_CLOUD_TTS_DISABLED=true", () => {
+    withEnv(
+      {
+        ELEVENLABS_API_KEY: undefined,
+        OPENAI_API_KEY: undefined,
+        ELIZAOS_CLOUD_ENABLED: "true",
+        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
+      },
+      () => {
+        const config: TtsConfig = {
+          provider: "elevenlabs",
+          // No direct API key, cloud disabled → should fall through to Edge
+        };
+        const result = resolveTtsConfig(config);
+
+        // Should NOT use cloud key, falls through to Edge TTS
+        expect(result?.provider).toBe("edge");
+      },
+    );
+  });
+
+  it("still uses direct API keys when cloud TTS is disabled", () => {
+    withEnv(
+      {
+        ELEVENLABS_API_KEY: "direct-el-key",
+        ELIZAOS_CLOUD_ENABLED: "true",
+        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
+      },
+      () => {
+        const config: TtsConfig = {
+          provider: "elevenlabs",
+          // No config key, but env var exists
+        };
+        const result = resolveTtsConfig(config);
+
+        // Should use the direct env var, not cloud
+        expect(result?.provider).toBe("elevenlabs");
+        expect(result?.elevenlabs?.apiKey).toBe("direct-el-key");
+      },
+    );
+  });
+
+  it("still uses config API keys when cloud TTS is disabled", () => {
+    withEnv(
+      {
+        ELEVENLABS_API_KEY: undefined,
+        ELIZAOS_CLOUD_ENABLED: "true",
+        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
+      },
+      () => {
+        const config: TtsConfig = {
+          provider: "elevenlabs",
+          elevenlabs: { apiKey: "config-key" },
+        };
+        const result = resolveTtsConfig(config);
+
+        // Should use the config key directly
+        expect(result?.provider).toBe("elevenlabs");
+        expect(result?.elevenlabs?.apiKey).toBe("config-key");
+      },
+    );
+  });
+
+  it("does not affect OpenAI provider selection with own key", () => {
+    withEnv(
+      {
+        ELEVENLABS_API_KEY: undefined,
+        OPENAI_API_KEY: "oai-direct",
+        ELIZAOS_CLOUD_ENABLED: "true",
+        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
+      },
+      () => {
+        const config: TtsConfig = {
+          provider: "openai",
+        };
+        const result = resolveTtsConfig(config);
+
+        // Should use direct OpenAI key, not cloud
+        expect(result?.provider).toBe("openai");
+        expect(result?.openai?.apiKey).toBe("oai-direct");
+      },
+    );
+  });
+});

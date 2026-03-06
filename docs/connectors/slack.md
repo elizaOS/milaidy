@@ -6,7 +6,7 @@ description: Connect your agent to Slack workspaces using the @elizaos/plugin-sl
 
 ## Overview
 
-The Slack connector is an external ElizaOS plugin that bridges your agent to Slack workspaces. It supports two transport modes (Socket Mode and HTTP webhooks), per-channel configuration, DM policies, slash commands, multi-account support, and fine-grained action permissions. The connector is auto-enabled by the runtime when a valid token is detected in your connector configuration.
+The Slack connector is an external elizaOS plugin that bridges your agent to Slack workspaces. It supports two transport modes (Socket Mode and HTTP webhooks), per-channel configuration, DM policies, slash commands, multi-account support, and fine-grained action permissions. The connector is auto-enabled by the runtime when a valid token is detected in your connector configuration.
 
 ## Package Info
 

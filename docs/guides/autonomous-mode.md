@@ -8,7 +8,7 @@ Autonomous mode allows the Milady agent to reason and act independently between 
 
 ## How Autonomous Mode Works
 
-The autonomous system is built on ElizaOS's core task system and consists of several interconnected components:
+The autonomous system is built on elizaOS's core task system and consists of several interconnected components:
 
 1. **Autonomy Service** (`AUTONOMY`) -- a runtime service that manages the autonomous loop lifecycle, including enabling/disabling autonomy and providing an autonomous room for reasoning.
 2. **Autonomous State Provider** (`miladyAutonomousState`) -- a dynamic provider that bridges context between loop iterations by injecting recent activity snapshots.
@@ -72,11 +72,11 @@ The Autonomous Panel in the dashboard UI provides a visual toggle for enabling a
 
 ### Runtime Flag
 
-At the ElizaOS runtime level, autonomy is controlled by the `runtime.enableAutonomy` boolean. This flag is checked by actions like the trigger creation action (`CREATE_TRIGGER`) to validate whether autonomous features should be available.
+At the elizaOS runtime level, autonomy is controlled by the `runtime.enableAutonomy` boolean. This flag is checked by actions like the trigger creation action (`CREATE_TRIGGER`) to validate whether autonomous features should be available.
 
 ## Autonomous State Provider
 
-The `miladyAutonomousState` provider bridges context between autonomous loop iterations. It is a dynamic ElizaOS provider (position 10) that injects a snapshot of recent autonomous activity into the agent's context on every reasoning cycle.
+The `miladyAutonomousState` provider bridges context between autonomous loop iterations. It is a dynamic elizaOS provider (position 10) that injects a snapshot of recent autonomous activity into the agent's context on every reasoning cycle.
 
 ### Provider Configuration
 

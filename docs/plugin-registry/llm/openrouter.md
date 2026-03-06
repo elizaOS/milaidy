@@ -82,7 +82,7 @@ Browse all models at [openrouter.ai/models](https://openrouter.ai/models).
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | Default OpenRouter Model |
+| elizaOS Model Type | Default OpenRouter Model |
 |-------------------|------------------------|
 | `TEXT_SMALL` | `anthropic/claude-haiku-4` |
 | `TEXT_LARGE` | `anthropic/claude-sonnet-4-5` |

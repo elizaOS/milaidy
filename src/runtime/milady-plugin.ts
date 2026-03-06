@@ -1,5 +1,5 @@
 /**
- * Milady plugin for ElizaOS — workspace context, session keys, and agent
+ * Milady plugin for elizaOS — workspace context, session keys, and agent
  * lifecycle actions (restart).
  *
  * Compaction is handled by core auto-compaction in the recent-messages provider.
@@ -17,6 +17,7 @@ import type {
 import { emoteAction } from "../actions/emote";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
+import { switchStreamSourceAction } from "../actions/switch-stream-source";
 import { terminalAction } from "../actions/terminal";
 import { EMOTE_CATALOG } from "../emotes/catalog";
 import { adminTrustProvider } from "../providers/admin-trust";
@@ -156,6 +157,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       terminalAction,
       createTriggerTaskAction,
       emoteAction,
+      switchStreamSourceAction,
       ...loadCustomActions(),
     ],
   };

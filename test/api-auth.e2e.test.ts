@@ -13,7 +13,10 @@
  *
  * NO MOCKS — all tests spin up a real HTTP server.
  */
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
@@ -234,7 +237,11 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   const TERMINAL_TOKEN = "test-terminal-token-def456";
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED", "MILADY_TERMINAL_RUN_TOKEN");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_TERMINAL_RUN_TOKEN",
+    );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
     process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
@@ -833,10 +840,16 @@ describe("Auth + agent lifecycle", () => {
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
+  let tmpConfigDir: string;
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN");
+    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_CONFIG_PATH");
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+
+    // Isolate config writes to a temp directory so the onboarding POST
+    // never clobbers the real ~/.milady/milady.json.
+    tmpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-auth-e2e-"));
+    process.env.MILADY_CONFIG_PATH = path.join(tmpConfigDir, "milady.json");
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -846,6 +859,7 @@ describe("Auth + agent lifecycle", () => {
   afterAll(async () => {
     await close();
     envBackup.restore();
+    fs.rmSync(tmpConfigDir, { recursive: true, force: true });
   });
 
   const auth = { headers: { Authorization: `Bearer lifecycle-auth-token` } };

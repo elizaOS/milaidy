@@ -334,7 +334,10 @@ Dev mode with hot reload:
 bun run dev
 ```
 
-Why plugin resolution and NODE_PATH matter when building from source: [Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md).
+### Documentation (with WHYs)
+
+- **[Plugin resolution and NODE_PATH](docs/plugin-resolution-and-node-path.md)** — Why we set `NODE_PATH` in three places so dynamic plugin imports resolve when building from source (CLI, desktop dev, Electron).
+- **[Build and release](docs/build-and-release.md)** — Why the release pipeline uses strict shell, retries, setup-node v3/Blacksmith, Bun cache, timeouts; why size-report pipelines handle SIGPIPE; why Windows plugin build uses `npx -p typescript tsc`.
 
 ---
 

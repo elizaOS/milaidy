@@ -1,7 +1,7 @@
 /**
- * ElizaOS runtime entry point for Milady.
+ * elizaOS runtime entry point for Milady.
  *
- * Starts the ElizaOS agent runtime with Milady's plugin configuration.
+ * Starts the elizaOS agent runtime with Milady's plugin configuration.
  * Can be run directly via: node --import tsx src/runtime/eliza.ts
  * Or via the CLI: milady start
  *
@@ -50,7 +50,6 @@ import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
 import * as pluginBrowser from "@elizaos/plugin-browser";
 import * as pluginCli from "@elizaos/plugin-cli";
-import * as pluginCodingAgent from "@elizaos/plugin-coding-agent";
 import * as pluginComputeruse from "@elizaos/plugin-computeruse";
 import * as pluginCron from "@elizaos/plugin-cron";
 import * as pluginDiscord from "@elizaos/plugin-discord";
@@ -136,7 +135,6 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-rolodex": pluginRolodex,
   "@elizaos/plugin-trajectory-logger": pluginTrajectoryLogger,
   "@elizaos/plugin-agent-orchestrator": pluginAgentOrchestrator,
-  "@elizaos/plugin-coding-agent": pluginCodingAgent,
   "@elizaos/plugin-cron": pluginCron,
   "@elizaos/plugin-shell": pluginShell,
   "@elizaos/plugin-plugin-manager": pluginPluginManager,
@@ -163,7 +161,7 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-experience": pluginExperience,
 };
 
-// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve.
+// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-agent-orchestrator) resolve.
 // WHY: When eliza is loaded from dist/ or by a test runner, Node's resolution does not
 // search repo root node_modules; import("@elizaos/plugin-*") then fails. We prepend
 // repo root node_modules only if not already in NODE_PATH (run-node.mjs may have set it)
@@ -299,7 +297,7 @@ function configureLocalEmbeddingPlugin(
   // Set default models directory if not present
   setEnvIfMissing("MODELS_DIR", path.join(os.homedir(), ".eliza", "models"));
 
-  // Normalize Google AI API key aliases — the ElizaOS plugin and @google/genai
+  // Normalize Google AI API key aliases — the elizaOS plugin and @google/genai
   // SDK expect different env var names. Canonicalize to the long form that
   // @elizaos/plugin-google-genai reads via runtime.getSetting(). Users can set
   // any of: GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY.
@@ -334,7 +332,7 @@ function formatError(err: unknown): string {
  *
  * When multiple plugins define an action with the same `name`, only the first
  * occurrence is kept.  This prevents "Action already registered" warnings from
- * ElizaOS core.  The function mutates each plugin's `actions` array in-place.
+ * elizaOS core.  The function mutates each plugin's `actions` array in-place.
  */
 export function deduplicatePluginActions(plugins: Plugin[]): void {
   const seen = new Set<string>();
@@ -507,10 +505,10 @@ function cancelOnboarding(): never {
 
 /**
  * Maps Milady channel config fields to the environment variable names
- * that ElizaOS plugins expect.
+ * that elizaOS plugins expect.
  *
  * Milady stores channel credentials under `config.channels.<name>.<field>`,
- * while ElizaOS plugins read them from process.env.
+ * while elizaOS plugins read them from process.env.
  */
 const RETAKE_CHANNEL_ACCESS_TOKEN_ENV = "RETAKE_AGENT_TOKEN";
 
@@ -601,7 +599,7 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";
 
 function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.MILAIDY_USE_PI_AI;
+  const raw = env.MILADY_USE_PI_AI;
   if (!raw) return false;
   const value = String(raw).trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
@@ -621,7 +619,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   AIGATEWAY_API_KEY: "@elizaos/plugin-vercel-ai-gateway",
   OLLAMA_BASE_URL: "@elizaos/plugin-ollama",
   ZAI_API_KEY: "@homunculuslabs/plugin-zai",
-  MILAIDY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
+  MILADY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
@@ -727,6 +725,24 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   const cloudExplicitlyDisabled = cloudMode === false;
   const cloudEffectivelyEnabled =
     cloudMode === true || (!cloudExplicitlyDisabled && cloudHasApiKey);
+  // When inferenceMode is "byok" or "local", OR services.inference is false,
+  // the user wants their own AI provider keys — cloud stays enabled for
+  // RPC/services but does NOT hijack model inference.
+  //
+  // If the user chose a subscription provider (e.g. anthropic-subscription)
+  // during onboarding and never explicitly set inferenceMode, treat that as
+  // "byok" — the subscription IS the user's inference choice.
+  const hasSubscriptionProvider = Boolean(
+    config.agents?.defaults?.subscriptionProvider,
+  );
+  const explicitInferenceMode = config.cloud?.inferenceMode;
+  const cloudInferenceMode =
+    explicitInferenceMode ?? (hasSubscriptionProvider ? "byok" : "cloud");
+  const cloudInferenceToggle = config.cloud?.services?.inference ?? true;
+  const cloudHandlesInference =
+    cloudEffectivelyEnabled &&
+    cloudInferenceMode === "cloud" &&
+    cloudInferenceToggle !== false;
   const configEnv = config.env as
     | (Record<string, unknown> & { vars?: Record<string, unknown> })
     | undefined;
@@ -734,13 +750,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     (configEnv?.vars &&
     typeof configEnv.vars === "object" &&
     !Array.isArray(configEnv.vars)
-      ? (configEnv.vars as Record<string, unknown>).MILAIDY_USE_PI_AI
-      : undefined) ?? configEnv?.MILAIDY_USE_PI_AI;
+      ? (configEnv.vars as Record<string, unknown>).MILADY_USE_PI_AI
+      : undefined) ?? configEnv?.MILADY_USE_PI_AI;
   const piAiEnabled =
     isPiAiEnabledFromEnv(process.env) ||
     (typeof configPiAiFlag === "string" &&
       isPiAiEnabledFromEnv({
-        MILAIDY_USE_PI_AI: configPiAiFlag,
+        MILADY_USE_PI_AI: configPiAiFlag,
       } as NodeJS.ProcessEnv));
 
   const pluginEntries = (config.plugins as Record<string, unknown> | undefined)
@@ -800,7 +816,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   // Model-provider plugins — load when env key is present
   for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
-    if (envKey === "MILAIDY_USE_PI_AI") {
+    if (envKey === "MILADY_USE_PI_AI") {
       // pi-ai enablement uses dedicated boolean parsing + precedence logic below.
       continue;
     }
@@ -834,18 +850,37 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   const applyProviderPrecedence = (): void => {
     // Provider precedence:
-    // 1) ElizaCloud (when enabled)
-    // 2) pi-ai (when enabled and cloud is not active)
+    // 1) ElizaCloud for inference (when enabled AND inferenceMode is "cloud")
+    // 2) pi-ai (when enabled and cloud inference is not active)
     // 3) direct provider plugins (api-key/env based)
+    //
+    // When inferenceMode is "byok" or "local", cloud stays loaded for
+    // RPC/services but direct AI provider plugins are preserved so the
+    // user's own API keys (e.g. Anthropic) handle model inference.
     if (cloudEffectivelyEnabled) {
       pluginsToLoad.add("@elizaos/plugin-elizacloud");
 
-      // When cloud is active, remove direct AI provider plugins and pi-ai —
-      // the cloud plugin handles ALL model calls via its own gateway.
-      const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
-      directProviders.delete("@elizaos/plugin-elizacloud");
-      for (const p of directProviders) {
-        pluginsToLoad.delete(p);
+      if (cloudHandlesInference) {
+        // Cloud handles ALL model calls — remove direct AI provider plugins.
+        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
+        directProviders.delete("@elizaos/plugin-elizacloud");
+        for (const p of directProviders) {
+          pluginsToLoad.delete(p);
+        }
+        return;
+      }
+      // inferenceMode is "byok" or "local" — keep direct provider plugins.
+      // Cloud plugin stays loaded for non-inference cloud services (RPC, media, etc.)
+      // Pi-ai takes priority over direct providers when cloud inference is disabled.
+      if (shouldEnablePiAi) {
+        pluginsToLoad.add(PI_AI_PLUGIN_PACKAGE);
+        // Remove direct provider plugins — pi-ai handles inference selection.
+        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
+        directProviders.delete(PI_AI_PLUGIN_PACKAGE);
+        directProviders.delete("@elizaos/plugin-elizacloud");
+        for (const p of directProviders) {
+          pluginsToLoad.delete(p);
+        }
       }
       return;
     }
@@ -917,6 +952,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   // x402 plugin — auto-load when config section enabled
   if (config.x402?.enabled) {
     pluginsToLoad.add("@elizaos/plugin-x402");
+  }
+
+  // Opinion plugin — auto-load when API key is present.
+  // NOT in PROVIDER_PLUGIN_MAP because it is a feature plugin, not a model
+  // provider, and would be incorrectly removed during provider precedence.
+  if (process.env.OPINION_API_KEY?.trim()) {
+    pluginsToLoad.add("@milady/plugin-opinion");
   }
 
   // User-installed plugins from config.plugins.installs
@@ -1173,7 +1215,7 @@ export function ensureBrowserServerLink(): boolean {
 
 /**
  * Resolve Milady plugins from config and auto-enable logic.
- * Returns an array of ElizaOS Plugin instances ready for AgentRuntime.
+ * Returns an array of elizaOS Plugin instances ready for AgentRuntime.
  *
  * Handles three categories of plugins:
  * 1. Built-in/npm plugins — imported by package name
@@ -1496,7 +1538,7 @@ export function repairBrokenInstallRecord(
  * Wrap a plugin's `init` and `providers` with error boundaries so that a
  * crash in any single plugin does not take down the entire agent or GUI.
  *
- * NOTE: Actions are NOT wrapped here because ElizaOS's action dispatch
+ * NOTE: Actions are NOT wrapped here because elizaOS's action dispatch
  * already has its own error boundary.  Only `init` (startup) and
  * `providers` (called every turn) need protection at this layer.
  *
@@ -1665,7 +1707,7 @@ export async function resolvePackageEntry(pkgRoot: string): Promise<string> {
 
 /**
  * Propagate channel credentials from Milady config into process.env so
- * that ElizaOS plugins can find them.
+ * that elizaOS plugins can find them.
  */
 /** @internal Exported for testing. */
 export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
@@ -1784,16 +1826,57 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
 
   // Propagate model names so the cloud plugin picks them up.  Falls back to
   // sensible defaults when cloud is enabled but no explicit selection exists.
+  // Skip when inferenceMode is "byok"/"local" or services.inference is off —
+  // user's own keys handle models.
+  // If the user chose a subscription provider, treat that as "byok" unless
+  // they explicitly set inferenceMode to "cloud".
+  const hasSubProvider = Boolean(config.agents?.defaults?.subscriptionProvider);
+  const explicitMode = cloud.inferenceMode;
+  const inferenceMode = explicitMode ?? (hasSubProvider ? "byok" : "cloud");
+  const inferenceToggle = cloud.services?.inference ?? true;
+  const cloudDoesInference =
+    inferenceMode === "cloud" && inferenceToggle !== false;
   const models = (config as Record<string, unknown>).models as
     | { small?: string; large?: string }
     | undefined;
-  if (effectivelyEnabled) {
+  if (effectivelyEnabled && cloudDoesInference) {
     const small = models?.small || "openai/gpt-5-mini";
     const large = models?.large || "anthropic/claude-sonnet-4.5";
     process.env.SMALL_MODEL = small;
     process.env.LARGE_MODEL = large;
     process.env.ELIZAOS_CLOUD_SMALL_MODEL = small;
     process.env.ELIZAOS_CLOUD_LARGE_MODEL = large;
+  } else if (effectivelyEnabled) {
+    // Cloud enabled but inference handled by user's own keys — clean cloud
+    // model env vars so the cloud plugin doesn't intercept model calls.
+    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
+    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
+  }
+
+  // Propagate per-service disable flags so downstream code can check them
+  // without needing direct access to the MiladyConfig object.
+  const services = cloud.services;
+  if (services) {
+    if (services.tts === false) {
+      process.env.MILADY_CLOUD_TTS_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_TTS_DISABLED;
+    }
+    if (services.media === false) {
+      process.env.MILADY_CLOUD_MEDIA_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_MEDIA_DISABLED;
+    }
+    if (services.embeddings === false) {
+      process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED;
+    }
+    if (services.rpc === false) {
+      process.env.MILADY_CLOUD_RPC_DISABLED = "true";
+    } else {
+      delete process.env.MILADY_CLOUD_RPC_DISABLED;
+    }
   }
 }
 
@@ -2064,7 +2147,7 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
   runtime.getConversationLength = runtime.getConversationLength.bind(runtime);
 
   // Wrap getSetting() to fall back to process.env for known keys when the
-  // core returns null. ElizaOS core returns null for missing keys, but some
+  // core returns null. elizaOS core returns null for missing keys, but some
   // plugins (e.g. @elizaos/plugin-google-genai) check `!== undefined` and
   // convert null to the string "null", causing API calls like `models/null`.
   // Scoped to an allowlist to avoid leaking arbitrary env vars to plugins.
@@ -2195,7 +2278,7 @@ async function registerSqlPluginWithRecovery(
 }
 
 /**
- * Build an ElizaOS Character from the Milady config.
+ * Build an elizaOS Character from the Milady config.
  *
  * Resolves the agent name from `config.agents.list` (first entry) or
  * `config.ui.assistant.name`, falling back to "Milady".  Character
@@ -2214,11 +2297,11 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // defaults when the preset data is not present (e.g. pre-onboarding
   // bootstrap or configs created before this change).
   const bio = agentEntry?.bio ?? [
-    "{{name}} is an AI assistant powered by Milady and ElizaOS.",
+    "{{name}} is an AI assistant powered by Milady and elizaOS.",
   ];
   const systemPrompt =
     agentEntry?.system ??
-    "You are {{name}}, an autonomous AI agent powered by ElizaOS.";
+    "You are {{name}}, an autonomous AI agent powered by elizaOS.";
   const style = agentEntry?.style;
   const adjectives = agentEntry?.adjectives;
   const topics = agentEntry?.topics;
@@ -2336,7 +2419,7 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
  *
  * Milady stores the model under `agents.defaults.model.primary` as an
  * AgentModelListConfig object. Returns undefined when no model is
- * explicitly configured (ElizaOS falls back to whichever model
+ * explicitly configured (elizaOS falls back to whichever model
  * plugin is loaded).
  */
 /** @internal Exported for testing. */
@@ -2830,7 +2913,7 @@ export interface BootElizaRuntimeOptions {
 }
 
 /**
- * Boot the ElizaOS runtime without starting the readline chat loop.
+ * Boot the elizaOS runtime without starting the readline chat loop.
  *
  * This is a convenience wrapper around {@link startEliza} in headless mode,
  * with optional config guards.
@@ -2898,7 +2981,7 @@ export const logToChatListener = (entry: LogEntry) => {
 };
 
 /**
- * Start the ElizaOS runtime with Milady's configuration.
+ * Start the elizaOS runtime with Milady's configuration.
  *
  * In headless mode the runtime is returned instead of entering the
  * interactive readline loop.
@@ -2960,7 +3043,7 @@ export async function startEliza(
 
   // 2e. Propagate arbitrary env vars from config.env into process.env.
   // Milady stores user-defined env vars (plugin settings, API URLs, etc.)
-  // in config.env; ElizaOS plugins read them via process.env / getSetting.
+  // in config.env; elizaOS plugins read them via process.env / getSetting.
   if (
     config.env &&
     typeof config.env === "object" &&
@@ -3048,7 +3131,7 @@ export async function startEliza(
     logger.warn(`[milady] Failed to apply subscription credentials: ${err}`);
   }
 
-  // 3. Build ElizaOS Character from Milady config
+  // 3. Build elizaOS Character from Milady config
   const character = buildCharacterFromConfig(config);
 
   const primaryModel = resolvePrimaryModel(config);
@@ -3137,22 +3220,12 @@ export async function startEliza(
   }
 
   // 7. Create the AgentRuntime with Milady plugin + resolved plugins
-  //    plugin-sql must be registered first so its database adapter is available
-  //    before other plugins (e.g. plugin-personality) run their init functions.
-  //    runtime.initialize() registers all characterPlugins in parallel, so we
-  //    pre-register plugin-sql here to avoid the race condition.
-  //
-  //    plugin-local-embedding must also be pre-registered so its TEXT_EMBEDDING
-  //    handler (priority 10) is available before any services start.  Without
-  //    this, the bootstrap plugin's ActionFilterService and EmbeddingGeneration
-  //    service can race ahead and use the cloud plugin's TEXT_EMBEDDING handler
-  //    (priority 0) — which hits a paid API — because local-embedding's init()
-  //    takes longer (environment setup, model path validation) and hasn't
-  //    registered its model handler yet when services start generating embeddings.
-  const PREREGISTER_PLUGINS = new Set([
-    "@elizaos/plugin-sql",
-    "@elizaos/plugin-local-embedding",
-  ]);
+  //    All CORE_PLUGINS are pre-registered sequentially (in CORE_PLUGINS
+  //    order) before runtime.initialize() so that cross-plugin getService()
+  //    calls always resolve.  runtime.initialize() registers remaining
+  //    characterPlugins (connectors, providers, custom) in parallel — those
+  //    are NOT core and don't have ordering dependencies.
+  const PREREGISTER_PLUGINS = new Set(CORE_PLUGINS);
   const sqlPlugin = resolvedPlugins.find(
     (p) => p.name === "@elizaos/plugin-sql",
   );
@@ -3266,7 +3339,7 @@ export async function startEliza(
   // ── End sandbox setup ───────────────────────────────────────────────────
 
   // ── Boost preferred model plugin priority ─────────────────────────────
-  // ElizaOS selects the model handler with the highest `priority` for each
+  // elizaOS selects the model handler with the highest `priority` for each
   // ModelType.  All provider plugins default to priority 0, so whichever
   // registers first wins — essentially random when using Promise.all.
   // When the user has explicitly chosen a primary model provider (via
@@ -3286,7 +3359,7 @@ export async function startEliza(
   }
 
   // Deduplicate actions across all plugins to avoid "Action already registered"
-  // warnings from ElizaOS core. First plugin wins (miladyPlugin is first).
+  // warnings from elizaOS core. First plugin wins (miladyPlugin is first).
   deduplicatePluginActions([miladyPlugin, ...pluginsForRuntime]);
 
   let runtime = new AgentRuntime({
@@ -3394,6 +3467,33 @@ export async function startEliza(
         "will fall back to whatever TEXT_EMBEDDING handler is registered by " +
         "other plugins (may incur cloud API costs)",
     );
+  }
+
+  // 7e. Pre-register remaining core plugins sequentially in CORE_PLUGINS order.
+  //     Each registerPlugin() call runs the plugin's init() before proceeding
+  //     to the next, guaranteeing that cross-plugin getService() calls resolve.
+  {
+    const alreadyPreRegistered = new Set([
+      "@elizaos/plugin-sql",
+      "@elizaos/plugin-local-embedding",
+    ]);
+    for (const name of CORE_PLUGINS) {
+      if (alreadyPreRegistered.has(name)) continue;
+      const resolved = resolvedPlugins.find((p) => p.name === name);
+      if (!resolved) {
+        logger.debug(
+          `[milady] Core plugin ${name} not resolved — skipping pre-registration`,
+        );
+        continue;
+      }
+      try {
+        await runtime.registerPlugin(resolved.plugin);
+      } catch (err) {
+        logger.warn(
+          `[milady] Core plugin ${name} pre-registration failed: ${formatError(err)}`,
+        );
+      }
+    }
   }
 
   const warmAgentSkillsService = async (): Promise<void> => {
@@ -3723,6 +3823,26 @@ export async function startEliza(
               freshConfig,
             );
             await newRuntime.registerPlugin(freshLocalEmbeddingPlugin.plugin);
+          }
+
+          // Pre-register remaining core plugins sequentially (same as startup)
+          {
+            const alreadyPreRegistered = new Set([
+              "@elizaos/plugin-sql",
+              "@elizaos/plugin-local-embedding",
+            ]);
+            for (const name of CORE_PLUGINS) {
+              if (alreadyPreRegistered.has(name)) continue;
+              const resolved = resolvedPlugins.find((p) => p.name === name);
+              if (!resolved) continue;
+              try {
+                await newRuntime.registerPlugin(resolved.plugin);
+              } catch (err) {
+                logger.warn(
+                  `[milady] Hot-reload: core plugin ${name} pre-registration failed: ${formatError(err)}`,
+                );
+              }
+            }
           }
 
           await newRuntime.initialize();

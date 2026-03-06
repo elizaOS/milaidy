@@ -18,7 +18,9 @@ function createMockRuntime(hasWhatsApp = true) {
   } as unknown as Parameters<typeof sendWhatsAppMessage.handler>[0];
 }
 
-function stubMessage(roomId = "room-1" as `${string}-${string}-${string}-${string}-${string}`) {
+function stubMessage(
+  roomId = "room-1" as `${string}-${string}-${string}-${string}-${string}`,
+) {
   return { roomId } as Parameters<typeof sendWhatsAppMessage.handler>[1];
 }
 
@@ -130,7 +132,9 @@ describe("sendWhatsAppMessage action", () => {
     it("calls runtime.sendMessageToTarget with correct JID for valid params", async () => {
       const result = await sendWhatsAppMessage.handler(
         runtime,
-        stubMessage("room-abc-def-ghi-jkl" as `${string}-${string}-${string}-${string}-${string}`),
+        stubMessage(
+          "room-abc-def-ghi-jkl" as `${string}-${string}-${string}-${string}-${string}`,
+        ),
         undefined,
         { parameters: { phoneNumber: "+1234567890", message: "Hello there!" } },
         callback,

@@ -25,11 +25,17 @@ import {
   Search,
   Shield,
   Sliders,
+  Terminal,
   Upload,
+  Wallet,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { THEMES, useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
+import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
+import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
@@ -54,6 +60,18 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "AI Model",
     icon: Bot,
     description: "Provider and model settings",
+  },
+  {
+    id: "coding-agents",
+    label: "Coding Agents",
+    icon: Terminal,
+    description: "Agent preferences, models, and permissions",
+  },
+  {
+    id: "wallet-rpc",
+    label: "Wallet & RPC",
+    icon: Wallet,
+    description: "Chain RPC providers and API keys",
   },
   {
     id: "media",
@@ -177,6 +195,9 @@ function SettingsSidebar({
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+
   const filteredSections = SETTINGS_SECTIONS.filter(
     (section) =>
       section.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -191,9 +212,11 @@ function SettingsSidebar({
             <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
-            <h2 className="font-bold text-lg text-txt-strong">Settings</h2>
+            <h2 className="font-bold text-lg text-txt-strong">
+              {t("nav.settings")}
+            </h2>
             <p className="text-xs text-muted hidden lg:block">
-              Customize your experience
+              {t("settings.customizeExperience")}
             </p>
           </div>
         </div>
@@ -203,7 +226,7 @@ function SettingsSidebar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Search settings..."
+            placeholder={t("settings.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-10 pr-3 py-2.5 text-sm border border-border bg-bg rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-muted transition-all"
@@ -256,7 +279,9 @@ function SettingsSidebar({
 /* ── Updates Section ─────────────────────────────────────────────────── */
 
 function UpdatesSection() {
-  const { updateStatus, updateLoading, loadUpdateStatus } = useApp();
+  const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } =
+    useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   useEffect(() => {
     void loadUpdateStatus();
@@ -266,9 +291,11 @@ function UpdatesSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between p-4 bg-bg-accent rounded-lg">
         <div>
-          <div className="font-medium text-sm">Current Version</div>
+          <div className="font-medium text-sm">
+            {t("settings.versionPrefix")}
+          </div>
           <div className="text-2xl font-bold text-txt-strong mt-1">
-            {updateStatus?.currentVersion || "Loading..."}
+            {updateStatus?.currentVersion || `${t("common.loading")}...`}
           </div>
         </div>
         <button
@@ -278,16 +305,25 @@ function UpdatesSection() {
           className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Check for Updates
+          {updateLoading ? t("settings.checking") : t("settings.checkNow")}
         </button>
       </div>
 
       {updateStatus?.updateAvailable && (
         <div className="p-4 bg-ok/10 border border-ok/30 rounded-lg">
-          <div className="font-medium text-ok mb-1">Update Available!</div>
+          <div className="font-medium text-ok mb-1">
+            {t("settings.updateAvailable")}
+          </div>
           <p className="text-sm text-muted">
-            Version {updateStatus.latestVersion} is ready to install.
+            {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
           </p>
+        </div>
+      )}
+
+      {updateStatus?.lastCheckAt && (
+        <div className="text-[11px] text-muted">
+          {t("settings.lastChecked")}{" "}
+          {new Date(updateStatus.lastCheckAt).toLocaleString()}
         </div>
       )}
     </div>
@@ -297,7 +333,8 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
-  const { handleReset } = useApp();
+  const { handleReset, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   return (
     <div className="space-y-6">
@@ -311,8 +348,12 @@ function AdvancedSection() {
             <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">Export Agent</div>
-            <div className="text-xs text-muted">Backup all data</div>
+            <div className="font-medium text-sm">
+              {t("settings.exportAgent")}
+            </div>
+            <div className="text-xs text-muted">
+              {t("settings.exportAgentShort")}
+            </div>
           </div>
         </button>
 
@@ -324,8 +365,12 @@ function AdvancedSection() {
             <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
           </div>
           <div>
-            <div className="font-medium text-sm">Import Agent</div>
-            <div className="text-xs text-muted">Restore from backup</div>
+            <div className="font-medium text-sm">
+              {t("settings.importAgent")}
+            </div>
+            <div className="text-xs text-muted">
+              {t("settings.importAgentShort")}
+            </div>
           </div>
         </button>
       </div>
@@ -334,22 +379,31 @@ function AdvancedSection() {
       <div className="border border-danger/30 rounded-lg overflow-hidden">
         <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-danger" />
-          <span className="font-medium text-sm text-danger">Danger Zone</span>
+          <span className="font-medium text-sm text-danger">
+            {t("settings.dangerZone")}
+          </span>
         </div>
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium text-sm">Reset Agent</div>
+              <div className="font-medium text-sm">
+                {t("settings.resetAgent")}
+              </div>
               <div className="text-xs text-muted">
-                Wipe all data and return to onboarding
+                {t("settings.resetAgentHint")}
               </div>
             </div>
             <button
               type="button"
-              onClick={handleReset}
+              onClick={() => {
+                const confirmed = window.confirm(
+                  t("settings.resetConfirmMessage"),
+                );
+                if (confirmed) void handleReset();
+              }}
               className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
             >
-              Reset
+              {t("settings.resetEverything")}
             </button>
           </div>
         </div>
@@ -360,7 +414,7 @@ function AdvancedSection() {
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView() {
+export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -383,17 +437,21 @@ export function SettingsView() {
     pluginSaveSuccess,
     // Theme
     currentTheme,
+    uiLanguage,
     // Actions
     loadPlugins,
     handlePluginToggle,
     setTheme,
+    setUiLanguage,
     setTab,
     loadUpdateStatus: _loadUpdateStatus,
     handlePluginConfigSave,
     handleCloudLogin,
     handleCloudDisconnect,
     setState,
+    setActionNotice,
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   useEffect(() => {
     void loadPlugins();
@@ -454,6 +512,218 @@ export function SettingsView() {
     return () => root.removeEventListener("scroll", handleScroll);
   }, []);
 
+  /* ── Sections content (shared between both layouts) ────────────────── */
+  const sectionsContent = (
+    <>
+      {/* APPEARANCE SECTION */}
+      <SectionCard
+        id="appearance"
+        title={t("settings.appearance")}
+        description={t("settings.languageHint")}
+      >
+        {/* Language selector */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold text-txt-strong mb-2">
+            {t("settings.language")}
+          </div>
+          <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                uiLanguage === "en"
+                  ? "bg-accent text-accent-fg shadow-sm"
+                  : "text-txt hover:bg-bg-hover"
+              }`}
+              onClick={() => {
+                setUiLanguage("en");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageEnglish")}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                uiLanguage === "zh-CN"
+                  ? "bg-accent text-accent-fg shadow-sm"
+                  : "text-txt hover:bg-bg-hover"
+              }`}
+              onClick={() => {
+                setUiLanguage("zh-CN");
+                setActionNotice(t("settings.languageSaved"), "success", 2200);
+              }}
+            >
+              {t("settings.languageChineseSimplified")}
+            </button>
+          </div>
+        </div>
+
+        {/* Theme selector */}
+        <div className="text-xs font-semibold text-txt-strong mb-2">
+          {t("settings.themeStyle")}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {THEMES.map((th) => (
+            <button
+              key={th.id}
+              type="button"
+              className={`theme-btn p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
+                currentTheme === th.id
+                  ? "active border-accent bg-accent-subtle shadow-md"
+                  : "border-border bg-bg hover:bg-bg-hover"
+              }`}
+              onClick={() => setTheme(th.id)}
+            >
+              <div className="text-sm font-semibold text-txt-strong mb-1">
+                {th.label}
+              </div>
+              <div className="text-[11px] text-muted">{th.hint}</div>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* AI MODEL SECTION */}
+      <SectionCard
+        id="ai-model"
+        title={t("settings.aiModel")}
+        description={t("settings.aiModelDescription")}
+      >
+        <ProviderSwitcher
+          cloudEnabled={cloudEnabled}
+          cloudConnected={cloudConnected}
+          cloudCredits={cloudCredits}
+          cloudCreditsLow={cloudCreditsLow}
+          cloudCreditsCritical={cloudCreditsCritical}
+          cloudTopUpUrl={cloudTopUpUrl}
+          cloudUserId={cloudUserId}
+          cloudLoginBusy={cloudLoginBusy}
+          cloudLoginError={cloudLoginError}
+          cloudDisconnecting={cloudDisconnecting}
+          plugins={plugins}
+          pluginSaving={pluginSaving}
+          pluginSaveSuccess={pluginSaveSuccess}
+          loadPlugins={loadPlugins}
+          handlePluginToggle={handlePluginToggle}
+          handlePluginConfigSave={handlePluginConfigSave}
+          handleCloudLogin={handleCloudLogin}
+          handleCloudDisconnect={handleCloudDisconnect}
+          setState={setState}
+          setTab={setTab}
+        />
+      </SectionCard>
+
+      {/* CODING AGENTS SECTION */}
+      <SectionCard
+        id="coding-agents"
+        title="Coding Agents"
+        description="Configure AI coding agents for multi-agent task execution."
+      >
+        <CodingAgentSettingsSection />
+      </SectionCard>
+
+      {/* WALLET & RPC SECTION */}
+      <SectionCard
+        id="wallet-rpc"
+        title="Wallet & RPC"
+        description="Configure chain RPC providers for trading and market data."
+      >
+        <ConfigPageView embedded />
+      </SectionCard>
+
+      {/* MEDIA SECTION */}
+      <SectionCard
+        id="media"
+        title={t("settings.mediaGeneration")}
+        description={t("settings.mediaDescription")}
+      >
+        <MediaSettingsSection />
+      </SectionCard>
+
+      {/* VOICE SECTION */}
+      <SectionCard
+        id="voice"
+        title={t("settings.speechInterface")}
+        description={t("settings.speechDescription")}
+      >
+        <VoiceConfigView />
+      </SectionCard>
+
+      {/* PERMISSIONS SECTION */}
+      <SectionCard
+        id="permissions"
+        title={t("settings.permissionsCapabilities")}
+        description={t("settings.permissionsDescription")}
+      >
+        <PermissionsSection />
+      </SectionCard>
+
+      {/* UPDATES SECTION */}
+      <SectionCard
+        id="updates"
+        title={t("settings.softwareUpdates")}
+        description={t("settings.updatesDescription")}
+      >
+        <UpdatesSection />
+      </SectionCard>
+
+      {/* ADVANCED SECTION */}
+      <SectionCard
+        id="advanced"
+        title={t("settings.advancedSettings")}
+        description={t("settings.advancedDescription")}
+      >
+        <AdvancedSection />
+      </SectionCard>
+    </>
+  );
+
+  /* ── Companion modal layout (dark glass) ───────────────────────────── */
+  if (inModal) {
+    return (
+      <div className="settings-modal-layout">
+        <nav className="settings-icon-sidebar">
+          {SETTINGS_SECTIONS.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className={`settings-icon-btn ${activeSection === section.id ? "is-active" : ""}`}
+                onClick={() => handleSectionChange(section.id)}
+                title={section.description}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="settings-icon-label">{section.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <div
+          ref={contentRef}
+          className="settings-content-area"
+          style={
+            {
+              "--accent": "#7b8fb5",
+              "--surface": "rgba(255, 255, 255, 0.06)",
+              "--s-accent": "#7b8fb5",
+              "--s-text-accent": "#7b8fb5",
+              "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
+              "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
+              "--s-grid-line": "rgba(123, 143, 181, 0.02)",
+              "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
+            } as React.CSSProperties
+          }
+        >
+          <div className="settings-section-pane pt-4">
+            <div className="space-y-8 pb-20">{sectionsContent}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Standard layout (native mode) ─────────────────────────────────── */
   return (
     <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-bg">
       <SettingsSidebar
@@ -468,107 +738,7 @@ export function SettingsView() {
         className="flex-1 overflow-y-auto p-4 lg:p-8 scroll-smooth"
       >
         <div className="max-w-3xl mx-auto space-y-8 pb-20">
-          {/* APPEARANCE SECTION */}
-          <SectionCard
-            id="appearance"
-            title="Appearance"
-            description="Choose a theme that matches your style. Themes affect colors, fonts, and overall appearance."
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                    currentTheme === t.id
-                      ? "border-accent bg-accent-subtle shadow-md"
-                      : "border-border bg-bg hover:bg-bg-hover"
-                  }`}
-                  onClick={() => setTheme(t.id)}
-                >
-                  <div className="text-sm font-semibold text-txt-strong mb-1">
-                    {t.label}
-                  </div>
-                  <div className="text-[11px] text-muted">{t.hint}</div>
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-
-          {/* AI MODEL SECTION */}
-          <SectionCard
-            id="ai-model"
-            title="AI Model"
-            description="Configure your AI provider and model settings."
-          >
-            <ProviderSwitcher
-              cloudEnabled={cloudEnabled}
-              cloudConnected={cloudConnected}
-              cloudCredits={cloudCredits}
-              cloudCreditsLow={cloudCreditsLow}
-              cloudCreditsCritical={cloudCreditsCritical}
-              cloudTopUpUrl={cloudTopUpUrl}
-              cloudUserId={cloudUserId}
-              cloudLoginBusy={cloudLoginBusy}
-              cloudLoginError={cloudLoginError}
-              cloudDisconnecting={cloudDisconnecting}
-              plugins={plugins}
-              pluginSaving={pluginSaving}
-              pluginSaveSuccess={pluginSaveSuccess}
-              loadPlugins={loadPlugins}
-              handlePluginToggle={handlePluginToggle}
-              handlePluginConfigSave={handlePluginConfigSave}
-              handleCloudLogin={handleCloudLogin}
-              handleCloudDisconnect={handleCloudDisconnect}
-              setState={setState}
-              setTab={setTab}
-            />
-          </SectionCard>
-
-          {/* MEDIA SECTION */}
-          <SectionCard
-            id="media"
-            title="Media Generation"
-            description="Configure providers for image, video, and vision capabilities."
-          >
-            <MediaSettingsSection />
-          </SectionCard>
-
-          {/* VOICE SECTION */}
-          <SectionCard
-            id="voice"
-            title="Voice Configuration"
-            description="Text-to-speech and speech-to-text settings."
-          >
-            <VoiceConfigView />
-          </SectionCard>
-
-          {/* PERMISSIONS SECTION */}
-          <SectionCard
-            id="permissions"
-            title="Permissions & Capabilities"
-            description="Control what your agent can do and access."
-          >
-            <PermissionsSection />
-          </SectionCard>
-
-          {/* UPDATES SECTION */}
-          <SectionCard
-            id="updates"
-            title="Software Updates"
-            description="Keep your agent up to date with the latest features and improvements."
-          >
-            <UpdatesSection />
-          </SectionCard>
-
-          {/* ADVANCED SECTION */}
-          <SectionCard
-            id="advanced"
-            title="Advanced Settings"
-            description="Power user tools and system configuration."
-          >
-            <AdvancedSection />
-          </SectionCard>
+          {sectionsContent}
         </div>
       </div>
     </div>

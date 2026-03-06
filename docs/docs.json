@@ -130,10 +130,7 @@
           },
           {
             "group": "Settings",
-            "pages": [
-              "apps/dashboard/settings",
-              "apps/dashboard/talk-mode"
-            ]
+            "pages": ["apps/dashboard/settings", "apps/dashboard/talk-mode"]
           }
         ]
       },
@@ -236,10 +233,7 @@
           },
           {
             "group": "DeFi & Blockchain",
-            "pages": [
-              "plugin-registry/defi/evm",
-              "plugin-registry/defi/solana"
-            ]
+            "pages": ["plugin-registry/defi/evm", "plugin-registry/defi/solana"]
           },
           {
             "group": "Feature Plugins",

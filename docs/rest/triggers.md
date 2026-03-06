@@ -4,7 +4,7 @@ sidebarTitle: "Triggers"
 description: "REST API endpoints for creating and managing scheduled, one-shot, and cron-based agent triggers."
 ---
 
-Triggers schedule the agent to perform tasks automatically. They are backed by the ElizaOS `TaskService` and support interval-based, cron-based, and one-shot scheduling. The agent must be running and triggers must be enabled in configuration.
+Triggers schedule the agent to perform tasks automatically. They are backed by the elizaOS `TaskService` and support interval-based, cron-based, and one-shot scheduling. The agent must be running and triggers must be enabled in configuration.
 
 <Info>
 Triggers are disabled by configuration in some deployments. Check `GET /api/triggers/health` to verify the trigger system is available.

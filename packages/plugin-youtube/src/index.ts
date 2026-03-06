@@ -1,8 +1,8 @@
 /**
  * @milady/plugin-youtube -- YouTube RTMP streaming destination plugin.
  *
- * An ElizaOS plugin that provides YouTube streaming capability via RTMP ingest.
- * Exports both the Plugin object (for ElizaOS runtime) and a
+ * An elizaOS plugin that provides YouTube streaming capability via RTMP ingest.
+ * Exports both the Plugin object (for elizaOS runtime) and a
  * `createYoutubeDestination()` factory (for the Milady streaming pipeline).
  */
 

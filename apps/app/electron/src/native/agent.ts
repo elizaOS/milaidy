@@ -1,7 +1,7 @@
 /**
  * Agent Native Module for Electron
  *
- * Embeds the Milady agent runtime (ElizaOS) directly in the Electron main
+ * Embeds the Milady agent runtime (elizaOS) directly in the Electron main
  * process and exposes it to the renderer via IPC.
  *
  * On startup the module:
@@ -153,6 +153,9 @@ interface AgentStatus {
 // ---------------------------------------------------------------------------
 
 export class AgentManager {
+  /** Testable wrapper around `dynamicImport`. Tests can spy on this. */
+  static dynamicImport = dynamicImport;
+
   private mainWindow: BrowserWindow | null = null;
   private status: AgentStatus = {
     state: "not_started",
@@ -250,7 +253,7 @@ export class AgentManager {
 
       // NODE_PATH so eliza.js dynamic imports (e.g. @elizaos/plugin-*) resolve.
       // WHY: Node does not search repo root when the entry is under apps/app/electron/;
-      // without this, import("@elizaos/plugin-coding-agent") fails. Packaged: use ASAR's
+      // without this, import("@elizaos/plugin-agent-orchestrator") fails. Packaged: use ASAR's
       // node_modules (unpacked deps live there). Dev: walk up from __dirname until we
       // find node_modules so we don't depend on a fixed ../ depth (tsc-out vs build/).
       // _initPaths() below: Node caches resolution paths at startup; we set NODE_PATH at
@@ -310,7 +313,7 @@ export class AgentManager {
       // WHY .catch(): Keep API server step independent. If server.js fails we
       // still try to load eliza.js and set error state; do not let one throw
       // kill the whole startup (see file-level comment).
-      const serverModule = await dynamicImport(
+      const serverModule = await AgentManager.dynamicImport(
         pathToFileURL(path.join(miladyDist, "server.js")).href,
       ).catch((err: unknown) => {
         const errMsg =
@@ -435,7 +438,7 @@ export class AgentManager {
         `[Agent] Loading eliza.js from: ${path.join(miladyDist, "eliza.js")}`,
       );
       let elizaLoadError: string | null = null;
-      const elizaModule = await dynamicImport(
+      const elizaModule = await AgentManager.dynamicImport(
         pathToFileURL(path.join(miladyDist, "eliza.js")).href,
       ).catch((err: unknown) => {
         const errMsg =

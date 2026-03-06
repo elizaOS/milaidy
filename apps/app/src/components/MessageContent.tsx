@@ -40,6 +40,14 @@ type Segment =
 const CONFIG_RE = /\[CONFIG:(\w[\w-]*)\]/g;
 const FENCED_JSON_RE = /```(?:json)?\s*\n([\s\S]*?)```/g;
 
+/**
+ * Strip ElizaOS action XML blocks (`<actions>...</actions>` and
+ * `<params>...</params>`) from displayed text. These are framework
+ * metadata, not user-facing content.
+ */
+const ACTION_XML_RE =
+  /\s*<actions>[\s\S]*?<\/actions>\s*|\s*<params>[\s\S]*?<\/params>\s*/g;
+
 function tryParse(s: string): unknown {
   try {
     return JSON.parse(s);
@@ -63,24 +71,28 @@ function isUiSpec(obj: unknown): obj is UiSpec {
  * Returns an array of segments for rendering.
  */
 function parseSegments(text: string): Segment[] {
+  // Strip ElizaOS framework XML (action selection, params) before rendering
+  const cleaned = text.replace(ACTION_XML_RE, "").trim();
+  if (!cleaned) return [{ kind: "text", text: "" }];
+
   // Build a unified list of match regions sorted by position
   const regions: Array<{ start: number; end: number; segment: Segment }> = [];
 
   // 1. Find [CONFIG:pluginId] markers
   CONFIG_RE.lastIndex = 0;
-  let m: RegExpExecArray | null = CONFIG_RE.exec(text);
+  let m: RegExpExecArray | null = CONFIG_RE.exec(cleaned);
   while (m !== null) {
     regions.push({
       start: m.index,
       end: m.index + m[0].length,
       segment: { kind: "config", pluginId: m[1] },
     });
-    m = CONFIG_RE.exec(text);
+    m = CONFIG_RE.exec(cleaned);
   }
 
   // 2. Find fenced JSON that is a UiSpec
   FENCED_JSON_RE.lastIndex = 0;
-  m = FENCED_JSON_RE.exec(text);
+  m = FENCED_JSON_RE.exec(cleaned);
   while (m !== null) {
     const json = m[1].trim();
     const parsed = tryParse(json);
@@ -91,12 +103,12 @@ function parseSegments(text: string): Segment[] {
         segment: { kind: "ui-spec", spec: parsed, raw: json },
       });
     }
-    m = FENCED_JSON_RE.exec(text);
+    m = FENCED_JSON_RE.exec(cleaned);
   }
 
   // No special content found — return plain text
   if (regions.length === 0) {
-    return [{ kind: "text", text }];
+    return [{ kind: "text", text: cleaned }];
   }
 
   // Sort by start position, then interleave with text segments
@@ -110,7 +122,7 @@ function parseSegments(text: string): Segment[] {
 
     // Push preceding text
     if (r.start > cursor) {
-      const t = text.slice(cursor, r.start);
+      const t = cleaned.slice(cursor, r.start);
       if (t.trim()) segments.push({ kind: "text", text: t });
     }
     segments.push(r.segment);
@@ -118,8 +130,8 @@ function parseSegments(text: string): Segment[] {
   }
 
   // Trailing text
-  if (cursor < text.length) {
-    const t = text.slice(cursor);
+  if (cursor < cleaned.length) {
+    const t = cleaned.slice(cursor);
     if (t.trim()) segments.push({ kind: "text", text: t });
   }
 
@@ -458,7 +470,7 @@ export function MessageContent({ message }: MessageContentProps) {
 
   // Fast path: single plain-text segment (most messages)
   if (segments.length === 1 && segments[0].kind === "text") {
-    return <div className="whitespace-pre-wrap">{message.text}</div>;
+    return <div className="whitespace-pre-wrap">{segments[0].text}</div>;
   }
 
   return (

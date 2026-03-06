@@ -26,7 +26,7 @@ cask "milaidy" do
   end
 
   name "Milaidy"
-  desc "Personal AI assistant built on ElizaOS"
+  desc "Personal AI assistant built on elizaOS"
   homepage "https://github.com/milady-ai/milaidy"
 
   livecheck do

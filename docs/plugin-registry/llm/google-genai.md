@@ -76,7 +76,7 @@ Get your API key from [aistudio.google.com](https://aistudio.google.com).
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | Gemini Model |
+| elizaOS Model Type | Gemini Model |
 |-------------------|-------------|
 | `TEXT_SMALL` | `gemini-2.5-flash` |
 | `TEXT_LARGE` | `gemini-2.5-pro` |

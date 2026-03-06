@@ -7,13 +7,23 @@ import { client } from "../api-client";
  *
  * Lifecycle:
  * 1. Mount → create Terminal + FitAddon, open in container
- * 2. Subscribe to live PTY output via WS
- * 3. Hydrate with buffered output via REST
+ * 2. Hydrate with buffered output via REST (full history)
+ * 3. Subscribe to live PTY output via WS (after hydrate to avoid duplicates)
  * 4. Forward keyboard input to PTY
  * 5. Resize on container resize
  * 6. Unmount → unsubscribe, dispose
+ *
+ * When `active` is false the component stays mounted but hidden (height:0).
+ * The terminal keeps receiving WS data in the background. When re-activated,
+ * a fit + scrollToBottom is triggered so the display is immediately correct.
  */
-export function XTerminal({ sessionId }: { sessionId: string }) {
+export function XTerminal({
+  sessionId,
+  active = true,
+}: {
+  sessionId: string;
+  active?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const fitRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
@@ -61,7 +71,17 @@ export function XTerminal({ sessionId }: { sessionId: string }) {
         // Container may not be visible yet
       }
 
-      // 1. Subscribe to live output BEFORE hydrating so no data is missed
+      // 1. Hydrate with buffered output FIRST (full history up to now)
+      const buffered = await client.getPtyBufferedOutput(sessionId);
+      if (disposed) return;
+      if (buffered) {
+        terminal.write(buffered);
+      }
+      // Show the most recent output, not the top of history
+      terminal.scrollToBottom();
+
+      // 2. THEN subscribe to live output — avoids duplicate data from the
+      //    overlap window between subscribe and hydration completing.
       client.subscribePtyOutput(sessionId);
       wsUnsub = client.onWsEvent("pty-output", (msg) => {
         if (
@@ -72,12 +92,6 @@ export function XTerminal({ sessionId }: { sessionId: string }) {
           terminal.write(msg.data);
         }
       });
-
-      // 2. Hydrate with buffered output
-      const buffered = await client.getPtyBufferedOutput(sessionId);
-      if (!disposed && buffered) {
-        terminal.write(buffered);
-      }
 
       // 3. Forward keyboard input
       terminal.onData((data) => {
@@ -109,6 +123,26 @@ export function XTerminal({ sessionId }: { sessionId: string }) {
       fitRef.current = null;
     };
   }, [sessionId]);
+
+  // Re-fit and scroll to bottom when the terminal becomes visible again.
+  // The container transitions from height:0 → height:300; we need rAF
+  // so the layout has settled before FitAddon measures dimensions.
+  useEffect(() => {
+    if (!active) return;
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term || !fit) return;
+
+    const frameId = requestAnimationFrame(() => {
+      try {
+        fit.fit();
+        term.scrollToBottom();
+      } catch {
+        // Container may not have layout yet
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [active]);
 
   return (
     <div

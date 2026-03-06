@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CodingAgentSession } from "../api-client";
 import { client } from "../api-client";
 import { XTerminal } from "./XTerminal";
@@ -29,6 +29,11 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [stopping, setStopping] = useState<Set<string>>(new Set());
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  // Sessions whose XTerminal has been mounted. Once mounted, stays alive
+  // (hidden via height:0) so switching back is instant with no re-hydration.
+  const [mountedSessions, setMountedSessions] = useState<Set<string>>(
+    new Set(),
+  );
 
   const handleStop = async (sessionId: string) => {
     setStopping((prev) => new Set([...prev, sessionId]));
@@ -38,7 +43,26 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
 
   const toggleTerminal = (sessionId: string) => {
     setExpandedSession((prev) => (prev === sessionId ? null : sessionId));
+    // Lazy-mount: first expand creates the XTerminal, subsequent switches
+    // just toggle visibility. Both state updates batch into one render.
+    setMountedSessions((prev) => {
+      if (prev.has(sessionId)) return prev;
+      return new Set([...prev, sessionId]);
+    });
   };
+
+  // Clean up mounted terminals when sessions are removed
+  useEffect(() => {
+    const activeIds = new Set(sessions.map((s) => s.sessionId));
+    setMountedSessions((prev) => {
+      const filtered = new Set([...prev].filter((id) => activeIds.has(id)));
+      if (filtered.size === prev.size) return prev;
+      return filtered;
+    });
+    if (expandedSession && !activeIds.has(expandedSession)) {
+      setExpandedSession(null);
+    }
+  }, [sessions, expandedSession]);
 
   return (
     <div className="border-b border-border">
@@ -63,10 +87,18 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                     : "border-border hover:border-border-hover"
                 }`}
               >
-                <button
-                  type="button"
+                {/* biome-ignore lint/a11y/useSemanticElements: intentional div — <button> causes React hydration error due to nested <button> for Stop action */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="w-full text-left px-2 py-1.5 cursor-pointer bg-transparent"
                   onClick={() => toggleTerminal(session.sessionId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleTerminal(session.sessionId);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-1.5">
                     <span
@@ -116,13 +148,16 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                       </button>
                     )}
                   </div>
-                </button>
-                {isExpanded && (
+                </div>
+                {mountedSessions.has(session.sessionId) && (
                   <div
                     className="mx-2 mb-1.5 rounded overflow-hidden"
-                    style={{ height: 300 }}
+                    style={{ height: isExpanded ? 300 : 0 }}
                   >
-                    <XTerminal sessionId={session.sessionId} />
+                    <XTerminal
+                      sessionId={session.sessionId}
+                      active={isExpanded}
+                    />
                   </div>
                 )}
               </div>

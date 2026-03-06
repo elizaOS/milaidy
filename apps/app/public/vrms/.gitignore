@@ -1,0 +1,7 @@
+# Avatar assets are stored in github.com/milady-ai/avatars
+# and cloned automatically via scripts/ensure-avatars.mjs on install.
+# Do NOT commit binary files here.
+*.vrm
+*.png
+*.jpg
+imported-avatars.json
