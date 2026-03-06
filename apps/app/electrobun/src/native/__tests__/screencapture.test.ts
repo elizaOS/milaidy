@@ -63,7 +63,13 @@ const mockBrowserWindowInstance = {
 };
 
 vi.mock("electrobun/bun", () => ({
-  BrowserWindow: vi.fn(() => mockBrowserWindowInstance),
+  // Must use `function` (not arrow) so `new BrowserWindow(...)` works correctly.
+  // Arrow functions cannot be used as constructors; vi.fn with an arrow silently
+  // causes `new BrowserWindow()` to return undefined instead of the mock instance.
+  // biome-ignore lint/complexity/useArrowFunction: required for constructor mock correctness
+  BrowserWindow: vi.fn(function () {
+    return mockBrowserWindowInstance;
+  }),
 }));
 
 vi.stubGlobal("Bun", {
@@ -223,6 +229,56 @@ describe("ScreenCaptureManager", () => {
       // Game capture sets up its own timer after BrowserWindow loads
       // (still uses setInterval internally, but the outer call returns early)
       setIntervalSpy.mockRestore();
+    });
+
+    // ── gameUrl allowlist (security) ─────────────────────────────────────────
+
+    it("allows localhost gameUrl", async () => {
+      const result = await manager.startFrameCapture({
+        gameUrl: "http://localhost:8080/game",
+      });
+      expect(result.available).toBe(true);
+    });
+
+    it("allows 127.0.0.1 gameUrl", async () => {
+      await manager.stopFrameCapture();
+      const result = await manager.startFrameCapture({
+        gameUrl: "http://127.0.0.1:3000/",
+      });
+      expect(result.available).toBe(true);
+    });
+
+    it("allows file:// gameUrl", async () => {
+      await manager.stopFrameCapture();
+      const result = await manager.startFrameCapture({
+        gameUrl: "file:///Users/user/game/index.html",
+      });
+      expect(result.available).toBe(true);
+    });
+
+    it("blocks external https gameUrl", async () => {
+      await manager.stopFrameCapture();
+      const result = await manager.startFrameCapture({
+        gameUrl: "https://evil.com/",
+      });
+      expect(result.available).toBe(false);
+      expect(result.reason).toMatch(/blocked/i);
+    });
+
+    it("blocks external http gameUrl with localhost subdomain bypass attempt", async () => {
+      await manager.stopFrameCapture();
+      const result = await manager.startFrameCapture({
+        gameUrl: "http://localhost.evil.com/",
+      });
+      expect(result.available).toBe(false);
+    });
+
+    it("blocks invalid gameUrl string", async () => {
+      await manager.stopFrameCapture();
+      const result = await manager.startFrameCapture({
+        gameUrl: "not-a-url",
+      });
+      expect(result.available).toBe(false);
     });
   });
 

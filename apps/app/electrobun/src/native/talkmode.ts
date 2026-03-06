@@ -68,12 +68,62 @@ export class TalkModeManager {
     text: string;
     directive?: Record<string, unknown>;
   }): Promise<void> {
-    const apiKey = process.env.ELEVEN_LABS_API_KEY;
-    if (!apiKey) {
-      console.warn("[TalkMode] ELEVEN_LABS_API_KEY not set, skipping TTS");
-      return;
+    const apiKey = process.env.ELEVEN_LABS_API_KEY?.trim();
+    if (apiKey) {
+      await this._speakElevenLabs(options, apiKey);
+    } else {
+      // Default: system TTS (no API key required, works on all platforms)
+      await this._speakSystem(options.text);
     }
+  }
 
+  /**
+   * System TTS via platform-native voice synthesis.
+   * Used when ELEVEN_LABS_API_KEY is not configured.
+   * Audio plays directly through system speakers — no streaming to renderer.
+   */
+  private async _speakSystem(text: string): Promise<void> {
+    this.speaking = true;
+    this.setState("speaking");
+    try {
+      let cmd: string[];
+      if (process.platform === "darwin") {
+        cmd = ["say", text];
+      } else if (process.platform === "linux") {
+        cmd = ["espeak", text];
+      } else {
+        // Windows: PowerShell speech synthesizer
+        const escaped = text.replace(/"/g, '\\"');
+        cmd = [
+          "powershell",
+          "-Command",
+          `Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("${escaped}")`,
+        ];
+      }
+      const proc = Bun.spawn(cmd, { stderr: "pipe" });
+      await proc.exited;
+      this.sendToWebview?.("talkmodeSpeakComplete");
+    } catch (err) {
+      console.error("[TalkMode] System TTS error:", err);
+      this.setState("error");
+    } finally {
+      this.speaking = false;
+      if (this.state !== "error") {
+        this.setState("idle");
+      }
+    }
+  }
+
+  /**
+   * ElevenLabs TTS — used when ELEVEN_LABS_API_KEY is set.
+   * Streams audio chunks to the renderer via talkmodeAudioChunkPush.
+   * Model defaults to eleven_turbo_v2 (available on all plan tiers).
+   * Override via directive.modelId for accounts with eleven_v3 access.
+   */
+  private async _speakElevenLabs(
+    options: { text: string; directive?: Record<string, unknown> },
+    apiKey: string,
+  ): Promise<void> {
     this.speaking = true;
     this.setState("speaking");
 
@@ -81,7 +131,7 @@ export class TalkModeManager {
       const voiceId =
         (options.directive?.voiceId as string) ??
         this.config.voiceId ??
-        "21m00Tcm4TlvDq8ikWAM"; // Default voice
+        "21m00Tcm4TlvDq8ikWAM";
 
       const resp = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
@@ -93,7 +143,10 @@ export class TalkModeManager {
           },
           body: JSON.stringify({
             text: options.text,
-            model_id: (options.directive?.modelId as string) ?? "eleven_v3",
+            // Default: eleven_turbo_v2 (available on all plan tiers).
+            // Use directive.modelId to override (e.g. "eleven_v3" for accounts with access).
+            model_id:
+              (options.directive?.modelId as string) ?? "eleven_turbo_v2",
             voice_settings: {
               stability: (options.directive?.stability as number) ?? 0.5,
               similarity_boost:
@@ -111,13 +164,11 @@ export class TalkModeManager {
         return;
       }
 
-      // Stream audio chunks to webview
       if (resp.body) {
         const reader = resp.body.getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          // Convert to base64 for RPC transport
           const base64 = Buffer.from(value).toString("base64");
           this.sendToWebview?.("talkmodeAudioChunkPush", { data: base64 });
         }
@@ -125,7 +176,7 @@ export class TalkModeManager {
 
       this.sendToWebview?.("talkmodeSpeakComplete");
     } catch (err) {
-      console.error("[TalkMode] TTS error:", err);
+      console.error("[TalkMode] ElevenLabs TTS error:", err);
       this.setState("error");
     } finally {
       this.speaking = false;
