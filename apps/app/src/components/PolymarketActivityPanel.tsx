@@ -152,10 +152,7 @@ export function PolymarketActivityPanel() {
     };
   }, [fetchActivity]);
 
-  // Don't render if service isn't available
-  if (!loading && data && !data.available) return null;
-  if (!loading && error && !data) return null;
-
+  const isUnavailable = !loading && (!data?.available || (error && !data));
   const balance = data?.accountState?.balances?.collateral?.balance;
   const trades = data?.accountState?.recentTrades ?? [];
   const orders = data?.accountState?.activeOrders ?? [];
@@ -178,22 +175,29 @@ export function PolymarketActivityPanel() {
       >
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">Polymarket Activity</span>
-          {canTrade && (
+          {loading && (
+            <span className="text-[10px] text-[var(--muted)]">loading...</span>
+          )}
+          {!loading && isUnavailable && (
+            <span
+              className={`${badgeCls} bg-zinc-500/20 text-zinc-400`}
+            >
+              offline
+            </span>
+          )}
+          {!loading && !isUnavailable && canTrade && (
             <span
               className={`${badgeCls} bg-emerald-500/20 text-emerald-400`}
             >
               live
             </span>
           )}
-          {!canTrade && data?.available && (
+          {!loading && !isUnavailable && !canTrade && (
             <span
               className={`${badgeCls} bg-yellow-500/20 text-yellow-400`}
             >
               read-only
             </span>
-          )}
-          {loading && (
-            <span className="text-[10px] text-[var(--muted)]">loading...</span>
           )}
         </div>
         <span className="text-[var(--muted)] text-xs">
@@ -203,8 +207,21 @@ export function PolymarketActivityPanel() {
 
       {expanded && (
         <div className="mt-3 space-y-3">
+          {/* Unavailable state */}
+          {isUnavailable && (
+            <div className="text-xs text-[var(--muted)] text-center py-2">
+              {data?.reason === "service_not_registered"
+                ? "Polymarket plugin not active. Configure POLYMARKET_PRIVATE_KEY to enable."
+                : data?.reason === "runtime_not_ready"
+                  ? "Agent runtime starting up..."
+                  : error
+                    ? `Connection error: ${error}`
+                    : "Polymarket service unavailable."}
+            </div>
+          )}
+
           {/* Balance row */}
-          {balance !== undefined && (
+          {!isUnavailable && balance !== undefined && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--muted)]">USDC Balance</span>
               <span className="font-mono font-semibold">
@@ -213,7 +230,7 @@ export function PolymarketActivityPanel() {
             </div>
           )}
 
-          {walletAddr && (
+          {!isUnavailable && walletAddr && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--muted)]">Wallet</span>
               <span className="font-mono text-[11px] text-[var(--muted)]">
@@ -348,8 +365,8 @@ export function PolymarketActivityPanel() {
             </div>
           )}
 
-          {/* Empty state */}
-          {data?.available &&
+          {/* Empty state — service is up but no data yet */}
+          {!isUnavailable &&
             trades.length === 0 &&
             orders.length === 0 &&
             positions.length === 0 &&
