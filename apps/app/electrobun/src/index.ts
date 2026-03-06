@@ -263,6 +263,13 @@ async function startRendererServer(): Promise<string> {
       const urlPath =
         new URL(req.url).pathname.replace(/^\//, "") || "index.html";
       let filePath = path.join(rendererDir, urlPath);
+      // Path traversal guard: ensure resolved path stays within rendererDir
+      if (
+        !filePath.startsWith(rendererDir + path.sep) &&
+        filePath !== rendererDir
+      ) {
+        filePath = path.join(rendererDir, "index.html");
+      }
       // SPA fallback — serve index.html for unknown paths
       if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
         filePath = path.join(rendererDir, "index.html");

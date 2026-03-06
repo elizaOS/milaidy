@@ -127,14 +127,15 @@ export class CanvasManager {
     let allowed = false;
     try {
       const parsed = new URL(url);
+      // data: URLs are excluded: the bridge preload is injected into every
+      // canvas window, so a data: page would receive the preload script and
+      // could spoof RPC messages. Only local-origin URLs are permitted.
       allowed =
         parsed.hostname === "localhost" ||
         parsed.hostname === "127.0.0.1" ||
-        parsed.protocol === "file:" ||
-        parsed.protocol === "data:";
+        parsed.protocol === "file:";
     } catch {
-      // data: URLs may not parse correctly in all runtimes; check prefix
-      allowed = url.startsWith("data:");
+      allowed = false;
     }
 
     if (!allowed) {

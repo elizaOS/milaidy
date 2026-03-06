@@ -30,15 +30,13 @@ type SendToWebview = (message: string, payload?: unknown) => void;
  * The createRPC return value exposes setRequestHandler, but the base
  * RPCWithTransport interface does not include it.
  *
- * `(params: never) => unknown` is used for the handler values: since `never`
- * is the bottom type, `never extends TrayOptions` is always true, so any
- * typed handler `(p: TrayOptions) => void` is assignable to `(p: never) => unknown`
- * via TypeScript's function parameter contravariance.
+ * `any` is an explicit escape hatch here: the individual handlers are fully
+ * typed at their call-sites via `Parameters<typeof manager.method>[0]`, so
+ * type safety lives in the concrete handler definitions, not this wrapper.
  */
 type ElectrobunRpcWithHandlers = {
-  setRequestHandler?: (
-    handlers: Record<string, (params: never) => unknown>,
-  ) => void;
+  // biome-ignore lint/suspicious/noExplicitAny: Electrobun doesn't export a typed setRequestHandler interface; individual handlers are typed at call-sites
+  setRequestHandler?: (handlers: Record<string, (params: any) => any>) => void;
 };
 
 /**
