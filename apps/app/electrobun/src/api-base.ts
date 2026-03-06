@@ -82,11 +82,9 @@ export function pushApiBaseToRenderer(
   const trimmedToken = apiToken?.trim();
   const payload = { base, token: trimmedToken || undefined };
   try {
-    // Electrobun 1.14.4: push messages use rpc.send.X() not rpc.sendMessage.X()
-    (win.webview.rpc as ApiBaseUpdateRpc | undefined)?.send?.apiBaseUpdate?.(
-      payload,
-    );
-  } catch {
-    // Webview not ready yet -- will be retried on next poll cycle
+    const rpcSend = (win.webview.rpc as ApiBaseUpdateRpc | undefined)?.send;
+    rpcSend?.apiBaseUpdate?.(payload);
+  } catch (err) {
+    console.warn(`[ApiBase] Push failed:`, err);
   }
 }

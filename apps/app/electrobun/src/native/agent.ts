@@ -110,13 +110,19 @@ function resolveMiladyDistPath(): string {
     );
   }
 
-  // 2. Walk up from import.meta.dir looking for milady-dist
+  // 2. Walk up from import.meta.dir looking for milady-dist or dist
   let dir = import.meta.dir;
-  const maxDepth = 10;
+  const maxDepth = 15;
   for (let i = 0; i < maxDepth; i++) {
-    const candidate = path.join(dir, "milady-dist");
-    if (fs.existsSync(candidate)) {
-      return candidate;
+    // Packaged: milady-dist sibling
+    const miladyDist = path.join(dir, "milady-dist");
+    if (fs.existsSync(miladyDist)) {
+      return miladyDist;
+    }
+    // Dev monorepo: dist/ sibling containing eliza.js
+    const devDist = path.join(dir, "dist");
+    if (fs.existsSync(path.join(devDist, "eliza.js"))) {
+      return devDist;
     }
     const parent = path.dirname(dir);
     if (parent === dir) break; // reached filesystem root
@@ -136,13 +142,14 @@ function resolveMiladyDistPath(): string {
 // ---------------------------------------------------------------------------
 
 async function waitForHealthy(
-  port: number,
+  getPort: () => number,
   timeoutMs: number = HEALTH_POLL_TIMEOUT_MS,
 ): Promise<boolean> {
-  const url = `http://localhost:${port}/api/health`;
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
+    const port = getPort();
+    const url = `http://localhost:${port}/api/health`;
     try {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(2_000),
@@ -286,8 +293,11 @@ export class AgentManager {
       const miladyDistPath = resolveMiladyDistPath();
       diagnosticLog(`[Agent] Resolved milady dist: ${miladyDistPath}`);
 
-      // Verify server.js exists
-      const serverEntryPath = path.join(miladyDistPath, "server.js");
+      // eliza.js is the executable entry: when run as main it calls startEliza()
+      // which internally calls startApiServer(). server.js is a library module
+      // that exports startApiServer but doesn't call it when spawned.
+      const elizaPath = path.join(miladyDistPath, "eliza.js");
+      const serverEntryPath = elizaPath;
       if (!fs.existsSync(serverEntryPath)) {
         const distExists = fs.existsSync(miladyDistPath);
         let contents = "<directory missing>";
@@ -298,7 +308,7 @@ export class AgentManager {
             contents = "<unreadable>";
           }
         }
-        const errMsg = `server.js not found at ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
+        const errMsg = `eliza.js not found at ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
         diagnosticLog(`[Agent] ${errMsg}`);
         this.status = {
           state: "error",
@@ -311,14 +321,10 @@ export class AgentManager {
         return this.status;
       }
 
-      // Check eliza.js presence for diagnostics (server.js loads it internally)
-      const elizaPath = path.join(miladyDistPath, "eliza.js");
-      diagnosticLog(
-        `[Agent] server.js: exists, eliza.js: ${fs.existsSync(elizaPath)}`,
-      );
+      diagnosticLog(`[Agent] eliza.js: exists (${serverEntryPath})`);
 
       // Resolve port
-      const apiPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
+      let apiPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
       diagnosticLog(`[Agent] Starting child process on port ${apiPort}...`);
 
       // Build NODE_PATH so the child can find node_modules
@@ -388,13 +394,31 @@ export class AgentManager {
           (line: string) => {
             diagnosticLog(`[Agent][stdout] ${line}`);
             const lower = line.toLowerCase();
-            if (
+            // Parse dynamic port from "[milady-api] Listening on http://host:PORT"
+            const portMatch = line.match(
+              /Listening on https?:\/\/[^:]+:(\d+)/i,
+            );
+            if (portMatch) {
+              const parsedPort = parseInt(portMatch[1], 10);
+              if (!Number.isNaN(parsedPort) && parsedPort > 0) {
+                if (parsedPort !== apiPort) {
+                  diagnosticLog(
+                    `[Agent] Server bound to dynamic port ${parsedPort} (requested ${apiPort})`,
+                  );
+                  apiPort = parsedPort;
+                }
+                detectedListening = true;
+              }
+            } else if (
               lower.includes("listening on port") ||
               lower.includes("server started") ||
               lower.includes("ready on")
             ) {
               detectedListening = true;
             }
+            // Update status port so callers see the actual bound port
+            this.status = { ...this.status, port: apiPort };
+            this.emitStatus();
           },
           signal,
         ).catch(() => {
@@ -413,10 +437,11 @@ export class AgentManager {
       this.monitorChildExit(proc);
 
       // Wait for the health endpoint to respond
+      // Use a getter so the health check follows dynamic port reassignment from stdout
       diagnosticLog(
         `[Agent] Waiting for health endpoint at http://localhost:${apiPort}/api/health ...`,
       );
-      const healthy = await waitForHealthy(apiPort);
+      const healthy = await waitForHealthy(() => apiPort);
 
       if (!healthy) {
         // Check if process already exited

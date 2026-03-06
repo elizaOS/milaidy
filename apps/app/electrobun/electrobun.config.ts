@@ -17,8 +17,11 @@ export default {
     views: {},
     // Copy the Vite-built renderer (apps/app/dist/) into the bundle as renderer/.
     // The Bun main script lives in app/bun/, so ../renderer resolves to app/renderer/.
+    // Also copy the webview bridge preload and native dylib into their expected locations.
     copy: {
       "../dist": "renderer",
+      "src/preload.js": "bun/preload.js",
+      "src/libMacWindowEffects.dylib": "libMacWindowEffects.dylib",
     },
     mac: {
       codesign: true,

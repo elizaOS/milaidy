@@ -6,6 +6,7 @@
  */
 
 import fs from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import path from "node:path";
 import Electrobun, {
   ApplicationMenu,
@@ -190,12 +191,127 @@ function scheduleStateSave(statePath: string, win: BrowserWindow): void {
 // Main Window
 // ============================================================================
 
+// ============================================================================
+// Renderer Static Server
+// ============================================================================
+
+/**
+ * Serve the renderer dist over HTTP so WKWebView can load it without
+ * file:// CORS restrictions (crossorigin ES modules break over file://).
+ * Returns the base URL e.g. "http://localhost:5174".
+ */
+async function startRendererServer(): Promise<string> {
+  const rendererDir = path.resolve(import.meta.dir, "../renderer");
+  if (!fs.existsSync(rendererDir)) {
+    console.warn("[Renderer] renderer dir not found:", rendererDir);
+    return "";
+  }
+
+  // Find a free port starting at 5174 (5173 reserved for Vite dev)
+  const getPort = (start: number): Promise<number> =>
+    new Promise((resolve) => {
+      const srv = createNetServer();
+      srv.listen(start, "127.0.0.1", () => {
+        const { port } = srv.address() as { port: number };
+        srv.close(() => resolve(port));
+      });
+      srv.on("error", () => resolve(getPort(start + 1)));
+    });
+
+  const port = await getPort(5174);
+
+  const mimeTypes: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".css": "text/css",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json",
+  };
+
+  // Determine the expected agent API base URL so we can inject it into the
+  // HTML before the renderer JS runs. This prevents a 404 fatal-error loop
+  // where the renderer fetches /api/auth/status relative to the static server.
+  // If the agent falls back to a dynamic port, apiBaseUpdate messages will
+  // update window.__MILADY_API_BASE__ and the client will pick it up lazily.
+  const agentPort = Number(process.env.MILADY_PORT) || 2138;
+  const agentApiBase = `http://localhost:${agentPort}`;
+
+  // Inject the API base into index.html so it's available before React mounts.
+  function injectApiBaseIntoHtml(html: string): string {
+    const script = `<script>window.__MILADY_API_BASE__=${JSON.stringify(agentApiBase)};</script>`;
+    // Inject before </head> if present, otherwise before <body>
+    if (html.includes("</head>")) {
+      return html.replace("</head>", `${script}</head>`);
+    }
+    if (html.includes("<body")) {
+      return html.replace("<body", `${script}<body`);
+    }
+    return script + html;
+  }
+
+  Bun.serve({
+    port,
+    hostname: "127.0.0.1",
+    fetch(req) {
+      const urlPath =
+        new URL(req.url).pathname.replace(/^\//, "") || "index.html";
+      let filePath = path.join(rendererDir, urlPath);
+      // SPA fallback — serve index.html for unknown paths
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(rendererDir, "index.html");
+      }
+      try {
+        const content = fs.readFileSync(filePath);
+        const ext = path.extname(filePath);
+        // Inject API base into HTML responses
+        if (ext === ".html" || filePath.endsWith("index.html")) {
+          const html = injectApiBaseIntoHtml(content.toString("utf8"));
+          return new Response(html, {
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+        return new Response(content, {
+          headers: {
+            "Content-Type": mimeTypes[ext] ?? "application/octet-stream",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      } catch {
+        return new Response("Not found", { status: 404 });
+      }
+    },
+  });
+
+  console.log(`[Renderer] Static server on http://127.0.0.1:${port}`);
+  return `http://127.0.0.1:${port}`;
+}
+
 async function createMainWindow(): Promise<BrowserWindow> {
-  // Resolve the renderer URL
-  const rendererUrl =
-    process.env.MILADY_RENDERER_URL ??
-    process.env.VITE_DEV_SERVER_URL ??
-    `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
+  // Resolve the renderer URL — prefer env override (dev HMR), then built-in static server
+  let rendererUrl =
+    process.env.MILADY_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL ?? "";
+
+  if (!rendererUrl) {
+    rendererUrl = await startRendererServer();
+  }
+
+  if (!rendererUrl) {
+    // Last resort: file:// (may have CORS issues with crossorigin module scripts)
+    rendererUrl = `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
+    console.warn(
+      "[Main] Falling back to file:// renderer URL — CORS issues possible",
+    );
+  }
 
   // Load persisted window state
   const statePath = path.join(Utils.paths.userData, "window-state.json");

@@ -5,8 +5,8 @@
  * mapping `window.electron.ipcRenderer` calls to Electrobun RPC.
  *
  * This script runs in the webview context (injected as a preload).
- * It uses Electroview.defineRPC() to get the typed RPC proxy, then
- * exposes a `window.electron` API matching the Electron preload contract.
+ * It uses `Electroview.defineRPC()` + `new Electroview()` to connect to
+ * the Bun main process via the Electrobun WebSocket RPC channel.
  *
  * The renderer code continues to use:
  *   window.electron.ipcRenderer.invoke("agent:start")
@@ -15,27 +15,7 @@
  * This bridge translates those calls to typed RPC requests/messages.
  */
 
-// Augment the Window interface for bridge globals
-declare global {
-  interface Window {
-    __MILADY_RPC_LISTENERS__: Record<string, IpcListener[] | undefined>;
-    __MILADY_API_BASE__: string;
-    __MILADY_API_TOKEN__: string;
-    __ELECTROBUN__: boolean;
-    __MILADY_RUNTIME__: string;
-    electron: typeof electronAPI;
-    electroview?: {
-      rpc?: {
-        request?: Record<string, (params: unknown) => Promise<unknown>>;
-        handleMessage?: {
-          apiBaseUpdate?: (
-            handler: (payload: { base: string; token?: string }) => void,
-          ) => void;
-        };
-      };
-    };
-  }
-}
+import { Electroview } from "electrobun/view";
 
 // ============================================================================
 // Channel → RPC Method Mapping
@@ -151,7 +131,6 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "canvas:createWindow": "canvasCreateWindow",
   "canvas:destroyWindow": "canvasDestroyWindow",
   "canvas:navigate": "canvasNavigate",
-  // canvasEval RPC handler is registered in rpc-handlers.ts → canvas.eval()
   "canvas:eval": "canvasEval",
   "canvas:snapshot": "canvasSnapshot",
   "canvas:a2uiPush": "canvasA2uiPush",
@@ -217,6 +196,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
 
 /**
  * Maps Electron push event channels to RPC message names.
+ * These are messages that flow Bun → webview.
  */
 const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "agent:status": "agentStatusUpdate",
@@ -267,51 +247,97 @@ for (const [channel, rpcName] of Object.entries(PUSH_CHANNEL_TO_RPC)) {
 }
 
 // ============================================================================
-// Listener Registry
+// Listener Registry (for ipcRenderer.on / ipcRenderer.removeListener)
 // ============================================================================
 
 type IpcListener = (...args: unknown[]) => void;
 
-/**
- * Global listener registry that the Bun side dispatches to via
- * evaluateJavascriptWithResponse injecting calls to
- * window.__MILADY_RPC_LISTENERS__[messageName].
- */
+// Listeners keyed by RPC message name (camelCase, e.g. "agentStatusUpdate")
 const listenersByRpcMessage: Record<string, Set<IpcListener>> = {};
+// Listeners keyed by Electron channel name (for removeListener lookup)
 const listenersByChannel: Record<string, Set<IpcListener>> = {};
 
-// Expose the registry globally so the Bun side can dispatch to it
-window.__MILADY_RPC_LISTENERS__ = new Proxy(
-  {},
-  {
-    get(_target, prop: string) {
-      const listeners = listenersByRpcMessage[prop];
-      if (!listeners || listeners.size === 0) return undefined;
-      return Array.from(listeners);
+// ============================================================================
+// Electrobun RPC Setup
+// ============================================================================
+
+// Electrobun's native layer sets these globals before preloads run.
+// __electrobun must exist before Electroview.init() tries to write to it.
+// If the built-in preload hasn't fired yet (rare edge case), stub it.
+if (typeof window.__electrobun === "undefined") {
+  (
+    window as unknown as {
+      __electrobun: {
+        receiveMessageFromBun: (m: unknown) => void;
+        receiveInternalMessageFromBun: (m: unknown) => void;
+      };
+    }
+  ).__electrobun = {
+    receiveMessageFromBun: (_m: unknown) => {},
+    receiveInternalMessageFromBun: (_m: unknown) => {},
+  };
+}
+
+// Use Electroview.defineRPC to create the webview-side RPC.
+// We use `any` here because the schema types are defined in the Bun-side
+// rpc-schema.ts and we can't import that in a browser bundle. The proxy
+// is dynamically dispatched at runtime regardless.
+
+// biome-ignore lint/suspicious/noExplicitAny: payload shape varies per message, typed at call sites
+function dispatchMessage(messageName: string, payload: any): void {
+  // apiBaseUpdate is handled separately for __MILADY_API_BASE__
+  if (messageName === "apiBaseUpdate") {
+    const p = payload as { base: string; token?: string };
+    window.__MILADY_API_BASE__ = p.base;
+    if (p.token) window.__MILADY_API_TOKEN__ = p.token;
+  }
+
+  // Dispatch to all registered ipcRenderer.on() listeners
+  const listeners = listenersByRpcMessage[messageName];
+  if (listeners) {
+    for (const listener of Array.from(listeners)) {
+      try {
+        // Electron passes (event, ...args) — we use null for the event
+        listener(null, payload);
+      } catch (err) {
+        console.error(
+          `[ElectrobunBridge] Listener error for ${messageName}:`,
+          err,
+        );
+      }
+    }
+  }
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: schema types live on the Bun side and can't be imported in a browser bundle
+const rpc = Electroview.defineRPC<any>({
+  handlers: {
+    requests: {},
+    messages: {
+      "*": ((messageName: unknown, payload: unknown) => {
+        if (typeof messageName === "string") {
+          dispatchMessage(messageName, payload);
+        }
+        // biome-ignore lint/suspicious/noExplicitAny: required for Electroview wildcard signature
+      }) as any,
     },
   },
-);
+});
 
-// ============================================================================
-// RPC Proxy (Electroview)
-// ============================================================================
-
-/**
- * Get the Electroview RPC proxy for making requests to the Bun side.
- * In Electrobun, the webview context has access to `electroview` global.
- */
-function getRpcProxy(): Record<
-  string,
-  (params: unknown) => Promise<unknown>
-> | null {
-  const ev = window.electroview;
-  if (!ev?.rpc?.request) return null;
-  return ev.rpc.request;
-}
+// Connect the RPC to Bun via Electroview (opens WebSocket to Bun's RPC server)
+new Electroview({ rpc });
 
 // ============================================================================
 // window.electron Compatibility Layer
 // ============================================================================
+
+// The RPC `request` proxy is dynamically typed — we cast to `any` here
+// since the full schema is only available on the Bun side at build time.
+// biome-ignore lint/suspicious/noExplicitAny: request proxy is dynamically typed, schema only available on Bun side
+const rpcRequest = (rpc as any).request as Record<
+  string,
+  (params: unknown) => Promise<unknown>
+>;
 
 const electronAPI = {
   ipcRenderer: {
@@ -327,22 +353,13 @@ const electronAPI = {
         return null;
       }
 
-      const proxy = getRpcProxy();
-      if (!proxy) {
-        console.warn(
-          "[ElectrobunBridge] RPC proxy not available (electroview not ready)",
-        );
-        return null;
-      }
-
       // Electron invoke passes args as separate params.
       // Our RPC expects a single params object (or void).
-      // Most channels pass a single object arg or no args.
       const params =
         args.length === 0 ? undefined : args.length === 1 ? args[0] : args;
 
       try {
-        return await proxy[rpcMethod](params);
+        return await rpcRequest[rpcMethod](params);
       } catch (err) {
         console.error(
           `[ElectrobunBridge] RPC error for ${channel} → ${rpcMethod}:`,
@@ -413,7 +430,7 @@ const electronAPI = {
   },
 
   /**
-   * Desktop Capturer — returns empty sources (graceful degradation)
+   * Desktop Capturer — proxies to screencapture:getSources RPC
    */
   desktopCapturer: {
     getSources: async (_options: {
@@ -450,53 +467,23 @@ electronAPI.ipcRenderer
   .catch(() => {});
 
 // ============================================================================
-// API Base Push Channel Handler
-// ============================================================================
-
-/**
- * Listen for apiBaseUpdate push messages from the Bun side.
- * Replaces eval-based injection of window.__MILADY_API_BASE__ with
- * a typed RPC message (CSP-safe).
- */
-function setupApiBasePushHandler(): void {
-  const ev = window.electroview;
-  if (ev?.rpc?.handleMessage?.apiBaseUpdate) {
-    ev.rpc.handleMessage.apiBaseUpdate(
-      (payload: { base: string; token?: string }) => {
-        window.__MILADY_API_BASE__ = payload.base;
-        if (payload.token) {
-          window.__MILADY_API_TOKEN__ = payload.token;
-        }
-      },
-    );
-  }
-}
-
-try {
-  setupApiBasePushHandler();
-} catch {
-  // Electroview may not be ready yet; retry once after a short delay
-  setTimeout(() => {
-    try {
-      setupApiBasePushHandler();
-    } catch (retryErr) {
-      console.warn(
-        "[electrobun-bridge] Failed to set up API base push handler after retry:",
-        retryErr,
-      );
-    }
-  }, 100);
-}
-
-// ============================================================================
 // Expose to Window
 // ============================================================================
+
+// Augment the Window interface for bridge globals
+declare global {
+  interface Window {
+    __MILADY_API_BASE__: string;
+    __MILADY_API_TOKEN__: string;
+    __ELECTROBUN__: boolean;
+    __MILADY_RUNTIME__: string;
+    electron: typeof electronAPI;
+  }
+}
 
 // Expose as window.electron for backward compatibility
 window.electron = electronAPI;
 
-// Also expose detection flag
+// Expose detection flags so the renderer can distinguish Electrobun from web
 window.__ELECTROBUN__ = true;
 window.__MILADY_RUNTIME__ = "electrobun";
-
-export {};
