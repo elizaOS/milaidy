@@ -20,6 +20,10 @@ import type {
 let _nativeLib: {
   requestAccessibilityPermission: () => boolean;
   checkAccessibilityPermission: () => boolean;
+  requestScreenRecordingPermission: () => boolean;
+  checkScreenRecordingPermission: () => boolean;
+  requestCameraPermission: () => void;
+  requestMicrophonePermission: () => void;
 } | null = null;
 
 function getNativeLib() {
@@ -27,14 +31,12 @@ function getNativeLib() {
   try {
     const dylibPath = path.join(import.meta.dir, "libMacWindowEffects.dylib");
     const { symbols } = dlopen(dylibPath, {
-      requestAccessibilityPermission: {
-        args: [],
-        returns: FFIType.bool,
-      },
-      checkAccessibilityPermission: {
-        args: [],
-        returns: FFIType.bool,
-      },
+      requestAccessibilityPermission: { args: [], returns: FFIType.bool },
+      checkAccessibilityPermission: { args: [], returns: FFIType.bool },
+      requestScreenRecordingPermission: { args: [], returns: FFIType.bool },
+      checkScreenRecordingPermission: { args: [], returns: FFIType.bool },
+      requestCameraPermission: { args: [], returns: FFIType.void },
+      requestMicrophonePermission: { args: [], returns: FFIType.void },
     });
     _nativeLib = symbols as typeof _nativeLib;
     return _nativeLib;
@@ -146,6 +148,11 @@ export async function checkPermission(
     }
 
     case "screen-recording": {
+      const lib = getNativeLib();
+      if (lib) {
+        const granted = lib.checkScreenRecordingPermission();
+        return { status: granted ? "granted" : "not-determined", canRequest: true };
+      }
       const status = await checkScreenRecordingPermission();
       return { status, canRequest: true };
     }
@@ -189,12 +196,28 @@ export async function requestPermission(
       await openPrivacySettings(id);
       return checkPermission(id);
     }
-    case "screen-recording":
-    case "microphone":
-    case "camera":
+    case "screen-recording": {
+      const lib = getNativeLib();
+      if (lib) {
+        const granted = lib.requestScreenRecordingPermission();
+        if (!granted) await openPrivacySettings(id);
+        return { status: granted ? "granted" : "not-determined", canRequest: true };
+      }
       await openPrivacySettings(id);
-      // Re-check after user interaction
       return checkPermission(id);
+    }
+    case "camera": {
+      const lib = getNativeLib();
+      lib?.requestCameraPermission();
+      await openPrivacySettings(id);
+      return checkPermission(id);
+    }
+    case "microphone": {
+      const lib = getNativeLib();
+      lib?.requestMicrophonePermission();
+      await openPrivacySettings(id);
+      return checkPermission(id);
+    }
 
     case "shell":
       return { status: "granted", canRequest: false };

@@ -1,5 +1,7 @@
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
+#import <AVFoundation/AVFoundation.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 static NSString *const kElectrobunVibrancyViewIdentifier =
 	@"ElectrobunVibrancyView";
@@ -67,6 +69,51 @@ extern "C" bool requestAccessibilityPermission(void) {
  */
 extern "C" bool checkAccessibilityPermission(void) {
 	return AXIsProcessTrusted();
+}
+
+/**
+ * Request screen recording permission.
+ * Calls CGRequestScreenCaptureAccess() which registers the app in
+ * System Preferences → Screen Recording and shows the authorization dialog.
+ * Returns true if already granted.
+ */
+extern "C" bool requestScreenRecordingPermission(void) {
+	if (@available(macOS 10.15, *)) {
+		return CGRequestScreenCaptureAccess();
+	}
+	return true;
+}
+
+/**
+ * Check screen recording permission without prompting.
+ */
+extern "C" bool checkScreenRecordingPermission(void) {
+	if (@available(macOS 10.15, *)) {
+		return CGPreflightScreenCaptureAccess();
+	}
+	return true;
+}
+
+/**
+ * Request camera permission via AVFoundation.
+ * Calls AVCaptureDevice requestAccessForMediaType which shows the system
+ * camera authorization dialog and registers the app.
+ */
+extern "C" void requestCameraPermission(void) {
+	[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo
+	                         completionHandler:^(BOOL granted) {
+		(void)granted;
+	}];
+}
+
+/**
+ * Request microphone permission via AVFoundation.
+ */
+extern "C" void requestMicrophonePermission(void) {
+	[AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio
+	                         completionHandler:^(BOOL granted) {
+		(void)granted;
+	}];
 }
 
 extern "C" bool enableWindowVibrancy(void *windowPtr) {
