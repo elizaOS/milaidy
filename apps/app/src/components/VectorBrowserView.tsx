@@ -12,7 +12,6 @@ import * as THREE from "three";
 import { client, type QueryResult, type TableInfo } from "../api-client";
 
 const PAGE_SIZE = 25;
-const MAX_THREE_PIXEL_RATIO = 2;
 
 type ViewMode = "list" | "graph" | "3d";
 
@@ -502,6 +501,7 @@ function VectorGraph3D({
   );
   const isDraggingRef = useRef(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   const withEmbeddings = useMemo(
     () => memories.filter(hasEmbedding),
@@ -533,276 +533,316 @@ function VectorGraph3D({
     const container = containerRef.current;
     if (!container || points3D.length === 0) return;
 
-    const W = container.clientWidth;
-    const H = 550;
+    let cancelled = false;
+    cleanupRef.current = null;
 
-    // Scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
-    sceneRef.current = scene;
+    // Async renderer creation — tries WebGPU, falls back to WebGL.
+    // All scene setup runs inside this async IIFE so the useEffect callback
+    // itself remains synchronous (required for React cleanup return).
+    void (async () => {
+      const W = container.clientWidth;
+      const H = 550;
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
-    camera.position.set(0, 0, 5);
-    cameraRef.current = camera;
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x111111);
+      sceneRef.current = scene;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(
-      Math.min(window.devicePixelRatio || 1, MAX_THREE_PIXEL_RATIO),
-    );
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
+      // Camera
+      const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
+      camera.position.set(0, 0, 5);
+      cameraRef.current = camera;
 
-    // Compute bounds for scaling
-    let minX = Infinity,
-      maxX = -Infinity;
-    let minY = Infinity,
-      maxY = -Infinity;
-    let minZ = Infinity,
-      maxZ = -Infinity;
-    for (const [x, y, z] of points3D) {
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-      if (z < minZ) minZ = z;
-      if (z > maxZ) maxZ = z;
-    }
-    const rangeX = maxX - minX || 1;
-    const rangeY = maxY - minY || 1;
-    const rangeZ = maxZ - minZ || 1;
-    const maxRange = Math.max(rangeX, rangeY, rangeZ);
-    const scale = 3 / maxRange;
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-
-    // Create spheres
-    const spheres: THREE.Mesh[] = [];
-    const geometry = new THREE.SphereGeometry(0.06, 16, 16);
-
-    for (let i = 0; i < points3D.length; i++) {
-      const [x, y, z] = points3D[i];
-      const mem = withEmbeddings[i];
-      const color = typeColors[mem.type] ?? 0x6699ff;
-      const material = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.85,
-      });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(
-        (x - centerX) * scale,
-        (y - centerY) * scale,
-        (z - centerZ) * scale,
-      );
-      sphere.userData = { index: i };
-      scene.add(sphere);
-      spheres.push(sphere);
-    }
-    spheresRef.current = spheres;
-
-    // Add subtle grid helper
-    const gridHelper = new THREE.GridHelper(6, 12, 0x333333, 0x222222);
-    gridHelper.position.y = -2;
-    scene.add(gridHelper);
-
-    // Add axis lines
-    const axisLength = 2.5;
-    const axisGeom = new THREE.BufferGeometry();
-    const axisPositions = new Float32Array([
-      -axisLength,
-      0,
-      0,
-      axisLength,
-      0,
-      0, // X axis
-      0,
-      -axisLength,
-      0,
-      0,
-      axisLength,
-      0, // Y axis
-      0,
-      0,
-      -axisLength,
-      0,
-      0,
-      axisLength, // Z axis
-    ]);
-    axisGeom.setAttribute(
-      "position",
-      new THREE.BufferAttribute(axisPositions, 3),
-    );
-    const axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
-    const axisLines = new THREE.LineSegments(axisGeom, axisMat);
-    scene.add(axisLines);
-
-    // Simple orbit controls (manual implementation)
-    let theta = 0;
-    let phi = Math.PI / 4;
-    let radius = 5;
-    let targetTheta = theta;
-    let targetPhi = phi;
-    let targetRadius = radius;
-    const updatePointerFromEvent = (e: MouseEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      return rect;
-    };
-
-    const updateCamera = () => {
-      theta += (targetTheta - theta) * 0.1;
-      phi += (targetPhi - phi) * 0.1;
-      radius += (targetRadius - radius) * 0.1;
-      phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
-      camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
-      camera.position.y = radius * Math.cos(phi);
-      camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
-      camera.lookAt(0, 0, 0);
-    };
-
-    const onMouseDown = (e: MouseEvent) => {
-      isDraggingRef.current = true;
-      mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const onMouseUp = () => {
-      isDraggingRef.current = false;
-      mouseDownPosRef.current = null;
-    };
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (isDraggingRef.current) {
-        targetTheta -= e.movementX * 0.01;
-        targetPhi -= e.movementY * 0.01;
+      // Renderer — try WebGPU first, fall back to WebGL
+      let renderer: THREE.WebGLRenderer;
+      const WebGPURenderer = (
+        THREE as { WebGPURenderer?: typeof THREE.WebGLRenderer }
+      ).WebGPURenderer;
+      if (navigator.gpu && WebGPURenderer) {
+        try {
+          renderer = new WebGPURenderer({
+            antialias: true,
+          }) as unknown as THREE.WebGLRenderer;
+          const r = renderer as unknown as { init?: () => Promise<void> };
+          if (r.init) await r.init();
+        } catch {
+          renderer = new THREE.WebGLRenderer({ antialias: true });
+        }
+      } else {
+        renderer = new THREE.WebGLRenderer({ antialias: true });
       }
 
-      // Raycasting for hover
-      const rect = updatePointerFromEvent(e);
-      raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObjects(spheres);
+      // Guard: if the effect was cleaned up while awaiting WebGPU init, abort.
+      if (cancelled) {
+        renderer.dispose();
+        return;
+      }
 
-      if (intersects.length > 0) {
-        const idx = intersects[0].object.userData.index;
-        setHoveredIdx(idx);
-        setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-        // Highlight hovered sphere
-        spheres.forEach((s, i) => {
-          const mat = s.material as THREE.MeshBasicMaterial;
-          mat.opacity = i === idx ? 1 : 0.5;
-          s.scale.setScalar(i === idx ? 1.5 : 1);
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio || 1, MAX_THREE_PIXEL_RATIO),
+      );
+      container.appendChild(renderer.domElement);
+      rendererRef.current = renderer;
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+
+      // Compute bounds for scaling
+      let minX = Infinity,
+        maxX = -Infinity;
+      let minY = Infinity,
+        maxY = -Infinity;
+      let minZ = Infinity,
+        maxZ = -Infinity;
+      for (const [x, y, z] of points3D) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+      const rangeX = maxX - minX || 1;
+      const rangeY = maxY - minY || 1;
+      const rangeZ = maxZ - minZ || 1;
+      const maxRange = Math.max(rangeX, rangeY, rangeZ);
+      const scale = 3 / maxRange;
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const centerZ = (minZ + maxZ) / 2;
+
+      // Create spheres
+      const spheres: THREE.Mesh[] = [];
+      const geometry = new THREE.SphereGeometry(0.06, 16, 16);
+
+      for (let i = 0; i < points3D.length; i++) {
+        const [x, y, z] = points3D[i];
+        const mem = withEmbeddings[i];
+        const color = typeColors[mem.type] ?? 0x6699ff;
+        const material = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.85,
         });
-      } else {
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(
+          (x - centerX) * scale,
+          (y - centerY) * scale,
+          (z - centerZ) * scale,
+        );
+        sphere.userData = { index: i };
+        scene.add(sphere);
+        spheres.push(sphere);
+      }
+      spheresRef.current = spheres;
+
+      // Add subtle grid helper
+      const gridHelper = new THREE.GridHelper(6, 12, 0x333333, 0x222222);
+      gridHelper.position.y = -2;
+      scene.add(gridHelper);
+
+      // Add axis lines
+      const axisLength = 2.5;
+      const axisGeom = new THREE.BufferGeometry();
+      const axisPositions = new Float32Array([
+        -axisLength,
+        0,
+        0,
+        axisLength,
+        0,
+        0, // X axis
+        0,
+        -axisLength,
+        0,
+        0,
+        axisLength,
+        0, // Y axis
+        0,
+        0,
+        -axisLength,
+        0,
+        0,
+        axisLength, // Z axis
+      ]);
+      axisGeom.setAttribute(
+        "position",
+        new THREE.BufferAttribute(axisPositions, 3),
+      );
+      const axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+      const axisLines = new THREE.LineSegments(axisGeom, axisMat);
+      scene.add(axisLines);
+
+      // Simple orbit controls (manual implementation)
+      let theta = 0;
+      let phi = Math.PI / 4;
+      let radius = 5;
+      let targetTheta = theta;
+      let targetPhi = phi;
+      let targetRadius = radius;
+      const updatePointerFromEvent = (e: MouseEvent) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        return rect;
+      };
+
+      const updateCamera = () => {
+        theta += (targetTheta - theta) * 0.1;
+        phi += (targetPhi - phi) * 0.1;
+        radius += (targetRadius - radius) * 0.1;
+        phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+        camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
+        camera.position.y = radius * Math.cos(phi);
+        camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
+        camera.lookAt(0, 0, 0);
+      };
+
+      const onMouseDown = (e: MouseEvent) => {
+        isDraggingRef.current = true;
+        mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+      };
+
+      const onMouseUp = () => {
+        isDraggingRef.current = false;
+        mouseDownPosRef.current = null;
+      };
+
+      const onMouseMove = (e: MouseEvent) => {
+        if (isDraggingRef.current) {
+          targetTheta -= e.movementX * 0.01;
+          targetPhi -= e.movementY * 0.01;
+        }
+
+        // Raycasting for hover
+        const rect = updatePointerFromEvent(e);
+        raycaster.setFromCamera(pointer, camera);
+        const intersects = raycaster.intersectObjects(spheres);
+
+        if (intersects.length > 0) {
+          const idx = intersects[0].object.userData.index;
+          setHoveredIdx(idx);
+          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          // Highlight hovered sphere
+          spheres.forEach((s, i) => {
+            const mat = s.material as THREE.MeshBasicMaterial;
+            mat.opacity = i === idx ? 1 : 0.5;
+            s.scale.setScalar(i === idx ? 1.5 : 1);
+          });
+        } else {
+          setHoveredIdx(null);
+          setTooltipPos(null);
+          spheres.forEach((s) => {
+            const mat = s.material as THREE.MeshBasicMaterial;
+            mat.opacity = 0.85;
+            s.scale.setScalar(1);
+          });
+        }
+      };
+
+      const onClick = (e: MouseEvent) => {
+        // Only trigger click if we didn't drag much
+        if (mouseDownPosRef.current) {
+          const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
+          const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
+          if (dx > 5 || dy > 5) return; // Was a drag, not a click
+        }
+
+        updatePointerFromEvent(e);
+        raycaster.setFromCamera(pointer, camera);
+        const intersects = raycaster.intersectObjects(spheres);
+        if (intersects.length > 0) {
+          const idx = intersects[0].object.userData.index;
+          if (idx < withEmbeddings.length) {
+            onSelect(withEmbeddings[idx]);
+          }
+        }
+      };
+
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        targetRadius += e.deltaY * 0.005;
+        targetRadius = Math.max(2, Math.min(15, targetRadius));
+      };
+
+      const onMouseLeave = () => {
+        isDraggingRef.current = false;
         setHoveredIdx(null);
         setTooltipPos(null);
-        spheres.forEach((s) => {
-          const mat = s.material as THREE.MeshBasicMaterial;
-          mat.opacity = 0.85;
-          s.scale.setScalar(1);
-        });
-      }
-    };
+      };
 
-    const onClick = (e: MouseEvent) => {
-      // Only trigger click if we didn't drag much
-      if (mouseDownPosRef.current) {
-        const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
-        const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
-        if (dx > 5 || dy > 5) return; // Was a drag, not a click
-      }
+      renderer.domElement.addEventListener("mousedown", onMouseDown);
+      renderer.domElement.addEventListener("mouseup", onMouseUp);
+      renderer.domElement.addEventListener("mousemove", onMouseMove);
+      renderer.domElement.addEventListener("click", onClick);
+      renderer.domElement.addEventListener("wheel", onWheel, {
+        passive: false,
+      });
+      renderer.domElement.addEventListener("mouseleave", onMouseLeave);
 
-      updatePointerFromEvent(e);
-      raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObjects(spheres);
-      if (intersects.length > 0) {
-        const idx = intersects[0].object.userData.index;
-        if (idx < withEmbeddings.length) {
-          onSelect(withEmbeddings[idx]);
-        }
-      }
-    };
+      // Animation loop
+      const animate = () => {
+        updateCamera();
+        renderer.render(scene, camera);
+        animationRef.current = requestAnimationFrame(animate);
+      };
+      animate();
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      targetRadius += e.deltaY * 0.005;
-      targetRadius = Math.max(2, Math.min(15, targetRadius));
-    };
+      // Resize handler
+      const handleResize = () => {
+        const newW = container.clientWidth;
+        camera.aspect = newW / H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(newW, H);
+      };
+      window.addEventListener("resize", handleResize);
 
-    const onMouseLeave = () => {
-      isDraggingRef.current = false;
-      setHoveredIdx(null);
-      setTooltipPos(null);
-    };
-
-    renderer.domElement.addEventListener("mousedown", onMouseDown);
-    renderer.domElement.addEventListener("mouseup", onMouseUp);
-    renderer.domElement.addEventListener("mousemove", onMouseMove);
-    renderer.domElement.addEventListener("click", onClick);
-    renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
-    renderer.domElement.addEventListener("mouseleave", onMouseLeave);
-
-    // Animation loop
-    const animate = () => {
-      updateCamera();
-      renderer.render(scene, camera);
-      animationRef.current = requestAnimationFrame(animate);
-    };
-    animate();
-
-    // Resize handler
-    const handleResize = () => {
-      const newW = container.clientWidth;
-      camera.aspect = newW / H;
-      camera.updateProjectionMatrix();
-      renderer.setSize(newW, H);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(animationRef.current);
-      window.removeEventListener("resize", handleResize);
-      renderer.domElement.removeEventListener("mousedown", onMouseDown);
-      renderer.domElement.removeEventListener("mouseup", onMouseUp);
-      renderer.domElement.removeEventListener("mousemove", onMouseMove);
-      renderer.domElement.removeEventListener("click", onClick);
-      renderer.domElement.removeEventListener("wheel", onWheel);
-      renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
-      geometry.dispose();
-      axisGeom.dispose();
-      axisMat.dispose();
-      const gridMaterial = Array.isArray(gridHelper.material)
-        ? gridHelper.material
-        : [gridHelper.material];
-      for (const material of gridMaterial) {
-        material.dispose();
-      }
-      gridHelper.geometry.dispose();
-      for (const sphere of spheres) {
-        const material = sphere.material;
-        if (Array.isArray(material)) {
-          for (const entry of material) {
-            entry.dispose();
-          }
-        } else {
+      // Store cleanup fn so the synchronous cleanup return can call it
+      cleanupRef.current = () => {
+        cancelAnimationFrame(animationRef.current);
+        window.removeEventListener("resize", handleResize);
+        renderer.domElement.removeEventListener("mousedown", onMouseDown);
+        renderer.domElement.removeEventListener("mouseup", onMouseUp);
+        renderer.domElement.removeEventListener("mousemove", onMouseMove);
+        renderer.domElement.removeEventListener("click", onClick);
+        renderer.domElement.removeEventListener("wheel", onWheel);
+        renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
+        geometry.dispose();
+        axisGeom.dispose();
+        axisMat.dispose();
+        const gridMaterial = Array.isArray(gridHelper.material)
+          ? gridHelper.material
+          : [gridHelper.material];
+        for (const material of gridMaterial) {
           material.dispose();
         }
-      }
-      renderer.dispose();
-      rendererRef.current = null;
-      sceneRef.current = null;
-      cameraRef.current = null;
-      spheresRef.current = [];
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
+        gridHelper.geometry.dispose();
+        for (const sphere of spheres) {
+          const material = sphere.material;
+          if (Array.isArray(material)) {
+            for (const entry of material) {
+              entry.dispose();
+            }
+          } else {
+            material.dispose();
+          }
+        }
+        renderer.dispose();
+        rendererRef.current = null;
+        sceneRef.current = null;
+        cameraRef.current = null;
+        spheresRef.current = [];
+        if (container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
+      };
+    })(); // end async IIFE
+
+    return () => {
+      cancelled = true;
+      cleanupRef.current?.();
+      cleanupRef.current = null;
     };
   }, [points3D, withEmbeddings, typeColors, onSelect]);
 
