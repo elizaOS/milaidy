@@ -152,7 +152,7 @@ describe("PUSH_CHANNEL_TO_RPC_MESSAGE mapping", () => {
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:wakeWord"]).toBe(
       "swabbleWakeWord",
     );
-    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:stateChanged"]).toBe(
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:stateChange"]).toBe(
       "swabbleStateChanged",
     );
   });

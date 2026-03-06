@@ -37,6 +37,40 @@ import { handleStreamVoiceRoute } from "./stream-voice-routes";
 export { onAgentMessage } from "./stream-voice-routes";
 
 // ---------------------------------------------------------------------------
+// MJPEG frame store — shared state for GET /api/stream/screen
+// ---------------------------------------------------------------------------
+
+/**
+ * Stores the most-recently received JPEG frame and pushes each new frame
+ * to all active MJPEG subscribers (GET /api/stream/screen).
+ *
+ * Frames arrive via POST /api/stream/frame from:
+ *  - Electrobun screencapture module (JS canvas → JPEG)
+ *  - Electron screencapture module (capturePage → JPEG)
+ *  - Any client POSTing raw JPEG bytes
+ */
+const MJPEG_BOUNDARY = "miladyframe";
+
+const mjpegSubscribers = new Set<ServerResponse>();
+let latestFrame: Buffer | null = null;
+
+function pushFrameToSubscribers(frame: Buffer): void {
+  latestFrame = frame;
+  if (mjpegSubscribers.size === 0) return;
+  const header = `--${MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
+  const headerBuf = Buffer.from(header, "ascii");
+  const trailer = Buffer.from("\r\n", "ascii");
+  const chunk = Buffer.concat([headerBuf, frame, trailer]);
+  for (const sub of mjpegSubscribers) {
+    try {
+      sub.write(chunk);
+    } catch {
+      mjpegSubscribers.delete(sub);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public interfaces
 // ---------------------------------------------------------------------------
 
@@ -474,30 +508,65 @@ export async function handleStreamRoute(
     return false;
   }
 
-  // ── POST /api/stream/frame -- pipe frames to StreamManager ───────────
+  // ── POST /api/stream/frame -- pipe frames to StreamManager + MJPEG ──
   if (method === "POST" && pathname === "/api/stream/frame") {
-    if (state.streamManager.isRunning()) {
-      try {
-        const buf = await readRequestBodyBuffer(req, {
-          maxBytes: 2 * 1024 * 1024,
-        });
-        if (!buf || buf.length === 0) {
-          error(res, "Empty frame", 400);
-          return true;
-        }
-        state.streamManager.writeFrame(buf);
-        res.writeHead(200);
-        res.end();
-      } catch {
-        error(res, "Frame write failed", 500);
+    try {
+      const buf = await readRequestBodyBuffer(req, {
+        maxBytes: 2 * 1024 * 1024,
+      });
+      if (!buf || buf.length === 0) {
+        error(res, "Empty frame", 400);
+        return true;
       }
-      return true;
+      // Always store frame for MJPEG monitoring (GET /api/stream/screen)
+      pushFrameToSubscribers(buf);
+      // Write to FFmpeg only when RTMP streaming is active
+      if (state.streamManager.isRunning()) {
+        state.streamManager.writeFrame(buf);
+      }
+      res.writeHead(200);
+      res.end();
+    } catch {
+      error(res, "Frame write failed", 500);
     }
-    error(
-      res,
-      "StreamManager not running -- start stream via POST /api/stream/live",
-      503,
-    );
+    return true;
+  }
+
+  // ── GET /api/stream/screen -- MJPEG live view (local + remote agents) ─
+  // Serves a continuous multipart/x-mixed-replace stream of JPEG frames.
+  // Works independently of RTMP streaming — frames arrive via POST /api/stream/frame.
+  // Usage: <img src="http://agent-host:2138/api/stream/screen" />
+  if (method === "GET" && pathname === "/api/stream/screen") {
+    res.writeHead(200, {
+      "Content-Type": `multipart/x-mixed-replace; boundary=${MJPEG_BOUNDARY}`,
+      "Cache-Control": "no-store, no-cache",
+      Connection: "close",
+      "Access-Control-Allow-Origin": "*",
+    });
+
+    mjpegSubscribers.add(res);
+
+    // Send the latest cached frame immediately so there's no blank wait
+    if (latestFrame) {
+      const header = `--${MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestFrame.length}\r\n\r\n`;
+      res.write(
+        Buffer.concat([
+          Buffer.from(header, "ascii"),
+          latestFrame,
+          Buffer.from("\r\n", "ascii"),
+        ]),
+      );
+    }
+
+    const cleanup = () => {
+      mjpegSubscribers.delete(res);
+    };
+    req.on("close", cleanup);
+    req.on("error", cleanup);
+    res.on("close", cleanup);
+    res.on("error", cleanup);
+
+    // Keep the response open — frames are pushed as they arrive
     return true;
   }
 

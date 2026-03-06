@@ -8,6 +8,8 @@
  *   - Test functionality
  */
 
+import type { SwabbleConfig } from "@milady/capacitor-swabble";
+import { Swabble } from "@milady/capacitor-swabble";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import {
@@ -173,9 +175,277 @@ function sanitizeApiKey(apiKey: string | undefined): string | undefined {
   return trimmed;
 }
 
+const MODEL_SIZES: Array<{
+  id: NonNullable<SwabbleConfig["modelSize"]>;
+  hint: string;
+}> = [
+  { id: "tiny", hint: "(faster)" },
+  { id: "base", hint: "(recommended)" },
+  { id: "small", hint: "" },
+  { id: "medium", hint: "(accurate)" },
+  { id: "large", hint: "(accurate)" },
+];
+
+function WakeWordSection({
+  serverConfig,
+}: {
+  serverConfig?: Partial<SwabbleConfig> | null;
+}) {
+  const [triggers, setTriggers] = useState<string[]>(["milady"]);
+  const [triggerInput, setTriggerInput] = useState("");
+  const [sensitivity, setSensitivity] = useState(0.45);
+  const [modelSize, setModelSize] =
+    useState<NonNullable<SwabbleConfig["modelSize"]>>("base");
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [enabled, setEnabled] = useState(false);
+
+  // Load initial state from Swabble on mount
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [{ config }, { listening }] = await Promise.all([
+          Swabble.getConfig(),
+          Swabble.isListening(),
+        ]);
+        // Use plugin config if available, fall back to server-persisted config
+        const resolved = config ?? serverConfig ?? null;
+        if (resolved) {
+          if (resolved.triggers?.length) setTriggers(resolved.triggers);
+          if (resolved.minPostTriggerGap != null)
+            setSensitivity(resolved.minPostTriggerGap);
+          if (resolved.modelSize) setModelSize(resolved.modelSize);
+        }
+        setEnabled(listening);
+      } catch {
+        // Plugin not available on this platform — silently ignore
+      }
+    })();
+  }, [serverConfig]);
+
+  // Subscribe to audio level events
+  useEffect(() => {
+    let handle: { remove: () => Promise<void> } | null = null;
+    void (async () => {
+      try {
+        handle = await Swabble.addListener("audioLevel", (evt) => {
+          setAudioLevel(evt.level);
+        });
+      } catch {
+        // Not available
+      }
+    })();
+    return () => {
+      if (handle) void handle.remove();
+    };
+  }, []);
+
+  const buildConfig = useCallback(
+    (): SwabbleConfig => ({
+      triggers,
+      minPostTriggerGap: sensitivity,
+      modelSize,
+    }),
+    [triggers, sensitivity, modelSize],
+  );
+
+  const handleTriggersChange = useCallback(async (next: string[]) => {
+    setTriggers(next);
+    try {
+      await Swabble.updateConfig({ config: { triggers: next } });
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const addTrigger = useCallback(
+    (raw: string) => {
+      const val = raw.trim().toLowerCase().replace(/,/g, "");
+      if (!val || triggers.includes(val)) return;
+      void handleTriggersChange([...triggers, val]);
+    },
+    [triggers, handleTriggersChange],
+  );
+
+  const removeTrigger = useCallback(
+    (t: string) => {
+      if (triggers.length <= 1) return;
+      void handleTriggersChange(triggers.filter((x) => x !== t));
+    },
+    [triggers, handleTriggersChange],
+  );
+
+  const handleSensitivityChange = useCallback(async (val: number) => {
+    setSensitivity(val);
+    try {
+      await Swabble.updateConfig({ config: { minPostTriggerGap: val } });
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const handleModelSizeChange = useCallback(
+    async (size: NonNullable<SwabbleConfig["modelSize"]>) => {
+      setModelSize(size);
+      try {
+        await Swabble.updateConfig({ config: { modelSize: size } });
+      } catch {
+        // Ignore
+      }
+    },
+    [],
+  );
+
+  const handleToggle = useCallback(async () => {
+    try {
+      if (enabled) {
+        await Swabble.stop();
+        setEnabled(false);
+      } else {
+        const result = await Swabble.start({ config: buildConfig() });
+        if (result.started) setEnabled(true);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [enabled, buildConfig]);
+
+  return (
+    <div className="flex flex-col gap-3 pt-4 border-t border-[var(--border)]">
+      {/* Subsection header + enable toggle */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-[var(--muted)]">
+          Wake Word
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleToggle()}
+          className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${
+            enabled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+          }`}
+          aria-label={enabled ? "Disable wake word" : "Enable wake word"}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Trigger tag input */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold">Triggers</span>
+        <div className="flex flex-wrap gap-1 p-1.5 border border-[var(--border)] bg-[var(--card)] min-h-[2rem]">
+          {triggers.map((t) => (
+            <span
+              key={t}
+              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] border border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+            >
+              {t}
+              {triggers.length > 1 && (
+                <button
+                  type="button"
+                  className="leading-none hover:opacity-70 cursor-pointer"
+                  onClick={() => removeTrigger(t)}
+                  aria-label={`Remove trigger "${t}"`}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+          <input
+            type="text"
+            className="flex-1 min-w-[80px] px-1 text-xs bg-transparent outline-none"
+            placeholder="Add trigger…"
+            value={triggerInput}
+            onChange={(e) => setTriggerInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addTrigger(triggerInput);
+                setTriggerInput("");
+              }
+            }}
+          />
+        </div>
+        <div className="text-[10px] text-[var(--muted)]">
+          Press Enter or comma to add. At least one trigger required.
+        </div>
+      </div>
+
+      {/* Sensitivity slider */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold">Wake sensitivity</span>
+          <span className="text-[10px] text-[var(--muted)]">
+            {sensitivity.toFixed(2)}s
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0.1}
+          max={2.0}
+          step={0.05}
+          value={sensitivity}
+          className="w-full accent-[var(--accent)]"
+          onChange={(e) =>
+            void handleSensitivityChange(parseFloat(e.target.value))
+          }
+        />
+        <div className="text-[10px] text-[var(--muted)]">
+          Lower = more sensitive (shorter gap required after wake word)
+        </div>
+      </div>
+
+      {/* Model size buttons */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold">Model size</span>
+        <div className="flex gap-1.5">
+          {MODEL_SIZES.map((m) => {
+            const active = modelSize === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                className={`flex-1 px-2 py-1.5 text-xs cursor-pointer transition-colors border ${
+                  active
+                    ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)]"
+                }`}
+                onClick={() => void handleModelSizeChange(m.id)}
+              >
+                <div className="font-semibold">{m.id}</div>
+                {m.hint && (
+                  <div className="text-[10px] text-[var(--muted)] mt-0.5">
+                    {m.hint}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Audio level meter */}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-semibold">Microphone</span>
+        <div className="h-1.5 w-full bg-[var(--border)] overflow-hidden">
+          <div
+            className="h-full bg-green-500 transition-all duration-75"
+            style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VoiceConfigView() {
   const { cloudConnected } = useApp();
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({});
+  const [swabbleServerConfig, setSwabbleServerConfig] =
+    useState<Partial<SwabbleConfig> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -196,6 +466,10 @@ export function VoiceConfigView() {
         const tts = messages?.tts as VoiceConfig | undefined;
         if (tts) {
           setVoiceConfig(tts);
+        }
+        const swabble = messages?.swabble as Partial<SwabbleConfig> | undefined;
+        if (swabble) {
+          setSwabbleServerConfig(swabble);
         }
       } catch {
         // Ignore errors
@@ -292,10 +566,24 @@ export function VoiceConfigView() {
             : undefined,
         elevenlabs: normalizedElevenLabs,
       };
+      // Also persist swabble (wake word) config — fall back to server config
+      // if the plugin isn't available on this platform (e.g. Electrobun).
+      let swabbleCfg: Partial<SwabbleConfig> | undefined;
+      try {
+        const { config: sc } = await Swabble.getConfig();
+        if (sc) swabbleCfg = sc;
+      } catch {
+        // Not available on this platform
+      }
+      if (!swabbleCfg && swabbleServerConfig) {
+        swabbleCfg = swabbleServerConfig;
+      }
+
       await client.updateConfig({
         messages: {
           ...messages,
           tts: normalizedVoiceConfig,
+          ...(swabbleCfg ? { swabble: swabbleCfg } : {}),
         },
       });
       window.dispatchEvent(
@@ -310,7 +598,7 @@ export function VoiceConfigView() {
       setSaveError(err instanceof Error ? err.message : "Failed to save");
     }
     setSaving(false);
-  }, [voiceConfig]);
+  }, [swabbleServerConfig, voiceConfig]);
 
   if (loading) {
     return (
@@ -500,6 +788,9 @@ export function VoiceConfigView() {
           configuration needed.
         </div>
       )}
+
+      {/* Wake Word subsection */}
+      <WakeWordSection serverConfig={swabbleServerConfig} />
 
       <ConfigSaveFooter
         dirty={dirty}

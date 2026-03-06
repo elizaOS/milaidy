@@ -37,6 +37,45 @@ const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   speed: 0.8,
 };
 
+/**
+ * Create the best available renderer for the current platform.
+ * Tries WebGPU first (better performance on macOS WKWebView and modern CEF).
+ * Falls back to WebGL if WebGPU is unavailable or fails to initialize.
+ * THREE.WebGPURenderer is async-init and requires await renderer.init().
+ */
+async function createRenderer(
+  canvas: HTMLCanvasElement,
+): Promise<THREE.WebGLRenderer> {
+  // Check WebGPU availability
+  if (typeof navigator !== "undefined" && navigator.gpu) {
+    try {
+      const WebGPURenderer = (
+        THREE as unknown as { WebGPURenderer?: typeof THREE.WebGLRenderer }
+      ).WebGPURenderer;
+      if (WebGPURenderer) {
+        const r = new WebGPURenderer({ canvas, alpha: true, antialias: true });
+        // WebGPURenderer requires async init
+        if (
+          typeof (r as unknown as { init?: () => Promise<void> }).init ===
+          "function"
+        ) {
+          await (r as unknown as { init: () => Promise<void> }).init();
+        }
+        console.log("[VrmEngine] Using WebGPURenderer");
+        return r as unknown as THREE.WebGLRenderer;
+      }
+    } catch (err) {
+      console.warn(
+        "[VrmEngine] WebGPURenderer failed, falling back to WebGL:",
+        err,
+      );
+    }
+  }
+  const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  console.log("[VrmEngine] Using WebGLRenderer");
+  return r;
+}
+
 export class VrmEngine {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
@@ -55,12 +94,6 @@ export class VrmEngine {
   private vrmName: string | null = null;
   private lookAtTarget = new THREE.Vector3(0, 0.5, 0);
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
-  private readonly idleBreathingFbxUrl = resolveAppAssetUrl(
-    "animations/BreathingIdle.fbx",
-  );
-  private readonly idleFallbackFbxUrl = resolveAppAssetUrl(
-    "animations/Idle.fbx",
-  );
   private forceFaceCameraFlip = false;
   private cameraAnimation: CameraAnimationConfig = {
     ...DEFAULT_CAMERA_ANIMATION,
@@ -101,47 +134,56 @@ export class VrmEngine {
     if (this.initialized) this.dispose();
     this.onUpdate = onUpdate;
     this.loadingAborted = false;
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
-    });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.NoToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer = renderer;
-    const scene = new THREE.Scene();
-    this.scene = scene;
-    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
-    camera.position.set(0, 1.2, 5.0);
-    this.camera = camera;
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = false;
-    controls.target.copy(this.lookAtTarget);
-    controls.addEventListener("start", this.handleControlStart);
-    controls.addEventListener("end", this.handleControlEnd);
-    this.cameraManager.applyInteractionMode(controls, this.interactionMode);
-    controls.update();
-    this.controls = controls;
-    this.setInteractionEnabled(this.interactionEnabled);
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambient);
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(1, 1, 1).normalize();
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.setScalar(1024);
-    scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    fillLight.position.set(-1, 0.5, -1).normalize();
-    scene.add(fillLight);
-    this.footShadow.create(scene);
-    this.resize(canvas.clientWidth, canvas.clientHeight);
-    this.initialized = true;
-    this.loop();
+    // Async renderer creation: tries WebGPU, falls back to WebGL.
+    // setup() remains synchronous for callers; the loop starts after init resolves.
+    void (async () => {
+      const renderer = await createRenderer(canvas);
+      // Guard: if dispose() was called while we were awaiting, abort.
+      if (this.loadingAborted) {
+        renderer.dispose();
+        return;
+      }
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x000000, 0);
+      // WebGL-only properties — WebGPURenderer does not support these.
+      // THREE.WebGPURenderer is not yet a subclass of WebGLRenderer in Three.js r160+.
+      if (renderer instanceof THREE.WebGLRenderer) {
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+      }
+      this.renderer = renderer;
+      const scene = new THREE.Scene();
+      this.scene = scene;
+      const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+      camera.position.set(0, 1.2, 5.0);
+      this.camera = camera;
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = false;
+      controls.target.copy(this.lookAtTarget);
+      controls.addEventListener("start", this.handleControlStart);
+      controls.addEventListener("end", this.handleControlEnd);
+      this.cameraManager.applyInteractionMode(controls, this.interactionMode);
+      controls.update();
+      this.controls = controls;
+      this.setInteractionEnabled(this.interactionEnabled);
+      const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambient);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      keyLight.position.set(1, 1, 1).normalize();
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.setScalar(1024);
+      scene.add(keyLight);
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+      fillLight.position.set(-1, 0.5, -1).normalize();
+      scene.add(fillLight);
+      this.footShadow.create(scene);
+      this.resize(canvas.clientWidth, canvas.clientHeight);
+      this.initialized = true;
+      this.loop();
+    })();
   }
 
   isInitialized(): boolean {
@@ -450,8 +492,6 @@ export class VrmEngine {
     const clip = await loadIdleClip(
       vrm,
       this.idleGlbUrl,
-      this.idleBreathingFbxUrl,
-      this.idleFallbackFbxUrl,
       this.animationLoaderContext,
     );
     if (!clip) return;

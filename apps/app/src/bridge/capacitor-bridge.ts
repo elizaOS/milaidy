@@ -26,7 +26,11 @@ const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-const isElectron = platform === "electron";
+// Electrobun sets window.__ELECTROBUN__ = true; Capacitor sees it as "web"
+const isElectrobun =
+  typeof window !== "undefined" &&
+  !!(window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__;
+const isElectron = platform === "electron" || isElectrobun;
 
 /**
  * Capability flags indicating what features are available

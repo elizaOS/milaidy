@@ -5,34 +5,41 @@
  * sets up system tray, application menu, and starts the agent.
  */
 
+import fs from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import path from "node:path";
-import {
-  type BrowserView,
+import Electrobun, {
+  ApplicationMenu,
   BrowserWindow,
-  Electrobun,
-  setApplicationMenu,
   Updater,
+  Utils,
 } from "electrobun/bun";
 import { pushApiBaseToRenderer, resolveExternalApiBase } from "./api-base";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
 import { disposeNativeModules, initializeNativeModules } from "./native/index";
-import { registerRpcHandlers } from "./rpc-handlers";
 import {
-  type MiladyRPCSchema,
-  PUSH_CHANNEL_TO_RPC_MESSAGE,
-} from "./rpc-schema";
+  enableVibrancy,
+  ensureShadow,
+  setNativeDragRegion,
+  setTrafficLightsPosition,
+} from "./native/mac-window-effects";
+import { getPermissionManager } from "./native/permissions";
+import { registerRpcHandlers } from "./rpc-handlers";
+import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 
 // ============================================================================
 // App Menu
 // ============================================================================
 
 function setupApplicationMenu(): void {
-  setApplicationMenu([
+  ApplicationMenu.setApplicationMenu([
     {
       label: "Milady",
       submenu: [
         { role: "about" },
+        { type: "separator" },
+        { label: "Restart Agent", action: "restart-agent" },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -82,26 +89,278 @@ function setupApplicationMenu(): void {
 }
 
 // ============================================================================
+// macOS Native Window Effects (vibrancy, shadow, traffic lights, drag region)
+// ============================================================================
+
+const MAC_TRAFFIC_LIGHTS_X = 14;
+const MAC_TRAFFIC_LIGHTS_Y = 12;
+const MAC_NATIVE_DRAG_REGION_X = 92;
+const MAC_NATIVE_DRAG_REGION_HEIGHT = 40;
+
+function applyMacOSWindowEffects(win: BrowserWindow): void {
+  if (process.platform !== "darwin") return;
+
+  const ptr = (win as { ptr?: unknown }).ptr;
+  if (!ptr) {
+    console.warn("[MacEffects] win.ptr unavailable — skipping native effects");
+    return;
+  }
+
+  enableVibrancy(ptr as Parameters<typeof enableVibrancy>[0]);
+  ensureShadow(ptr as Parameters<typeof ensureShadow>[0]);
+
+  const alignButtons = () =>
+    setTrafficLightsPosition(
+      ptr as Parameters<typeof setTrafficLightsPosition>[0],
+      MAC_TRAFFIC_LIGHTS_X,
+      MAC_TRAFFIC_LIGHTS_Y,
+    );
+  const alignDragRegion = () =>
+    setNativeDragRegion(
+      ptr as Parameters<typeof setNativeDragRegion>[0],
+      MAC_NATIVE_DRAG_REGION_X,
+      MAC_NATIVE_DRAG_REGION_HEIGHT,
+    );
+
+  alignButtons();
+  alignDragRegion();
+  setTimeout(() => {
+    alignButtons();
+    alignDragRegion();
+  }, 120);
+
+  win.on("resize", () => {
+    alignButtons();
+    alignDragRegion();
+  });
+
+  console.log("[MacEffects] Native macOS window effects applied");
+}
+
+// ============================================================================
+// Window State Persistence
+// ============================================================================
+
+interface WindowState {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const DEFAULT_WINDOW_STATE: WindowState = {
+  x: 100,
+  y: 100,
+  width: 1200,
+  height: 800,
+};
+
+function loadWindowState(statePath: string): WindowState {
+  try {
+    if (fs.existsSync(statePath)) {
+      const data = JSON.parse(fs.readFileSync(statePath, "utf8"));
+      if (typeof data.width === "number" && typeof data.height === "number") {
+        return { ...DEFAULT_WINDOW_STATE, ...data };
+      }
+    }
+  } catch {
+    // Ignore parse/read errors — return default
+  }
+  return DEFAULT_WINDOW_STATE;
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleStateSave(statePath: string, win: BrowserWindow): void {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      const { x, y } = win.getPosition();
+      const { width, height } = win.getSize();
+      const dir = path.dirname(statePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        statePath,
+        JSON.stringify({ x, y, width, height }),
+        "utf8",
+      );
+    } catch {
+      // Ignore save errors
+    }
+  }, 500);
+}
+
+// ============================================================================
 // Main Window
 // ============================================================================
 
+// ============================================================================
+// Renderer Static Server
+// ============================================================================
+
+/**
+ * Serve the renderer dist over HTTP so WKWebView can load it without
+ * file:// CORS restrictions (crossorigin ES modules break over file://).
+ * Returns the base URL e.g. "http://localhost:5174".
+ */
+async function startRendererServer(): Promise<string> {
+  const rendererDir = path.resolve(import.meta.dir, "../renderer");
+  if (!fs.existsSync(rendererDir)) {
+    console.warn("[Renderer] renderer dir not found:", rendererDir);
+    return "";
+  }
+
+  // Find a free port starting at 5174 (5173 reserved for Vite dev)
+  const getPort = (start: number): Promise<number> =>
+    new Promise((resolve) => {
+      const srv = createNetServer();
+      srv.listen(start, "127.0.0.1", () => {
+        const { port } = srv.address() as { port: number };
+        srv.close(() => resolve(port));
+      });
+      srv.on("error", () => resolve(getPort(start + 1)));
+    });
+
+  const port = await getPort(5174);
+
+  const mimeTypes: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".css": "text/css",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json",
+  };
+
+  // Determine the expected agent API base URL so we can inject it into the
+  // HTML before the renderer JS runs. This prevents a 404 fatal-error loop
+  // where the renderer fetches /api/auth/status relative to the static server.
+  // If the agent falls back to a dynamic port, apiBaseUpdate messages will
+  // update window.__MILADY_API_BASE__ and the client will pick it up lazily.
+  const agentPort = Number(process.env.MILADY_PORT) || 2138;
+  const agentApiBase = `http://localhost:${agentPort}`;
+
+  // Inject the API base into index.html so it's available before React mounts.
+  function injectApiBaseIntoHtml(html: string): string {
+    const script = `<script>window.__MILADY_API_BASE__=${JSON.stringify(agentApiBase)};</script>`;
+    // Inject before </head> if present, otherwise before <body>
+    if (html.includes("</head>")) {
+      return html.replace("</head>", `${script}</head>`);
+    }
+    if (html.includes("<body")) {
+      return html.replace("<body", `${script}<body`);
+    }
+    return script + html;
+  }
+
+  Bun.serve({
+    port,
+    hostname: "127.0.0.1",
+    fetch(req) {
+      const urlPath =
+        new URL(req.url).pathname.replace(/^\//, "") || "index.html";
+      let filePath = path.join(rendererDir, urlPath);
+      // Path traversal guard: ensure resolved path stays within rendererDir
+      if (
+        !filePath.startsWith(rendererDir + path.sep) &&
+        filePath !== rendererDir
+      ) {
+        filePath = path.join(rendererDir, "index.html");
+      }
+      // SPA fallback — serve index.html for unknown paths
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(rendererDir, "index.html");
+      }
+      try {
+        const content = fs.readFileSync(filePath);
+        const ext = path.extname(filePath);
+        // Inject API base into HTML responses
+        if (ext === ".html" || filePath.endsWith("index.html")) {
+          const html = injectApiBaseIntoHtml(content.toString("utf8"));
+          return new Response(html, {
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+        return new Response(content, {
+          headers: {
+            "Content-Type": mimeTypes[ext] ?? "application/octet-stream",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      } catch {
+        return new Response("Not found", { status: 404 });
+      }
+    },
+  });
+
+  console.log(`[Renderer] Static server on http://127.0.0.1:${port}`);
+  return `http://127.0.0.1:${port}`;
+}
+
 async function createMainWindow(): Promise<BrowserWindow> {
-  // Resolve the renderer URL
-  const rendererUrl =
-    process.env.MILADY_RENDERER_URL ??
-    process.env.VITE_DEV_SERVER_URL ??
-    `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
+  // Resolve the renderer URL — prefer env override (dev HMR), then built-in static server
+  let rendererUrl =
+    process.env.MILADY_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL ?? "";
+
+  if (!rendererUrl) {
+    rendererUrl = await startRendererServer();
+  }
+
+  if (!rendererUrl) {
+    // Last resort: file:// (may have CORS issues with crossorigin module scripts)
+    rendererUrl = `file://${path.resolve(import.meta.dir, "../renderer/index.html")}`;
+    console.warn(
+      "[Main] Falling back to file:// renderer URL — CORS issues possible",
+    );
+  }
+
+  // Load persisted window state
+  const statePath = path.join(Utils.paths.userData, "window-state.json");
+  const state = loadWindowState(statePath);
+
+  // Read the pre-built webview bridge preload (built by `bun run build:preload`).
+  // The preload runs in the webview context after Electrobun's built-in preload,
+  // setting up window.electron as a compatibility shim over the Electrobun RPC.
+  const preloadPath = path.join(import.meta.dir, "preload.js");
+  const preload = fs.existsSync(preloadPath)
+    ? fs.readFileSync(preloadPath, "utf8")
+    : null;
+
+  if (!preload) {
+    console.warn(
+      "[Main] preload.js not found — run `bun run build:preload` first. window.electron will be unavailable.",
+    );
+  }
 
   const win = new BrowserWindow({
     title: "Milady",
     url: rendererUrl,
+    preload,
     frame: {
-      width: 1200,
-      height: 800,
-      x: undefined, // Let the OS place it
-      y: undefined,
+      width: state.width,
+      height: state.height,
+      x: state.x,
+      y: state.y,
     },
+    titleBarStyle: "hiddenInset", // Hides title bar, shows traffic lights inset into content
+    transparent: true, // Allows the window background to be transparent
   });
+
+  // Apply native macOS vibrancy, shadow, and traffic light positioning
+  applyMacOSWindowEffects(win);
+
+  // Persist window state on resize and move
+  win.on("resize", () => scheduleStateSave(statePath, win));
+  win.on("move", () => scheduleStateSave(statePath, win));
 
   return win;
 }
@@ -110,34 +369,55 @@ async function createMainWindow(): Promise<BrowserWindow> {
 // RPC + Native Module Wiring
 // ============================================================================
 
-function wireRpcAndModules(win: BrowserWindow): void {
-  const view = win.webview;
+// Type alias for the untyped rpc send proxy (used at runtime for push messages)
+type RpcSendProxy = Record<string, ((payload: unknown) => void) | undefined>;
+
+/**
+ * Structural type for the Electrobun RPC instance.
+ * The actual runtime object returned by createRPC exposes `send` and
+ * `setRequestHandler`, but the base RPCWithTransport interface only has
+ * `setTransport`. We use a structural type to avoid casts.
+ *
+ * `(params: never) => unknown` for handler values: any typed handler
+ * `(p: T) => R` satisfies this via TypeScript's function contravariance
+ * (`never extends T` is always true).
+ */
+type ElectrobunRpcInstance = {
+  send?: RpcSendProxy;
+  setRequestHandler?: (
+    handlers: Record<string, (params: never) => unknown>,
+  ) => void;
+};
+
+function wireRpcAndModules(
+  win: BrowserWindow,
+): (message: string, payload?: unknown) => void {
+  // Access the rpc instance from the webview (set during window creation)
+  const rpc = win.webview.rpc as unknown as ElectrobunRpcInstance | undefined;
 
   // Create the sendToWebview callback that native modules use to push events.
   // Uses typed RPC push messages instead of JS evaluation.
   const sendToWebview = (message: string, payload?: unknown): void => {
-    const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message];
-    if (rpcMessage && view.rpc?.sendMessage) {
-      const sender = (
-        view.rpc.sendMessage as Record<
-          string,
-          ((p: unknown) => void) | undefined
-        >
-      )[rpcMessage];
+    // Resolve via map (Electron-style colon format) or use message directly
+    // as the RPC method name (Electrobun camelCase format).
+    const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message] ?? message;
+    if (rpc?.send) {
+      const sender = rpc?.send?.[rpcMessage];
       if (sender) {
         sender(payload ?? null);
         return;
       }
     }
-    // If no RPC mapping exists, log a warning instead of falling back to eval
-    console.warn(`[sendToWebview] No RPC mapping for message: ${message}`);
+    console.warn(`[sendToWebview] No RPC method for message: ${message}`);
   };
 
   // Initialize native modules with window + sendToWebview
   initializeNativeModules(win, sendToWebview);
 
-  // Register RPC handlers on the webview
-  registerRpcHandlers(view as unknown as BrowserView<MiladyRPCSchema>);
+  // Register RPC handlers
+  registerRpcHandlers(rpc, sendToWebview);
+
+  return sendToWebview;
 }
 
 // ============================================================================
@@ -173,6 +453,26 @@ function injectApiBase(win: BrowserWindow): void {
 // Agent Startup
 // ============================================================================
 
+/**
+ * Push real OS permission states into the agent REST API so the renderer's
+ * PermissionsSection shows correct statuses and capability toggles unlock.
+ */
+async function syncPermissionsToRestApi(
+  port: number,
+  startup = false,
+): Promise<void> {
+  try {
+    const permissions = await getPermissionManager().checkAllPermissions();
+    await fetch(`http://localhost:${port}/api/permissions/state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions, startup }),
+    });
+  } catch (err) {
+    console.warn("[Main] Permission sync failed:", err);
+  }
+}
+
 async function startAgent(win: BrowserWindow): Promise<void> {
   const agent = getAgentManager();
 
@@ -188,6 +488,11 @@ async function startAgent(win: BrowserWindow): Promise<void> {
       if (!resolution.base) {
         pushApiBaseToRenderer(win, `http://localhost:${status.port}`);
       }
+      // Sync real OS permission states to the REST API so the renderer
+      // can display them and capability toggles can unlock.
+      // Pass startup=true so the backend skips scheduling a restart for
+      // capabilities that are being auto-enabled for the first time.
+      syncPermissionsToRestApi(status.port, true);
     }
   } catch (err) {
     console.error("[Main] Agent start failed:", err);
@@ -198,11 +503,38 @@ async function startAgent(win: BrowserWindow): Promise<void> {
 // Auto-Updater
 // ============================================================================
 
-function setupUpdater(): void {
+async function setupUpdater(
+  sendToWebview: (message: string, payload?: unknown) => void,
+): Promise<void> {
   try {
-    Updater.checkForUpdate();
-  } catch {
-    // Updater may not be available in dev mode
+    // Subscribe to update status changes so we can notify the renderer
+    // at the right lifecycle points.
+    Updater.onStatusChange((entry: { status: string; message?: string }) => {
+      if (entry.status === "update-available") {
+        // checkForUpdate found a new version — notify renderer
+        const info = Updater.updateInfo();
+        sendToWebview("desktopUpdateAvailable", { version: info.version });
+      } else if (entry.status === "download-complete") {
+        // downloadUpdate finished — update is ready to apply
+        const info = Updater.updateInfo();
+        sendToWebview("desktopUpdateReady", { version: info.version });
+        Utils.showNotification({
+          title: "Milady Update Ready",
+          body: `Version ${info.version} is ready. Restart to apply.`,
+        });
+      }
+    });
+
+    // Check for update (emits "update-available" via onStatusChange if found)
+    const updateResult = await Updater.checkForUpdate();
+    if (updateResult?.updateAvailable) {
+      // Auto-download in the background
+      Updater.downloadUpdate().catch((err: unknown) => {
+        console.warn("[Updater] Download failed:", err);
+      });
+    }
+  } catch (err) {
+    console.warn("[Updater] Update check failed:", err);
   }
 }
 
@@ -210,13 +542,14 @@ function setupUpdater(): void {
 // Deep Link Handling
 // ============================================================================
 
-function setupDeepLinks(win: BrowserWindow): void {
+function setupDeepLinks(
+  _win: BrowserWindow,
+  sendToWebview: (message: string, payload?: unknown) => void,
+): void {
   // Electrobun handles urlSchemes from config automatically.
   // Listen for open-url events to route deep links to the renderer.
   Electrobun.events.on("open-url", (url: string) => {
-    if (win.webview.rpc?.sendMessage?.shareTargetReceived) {
-      win.webview.rpc.sendMessage.shareTargetReceived({ url });
-    }
+    sendToWebview("shareTargetReceived", { url });
   });
 }
 
@@ -225,7 +558,7 @@ function setupDeepLinks(win: BrowserWindow): void {
 // ============================================================================
 
 function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
-  Electrobun.events.on("will-quit", () => {
+  Electrobun.events.on("before-quit", () => {
     console.log("[Main] App quitting, disposing native modules...");
     clearInterval(apiBaseInterval);
     disposeNativeModules();
@@ -246,10 +579,10 @@ async function main(): Promise<void> {
   const win = await createMainWindow();
 
   // Wire RPC handlers and native modules
-  wireRpcAndModules(win);
+  const sendToWebview = wireRpcAndModules(win);
 
   // Set up deep link handling
-  setupDeepLinks(win);
+  setupDeepLinks(win, sendToWebview);
 
   // Inject API base on dom-ready and re-inject periodically so reloads
   // always receive the current value (the push message is idempotent).
@@ -271,6 +604,8 @@ async function main(): Promise<void> {
       menu: [
         { id: "show", label: "Show Milady", type: "normal" },
         { id: "sep1", type: "separator" },
+        { id: "restart-agent", label: "Restart Agent", type: "normal" },
+        { id: "sep2", type: "separator" },
         { id: "quit", label: "Quit", type: "normal" },
       ],
     });
@@ -278,22 +613,11 @@ async function main(): Promise<void> {
     console.warn("[Main] Tray creation failed:", err);
   }
 
-  // Handle tray menu clicks via Electrobun's global event bus
-  Electrobun.events.on("context-menu-clicked", (action: string) => {
-    if (action === "show") {
-      win.show();
-      win.focus();
-    } else if (action === "quit") {
-      disposeNativeModules();
-      process.exit(0);
-    }
-  });
-
   // Start agent in background
   startAgent(win);
 
   // Check for updates
-  setupUpdater();
+  setupUpdater(sendToWebview);
 
   // Set up clean shutdown
   setupShutdown(apiBaseInterval);

@@ -234,12 +234,6 @@ vi.mock("three/examples/jsm/controls/OrbitControls.js", () => ({
   },
 }));
 
-vi.mock("three/examples/jsm/loaders/FBXLoader.js", () => ({
-  FBXLoader: class MockFBXLoader {
-    loadAsync = vi.fn();
-  },
-}));
-
 vi.mock("../../../asset-url", () => ({
   resolveAppAssetUrl: vi.fn((p: string) => `/mock/${p}`),
 }));

@@ -9,6 +9,8 @@
 type SendToWebview = (message: string, payload?: unknown) => void;
 
 export class CameraManager {
+  private sendToWebview: SendToWebview | null = null;
+
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
   }

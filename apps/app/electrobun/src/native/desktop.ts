@@ -23,11 +23,12 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import {
+import Electrobun, {
   type BrowserWindow,
-  Electrobun,
   GlobalShortcut,
+  type MenuItemConfig,
   Tray,
   Updater,
   Utils,
@@ -44,6 +45,11 @@ import type {
   WindowBounds,
   WindowOptions,
 } from "../rpc-schema";
+import {
+  isKeyWindow,
+  makeKeyAndOrderFront,
+  orderOut,
+} from "./mac-window-effects";
 
 // ============================================================================
 // Types
@@ -80,12 +86,18 @@ const PATH_NAME_MAP: Record<string, string | (() => string)> = {
   home: Utils.paths.home,
   appData: Utils.paths.appData,
   userData: Utils.paths.userData,
+  userCache: Utils.paths.userCache,
+  userLogs: Utils.paths.userLogs,
   temp: Utils.paths.temp,
   cache: Utils.paths.cache,
   logs: Utils.paths.logs,
+  config: Utils.paths.config,
   documents: Utils.paths.documents,
   downloads: Utils.paths.downloads,
   desktop: Utils.paths.desktop,
+  pictures: Utils.paths.pictures,
+  music: Utils.paths.music,
+  videos: Utils.paths.videos,
 };
 
 // ============================================================================
@@ -105,9 +117,18 @@ export class DesktopManager {
   private shortcuts: Map<string, ShortcutOptions> = new Map();
   private notificationCounter = 0;
   private sendToWebview: SendToWebview | null = null;
+  private _windowFocused = true;
+  private _windowHidden = false;
+  private _focusPoller: ReturnType<typeof setInterval> | null = null;
 
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
+  /** Callback invoked before process.exit on quit — for cleanup (e.g. disposeNativeModules) */
+  private onBeforeQuit: (() => void) | null = null;
+
+  setOnBeforeQuit(fn: () => void): void {
+    this.onBeforeQuit = fn;
+  }
 
   // MARK: - Configuration
 
@@ -219,15 +240,13 @@ export class DesktopManager {
    * Convert TrayMenuItem[] to Electrobun's menu format.
    * Electrobun uses { type, label, action, submenu? }.
    */
-  private buildMenuTemplate(
-    items: TrayMenuItem[],
-  ): Array<Record<string, unknown>> {
-    return items.map((item) => {
+  private buildMenuTemplate(items: TrayMenuItem[]): MenuItemConfig[] {
+    return items.map((item): MenuItemConfig => {
       if (item.type === "separator") {
         return { type: "separator" };
       }
 
-      const menuItem: Record<string, unknown> = {
+      const menuItem: MenuItemConfig & { type: "normal" } = {
         type: "normal",
         label: item.label ?? "",
         // Use the item id as the action identifier for matching clicks
@@ -259,8 +278,43 @@ export class DesktopManager {
       });
     });
 
-    // Context menu item clicks come through the global event bus
+    // Context menu item clicks come through the global event bus.
+    // This single handler covers both native actions (show/quit) and
+    // renderer notifications, eliminating the need for a duplicate handler
+    // in index.ts.
+    const triggerAgentRestart = () => {
+      // Lazy import to avoid circular dependency (agent → desktop → agent).
+      import("./agent").then(({ getAgentManager }) => {
+        getAgentManager()
+          .restart()
+          .catch((err: unknown) => {
+            console.error("[Desktop] Agent restart failed:", err);
+          });
+      });
+    };
+
+    Electrobun.events.on(
+      "application-menu-clicked",
+      (e: { data: { action: string } }) => {
+        if (e?.data?.action === "restart-agent") {
+          triggerAgentRestart();
+        }
+      },
+    );
+
     Electrobun.events.on("context-menu-clicked", (action: string) => {
+      // Native actions
+      if (action === "show") {
+        this.mainWindow?.show();
+        this.mainWindow?.focus();
+      } else if (action === "restart-agent") {
+        triggerAgentRestart();
+      } else if (action === "quit") {
+        this.onBeforeQuit?.();
+        process.exit(0);
+      }
+
+      // Renderer notification for all items
       const menuItem = this.trayMenuItems.get(action);
       if (menuItem) {
         this.send("desktopTrayMenuClick", {
@@ -320,24 +374,182 @@ export class DesktopManager {
 
   // MARK: - Auto Launch
 
-  async setAutoLaunch(_options: {
+  async setAutoLaunch(options: {
     enabled: boolean;
     openAsHidden?: boolean;
   }): Promise<void> {
-    // No equivalent in Electrobun — would require platform-specific
-    // LaunchAgent (macOS), systemd (Linux), or registry (Windows).
-    // Stub for now.
-    console.warn(
-      "[DesktopManager] setAutoLaunch is not yet supported in Electrobun",
-    );
+    const appPath = process.execPath;
+
+    if (process.platform === "darwin") {
+      await this.setAutoLaunchMac(options.enabled, appPath);
+    } else if (process.platform === "linux") {
+      this.setAutoLaunchLinux(options.enabled, appPath);
+    } else if (process.platform === "win32") {
+      await this.setAutoLaunchWin(options.enabled, appPath);
+    } else {
+      console.warn(
+        `[DesktopManager] setAutoLaunch: unsupported platform ${process.platform}`,
+      );
+    }
   }
 
   async getAutoLaunchStatus(): Promise<{
     enabled: boolean;
     openAsHidden: boolean;
   }> {
-    // Stubbed — no equivalent in Electrobun
+    if (process.platform === "darwin") {
+      const plistPath = this.getMacLaunchAgentPath();
+      return { enabled: fs.existsSync(plistPath), openAsHidden: false };
+    }
+
+    if (process.platform === "linux") {
+      const desktopPath = this.getLinuxAutostartPath();
+      return { enabled: fs.existsSync(desktopPath), openAsHidden: false };
+    }
+
+    if (process.platform === "win32") {
+      const enabled = await this.getAutoLaunchStatusWin();
+      return { enabled, openAsHidden: false };
+    }
+
     return { enabled: false, openAsHidden: false };
+  }
+
+  // MARK: - Auto-launch helpers (macOS)
+
+  private getMacLaunchAgentPath(): string {
+    return path.join(
+      os.homedir(),
+      "Library",
+      "LaunchAgents",
+      "com.miladyai.milady.plist",
+    );
+  }
+
+  private async setAutoLaunchMac(
+    enabled: boolean,
+    appPath: string,
+  ): Promise<void> {
+    const plistPath = this.getMacLaunchAgentPath();
+
+    if (enabled) {
+      const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.miladyai.milady</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${appPath}</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>
+`;
+      const dir = path.dirname(plistPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(plistPath, plistContent, "utf8");
+
+      const proc = Bun.spawn(["launchctl", "load", plistPath], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      await proc.exited;
+    } else {
+      if (fs.existsSync(plistPath)) {
+        const proc = Bun.spawn(["launchctl", "unload", plistPath], {
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        await proc.exited;
+        fs.unlinkSync(plistPath);
+      }
+    }
+  }
+
+  // MARK: - Auto-launch helpers (Linux)
+
+  private getLinuxAutostartPath(): string {
+    return path.join(os.homedir(), ".config", "autostart", "milady.desktop");
+  }
+
+  private setAutoLaunchLinux(enabled: boolean, appPath: string): void {
+    const desktopPath = this.getLinuxAutostartPath();
+
+    if (enabled) {
+      const desktopContent = `[Desktop Entry]
+Type=Application
+Name=Milady
+Exec=${appPath}
+X-GNOME-Autostart-enabled=true
+`;
+      const dir = path.dirname(desktopPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(desktopPath, desktopContent, "utf8");
+    } else {
+      if (fs.existsSync(desktopPath)) {
+        fs.unlinkSync(desktopPath);
+      }
+    }
+  }
+
+  // MARK: - Auto-launch helpers (Windows)
+
+  private readonly WIN_REG_KEY =
+    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+  private async setAutoLaunchWin(
+    enabled: boolean,
+    appPath: string,
+  ): Promise<void> {
+    if (enabled) {
+      const proc = Bun.spawn(
+        [
+          "reg",
+          "add",
+          this.WIN_REG_KEY,
+          "/v",
+          "Milady",
+          "/t",
+          "REG_SZ",
+          "/d",
+          appPath,
+          "/f",
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      await proc.exited;
+    } else {
+      const proc = Bun.spawn(
+        ["reg", "delete", this.WIN_REG_KEY, "/v", "Milady", "/f"],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      await proc.exited;
+    }
+  }
+
+  private async getAutoLaunchStatusWin(): Promise<boolean> {
+    try {
+      const proc = Bun.spawn(
+        ["reg", "query", this.WIN_REG_KEY, "/v", "Milady"],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const [stdout] = await Promise.all([
+        new Response(proc.stdout).text(),
+        proc.exited,
+      ]);
+      return stdout.includes("Milady");
+    } catch {
+      return false;
+    }
   }
 
   // MARK: - Window Management
@@ -346,12 +558,12 @@ export class DesktopManager {
     const win = this.getWindow();
 
     if (options.width !== undefined || options.height !== undefined) {
-      const [currentW, currentH] = win.getSize();
+      const { width: currentW, height: currentH } = win.getSize();
       win.setSize(options.width ?? currentW, options.height ?? currentH);
     }
 
     if (options.x !== undefined || options.y !== undefined) {
-      const [currentX, currentY] = win.getPosition();
+      const { x: currentX, y: currentY } = win.getPosition();
       win.setPosition(options.x ?? currentX, options.y ?? currentY);
     }
 
@@ -381,8 +593,8 @@ export class DesktopManager {
 
   async getWindowBounds(): Promise<WindowBounds> {
     const win = this.getWindow();
-    const [x, y] = win.getPosition();
-    const [width, height] = win.getSize();
+    const { x, y } = win.getPosition();
+    const { width, height } = win.getSize();
     return { x, y, width, height };
   }
 
@@ -409,12 +621,28 @@ export class DesktopManager {
   }
 
   async showWindow(): Promise<void> {
-    this.getWindow().show();
+    const win = this.getWindow();
+    const ptr = (win as { ptr?: unknown }).ptr;
+    if (ptr && process.platform === "darwin") {
+      makeKeyAndOrderFront(ptr as Parameters<typeof makeKeyAndOrderFront>[0]);
+    } else {
+      win.show();
+      win.focus();
+    }
+    this._windowHidden = false;
   }
 
   async hideWindow(): Promise<void> {
-    // No hide() in Electrobun — use minimize() as fallback
-    this.getWindow().minimize();
+    const win = this.getWindow();
+    const ptr = (win as { ptr?: unknown }).ptr;
+    if (ptr && process.platform === "darwin") {
+      // orderOut removes the window from screen AND Cmd+Tab / Mission Control
+      orderOut(ptr as Parameters<typeof orderOut>[0]);
+    } else {
+      // Non-macOS fallback: minimize
+      win.minimize();
+    }
+    this._windowHidden = true;
   }
 
   async focusWindow(): Promise<void> {
@@ -430,14 +658,13 @@ export class DesktopManager {
   }
 
   async isWindowVisible(): Promise<{ visible: boolean }> {
-    // No isVisible() in Electrobun — approximate: not minimized
-    return { visible: !this.getWindow().isMinimized() };
+    if (this._windowHidden) return { visible: false };
+    const win = this.getWindow();
+    return { visible: !win.isMinimized() };
   }
 
   async isWindowFocused(): Promise<{ focused: boolean }> {
-    // No isFocused() in Electrobun — return true as best-effort stub
-    // Window focus events are tracked via the "focus" event listener
-    return { focused: true };
+    return { focused: this._windowFocused };
   }
 
   async setAlwaysOnTop(options: SetAlwaysOnTopOptions): Promise<void> {
@@ -457,7 +684,14 @@ export class DesktopManager {
     if (!this.mainWindow) return;
 
     this.mainWindow.on("focus", () => {
+      this._windowFocused = true;
       this.send("desktopWindowFocus");
+    });
+
+    // Blur via native event (Electrobun may not surface this, but try it for free)
+    this.mainWindow.on("blur", () => {
+      this._windowFocused = false;
+      this.send("desktopWindowBlur");
     });
 
     this.mainWindow.on("close", () => {
@@ -472,17 +706,40 @@ export class DesktopManager {
       }
     });
 
+    let wasMaximized = false;
     this.mainWindow.on("move", () => {
-      // Move events don't have a direct desktop push equivalent,
-      // but we can use them to detect unmaximize/restore.
-      if (this.mainWindow && !this.mainWindow.isMaximized()) {
+      // Only emit desktopWindowUnmaximize when transitioning FROM maximized
+      // to not-maximized, not on every move during a normal window drag.
+      const isMaximized = this.mainWindow?.isMaximized() ?? false;
+      if (wasMaximized && !isMaximized) {
         this.send("desktopWindowUnmaximize");
       }
+      wasMaximized = isMaximized;
     });
 
-    // Note: Electrobun does not have blur/minimize/restore events.
-    // desktopWindowBlur, desktopWindowMinimize, desktopWindowRestore
-    // are not emitted. Consumers should handle their absence gracefully.
+    // Blur fallback: poll [NSWindow isKeyWindow] at 2Hz on macOS.
+    // Electrobun does not guarantee blur events, so this gives bounded
+    // ≤500ms latency for focus-loss detection.
+    if (process.platform === "darwin") {
+      this._startFocusPoller();
+    }
+  }
+
+  private _startFocusPoller(): void {
+    if (this._focusPoller) return;
+    this._focusPoller = setInterval(() => {
+      const win = this.mainWindow;
+      if (!win) return;
+      const ptr = (win as { ptr?: unknown }).ptr;
+      if (!ptr) return;
+      const focused = isKeyWindow(ptr as Parameters<typeof isKeyWindow>[0]);
+      if (focused !== this._windowFocused) {
+        this._windowFocused = focused;
+        if (!focused) {
+          this.send("desktopWindowBlur");
+        }
+      }
+    }, 500);
   }
 
   // MARK: - Notifications
@@ -537,7 +794,7 @@ export class DesktopManager {
   async getVersion(): Promise<VersionInfo> {
     let version = "0.0.0";
     try {
-      version = Updater.localInfo.version();
+      version = await Updater.localInfo.version();
     } catch {
       // Updater may not be available in dev
     }
@@ -581,6 +838,7 @@ export class DesktopManager {
       Utils.clipboardWriteText(options.text);
     } else if (options.image) {
       // Electrobun clipboardWriteImage expects image data
+      // @ts-expect-error — image is base64 string; clipboardWriteImage accepts Uint8Array at runtime
       Utils.clipboardWriteImage(options.image);
     }
     // html/rtf not supported by Electrobun clipboard — drop silently
@@ -677,6 +935,10 @@ export class DesktopManager {
    * Clean up all resources.
    */
   dispose(): void {
+    if (this._focusPoller) {
+      clearInterval(this._focusPoller);
+      this._focusPoller = null;
+    }
     this.unregisterAllShortcuts();
     this.destroyTray();
     this.trayMenuItems.clear();

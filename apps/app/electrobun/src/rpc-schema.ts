@@ -558,11 +558,23 @@ export type MiladyRPCSchema = {
         params: { sourceId: string };
         response: { available: boolean };
       };
+      screencaptureSetCaptureTarget: {
+        params: { webviewId?: string };
+        response: { available: boolean };
+      };
 
       // ---- Swabble (wake word) ----
       swabbleStart: {
-        params: undefined;
-        response: { available: boolean; reason?: string };
+        params: {
+          config?: {
+            triggers?: string[];
+            minPostTriggerGap?: number;
+            minCommandLength?: number;
+            modelSize?: "tiny" | "base" | "small" | "medium" | "large";
+            enabled?: boolean;
+          };
+        };
+        response: { started: boolean; error?: string };
       };
       swabbleStop: { params: undefined; response: undefined };
       swabbleIsListening: {
@@ -702,6 +714,10 @@ export type MiladyRPCSchema = {
       talkmodeAudioChunkPush: { data: string };
       talkmodeStateChanged: { state: TalkModeState };
       talkmodeSpeakComplete: undefined;
+      talkmodeTranscript: {
+        text: string;
+        segments: Array<{ text: string; start: number; end: number }>;
+      };
 
       // Swabble: Wake word detection
       swabbleWakeWord: {
@@ -710,12 +726,32 @@ export type MiladyRPCSchema = {
         transcript: string;
       };
       swabbleStateChanged: { listening: boolean };
+      // Swabble: audio chunk fallback (whisper.cpp binary missing)
+      swabbleAudioChunkPush: { data: string };
+
+      // Context menu push events (Bun pushes to renderer after processing)
+      contextMenuAskAgent: { text: string };
+      contextMenuCreateSkill: { text: string };
+      contextMenuQuoteInChat: { text: string };
+      contextMenuSaveAsCommand: { text: string };
 
       // API Base injection
       apiBaseUpdate: { base: string; token?: string };
 
       // Share target
       shareTargetReceived: { url: string; text?: string };
+
+      // Location push events
+      locationUpdate: {
+        latitude: number;
+        longitude: number;
+        accuracy: number;
+        timestamp: number;
+      };
+
+      // Desktop: Update events
+      desktopUpdateAvailable: { version: string; releaseNotes?: string };
+      desktopUpdateReady: { version: string };
     };
   }>;
 };
@@ -859,6 +895,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "screencapture:isFrameCaptureActive": "screencaptureIsFrameCaptureActive",
   "screencapture:saveScreenshot": "screencaptureSaveScreenshot",
   "screencapture:switchSource": "screencaptureSwitchSource",
+  "screencapture:setCaptureTarget": "screencaptureSetCaptureTarget",
 
   // Swabble
   "swabble:start": "swabbleStart",
@@ -924,8 +961,19 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "talkmode:audioChunkPush": "talkmodeAudioChunkPush",
   "talkmode:stateChanged": "talkmodeStateChanged",
   "talkmode:speakComplete": "talkmodeSpeakComplete",
+  "talkmode:transcript": "talkmodeTranscript",
   "swabble:wakeWord": "swabbleWakeWord",
-  "swabble:stateChanged": "swabbleStateChanged",
+  "swabble:stateChange": "swabbleStateChanged",
+  "swabble:audioChunkPush": "swabbleAudioChunkPush",
+  "contextMenu:askAgent": "contextMenuAskAgent",
+  "contextMenu:createSkill": "contextMenuCreateSkill",
+  "contextMenu:quoteInChat": "contextMenuQuoteInChat",
+  "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
+  apiBaseUpdate: "apiBaseUpdate",
+  shareTargetReceived: "shareTargetReceived",
+  "location:update": "locationUpdate",
+  "desktop:updateAvailable": "desktopUpdateAvailable",
+  "desktop:updateReady": "desktopUpdateReady",
 };
 
 /**

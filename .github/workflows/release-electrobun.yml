@@ -1,0 +1,339 @@
+# Build & Release — Electrobun desktop app (signed/notarized on macOS, CEF on Windows/Linux)
+# Produces .tar.zst update archives + update.json for auto-update, plus installer artifacts.
+#
+# Required GitHub Secrets (macOS signing + notarization):
+#   ELECTROBUN_DEVELOPER_ID   – Apple Developer ID Application string (e.g. "Developer ID Application: Corp (XXXXXXXXXX)")
+#   ELECTROBUN_APPLEID        – Apple ID email for notarization
+#   ELECTROBUN_APPLEIDPASS    – App-specific password from appleid.apple.com
+#   ELECTROBUN_TEAMID         – 10-char Apple Developer Team ID
+#
+# Optional: upload update.json + .tar.zst to milady.ai/releases/ via RELEASE_UPLOAD_KEY secret.
+name: Build & Release (Electrobun)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v2.0.0-alpha.3)"
+        required: false
+        type: string
+      draft:
+        description: "Create as draft release"
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-electrobun-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      env: ${{ steps.version.outputs.env }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version + env
+        id: version
+        run: |
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          VERSION="${TAG#v}"
+          # canary for pre-release tags, stable for everything else
+          if echo "$VERSION" | grep -qE '(alpha|beta|rc|nightly)'; then
+            BUILD_ENV="canary"
+          else
+            BUILD_ENV="stable"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "env=$BUILD_ENV" >> "$GITHUB_OUTPUT"
+          echo "Release: $VERSION (tag: $TAG, env: $BUILD_ENV)"
+
+  build:
+    name: Build ${{ matrix.platform.name }}
+    needs: prepare
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: macOS (Apple Silicon)
+            os: macos
+            runner: macos-14
+            artifact-name: macos-arm64
+          - name: Windows
+            os: windows
+            runner: blacksmith-4vcpu-windows-2025
+            artifact-name: windows-x64
+          - name: Linux
+            os: linux
+            runner: blacksmith-4vcpu-ubuntu-2404
+            artifact-name: linux-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-electrobun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-${{ runner.os }}-
+
+      - name: Install root dependencies
+        run: |
+          for i in 1 2 3; do
+            bun install --frozen-lockfile && break
+            echo "Retry $i: bun install failed, retrying..."
+            sleep 5
+          done
+          bun install --frozen-lockfile
+
+      - name: Align version with release tag
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.RELEASE_VERSION;
+            for (const file of [
+              'package.json',
+              'apps/app/package.json',
+              'apps/app/electrobun/package.json',
+            ]) {
+              try {
+                const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+                pkg.version = version;
+                fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+              } catch (e) {
+                console.warn('Could not update ' + file + ':', e.message);
+              }
+            }
+            // Update version in electrobun.config.ts
+            const cfgPath = 'apps/app/electrobun/electrobun.config.ts';
+            let cfg = fs.readFileSync(cfgPath, 'utf8');
+            cfg = cfg.replace(/version:\s*\"[^\"]+\"/, 'version: \"' + version + '\"');
+            fs.writeFileSync(cfgPath, cfg);
+          "
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+
+      - name: Build core dist (server bundle)
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+
+      - name: Build renderer (Vite)
+        run: |
+          for i in 1 2 3; do
+            bun install && break
+            echo "Retry $i"
+            sleep 5
+          done
+          bun install
+          npx vite build
+        working-directory: apps/app
+
+      # macOS: compile Objective-C++ native effects dylib
+      - name: Build native macOS effects dylib
+        if: matrix.platform.os == 'macos'
+        run: bun run build:native-effects
+        working-directory: apps/app/electrobun
+
+      # Build the webview bridge preload (window.electron shim injected into the webview)
+      - name: Build webview bridge preload
+        run: bun run build:preload
+        working-directory: apps/app/electrobun
+
+      # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
+      # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
+      - name: Build whisper.cpp (on-device STT)
+        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
+        run: bun run build:whisper
+        working-directory: apps/app/electrobun
+
+      - name: Validate macOS signing secrets
+        if: matrix.platform.os == 'macos'
+        run: |
+          missing=0
+          for var in ELECTROBUN_DEVELOPER_ID ELECTROBUN_APPLEID ELECTROBUN_APPLEIDPASS ELECTROBUN_TEAMID; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required macOS signing secret: ${var}"
+              missing=1
+            fi
+          done
+          [ "$missing" -ne 0 ] && exit 1
+          echo "All macOS signing secrets present"
+        env:
+          ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}
+          ELECTROBUN_APPLEID: ${{ secrets.ELECTROBUN_APPLEID || '' }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.ELECTROBUN_APPLEIDPASS || '' }}
+          ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
+
+      - name: Build Electrobun app
+        run: electrobun build --env=${{ needs.prepare.outputs.env }}
+        working-directory: apps/app/electrobun
+        env:
+          # macOS code-signing + notarization (Electrobun reads these directly)
+          ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}
+          ELECTROBUN_APPLEID: ${{ secrets.ELECTROBUN_APPLEID || '' }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.ELECTROBUN_APPLEIDPASS || '' }}
+          ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
+
+      - name: List build output
+        run: |
+          echo "=== Electrobun dist ==="
+          find apps/app/electrobun/dist -type f 2>/dev/null | sort || echo "(no dist directory)"
+
+      - name: Verify macOS signature and notarization
+        if: matrix.platform.os == 'macos'
+        run: |
+          shopt -s nullglob
+          apps=(apps/app/electrobun/dist/**/*.app apps/app/electrobun/dist/*.app)
+          if [ "${#apps[@]}" -eq 0 ]; then
+            echo "::warning::No .app bundle found — skipping codesign check"
+            exit 0
+          fi
+          for app in "${apps[@]}"; do
+            echo "Verifying: $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
+            echo "$info" | grep -q "Authority=Developer ID Application" || {
+              echo "::error::Missing Developer ID Application signature on $app"
+              exit 1
+            }
+            spctl -a -vv --type exec "$app"
+            xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}
+          path: |
+            apps/app/electrobun/dist/*.dmg
+            apps/app/electrobun/dist/*.tar.zst
+            apps/app/electrobun/dist/*.exe
+            apps/app/electrobun/dist/*.AppImage
+            apps/app/electrobun/dist/*.deb
+            apps/app/electrobun/dist/update.json
+            apps/app/electrobun/dist/*.patch
+          if-no-files-found: warn
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: [prepare, build]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: electrobun-*
+          merge-multiple: false
+
+      - name: List artifacts
+        run: find release-artifacts -type f | sort 2>/dev/null || echo "No artifacts"
+
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f \( \
+            -name "*.dmg" -o \
+            -name "*.tar.zst" -o \
+            -name "*.exe" -o \
+            -name "*.AppImage" -o \
+            -name "*.deb" -o \
+            -name "*.patch" \
+          \) -exec cp {} release-files/ \; 2>/dev/null || true
+          # Keep only one copy of update.json (prefer macOS, then Linux, then Windows)
+          for dir in release-artifacts/electrobun-macos-arm64 release-artifacts/electrobun-linux-x64 release-artifacts/electrobun-windows-x64; do
+            if [ -f "$dir/update.json" ]; then
+              cp "$dir/update.json" release-files/update.json
+              break
+            fi
+          done
+          echo "=== Release files ==="
+          ls -lh release-files/ 2>/dev/null || echo "None"
+
+      - name: Generate checksums
+        run: |
+          cd release-files
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Milady ${{ needs.prepare.outputs.tag }}
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') || contains(needs.prepare.outputs.version, 'rc') || contains(needs.prepare.outputs.version, 'nightly') }}
+          generate_release_notes: true
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload update.json + .tar.zst files to milady.ai/releases/ so the
+      # in-app auto-updater can discover them via the baseUrl in electrobun.config.ts.
+      # Requires RELEASE_UPLOAD_KEY secret (SSH private key for releases server).
+      - name: Upload update channel files to milady.ai/releases/
+        if: ${{ secrets.RELEASE_UPLOAD_KEY != '' }}
+        run: |
+          echo "${{ secrets.RELEASE_UPLOAD_KEY }}" > /tmp/release_key
+          chmod 600 /tmp/release_key
+          # Pin the host fingerprint from the RELEASE_HOST_FINGERPRINT secret so SSH
+          # verifies the server identity without disabling host-key checking.
+          # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.RELEASE_HOST_FINGERPRINT }}" >> ~/.ssh/known_hosts
+          # Upload all update files to the release channel directory
+          CHANNEL="${{ needs.prepare.outputs.env }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+          rsync -av --delete-after \
+            -e "ssh -i /tmp/release_key" \
+            release-files/ \
+            releases@milady.ai:/var/www/releases/${CHANNEL}/${VERSION}/
+          # Overwrite the channel-level update.json so auto-updater finds latest
+          if [ -f "release-files/update.json" ]; then
+            scp -i /tmp/release_key \
+              release-files/update.json \
+              releases@milady.ai:/var/www/releases/${CHANNEL}/update.json
+          fi
+          rm -f /tmp/release_key

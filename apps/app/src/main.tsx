@@ -29,8 +29,12 @@ const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-const isElectron = platform === "electron";
-const isWeb = platform === "web";
+// Electrobun sets window.__ELECTROBUN__ = true; Capacitor sees it as "web"
+const isElectrobun =
+  typeof window !== "undefined" &&
+  !!(window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__;
+const isElectron = platform === "electron" || isElectrobun;
+const isWeb = platform === "web" && !isElectrobun;
 
 interface ShareTargetFile {
   name: string;
