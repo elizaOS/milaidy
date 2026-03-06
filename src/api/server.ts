@@ -204,6 +204,66 @@ function getAgentEventSvc(
   return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
 }
 
+/* ── Polymarket condition ID → market question resolver ─────────────── */
+const _polymarketNameCache = new Map<string, { question: string; ts: number }>();
+const POLYMARKET_NAME_CACHE_TTL = 600_000; // 10 min
+
+async function polymarketResolveNames(
+  conditionIds: Set<string>,
+  fetchFn: typeof globalThis.fetch,
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (conditionIds.size === 0) return result;
+
+  const now = Date.now();
+  const toResolve: string[] = [];
+
+  for (const id of conditionIds) {
+    const cached = _polymarketNameCache.get(id);
+    if (cached && now - cached.ts < POLYMARKET_NAME_CACHE_TTL) {
+      result.set(id, cached.question);
+    } else {
+      toResolve.push(id);
+    }
+  }
+
+  if (toResolve.length === 0) return result;
+
+  // Gamma API: fetch markets by condition_id (batch up to 20)
+  try {
+    const batches: string[][] = [];
+    for (let i = 0; i < toResolve.length; i += 20) {
+      batches.push(toResolve.slice(i, i + 20));
+    }
+    for (const batch of batches) {
+      const params = new URLSearchParams();
+      for (const id of batch) {
+        params.append("condition_ids", id);
+      }
+      const url = `https://gamma-api.polymarket.com/markets?${params.toString()}`;
+      const resp = await fetchFn(url, { signal: AbortSignal.timeout(5000) });
+      if (!resp.ok) continue;
+      const markets = (await resp.json()) as Array<{
+        condition_id?: string;
+        question?: string;
+      }>;
+      for (const m of markets) {
+        if (m.condition_id && m.question) {
+          result.set(m.condition_id, m.question);
+          _polymarketNameCache.set(m.condition_id, {
+            question: m.question,
+            ts: now,
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-critical — return whatever we have from cache
+  }
+
+  return result;
+}
+
 function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
   const service = runtime?.getService("plugin_manager");
   if (!isPluginManagerLike(service)) {
@@ -6622,6 +6682,7 @@ async function handleRequest(
 
   // ── GET /api/polymarket/activity ────────────────────────────────────────
   // Returns cached Polymarket account state + activity for the UI widget.
+  // Resolves condition IDs to human-readable market names via Gamma API.
   if (method === "GET" && pathname === "/api/polymarket/activity") {
     const runtime = state.runtime;
     if (!runtime) {
@@ -6643,9 +6704,9 @@ async function handleRequest(
       const accountState = service.getCachedAccountState?.() as {
         walletAddress?: string;
         balances?: unknown;
-        activeOrders?: unknown[];
-        recentTrades?: unknown[];
-        positions?: unknown[];
+        activeOrders?: Array<{ market?: string; [k: string]: unknown }>;
+        recentTrades?: Array<{ market?: string; [k: string]: unknown }>;
+        positions?: Array<{ market?: string; [k: string]: unknown }>;
         lastUpdatedAt?: number;
       } | null;
       const activityContext = service.getCachedActivityContext?.() as {
@@ -6655,6 +6716,33 @@ async function handleRequest(
       const authStatus = service.getAuthenticationStatus?.();
       const walletData = await service.getCachedData?.();
 
+      // Collect unique condition IDs from positions, trades, and orders
+      const conditionIds = new Set<string>();
+      for (const item of [
+        ...(accountState?.positions ?? []),
+        ...(accountState?.recentTrades ?? []),
+        ...(accountState?.activeOrders ?? []),
+      ]) {
+        if (item.market && typeof item.market === "string" && item.market.startsWith("0x")) {
+          conditionIds.add(item.market);
+        }
+      }
+
+      // Resolve condition IDs → market questions via Gamma API (cached)
+      const marketNames = await polymarketResolveNames(
+        conditionIds,
+        runtime.fetch?.bind(runtime) ?? globalThis.fetch,
+      );
+
+      // Attach resolved question to each item
+      const attachName = <T extends { market?: string }>(
+        items: T[],
+      ): (T & { question?: string })[] =>
+        items.map((item) => ({
+          ...item,
+          question: item.market ? marketNames.get(item.market) : undefined,
+        }));
+
       json(res, {
         available: true,
         auth: authStatus ?? null,
@@ -6663,9 +6751,9 @@ async function handleRequest(
           ? {
               walletAddress: accountState.walletAddress,
               balances: accountState.balances,
-              activeOrders: accountState.activeOrders ?? [],
-              recentTrades: accountState.recentTrades ?? [],
-              positions: accountState.positions ?? [],
+              activeOrders: attachName(accountState.activeOrders ?? []),
+              recentTrades: attachName(accountState.recentTrades ?? []),
+              positions: attachName(accountState.positions ?? []),
               lastUpdatedAt: accountState.lastUpdatedAt,
             }
           : null,

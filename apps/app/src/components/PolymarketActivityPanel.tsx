@@ -21,6 +21,7 @@ interface Trade {
   status: string;
   match_time: string;
   outcome: string;
+  question?: string;
   transaction_hash?: string;
 }
 
@@ -33,6 +34,7 @@ interface Order {
   price: string;
   status: string;
   outcome?: string;
+  question?: string;
 }
 
 interface Position {
@@ -40,7 +42,9 @@ interface Position {
   asset_id: string;
   outcome: string;
   size: string;
-  avgPrice: string;
+  average_price: string;
+  realized_pnl?: string;
+  question?: string;
 }
 
 interface ActivityEntry {
@@ -198,19 +202,18 @@ export function PolymarketActivityPanel() {
             <div
               key={`${p.asset_id}-${i}`}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
                 fontSize: 10,
-                padding: "2px 0",
+                padding: "3px 0",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
                 color: "rgba(219,227,246,0.74)",
               }}
             >
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
-                {p.outcome || p.market?.slice(0, 16) || p.asset_id?.slice(0, 10)}
-              </span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", whiteSpace: "nowrap" }}>
-                {fmtSize(p.size)} @ {fmtPrice(p.avgPrice)}
-              </span>
+              <div style={{ lineHeight: 1.3, marginBottom: 2 }}>
+                {p.question || p.outcome || p.market?.slice(0, 30) || p.asset_id?.slice(0, 12)}
+              </div>
+              <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, color: "rgba(219,227,246,0.5)" }}>
+                {fmtSize(p.size)} shares @ avg {fmtPrice(p.average_price)}
+              </div>
             </div>
           ))}
         </div>
@@ -226,32 +229,25 @@ export function PolymarketActivityPanel() {
             <div
               key={o.id}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
                 fontSize: 10,
-                padding: "2px 0",
+                padding: "3px 0",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
                 color: "rgba(219,227,246,0.74)",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, lineHeight: 1.3, marginBottom: 2 }}>
                 <span style={{
-                  fontSize: 8,
-                  fontWeight: 700,
-                  padding: "1px 3px",
-                  borderRadius: 2,
+                  fontSize: 8, fontWeight: 700, padding: "1px 3px", borderRadius: 2, flexShrink: 0,
                   background: o.side === "BUY" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)",
                   color: o.side === "BUY" ? "#34d399" : "#f87171",
                 }}>
                   {o.side}
                 </span>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
-                  {o.outcome || o.market?.slice(0, 14)}
-                </span>
-              </span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", whiteSpace: "nowrap" }}>
+                <span>{o.question || o.outcome || o.market?.slice(0, 30)}</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, color: "rgba(219,227,246,0.5)" }}>
                 {fmtSize(o.size)} @ {fmtPrice(o.price)}
-              </span>
+              </div>
             </div>
           ))}
         </div>
@@ -267,33 +263,26 @@ export function PolymarketActivityPanel() {
             <div
               key={t.id}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
                 fontSize: 10,
-                padding: "2px 0",
+                padding: "3px 0",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
                 color: "rgba(219,227,246,0.74)",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, lineHeight: 1.3, marginBottom: 2 }}>
                 <span style={{
-                  fontSize: 8,
-                  fontWeight: 700,
-                  padding: "1px 3px",
-                  borderRadius: 2,
+                  fontSize: 8, fontWeight: 700, padding: "1px 3px", borderRadius: 2, flexShrink: 0,
                   background: t.side === "BUY" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)",
                   color: t.side === "BUY" ? "#34d399" : "#f87171",
                 }}>
                   {t.side}
                 </span>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 80 }}>
-                  {t.outcome || t.market?.slice(0, 14)}
-                </span>
-              </span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", whiteSpace: "nowrap", display: "flex", gap: 4 }}>
+                <span>{t.question || t.outcome || t.market?.slice(0, 30)}</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, color: "rgba(219,227,246,0.5)", display: "flex", justifyContent: "space-between" }}>
                 <span>{fmtSize(t.size)} @ {fmtPrice(t.price)}</span>
-                <span style={{ color: "rgba(219,227,246,0.4)" }}>{timeAgo(t.match_time)}</span>
-              </span>
+                <span>{timeAgo(t.match_time)}</span>
+              </div>
             </div>
           ))}
         </div>
