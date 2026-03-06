@@ -135,7 +135,8 @@ export function CloseButton({
       <button
         type="button"
         onClick={onClick}
-        className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 z-50 p-2 rounded-full text-white/60 hover:text-white bg-[#0d1117] hover:bg-white/10 border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.7)] w-9 h-9 transition-all flex items-center justify-center"
+        aria-label="Close"
+        className="absolute top-4 right-4 z-50 p-2 rounded-full text-white/50 hover:text-white bg-white/5 hover:bg-white/12 border border-white/10 hover:border-white/25 shadow-[0_0_15px_rgba(0,0,0,0.5)] w-9 h-9 transition-all flex items-center justify-center"
       >
         <svg
           width="16"

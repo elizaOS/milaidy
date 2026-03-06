@@ -436,6 +436,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
   /* ── Character generation state ─────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   /* ── Voice config state ─────────────────────────────────────────── */
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({});
@@ -745,6 +746,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
   const handleGenerate = useCallback(
     async (field: string, mode: "append" | "replace" = "replace") => {
       setGenerating(field);
+      setGenerateError(null);
       try {
         const { generated } = await client.generateCharacterField(
           field,
@@ -753,6 +755,8 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
         );
         if (field === "bio") {
           handleFieldEdit("bio", generated.trim());
+        } else if (field === "system") {
+          handleFieldEdit("system", generated.trim());
         } else if (field === "style") {
           try {
             const parsed = JSON.parse(generated);
@@ -813,8 +817,12 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
             /* raw text fallback */
           }
         }
-      } catch {
-        /* generation failed */
+      } catch (err) {
+        setGenerateError(
+          err instanceof Error
+            ? err.message
+            : "Generation failed. Check your AI provider settings.",
+        );
       }
       setGenerating(null);
     },
@@ -1115,6 +1123,13 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               />
             </div>
           </div>
+
+          {/* Generation error */}
+          {generateError && (
+            <div className="mt-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-[12px]">
+              {generateError}
+            </div>
+          )}
 
           {/* About me + adjectives + topics */}
           <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">

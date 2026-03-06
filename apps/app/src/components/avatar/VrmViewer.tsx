@@ -5,7 +5,7 @@
  * the `mouthOpen` prop. Sized to fill its parent container.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { resolveAppAssetUrl } from "../../asset-url";
 import {
   type CameraProfile,
@@ -52,6 +52,8 @@ export function VrmViewer(props: VrmViewerProps) {
   const currentVrmPathRef = useRef<string>("");
   const onEngineReadyRef = useRef(props.onEngineReady);
   const onEngineStateRef = useRef(props.onEngineState);
+  const [engineReady, setEngineReady] = useState(false);
+  const engineReadySetRef = useRef(false);
 
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
@@ -110,6 +112,10 @@ export function VrmViewer(props: VrmViewerProps) {
     void engine.whenReady().then(
       () => {
         if (!mountedRef.current) return;
+        if (!engineReadySetRef.current) {
+          engineReadySetRef.current = true;
+          setEngineReady(true);
+        }
         resize();
         onEngineReadyRef.current?.(engine);
       },
@@ -157,7 +163,7 @@ export function VrmViewer(props: VrmViewerProps) {
   // Load VRM when path changes
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engine) return;
+    if (!engineReady || !engine || !engine.isInitialized()) return;
 
     const vrmUrl = props.vrmPath ?? DEFAULT_VRM_PATH;
     if (vrmUrl === currentVrmPathRef.current) return;
@@ -184,7 +190,7 @@ export function VrmViewer(props: VrmViewerProps) {
     return () => {
       abortController.abort();
     };
-  }, [props.vrmPath]);
+  }, [engineReady, props.vrmPath]);
 
   return (
     <canvas

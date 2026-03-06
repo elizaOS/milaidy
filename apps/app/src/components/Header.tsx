@@ -183,27 +183,29 @@ export function Header() {
   return (
     <header className="border-b border-border bg-bg py-2 px-3 sm:py-3 sm:px-4">
       <div className="flex items-center gap-3 min-w-0">
-        {/* Agent Name with Avatar */}
-        <div className="flex items-center gap-2 shrink-0 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
-            <span className="text-accent-fg font-bold text-sm">M</span>
+        {/* Agent Name with Avatar — hidden in dev mode */}
+        {!isNativeShell && (
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
+              <span className="text-accent-fg font-bold text-sm">M</span>
+            </div>
+            <div className="min-w-0">
+              <span
+                className="text-base font-bold text-txt-strong truncate block"
+                data-testid="agent-name"
+              >
+                {name}
+              </span>
+              <span className="text-[10px] text-muted hidden sm:block">
+                {t("header.aiAgent")}
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <span
-              className="text-base font-bold text-txt-strong truncate block"
-              data-testid="agent-name"
-            >
-              {name}
-            </span>
-            <span className="text-[10px] text-muted hidden sm:block">
-              {t("header.aiAgent")}
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* Right side controls */}
+        {/* Right side controls — ghost by default, each button fades in on hover */}
         <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-2 w-max ml-auto pr-0.5">
+          <div className="flex items-center gap-2 w-max ml-auto pr-0.5 [&>*]:opacity-0 [&>*:hover]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200">
             {/* Free Mint Banner */}
             {dropStatus?.dropEnabled &&
               dropStatus?.publicMintOpen &&

@@ -289,13 +289,8 @@ function normalizeUiShellMode(mode: unknown): UiShellMode {
 }
 
 function loadUiShellMode(): UiShellMode {
-  try {
-    return normalizeUiShellMode(
-      localStorage.getItem(UI_SHELL_MODE_STORAGE_KEY),
-    );
-  } catch {
-    return "companion";
-  }
+  // Always start in companion mode — dev mode is an opt-in per session.
+  return "companion";
 }
 
 function saveUiShellMode(mode: UiShellMode): void {

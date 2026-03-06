@@ -1,4 +1,4 @@
-import { Menu, X } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
@@ -21,10 +21,12 @@ const NAV_LABEL_I18N_KEY: Record<string, string> = {
 
 interface NavProps {
   mobileLeft?: ReactNode;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function Nav({ mobileLeft }: NavProps) {
-  const { tab, setTab, plugins, uiLanguage } = useApp();
+export function Nav({ mobileLeft, collapsed, onToggleCollapse }: NavProps) {
+  const { tab, setTab, plugins, uiLanguage, uiShellMode } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -34,8 +36,11 @@ export function Nav({ mobileLeft }: NavProps) {
   );
 
   const tabGroups = useMemo(
-    () => getTabGroups(streamingEnabled),
-    [streamingEnabled],
+    () =>
+      getTabGroups(streamingEnabled).filter(
+        (g) => uiShellMode !== "native" || g.label !== "Companion",
+      ),
+    [streamingEnabled, uiShellMode],
   );
 
   const activeGroup = useMemo(
@@ -84,29 +89,56 @@ export function Nav({ mobileLeft }: NavProps) {
       </nav>
 
       {/* Desktop Navigation */}
-      <nav className="hidden lg:flex border-b border-border bg-bg/80 backdrop-blur-sm py-1.5 px-3 xl:px-5 gap-0.5 overflow-x-auto whitespace-nowrap sticky top-0 z-10">
-        {tabGroups.map((group: TabGroup) => {
-          const primaryTab = group.tabs[0];
-          const isActive = group.tabs.includes(tab);
-          const Icon = group.icon;
-          return (
+      {!collapsed && (
+        <nav className="hidden lg:flex border-b border-border bg-bg/80 backdrop-blur-sm py-1.5 px-3 xl:px-5 gap-0.5 overflow-x-auto whitespace-nowrap sticky top-0 z-10 items-center">
+          {tabGroups.map((group: TabGroup) => {
+            const primaryTab = group.tabs[0];
+            const isActive = group.tabs.includes(tab);
+            const Icon = group.icon;
+            return (
+              <button
+                type="button"
+                key={group.label}
+                className={`inline-flex items-center gap-1.5 shrink-0 px-3 xl:px-4 py-1.5 text-[12px] bg-transparent border-0 border-b-2 cursor-pointer transition-all duration-200 ${
+                  isActive
+                    ? "text-accent font-medium border-b-accent bg-accent-subtle/50"
+                    : "text-muted border-b-transparent hover:text-txt hover:border-b-muted/50 hover:bg-bg-hover"
+                }`}
+                onClick={() => setTab(primaryTab)}
+                title={group.description}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}</span>
+              </button>
+            );
+          })}
+          {onToggleCollapse && (
             <button
               type="button"
-              key={group.label}
-              className={`inline-flex items-center gap-1.5 shrink-0 px-3 xl:px-4 py-1.5 text-[12px] bg-transparent border-0 border-b-2 cursor-pointer transition-all duration-200 ${
-                isActive
-                  ? "text-accent font-medium border-b-accent bg-accent-subtle/50"
-                  : "text-muted border-b-transparent hover:text-txt hover:border-b-muted/50 hover:bg-bg-hover"
-              }`}
-              onClick={() => setTab(primaryTab)}
-              title={group.description}
+              onClick={onToggleCollapse}
+              className="ml-auto shrink-0 p-1.5 text-muted hover:text-txt transition-colors rounded"
+              title="Collapse navigation"
+              aria-label="Collapse navigation"
             >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}</span>
+              <PanelLeftClose className="w-3.5 h-3.5" />
             </button>
-          );
-        })}
-      </nav>
+          )}
+        </nav>
+      )}
+      {/* Collapsed re-expand strip */}
+      {collapsed && onToggleCollapse && (
+        <div className="hidden lg:flex border-b border-border bg-bg/80 backdrop-blur-sm px-3 py-1 sticky top-0 z-10 justify-end">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="p-1.5 text-muted hover:text-txt transition-colors rounded"
+            title="Expand navigation"
+            aria-label="Expand navigation"
+          >
+            <PanelLeftOpen className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
