@@ -19,6 +19,54 @@ import { patchBunExports } from "./lib/patch-bun-exports.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
+const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+const bunCacheBase = resolve(homeDir, ".bun/install/cache");
+
+/**
+ * Find all dist files for a given scoped package across node_modules AND
+ * bun's install cache (bun resolves from ~/.bun/install/cache/, not
+ * node_modules, so patches must be applied to both locations).
+ */
+function findAllPackageDists(packageName, distRelPaths) {
+  const targets = [];
+  const add = (p) => { if (existsSync(p) && !targets.includes(p)) targets.push(p); };
+
+  // 1. Standard node_modules
+  for (const dp of distRelPaths) {
+    add(resolve(root, `node_modules/${packageName}/${dp}`));
+  }
+
+  // 2. Bun install cache — scoped packages stored as @scope/name@version@@@1
+  //    e.g. ~/.bun/install/cache/@elizaos/core@2.0.0-hash@@@1/dist/node/index.node.js
+  if (existsSync(bunCacheBase)) {
+    try {
+      const parts = packageName.split("/");
+      const scope = parts[0]; // e.g. "@elizaos"
+      const name = parts[1];  // e.g. "core"
+      const scopeDir = resolve(bunCacheBase, scope);
+      if (existsSync(scopeDir)) {
+        const entries = readdirSync(scopeDir);
+        for (const entry of entries) {
+          if (entry.startsWith(name + "@")) {
+            for (const dp of distRelPaths) {
+              add(resolve(scopeDir, entry, dp));
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Bun global node_modules
+  const bunGlobal = resolve(homeDir, `.bun/install/global/node_modules/${packageName}`);
+  if (existsSync(bunGlobal)) {
+    for (const dp of distRelPaths) {
+      add(resolve(bunGlobal, dp));
+    }
+  }
+
+  return targets;
+}
 
 /**
  * Find ALL plugin-sql dist files - handles both npm and bun cache structures.
@@ -654,14 +702,14 @@ if (pdfTargets.length === 0) {
  * We replace the import and usage with no-op stubs so the plugin loads.
  * Remove once plugin-polymarket publishes a version compatible with core alpha.12+.
  */
-const polymarketTarget = resolve(
-  root,
-  "node_modules/@elizaos/plugin-polymarket/dist/index.js",
-);
+const polymarketTargets = findAllPackageDists("@elizaos/plugin-polymarket", ["dist/index.js"]);
 
-if (!existsSync(polymarketTarget)) {
+if (polymarketTargets.length === 0) {
   console.log("[patch-deps] plugin-polymarket dist not found, skipping patch.");
-} else {
+}
+
+for (const polymarketTarget of polymarketTargets) {
+  console.log(`[patch-deps] Patching polymarket: ${polymarketTarget}`);
   let polymarketSrc = readFileSync(polymarketTarget, "utf8");
   let polymarketPatched = 0;
 
@@ -870,14 +918,14 @@ const validateActionRegex = () => true;`;
  * a fallback { name, description } instead of throwing.
  * Remove once plugin-evm publishes a fix.
  */
-const evmTarget = resolve(
-  root,
-  "node_modules/@elizaos/plugin-evm/dist/index.js",
-);
+const evmTargets = findAllPackageDists("@elizaos/plugin-evm", ["dist/index.js"]);
 
-if (!existsSync(evmTarget)) {
+if (evmTargets.length === 0) {
   console.log("[patch-deps] plugin-evm dist not found, skipping patch.");
-} else {
+}
+
+for (const evmTarget of evmTargets) {
+  console.log(`[patch-deps] Patching evm: ${evmTarget}`);
   let evmSrc = readFileSync(evmTarget, "utf8");
   let evmPatched = 0;
 
@@ -938,6 +986,108 @@ if (!existsSync(evmTarget)) {
     console.log(
       `[patch-deps] Wrote ${evmPatched} plugin-evm patch(es).`,
     );
+  }
+}
+
+/**
+ * Patch @elizaos/core: wrap ensureEmbeddingDimension() in try/catch so
+ * initResolver() always fires. Without this, a disposed ONNX model during
+ * runtime restart blocks ALL service registrations (including Polymarket).
+ */
+const coreTargets = findAllPackageDists("@elizaos/core", ["dist/node/index.node.js"]);
+if (coreTargets.length === 0) {
+  console.log("[patch-deps] @elizaos/core dist not found, skipping init-resolver patch.");
+} else {
+  for (const coreTarget of coreTargets) {
+    let coreSrc = readFileSync(coreTarget, "utf8");
+
+    // Patch 1: Wrap ensureEmbeddingDimension in try/catch
+    const initResolverBuggy = `    const embeddingModel = this.getModel(ModelType.TEXT_EMBEDDING);
+    if (!embeddingModel) {
+      this.logger.warn({ src: "agent", agentId: this.agentId }, "No TEXT_EMBEDDING model registered, skipping embedding setup");
+    } else {
+      await this.ensureEmbeddingDimension();
+    }
+    if (this.initResolver) {
+      this.initResolver();
+      this.initResolver = undefined;
+    }`;
+
+    const initResolverFixed = `    const embeddingModel = this.getModel(ModelType.TEXT_EMBEDDING);
+    if (!embeddingModel) {
+      this.logger.warn({ src: "agent", agentId: this.agentId }, "No TEXT_EMBEDDING model registered, skipping embedding setup");
+    } else {
+      try {
+        await this.ensureEmbeddingDimension();
+      } catch (embErr) {
+        this.logger.warn({ src: "agent", agentId: this.agentId, error: String(embErr) }, "ensureEmbeddingDimension failed — continuing without embeddings");
+      }
+    }
+    if (this.initResolver) {
+      this.logger.info({ src: "agent", agentId: this.agentId }, "initResolver() firing — services can now start");
+      this.initResolver();
+      this.initResolver = undefined;
+    }`;
+
+    if (coreSrc.includes("ensureEmbeddingDimension failed — continuing without embeddings")) {
+      // Already patched — check if initResolver logging is also present
+      if (!coreSrc.includes("initResolver() firing")) {
+        // Add the logging to the already-patched version
+        coreSrc = coreSrc.replace(
+          `    if (this.initResolver) {\n      this.initResolver();\n      this.initResolver = undefined;\n    }`,
+          `    if (this.initResolver) {\n      this.logger.info({ src: "agent", agentId: this.agentId }, "initResolver() firing — services can now start");\n      this.initResolver();\n      this.initResolver = undefined;\n    }`
+        );
+        console.log("[patch-deps] core init-resolver safety patch present; added initResolver logging.");
+      } else {
+        console.log("[patch-deps] core init-resolver safety patch + logging already present.");
+      }
+    } else if (coreSrc.includes(initResolverBuggy)) {
+      coreSrc = coreSrc.replace(initResolverBuggy, initResolverFixed);
+      console.log("[patch-deps] Applied core init-resolver safety patch + logging.");
+    } else {
+      console.log("[patch-deps] core init sequence changed; skip init-resolver patch.");
+    }
+
+    // Patch 2: Escalate service registration logging from debug to info
+    const svcDebugBuggy = `        this.serviceRegistrationStatus.set(serviceType, "pending");
+        this.registerService(service3).catch((error) => {`;
+    const svcDebugFixed = `        this.serviceRegistrationStatus.set(serviceType, "pending");
+        this.logger.info({ src: "agent", agentId: this.agentId, plugin: pluginToRegister.name, serviceType }, "Starting service registration for " + serviceType);
+        this.registerService(service3).catch((error) => {`;
+
+    if (coreSrc.includes("Starting service registration for")) {
+      console.log("[patch-deps] core service-registration logging already present.");
+    } else if (coreSrc.includes(svcDebugBuggy)) {
+      coreSrc = coreSrc.replace(svcDebugBuggy, svcDebugFixed);
+      console.log("[patch-deps] Applied core service-registration info logging.");
+    } else {
+      console.log("[patch-deps] core service-registration pattern changed; skip logging patch.");
+    }
+
+    // Patch 3: Escalate registerService internal logging
+    const regSvcDebugBuggy = `    this.logger.debug({ src: "agent", agentId: this.agentId, serviceType }, "Service waiting for init");`;
+    const regSvcDebugFixed = `    this.logger.info({ src: "agent", agentId: this.agentId, serviceType }, "Service waiting for init");`;
+
+    if (coreSrc.includes(regSvcDebugFixed)) {
+      console.log("[patch-deps] core registerService waiting-for-init logging already present.");
+    } else if (coreSrc.includes(regSvcDebugBuggy)) {
+      coreSrc = coreSrc.replace(regSvcDebugBuggy, regSvcDebugFixed);
+      console.log("[patch-deps] Applied core registerService waiting-for-init info logging.");
+    }
+
+    const regSvcRegisteredBuggy = `    this.logger.debug({ src: "agent", agentId: this.agentId, serviceType }, "Service registered");`;
+    const regSvcRegisteredFixed = `    this.logger.info({ src: "agent", agentId: this.agentId, serviceType }, "Service registered successfully");`;
+
+    if (coreSrc.includes("Service registered successfully")) {
+      console.log("[patch-deps] core registerService registered logging already present.");
+    } else if (coreSrc.includes(regSvcRegisteredBuggy)) {
+      coreSrc = coreSrc.replace(regSvcRegisteredBuggy, regSvcRegisteredFixed);
+      console.log("[patch-deps] Applied core registerService registered info logging.");
+    }
+
+    // Write all core patches
+    writeFileSync(coreTarget, coreSrc, "utf8");
+    console.log(`[patch-deps] Wrote core patches to ${coreTarget}`);
   }
 }
 

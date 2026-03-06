@@ -2397,6 +2397,16 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     // GitHub access for coding agent plugin
     "GITHUB_TOKEN",
     "GITHUB_OAUTH_CLIENT_ID",
+    // Polymarket / EVM plugin settings
+    "POLYMARKET_PRIVATE_KEY",
+    "POLYMARKET_SIGNATURE_TYPE",
+    "POLYMARKET_FUNDER_ADDRESS",
+    "POLYMARKET_ALLOW_CREATE_API_KEY",
+    "CLOB_API_URL",
+    "CLOB_API_KEY",
+    "CLOB_API_SECRET",
+    "CLOB_API_PASSPHRASE",
+    "CLOB_WS_URL",
   ];
 
   const secrets: Record<string, string> = {};
