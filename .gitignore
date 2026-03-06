@@ -5,6 +5,7 @@ dist
 coverage
 tmp/
 apps/app/electron/build/
+apps/app/electrobun/build/
 .bun
 .DS_Store
 **/.DS_Store
