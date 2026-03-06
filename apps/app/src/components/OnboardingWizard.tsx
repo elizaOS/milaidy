@@ -369,16 +369,30 @@ export function OnboardingWizard() {
     setState("onboardingRpcKeys", { ...onboardingRpcKeys, [keyName]: key });
   };
 
+  // Open a URL in the system browser. In Electrobun WKWebView, window.open()
+  // does not open an external browser — use the desktop:openExternal RPC
+  // instead. Falls back to window.open for plain browser dev.
+  const openInSystemBrowser = async (url: string) => {
+    const electron = (
+      window as {
+        electron?: {
+          ipcRenderer: { invoke: (channel: string, params?: unknown) => Promise<unknown> };
+        };
+      }
+    ).electron;
+    if (electron?.ipcRenderer) {
+      await electron.ipcRenderer.invoke("desktop:openExternal", { url });
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const handleAnthropicStart = async () => {
     setAnthropicError("");
     try {
       const { authUrl } = await client.startAnthropicLogin();
       if (authUrl) {
-        window.open(
-          authUrl,
-          "anthropic-oauth",
-          "width=600,height=700,top=50,left=200",
-        );
+        await openInSystemBrowser(authUrl);
         setAnthropicOAuthStarted(true);
         return;
       }
@@ -406,11 +420,7 @@ export function OnboardingWizard() {
     try {
       const { authUrl } = await client.startOpenAILogin();
       if (authUrl) {
-        window.open(
-          authUrl,
-          "openai-oauth",
-          "width=500,height=700,top=50,left=200",
-        );
+        await openInSystemBrowser(authUrl);
         setOpenaiOAuthStarted(true);
         return;
       }
