@@ -19,17 +19,20 @@ process.env.MILADY_DIST_PATH = MOCK_DIST_PATH;
 
 vi.mock("node:fs", () => {
   const existsSyncFn = vi.fn(() => true);
+  const rmSyncFn = vi.fn();
   return {
     default: {
       existsSync: existsSyncFn,
       mkdirSync: vi.fn(),
       appendFileSync: vi.fn(),
       readdirSync: vi.fn(() => ["server.js"]),
+      rmSync: rmSyncFn,
     },
     existsSync: existsSyncFn,
     mkdirSync: vi.fn(),
     appendFileSync: vi.fn(),
     readdirSync: vi.fn(() => ["server.js"]),
+    rmSync: rmSyncFn,
   };
 });
 
@@ -103,6 +106,16 @@ function createMockProcess(
   };
 }
 
+function makeReadableStream(text: string) {
+  const encoded = new TextEncoder().encode(text);
+  return new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(encoded);
+      c.close();
+    },
+  });
+}
+
 /** Get the mocked fs.existsSync function to configure behavior per-test */
 async function getExistsSyncMock(): Promise<Mock> {
   const fs = await import("node:fs");
@@ -126,6 +139,7 @@ describe("AgentManager", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     manager.dispose();
   });
 
@@ -177,7 +191,7 @@ describe("AgentManager", () => {
 
       const status = await manager.start();
       expect(status.state).toBe("error");
-      expect(status.error).toContain("server.js not found");
+      expect(status.error).toContain("eliza.js not found");
     });
 
     it("is idempotent when already running", async () => {
@@ -261,6 +275,43 @@ describe("AgentManager", () => {
       const status = await manager.start();
       expect(status.state).toBe("running");
       expect(status.agentName).toBe("Milady");
+    });
+
+    it("restarts once after a PGLite migration failure is detected", async () => {
+      vi.useFakeTimers();
+      const mockProc1 = createMockProcess({
+        pid: 111,
+        stderr: makeReadableStream("Failed query: create schema if not exists"),
+      });
+      const mockProc2 = createMockProcess({ pid: 222 });
+      mockSpawn.mockReturnValueOnce(mockProc1).mockReturnValueOnce(mockProc2);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      const status = await manager.start();
+      expect(status.state).toBe("running");
+
+      mockProc1._exitDeferred.resolve(1);
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(500);
+
+      const fs = await import("node:fs");
+      expect(fs.default.rmSync).toHaveBeenCalledWith(
+        "/mock/home/.milady/workspace/.eliza/.elizadb",
+        { recursive: true, force: true },
+      );
+      expect(mockSpawn).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
     });
   });
 

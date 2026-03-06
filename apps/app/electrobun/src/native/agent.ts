@@ -210,6 +210,7 @@ async function watchStdoutForReady(
 async function drainStderrToLog(
   stream: ReadableStream<Uint8Array>,
   signal: AbortSignal,
+  onLine?: (line: string) => void,
 ): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = "";
@@ -227,11 +228,13 @@ async function drainStderrToLog(
       for (const line of lines) {
         if (line.trim()) {
           diagnosticLog(`[Agent][stderr] ${line}`);
+          onLine?.(line);
         }
       }
     }
     if (buffer.trim()) {
       diagnosticLog(`[Agent][stderr] ${buffer}`);
+      onLine?.(buffer);
     }
     reader.releaseLock();
   } catch (err) {
@@ -240,6 +243,28 @@ async function drainStderrToLog(
         `[Agent] stderr drain error: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  }
+}
+
+// Any PGLite query failure is unrecoverable within the same process (stale WASM state).
+// Catch all "Failed query:" patterns so we auto-recover from any DB corruption.
+const PGLITE_MIGRATION_RE = /Failed query:|create schema if not exists/i;
+
+function resolvePgliteDataDir(): string {
+  return path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb");
+}
+
+function deletePgliteDataDir(): void {
+  const dir = resolvePgliteDataDir();
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      diagnosticLog(`[Agent] Deleted corrupt PGLite data dir: ${dir}`);
+    }
+  } catch (err) {
+    diagnosticLog(
+      `[Agent] Failed to delete PGLite data dir: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -258,6 +283,8 @@ export class AgentManager {
   };
   private childProcess: BunSubprocess | null = null;
   private stdioAbortController: AbortController | null = null;
+  private hasPgliteError = false;
+  private pgliteRecoveryDone = false;
 
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
@@ -273,6 +300,9 @@ export class AgentManager {
     if (this.status.state === "running" || this.status.state === "starting") {
       return this.status;
     }
+
+    // Reset per-startup flags
+    this.pgliteRecoveryDone = false;
 
     // Clean up any stale process before starting
     if (this.childProcess) {
@@ -426,9 +456,14 @@ export class AgentManager {
         });
       }
 
-      // Drain stderr to diagnostic log
+      // Drain stderr to diagnostic log; detect PGLite migration failures
+      this.hasPgliteError = false;
       if (proc.stderr) {
-        drainStderrToLog(proc.stderr, signal).catch(() => {
+        drainStderrToLog(proc.stderr, signal, (line) => {
+          if (PGLITE_MIGRATION_RE.test(line)) {
+            this.hasPgliteError = true;
+          }
+        }).catch(() => {
           // Stream ended or aborted -- expected on shutdown
         });
       }
@@ -600,6 +635,27 @@ export class AgentManager {
             `[Agent] Child process exited unexpectedly with code ${exitCode} (pid: ${proc.pid})`,
           );
           this.childProcess = null;
+
+          // Auto-recover from PGLite migration failures by deleting the DB
+          // and spawning a fresh process (new process = fresh WASM state).
+          if (this.hasPgliteError && !this.pgliteRecoveryDone) {
+            this.pgliteRecoveryDone = true;
+            diagnosticLog(
+              "[Agent] PGLite migration error detected — deleting DB and retrying with fresh process",
+            );
+            deletePgliteDataDir();
+            this.status = {
+              state: "not_started",
+              agentName: null,
+              port: null,
+              startedAt: null,
+              error: null,
+            };
+            // Delay slightly so OS releases file handles before respawn
+            setTimeout(() => void this.start(), 500);
+            return;
+          }
+
           this.status = {
             state: "error",
             agentName: this.status.agentName,

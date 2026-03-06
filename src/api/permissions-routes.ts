@@ -190,6 +190,7 @@ export async function handlePermissionRoutes(
   if (method === "PUT" && pathname === "/api/permissions/state") {
     const body = await readJsonBody<{
       permissions?: Record<string, PermissionState>;
+      startup?: boolean;
     }>(req, res);
     if (!body) return true;
 
@@ -229,7 +230,9 @@ export async function handlePermissionRoutes(
 
       if (configChanged) {
         saveConfig(state.config);
-        if (state.runtime) {
+        // Skip restart scheduling on startup sync — the agent just started
+        // with the correct plugin list after config was saved above.
+        if (state.runtime && !body.startup) {
           scheduleRuntimeRestart("Auto-enabled newly permitted capabilities");
         }
       }

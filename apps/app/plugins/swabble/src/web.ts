@@ -146,7 +146,7 @@ export class SwabbleWeb extends WebPlugin {
 
   /** True when running inside Electrobun (vs plain Electron). */
   private isElectrobun(): boolean {
-    return !!(window as Record<string, unknown>).__ELECTROBUN__;
+    return !!(window as unknown as Record<string, unknown>).__ELECTROBUN__;
   }
 
   private setupNativeListeners(): void {

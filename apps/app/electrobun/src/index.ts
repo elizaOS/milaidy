@@ -24,6 +24,7 @@ import {
   setNativeDragRegion,
   setTrafficLightsPosition,
 } from "./native/mac-window-effects";
+import { getPermissionManager } from "./native/permissions";
 import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 
@@ -37,6 +38,8 @@ function setupApplicationMenu(): void {
       label: "Milady",
       submenu: [
         { role: "about" },
+        { type: "separator" },
+        { label: "Restart Agent", action: "restart-agent" },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -450,6 +453,26 @@ function injectApiBase(win: BrowserWindow): void {
 // Agent Startup
 // ============================================================================
 
+/**
+ * Push real OS permission states into the agent REST API so the renderer's
+ * PermissionsSection shows correct statuses and capability toggles unlock.
+ */
+async function syncPermissionsToRestApi(
+  port: number,
+  startup = false,
+): Promise<void> {
+  try {
+    const permissions = await getPermissionManager().checkAllPermissions();
+    await fetch(`http://localhost:${port}/api/permissions/state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions, startup }),
+    });
+  } catch (err) {
+    console.warn("[Main] Permission sync failed:", err);
+  }
+}
+
 async function startAgent(win: BrowserWindow): Promise<void> {
   const agent = getAgentManager();
 
@@ -465,6 +488,11 @@ async function startAgent(win: BrowserWindow): Promise<void> {
       if (!resolution.base) {
         pushApiBaseToRenderer(win, `http://localhost:${status.port}`);
       }
+      // Sync real OS permission states to the REST API so the renderer
+      // can display them and capability toggles can unlock.
+      // Pass startup=true so the backend skips scheduling a restart for
+      // capabilities that are being auto-enabled for the first time.
+      syncPermissionsToRestApi(status.port, true);
     }
   } catch (err) {
     console.error("[Main] Agent start failed:", err);
@@ -576,6 +604,8 @@ async function main(): Promise<void> {
       menu: [
         { id: "show", label: "Show Milady", type: "normal" },
         { id: "sep1", type: "separator" },
+        { id: "restart-agent", label: "Restart Agent", type: "normal" },
+        { id: "sep2", type: "separator" },
         { id: "quit", label: "Quit", type: "normal" },
       ],
     });

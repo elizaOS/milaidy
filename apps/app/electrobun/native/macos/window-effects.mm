@@ -1,4 +1,7 @@
 #import <Cocoa/Cocoa.h>
+#import <ApplicationServices/ApplicationServices.h>
+#import <AVFoundation/AVFoundation.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 static NSString *const kElectrobunVibrancyViewIdentifier =
 	@"ElectrobunVibrancyView";
@@ -47,6 +50,98 @@ static ElectrobunNativeDragView *findNativeDragView(NSView *contentView) {
 	}
 
 	return nil;
+}
+
+/**
+ * Request accessibility permission with a system prompt.
+ * Calls AXIsProcessTrustedWithOptions({kAXTrustedCheckOptionPrompt: true}),
+ * which registers the app in System Preferences → Accessibility and shows the
+ * authorization dialog. Must be called from within the app process.
+ * Returns true if already trusted, false if the prompt was shown.
+ */
+extern "C" bool requestAccessibilityPermission(void) {
+	NSDictionary *options = @{(__bridge id)kAXTrustedCheckOptionPrompt: @YES};
+	return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+}
+
+/**
+ * Check accessibility trust without prompting.
+ */
+extern "C" bool checkAccessibilityPermission(void) {
+	return AXIsProcessTrusted();
+}
+
+/**
+ * Request screen recording permission.
+ * Calls CGRequestScreenCaptureAccess() which registers the app in
+ * System Preferences → Screen Recording and shows the authorization dialog.
+ * Returns true if already granted.
+ */
+extern "C" bool requestScreenRecordingPermission(void) {
+	if (@available(macOS 10.15, *)) {
+		return CGRequestScreenCaptureAccess();
+	}
+	return true;
+}
+
+/**
+ * Check screen recording permission without prompting.
+ */
+extern "C" bool checkScreenRecordingPermission(void) {
+	if (@available(macOS 10.15, *)) {
+		return CGPreflightScreenCaptureAccess();
+	}
+	return true;
+}
+
+/**
+ * Check microphone authorization status via AVFoundation (no prompt).
+ * Returns: 0=not-determined, 1=denied, 2=granted, 3=restricted
+ */
+extern "C" int checkMicrophonePermission(void) {
+	AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+	switch (status) {
+		case AVAuthorizationStatusAuthorized: return 2;
+		case AVAuthorizationStatusDenied:     return 1;
+		case AVAuthorizationStatusRestricted: return 3;
+		default:                              return 0;
+	}
+}
+
+/**
+ * Check camera authorization status via AVFoundation (no prompt).
+ * Returns: 0=not-determined, 1=denied, 2=granted, 3=restricted
+ */
+extern "C" int checkCameraPermission(void) {
+	AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+	switch (status) {
+		case AVAuthorizationStatusAuthorized: return 2;
+		case AVAuthorizationStatusDenied:     return 1;
+		case AVAuthorizationStatusRestricted: return 3;
+		default:                              return 0;
+	}
+}
+
+/**
+ * Request camera permission via AVFoundation.
+ * Calls AVCaptureDevice requestAccessForMediaType which shows the system
+ * camera authorization dialog and registers the app.
+ */
+extern "C" void requestCameraPermission(void) {
+	[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo
+	                         completionHandler:^(BOOL granted) {
+		(void)granted;
+	}];
+}
+
+/**
+ * Request microphone permission via AVFoundation.
+ */
+extern "C" void requestMicrophonePermission(void) {
+	[AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio
+	                         completionHandler:^(BOOL granted) {
+		(void)granted;
+	}];
 }
 
 extern "C" bool enableWindowVibrancy(void *windowPtr) {
