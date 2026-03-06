@@ -303,7 +303,20 @@ function usePermissionActions(
 
   const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
     try {
-      await client.openPermissionSettings(id);
+      // Use IPC directly — the REST endpoint only returns an action code and
+      // never actually opens System Preferences in Electrobun.
+      const electron = (
+        window as {
+          electron?: {
+            ipcRenderer: { invoke: (ch: string, p?: unknown) => Promise<unknown> };
+          };
+        }
+      ).electron;
+      if (electron?.ipcRenderer) {
+        await electron.ipcRenderer.invoke("permissions:openSettings", { id });
+      } else {
+        await client.openPermissionSettings(id);
+      }
     } catch (err) {
       console.error("Failed to open settings:", err);
     }
@@ -416,14 +429,34 @@ export function PermissionsSection() {
       <div>
         <div className="flex justify-between items-center mb-3">
           <div className="font-bold text-sm">System Permissions</div>
-          <button
-            type="button"
-            className="btn text-[11px] py-1 px-2.5"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn text-[11px] py-1 px-2.5"
+              onClick={async () => {
+                for (const def of applicablePermissions) {
+                  if (def.id === "shell") continue;
+                  const state = permissions[def.id];
+                  if (state?.status === "granted") continue;
+                  if (state?.canRequest) {
+                    await handleRequest(def.id);
+                  } else {
+                    await handleOpenSettings(def.id);
+                  }
+                }
+              }}
+            >
+              Allow All
+            </button>
+            <button
+              type="button"
+              className="btn text-[11px] py-1 px-2.5"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
         </div>
         <div className="border border-[var(--border)] bg-[var(--card)]">
           {applicablePermissions.map((def) => {
@@ -616,6 +649,30 @@ export function PermissionsOnboardingSection({
           );
         })}
       </div>
+
+      {/* Allow All shortcut */}
+      {!allGranted && (
+        <div className="flex justify-center mb-4">
+          <button
+            type="button"
+            className="btn text-xs py-2 px-6 w-full max-w-xs"
+            style={{ background: "var(--accent)", borderColor: "var(--accent)" }}
+            onClick={async () => {
+              for (const def of essentialPermissions) {
+                const state = permissions[def.id];
+                if (state?.status === "granted") continue;
+                if (state?.canRequest) {
+                  await handleRequest(def.id);
+                } else {
+                  await handleOpenSettings(def.id);
+                }
+              }
+            }}
+          >
+            Allow All Permissions
+          </button>
+        </div>
+      )}
 
       <div className="flex justify-center gap-3">
         <button
