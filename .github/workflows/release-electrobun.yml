@@ -356,8 +356,7 @@ jobs:
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
-          shopt -s nullglob
-          apps=(apps/app/electrobun/artifacts/**/*.app apps/app/electrobun/artifacts/*.app)
+          mapfile -t apps < <(find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app" | sort)
           mounted_volume=""
           if [ "${#apps[@]}" -eq 0 ]; then
             dmgs=(apps/app/electrobun/artifacts/*.dmg)
@@ -374,7 +373,7 @@ jobs:
             fi
             mounted_volume="$mount_line"
             trap 'if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true; fi' EXIT
-            apps=("$mounted_volume"/*.app "$mounted_volume"/**/*.app)
+            mapfile -t apps < <(find "$mounted_volume" -maxdepth 1 -type d -name "*.app" | sort)
             if [ "${#apps[@]}" -eq 0 ]; then
               echo "::error::No .app bundle found inside mounted DMG"
               exit 1
