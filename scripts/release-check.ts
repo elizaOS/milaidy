@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --import tsx
 
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 type PackFile = { path: string };
 type PackResult = { files?: PackFile[] };
@@ -11,6 +12,11 @@ const requiredPaths = [
   "dist/build-info.json",
 ];
 const forbiddenPrefixes = ["dist/Milady.app/"];
+const requiredWorkflowSnippets = [
+  "Install notarization-safe xcrun wrapper",
+  "apps/app/electrobun/scripts/xcrun-wrapper.sh",
+  "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
+];
 
 function runPackDry(): PackResult[] {
   const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
@@ -21,7 +27,23 @@ function runPackDry(): PackResult[] {
   return JSON.parse(raw) as PackResult[];
 }
 
+function assertReleaseWorkflowHasNotaryWrapper() {
+  const workflow = readFileSync(".github/workflows/release-electrobun.yml", "utf8");
+  const missing = requiredWorkflowSnippets.filter((snippet) =>
+    !workflow.includes(snippet),
+  );
+
+  if (missing.length > 0) {
+    console.error("release-check: release workflow is missing notary wrapper wiring:");
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
 function main() {
+  assertReleaseWorkflowHasNotaryWrapper();
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));
