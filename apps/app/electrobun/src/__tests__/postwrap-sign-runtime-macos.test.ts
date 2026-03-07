@@ -54,6 +54,12 @@ describe("resolveRuntimeNodeModulesPath", () => {
       resolveRuntimeNodeModulesPath(["/tmp/milady-dist"], {}),
     ).toBe("/tmp/milady-dist/node_modules");
   });
+
+  it("accepts an explicit dist/node_modules path for pre-wrap signing", () => {
+    expect(
+      resolveRuntimeNodeModulesPath(["/tmp/dist/node_modules"], {}),
+    ).toBe("/tmp/dist/node_modules");
+  });
 });
 
 describe("shouldConsiderForCodesign", () => {
