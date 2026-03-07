@@ -193,8 +193,9 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           if [ -z "$CSC_LINK" ]; then
-            echo "::error::CSC_LINK secret not set — macOS codesigning requires a valid .p12 certificate"
-            exit 1
+            echo "::warning::CSC_LINK not set — building unsigned (no codesign/notarize)"
+            echo "skip_codesign=1" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           KEYCHAIN_PATH="$RUNNER_TEMP/milady-signing.keychain-db"
@@ -230,14 +231,15 @@ jobs:
           fi
           echo "Signing identity: $IDENTITY"
           echo "developer_id=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "skip_codesign=" >> "$GITHUB_OUTPUT"
+
+      # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
+      # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
+      - name: Install electrobun CLI
+        run: bun install -g electrobun@1.14.4
 
       - name: Build Electrobun app
-        # bunx extracts to node_modules/.bun/electrobun@X.Y.Z/ — the @ in that path
-        # causes GNU tar to treat it as user@host on Windows, breaking the native CLI
-        # download. Use the locally installed binary from node_modules/.bin instead.
-        run: |
-          export PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH"
-          electrobun build --env=${{ needs.prepare.outputs.env }}
+        run: electrobun build --env=${{ needs.prepare.outputs.env }}
         working-directory: apps/app/electrobun
         env:
           # macOS code-signing + notarization (Electrobun reads these directly)
@@ -245,6 +247,7 @@ jobs:
           ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
+          ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
 
       - name: List build output
         run: |

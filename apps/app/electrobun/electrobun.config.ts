@@ -28,8 +28,8 @@ export default {
         : {}),
     },
     mac: {
-      codesign: true,
-      notarize: true,
+      codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
+      notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
       defaultRenderer: "native",
       icons: "assets/appIcon.iconset",
       entitlements: {
