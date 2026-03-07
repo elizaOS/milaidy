@@ -22,6 +22,7 @@ import { ConversationsSidebar } from "./components/ConversationsSidebar";
 import { CustomActionEditor } from "./components/CustomActionEditor";
 import { CustomActionsPanel } from "./components/CustomActionsPanel";
 import { EmotePicker } from "./components/EmotePicker";
+import { FloatingChatInput } from "./components/FloatingChatInput";
 import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
@@ -166,6 +167,7 @@ export function App() {
   );
   const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
   const [mobileAutonomousOpen, setMobileAutonomousOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   const isChat = tab === "chat";
   const isAdvancedTab =
@@ -307,11 +309,7 @@ export function App() {
   const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
 
   useLifoAutoPopout({
-    enabled:
-      !lifoPopoutMode &&
-      !onboardingLoading &&
-      onboardingComplete &&
-      !authRequired,
+    enabled: false,
     targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
     onPopupBlocked: () => {
       setActionNotice(
@@ -461,13 +459,17 @@ export function App() {
       ) : (
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
-          <Nav />
+          <Nav
+            collapsed={navCollapsed}
+            onToggleCollapse={() => setNavCollapsed((v) => !v)}
+          />
           <main
             className={`flex-1 min-h-0 py-4 px-3 xl:py-6 xl:px-5 ${isAdvancedTab ? "overflow-hidden" : "overflow-y-auto"}`}
           >
             <ViewRouter />
           </main>
           <TerminalPanel />
+          {navCollapsed && <FloatingChatInput />}
         </div>
       )}
       {/* Persistent game overlay — stays visible across all tabs */}

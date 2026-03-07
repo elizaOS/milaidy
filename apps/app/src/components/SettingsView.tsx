@@ -340,39 +340,29 @@ function AdvancedSection() {
     <div className="space-y-6">
       {/* Export/Import */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <button
-          type="button"
-          className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
-        >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-            <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+        <div className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg opacity-50 cursor-not-allowed select-none">
+          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center">
+            <Download className="w-5 h-5 text-accent" />
           </div>
           <div>
             <div className="font-medium text-sm">
               {t("settings.exportAgent")}
             </div>
-            <div className="text-xs text-muted">
-              {t("settings.exportAgentShort")}
-            </div>
+            <div className="text-xs text-muted">Coming soon</div>
           </div>
-        </button>
+        </div>
 
-        <button
-          type="button"
-          className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
-        >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-            <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+        <div className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg opacity-50 cursor-not-allowed select-none">
+          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center">
+            <Upload className="w-5 h-5 text-accent" />
           </div>
           <div>
             <div className="font-medium text-sm">
               {t("settings.importAgent")}
             </div>
-            <div className="text-xs text-muted">
-              {t("settings.importAgentShort")}
-            </div>
+            <div className="text-xs text-muted">Coming soon</div>
           </div>
-        </button>
+        </div>
       </div>
 
       {/* Danger Zone */}
@@ -677,42 +667,69 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
   /* ── Companion modal layout (dark glass) ───────────────────────────── */
   if (inModal) {
     return (
-      <div className="settings-modal-layout">
-        <nav className="settings-icon-sidebar">
-          {SETTINGS_SECTIONS.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                className={`settings-icon-btn ${activeSection === section.id ? "is-active" : ""}`}
-                onClick={() => handleSectionChange(section.id)}
-                title={section.description}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="settings-icon-label">{section.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-        <div
-          ref={contentRef}
-          className="settings-content-area"
-          style={
-            {
-              "--accent": "#7b8fb5",
-              "--surface": "rgba(255, 255, 255, 0.06)",
-              "--s-accent": "#7b8fb5",
-              "--s-text-accent": "#7b8fb5",
-              "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
-              "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
-              "--s-grid-line": "rgba(123, 143, 181, 0.02)",
-              "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
-            } as React.CSSProperties
-          }
-        >
-          <div className="settings-section-pane pt-4">
-            <div className="space-y-8 pb-20">{sectionsContent}</div>
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header bar with title + close button */}
+        <div className="settings-modal-header">
+          <div className="flex items-center gap-2.5">
+            <Sliders
+              className="w-4 h-4"
+              style={{ color: "rgba(240, 178, 50, 0.85)" }}
+            />
+            <span
+              className="text-[11px] font-bold tracking-[0.12em] uppercase"
+              style={{ color: "rgba(240, 238, 250, 0.85)" }}
+            >
+              Settings
+            </span>
+          </div>
+          <button
+            type="button"
+            className="settings-modal-header-close"
+            onClick={() => setTab("companion")}
+            aria-label="Close settings"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Sidebar + content */}
+        <div className="settings-modal-layout">
+          <nav className="settings-icon-sidebar">
+            {SETTINGS_SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`settings-icon-btn ${activeSection === section.id ? "is-active" : ""}`}
+                  onClick={() => handleSectionChange(section.id)}
+                  title={section.description}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="settings-icon-label">{section.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div
+            ref={contentRef}
+            className="settings-content-area"
+            style={
+              {
+                "--accent": "#7b8fb5",
+                "--surface": "rgba(255, 255, 255, 0.06)",
+                "--s-accent": "#7b8fb5",
+                "--s-text-accent": "#7b8fb5",
+                "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
+                "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
+                "--s-grid-line": "rgba(123, 143, 181, 0.02)",
+                "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
+              } as React.CSSProperties
+            }
+          >
+            <div className="settings-section-pane">
+              <div className="space-y-8 pb-20">{sectionsContent}</div>
+            </div>
           </div>
         </div>
       </div>

@@ -15,7 +15,6 @@ import { CompanionView } from "./CompanionView";
 import { ConnectorsPageView } from "./ConnectorsPageView";
 import {
   ACCENT_COLORS,
-  COMPANION_OVERLAY_TABS,
   cardBackground,
   cardBorderColor,
   cardBoxShadow,
@@ -125,9 +124,9 @@ export function CompanionShell({ tab }: CompanionShellProps) {
 
               <DecorativeElements tab={tab} f={f} accentColor={accentColor} />
 
-              {/* Close button — non-centered (side panel) only */}
-              {!f.isCentered && (
-                <CloseButton centered={false} onClick={close} />
+              {/* Close button — settings handles its own; all other panels get one here */}
+              {!f.isSettings && (
+                <CloseButton centered={f.isCentered} onClick={close} />
               )}
 
               {/* View content with overridden CSS variables */}
@@ -139,7 +138,9 @@ export function CompanionShell({ tab }: CompanionShellProps) {
                 {f.isCharacter && <CharacterView inModal />}
                 {f.isSettings && <SettingsView inModal />}
                 {f.isPlugins && <PluginsView inModal />}
-                {f.isAdvancedOverlay && <AdvancedPageView inModal />}
+                {f.isAdvancedOverlay && !f.isStream && !f.isLifo && (
+                  <AdvancedPageView inModal />
+                )}
                 {f.isApps && <AppsPageView inModal />}
                 {f.isConnectors && <ConnectorsPageView inModal />}
                 {f.isKnowledge && <KnowledgeView inModal />}
@@ -148,8 +149,7 @@ export function CompanionShell({ tab }: CompanionShellProps) {
                 {f.isWallets && <InventoryView inModal />}
               </div>
             </div>
-            {/* Close button — centered modal, outside card */}
-            {f.isCentered && <CloseButton centered onClick={close} />}
+            {/* (close button is now inside the card, not here) */}
           </div>
         )}
       </div>

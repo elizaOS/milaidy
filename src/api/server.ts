@@ -7288,6 +7288,7 @@ async function handleRequest(
       json,
       error,
       pickRandomNames,
+      saveConfig: saveMiladyConfig,
     })
   ) {
     return;

@@ -54,10 +54,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "header.manageWallets": "Click to manage wallets",
     "header.copied": "Copied!",
     "header.copy": "Copy",
-    "header.nativeMode": "Native Mode",
-    "header.companionMode": "Companion Mode",
-    "header.switchToCompanion": "Switch to Companion",
-    "header.switchToNative": "Switch to Native",
+    "header.nativeMode": "Dev Mode",
+    "header.companionMode": "Companion",
+    "header.switchToCompanion": "Companion",
+    "header.switchToNative": "Dev Mode",
     "header.aiAgent": "AI Agent",
 
     // Pairing
@@ -1212,7 +1212,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "companion.customVrmActive": "custom VRM active",
     "companion.avatarPreviewAlt": "Avatar preview",
     "companion.characterSettings": "Character settings",
-    "companion.switchToNativeUi": "Switch to native UI",
+    "companion.switchToNativeUi": "Switch to dev mode",
   },
   "zh-CN": {
     // Common
@@ -1261,10 +1261,10 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "header.manageWallets": "点击管理钱包",
     "header.copied": "已复制！",
     "header.copy": "复制",
-    "header.nativeMode": "原生模式",
-    "header.companionMode": "伴侣模式",
-    "header.switchToCompanion": "切换到伴侣",
-    "header.switchToNative": "切换到原生",
+    "header.nativeMode": "开发模式",
+    "header.companionMode": "伴侣",
+    "header.switchToCompanion": "伴侣",
+    "header.switchToNative": "开发模式",
     "header.aiAgent": "AI 代理",
 
     // Pairing

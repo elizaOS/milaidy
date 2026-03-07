@@ -1,5 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { logger, ModelType } from "@elizaos/core";
+import type { MiladyConfig } from "../config/config";
 import { CharacterSchema } from "../config/zod-schema";
 import type { RouteRequestContext } from "./route-helpers";
 
@@ -11,17 +12,24 @@ interface CharacterGenerateContext {
   postExamples?: string[];
 }
 
-type CharacterGenerateField = "bio" | "style" | "chatExamples" | "postExamples";
+type CharacterGenerateField =
+  | "bio"
+  | "system"
+  | "style"
+  | "chatExamples"
+  | "postExamples";
 type CharacterGenerateMode = "append" | "replace";
 
 export interface CharacterRouteState {
   runtime: AgentRuntime | null;
   agentName: string;
+  config: MiladyConfig;
 }
 
 export interface CharacterRouteContext extends RouteRequestContext {
   state: CharacterRouteState;
   pickRandomNames: (count: number) => string[];
+  saveConfig: (config: MiladyConfig) => void;
 }
 
 function buildCharacterSummary(ctx: CharacterGenerateContext): string {
@@ -44,6 +52,10 @@ function buildGeneratePrompt(
 
   if (field === "bio") {
     return `Given this character:\n${charSummary}\n\nWrite a concise, compelling bio for this character (3-4 short paragraphs, one per line). Just output the bio lines, nothing else. Match the character's voice and personality.`;
+  }
+
+  if (field === "system") {
+    return `Given this character:\n${charSummary}\n\nWrite a system prompt that defines this character's core behavior, personality, and purpose. It should instruct an AI to embody this character — their tone, values, knowledge, and interaction style. 2-4 sentences. Just output the system prompt text, nothing else.`;
   }
 
   if (field === "style") {
@@ -158,6 +170,7 @@ export async function handleCharacterRoutes(
     json,
     error,
     pickRandomNames,
+    saveConfig,
   } = ctx;
 
   // ── GET /api/character ────────────────────────────────────────────────
@@ -195,7 +208,7 @@ export async function handleCharacterRoutes(
       return true;
     }
 
-    // Character data lives in the runtime (backed by DB), not the config file.
+    // Update in-memory runtime character.
     if (state.runtime) {
       const character = state.runtime.character;
       if (body.name != null) character.name = String(body.name);
@@ -212,6 +225,27 @@ export async function handleCharacterRoutes(
         character.style = body.style as NonNullable<typeof character.style>;
       if (body.postExamples != null)
         character.postExamples = body.postExamples as string[];
+    }
+
+    // Persist to config so character survives agent restarts.
+    const agents = state.config.agents;
+    if (agents?.list?.length) {
+      const agentEntry = agents.list[0] as Record<string, unknown>;
+      if (body.name != null) agentEntry.name = body.name;
+      if (body.bio != null) agentEntry.bio = body.bio;
+      if (body.system != null) agentEntry.system = body.system;
+      if (body.adjectives != null) agentEntry.adjectives = body.adjectives;
+      if (body.topics != null) agentEntry.topics = body.topics;
+      if (body.style != null) agentEntry.style = body.style;
+      if (body.postExamples != null)
+        agentEntry.postExamples = body.postExamples;
+      try {
+        saveConfig(state.config);
+      } catch (err) {
+        logger.warn(
+          `[character] Config save failed: ${err instanceof Error ? err.message : err}`,
+        );
+      }
     }
 
     if (body.name) state.agentName = String(body.name);
@@ -248,6 +282,7 @@ export async function handleCharacterRoutes(
 
     if (
       body.field !== "bio" &&
+      body.field !== "system" &&
       body.field !== "style" &&
       body.field !== "chatExamples" &&
       body.field !== "postExamples"

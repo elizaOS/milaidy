@@ -2471,15 +2471,20 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  opacity: 0;
+  transition:
+    transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    opacity 0.2s ease;
 }
 
 .anime-hub-btn:hover {
   transform: translateX(-6px);
+  opacity: 1;
 }
 
 .anime-hub-btn.is-active {
   transform: translateX(-6px);
+  opacity: 0.75;
 }
 
 /* Sci-fi Circular Icon Container */
@@ -3213,6 +3218,8 @@
   display: flex;
   height: 100%;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .settings-icon-sidebar {
@@ -3295,10 +3302,46 @@
 .settings-section-pane {
   flex: 1;
   min-height: 0;
-  padding: 0 24px 24px;
+  padding: 24px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+/* ── Settings modal header bar ───────────────────────────────────────── */
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px 11px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(4, 5, 10, 0.96);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.settings-modal-header-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-modal-header-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* ── Group 2: Decorative pseudo-elements ─────────────────────────────── */
@@ -6230,6 +6273,7 @@
 
 .chat-game-thread {
   min-height: 0;
+  overflow: hidden;
   display: flex;
   background: linear-gradient(
     180deg,
@@ -6792,5 +6836,27 @@
     min-width: 108px;
     height: 40px;
     font-size: 12px;
+  }
+}
+
+/* ── CompanionAgentBubble animations ──────────────────────────────── */
+@keyframes bubbleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }

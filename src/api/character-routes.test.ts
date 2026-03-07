@@ -1,5 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { MiladyConfig } from "../config/config";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   type CharacterRouteState,
@@ -26,12 +27,17 @@ function createRuntimeStub(): AgentRuntime {
 describe("character routes", () => {
   let state: CharacterRouteState;
   let pickRandomNames: ReturnType<typeof vi.fn>;
+  let saveConfig: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     pickRandomNames = vi.fn(() => ["Reimu"]);
+    saveConfig = vi.fn();
     state = {
       runtime: createRuntimeStub(),
       agentName: "Milady",
+      config: {
+        agents: { list: [{ name: "Milady" }] },
+      } as MiladyConfig,
     };
   });
 
@@ -51,6 +57,7 @@ describe("character routes", () => {
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
         pickRandomNames,
+        saveConfig,
       }),
     { runtimeProvider: () => state },
   );
@@ -101,6 +108,12 @@ describe("character routes", () => {
       ok: true,
       agentName: "Sakuya",
     });
+    expect(saveConfig).toHaveBeenCalledWith(state.config);
+    expect(state.config.agents?.list?.[0]).toMatchObject({
+      name: "Sakuya",
+      bio: ["new bio"],
+      system: "new system",
+    });
   });
 
   test("returns 422 for invalid character payload", async () => {
@@ -150,6 +163,23 @@ describe("character routes", () => {
       (state.runtime as unknown as { useModel: ReturnType<typeof vi.fn> })
         .useModel,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  test("accepts system as a valid generation field", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/character/generate",
+      body: {
+        field: "system",
+        context: {
+          name: "Milady",
+          bio: "bio text",
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({ generated: "generated output" });
   });
 
   test("returns error when generation field is unknown", async () => {
