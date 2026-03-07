@@ -236,10 +236,10 @@ jobs:
         id: codex-review
         if: steps.claude-review.outcome == 'failure'
         continue-on-error: true
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@6cc44d1dba0a8f29ee3cd8e5f5aa8d4bff8b448b  # v1.0.2
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: gpt-5.3-codex
+          model: gpt-4o
           effort: xhigh
           safety-strategy: read-only
           prompt: |

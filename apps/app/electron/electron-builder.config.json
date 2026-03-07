@@ -1,4 +1,5 @@
 {
+  "npmRebuild": false,
   "appId": "com.miladyai.milady",
   "productName": "Milady",
   "directories": {
@@ -14,30 +15,37 @@
     "milady-dist/**/*",
     "*.tar.gz"
   ],
-  "asarUnpack": ["milady-dist/**/*", "node_modules/**/*", "*.tar.gz"],
+  "asarUnpack": [
+    "milady-dist/**/*",
+    "*.tar.gz",
+    "node_modules/@tensorflow/tfjs-node/lib/**"
+  ],
   "publish": {
     "provider": "github",
     "owner": "milady-ai",
     "repo": "milady"
   },
+  "compression": "normal",
   "nsis": {
-    "allowElevation": true,
     "oneClick": false,
-    "allowToChangeInstallationDirectory": true
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Milady",
+    "include": "resources/windows-long-paths.nsh"
   },
   "win": {
     "target": "nsis",
-    "icon": "assets/appIcon.ico",
-    "azureSignOptions": {
-      "endpoint": "https://eus.codesigning.azure.net/",
-      "certificateProfileName": "milady-code-sign",
-      "codeSigningAccountName": "milady",
-      "publisherName": "Milady AI"
-    }
+    "icon": "assets/appIcon.ico"
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "target": ["dmg", "zip"],
+    "target": [
+      "dmg",
+      "zip"
+    ],
     "icon": "assets/appIcon.png",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -68,7 +76,10 @@
     ]
   },
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": [
+      "AppImage",
+      "deb"
+    ],
     "category": "Utility",
     "icon": "assets/appIcon.png"
   }
