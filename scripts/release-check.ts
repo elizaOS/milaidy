@@ -13,9 +13,11 @@ const requiredPaths = [
 ];
 const forbiddenPrefixes = ["dist/Milady.app/"];
 const requiredWorkflowSnippets = [
-  "Install notarization-safe xcrun wrapper",
+  "Install quiet macOS packaging wrappers",
   "apps/app/electrobun/scripts/xcrun-wrapper.sh",
+  "apps/app/electrobun/scripts/zip-wrapper.sh",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
+  "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
 ];
 
 function runPackDry(): PackResult[] {

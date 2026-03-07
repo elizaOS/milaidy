@@ -252,13 +252,15 @@ jobs:
           codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$DYLIB"
           codesign --verify --strict --verbose=2 "$DYLIB"
 
-      - name: Install notarization-safe xcrun wrapper
+      - name: Install quiet macOS packaging wrappers
         if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
         run: |
           wrapper_dir="$RUNNER_TEMP/milady-notary-bin"
           mkdir -p "$wrapper_dir"
           cp apps/app/electrobun/scripts/xcrun-wrapper.sh "$wrapper_dir/xcrun"
+          cp apps/app/electrobun/scripts/zip-wrapper.sh "$wrapper_dir/zip"
           chmod +x "$wrapper_dir/xcrun"
+          chmod +x "$wrapper_dir/zip"
           echo "$wrapper_dir" >> "$GITHUB_PATH"
 
       # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
@@ -331,6 +333,7 @@ jobs:
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
+          ELECTROBUN_REAL_ZIP: /usr/bin/zip
 
       - name: List build output
         run: |
