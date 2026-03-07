@@ -2198,15 +2198,38 @@ function resolveChatRateKey(req: http.IncomingMessage): string {
     }
   }
 
+  const remote = req.socket.remoteAddress?.trim();
+  const forwardedIp = resolveTrustedForwardedIp(req, remote);
+  return `ip:${forwardedIp || remote || "unknown"}`;
+}
+
+function isLoopbackAddress(ip: string): boolean {
+  const normalized = ip.replace(/^\[|\]$/g, "");
+  return (
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "::ffff:127.0.0.1"
+  );
+}
+
+function resolveTrustedForwardedIp(
+  req: http.IncomingMessage,
+  remoteAddress?: string,
+): string {
+  // Forwarded headers are only trusted when explicitly enabled, or for local
+  // proxy development where remoteAddress is loopback.
+  const trustForwarded =
+    process.env.MILADY_TRUST_X_FORWARDED_FOR === "1" ||
+    (remoteAddress ? isLoopbackAddress(remoteAddress) : false);
+  if (!trustForwarded) return "";
+
   const forwarded = req.headers["x-forwarded-for"];
   const forwardedStr = Array.isArray(forwarded)
     ? forwarded[0]
     : typeof forwarded === "string"
       ? forwarded
       : "";
-  const forwardedIp = forwardedStr.split(",")[0]?.trim();
-  const remote = req.socket.remoteAddress?.trim();
-  return `ip:${forwardedIp || remote || "unknown"}`;
+  return forwardedStr.split(",")[0]?.trim() ?? "";
 }
 
 function consumeChatRateLimit(

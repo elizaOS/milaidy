@@ -379,7 +379,7 @@ export class MilaidyApp extends LitElement {
   @state() onboardingDiscordToken = "";
   @state() onboardingFinishing = false;
   @state() providerSetupApplying = false;
-  @state() profileImageUrl = "/onboarding-logo-test-v3.png";
+  @state() profileImageUrl = "/onboarding-logo.png";
   @state() profileAccent = BASE_RUNTIME_ACCENT;
   @state() userDisplayName = "@you";
   @state() userNameChangeLockedUntil: number | null = null;
@@ -4846,7 +4846,7 @@ export class MilaidyApp extends LitElement {
       this.logsLoadedAt = 0;
       this.walletConfigLoadedAt = 0;
       this.inventoryLoadedAt = 0;
-      this.profileImageUrl = "/onboarding-logo-test-v3.png";
+      this.profileImageUrl = "/onboarding-logo.png";
       this.profileAccent = BASE_RUNTIME_ACCENT;
       this.userDisplayName = "@you";
       this.accountNameInput = this.userDisplayName;
@@ -7469,7 +7469,7 @@ export class MilaidyApp extends LitElement {
       }
 
       // Lock in the chosen avatar image before leaving onboarding. This avoids
-      // persisting the default /onboarding-logo-test-v3.png when image prefetch hasn't completed yet.
+      // persisting the default /onboarding-logo.png when image prefetch hasn't completed yet.
       const selectedAvatarKey = this.onboardingName.trim();
       if (selectedAvatarKey) {
         await this.ensureCharacterImage(selectedAvatarKey);
@@ -7583,7 +7583,7 @@ export class MilaidyApp extends LitElement {
     return html`
       <div class="app-shell">
         <div class="bg-brand-layer" aria-hidden="true">
-          <img class="bg-brand-mark a" src="/onboarding-logo-test-v3.png" alt="" />
+          <img class="bg-brand-mark a" src="/onboarding-logo.png" alt="" />
         </div>
         ${this.renderHeader()}
         ${this.renderMobileTabbar()}
@@ -7749,7 +7749,7 @@ export class MilaidyApp extends LitElement {
         <header>
           <div style="display:flex;align-items:center;gap:12px;">
             <div class="brand-block">
-              <img class="brand-mark" src="/onboarding-logo-test-v3.png" alt="Runtime" />
+              <img class="brand-mark" src="/onboarding-logo.png" alt="Runtime" />
               <div class="brand-copy">
                 <span class="brand-title">Runtime</span>
                 <span class="brand-sub">Personal AI Workspace</span>
@@ -7761,7 +7761,7 @@ export class MilaidyApp extends LitElement {
               style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${this.profileAccent};"
               @error=${(e: Event) => {
                 const img = e.currentTarget as HTMLImageElement;
-                img.src = "/onboarding-logo-test-v3.png";
+                img.src = "/onboarding-logo.png";
               }}
             />
             <span class="logo">${name}</span>
@@ -8095,7 +8095,7 @@ export class MilaidyApp extends LitElement {
                 style="width:54px;height:54px;border-radius:12px;object-fit:cover;border:2px solid ${this.profileAccent};"
                 @error=${(e: Event) => {
                   const img = e.currentTarget as HTMLImageElement;
-                  img.src = "/onboarding-logo-test-v3.png";
+                  img.src = "/onboarding-logo.png";
                 }}
               />
               <div style="flex:1;min-width:0;">
@@ -8671,12 +8671,12 @@ export class MilaidyApp extends LitElement {
                       <div class="chat-avatar ${msg.role === "assistant" ? "assistant" : ""}">
                         ${
                           msg.role === "assistant"
-                            ? html`<img src="/onboarding-logo-test-v3.png" alt="Runtime" />`
+                            ? html`<img src="/onboarding-logo.png" alt="Runtime" />`
                             : html`<img src=${this.profileImageUrl} alt="@you" @error=${(
                                 e: Event,
                               ) => {
                                 const img = e.currentTarget as HTMLImageElement;
-                                img.src = "/onboarding-logo-test-v3.png";
+                                img.src = "/onboarding-logo.png";
                               }} />`
                         }
                       </div>
@@ -14128,7 +14128,7 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingWelcome() {
     return html`
-      <img class="onboarding-avatar" src="/onboarding-logo-test-v3.png" alt="Runtime" />
+      <img class="onboarding-avatar" src="/onboarding-logo.png" alt="Runtime" />
       <div class="onboarding-welcome-eyebrow">Runtime Control Surface</div>
       <h1 class="onboarding-welcome-title">Welcome to Runtime!</h1>
       <p class="onboarding-welcome-sub">
@@ -14307,7 +14307,7 @@ export class MilaidyApp extends LitElement {
 
   private renderOnboardingStyle(opts: OnboardingOptions) {
     return html`
-      <img class="onboarding-avatar" src="/onboarding-logo-test-v3.png" alt="Runtime" style="width:100px;height:100px;" />
+      <img class="onboarding-avatar" src="/onboarding-logo.png" alt="Runtime" style="width:100px;height:100px;" />
       <div class="onboarding-speech">Pick your response mode.</div>
       <div class="onboarding-options">
         ${opts.styles.map(
@@ -14424,7 +14424,7 @@ export class MilaidyApp extends LitElement {
       : null;
 
     return html`
-      <img class="onboarding-avatar" src="/onboarding-logo-test-v3.png" alt="Runtime" style="width:100px;height:100px;" />
+      <img class="onboarding-avatar" src="/onboarding-logo.png" alt="Runtime" style="width:100px;height:100px;" />
       <div class="onboarding-speech">Choose the model provider that powers your Runtime chats.</div>
       <div style="font-size:12px;color:var(--muted);margin-top:6px;">
         Provider changes take effect after a restart. Runtime will restart automatically after setup.

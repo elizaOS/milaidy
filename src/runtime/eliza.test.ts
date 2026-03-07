@@ -405,6 +405,16 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
   });
 
+  it("keeps telegram connector loading via CHANNEL_PLUGIN_MAP without static import", () => {
+    const config = {
+      connectors: {
+        telegram: { botToken: "telegram-token" },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+  });
+
   it("does not load telegram plugin when plugins.entries.telegram.enabled is false", () => {
     const config = {
       plugins: {

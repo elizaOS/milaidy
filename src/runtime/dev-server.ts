@@ -119,6 +119,12 @@ function nextRetryDelayMs(attempt: number): number {
 }
 
 function isRecoverableRuntimeDbError(err: unknown): boolean {
+  const code = extractSqlErrorCode(err);
+  if (code) {
+    // 3F000: invalid_schema_name, 42P01: undefined_table
+    if (code === "3F000" || code === "42P01") return true;
+  }
+
   const msg = formatError(err).toLowerCase();
   if (!msg) return false;
 
@@ -129,6 +135,20 @@ function isRecoverableRuntimeDbError(err: unknown): boolean {
     msg.includes('from "agents" where "agents"."id" = $1') ||
     msg.includes('relation "agents" does not exist')
   );
+}
+
+function extractSqlErrorCode(err: unknown): string | null {
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const maybeCode = (current as { code?: unknown }).code;
+    if (typeof maybeCode === "string" && maybeCode.length > 0) {
+      return maybeCode.toUpperCase();
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return null;
 }
 
 function resolveRuntimePgliteDataDir(): string {
