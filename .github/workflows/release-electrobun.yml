@@ -112,13 +112,10 @@ jobs:
           restore-keys: bun-electrobun-${{ runner.os }}-
 
       - name: Install root dependencies
-        run: |
-          for i in 1 2 3; do
-            bun install --frozen-lockfile && break
-            echo "Retry $i: bun install failed, retrying..."
-            sleep 5
-          done
-          bun install --frozen-lockfile
+        # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node
+        # which has no pre-built binary for Node 22 on Windows and fails to compile).
+        # Workspace prepare scripts are NOT suppressed by --ignore-scripts in bun.
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Align version with release tag
         run: |
@@ -154,12 +151,7 @@ jobs:
 
       - name: Build renderer (Vite)
         run: |
-          for i in 1 2 3; do
-            bun install && break
-            echo "Retry $i"
-            sleep 5
-          done
-          bun install
+          bun install --ignore-scripts
           npx vite build
         working-directory: apps/app
 
