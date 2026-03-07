@@ -112,6 +112,27 @@ export function getMiladyDistFallbackCandidates(
   ].filter((candidate, index, all) => all.indexOf(candidate) === index);
 }
 
+function resolveBunExecutablePath(execPath: string = process.execPath): string {
+  const executableName = process.platform === "win32" ? "bun.exe" : "bun";
+  const execDir = execPath ? path.dirname(execPath) : "";
+  const candidates = [
+    execPath,
+    execDir ? path.join(execDir, executableName) : "",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    if (path.basename(candidate).toLowerCase() === executableName.toLowerCase()) {
+      return candidate;
+    }
+  }
+
+  const bunGlobal = Bun as { which?: (binary: string) => string | null };
+  const whichCandidate =
+    typeof bunGlobal.which === "function" ? bunGlobal.which("bun") : null;
+  return whichCandidate ?? "bun";
+}
+
 function resolveMiladyDistPath(): string {
   // 1. Env override
   const envPath = process.env.MILADY_DIST_PATH;
@@ -417,8 +438,11 @@ export class AgentManager {
         diagnosticLog(`[Agent] Child NODE_PATH: ${childEnv.NODE_PATH}`);
       }
 
+      const bunExecutable = resolveBunExecutablePath();
+      diagnosticLog(`[Agent] Using Bun executable: ${bunExecutable}`);
+
       // Spawn the child process
-      const proc = Bun.spawn(["bun", "run", serverEntryPath], {
+      const proc = Bun.spawn([bunExecutable, "run", serverEntryPath], {
         cwd: miladyDistPath,
         env: childEnv,
         stdout: "pipe",

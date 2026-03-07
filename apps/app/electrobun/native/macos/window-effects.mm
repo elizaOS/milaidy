@@ -308,11 +308,22 @@ extern "C" bool makeKeyAndOrderFrontWindow(void *windowPtr) {
 		if (![window isKindOfClass:[NSWindow class]]) {
 			return;
 		}
+		if ([window isMiniaturized]) {
+			[window deminiaturize:nil];
+		}
 		[window makeKeyAndOrderFront:nil];
 		success = YES;
 	});
 
 	return success;
+}
+
+extern "C" bool isAppActive(void) {
+	__block BOOL result = NO;
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		result = [NSApp isActive];
+	});
+	return result;
 }
 
 extern "C" bool isWindowKey(void *windowPtr) {

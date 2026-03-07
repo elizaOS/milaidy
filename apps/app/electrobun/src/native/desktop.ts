@@ -46,6 +46,7 @@ import type {
   WindowOptions,
 } from "../rpc-schema";
 import {
+  isAppActive,
   isKeyWindow,
   makeKeyAndOrderFront,
   orderOut,
@@ -120,6 +121,7 @@ export class DesktopManager {
   private _windowFocused = true;
   private _windowHidden = false;
   private _focusPoller: ReturnType<typeof setInterval> | null = null;
+  private _appActive = false;
 
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
@@ -270,6 +272,9 @@ export class DesktopManager {
 
     // Electrobun tray click is simpler — no bounds/modifiers
     this.tray.on("tray-clicked", () => {
+      void this.showWindow().catch((err: unknown) => {
+        console.warn("[Desktop] Failed to show window from tray click:", err);
+      });
       this.send("desktopTrayClick", {
         x: 0,
         y: 0,
@@ -296,7 +301,14 @@ export class DesktopManager {
     Electrobun.events.on(
       "application-menu-clicked",
       (e: { data: { action: string } }) => {
-        if (e?.data?.action === "restart-agent") {
+        if (e?.data?.action === "show") {
+          void this.showWindow().catch((err: unknown) => {
+            console.warn(
+              "[Desktop] Failed to show window from application menu:",
+              err,
+            );
+          });
+        } else if (e?.data?.action === "restart-agent") {
           triggerAgentRestart();
         }
       },
@@ -305,13 +317,13 @@ export class DesktopManager {
     Electrobun.events.on("context-menu-clicked", (action: string) => {
       // Native actions
       if (action === "show") {
-        this.mainWindow?.show();
-        this.mainWindow?.focus();
+        void this.showWindow().catch((err: unknown) => {
+          console.warn("[Desktop] Failed to show window from tray menu:", err);
+        });
       } else if (action === "restart-agent") {
         triggerAgentRestart();
       } else if (action === "quit") {
-        this.onBeforeQuit?.();
-        process.exit(0);
+        Utils.quit();
       }
 
       // Renderer notification for all items
@@ -621,7 +633,8 @@ X-GNOME-Autostart-enabled=true
   }
 
   async showWindow(): Promise<void> {
-    const win = this.getWindow();
+    const win = this.mainWindow;
+    if (!win) return;
     const ptr = (win as { ptr?: unknown }).ptr;
     if (ptr && process.platform === "darwin") {
       makeKeyAndOrderFront(ptr as Parameters<typeof makeKeyAndOrderFront>[0]);
@@ -633,7 +646,8 @@ X-GNOME-Autostart-enabled=true
   }
 
   async hideWindow(): Promise<void> {
-    const win = this.getWindow();
+    const win = this.mainWindow;
+    if (!win) return;
     const ptr = (win as { ptr?: unknown }).ptr;
     if (ptr && process.platform === "darwin") {
       // orderOut removes the window from screen AND Cmd+Tab / Mission Control
@@ -730,6 +744,16 @@ X-GNOME-Autostart-enabled=true
     this._focusPoller = setInterval(() => {
       const win = this.mainWindow;
       if (!win) return;
+
+      // Electrobun does not expose an application activation callback.
+      // When the app becomes foreground again with only a minimized window
+      // (for example via Dock click), restore it automatically.
+      const appActive = isAppActive();
+      if (!this._appActive && appActive && win.isMinimized()) {
+        void this.showWindow();
+      }
+      this._appActive = appActive;
+
       const ptr = (win as { ptr?: unknown }).ptr;
       if (!ptr) return;
       const focused = isKeyWindow(ptr as Parameters<typeof isKeyWindow>[0]);

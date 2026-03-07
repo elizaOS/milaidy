@@ -16,6 +16,7 @@ import {
 // (which is Bun-only and undefined in Node/vitest).
 const MOCK_DIST_PATH = "/mock/milady-dist";
 process.env.MILADY_DIST_PATH = MOCK_DIST_PATH;
+const ORIGINAL_EXEC_PATH = process.execPath;
 
 vi.mock("node:fs", () => {
   const existsSyncFn = vi.fn(() => true);
@@ -135,6 +136,10 @@ describe("AgentManager", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    Object.defineProperty(process, "execPath", {
+      configurable: true,
+      value: ORIGINAL_EXEC_PATH,
+    });
     // Default: all filesystem checks return true (dist exists, server.js exists, etc.)
     const existsSync = await getExistsSyncMock();
     existsSync.mockReturnValue(true);
@@ -171,6 +176,10 @@ describe("AgentManager", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    Object.defineProperty(process, "execPath", {
+      configurable: true,
+      value: ORIGINAL_EXEC_PATH,
+    });
     manager.dispose();
   });
 
@@ -265,9 +274,39 @@ describe("AgentManager", () => {
 
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       const spawnArgs = mockSpawn.mock.calls[0];
-      expect(spawnArgs[0]).toEqual(expect.arrayContaining(["bun", "run"]));
+      expect(spawnArgs[0][1]).toBe("run");
+      expect(spawnArgs[0][2]).toBe("/mock/milady-dist/eliza.js");
       // cwd should be the dist path
       expect(spawnArgs[1].cwd).toBe(MOCK_DIST_PATH);
+    });
+
+    it("uses the bundled Bun executable for installed app launches", async () => {
+      Object.defineProperty(process, "execPath", {
+        configurable: true,
+        value: "/Applications/Milady-canary.app/Contents/MacOS/launcher",
+      });
+
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      await manager.start();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        [
+          "/Applications/Milady-canary.app/Contents/MacOS/bun",
+          "run",
+          "/mock/milady-dist/eliza.js",
+        ],
+        expect.objectContaining({
+          cwd: MOCK_DIST_PATH,
+        }),
+      );
     });
 
     it("uses MILADY_PORT env var when set", async () => {

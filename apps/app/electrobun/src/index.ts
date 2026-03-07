@@ -30,6 +30,8 @@ import { getPermissionManager } from "./native/permissions";
 import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 
+type SendToWebview = (message: string, payload?: unknown) => void;
+
 // ============================================================================
 // App Menu
 // ============================================================================
@@ -42,6 +44,8 @@ function setupApplicationMenu(): void {
       submenu: [
         { role: "about" },
         { type: "separator" as const },
+        { label: "Show Milady", action: "show" },
+        { label: "Check for Updates", action: "check-for-updates" },
         { label: "Restart Agent", action: "restart-agent" },
         { type: "separator" as const },
         // services, hide, hideOthers, unhide are macOS-only menu roles
@@ -207,6 +211,16 @@ function scheduleStateSave(statePath: string, win: BrowserWindow): void {
 // Main Window
 // ============================================================================
 
+let currentWindow: BrowserWindow | null = null;
+let currentSendToWebview: SendToWebview | null = null;
+let rendererUrlPromise: Promise<string> | null = null;
+let backgroundWindowPromise: Promise<void> | null = null;
+let isQuitting = false;
+
+function sendToActiveRenderer(message: string, payload?: unknown): void {
+  currentSendToWebview?.(message, payload);
+}
+
 // ============================================================================
 // Renderer Static Server
 // ============================================================================
@@ -319,13 +333,14 @@ async function startRendererServer(): Promise<string> {
   return `http://127.0.0.1:${port}`;
 }
 
-async function createMainWindow(): Promise<BrowserWindow> {
+async function resolveRendererUrl(): Promise<string> {
   // Resolve the renderer URL — prefer env override (dev HMR), then built-in static server
   let rendererUrl =
     process.env.MILADY_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL ?? "";
 
   if (!rendererUrl) {
-    rendererUrl = await startRendererServer();
+    rendererUrlPromise ??= startRendererServer();
+    rendererUrl = await rendererUrlPromise;
   }
 
   if (!rendererUrl) {
@@ -335,6 +350,12 @@ async function createMainWindow(): Promise<BrowserWindow> {
       "[Main] Falling back to file:// renderer URL — CORS issues possible",
     );
   }
+
+  return rendererUrl;
+}
+
+async function createMainWindow(): Promise<BrowserWindow> {
+  const rendererUrl = await resolveRendererUrl();
 
   // Load persisted window state
   const statePath = path.join(Utils.paths.userData, "window-state.json");
@@ -380,6 +401,50 @@ async function createMainWindow(): Promise<BrowserWindow> {
   win.on("move", () => scheduleStateSave(statePath, win));
 
   return win;
+}
+
+function attachMainWindow(win: BrowserWindow): BrowserWindow {
+  const sendToWebview = wireRpcAndModules(win);
+  currentWindow = win;
+  currentSendToWebview = sendToWebview;
+
+  win.webview.on("dom-ready", () => {
+    injectApiBase(win);
+  });
+
+  win.on("close", () => {
+    if (currentWindow?.id === win.id) {
+      currentWindow = null;
+      currentSendToWebview = null;
+    }
+
+    if (!isQuitting) {
+      void ensureBackgroundWindow();
+    }
+  });
+
+  return win;
+}
+
+async function ensureBackgroundWindow(): Promise<void> {
+  if (isQuitting || currentWindow || backgroundWindowPromise) {
+    return;
+  }
+
+  backgroundWindowPromise = (async () => {
+    const replacementWindow = attachMainWindow(await createMainWindow());
+    try {
+      replacementWindow.minimize();
+      console.log("[Main] Recreated minimized window after close");
+    } catch (err) {
+      console.warn("[Main] Failed to minimize background window:", err);
+    }
+    injectApiBase(replacementWindow);
+  })().finally(() => {
+    backgroundWindowPromise = null;
+  });
+
+  await backgroundWindowPromise;
 }
 
 // ============================================================================
@@ -520,9 +585,34 @@ async function startAgent(win: BrowserWindow): Promise<void> {
 // Auto-Updater
 // ============================================================================
 
-async function setupUpdater(
-  sendToWebview: (message: string, payload?: unknown) => void,
-): Promise<void> {
+async function setupUpdater(): Promise<void> {
+  const runUpdateCheck = async (notifyOnNoUpdate = false): Promise<void> => {
+    try {
+      const updateResult = await Updater.checkForUpdate();
+      if (updateResult?.updateAvailable) {
+        Updater.downloadUpdate().catch((err: unknown) => {
+          console.warn("[Updater] Download failed:", err);
+        });
+        return;
+      }
+
+      if (notifyOnNoUpdate) {
+        Utils.showNotification({
+          title: "Milady Up To Date",
+          body: "You already have the latest release installed.",
+        });
+      }
+    } catch (err) {
+      console.warn("[Updater] Update check failed:", err);
+      if (notifyOnNoUpdate) {
+        Utils.showNotification({
+          title: "Update Check Failed",
+          body: "Milady could not reach the update server.",
+        });
+      }
+    }
+  };
+
   try {
     // Subscribe to update status changes so we can notify the renderer
     // at the right lifecycle points.
@@ -530,11 +620,11 @@ async function setupUpdater(
       if (entry.status === "update-available") {
         // checkForUpdate found a new version — notify renderer
         const info = Updater.updateInfo();
-        sendToWebview("desktopUpdateAvailable", { version: info.version });
+        sendToActiveRenderer("desktopUpdateAvailable", { version: info.version });
       } else if (entry.status === "download-complete") {
         // downloadUpdate finished — update is ready to apply
         const info = Updater.updateInfo();
-        sendToWebview("desktopUpdateReady", { version: info.version });
+        sendToActiveRenderer("desktopUpdateReady", { version: info.version });
         Utils.showNotification({
           title: "Milady Update Ready",
           body: `Version ${info.version} is ready. Restart to apply.`,
@@ -542,14 +632,26 @@ async function setupUpdater(
       }
     });
 
-    // Check for update (emits "update-available" via onStatusChange if found)
-    const updateResult = await Updater.checkForUpdate();
-    if (updateResult?.updateAvailable) {
-      // Auto-download in the background
-      Updater.downloadUpdate().catch((err: unknown) => {
-        console.warn("[Updater] Download failed:", err);
-      });
-    }
+    const triggerManualUpdateCheck = () => {
+      void runUpdateCheck(true);
+    };
+
+    Electrobun.events.on(
+      "application-menu-clicked",
+      (e: { data?: { action?: string } }) => {
+        if (e?.data?.action === "check-for-updates") {
+          triggerManualUpdateCheck();
+        }
+      },
+    );
+
+    Electrobun.events.on("context-menu-clicked", (action: string) => {
+      if (action === "check-for-updates") {
+        triggerManualUpdateCheck();
+      }
+    });
+
+    await runUpdateCheck(false);
   } catch (err) {
     console.warn("[Updater] Update check failed:", err);
   }
@@ -559,14 +661,11 @@ async function setupUpdater(
 // Deep Link Handling
 // ============================================================================
 
-function setupDeepLinks(
-  _win: BrowserWindow,
-  sendToWebview: (message: string, payload?: unknown) => void,
-): void {
+function setupDeepLinks(): void {
   // Electrobun handles urlSchemes from config automatically.
   // Listen for open-url events to route deep links to the renderer.
   Electrobun.events.on("open-url", (url: string) => {
-    sendToWebview("shareTargetReceived", { url });
+    sendToActiveRenderer("shareTargetReceived", { url });
   });
 }
 
@@ -576,6 +675,7 @@ function setupDeepLinks(
 
 function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
   Electrobun.events.on("before-quit", () => {
+    isQuitting = true;
     console.log("[Main] App quitting, disposing native modules...");
     clearInterval(apiBaseInterval);
     disposeNativeModules();
@@ -605,23 +705,16 @@ async function main(): Promise<void> {
   // Set up app menu
   setupApplicationMenu();
 
-  // Create main window
-  const win = await createMainWindow();
-
-  // Wire RPC handlers and native modules
-  const sendToWebview = wireRpcAndModules(win);
+  // Create and attach the primary window.
+  attachMainWindow(await createMainWindow());
 
   // Set up deep link handling
-  setupDeepLinks(win, sendToWebview);
-
-  // Inject API base on dom-ready and re-inject periodically so reloads
-  // always receive the current value (the push message is idempotent).
-  win.webview.on("dom-ready", () => {
-    injectApiBase(win);
-  });
+  setupDeepLinks();
 
   const apiBaseInterval = setInterval(() => {
-    injectApiBase(win);
+    if (currentWindow) {
+      injectApiBase(currentWindow);
+    }
   }, 5_000);
 
   // Set up system tray with default icon
@@ -634,8 +727,10 @@ async function main(): Promise<void> {
       menu: [
         { id: "show", label: "Show Milady", type: "normal" },
         { id: "sep1", type: "separator" },
-        { id: "restart-agent", label: "Restart Agent", type: "normal" },
+        { id: "check-for-updates", label: "Check for Updates", type: "normal" },
         { id: "sep2", type: "separator" },
+        { id: "restart-agent", label: "Restart Agent", type: "normal" },
+        { id: "sep3", type: "separator" },
         { id: "quit", label: "Quit", type: "normal" },
       ],
     });
@@ -644,10 +739,12 @@ async function main(): Promise<void> {
   }
 
   // Start agent in background
-  startAgent(win);
+  if (currentWindow) {
+    void startAgent(currentWindow);
+  }
 
   // Check for updates
-  setupUpdater(sendToWebview);
+  void setupUpdater();
 
   // Set up clean shutdown
   setupShutdown(apiBaseInterval);

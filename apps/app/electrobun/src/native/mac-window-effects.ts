@@ -28,6 +28,7 @@ type MacEffectsSymbols = {
   setNativeWindowDragRegion(ptr: Pointer, x: number, height: number): boolean;
   orderOutWindow(ptr: Pointer): boolean;
   makeKeyAndOrderFrontWindow(ptr: Pointer): boolean;
+  isAppActive(): boolean;
   isWindowKey(ptr: Pointer): boolean;
 };
 
@@ -62,6 +63,7 @@ function loadLib(): MacEffectsLib {
         args: [FFIType.ptr],
         returns: FFIType.bool,
       },
+      isAppActive: { args: [], returns: FFIType.bool },
       isWindowKey: { args: [FFIType.ptr], returns: FFIType.bool },
     }) as unknown as MacEffectsLib;
   } catch (err) {
@@ -110,6 +112,11 @@ export function orderOut(ptr: Pointer): boolean {
 /** Show the window and bring it to focus */
 export function makeKeyAndOrderFront(ptr: Pointer): boolean {
   return getLib()?.symbols.makeKeyAndOrderFrontWindow(ptr) ?? false;
+}
+
+/** Returns true if the current app is the active foreground macOS application */
+export function isAppActive(): boolean {
+  return getLib()?.symbols.isAppActive() ?? false;
 }
 
 /** Returns true if the window is currently the key (focused) window */

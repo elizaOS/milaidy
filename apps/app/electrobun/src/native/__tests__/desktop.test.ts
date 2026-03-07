@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 vi.mock("../mac-window-effects", () => ({
+  isAppActive: vi.fn(() => false),
   isKeyWindow: vi.fn(() => false),
   makeKeyAndOrderFront: vi.fn(() => true),
   orderOut: vi.fn(() => true),
@@ -94,6 +95,7 @@ vi.stubGlobal("Bun", {
 
 import * as nodeFs from "node:fs";
 import * as electrobunBun from "electrobun/bun";
+import * as macEffects from "../mac-window-effects";
 import { DesktopManager } from "../desktop";
 
 const mockExistsSync = nodeFs.existsSync as ReturnType<typeof vi.fn>;
@@ -109,6 +111,10 @@ const mockShowItemInFolder = electrobunBun.Utils.showItemInFolder as ReturnType<
 const mockSpawn = (
   globalThis as unknown as { Bun: { spawn: ReturnType<typeof vi.fn> } }
 ).Bun.spawn;
+const mockIsAppActive = macEffects.isAppActive as ReturnType<typeof vi.fn>;
+const mockMakeKeyAndOrderFront = macEffects.makeKeyAndOrderFront as ReturnType<
+  typeof vi.fn
+>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,6 +147,7 @@ describe("DesktopManager", () => {
 
   beforeEach(() => {
     manager = new DesktopManager();
+    vi.useRealTimers();
     mockExistsSync.mockReset().mockReturnValue(false);
     mockWriteFileSync.mockReset();
     mockMkdirSync.mockReset();
@@ -148,6 +155,8 @@ describe("DesktopManager", () => {
     mockOpenExternal.mockReset();
     mockShowItemInFolder.mockReset();
     mockSpawn.mockReset().mockReturnValue(makeSpawnResult(""));
+    mockIsAppActive.mockReset().mockReturnValue(false);
+    mockMakeKeyAndOrderFront.mockReset().mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -155,6 +164,7 @@ describe("DesktopManager", () => {
     setPlatform("darwin");
     delete process.env.NODE_ENV;
     delete process.env.ELECTROBUN_DEV;
+    vi.useRealTimers();
   });
 
   // ── openExternal — URL security ───────────────────────────────────────────
@@ -448,6 +458,34 @@ describe("DesktopManager", () => {
     it("returns enabled: false on unsupported platform", async () => {
       setPlatform("freebsd");
       expect((await manager.getAutoLaunchStatus()).enabled).toBe(false);
+    });
+  });
+
+  describe("window restore", () => {
+    it("restores a minimized macOS window when the app becomes active", async () => {
+      vi.useFakeTimers();
+      setPlatform("darwin");
+
+      const fakeWindow = {
+        ptr: Symbol("window"),
+        isMinimized: vi.fn(() => true),
+        show: vi.fn(),
+        focus: vi.fn(),
+        on: vi.fn(),
+      };
+
+      mockIsAppActive.mockReturnValue(false);
+      manager.setMainWindow(fakeWindow as unknown as Parameters<
+        DesktopManager["setMainWindow"]
+      >[0]);
+
+      await vi.advanceTimersByTimeAsync(600);
+      expect(mockMakeKeyAndOrderFront).not.toHaveBeenCalled();
+
+      mockIsAppActive.mockReturnValue(true);
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(mockMakeKeyAndOrderFront).toHaveBeenCalledWith(fakeWindow.ptr);
     });
   });
 });

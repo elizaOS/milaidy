@@ -774,7 +774,11 @@ export interface StartupErrorState {
   path?: string;
 }
 
-const BACKEND_STARTUP_TIMEOUT_MS = 30_000;
+const isElectrobunShell =
+  typeof window !== "undefined" &&
+  (window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__ === true;
+
+const BACKEND_STARTUP_TIMEOUT_MS = isElectrobunShell ? 180_000 : 30_000;
 const AGENT_READY_TIMEOUT_MS = 90_000;
 
 interface ApiLikeError {
