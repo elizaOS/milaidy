@@ -181,35 +181,65 @@ jobs:
         run: bun run build:whisper
         working-directory: apps/app/electrobun
 
-      - name: Validate macOS signing secrets
-        if: matrix.platform.os == 'macos' && !inputs.draft
-        run: |
-          missing=0
-          for var in ELECTROBUN_DEVELOPER_ID ELECTROBUN_APPLEID ELECTROBUN_APPLEIDPASS ELECTROBUN_TEAMID; do
-            if [ -z "${!var:-}" ]; then
-              echo "::error::Missing required macOS signing secret: ${var}"
-              missing=1
-            fi
-          done
-          [ "$missing" -ne 0 ] && exit 1
-          echo "All macOS signing secrets present"
+      # Import the Developer ID certificate into a temporary keychain.
+      # Requires CSC_LINK (base64-encoded .p12) + CSC_KEY_PASSWORD.
+      # The signing identity string is extracted and passed to Electrobun as
+      # ELECTROBUN_DEVELOPER_ID in the build step below.
+      - name: Set up macOS signing keychain
+        if: matrix.platform.os == 'macos'
+        id: macos-keychain
         env:
-          ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}
-          ELECTROBUN_APPLEID: ${{ secrets.ELECTROBUN_APPLEID || '' }}
-          ELECTROBUN_APPLEIDPASS: ${{ secrets.ELECTROBUN_APPLEIDPASS || '' }}
-          ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -z "$CSC_LINK" ]; then
+            echo "::error::CSC_LINK secret not set — macOS codesigning requires a valid .p12 certificate"
+            exit 1
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/milady-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          # Create a short-lived keychain for this build
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Decode and import the .p12 certificate
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          echo "$CSC_LINK" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CSC_KEY_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm -f "$CERT_PATH"
+
+          # Add to the keychain search list (preserving login keychain)
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+          # Allow codesign to access the key without a password prompt
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Extract identity for Electrobun
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' identity found in certificate"
+            exit 1
+          fi
+          echo "Signing identity: $IDENTITY"
+          echo "developer_id=$IDENTITY" >> "$GITHUB_OUTPUT"
 
       - name: Build Electrobun app
         run: bunx electrobun build --env=${{ needs.prepare.outputs.env }}
         working-directory: apps/app/electrobun
         env:
           # macOS code-signing + notarization (Electrobun reads these directly)
-          ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}
-          ELECTROBUN_APPLEID: ${{ secrets.ELECTROBUN_APPLEID || '' }}
-          ELECTROBUN_APPLEIDPASS: ${{ secrets.ELECTROBUN_APPLEIDPASS || '' }}
-          ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
-          # Skip codesign/notarize for draft builds (no signing certs on forks)
-          ELECTROBUN_SKIP_CODESIGN: ${{ inputs.draft && '1' || '' }}
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+          ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: List build output
         run: |
