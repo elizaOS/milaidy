@@ -149,6 +149,17 @@ interface AgentStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Health check constants
+// ---------------------------------------------------------------------------
+
+/** How often to poll /api/health while the runtime is running (ms). */
+const HEALTH_CHECK_INTERVAL_MS = 15_000;
+/** How many consecutive failures before we attempt a reconnect. */
+const HEALTH_FAIL_THRESHOLD = 3;
+/** How long a single health check fetch may take before we count it as a failure (ms). */
+const HEALTH_CHECK_TIMEOUT_MS = 5_000;
+
+// ---------------------------------------------------------------------------
 // AgentManager — singleton
 // ---------------------------------------------------------------------------
 
@@ -168,8 +179,130 @@ export class AgentManager {
   private runtime: Record<string, unknown> | null = null;
   private apiClose: (() => Promise<void>) | null = null;
 
+  // Health check state
+  private healthTimer: ReturnType<typeof setInterval> | null = null;
+  private healthFailCount = 0;
+  private lastHealthyAt: number | null = null;
+  private reconnecting = false;
+
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Health check loop
+  // ---------------------------------------------------------------------------
+
+  private startHealthCheck(): void {
+    this.stopHealthCheck();
+    this.healthFailCount = 0;
+    this.lastHealthyAt = Date.now();
+    this.reconnecting = false;
+
+    diagnosticLog(
+      `[Health] Starting health check loop (every ${HEALTH_CHECK_INTERVAL_MS / 1000}s, threshold=${HEALTH_FAIL_THRESHOLD})`,
+    );
+
+    this.healthTimer = setInterval(() => {
+      void this.runHealthCheck();
+    }, HEALTH_CHECK_INTERVAL_MS);
+  }
+
+  private stopHealthCheck(): void {
+    if (this.healthTimer !== null) {
+      clearInterval(this.healthTimer);
+      this.healthTimer = null;
+      diagnosticLog("[Health] Health check loop stopped");
+    }
+  }
+
+  private async runHealthCheck(): Promise<void> {
+    const port = this.status.port;
+    if (!port || this.status.state !== "running" || this.reconnecting) return;
+
+    const url = `http://localhost:${port}/api/health`;
+    let ok = false;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        HEALTH_CHECK_TIMEOUT_MS,
+      );
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+
+    if (ok) {
+      if (this.healthFailCount > 0) {
+        const downSecs = this.lastHealthyAt
+          ? ((Date.now() - this.lastHealthyAt) / 1000).toFixed(1)
+          : "?";
+        diagnosticLog(
+          `[Health] Backend recovered after ${downSecs}s (${this.healthFailCount} failed checks)`,
+        );
+      }
+      this.healthFailCount = 0;
+      this.lastHealthyAt = Date.now();
+      return;
+    }
+
+    this.healthFailCount++;
+    const idleSecs = this.lastHealthyAt
+      ? ((Date.now() - this.lastHealthyAt) / 1000).toFixed(1)
+      : "?";
+
+    diagnosticLog(
+      `[Health] Backend not responding — fail ${this.healthFailCount}/${HEALTH_FAIL_THRESHOLD} (last healthy ${idleSecs}s ago) url=${url}`,
+    );
+
+    this.sendToRenderer("agent:health", {
+      status: "degraded",
+      failCount: this.healthFailCount,
+      lastHealthyAt: this.lastHealthyAt,
+    });
+
+    if (this.healthFailCount >= HEALTH_FAIL_THRESHOLD) {
+      diagnosticLog(
+        `[Health] Threshold reached — backend has been unresponsive for ~${idleSecs}s. Triggering reconnect…`,
+      );
+      this.reconnecting = true;
+      this.stopHealthCheck();
+      void this.reconnect();
+    }
+  }
+
+  private async reconnect(): Promise<void> {
+    diagnosticLog("[Health] Reconnect: stopping stale runtime…");
+    try {
+      if (this.apiClose) {
+        await this.apiClose();
+        this.apiClose = null;
+      }
+      if (
+        this.runtime &&
+        typeof (this.runtime as { stop?: () => Promise<void> }).stop ===
+          "function"
+      ) {
+        await (this.runtime as { stop: () => Promise<void> }).stop();
+      }
+    } catch (err) {
+      diagnosticLog(
+        `[Health] Reconnect: error stopping runtime: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    this.runtime = null;
+    this.status = {
+      ...this.status,
+      state: "not_started",
+      error: null,
+    };
+    diagnosticLog("[Health] Reconnect: restarting…");
+    this.sendToRenderer("agent:health", { status: "reconnecting" });
+    await this.start();
   }
 
   /** Start the agent runtime + API server. Idempotent. */
@@ -535,6 +668,7 @@ export class AgentManager {
         diagnosticLog(
           `[Agent] Runtime started — agent: ${agentName}, port: ${actualPort}`,
         );
+        this.startHealthCheck();
       } else {
         diagnosticLog(
           `[Agent] Runtime started — agent: ${agentName}, API unavailable`,
@@ -585,6 +719,8 @@ export class AgentManager {
     if (this.status.state !== "running" && this.status.state !== "starting") {
       return;
     }
+
+    this.stopHealthCheck();
 
     try {
       if (this.apiClose) {
