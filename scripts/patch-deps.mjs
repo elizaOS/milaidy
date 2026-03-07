@@ -901,6 +901,65 @@ const validateActionRegex = () => true;`;
     console.log("[patch-deps] polymarket placeOrder price validation changed; skip patch.");
   }
 
+  // Patch: When side=SELL and size=0 (user said "close all" / "sell all"),
+  // look up the current position size from PolymarketService cached state.
+  const sellSizeBuggy = `    if (size <= 0) {
+      await sendError(callback, "Invalid order size", "Please specify how many shares or dollars to bet");
+      return { success: false, text: "Invalid order size", error: "invalid_size" };
+    }`;
+
+  const sellSizeFixed = `    if (size <= 0 && side === "SELL") {
+      // Auto-detect position size for "close all" / "sell all" commands
+      try {
+        const pmService = runtime.getService("polymarket");
+        const accountState = pmService?.getCachedAccountState?.();
+        if (accountState?.positions?.length) {
+          for (const pos of accountState.positions) {
+            if (pos.asset_id === tokenId || pos.assetId === tokenId) {
+              const posSize = Math.abs(parseFloat(pos.size));
+              if (posSize > 0) {
+                size = posSize;
+                runtime.logger.info("[placeOrderAction] Auto-detected position size for sell: " + size + " shares (token: " + tokenId.slice(0, 16) + "...)");
+                break;
+              }
+            }
+          }
+        }
+        // Also try conditional token balance from CLOB API
+        if (size <= 0 && tokenId) {
+          try {
+            const authClient = pmService?.getAuthenticatedClient?.();
+            if (authClient) {
+              const balResp = await authClient.getBalanceAllowance({ asset_type: 1, token_id: tokenId });
+              const bal = parseFloat(balResp?.balance ?? "0");
+              if (bal > 0) {
+                size = Math.floor(bal);
+                runtime.logger.info("[placeOrderAction] Got balance from CLOB for sell: " + size + " shares");
+              }
+            }
+          } catch (balErr) {
+            runtime.logger.warn("[placeOrderAction] Could not fetch token balance: " + (balErr?.message || balErr));
+          }
+        }
+      } catch (svcErr) {
+        runtime.logger.warn("[placeOrderAction] Could not auto-detect position size: " + (svcErr?.message || svcErr));
+      }
+    }
+    if (size <= 0) {
+      await sendError(callback, "Invalid order size", "Please specify how many shares or dollars to bet");
+      return { success: false, text: "Invalid order size", error: "invalid_size" };
+    }`;
+
+  if (polymarketSrc.includes("Auto-detected position size for sell")) {
+    console.log("[patch-deps] polymarket sell-size auto-detect patch already present.");
+  } else if (polymarketSrc.includes(sellSizeBuggy)) {
+    polymarketSrc = polymarketSrc.replace(sellSizeBuggy, sellSizeFixed);
+    polymarketPatched += 1;
+    console.log("[patch-deps] Applied polymarket sell-size auto-detect patch.");
+  } else {
+    console.log("[patch-deps] polymarket size validation changed; skip sell-size patch.");
+  }
+
   if (polymarketPatched > 0) {
     writeFileSync(polymarketTarget, polymarketSrc, "utf8");
     console.log(
