@@ -109,3 +109,7 @@ elizaos-plugins/
 e2e-screenshots/
 data/
 .avatar-clone-tmp
+
+# Debug scratch files
+check_pglite.js
+debug_log.txt
