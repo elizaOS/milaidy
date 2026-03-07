@@ -647,3 +647,87 @@ if (pdfTargets.length === 0) {
 // Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
 // ---------------------------------------------------------------------------
 patchBunExports(root, "@elizaos/plugin-coding-agent");
+
+/**
+ * Patch @pixiv/three-vrm node-material helpers for Three r168+.
+ *
+ * The published nodes bundle still references THREE_WEBGPU.tslFn in the
+ * compatibility helper. Three r182 no longer exports tslFn from three/webgpu,
+ * so Vite/Rollup emits a noisy missing-export warning even though the runtime
+ * branch would use THREE_TSL.Fn instead. We patch the helper to the modern
+ * path directly because this repo pins Three r182.
+ */
+function findAllThreeVrmNodeFiles() {
+  const targets = [];
+  const relPaths = ["lib/nodes/index.module.js", "lib/nodes/index.cjs"];
+  const searchRoots = [root, resolve(root, "apps/app")];
+
+  for (const searchRoot of searchRoots) {
+    for (const relPath of relPaths) {
+      const npmTarget = resolve(
+        searchRoot,
+        `node_modules/@pixiv/three-vrm/${relPath}`,
+      );
+      if (existsSync(npmTarget) && !targets.includes(npmTarget)) {
+        targets.push(npmTarget);
+      }
+    }
+
+    const bunCacheDir = resolve(searchRoot, "node_modules/.bun");
+    if (existsSync(bunCacheDir)) {
+      try {
+        const entries = readdirSync(bunCacheDir);
+        for (const entry of entries) {
+          if (entry.startsWith("@pixiv+three-vrm@")) {
+            for (const relPath of relPaths) {
+              const bunTarget = resolve(
+                bunCacheDir,
+                entry,
+                `node_modules/@pixiv/three-vrm/${relPath}`,
+              );
+              if (existsSync(bunTarget) && !targets.includes(bunTarget)) {
+                targets.push(bunTarget);
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignore bun cache traversal errors.
+      }
+    }
+  }
+
+  return targets;
+}
+
+const threeVrmNodeTargets = findAllThreeVrmNodeFiles();
+const threeVrmFnCompatBuggy = `return THREE_WEBGPU.tslFn(jsFunc);`;
+const threeVrmFnCompatFixed = `return THREE_TSL.Fn(jsFunc);`;
+
+if (threeVrmNodeTargets.length === 0) {
+  console.log("[patch-deps] three-vrm nodes bundle not found, skipping patch.");
+} else {
+  console.log(
+    `[patch-deps] Found ${threeVrmNodeTargets.length} three-vrm node file(s) to patch.`,
+  );
+
+  for (const target of threeVrmNodeTargets) {
+    console.log(`[patch-deps] Patching three-vrm nodes: ${target}`);
+    let src = readFileSync(target, "utf8");
+
+    if (!src.includes(threeVrmFnCompatBuggy)) {
+      if (src.includes(threeVrmFnCompatFixed)) {
+        console.log("  - three-vrm FnCompat patch already present.");
+      } else {
+        console.log(
+          "  - three-vrm FnCompat signature changed — patch may no longer be needed.",
+        );
+      }
+      continue;
+    }
+
+    src = src.replaceAll(threeVrmFnCompatBuggy, threeVrmFnCompatFixed);
+    writeFileSync(target, src, "utf8");
+    console.log("  - Applied three-vrm FnCompat patch for Three r182.");
+  }
+}

@@ -247,6 +247,6 @@
     "pty-manager": "1.9.5"
   },
   "patchedDependencies": {
-    "electrobun@1.14.4": "patches/electrobun@1.14.4.patch"
+    "electrobun@1.15.1": "patches/electrobun@1.15.1.patch"
   }
 }

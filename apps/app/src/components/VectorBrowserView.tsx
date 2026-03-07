@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { client, type QueryResult, type TableInfo } from "../api-client";
 
 const PAGE_SIZE = 25;
+const MAX_THREE_PIXEL_RATIO = 2;
 
 type ViewMode = "list" | "graph" | "3d";
 
@@ -548,9 +549,13 @@ function VectorGraph3D({
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(W, H);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, MAX_THREE_PIXEL_RATIO),
+    );
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
 
     // Compute bounds for scaling
     let minX = Infinity,
@@ -644,6 +649,14 @@ function VectorGraph3D({
     let targetTheta = theta;
     let targetPhi = phi;
     let targetRadius = radius;
+    const updatePointerFromEvent = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      return rect;
+    };
 
     const updateCamera = () => {
       theta += (targetTheta - theta) * 0.1;
@@ -673,13 +686,8 @@ function VectorGraph3D({
       }
 
       // Raycasting for hover
-      const rect = renderer.domElement.getBoundingClientRect();
-      const mouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(mouse, camera);
+      const rect = updatePointerFromEvent(e);
+      raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(spheres);
 
       if (intersects.length > 0) {
@@ -711,13 +719,8 @@ function VectorGraph3D({
         if (dx > 5 || dy > 5) return; // Was a drag, not a click
       }
 
-      const rect = renderer.domElement.getBoundingClientRect();
-      const mouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(mouse, camera);
+      updatePointerFromEvent(e);
+      raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(spheres);
       if (intersects.length > 0) {
         const idx = intersects[0].object.userData.index;
@@ -772,7 +775,31 @@ function VectorGraph3D({
       renderer.domElement.removeEventListener("click", onClick);
       renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
+      geometry.dispose();
+      axisGeom.dispose();
+      axisMat.dispose();
+      const gridMaterial = Array.isArray(gridHelper.material)
+        ? gridHelper.material
+        : [gridHelper.material];
+      for (const material of gridMaterial) {
+        material.dispose();
+      }
+      gridHelper.geometry.dispose();
+      for (const sphere of spheres) {
+        const material = sphere.material;
+        if (Array.isArray(material)) {
+          for (const entry of material) {
+            entry.dispose();
+          }
+        } else {
+          material.dispose();
+        }
+      }
       renderer.dispose();
+      rendererRef.current = null;
+      sceneRef.current = null;
+      cameraRef.current = null;
+      spheresRef.current = [];
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }

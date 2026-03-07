@@ -15,6 +15,10 @@ export default {
       entrypoint: "src/index.ts",
     },
     views: {},
+    // Milady intentionally supports both desktop WebGPU paths:
+    // 1. renderer-webview WebGPU (`three/webgpu` via browser `navigator.gpu`)
+    // 2. Electrobun-native Dawn for Bun-side GpuWindow / <electrobun-wgpu>
+    //    surfaces and future native compute workloads.
     // Copy the Vite-built renderer (apps/app/dist/) into the bundle as renderer/.
     // The Bun main script lives in app/bun/, so ../renderer resolves to app/renderer/.
     // Also copy the webview bridge preload and native dylib into their expected locations.
@@ -32,6 +36,7 @@ export default {
         : {}),
     },
     mac: {
+      bundleWGPU: true,
       codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
       notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
       defaultRenderer: "native",
@@ -58,10 +63,14 @@ export default {
     },
     linux: {
       bundleCEF: true,
+      bundleWGPU: true,
+      defaultRenderer: "cef",
       icon: "assets/appIcon.png",
     },
     win: {
       bundleCEF: true,
+      bundleWGPU: true,
+      defaultRenderer: "cef",
       icon: "assets/appIcon.ico",
     },
   },

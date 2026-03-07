@@ -29,24 +29,70 @@ function createMockAction() {
 }
 
 const mockAction = createMockAction();
+const hoisted = vi.hoisted(() => {
+  const mockMixerInstance = {
+    update: vi.fn(),
+    clipAction: vi.fn(() => mockAction),
+  };
+  const mockRendererInstance = {
+    setPixelRatio: vi.fn(),
+    setClearColor: vi.fn(),
+    setSize: vi.fn(),
+    render: vi.fn(),
+    dispose: vi.fn(),
+    forceContextLoss: vi.fn(),
+    domElement: {} as HTMLCanvasElement,
+    shadowMap: { enabled: false, type: 0 },
+    toneMapping: 0,
+    toneMappingExposure: 1.0,
+    outputColorSpace: "",
+  };
+  const mockWebGpuRendererInstance = {
+    setPixelRatio: vi.fn(),
+    setClearColor: vi.fn(),
+    setSize: vi.fn(),
+    render: vi.fn(),
+    dispose: vi.fn(),
+    domElement: {} as HTMLCanvasElement,
+    init: vi.fn(async () => {}),
+  };
+  const mockMToonMaterialLoaderPlugin = vi.fn(
+    function MockMToonMaterialLoaderPlugin(
+      this: { parser: unknown; options: unknown },
+      parser: unknown,
+      options: unknown,
+    ) {
+      this.parser = parser;
+      this.options = options;
+    },
+  );
+  const mockVRMLoaderPlugin = vi.fn(function MockVRMLoaderPlugin(
+    this: { parser: unknown; options: unknown },
+    parser: unknown,
+    options?: unknown,
+  ) {
+    this.parser = parser;
+    this.options = options;
+  });
+  const mockLoaderParser = { json: {} };
+  const mockLoaderRegister = vi.fn((factory: (parser: unknown) => unknown) => {
+    factory(mockLoaderParser);
+  });
+  const mockLoaderLoadAsync = vi.fn();
+  const navigatorMock = { gpu: undefined as unknown };
 
-const mockMixerInstance = {
-  update: vi.fn(),
-  clipAction: vi.fn(() => mockAction),
-};
-
-const mockRendererInstance = {
-  setPixelRatio: vi.fn(),
-  setClearColor: vi.fn(),
-  setSize: vi.fn(),
-  render: vi.fn(),
-  dispose: vi.fn(),
-  domElement: {} as HTMLCanvasElement,
-  shadowMap: { enabled: false, type: 0 },
-  toneMapping: 0,
-  toneMappingExposure: 1.0,
-  outputColorSpace: "",
-};
+  return {
+    mockLoaderLoadAsync,
+    mockLoaderParser,
+    mockLoaderRegister,
+    mockMixerInstance,
+    mockMToonMaterialLoaderPlugin,
+    mockRendererInstance,
+    mockVRMLoaderPlugin,
+    mockWebGpuRendererInstance,
+    navigatorMock,
+  };
+});
 
 const mockCameraInstance = {
   position: {
@@ -77,16 +123,17 @@ vi.mock("three", () => {
 
   // Use class syntax for everything that gets `new`-ed
   class MockWebGLRenderer {
-    setPixelRatio = mockRendererInstance.setPixelRatio;
-    setClearColor = mockRendererInstance.setClearColor;
-    setSize = mockRendererInstance.setSize;
-    render = mockRendererInstance.render;
-    dispose = mockRendererInstance.dispose;
-    domElement = mockRendererInstance.domElement;
-    shadowMap = mockRendererInstance.shadowMap;
-    toneMapping = mockRendererInstance.toneMapping;
-    toneMappingExposure = mockRendererInstance.toneMappingExposure;
-    outputColorSpace = mockRendererInstance.outputColorSpace;
+    setPixelRatio = hoisted.mockRendererInstance.setPixelRatio;
+    setClearColor = hoisted.mockRendererInstance.setClearColor;
+    setSize = hoisted.mockRendererInstance.setSize;
+    render = hoisted.mockRendererInstance.render;
+    dispose = hoisted.mockRendererInstance.dispose;
+    forceContextLoss = hoisted.mockRendererInstance.forceContextLoss;
+    domElement = hoisted.mockRendererInstance.domElement;
+    shadowMap = hoisted.mockRendererInstance.shadowMap;
+    toneMapping = hoisted.mockRendererInstance.toneMapping;
+    toneMappingExposure = hoisted.mockRendererInstance.toneMappingExposure;
+    outputColorSpace = hoisted.mockRendererInstance.outputColorSpace;
   }
 
   class MockScene {
@@ -110,8 +157,8 @@ vi.mock("three", () => {
   }
 
   class MockAnimationMixer {
-    update = mockMixerInstance.update;
-    clipAction = mockMixerInstance.clipAction;
+    update = hoisted.mockMixerInstance.update;
+    clipAction = hoisted.mockMixerInstance.clipAction;
   }
 
   class MockDirectionalLight {
@@ -197,8 +244,21 @@ vi.mock("three", () => {
   };
 });
 
+vi.mock("three/webgpu", () => ({
+  WebGPURenderer: class MockWebGPURenderer {
+    setPixelRatio = hoisted.mockWebGpuRendererInstance.setPixelRatio;
+    setClearColor = hoisted.mockWebGpuRendererInstance.setClearColor;
+    setSize = hoisted.mockWebGpuRendererInstance.setSize;
+    render = hoisted.mockWebGpuRendererInstance.render;
+    dispose = hoisted.mockWebGpuRendererInstance.dispose;
+    domElement = hoisted.mockWebGpuRendererInstance.domElement;
+    init = hoisted.mockWebGpuRendererInstance.init;
+  },
+}));
+
 vi.mock("@pixiv/three-vrm", () => ({
-  VRMLoaderPlugin: class MockVRMLoaderPlugin {},
+  MToonMaterialLoaderPlugin: hoisted.mockMToonMaterialLoaderPlugin,
+  VRMLoaderPlugin: hoisted.mockVRMLoaderPlugin,
   VRMUtils: {
     deepDispose: vi.fn(),
     removeUnnecessaryVertices: vi.fn(),
@@ -206,10 +266,14 @@ vi.mock("@pixiv/three-vrm", () => ({
   },
 }));
 
+vi.mock("@pixiv/three-vrm/nodes", () => ({
+  MToonNodeMaterial: class MockMToonNodeMaterial {},
+}));
+
 vi.mock("three/addons/loaders/GLTFLoader.js", () => ({
   GLTFLoader: class MockGLTFLoader {
-    register = vi.fn();
-    loadAsync = vi.fn();
+    register = hoisted.mockLoaderRegister;
+    loadAsync = hoisted.mockLoaderLoadAsync;
   },
 }));
 
@@ -240,19 +304,24 @@ vi.mock("../../../asset-url", () => ({
 
 // Stub DOM APIs that VrmEngine relies on
 const rafIds = { current: 0 };
-vi.stubGlobal(
-  "requestAnimationFrame",
-  vi.fn(() => {
+Object.assign(globalThis, {
+  requestAnimationFrame: vi.fn(() => {
     return ++rafIds.current;
   }),
-);
-vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  cancelAnimationFrame: vi.fn(),
+});
 
 // VrmEngine.setup() accesses window.devicePixelRatio
-vi.stubGlobal("window", {
-  devicePixelRatio: 1,
-  addEventListener: vi.fn(),
-  removeEventListener: vi.fn(),
+Object.assign(globalThis, {
+  window: {
+    devicePixelRatio: 1,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  },
+});
+Object.defineProperty(globalThis, "navigator", {
+  configurable: true,
+  value: hoisted.navigatorMock as unknown as Navigator,
 });
 
 // VrmEngine.createFootShadow accesses document.createElement
@@ -266,12 +335,14 @@ const mockCanvas2d = {
   beginPath: vi.fn(),
   arc: vi.fn(),
 };
-vi.stubGlobal("document", {
-  createElement: vi.fn(() => ({
-    width: 0,
-    height: 0,
-    getContext: vi.fn(() => mockCanvas2d),
-  })),
+Object.assign(globalThis, {
+  document: {
+    createElement: vi.fn(() => ({
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => mockCanvas2d),
+    })),
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -301,6 +372,10 @@ function createMockCanvas(): HTMLCanvasElement {
   } as unknown as HTMLCanvasElement;
 }
 
+async function waitForEngineReady(engine: VrmEngine): Promise<void> {
+  await engine.whenReady();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -310,6 +385,7 @@ describe("VrmEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.navigatorMock.gpu = undefined;
     engine = new VrmEngine();
   });
 
@@ -327,9 +403,10 @@ describe("VrmEngine", () => {
       expect(engine.isInitialized()).toBe(false);
     });
 
-    it("is initialized after setup()", () => {
+    it("is initialized after setup()", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       expect(engine.isInitialized()).toBe(true);
     });
 
@@ -337,37 +414,75 @@ describe("VrmEngine", () => {
       expect(() => engine.dispose()).not.toThrow();
     });
 
-    it("dispose() cleans up after setup()", () => {
+    it("dispose() cleans up after setup()", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       expect(engine.isInitialized()).toBe(true);
 
       engine.dispose();
       expect(engine.isInitialized()).toBe(false);
     });
 
-    it("can be setup() again after dispose()", () => {
+    it("can be setup() again after dispose()", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       engine.dispose();
       expect(engine.isInitialized()).toBe(false);
 
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       expect(engine.isInitialized()).toBe(true);
     });
 
-    it("re-setup with the same canvas reuses the engine (no dispose)", () => {
+    it("re-setup with the same canvas reuses the engine (no dispose)", async () => {
       const canvas = createMockCanvas();
       // Assign domElement so the "same canvas" check passes
-      mockRendererInstance.domElement = canvas;
+      hoisted.mockRendererInstance.domElement = canvas;
 
       const cb1 = vi.fn();
       const cb2 = vi.fn();
       engine.setup(canvas, cb1);
+      await waitForEngineReady(engine);
       engine.setup(canvas, cb2);
       expect(engine.isInitialized()).toBe(true);
       // dispose should not have been called between the two setups
-      expect(mockRendererInstance.dispose).not.toHaveBeenCalled();
+      expect(hoisted.mockRendererInstance.dispose).not.toHaveBeenCalled();
+    });
+
+    it("waits for the renderer to finish initializing", async () => {
+      const canvas = createMockCanvas();
+      engine.setup(canvas, vi.fn());
+
+      await expect(engine.whenReady()).resolves.toBeUndefined();
+      expect(engine.isInitialized()).toBe(true);
+    });
+
+    it("uses WebGPURenderer when navigator.gpu is available", async () => {
+      hoisted.navigatorMock.gpu = {};
+      const canvas = createMockCanvas();
+
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      const engineAny = engine as unknown as { rendererBackend: string };
+      expect(engineAny.rendererBackend).toBe("webgpu");
+      expect(hoisted.mockWebGpuRendererInstance.init).toHaveBeenCalledTimes(1);
+      expect(
+        hoisted.mockWebGpuRendererInstance.setPixelRatio,
+      ).toHaveBeenCalledWith(1);
+    });
+
+    it("forces WebGL context loss during dispose()", async () => {
+      const canvas = createMockCanvas();
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      engine.dispose();
+
+      expect(hoisted.mockRendererInstance.dispose).toHaveBeenCalled();
+      expect(hoisted.mockRendererInstance.forceContextLoss).toHaveBeenCalled();
     });
   });
 
@@ -376,15 +491,17 @@ describe("VrmEngine", () => {
     it("returns immediately when VRM is not loaded (no mixer)", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       // No VRM loaded — playEmote should resolve silently
       await expect(
         engine.playEmote("/mock/emote.glb", 2, false),
       ).resolves.toBeUndefined();
     });
 
-    it("stopEmote() does not throw when no emote is playing", () => {
+    it("stopEmote() does not throw when no emote is playing", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       expect(() => engine.stopEmote()).not.toThrow();
     });
   });
@@ -400,17 +517,19 @@ describe("VrmEngine", () => {
       expect(state.idleTracks).toBe(0);
     });
 
-    it("state after setup still has no VRM loaded", () => {
+    it("state after setup still has no VRM loaded", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       const state = engine.getState();
       expect(state.vrmLoaded).toBe(false);
       expect(state.vrmName).toBeNull();
     });
 
-    it("state after dispose resets to initial", () => {
+    it("state after dispose resets to initial", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       engine.dispose();
       const state = engine.getState();
       expect(state.vrmLoaded).toBe(false);
@@ -459,9 +578,10 @@ describe("VrmEngine", () => {
       expect(() => engine.setForceFaceCameraFlip(false)).not.toThrow();
     });
 
-    it("resize() handles zero or negative dimensions gracefully", () => {
+    it("resize() handles zero or negative dimensions gracefully", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
       expect(() => engine.resize(0, 0)).not.toThrow();
       expect(() => engine.resize(-1, 600)).not.toThrow();
       expect(() => engine.resize(800, -1)).not.toThrow();
@@ -538,6 +658,32 @@ describe("VrmEngine", () => {
       await expect(
         engine.loadVrmFromUrl("http://example.com/model.vrm"),
       ).rejects.toThrow("VrmEngine not initialized");
+    });
+
+    it("registers WebGPU-compatible VRM material loading when WebGPU is active", async () => {
+      hoisted.navigatorMock.gpu = {};
+      hoisted.mockLoaderLoadAsync.mockRejectedValueOnce(
+        new Error("stop-after-register"),
+      );
+      const canvas = createMockCanvas();
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      await expect(
+        engine.loadVrmFromUrl("http://example.com/model.vrm"),
+      ).rejects.toThrow("stop-after-register");
+
+      expect(hoisted.mockMToonMaterialLoaderPlugin).toHaveBeenCalledTimes(1);
+      expect(hoisted.mockMToonMaterialLoaderPlugin).toHaveBeenCalledWith(
+        hoisted.mockLoaderParser,
+        expect.objectContaining({
+          materialType: expect.any(Function),
+        }),
+      );
+      expect(hoisted.mockVRMLoaderPlugin).toHaveBeenCalledWith(
+        hoisted.mockLoaderParser,
+        expect.any(Object),
+      );
     });
   });
 });

@@ -50,6 +50,8 @@ export function VrmViewer(props: VrmViewerProps) {
   const lastStateEmitMsRef = useRef<number>(0);
   const mountedRef = useRef(true);
   const currentVrmPathRef = useRef<string>("");
+  const onEngineReadyRef = useRef(props.onEngineReady);
+  const onEngineStateRef = useRef(props.onEngineState);
 
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
@@ -57,6 +59,8 @@ export function VrmViewer(props: VrmViewerProps) {
   forceFaceCameraFlipRef.current = props.forceFaceCameraFlip ?? false;
   cameraProfileRef.current = props.cameraProfile ?? "chat";
   interactionModeRef.current = props.interactiveMode ?? "free";
+  onEngineReadyRef.current = props.onEngineReady;
+  onEngineStateRef.current = props.onEngineState;
 
   // Setup engine once
   useEffect(() => {
@@ -76,11 +80,11 @@ export function VrmViewer(props: VrmViewerProps) {
       if (!mountedRef.current) return;
       engine.setMouthOpen(mouthOpenRef.current);
       engine.setSpeaking(isSpeakingRef.current);
-      if (props.onEngineState) {
+      if (onEngineStateRef.current) {
         const now = performance.now();
         if (now - lastStateEmitMsRef.current >= 250) {
           lastStateEmitMsRef.current = now;
-          props.onEngineState(engine.getState());
+          onEngineStateRef.current(engine.getState());
         }
       }
     });
@@ -91,27 +95,40 @@ export function VrmViewer(props: VrmViewerProps) {
     engine.setInteractionEnabled(interactiveRef.current);
     engine.setForceFaceCameraFlip(forceFaceCameraFlipRef.current);
 
-    props.onEngineReady?.(engine);
-
     const resize = () => {
       const el = canvasRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
       engine.resize(rect.width, rect.height);
     };
-    resize();
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => resize())
+        : null;
+    resizeObserver?.observe(canvas);
     window.addEventListener("resize", resize);
+    void engine.whenReady().then(
+      () => {
+        if (!mountedRef.current) return;
+        resize();
+        onEngineReadyRef.current?.(engine);
+      },
+      (error) => {
+        console.warn("Failed to initialize VRM renderer:", error);
+      },
+    );
 
     return () => {
       mountedRef.current = false;
       window.removeEventListener("resize", resize);
+      resizeObserver?.disconnect();
 
       engine.dispose();
       if (engineRef.current === engine) {
         engineRef.current = null;
       }
     };
-  }, [props.onEngineReady, props.onEngineState]);
+  }, []);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -140,7 +157,7 @@ export function VrmViewer(props: VrmViewerProps) {
   // Load VRM when path changes
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engine || !engine.isInitialized()) return;
+    if (!engine) return;
 
     const vrmUrl = props.vrmPath ?? DEFAULT_VRM_PATH;
     if (vrmUrl === currentVrmPathRef.current) return;
@@ -150,13 +167,14 @@ export function VrmViewer(props: VrmViewerProps) {
 
     void (async () => {
       try {
+        await engine.whenReady();
         if (!mountedRef.current || abortController.signal.aborted) return;
         await engine.loadVrmFromUrl(
           vrmUrl,
           vrmUrl.split("/").pop() ?? "avatar.vrm",
         );
         if (!mountedRef.current || abortController.signal.aborted) return;
-        props.onEngineState?.(engine.getState());
+        onEngineStateRef.current?.(engine.getState());
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         console.warn("Failed to load VRM:", err);
@@ -166,7 +184,7 @@ export function VrmViewer(props: VrmViewerProps) {
     return () => {
       abortController.abort();
     };
-  }, [props.vrmPath, props.onEngineState]);
+  }, [props.vrmPath]);
 
   return (
     <canvas

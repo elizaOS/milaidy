@@ -1,6 +1,8 @@
 # Build and release (CI, desktop binaries)
 
-Why the release pipeline and Electron bundle work the way they do.
+> Branch note: on `test/electrobun-cross-platform`, `.github/workflows/release-electrobun.yml` is the canonical tag-triggered desktop release workflow. `.github/workflows/release.yml` is kept as a manual legacy Electron fallback only.
+
+Why the release pipeline and desktop bundle work the way they do.
 
 ## macOS: why two DMGs (arm64 and x64)
 
@@ -56,8 +58,36 @@ CI workflows that need Node (for node-gyp / native modules or npm registry) were
 
 ## Where this runs
 
-- **Release:** `.github/workflows/release.yml` — on version tag push; builds all platforms and uploads artifacts.
+- **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64, Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
+- **Legacy Electron release:** `.github/workflows/release.yml` — manual fallback only on this branch.
 - **Local desktop build:** From repo root, build core and app, then e.g. `cd apps/app/electron && bunx electron-builder build --mac --arm64 --publish never`. For a full signed/notarized local test, see `scripts/verify-build.sh` (macOS).
+
+## Electrobun update-channel naming
+
+Electrobun v1.15.x writes **platform-prefixed flat artifact names** into `apps/app/electrobun/artifacts/`, for example:
+
+- `canary-macos-arm64-Milady-canary.app.tar.zst`
+- `canary-macos-arm64-Milady-canary.dmg`
+- `canary-macos-arm64-update.json`
+
+Why the workflow mirrors that shape directly to `https://milady.ai/releases/`:
+
+- The Electrobun updater resolves manifests at `${baseUrl}/${platformPrefix}-update.json`, not `${baseUrl}/${channel}/update.json`.
+- It also resolves tarballs at `${baseUrl}/${platformPrefix}-${tarballFileName}`.
+- Because of that, the release upload step must publish `*-update.json`, `*.tar.zst`, and optional `*.patch` files at the **flat release root**. Uploading only a generic `update.json` or nesting files under version folders breaks in-app updates.
+
+## Desktop WebGPU: browser + native
+
+Milady now carries both WebGPU paths in the desktop app:
+
+- **Renderer-side WebGPU:** the existing avatar and vector-browser scenes run in the webview and prefer `three/webgpu` when the embedded browser exposes `navigator.gpu`.
+- **Electrobun-native WebGPU:** `apps/app/electrobun/electrobun.config.ts` enables `bundleWGPU: true` on macOS, Windows, and Linux, so packaged desktop builds also include Dawn (`libwebgpu_dawn.*`) for Bun-side `GpuWindow`, `WGPUView`, and `<electrobun-wgpu>` surfaces.
+- **Renderer choice for packaged builds:** macOS stays on the native renderer by default, while Windows and Linux default to bundled CEF. That matches Electrobun's current cross-platform guidance: Linux distribution should use CEF-backed `BrowserWindow`/`BrowserView` instances, and CEF gives us the most consistent browser-side WebGPU path on the non-macOS desktop targets.
+
+Why this split exists:
+
+- The current UI/React surfaces already live in the renderer webview, so browser WebGPU remains the lowest-risk path for those scenes.
+- Bundling Dawn keeps the desktop runtime ready for native GPU surfaces and Bun-side compute/render workloads without maintaining a separate desktop flavor.
 
 ## See also
 

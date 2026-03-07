@@ -13,6 +13,8 @@ import Electrobun, {
   BrowserWindow,
   Updater,
   Utils,
+  WGPU,
+  webgpu,
 } from "electrobun/bun";
 import { pushApiBaseToRenderer, resolveExternalApiBase } from "./api-base";
 import { getAgentManager } from "./native/agent";
@@ -39,18 +41,18 @@ function setupApplicationMenu(): void {
       label: "Milady",
       submenu: [
         { role: "about" },
-        { type: "separator" },
+        { type: "separator" as const },
         { label: "Restart Agent", action: "restart-agent" },
-        { type: "separator" },
+        { type: "separator" as const },
         // services, hide, hideOthers, unhide are macOS-only menu roles
         ...(isMac
           ? [
               { role: "services" },
-              { type: "separator" },
+              { type: "separator" as const },
               { role: "hide" },
               { role: "hideOthers" },
               { role: "unhide" },
-              { type: "separator" },
+              { type: "separator" as const },
             ]
           : []),
         { role: "quit" },
@@ -61,7 +63,7 @@ function setupApplicationMenu(): void {
       submenu: [
         { role: "undo" },
         { role: "redo" },
-        { type: "separator" },
+        { type: "separator" as const },
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
@@ -74,11 +76,11 @@ function setupApplicationMenu(): void {
         { role: "reload" },
         { role: "forceReload" },
         { role: "toggleDevTools" },
-        { type: "separator" },
+        { type: "separator" as const },
         { role: "resetZoom" },
         { role: "zoomIn" },
         { role: "zoomOut" },
-        { type: "separator" },
+        { type: "separator" as const },
         { role: "togglefullscreen" },
       ],
     },
@@ -88,7 +90,11 @@ function setupApplicationMenu(): void {
         { role: "minimize" },
         // zoom and front are macOS-only Window menu roles
         ...(isMac
-          ? [{ role: "zoom" }, { type: "separator" }, { role: "front" }]
+          ? [
+              { role: "zoom" },
+              { type: "separator" as const },
+              { role: "front" },
+            ]
           : []),
       ],
     },
@@ -580,8 +586,21 @@ function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
 // Bootstrap
 // ============================================================================
 
+function initializeBundledWebGPU(): void {
+  if (!WGPU.native.available) {
+    console.log(
+      "[WebGPU] Native Dawn runtime not bundled for this run; renderer-side WebGPU remains available through the webview/browser path.",
+    );
+    return;
+  }
+
+  webgpu.install();
+  console.log(`[WebGPU] Native Dawn runtime ready at ${WGPU.native.path}`);
+}
+
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
+  initializeBundledWebGPU();
 
   // Set up app menu
   setupApplicationMenu();

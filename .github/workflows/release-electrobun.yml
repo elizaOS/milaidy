@@ -1,13 +1,21 @@
 # Build & Release — Electrobun desktop app (signed/notarized on macOS, CEF on Windows/Linux)
-# Produces .tar.zst update archives + update.json for auto-update, plus installer artifacts.
+# Produces installer artifacts plus platform-prefixed .tar.zst/*-update.json
+# update channel files.
 #
 # Required GitHub Secrets (macOS signing + notarization):
-#   ELECTROBUN_DEVELOPER_ID   – Apple Developer ID Application string (e.g. "Developer ID Application: Corp (XXXXXXXXXX)")
-#   ELECTROBUN_APPLEID        – Apple ID email for notarization
-#   ELECTROBUN_APPLEIDPASS    – App-specific password from appleid.apple.com
-#   ELECTROBUN_TEAMID         – 10-char Apple Developer Team ID
+#   CSC_LINK                     – base64-encoded Developer ID Application .p12
+#   CSC_KEY_PASSWORD             – password for the .p12 certificate
+#   APPLE_ID                     – Apple ID email for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD  – app-specific password from appleid.apple.com
+#   APPLE_TEAM_ID                – 10-char Apple Developer Team ID
 #
-# Optional: upload update.json + .tar.zst to milady.ai/releases/ via RELEASE_UPLOAD_KEY secret.
+# The workflow imports the certificate into a temporary keychain, extracts the
+# Developer ID identity string, and passes that to Electrobun as
+# ELECTROBUN_DEVELOPER_ID for the final `electrobun build`.
+#
+# Optional release-host upload secrets:
+#   RELEASE_UPLOAD_KEY           – SSH private key for releases@milady.ai
+#   RELEASE_HOST_FINGERPRINT     – pinned SSH host key entry for milady.ai
 name: Build & Release (Electrobun)
 
 on:
@@ -149,6 +157,7 @@ jobs:
         run: |
           bunx tsdown
           echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
 
       - name: Build renderer (Vite)
         run: |
@@ -259,7 +268,10 @@ jobs:
           ls dist/node_modules/ 2>/dev/null || echo "(empty)"
 
       - name: Install electrobun CLI
-        run: bun install -g electrobun@1.14.4
+        run: |
+          ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
+          echo "Installing electrobun@$ELECTROBUN_VERSION"
+          bun install -g "electrobun@$ELECTROBUN_VERSION"
 
       # electrobun.cjs downloads its native binary then calls:
       #   execSync(`tar -xzf "${tarballPath}"`, { cwd: cacheDir })
@@ -308,7 +320,9 @@ jobs:
         run: electrobun build --env=${{ needs.prepare.outputs.env }}
         working-directory: apps/app/electrobun
         env:
-          # macOS code-signing + notarization (Electrobun reads these directly)
+          # Electrobun reads these env vars directly. The workflow derives the
+          # signing identity from CSC_LINK/CSC_KEY_PASSWORD during keychain setup
+          # and maps the notarization credentials from the standard repo secrets.
           ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
           ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -325,9 +339,27 @@ jobs:
         run: |
           shopt -s nullglob
           apps=(apps/app/electrobun/artifacts/**/*.app apps/app/electrobun/artifacts/*.app)
+          mounted_volume=""
           if [ "${#apps[@]}" -eq 0 ]; then
-            echo "::warning::No .app bundle found — skipping codesign check"
-            exit 0
+            dmgs=(apps/app/electrobun/artifacts/*.dmg)
+            if [ "${#dmgs[@]}" -eq 0 ]; then
+              echo "::warning::No .app bundle or .dmg found — skipping codesign check"
+              exit 0
+            fi
+            dmg="${dmgs[0]}"
+            echo "No .app bundle found in artifacts; mounting DMG: $dmg"
+            mount_line="$(hdiutil attach -nobrowse -readonly "$dmg" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
+            if [ -z "$mount_line" ]; then
+              echo "::error::Failed to determine mounted DMG volume"
+              exit 1
+            fi
+            mounted_volume="$mount_line"
+            trap 'if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true; fi' EXIT
+            apps=("$mounted_volume"/*.app "$mounted_volume"/**/*.app)
+            if [ "${#apps[@]}" -eq 0 ]; then
+              echo "::error::No .app bundle found inside mounted DMG"
+              exit 1
+            fi
           fi
           for app in "${apps[@]}"; do
             echo "Verifying: $app"
@@ -350,9 +382,9 @@ jobs:
             apps/app/electrobun/artifacts/*.tar.zst
             apps/app/electrobun/artifacts/*.zip
             apps/app/electrobun/artifacts/*.tar.gz
-            apps/app/electrobun/artifacts/update.json
+            apps/app/electrobun/artifacts/*-update.json
             apps/app/electrobun/artifacts/*.patch
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
   release:
@@ -384,15 +416,9 @@ jobs:
             -name "*.tar.zst" -o \
             -name "*.zip" -o \
             -name "*.tar.gz" -o \
+            -name "*-update.json" -o \
             -name "*.patch" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
-          # Keep only one copy of update.json (prefer macOS, then Linux, then Windows)
-          for dir in release-artifacts/electrobun-macos-arm64 release-artifacts/electrobun-linux-x64 release-artifacts/electrobun-windows-x64; do
-            if [ -f "$dir/update.json" ]; then
-              cp "$dir/update.json" release-files/update.json
-              break
-            fi
-          done
           echo "=== Release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
 
@@ -414,8 +440,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Upload update.json + .tar.zst files to milady.ai/releases/ so the
-      # in-app auto-updater can discover them via the baseUrl in electrobun.config.ts.
+      # Upload platform-prefixed update manifests + tarballs to
+      # milady.ai/releases/ so the Electrobun updater can discover them via the
+      # flat baseUrl contract in electrobun.config.ts:
+      #   ${baseUrl}/${platformPrefix}-update.json
+      #   ${baseUrl}/${platformPrefix}-${tarballFileName}
       # Requires RELEASE_UPLOAD_KEY secret (SSH private key for releases server).
       # Skipped for draft releases — test/preview builds must not pollute the production update channel.
       - name: Upload update channel files to milady.ai/releases/
@@ -435,17 +464,18 @@ jobs:
           # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           echo "$RELEASE_HOST_FINGERPRINT" >> ~/.ssh/known_hosts
-          # Upload all update files to the release channel directory
-          CHANNEL="${{ needs.prepare.outputs.env }}"
-          VERSION="${{ needs.prepare.outputs.version }}"
+          mkdir -p update-channel
+          find release-files -maxdepth 1 -type f \( \
+            -name "*.tar.zst" -o \
+            -name "*.patch" -o \
+            -name "*-update.json" \
+          \) -exec cp {} update-channel/ \;
+          echo "=== Update channel files ==="
+          ls -lh update-channel/
+          # Electrobun resolves update metadata and tarballs at the flat
+          # release root, keyed by platform prefix, not inside version folders.
           rsync -av --delete-after \
             -e "ssh -i /tmp/release_key" \
-            release-files/ \
-            releases@milady.ai:/var/www/releases/${CHANNEL}/${VERSION}/
-          # Overwrite the channel-level update.json so auto-updater finds latest
-          if [ -f "release-files/update.json" ]; then
-            scp -i /tmp/release_key \
-              release-files/update.json \
-              releases@milady.ai:/var/www/releases/${CHANNEL}/update.json
-          fi
+            update-channel/ \
+            releases@milady.ai:/var/www/releases/
           rm -f /tmp/release_key
