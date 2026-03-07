@@ -114,11 +114,11 @@ jobs:
       - name: Install root dependencies
         run: |
           for i in 1 2 3; do
-            bun install --frozen-lockfile && break
+            bun install --frozen-lockfile --ignore-scripts && break
             echo "Retry $i: bun install failed, retrying..."
             sleep 5
           done
-          bun install --frozen-lockfile
+          bun install --frozen-lockfile --ignore-scripts
 
       - name: Align version with release tag
         run: |
@@ -182,7 +182,7 @@ jobs:
         working-directory: apps/app/electrobun
 
       - name: Validate macOS signing secrets
-        if: matrix.platform.os == 'macos'
+        if: matrix.platform.os == 'macos' && !inputs.draft
         run: |
           missing=0
           for var in ELECTROBUN_DEVELOPER_ID ELECTROBUN_APPLEID ELECTROBUN_APPLEIDPASS ELECTROBUN_TEAMID; do
@@ -200,7 +200,7 @@ jobs:
           ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
 
       - name: Build Electrobun app
-        run: electrobun build --env=${{ needs.prepare.outputs.env }}
+        run: bunx electrobun build --env=${{ needs.prepare.outputs.env }}
         working-directory: apps/app/electrobun
         env:
           # macOS code-signing + notarization (Electrobun reads these directly)
