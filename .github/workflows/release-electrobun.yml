@@ -248,14 +248,14 @@ jobs:
 
       - name: List build output
         run: |
-          echo "=== Electrobun dist ==="
-          find apps/app/electrobun/dist -type f 2>/dev/null | sort || echo "(no dist directory)"
+          echo "=== Electrobun artifacts ==="
+          find apps/app/electrobun/artifacts -type f 2>/dev/null | sort || echo "(no artifacts directory)"
 
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
           shopt -s nullglob
-          apps=(apps/app/electrobun/dist/**/*.app apps/app/electrobun/dist/*.app)
+          apps=(apps/app/electrobun/artifacts/**/*.app apps/app/electrobun/artifacts/*.app)
           if [ "${#apps[@]}" -eq 0 ]; then
             echo "::warning::No .app bundle found — skipping codesign check"
             exit 0
@@ -277,13 +277,12 @@ jobs:
         with:
           name: electrobun-${{ matrix.platform.artifact-name }}
           path: |
-            apps/app/electrobun/dist/*.dmg
-            apps/app/electrobun/dist/*.tar.zst
-            apps/app/electrobun/dist/*.exe
-            apps/app/electrobun/dist/*.AppImage
-            apps/app/electrobun/dist/*.deb
-            apps/app/electrobun/dist/update.json
-            apps/app/electrobun/dist/*.patch
+            apps/app/electrobun/artifacts/*.dmg
+            apps/app/electrobun/artifacts/*.tar.zst
+            apps/app/electrobun/artifacts/*.zip
+            apps/app/electrobun/artifacts/*.tar.gz
+            apps/app/electrobun/artifacts/update.json
+            apps/app/electrobun/artifacts/*.patch
           if-no-files-found: warn
           retention-days: 30
 
@@ -314,9 +313,8 @@ jobs:
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
             -name "*.tar.zst" -o \
-            -name "*.exe" -o \
-            -name "*.AppImage" -o \
-            -name "*.deb" -o \
+            -name "*.zip" -o \
+            -name "*.tar.gz" -o \
             -name "*.patch" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
           # Keep only one copy of update.json (prefer macOS, then Linux, then Windows)
