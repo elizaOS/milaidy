@@ -21,7 +21,11 @@ export default {
     copy: {
       "../dist": "renderer",
       "src/preload.js": "bun/preload.js",
-      "src/libMacWindowEffects.dylib": "libMacWindowEffects.dylib",
+      // libMacWindowEffects.dylib is macOS-only — only copy when building on macOS.
+      // On Windows/Linux this file does not exist and the copy would fail the build.
+      ...(process.platform === "darwin"
+        ? { "src/libMacWindowEffects.dylib": "libMacWindowEffects.dylib" }
+        : {}),
     },
     mac: {
       codesign: true,

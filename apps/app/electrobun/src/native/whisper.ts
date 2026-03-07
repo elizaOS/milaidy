@@ -58,10 +58,12 @@ function resolveWhisperPath(
   return path.resolve(process.cwd(), relativeFromCwd);
 }
 
+// Windows whisper.cpp binary has a .exe extension; other platforms do not.
+const WHISPER_BIN_NAME = process.platform === "win32" ? "main.exe" : "main";
 const WHISPER_BIN = resolveWhisperPath(
   "MILADY_WHISPER_BIN",
-  "../../../../node_modules/whisper-node/lib/whisper.cpp/main",
-  "node_modules/whisper-node/lib/whisper.cpp/main",
+  `../../../../node_modules/whisper-node/lib/whisper.cpp/${WHISPER_BIN_NAME}`,
+  `node_modules/whisper-node/lib/whisper.cpp/${WHISPER_BIN_NAME}`,
 );
 const WHISPER_MODEL = resolveWhisperPath(
   "MILADY_WHISPER_MODEL",
