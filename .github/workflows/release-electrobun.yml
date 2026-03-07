@@ -235,6 +235,19 @@ jobs:
           echo "developer_id=$IDENTITY" >> "$GITHUB_OUTPUT"
           echo "skip_codesign=" >> "$GITHUB_OUTPUT"
 
+      - name: Sign native macOS effects dylib
+        if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
+        env:
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+        run: |
+          DYLIB="apps/app/electrobun/src/libMacWindowEffects.dylib"
+          if [ ! -f "$DYLIB" ]; then
+            echo "::error::Expected $DYLIB to exist after build:native-effects"
+            exit 1
+          fi
+          codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$DYLIB"
+          codesign --verify --strict --verbose=2 "$DYLIB"
+
       # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
       # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
       # Bundle packages that tsdown externalizes (native .node addons + @elizaos/plugin-*)
@@ -244,16 +257,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/node_modules
+          # Bun hoists packages as symlinks into node_modules/.bun.
+          # Follow those links here so the packaged dist tree contains real files
+          # instead of relative symlinks that break when Electrobun copies dist/.
           # Native binary packages externalized by tsdown
           for pkg in node-llama-cpp @reflink; do
             if [ -d "node_modules/$pkg" ]; then
               echo "Copying node_modules/$pkg"
-              cp -r "node_modules/$pkg" "dist/node_modules/$pkg"
+              rm -rf "dist/node_modules/$pkg"
+              cp -RL "node_modules/$pkg" "dist/node_modules/$pkg"
             fi
           done
           # macOS only: fsevents
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ -d "node_modules/fsevents" ]; then
-            cp -r "node_modules/fsevents" "dist/node_modules/fsevents"
+            rm -rf "dist/node_modules/fsevents"
+            cp -RL "node_modules/fsevents" "dist/node_modules/fsevents"
           fi
           # @elizaos/plugin-* packages loaded dynamically at runtime
           if [ -d "node_modules/@elizaos" ]; then
@@ -261,7 +279,8 @@ jobs:
             for pluginDir in node_modules/@elizaos/plugin-*; do
               pkg="$(basename "$pluginDir")"
               echo "Copying @elizaos/$pkg"
-              cp -r "$pluginDir" "dist/node_modules/@elizaos/$pkg"
+              rm -rf "dist/node_modules/@elizaos/$pkg"
+              cp -RL "$pluginDir" "dist/node_modules/@elizaos/$pkg"
             done
           fi
           echo "dist/node_modules contents:"
