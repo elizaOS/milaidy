@@ -31,12 +31,22 @@ SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
 LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
+BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
 STARTUP_LOG="$HOME/.config/Milady/milady-startup.log"
 
 if [[ "$SKIP_SIGNATURE_CHECK" == "1" && -z "$BUILD_SKIP_CODESIGN" ]]; then
   BUILD_SKIP_CODESIGN="1"
+fi
+
+if [[ "$(uname)" == "Darwin" && "$BUILD_SKIP_CODESIGN" != "1" && -z "$BUILD_DEVELOPER_ID" ]]; then
+  BUILD_DEVELOPER_ID="$(
+    security find-identity -v -p codesigning 2>/dev/null \
+      | grep "Developer ID Application" \
+      | head -1 \
+      | sed 's/.*"\(.*\)"/\1/' || true
+  )"
 fi
 
 cleanup() {
@@ -119,7 +129,7 @@ echo ""
 
 # ── 4. Build Electrobun app ───────────────────────────────────────────────────
 echo "[4/7] Building Electrobun app (env=$BUILD_ENV)..."
-(cd "$ELECTROBUN_DIR" && ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" bun run build -- --env="$BUILD_ENV")
+(cd "$ELECTROBUN_DIR" && ELECTROBUN_DEVELOPER_ID="$BUILD_DEVELOPER_ID" ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" bun run build -- --env="$BUILD_ENV")
 echo ""
 
 # ── 5. Locate built .app ─────────────────────────────────────────────────────

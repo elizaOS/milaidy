@@ -52,6 +52,44 @@ const TRACKED_PACKAGE_CACHE = path.join(
 );
 const DEP_SKIP = new Set(["typescript", "@types/node", "lucide-react"]);
 const ALWAYS_HOISTED_PACKAGES = new Set(["@elizaos/core"]);
+const PLATFORM_ALIASES = new Map<string, string>([
+  ["android", "android"],
+  ["aix", "aix"],
+  ["darwin", "darwin"],
+  ["freebsd", "freebsd"],
+  ["ios", "ios"],
+  ["linux", "linux"],
+  ["mac", "darwin"],
+  ["macos", "darwin"],
+  ["netbsd", "netbsd"],
+  ["openbsd", "openbsd"],
+  ["osx", "darwin"],
+  ["sunos", "sunos"],
+  ["win", "win32"],
+  ["windows", "win32"],
+  ["win32", "win32"],
+]);
+const LIBC_ALIASES = new Map<string, string>([
+  ["glibc", "glibc"],
+  ["gnu", "glibc"],
+  ["musl", "musl"],
+]);
+const ARCH_ALIASES = new Map<string, string>([
+  ["aarch64", "arm64"],
+  ["all", "universal"],
+  ["amd64", "x64"],
+  ["arm", "arm"],
+  ["arm64", "arm64"],
+  ["armv7", "arm"],
+  ["armv7l", "arm"],
+  ["i386", "ia32"],
+  ["ia32", "ia32"],
+  ["universal", "universal"],
+  ["universal2", "universal"],
+  ["x64", "x64"],
+  ["x86", "ia32"],
+  ["x86_64", "x64"],
+]);
 const bunPackageIndex = new Map<string, Set<string>>();
 const registryPackageIndex = new Map<string, ResolvedPackage>();
 const trackedPackageIndex = new Map<string, ResolvedPackage>();
@@ -131,6 +169,152 @@ function buildBunPackageIndex(): void {
   }
 }
 
+function normalizeTargetOS(targetOS: string): string {
+  return PLATFORM_ALIASES.get(targetOS.toLowerCase()) ?? targetOS.toLowerCase();
+}
+
+function normalizeTargetArch(targetArch: string): string {
+  return ARCH_ALIASES.get(targetArch.toLowerCase()) ?? targetArch.toLowerCase();
+}
+
+function getRuntimeVariantConstraints(variant: string): {
+  os: string | null;
+  libc: string | null;
+  arch: string | null;
+} {
+  const tokens = variant.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  let os: string | null = null;
+  let libc: string | null = null;
+  let arch: string | null = null;
+
+  for (const token of tokens) {
+    if (!os) {
+      os = PLATFORM_ALIASES.get(token) ?? null;
+    }
+    if (!libc) {
+      libc = LIBC_ALIASES.get(token) ?? null;
+    }
+    if (!arch) {
+      arch = ARCH_ALIASES.get(token) ?? null;
+    }
+  }
+
+  return { os, libc, arch };
+}
+
+export function matchesRuntimeVariant(
+  variant: string,
+  targetOS = process.platform,
+  targetArch = process.arch,
+): boolean {
+  const constraints = getRuntimeVariantConstraints(variant);
+  if (!constraints.os && !constraints.libc && !constraints.arch) {
+    return true;
+  }
+
+  const normalizedOS = normalizeTargetOS(targetOS);
+  const normalizedArch = normalizeTargetArch(targetArch);
+
+  if (constraints.os && constraints.os !== normalizedOS) {
+    return false;
+  }
+
+  if (constraints.libc) {
+    if (normalizedOS !== "linux") {
+      return false;
+    }
+    const currentLibc = detectCurrentLibc();
+    if (currentLibc && currentLibc !== constraints.libc) {
+      return false;
+    }
+  }
+
+  if (
+    constraints.arch &&
+    constraints.arch !== "universal" &&
+    constraints.arch !== normalizedArch
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function shouldKeepPackageRelativePath(
+  relativePath: string,
+  targetOS = process.platform,
+  targetArch = process.arch,
+): boolean {
+  const normalizedPath = relativePath.split(path.sep).join("/");
+  if (!normalizedPath || normalizedPath === ".") {
+    return true;
+  }
+
+  const prebuildMatch = normalizedPath.match(
+    /(?:^|\/)prebuilds\/([^/]+)(?:\/|$)/,
+  );
+  if (prebuildMatch) {
+    return matchesRuntimeVariant(prebuildMatch[1], targetOS, targetArch);
+  }
+
+  const napiMatch = normalizedPath.match(
+    /(?:^|\/)bin\/napi-v\d+\/([^/]+)(?:\/([^/]+))?(?:\/|$)/,
+  );
+  if (napiMatch) {
+    const variant = [napiMatch[1], napiMatch[2]].filter(Boolean).join("-");
+    return matchesRuntimeVariant(variant, targetOS, targetArch);
+  }
+
+  const koffiMatch = normalizedPath.match(
+    /(?:^|\/)build\/koffi\/([^/]+)(?:\/|$)/,
+  );
+  if (koffiMatch) {
+    return matchesRuntimeVariant(
+      koffiMatch[1].replaceAll("_", "-"),
+      targetOS,
+      targetArch,
+    );
+  }
+
+  const binsMatch = normalizedPath.match(/(?:^|\/)bins\/([^/]+)(?:\/|$)/);
+  if (binsMatch) {
+    const variant = binsMatch[1].replaceAll("_", "-");
+    const constraints = getRuntimeVariantConstraints(variant);
+    if (!constraints.os && !constraints.libc && !constraints.arch) {
+      return true;
+    }
+    return matchesRuntimeVariant(variant, targetOS, targetArch);
+  }
+
+  return true;
+}
+
+function pruneCopiedPackageDir(packageDir: string): void {
+  if (!fs.existsSync(packageDir)) return;
+
+  const visit = (currentDir: string): void => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const entryPath = path.join(currentDir, entry.name);
+      const relativePath = path.relative(packageDir, entryPath);
+
+      if (!shouldKeepPackageRelativePath(relativePath)) {
+        fs.rmSync(entryPath, { recursive: true, force: true });
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        visit(entryPath);
+        if (fs.readdirSync(entryPath).length === 0) {
+          fs.rmdirSync(entryPath);
+        }
+      }
+    }
+  };
+
+  // Prune known multi-platform native payload directories after the copy lands.
+  visit(packageDir);
+}
+
 function copyPackageDir(
   name: string,
   sourceDir: string,
@@ -145,6 +329,7 @@ function copyPackageDir(
     dereference: true,
     filter: shouldCopyPackageEntry,
   });
+  pruneCopiedPackageDir(dest);
   return true;
 }
 

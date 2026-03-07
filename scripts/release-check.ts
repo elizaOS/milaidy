@@ -19,6 +19,9 @@ const requiredWorkflowSnippets = [
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
 ];
+const requiredElectrobunConfigSnippets = [
+  'postWrap: "scripts/postwrap-sign-runtime-macos.ts"',
+];
 
 function runPackDry(): PackResult[] {
   const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
@@ -44,8 +47,29 @@ function assertReleaseWorkflowHasNotaryWrapper() {
   }
 }
 
+function assertElectrobunConfigHasPostWrapSigner() {
+  const config = readFileSync(
+    "apps/app/electrobun/electrobun.config.ts",
+    "utf8",
+  );
+  const missing = requiredElectrobunConfigSnippets.filter((snippet) =>
+    !config.includes(snippet),
+  );
+
+  if (missing.length > 0) {
+    console.error(
+      "release-check: electrobun config is missing postWrap signer wiring:",
+    );
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
 function main() {
   assertReleaseWorkflowHasNotaryWrapper();
+  assertElectrobunConfigHasPostWrapSigner();
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));

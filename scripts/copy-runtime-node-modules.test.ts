@@ -10,10 +10,12 @@ import {
   inferVersionFromBunEntryPath,
   isPackageCompatibleWithCurrentPlatform,
   isExactVersionSpecifier,
+  matchesRuntimeVariant,
   normalizeResolvedPackage,
   selectCopyTargetNodeModules,
   selectResolvedCandidate,
   shouldCopyPackageEntry,
+  shouldKeepPackageRelativePath,
 } from "./copy-runtime-node-modules";
 
 describe("inferVersionFromBunEntryPath", () => {
@@ -344,5 +346,127 @@ describe("isPackageCompatibleWithCurrentPlatform", () => {
     );
 
     expect(isPackageCompatibleWithCurrentPlatform(packageJsonPath)).toBe(true);
+  });
+});
+
+describe("matchesRuntimeVariant", () => {
+  it("matches macOS arm64 aliases", () => {
+    expect(matchesRuntimeVariant("darwin-arm64", "darwin", "arm64")).toBe(true);
+    expect(matchesRuntimeVariant("mac-arm64-metal", "darwin", "arm64")).toBe(
+      true,
+    );
+    expect(matchesRuntimeVariant("darwin-universal2", "darwin", "arm64")).toBe(
+      true,
+    );
+  });
+
+  it("rejects mismatched operating systems and architectures", () => {
+    expect(matchesRuntimeVariant("darwin-x64", "darwin", "arm64")).toBe(false);
+    expect(matchesRuntimeVariant("ios-x64-simulator", "darwin", "arm64")).toBe(
+      false,
+    );
+    expect(matchesRuntimeVariant("freebsd_arm64", "darwin", "arm64")).toBe(
+      false,
+    );
+    expect(matchesRuntimeVariant("musl_arm64", "darwin", "arm64")).toBe(false);
+    expect(matchesRuntimeVariant("win32-x64", "darwin", "arm64")).toBe(false);
+  });
+});
+
+describe("shouldKeepPackageRelativePath", () => {
+  const targetOS = "darwin";
+  const targetArch = "arm64";
+
+  it("prunes non-target prebuilds while keeping the active variant", () => {
+    expect(
+      shouldKeepPackageRelativePath(
+        "prebuilds/darwin-arm64/pty.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(true);
+    expect(
+      shouldKeepPackageRelativePath(
+        "prebuilds/darwin-x64/pty.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+    expect(
+      shouldKeepPackageRelativePath(
+        "prebuilds/ios-x64-simulator/bare-fs.bare",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+  });
+
+  it("prunes non-target napi-v3 runtime trees", () => {
+    expect(
+      shouldKeepPackageRelativePath(
+        "bin/napi-v3/darwin/arm64/onnxruntime_binding.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(true);
+    expect(
+      shouldKeepPackageRelativePath(
+        "bin/napi-v3/darwin/x64/onnxruntime_binding.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+    expect(
+      shouldKeepPackageRelativePath(
+        "bin/napi-v3/linux/x64/onnxruntime_binding.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+  });
+
+  it("prunes non-target koffi and bins runtime directories", () => {
+    expect(
+      shouldKeepPackageRelativePath(
+        "build/koffi/darwin_arm64/koffi.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(true);
+    expect(
+      shouldKeepPackageRelativePath(
+        "build/koffi/darwin_x64/koffi.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+    expect(
+      shouldKeepPackageRelativePath(
+        "build/koffi/freebsd_arm64/koffi.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+    expect(
+      shouldKeepPackageRelativePath(
+        "build/koffi/musl_arm64/koffi.node",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
+    expect(
+      shouldKeepPackageRelativePath(
+        "bins/mac-arm64-metal/libllama.dylib",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(true);
+    expect(
+      shouldKeepPackageRelativePath(
+        "bins/mac-x64-metal/libllama.dylib",
+        targetOS,
+        targetArch,
+      ),
+    ).toBe(false);
   });
 });
