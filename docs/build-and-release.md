@@ -14,19 +14,19 @@ We ship **separate** `Milady-arm64.dmg` and `Milady-x64.dmg` because:
 
 See `.github/workflows/release.yml`: the "Install root dependencies", "Install Electron dependencies", and "Build Electron app" steps branch on `matrix.platform.artifact-name === "macos-x64"` and wrap the command in `arch -x86_64` when building the Intel artifact.
 
-## Electron bundle: why we copy plugins and deps
+## Desktop bundle: why we copy plugins and deps
 
 The packaged app runs the agent from `milady-dist/` (bundled JS + `node_modules`). The main bundle is built by tsdown with dependencies inlined where possible, but:
 
 - **Plugins** (`@elizaos/plugin-*`) are loaded at runtime; their dist/ and any **runtime-only** dependencies (native addons, optional requires, etc.) must be present in `milady-dist/node_modules`.
 - **Why not rely on a single global node_modules at pack time?** The app is built into an ASAR (and unpacked dirs); resolution at runtime is from the app directory. So we copy the subset we need into `apps/app/electron/milady-dist/node_modules` before `electron-builder` runs.
 
-The script `scripts/copy-electron-plugins-and-deps.mjs`:
+The packaging scripts derive that subset instead of keeping a hand-maintained allowlist:
 
-1. Discovers which `@elizaos/*` packages to copy (from root package.json; plugins must have a `dist/` folder).
-2. Copies those packages into `milady-dist/node_modules`.
-3. **Walks each package's `package.json` dependencies** (and optionalDependencies) recursively and copies those too. **Why:** Plugins declare what they need; we derive the full set so we don't maintain a manual list and miss new deps.
-4. Skips known dev/renderer-only packages (e.g. `typescript`, `lucide-react`) to avoid bloating the bundle. See script header and `DEP_SKIP` for rationale.
+1. `scripts/copy-electron-plugins-and-deps.mjs` handles the legacy Electron build and copies the installed `@elizaos/*` set plus their transitive runtime deps into `apps/app/electron/milady-dist/node_modules`.
+2. `scripts/copy-runtime-node-modules.ts` handles the Electrobun build and scans the built `dist/` output for bare package imports, unions that with the installed `@elizaos/*` and `@milady/plugin-*` packages from the repo root, then recursively copies their runtime deps into `dist/node_modules`.
+3. Both approaches **walk package.json `dependencies` and `optionalDependencies` recursively**. **Why:** dynamic plugin loading and native optional deps change more often than the release workflow; deriving the closure from installed package metadata avoids shipping a stale allowlist.
+4. Known dev/renderer-only packages (for example `typescript`, `lucide-react`) are skipped to keep the packaged runtime smaller.
 
 We do **not** try to exclude deps that might already be inlined by tsdown into plugin dist/, because plugins can `require()` at runtime; excluding them would risk "Cannot find module" in the packaged app.
 
@@ -88,6 +88,16 @@ Why this split exists:
 
 - The current UI/React surfaces already live in the renderer webview, so browser WebGPU remains the lowest-risk path for those scenes.
 - Bundling Dawn keeps the desktop runtime ready for native GPU surfaces and Bun-side compute/render workloads without maintaining a separate desktop flavor.
+
+## Electrobun backend startup verification
+
+The local Electrobun smoke test now verifies the backend, not just the window shell:
+
+- After building, `apps/app/electrobun/scripts/smoke-test.sh` launches the packaged app and tails `~/.config/Milady/milady-startup.log`.
+- It fails if the child runtime logs `Cannot find module`, exits before becoming healthy, or never reaches `Runtime started -- agent: ... port: ...`.
+- Once the startup log reports a port, the script probes `http://127.0.0.1:${port}/api/health` and requires that endpoint to stay healthy for the liveness window.
+
+Why: the previous smoke test could pass while the launcher stayed open but the embedded agent backend had already crashed.
 
 ## See also
 

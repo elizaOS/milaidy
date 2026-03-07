@@ -250,41 +250,11 @@ jobs:
 
       # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
       # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
-      # Bundle packages that tsdown externalizes (native .node addons + @elizaos/plugin-*)
-      # into dist/node_modules/ so they're available when eliza.js runs inside the app bundle.
+      # Copy the runtime package closure that the built server bundle still imports
+      # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
       # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
       - name: Bundle backend node_modules into dist/
-        shell: bash
-        run: |
-          mkdir -p dist/node_modules
-          # Bun hoists packages as symlinks into node_modules/.bun.
-          # Follow those links here so the packaged dist tree contains real files
-          # instead of relative symlinks that break when Electrobun copies dist/.
-          # Native binary packages externalized by tsdown
-          for pkg in node-llama-cpp @reflink; do
-            if [ -d "node_modules/$pkg" ]; then
-              echo "Copying node_modules/$pkg"
-              rm -rf "dist/node_modules/$pkg"
-              cp -RL "node_modules/$pkg" "dist/node_modules/$pkg"
-            fi
-          done
-          # macOS only: fsevents
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ -d "node_modules/fsevents" ]; then
-            rm -rf "dist/node_modules/fsevents"
-            cp -RL "node_modules/fsevents" "dist/node_modules/fsevents"
-          fi
-          # @elizaos/plugin-* packages loaded dynamically at runtime
-          if [ -d "node_modules/@elizaos" ]; then
-            mkdir -p dist/node_modules/@elizaos
-            for pluginDir in node_modules/@elizaos/plugin-*; do
-              pkg="$(basename "$pluginDir")"
-              echo "Copying @elizaos/$pkg"
-              rm -rf "dist/node_modules/@elizaos/$pkg"
-              cp -RL "$pluginDir" "dist/node_modules/@elizaos/$pkg"
-            done
-          fi
-          echo "dist/node_modules contents:"
-          ls dist/node_modules/ 2>/dev/null || echo "(empty)"
+        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
 
       - name: Install electrobun CLI
         run: |

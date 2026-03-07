@@ -15,7 +15,12 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { patchBunExports } from "./lib/patch-bun-exports.mjs";
+import {
+  patchBunExports,
+  patchExtensionlessJsExports,
+  patchNobleHashesCompat,
+  patchProperLockfileSignalExitCompat,
+} from "./lib/patch-bun-exports.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -532,7 +537,9 @@ if (!existsSync(twitterTarget)) {
  * Patch @elizaos/plugin-pdf to fix ESM compatibility with pdfjs-dist.
  *
  * pdfjs-dist doesn't provide a default export in ESM mode, so
- * `import pkg from "pdfjs-dist"` fails. We patch it to use namespace import.
+ * `import pkg from "pdfjs-dist"` fails. We patch it to use namespace import,
+ * and force the Node build onto the legacy entry so browser globals like
+ * DOMMatrix are not required in the packaged backend runtime.
  *
  * Remove once plugin-pdf publishes a fix for ESM compatibility.
  */
@@ -600,6 +607,8 @@ if (pdfTargets.length === 0) {
   // Use regex to match various minified patterns of the default import
   // Pattern: import <var> from "pdfjs-dist" or import <var> from"pdfjs-dist"
   const pdfBuggyImportRegex = /import\s+(\w+)\s+from\s*"pdfjs-dist"/g;
+  const pdfNodeImportRegex = /from\s*"pdfjs-dist"/g;
+  const pdfLegacySpecifier = 'from "pdfjs-dist/legacy/build/pdf.mjs"';
 
   for (const target of pdfTargets) {
     console.log(`[patch-deps] Patching plugin-pdf: ${target}`);
@@ -635,6 +644,16 @@ if (pdfTargets.length === 0) {
       }
     }
 
+    if (target.includes("/dist/node/")) {
+      if (src.includes(pdfLegacySpecifier)) {
+        console.log("  - pdfjs-dist legacy Node import patch already present.");
+      } else if (src.includes('from "pdfjs-dist"')) {
+        src = src.replace(pdfNodeImportRegex, pdfLegacySpecifier);
+        patched = true;
+        console.log("  - Redirected plugin-pdf Node build to pdfjs-dist legacy entry.");
+      }
+    }
+
     if (patched) {
       writeFileSync(target, src, "utf8");
       console.log("  - Wrote pdfjs-dist ESM patch.");
@@ -647,6 +666,18 @@ if (pdfTargets.length === 0) {
 // Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
 // ---------------------------------------------------------------------------
 patchBunExports(root, "@elizaos/plugin-coding-agent");
+
+// @noble/curves and @noble/hashes publish ".js" subpath exports, while ethers
+// imports extensionless paths like "@noble/curves/secp256k1" and
+// "@noble/hashes/sha3". Add extensionless aliases so Bun resolves them.
+patchExtensionlessJsExports(root, "@noble/curves");
+
+// @noble/hashes only exports subpaths with explicit ".js" suffixes (for
+// example "./sha3.js"), but ethers imports "@noble/hashes/sha3". Add
+// extensionless aliases so Bun resolves the published package at runtime.
+patchExtensionlessJsExports(root, "@noble/hashes");
+patchNobleHashesCompat(root);
+patchProperLockfileSignalExitCompat(root);
 
 /**
  * Patch @pixiv/three-vrm node-material helpers for Three r168+.
