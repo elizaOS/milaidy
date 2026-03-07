@@ -125,7 +125,10 @@ async function getExistsSyncMock(): Promise<Mock> {
 // ---------------------------------------------------------------------------
 // Import AFTER mocks
 // ---------------------------------------------------------------------------
-import { AgentManager } from "../native/agent";
+import {
+  AgentManager,
+  getMiladyDistFallbackCandidates,
+} from "../native/agent";
 
 describe("AgentManager", () => {
   let manager: AgentManager;
@@ -136,6 +139,34 @@ describe("AgentManager", () => {
     const existsSync = await getExistsSyncMock();
     existsSync.mockReturnValue(true);
     manager = new AgentManager();
+  });
+
+  describe("milady-dist fallback candidates", () => {
+    it("prefers the Resources/app runtime path for installed apps", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/Applications/Milady-canary.app/Contents/Resources",
+        "/Applications/Milady-canary.app/Contents/MacOS/launcher",
+      );
+
+      expect(candidates[0]).toBe(
+        "/Applications/Milady-canary.app/Contents/Resources/app/milady-dist",
+      );
+      expect(candidates).toContain(
+        "/Applications/Milady-canary.app/Contents/milady-dist",
+      );
+    });
+
+    it("includes the sibling milady-dist path for extracted app runtimes", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/private/tmp/Milady-canary.app/Contents/Resources/app/bun",
+        "/private/tmp/Milady-canary.app/Contents/MacOS/launcher",
+      );
+
+      expect(candidates).toContain(
+        "/private/tmp/Milady-canary.app/Contents/Resources/app/milady-dist",
+      );
+      expect(new Set(candidates).size).toBe(candidates.length);
+    });
   });
 
   afterEach(() => {

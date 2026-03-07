@@ -28,7 +28,8 @@ APP_DIR="$(cd "$ELECTROBUN_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$ELECTROBUN_DIR/../../.." && pwd)"
 BUILD_ENV="${BUILD_ENV:-canary}"
 SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
-LAUNCH_TIMEOUT="${LAUNCH_TIMEOUT:-8}"
+STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
+LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
@@ -47,6 +48,37 @@ cleanup() {
   fi
   if [[ -n "$MOUNT_POINT" && -d "$MOUNT_POINT" ]]; then
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+  fi
+}
+
+kill_stale_processes() {
+  local pid=""
+  local found=0
+
+  while IFS= read -r pid; do
+    [[ -z "$pid" ]] && continue
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      if [[ $found -eq 0 ]]; then
+        echo "Stopping stale Milady launcher/backend processes..."
+        found=1
+      fi
+      kill "$pid" >/dev/null 2>&1 || true
+    fi
+  done < <(
+    pgrep -f '/(Applications|private/tmp|Volumes)/Milady[^/]*\.app/Contents/MacOS/launcher|milady-dist/eliza\.js' || true
+  )
+
+  pid="$(lsof -nP -tiTCP:2138 -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+  if [[ -n "$pid" ]]; then
+    if [[ $found -eq 0 ]]; then
+      echo "Stopping stale Milady launcher/backend processes..."
+      found=1
+    fi
+    kill "$pid" >/dev/null 2>&1 || true
+  fi
+
+  if [[ $found -eq 1 ]]; then
+    sleep 2
   fi
 }
 
@@ -179,6 +211,8 @@ else
   LAUNCH_APP_BUNDLE="$APP_BUNDLE"
 fi
 
+kill_stale_processes
+
 LOG_OFFSET=0
 if [[ -f "$STARTUP_LOG" ]]; then
   LOG_OFFSET="$(wc -c < "$STARTUP_LOG" | tr -d ' ')"
@@ -204,7 +238,7 @@ else
   echo "App is running (PID $PID). Waiting for backend health..."
 
   BACKEND_PORT=""
-  DEADLINE=$((SECONDS + LAUNCH_TIMEOUT + 20))
+  DEADLINE=$((SECONDS + STARTUP_TIMEOUT))
   while [[ $SECONDS -lt $DEADLINE ]]; do
     if [[ -f "$STARTUP_LOG" ]]; then
       LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
@@ -238,18 +272,42 @@ else
     exit 1
   fi
 
-  echo "Waiting ${LAUNCH_TIMEOUT}s for liveness..."
-  sleep "$LAUNCH_TIMEOUT"
+  LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
+  STREAMING_FAILURE_REGEX='@elizaos/plugin-streaming-base|@elizaos/plugin-x-streaming|@milady/plugin-x-streaming|@milady/plugin-youtube-streaming|@milady/plugin-retake'
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
+    echo "ERROR: Streaming plugin resolution failed during packaged startup."
+    printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
+    exit 1
+  fi
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
+    echo "ERROR: Packaged startup reported failed streaming plugins."
+    printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
+    exit 1
+  fi
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
+    echo "ERROR: Streaming helper package was treated as a real plugin."
+    printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
+    exit 1
+  fi
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runtime"; then
+    echo "ERROR: AGENT_EVENT runtime service was not registered."
+    printf '%s\n' "$LOG_SLICE" | grep -E "AGENT_EVENT service not found on runtime|Plugin resolution complete|Failed plugins:" | tail -n 20
+    exit 1
+  fi
+  echo "Streaming plugin resolution check PASSED."
+
+  echo "Waiting ${LIVENESS_TIMEOUT}s for liveness..."
+  sleep "$LIVENESS_TIMEOUT"
   if kill -0 "$PID" 2>/dev/null; then
     if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
-      echo "App and backend still healthy after ${LAUNCH_TIMEOUT}s — liveness check PASSED."
+      echo "App and backend still healthy after ${LIVENESS_TIMEOUT}s — liveness check PASSED."
     else
-      echo "ERROR: App stayed open but backend health check failed after ${LAUNCH_TIMEOUT}s."
+      echo "ERROR: App stayed open but backend health check failed after ${LIVENESS_TIMEOUT}s."
       [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
       exit 1
     fi
   else
-    echo "ERROR: App exited within ${LAUNCH_TIMEOUT}s. Check crash logs."
+    echo "ERROR: App exited within ${LIVENESS_TIMEOUT}s. Check crash logs."
     exit 1
   fi
 fi

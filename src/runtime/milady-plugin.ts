@@ -6,12 +6,14 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
+import { AgentEventService } from "@elizaos/core";
 import type {
   IAgentRuntime,
   Memory,
   Plugin,
   Provider,
   ProviderResult,
+  ServiceClass,
   State,
 } from "@elizaos/core";
 import { emoteAction } from "../actions/emote";
@@ -136,6 +138,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     name: "milady",
     description:
       "Milady workspace context, session keys, and lifecycle actions",
+
+    services: [AgentEventService as unknown as ServiceClass],
 
     init: async (_pluginConfig, runtime) => {
       registerTriggerTaskWorker(runtime);

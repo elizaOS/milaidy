@@ -97,6 +97,21 @@ function shortError(err: unknown, maxLen = 280): string {
  *   1. MILADY_DIST_PATH env var (explicit override)
  *   2. Walk up from import.meta.dir to find milady-dist as a sibling
  */
+export function getMiladyDistFallbackCandidates(
+  moduleDir: string = import.meta.dir,
+  execPath: string = process.execPath,
+): string[] {
+  const execDir = execPath ? path.dirname(execPath) : moduleDir;
+
+  return [
+    path.resolve(execDir, "../Resources/app/milady-dist"),
+    path.resolve(moduleDir, "app/milady-dist"),
+    path.resolve(moduleDir, "../app/milady-dist"),
+    path.resolve(moduleDir, "../milady-dist"),
+    path.resolve(moduleDir, "../../../milady-dist"),
+  ].filter((candidate, index, all) => all.indexOf(candidate) === index);
+}
+
 function resolveMiladyDistPath(): string {
   // 1. Env override
   const envPath = process.env.MILADY_DIST_PATH;
@@ -129,8 +144,17 @@ function resolveMiladyDistPath(): string {
     dir = parent;
   }
 
-  // 3. Fallback: relative to electrobun app root (3 levels up from native/)
-  const fallback = path.resolve(import.meta.dir, "../../../milady-dist");
+  // 3. Packaged/dev fallbacks derived from the launcher path and module dir.
+  for (const candidate of getMiladyDistFallbackCandidates()) {
+    if (fs.existsSync(candidate)) {
+      diagnosticLog(
+        `[Agent] Could not find milady-dist by walking up; using fallback: ${candidate}`,
+      );
+      return candidate;
+    }
+  }
+
+  const fallback = getMiladyDistFallbackCandidates()[0];
   diagnosticLog(
     `[Agent] Could not find milady-dist by walking up; using fallback: ${fallback}`,
   );
