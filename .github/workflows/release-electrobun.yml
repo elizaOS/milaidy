@@ -114,11 +114,11 @@ jobs:
       - name: Install root dependencies
         run: |
           for i in 1 2 3; do
-            bun install --frozen-lockfile --ignore-scripts && break
+            bun install --frozen-lockfile && break
             echo "Retry $i: bun install failed, retrying..."
             sleep 5
           done
-          bun install --frozen-lockfile --ignore-scripts
+          bun install --frozen-lockfile
 
       - name: Align version with release tag
         run: |
@@ -208,6 +208,8 @@ jobs:
           ELECTROBUN_APPLEID: ${{ secrets.ELECTROBUN_APPLEID || '' }}
           ELECTROBUN_APPLEIDPASS: ${{ secrets.ELECTROBUN_APPLEIDPASS || '' }}
           ELECTROBUN_TEAMID: ${{ secrets.ELECTROBUN_TEAMID || '' }}
+          # Skip codesign/notarize for draft builds (no signing certs on forks)
+          ELECTROBUN_SKIP_CODESIGN: ${{ inputs.draft && '1' || '' }}
 
       - name: List build output
         run: |

@@ -28,8 +28,10 @@ export default {
         : {}),
     },
     mac: {
-      codesign: true,
-      notarize: true,
+      // Allow skipping codesign/notarize for draft/test builds via env var.
+      // Set ELECTROBUN_SKIP_CODESIGN=1 in CI when signing certs are unavailable.
+      codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
+      notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
       defaultRenderer: "native",
       icons: "assets/appIcon.iconset",
       entitlements: {

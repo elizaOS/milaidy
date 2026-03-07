@@ -16,7 +16,7 @@ await build({
 
 console.log("Generating type declarations...");
 execSync(
-  "npx tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist",
+  "bunx tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist",
   {
     stdio: "inherit",
   },
