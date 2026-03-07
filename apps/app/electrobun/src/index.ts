@@ -33,6 +33,7 @@ import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 // ============================================================================
 
 function setupApplicationMenu(): void {
+  const isMac = process.platform === "darwin";
   ApplicationMenu.setApplicationMenu([
     {
       label: "Milady",
@@ -41,12 +42,17 @@ function setupApplicationMenu(): void {
         { type: "separator" },
         { label: "Restart Agent", action: "restart-agent" },
         { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
-        { type: "separator" },
+        // services, hide, hideOthers, unhide are macOS-only menu roles
+        ...(isMac
+          ? [
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+            ]
+          : []),
         { role: "quit" },
       ],
     },
@@ -80,9 +86,10 @@ function setupApplicationMenu(): void {
       label: "Window",
       submenu: [
         { role: "minimize" },
-        { role: "zoom" },
-        { type: "separator" },
-        { role: "front" },
+        // zoom and front are macOS-only Window menu roles
+        ...(isMac
+          ? [{ role: "zoom" }, { type: "separator" }, { role: "front" }]
+          : []),
       ],
     },
   ]);
@@ -351,8 +358,12 @@ async function createMainWindow(): Promise<BrowserWindow> {
       x: state.x,
       y: state.y,
     },
-    titleBarStyle: "hiddenInset", // Hides title bar, shows traffic lights inset into content
-    transparent: true, // Allows the window background to be transparent
+    // hiddenInset hides the title bar and insets traffic lights — macOS only.
+    // On Windows/Linux use the default title bar so the window remains draggable.
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    // Transparent background for vibrancy — macOS only.
+    // On Windows/Linux a solid background prevents rendering artifacts.
+    transparent: process.platform === "darwin",
   });
 
   // Apply native macOS vibrancy, shadow, and traffic light positioning

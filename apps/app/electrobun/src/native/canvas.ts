@@ -194,10 +194,8 @@ export class CanvasManager {
     const canvas = this.windows.get(options.id);
     if (!canvas) return null;
 
-    if (process.platform !== "darwin") {
-      // Only macOS screencapture CLI is available; unsupported on other platforms.
-      return null;
-    }
+    // Windows has no readily available CLI screenshot tool — skip.
+    if (process.platform === "win32") return null;
 
     try {
       const pos = canvas.window.getPosition();
@@ -211,18 +209,21 @@ export class CanvasManager {
       if (x < -1000 || y < -1000) return null;
 
       const tmpPath = `${os.tmpdir()}/milady-canvas-snapshot-${Date.now()}.png`;
-      const proc = Bun.spawn(
-        [
-          "screencapture",
-          "-x",
-          "-R",
-          `${x},${y},${w},${h}`,
-          "-t",
-          "png",
-          tmpPath,
-        ],
-        { stdout: "pipe", stderr: "pipe" },
-      );
+      let proc: ReturnType<typeof Bun.spawn>;
+
+      if (process.platform === "darwin") {
+        proc = Bun.spawn(
+          ["screencapture", "-x", "-R", `${x},${y},${w},${h}`, "-t", "png", tmpPath],
+          { stdout: "pipe", stderr: "pipe" },
+        );
+      } else {
+        // Linux: ImageMagick `import` with root window crop
+        proc = Bun.spawn(
+          ["import", "-window", "root", "-crop", `${w}x${h}+${x}+${y}`, tmpPath],
+          { stdout: "pipe", stderr: "pipe" },
+        );
+      }
+
       await proc.exited;
 
       if (!fs.existsSync(tmpPath)) return null;

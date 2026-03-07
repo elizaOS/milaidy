@@ -313,8 +313,9 @@ jobs:
       # Upload update.json + .tar.zst files to milady.ai/releases/ so the
       # in-app auto-updater can discover them via the baseUrl in electrobun.config.ts.
       # Requires RELEASE_UPLOAD_KEY secret (SSH private key for releases server).
+      # Skipped for draft releases — test/preview builds must not pollute the production update channel.
       - name: Upload update channel files to milady.ai/releases/
-        if: ${{ secrets.RELEASE_UPLOAD_KEY != '' }}
+        if: ${{ secrets.RELEASE_UPLOAD_KEY != '' && !inputs.draft }}
         run: |
           echo "${{ secrets.RELEASE_UPLOAD_KEY }}" > /tmp/release_key
           chmod 600 /tmp/release_key
