@@ -104,18 +104,6 @@ jobs:
         with:
           bun-version: latest
 
-      # GNU tar (from Git) treats drive letters (C:) as user@host SSH paths.
-      # Bun spawns tar as a .exe directly (no shell), so .bat shims are skipped.
-      # Fix: copy Windows' built-in BSD tar (C:\Windows\System32\tar.exe) to a
-      # shim directory prepended to PATH — BSD tar handles Windows paths correctly.
-      - name: Shim tar on Windows (use BSD tar to handle drive letter paths)
-        if: matrix.platform.os == 'windows'
-        shell: pwsh
-        run: |
-          $dir = Join-Path $env:RUNNER_TEMP "tar-shim"
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          Copy-Item "C:\Windows\System32\tar.exe" "$dir\tar.exe"
-          Add-Content -Path $env:GITHUB_PATH -Value $dir
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -242,6 +230,49 @@ jobs:
       # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
       - name: Install electrobun CLI
         run: bun install -g electrobun@1.14.4
+
+      # electrobun.cjs downloads its native binary then calls:
+      #   execSync(`tar -xzf "${tarballPath}"`, { cwd: cacheDir })
+      # GNU tar (found first in PATH on Windows) treats the C: drive letter as
+      # user@host, failing with "Cannot connect to C:". We bypass this entirely
+      # by pre-downloading the tarball and extracting it with Windows' built-in
+      # BSD tar (C:\Windows\System32\tar.exe, full path) before the build runs.
+      # electrobun.cjs checks existsSync(cliBinary) first and skips the download.
+      - name: Pre-extract electrobun native CLI on Windows
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $electrobunDir = Join-Path $env:USERPROFILE ".bun\install\global\node_modules\electrobun"
+          $cacheDir     = Join-Path $electrobunDir ".cache"
+          $binDir       = Join-Path $electrobunDir "bin"
+          $cliBinary    = Join-Path $cacheDir "electrobun.exe"
+          $binBinary    = Join-Path $binDir "electrobun.exe"
+
+          if (Test-Path $binBinary) {
+            Write-Host "electrobun CLI already present at $binBinary — skipping download"
+            exit 0
+          }
+
+          $version   = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $tarUrl    = "https://github.com/blackboardsh/electrobun/releases/download/v$version/electrobun-cli-win-x64.tar.gz"
+          $tarPath   = Join-Path $cacheDir "electrobun-win-x64.tar.gz"
+
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          Write-Host "Downloading electrobun CLI from $tarUrl"
+          Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath -UseBasicParsing
+
+          Write-Host "Extracting with Windows BSD tar..."
+          & "C:\Windows\System32\tar.exe" -xzf $tarPath -C $cacheDir
+          Remove-Item $tarPath -Force
+
+          if (-not (Test-Path $cliBinary)) {
+            Write-Error "electrobun.exe not found in $cacheDir after extraction"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+          Copy-Item $cliBinary $binBinary
+          Write-Host "electrobun CLI ready at $binBinary"
 
       - name: Build Electrobun app
         run: electrobun build --env=${{ needs.prepare.outputs.env }}
