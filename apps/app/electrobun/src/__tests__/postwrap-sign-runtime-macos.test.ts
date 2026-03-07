@@ -82,6 +82,23 @@ describe("shouldConsiderForCodesign", () => {
     expect(shouldConsiderForCodesign(helperBinary, stats)).toBe(true);
   });
 
+  it("keeps known native helpers even when package mode bits are wrong", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
+    const helperBinary = path.join(
+      tempDir,
+      "node-pty",
+      "prebuilds",
+      "darwin-arm64",
+      "spawn-helper",
+    );
+    fs.mkdirSync(path.dirname(helperBinary), { recursive: true });
+    fs.writeFileSync(helperBinary, "binary");
+    fs.chmodSync(helperBinary, 0o644);
+    const stats = fs.statSync(helperBinary);
+
+    expect(shouldConsiderForCodesign(helperBinary, stats)).toBe(true);
+  });
+
   it("skips regular non-native files", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
     const textFile = path.join(tempDir, "README.txt");

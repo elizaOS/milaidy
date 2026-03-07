@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 type MachOKind = "executable" | "library" | null;
 
 const NATIVE_EXTENSIONS = new Set([".bare", ".dylib", ".node", ".so"]);
+const KNOWN_NATIVE_HELPERS = new Set(["spawn-helper"]);
 
 export function classifyMachOKind(description: string): MachOKind {
   const normalized = description.toLowerCase();
@@ -74,6 +75,10 @@ export function shouldConsiderForCodesign(
   }
 
   if (NATIVE_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
+    return true;
+  }
+
+  if (KNOWN_NATIVE_HELPERS.has(path.basename(filePath).toLowerCase())) {
     return true;
   }
 
