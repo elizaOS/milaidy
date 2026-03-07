@@ -382,7 +382,8 @@ describe("Core Plugins with Vision Integration", () => {
 });
 
 describe("PTY Native Modules", () => {
-  it("node-pty is installed", () => {
+  it.skip("node-pty is installed", () => {
+    // Skipped: node-pty removed from root deps; Electron uses @lydell/node-pty (Windows-safe fork)
     const packagePath = path.join(packageRoot, "node_modules", "node-pty");
     expect(fs.existsSync(packagePath)).toBe(true);
   });
@@ -405,7 +406,8 @@ describe("PTY Native Modules", () => {
     expect(exists).toBe(true);
   });
 
-  it("pty-manager is installed", () => {
+  it.skip("pty-manager is installed", () => {
+    // Skipped: pty-manager removed; PTY handled directly via @lydell/node-pty in Electron
     const packagePath = path.join(packageRoot, "node_modules", "pty-manager");
     expect(fs.existsSync(packagePath)).toBe(true);
   });
@@ -423,7 +425,7 @@ describe("PTY Native Modules", () => {
 
     expect(deps).toHaveProperty("node-pty");
     expect(deps).toHaveProperty("@lydell/node-pty");
-    expect(deps).toHaveProperty("pty-manager");
+    // pty-manager removed — PTY managed via @lydell/node-pty directly
   });
 });
 
