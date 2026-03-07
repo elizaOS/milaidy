@@ -315,15 +315,22 @@ jobs:
       # Requires RELEASE_UPLOAD_KEY secret (SSH private key for releases server).
       # Skipped for draft releases — test/preview builds must not pollute the production update channel.
       - name: Upload update channel files to milady.ai/releases/
-        if: ${{ secrets.RELEASE_UPLOAD_KEY != '' && !inputs.draft }}
+        if: ${{ !inputs.draft }}
+        env:
+          RELEASE_UPLOAD_KEY: ${{ secrets.RELEASE_UPLOAD_KEY }}
+          RELEASE_HOST_FINGERPRINT: ${{ secrets.RELEASE_HOST_FINGERPRINT }}
         run: |
-          echo "${{ secrets.RELEASE_UPLOAD_KEY }}" > /tmp/release_key
+          if [ -z "$RELEASE_UPLOAD_KEY" ]; then
+            echo "No RELEASE_UPLOAD_KEY secret — skipping upload"
+            exit 0
+          fi
+          echo "$RELEASE_UPLOAD_KEY" > /tmp/release_key
           chmod 600 /tmp/release_key
           # Pin the host fingerprint from the RELEASE_HOST_FINGERPRINT secret so SSH
           # verifies the server identity without disabling host-key checking.
           # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          echo "${{ secrets.RELEASE_HOST_FINGERPRINT }}" >> ~/.ssh/known_hosts
+          echo "$RELEASE_HOST_FINGERPRINT" >> ~/.ssh/known_hosts
           # Upload all update files to the release channel directory
           CHANNEL="${{ needs.prepare.outputs.env }}"
           VERSION="${{ needs.prepare.outputs.version }}"
