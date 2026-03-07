@@ -900,6 +900,10 @@ describe("API Server E2E (no runtime)", () => {
       expect(status).toBe(200);
       expect(data.state).toBe("not_started");
       expect(typeof data.agentName).toBe("string");
+      expect((data.readiness as Record<string, unknown>)?.ready).toBe(false);
+      expect((data.readiness as Record<string, unknown>)?.code).toBe(
+        "runtime_not_running",
+      );
     });
 
     it("has no uptime or startedAt when not started", async () => {
@@ -934,30 +938,106 @@ describe("API Server E2E (no runtime)", () => {
         state: "not_started",
       });
     });
+
+    it("clears stale pending restart reasons when startup moves into retry without runtime", async () => {
+      updateStartup({
+        phase: "runtime-bootstrap",
+        attempt: 1,
+        state: "starting",
+      });
+
+      const switchRes = await req(port, "POST", "/api/provider/switch", {
+        provider: "openai",
+        apiKey: "sk-test",
+      });
+      expect(switchRes.status).toBe(200);
+
+      const pendingBefore = await req(port, "GET", "/api/status");
+      expect(pendingBefore.data.pendingRestart).toBe(true);
+      expect(
+        (pendingBefore.data.pendingRestartReasons as unknown[]).length,
+      ).toBeGreaterThan(0);
+
+      updateStartup({
+        phase: "runtime-retry",
+        attempt: 2,
+        state: "starting",
+      });
+
+      const pendingAfter = await req(port, "GET", "/api/status");
+      expect(pendingAfter.data.pendingRestart).toBe(false);
+      expect(pendingAfter.data.pendingRestartReasons).toEqual([]);
+
+      updateStartup({
+        phase: "idle",
+        attempt: 0,
+        state: "not_started",
+      });
+    });
+
+    it("POST /api/provider/switch rejects elizacloud when no key exists", async () => {
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        provider: "elizacloud",
+      });
+      expect(status).toBe(400);
+      expect(String(data.error ?? "")).toMatch(/api key is required/i);
+    });
+  });
+
+  // -- Health/Readiness --
+
+  describe("GET /api/healthz and /api/readyz", () => {
+    it("returns liveness health from /api/healthz", async () => {
+      const { status, data } = await req(port, "GET", "/api/healthz");
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+      expect(data.service).toBe("milady-api");
+      expect(typeof data.now).toBe("number");
+    });
+
+    it("returns 503 readiness while runtime is not started", async () => {
+      const { status, data } = await req(port, "GET", "/api/readyz");
+      expect(status).toBe(503);
+      expect(data.ok).toBe(false);
+      const readiness = data.readiness as Record<string, unknown>;
+      expect(readiness.ready).toBe(false);
+      expect(readiness.code).toBe("runtime_not_running");
+    });
+
+    it("returns database health endpoint status when runtime is unavailable", async () => {
+      const { status, data } = await req(port, "GET", "/api/database/health");
+      expect(status).toBe(503);
+      expect(data.ok).toBe(false);
+      expect(data.connected).toBe(false);
+    });
   });
 
   // -- Lifecycle state transitions --
 
   describe("lifecycle state transitions", () => {
-    it("start → running", async () => {
-      const { data } = await req(port, "POST", "/api/agent/start");
-      expect(data.ok).toBe(true);
-      const status = await req(port, "GET", "/api/status");
-      expect(status.data.state).toBe("running");
-      expect(typeof status.data.uptime).toBe("number");
+    it("start returns 503 when runtime is absent", async () => {
+      const { status, data } = await req(port, "POST", "/api/agent/start");
+      expect(status).toBe(503);
+      expect(String(data.error ?? "")).toContain("not running");
+      const statusRes = await req(port, "GET", "/api/status");
+      expect(statusRes.data.state).toBe("not_started");
     });
 
-    it("pause → paused", async () => {
-      const { data } = await req(port, "POST", "/api/agent/pause");
-      expect(data.ok).toBe(true);
-      expect((await req(port, "GET", "/api/status")).data.state).toBe("paused");
-    });
-
-    it("resume → running", async () => {
-      const { data } = await req(port, "POST", "/api/agent/resume");
-      expect(data.ok).toBe(true);
+    it("pause returns 503 when runtime is absent", async () => {
+      const { status, data } = await req(port, "POST", "/api/agent/pause");
+      expect(status).toBe(503);
+      expect(String(data.error ?? "")).toContain("not running");
       expect((await req(port, "GET", "/api/status")).data.state).toBe(
-        "running",
+        "not_started",
+      );
+    });
+
+    it("resume returns 503 when runtime is absent", async () => {
+      const { status, data } = await req(port, "POST", "/api/agent/resume");
+      expect(status).toBe(503);
+      expect(String(data.error ?? "")).toContain("not running");
+      expect((await req(port, "GET", "/api/status")).data.state).toBe(
+        "not_started",
       );
     });
 
@@ -970,21 +1050,12 @@ describe("API Server E2E (no runtime)", () => {
       expect(status.data.startedAt).toBeUndefined();
     });
 
-    it("full cycle: start → pause → resume → stop", async () => {
-      await req(port, "POST", "/api/agent/start");
-      expect((await req(port, "GET", "/api/status")).data.state).toBe(
-        "running",
-      );
-
-      await req(port, "POST", "/api/agent/pause");
-      expect((await req(port, "GET", "/api/status")).data.state).toBe("paused");
-
-      await req(port, "POST", "/api/agent/resume");
-      expect((await req(port, "GET", "/api/status")).data.state).toBe(
-        "running",
-      );
-
-      await req(port, "POST", "/api/agent/stop");
+    it("full cycle without runtime: start/pause/resume fail, stop still transitions", async () => {
+      expect((await req(port, "POST", "/api/agent/start")).status).toBe(503);
+      expect((await req(port, "POST", "/api/agent/pause")).status).toBe(503);
+      expect((await req(port, "POST", "/api/agent/resume")).status).toBe(503);
+      const stopped = await req(port, "POST", "/api/agent/stop");
+      expect(stopped.status).toBe(200);
       expect((await req(port, "GET", "/api/status")).data.state).toBe(
         "stopped",
       );
@@ -2312,6 +2383,9 @@ describe("API Server E2E (no runtime)", () => {
   });
 
   describe("insufficient credits fallback", () => {
+    const CREDIT_MESSAGE_RE =
+      /no model credits available|add credits|switch provider/i;
+
     it("POST /api/chat replaces '(no response)' with a top-up message", async () => {
       const runtime = createRuntimeForCreditNoResponseTests();
       const streamServer = await startApiServer({ port: 0, runtime });
@@ -2326,7 +2400,7 @@ describe("API Server E2E (no runtime)", () => {
           },
         );
         expect(status).toBe(200);
-        expect(String(data.text)).toMatch(/top up your credits/i);
+        expect(String(data.text)).toMatch(CREDIT_MESSAGE_RE);
         expect(String(data.text)).not.toBe("(no response)");
       } finally {
         await streamServer.close();
@@ -2345,9 +2419,7 @@ describe("API Server E2E (no runtime)", () => {
         expect(status).toBe(200);
         const doneEvent = events.find((event) => event.type === "done");
         expect(doneEvent).toBeDefined();
-        expect(String(doneEvent?.fullText ?? "")).toMatch(
-          /top up your credits/i,
-        );
+        expect(String(doneEvent?.fullText ?? "")).toMatch(CREDIT_MESSAGE_RE);
       } finally {
         await streamServer.close();
       }
@@ -2367,7 +2439,7 @@ describe("API Server E2E (no runtime)", () => {
           },
         );
         expect(status).toBe(200);
-        expect(String(data.text)).toMatch(/top up your credits/i);
+        expect(String(data.text)).toMatch(CREDIT_MESSAGE_RE);
       } finally {
         await streamServer.close();
       }
@@ -2387,7 +2459,7 @@ describe("API Server E2E (no runtime)", () => {
           },
         );
         expect(status).toBe(200);
-        expect(String(data.text)).toMatch(/top up your credits/i);
+        expect(String(data.text)).toMatch(CREDIT_MESSAGE_RE);
         expect(String(data.text)).not.toBe("(no response)");
       } finally {
         await streamServer.close();
@@ -3290,7 +3362,7 @@ describe("API Server E2E (no runtime)", () => {
         providerApiKey: openAiKey,
       });
       expect(res.status).toBe(200);
-      expect(res.data.restarting).toBe(true);
+      expect(res.data.restarting).toBe(false);
 
       const cfg = await req(port, "GET", "/api/config");
       const data = cfg.data as {
@@ -3299,8 +3371,13 @@ describe("API Server E2E (no runtime)", () => {
         agents?: { defaults?: { model?: { primary?: string } } };
       };
 
-      expect(data.env?.OPENAI_API_KEY).toBe(openAiKey);
+      expect(data.env?.OPENAI_API_KEY).toBe("[REDACTED]");
+      expect(data.env?.OPENAI_SMALL_MODEL).toBe("gpt-5-mini");
+      expect(data.env?.OPENAI_LARGE_MODEL).toBe("gpt-5-mini");
+      expect(data.env?.SMALL_MODEL).toBeUndefined();
+      expect(data.env?.LARGE_MODEL).toBeUndefined();
       expect(data.plugins?.entries?.openai?.enabled).toBe(true);
+      expect(data.plugins?.entries?.elizacloud?.enabled).toBe(false);
       expect(data.agents?.defaults?.model?.primary).toBe(
         "@elizaos/plugin-openai",
       );
@@ -3315,7 +3392,7 @@ describe("API Server E2E (no runtime)", () => {
         providerApiKey: cloudKey,
       });
       expect(res.status).toBe(200);
-      expect(res.data.restarting).toBe(true);
+      expect(res.data.restarting).toBe(false);
 
       const cfg = await req(port, "GET", "/api/config");
       const data = cfg.data as {
@@ -3326,14 +3403,29 @@ describe("API Server E2E (no runtime)", () => {
       };
 
       expect(data.cloud?.enabled).toBe(true);
-      expect(data.cloud?.apiKey).toBe(cloudKey);
-      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+      expect(data.cloud?.apiKey).toBe("[REDACTED]");
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe("[REDACTED]");
       expect(data.env?.ELIZAOS_CLOUD_ENABLED).toBe("true");
+      expect(data.env?.ELIZAOS_CLOUD_SMALL_MODEL).toBe("gpt-5-mini");
+      expect(data.env?.ELIZAOS_CLOUD_LARGE_MODEL).toBe("gpt-5-mini");
+      expect(data.env?.SMALL_MODEL).toBeUndefined();
+      expect(data.env?.LARGE_MODEL).toBeUndefined();
       expect(data.env?.OPENAI_API_KEY).toBeUndefined();
       expect(data.plugins?.entries?.elizacloud?.enabled).toBe(true);
+      expect(data.plugins?.entries?.openai?.enabled).toBe(false);
       expect(data.agents?.defaults?.model?.primary).toBe(
         "@elizaos/plugin-elizacloud",
       );
+    });
+
+    it("POST /api/onboarding rejects ElizaCloud when key is missing and no persisted key exists", async () => {
+      const res = await req(port, "POST", "/api/onboarding", {
+        name: "ProviderElizaCloudMissingKey",
+        runMode: "local",
+        provider: "elizacloud",
+      });
+      expect(res.status).toBe(400);
+      expect(String(res.data.error ?? "")).toMatch(/api key is required/i);
     });
 
     it("POST /api/onboarding accepts legacy apiKey field for ElizaCloud", async () => {
@@ -3345,7 +3437,7 @@ describe("API Server E2E (no runtime)", () => {
         apiKey: cloudKey,
       });
       expect(res.status).toBe(200);
-      expect(res.data.restarting).toBe(true);
+      expect(res.data.restarting).toBe(false);
 
       const cfg = await req(port, "GET", "/api/config");
       const data = cfg.data as {
@@ -3354,8 +3446,8 @@ describe("API Server E2E (no runtime)", () => {
       };
 
       expect(data.cloud?.enabled).toBe(true);
-      expect(data.cloud?.apiKey).toBe(cloudKey);
-      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
+      expect(data.cloud?.apiKey).toBe("[REDACTED]");
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe("[REDACTED]");
     });
 
     it("POST /api/onboarding keeps existing ElizaCloud key when key is omitted", async () => {
@@ -3382,8 +3474,8 @@ describe("API Server E2E (no runtime)", () => {
       };
 
       expect(data.cloud?.enabled).toBe(true);
-      expect(data.cloud?.apiKey).toBe(existingCloudKey);
-      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe(existingCloudKey);
+      expect(data.cloud?.apiKey).toBe("[REDACTED]");
+      expect(data.env?.ELIZAOS_CLOUD_API_KEY).toBe("[REDACTED]");
     });
   });
 
@@ -3428,7 +3520,8 @@ describe("API Server E2E (no runtime)", () => {
       const { data } = await req(port, "POST", "/api/agent/autonomy", {
         enabled: false,
       });
-      expect(data.ok).toBe(true);
+      expect(data.ok).toBe(false);
+      expect(String(data.error ?? "")).toContain("unavailable");
       expect(data.autonomy).toBe(false);
       expect(data.thinking).toBe(false);
     });

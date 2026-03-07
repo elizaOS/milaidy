@@ -249,6 +249,23 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
   });
 
+  it("keeps selected direct provider exclusive even when stale cloud key exists", () => {
+    process.env.OPENAI_API_KEY = "sk-test-openai";
+    process.env.ELIZAOS_CLOUD_API_KEY = "eliza_test_stale_cloud";
+    const config = {
+      cloud: { enabled: false, apiKey: "eliza_test_stale_cloud" },
+      plugins: {
+        entries: {
+          openai: { enabled: true },
+        },
+      },
+    } as unknown as MiladyConfig;
+
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-openai")).toBe(true);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+  });
+
   it("adds connector plugins when config.connectors is populated", () => {
     const config = {
       connectors: { telegram: { botToken: "tok" }, discord: { token: "tok" } },
@@ -1042,9 +1059,11 @@ describe("applyX402ConfigToEnv", () => {
 describe("applyDatabaseConfigToEnv", () => {
   const envKeys = [
     "POSTGRES_URL",
+    "DATABASE_URL",
     "PGLITE_DATA_DIR",
     "MILADY_PROFILE",
     "MILADY_STATE_DIR",
+    "MILADY_REQUIRE_POSTGRES",
   ];
   const snap = envSnapshot(envKeys);
 
@@ -1058,6 +1077,7 @@ describe("applyDatabaseConfigToEnv", () => {
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
     applyDatabaseConfigToEnv({} as MiladyConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.DATABASE_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
       path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb"),
     );
@@ -1084,6 +1104,7 @@ describe("applyDatabaseConfigToEnv", () => {
     applyDatabaseConfigToEnv({} as MiladyConfig);
 
     expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.DATABASE_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
       path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
     );
@@ -1107,8 +1128,9 @@ describe("applyDatabaseConfigToEnv", () => {
     );
   });
 
-  it("honors custom pglite.dataDir and clears stale POSTGRES_URL", () => {
+  it("honors custom pglite.dataDir and clears stale postgres URLs", () => {
     process.env.POSTGRES_URL = "postgresql://localhost:5432/old";
+    process.env.DATABASE_URL = "postgresql://localhost:5432/old";
     const customDataDir = "./.tmp/test-pglite-data-dir";
     const config = {
       database: {
@@ -1119,6 +1141,7 @@ describe("applyDatabaseConfigToEnv", () => {
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.DATABASE_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(path.resolve(customDataDir));
   });
 
@@ -1126,6 +1149,41 @@ describe("applyDatabaseConfigToEnv", () => {
     process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
     applyDatabaseConfigToEnv({} as MiladyConfig);
     expect(process.env.PGLITE_DATA_DIR).toBe("/tmp/external-pglite");
+  });
+
+  it("overwrites external PGLITE_DATA_DIR when MILADY_STATE_DIR is set", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+    process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
+
+    applyDatabaseConfigToEnv({} as MiladyConfig);
+
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
+  });
+
+  it("maps legacy pglite.dataDir in config to MILADY_STATE_DIR default path", () => {
+    process.env.MILADY_STATE_DIR = "/tmp/milady-state";
+    const config = {
+      database: {
+        provider: "pglite",
+        pglite: {
+          dataDir: path.join(
+            os.homedir(),
+            ".milady",
+            "workspace",
+            ".eliza",
+            ".elizadb",
+          ),
+        },
+      },
+    } as MiladyConfig;
+
+    applyDatabaseConfigToEnv(config);
+
+    expect(process.env.PGLITE_DATA_DIR).toBe(
+      path.join("/tmp/milady-state", "workspace", ".eliza", ".elizadb"),
+    );
   });
 
   it("builds POSTGRES_URL for postgres provider and clears PGLITE_DATA_DIR", () => {
@@ -1149,6 +1207,34 @@ describe("applyDatabaseConfigToEnv", () => {
     expect(process.env.POSTGRES_URL).toBe(
       "postgresql://admin:secret@db.example.test:5433/milady?sslmode=require",
     );
+    expect(process.env.DATABASE_URL).toBe(
+      "postgresql://admin:secret@db.example.test:5433/milady?sslmode=require",
+    );
+  });
+
+  it("throws when provider is postgres but postgres config is missing", () => {
+    const config = {
+      database: {
+        provider: "postgres",
+      },
+    } as MiladyConfig;
+
+    expect(() => applyDatabaseConfigToEnv(config)).toThrow(
+      'database.provider is "postgres" but database.postgres is missing',
+    );
+  });
+
+  it("throws when MILADY_REQUIRE_POSTGRES=1 and provider is not postgres", () => {
+    process.env.MILADY_REQUIRE_POSTGRES = "1";
+    const config = {
+      database: {
+        provider: "pglite",
+      },
+    } as MiladyConfig;
+
+    expect(() => applyDatabaseConfigToEnv(config)).toThrow(
+      'MILADY_REQUIRE_POSTGRES=1 requires config.database.provider="postgres"',
+    );
   });
 });
 
@@ -1159,6 +1245,7 @@ describe("applyDatabaseConfigToEnv", () => {
 describe("applyDatabaseConfigToEnv — directory creation", () => {
   const envKeys = [
     "POSTGRES_URL",
+    "DATABASE_URL",
     "PGLITE_DATA_DIR",
     "MILADY_PROFILE",
     "MILADY_STATE_DIR",
@@ -1259,6 +1346,18 @@ describe("isRecoverablePgliteInitError", () => {
 
   it("returns true when migrations._migrations relation is missing", () => {
     const err = new Error('relation "migrations._migrations" does not exist');
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when runtime bootstrap agents lookup query fails", () => {
+    const err = new Error(
+      'Failed query: select "id", "enabled", "server_id" from "agents" where "agents"."id" = $1 limit $2',
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when agents table is missing", () => {
+    const err = new Error('relation "agents" does not exist');
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 

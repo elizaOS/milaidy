@@ -1740,6 +1740,29 @@ const GENERIC_NO_RESPONSE_TEXT =
   "Sorry, I couldn't generate a response right now. Please try again.";
 const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+const CONTROL_FETCH_TIMEOUT_MS = 45_000;
+const CHAT_FETCH_TIMEOUT_MS = 60_000;
+
+function requestTimeoutForPath(path: string): number {
+  const isConversationMessageRoute =
+    path.startsWith("/api/conversations/") &&
+    (path.includes("/messages") || path.includes("/greeting"));
+  const isChatRoute =
+    path.startsWith("/api/chat") ||
+    path.startsWith("/api/v2/chat") ||
+    isConversationMessageRoute;
+  if (isChatRoute) return CHAT_FETCH_TIMEOUT_MS;
+
+  const isControlRoute =
+    path === "/api/agent/start" ||
+    path === "/api/agent/restart" ||
+    path === "/api/agent/reset" ||
+    path === "/api/provider/switch" ||
+    path.startsWith("/api/plugins/");
+  if (isControlRoute) return CONTROL_FETCH_TIMEOUT_MS;
+
+  return DEFAULT_FETCH_TIMEOUT_MS;
+}
 
 export class MiladyClient {
   private _baseUrl: string;
@@ -1871,10 +1894,11 @@ export class MiladyClient {
       });
     }
     const makeRequest = async (token: string | null): Promise<Response> => {
+      const timeoutMs = requestTimeoutForPath(path);
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => {
         timeoutController.abort();
-      }, DEFAULT_FETCH_TIMEOUT_MS);
+      }, timeoutMs);
       const signal =
         init?.signal && typeof AbortSignal.any === "function"
           ? AbortSignal.any([init.signal, timeoutController.signal])
@@ -1895,7 +1919,7 @@ export class MiladyClient {
           throw new ApiError({
             kind: "timeout",
             path,
-            message: `Request timed out after ${DEFAULT_FETCH_TIMEOUT_MS}ms`,
+            message: `Request timed out after ${timeoutMs}ms`,
             cause: err,
           });
         }
@@ -1913,8 +1937,40 @@ export class MiladyClient {
       }
     };
 
+    const isConversationMessageRoute =
+      path.startsWith("/api/conversations/") &&
+      (path.includes("/messages") || path.includes("/greeting"));
+    const isChatRoute =
+      path.startsWith("/api/chat") ||
+      path.startsWith("/api/v2/chat") ||
+      isConversationMessageRoute;
+    const isControlRoute =
+      path === "/api/agent/start" ||
+      path === "/api/agent/restart" ||
+      path === "/api/agent/reset" ||
+      path === "/api/provider/switch" ||
+      path.startsWith("/api/plugins/");
+    const maxNetworkAttempts = isChatRoute ? 2 : isControlRoute ? 3 : 1;
     const token = this.apiToken;
-    let res = await makeRequest(token);
+    let res: Response;
+    let networkAttempt = 0;
+    while (true) {
+      networkAttempt += 1;
+      try {
+        res = await makeRequest(token);
+        break;
+      } catch (err) {
+        const retryableNetworkError =
+          err instanceof ApiError && err.kind === "network";
+        if (!retryableNetworkError || networkAttempt >= maxNetworkAttempts) {
+          throw err;
+        }
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(250 * networkAttempt, 1000)),
+        );
+      }
+    }
+
     if (res.status === 401 && !token) {
       const retryToken = this.apiToken;
       if (retryToken) {

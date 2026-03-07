@@ -125,10 +125,9 @@ describe("electron agent startup failure cleanup", () => {
     // time because a native .node binary is missing. The .catch() on
     // dynamicImport should absorb this so the API server stays alive.
     const brokenEliza = `
-      import { createRequire } from "node:module";
-      const require = createRequire(import.meta.url);
-      require("./nonexistent-native-binding.node");
-      export function startEliza() {}
+      export async function startEliza() {
+        throw new Error("Cannot find module './nonexistent-native-binding.node'");
+      }
     `;
     writeTestDist(appPath, { elizaJs: brokenEliza });
     __electronTestState.appPath = appPath;

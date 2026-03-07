@@ -452,6 +452,8 @@ export class MilaidyApp extends LitElement {
   private extensionCheckedAt = 0;
   private chatAutonomyLoadedAt = 0;
   private chatAutonomyPollTimer: ReturnType<typeof setInterval> | null = null;
+  private agentStatusPollTimer: ReturnType<typeof setInterval> | null = null;
+  private agentStatusPollInFlight = false;
   private pendingSecuritySection: string | null = null;
   private tabDataLoadRaf: number | null = null;
 
@@ -4257,6 +4259,7 @@ export class MilaidyApp extends LitElement {
       this.chatScrollRaf = null;
     }
     this.stopChatAutonomyPolling();
+    this.stopAgentStatusPolling();
     client.disconnectWs();
   }
 
@@ -4363,6 +4366,7 @@ export class MilaidyApp extends LitElement {
     client.onWsEvent("status", (data) => {
       this.setAgentStatus(data as unknown as AgentStatus);
     });
+    this.startAgentStatusPolling();
     // Chat is handled via the REST POST /api/chat endpoint (see
     // handleChatSend).  WebSocket is kept for status events only.
 
@@ -4558,6 +4562,32 @@ export class MilaidyApp extends LitElement {
     });
   }
 
+  private startAgentStatusPolling(): void {
+    if (this.agentStatusPollTimer != null) return;
+    this.agentStatusPollTimer = setInterval(() => {
+      if (this.agentStatusPollInFlight) return;
+      this.agentStatusPollInFlight = true;
+      void (async () => {
+        try {
+          const status = await client.getStatus();
+          this.setAgentStatus(status);
+          this.connected = true;
+        } catch {
+          this.connected = false;
+        } finally {
+          this.agentStatusPollInFlight = false;
+        }
+      })();
+    }, 2500);
+  }
+
+  private stopAgentStatusPolling(): void {
+    if (this.agentStatusPollTimer == null) return;
+    clearInterval(this.agentStatusPollTimer);
+    this.agentStatusPollTimer = null;
+    this.agentStatusPollInFlight = false;
+  }
+
   private setTab(tab: Tab): void {
     this.applyTab(tab, { pushHistory: true });
   }
@@ -4646,6 +4676,28 @@ export class MilaidyApp extends LitElement {
     try {
       this.setAgentStatus(await client.startAgent());
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message.toLowerCase() : String(err);
+      if (message.includes("/api/agent/start") && message.includes("timeout")) {
+        try {
+          const deadline = Date.now() + 12_000;
+          while (Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            const status = await client.getStatus();
+            this.setAgentStatus(status);
+            if (status.state === "running") return;
+            if (
+              status.state === "error" ||
+              status.state === "stopped" ||
+              status.state === "not_started"
+            ) {
+              break;
+            }
+          }
+        } catch {
+          // Fall through to notice.
+        }
+      }
       this.showUiNotice(
         `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
       );
@@ -4740,6 +4792,7 @@ export class MilaidyApp extends LitElement {
 
       // Reset local UI state and show onboarding
       this.setAgentStatus(null);
+      this.onboardingLoading = false;
       this.onboardingComplete = false;
       this.onboardingStep = 0;
       this.onboardingName = "";
@@ -4855,52 +4908,14 @@ export class MilaidyApp extends LitElement {
   private async handleChatSend(): Promise<void> {
     const text = this.chatInput.trim();
     if (!text || this.chatSending) return;
-    const runtimeReady = await this.ensureAgentRunningForChat();
-    if (!runtimeReady) return;
     const providerForChat = this.getPreferredAiProviderForChat();
     const providerIdForChat = providerForChat
       ? canonicalProviderId(providerForChat.id)
       : null;
-    const providerReady = Boolean(
-      providerForChat && this.isChatProviderReady(providerForChat),
-    );
-    if (!providerReady) {
-      if (this.providerSetupApplying) {
-        this.showUiNotice(
-          "Applying model provider settings. Runtime will unlock chat after restart.",
-        );
-      } else {
-        this.showUiNotice(
-          "Connect an AI provider in AI Settings to start chatting.",
-        );
-        this.setTab("ai-setup");
-      }
-      return;
-    }
-    if (
-      providerIdForChat &&
-      this.creditBlockedProviderId === providerIdForChat
-    ) {
-      const textarea =
-        this.shadowRoot?.querySelector<HTMLTextAreaElement>(".chat-input");
-      if (textarea) textarea.value = "";
-      this.chatInput = "";
-      this.updateChatCountDisplay(0);
-      const blockedText =
-        "No model credits left in the tank. Time to top up your credits or switch provider in AI Settings.";
-      this.chatMessages = [
-        ...this.chatMessages,
-        { role: "assistant", text: blockedText, timestamp: Date.now() },
-      ];
-      this.setProviderHealthState(
-        "Credits exhausted",
-        "warn",
-        "Insufficient provider credits",
+    if (providerForChat && !this.isChatProviderReady(providerForChat)) {
+      this.showUiNotice(
+        "Selected provider may be misconfigured. Sending anyway so you get a precise backend error.",
       );
-      this.scrollChatToLatest("smooth", true);
-      this.saveChatMessages();
-      this.activeChatRequestText = null;
-      return;
     }
     let payloadText = text;
     if (this.chatResumePending && this.pausedChatRequestText) {
@@ -4940,36 +4955,12 @@ export class MilaidyApp extends LitElement {
       timeoutHandle = window.setTimeout(() => {
         didTimeout = true;
         abort.abort();
-      }, 25_000);
-      let data;
-      try {
-        data = await client.sendChatRest(
-          payloadText,
-          this.buildChatSecurityContext(),
-          abort.signal,
-        );
-      } catch (firstErr) {
-        const firstMsg =
-          firstErr instanceof Error
-            ? firstErr.message.toLowerCase()
-            : typeof firstErr === "string"
-              ? firstErr.toLowerCase()
-              : "";
-        if (firstMsg.includes("agent is not running")) {
-          const readyAfterRetry = await this.ensureAgentRunningForChat();
-          if (readyAfterRetry) {
-            data = await client.sendChatRest(
-              payloadText,
-              this.buildChatSecurityContext(),
-              abort.signal,
-            );
-          } else {
-            throw firstErr;
-          }
-        } else {
-          throw firstErr;
-        }
-      }
+      }, 60_000);
+      const data = await client.sendChatRest(
+        payloadText,
+        this.buildChatSecurityContext(),
+        abort.signal,
+      );
       if (this.inFlightChatAbort !== abort) return;
       let assistantText = data.text;
       if (this.isGenericAssistantFailureText(assistantText)) {
@@ -4993,7 +4984,16 @@ export class MilaidyApp extends LitElement {
         ...this.chatMessages,
         { role: "assistant", text: assistantText, timestamp: Date.now() },
       ];
-      if (!this.isGenericAssistantFailureText(assistantText)) {
+      if (this.isInsufficientCreditsSignal(assistantText)) {
+        this.setProviderHealthState(
+          "Credits exhausted",
+          "warn",
+          "Insufficient provider credits",
+        );
+        if (providerIdForChat) {
+          this.creditBlockedProviderId = providerIdForChat;
+        }
+      } else if (!this.isGenericAssistantFailureText(assistantText)) {
         this.setProviderHealthState("Healthy", "ok", "Provider responding");
         if (
           providerIdForChat &&
@@ -5078,29 +5078,31 @@ export class MilaidyApp extends LitElement {
   private async ensureAgentRunningForChat(): Promise<boolean> {
     const currentState = this.agentStatus?.state ?? "not_started";
     if (currentState === "running") return true;
-
-    try {
-      const latest = await client.getStatus();
-      this.setAgentStatus(latest);
-      if (latest.state === "running") return true;
-    } catch {
-      // Best-effort status refresh.
-    }
-
-    try {
-      this.showUiNotice("Runtime is stopped. Starting agent...");
-      const started = await client.startAgent();
-      this.setAgentStatus(started);
-      if (started.state === "running") return true;
-    } catch (err) {
-      this.showUiNotice(
-        `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
-      );
+    if (currentState === "starting" || currentState === "restarting") {
+      this.showUiNotice("Runtime is starting. Waiting for it to be ready...");
+      const waitDeadline = Date.now() + 20_000;
+      while (Date.now() < waitDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        try {
+          const polled = await client.getStatus();
+          this.setAgentStatus(polled);
+          if (polled.state === "running") return true;
+          if (
+            polled.state === "error" ||
+            polled.state === "stopped" ||
+            polled.state === "not_started"
+          ) {
+            break;
+          }
+        } catch {
+          // Keep polling through transient restart windows.
+        }
+      }
       this.chatMessages = [
         ...this.chatMessages,
         {
           role: "assistant",
-          text: "Runtime is not running. Open Config and start the agent, then retry.",
+          text: "Runtime is still initializing. Wait a few seconds, then retry.",
           timestamp: Date.now(),
         },
       ];
@@ -5108,7 +5110,98 @@ export class MilaidyApp extends LitElement {
       return false;
     }
 
-    const deadline = Date.now() + 8000;
+    try {
+      const latest = await client.getStatus();
+      this.setAgentStatus(latest);
+      if (latest.state === "running") return true;
+      if (latest.state === "starting" || latest.state === "restarting") {
+        const waitDeadline = Date.now() + 20_000;
+        while (Date.now() < waitDeadline) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            const polled = await client.getStatus();
+            this.setAgentStatus(polled);
+            if (polled.state === "running") return true;
+            if (
+              polled.state === "error" ||
+              polled.state === "stopped" ||
+              polled.state === "not_started"
+            ) {
+              break;
+            }
+          } catch {
+            // Keep polling through transient restart windows.
+          }
+        }
+      }
+    } catch {
+      // Best-effort status refresh.
+    }
+
+    try {
+      this.showUiNotice("Runtime is not ready. Starting agent...");
+      const started = await client.startAgent();
+      this.setAgentStatus(started);
+      if (started.state === "running") return true;
+      if (started.state === "starting" || started.state === "restarting") {
+        const waitDeadline = Date.now() + 20_000;
+        while (Date.now() < waitDeadline) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            const polled = await client.getStatus();
+            this.setAgentStatus(polled);
+            if (polled.state === "running") return true;
+            if (
+              polled.state === "error" ||
+              polled.state === "stopped" ||
+              polled.state === "not_started"
+            ) {
+              break;
+            }
+          } catch {
+            // Keep polling through transient restart windows.
+          }
+        }
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message.toLowerCase() : String(err);
+      if (message.includes("/api/agent/start") && message.includes("timeout")) {
+        const deadline = Date.now() + 12_000;
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            const polled = await client.getStatus();
+            this.setAgentStatus(polled);
+            if (polled.state === "running") return true;
+            if (
+              polled.state === "error" ||
+              polled.state === "stopped" ||
+              polled.state === "not_started"
+            ) {
+              break;
+            }
+          } catch {
+            // keep polling through transient restarts
+          }
+        }
+      }
+      this.showUiNotice(
+        `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
+      );
+      this.chatMessages = [
+        ...this.chatMessages,
+        {
+          role: "assistant",
+          text: "Runtime is not running. Open Config, start the agent, then retry.",
+          timestamp: Date.now(),
+        },
+      ];
+      this.saveChatMessages();
+      return false;
+    }
+
+    const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       try {
@@ -5124,11 +5217,95 @@ export class MilaidyApp extends LitElement {
       ...this.chatMessages,
       {
         role: "assistant",
-        text: "Runtime is still not running after start attempt. Open Config to check startup errors.",
+        text: "Runtime did not start. Open Config and check startup errors.",
         timestamp: Date.now(),
       },
     ];
     this.saveChatMessages();
+    return false;
+  }
+
+  private async ensureAgentRunningAfterOnboarding(
+    providerName?: string,
+  ): Promise<boolean> {
+    const deadline = Date.now() + 20_000;
+    const pollStatus = async (): Promise<AgentStatus | null> => {
+      try {
+        const next = await client.getStatus();
+        this.setAgentStatus(next);
+        return next;
+      } catch {
+        return null;
+      }
+    };
+
+    let status = await pollStatus();
+    if (status?.state === "running") return true;
+
+    while (
+      status &&
+      (status.state === "restarting" || status.state === "starting") &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      status = await pollStatus();
+      if (status?.state === "running") return true;
+    }
+
+    try {
+      this.showUiNotice(
+        `Starting Runtime${providerName ? ` with ${providerName}` : ""}...`,
+      );
+      const started = await client.startAgent();
+      this.setAgentStatus(started);
+      if (started.state === "running") return true;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message.toLowerCase() : String(err);
+      if (message.includes("/api/agent/start") && message.includes("timeout")) {
+        let recoveredRunning = false;
+        const recoveryDeadline = Date.now() + 12_000;
+        while (Date.now() < recoveryDeadline) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          status = await pollStatus();
+          if (status?.state === "running") {
+            recoveredRunning = true;
+            break;
+          }
+          if (
+            status &&
+            (status.state === "error" ||
+              status.state === "stopped" ||
+              status.state === "not_started")
+          ) {
+            break;
+          }
+        }
+        if (recoveredRunning) return true;
+      }
+      this.showUiNotice(
+        `Could not start agent: ${err instanceof Error ? err.message : "network error"}`,
+      );
+      return false;
+    }
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      status = await pollStatus();
+      if (status?.state === "running") return true;
+      if (
+        status &&
+        (status.state === "error" ||
+          status.state === "stopped" ||
+          status.state === "not_started")
+      ) {
+        break;
+      }
+    }
+
+    this.showUiNotice(
+      "Runtime is still initializing. If chat stays paused, press Start Agent once.",
+    );
     return false;
   }
 
@@ -5268,6 +5445,7 @@ export class MilaidyApp extends LitElement {
     return (
       lower.includes("insufficient credits") ||
       lower.includes("no model credits left in the tank") ||
+      lower.includes("no model credits available") ||
       lower.includes("required: $") ||
       lower.includes("ai_apicallerror: insufficient credits")
     );
@@ -5363,30 +5541,49 @@ export class MilaidyApp extends LitElement {
   }
 
   private chatErrorMessage(err: unknown): string {
-    const fallback = "Something went wrong. Please try again.";
+    const fallback =
+      "Request failed. Check Runtime status in Config and retry.";
     const details =
       typeof err === "object" && err !== null && "details" in err
         ? (err as { details?: Record<string, unknown> }).details
         : undefined;
     const code =
       details && typeof details.code === "string" ? details.code : null;
+    if (code === "PROVIDER_CREDITS_EXHAUSTED") {
+      return "No model credits available for this provider. Add credits or switch provider in AI Settings.";
+    }
     if (code === "PROVIDER_QUOTA") {
-      return "Provider quota reached. Update billing/usage limits, then retry.";
+      return "Provider quota or rate limit reached. Check billing/usage limits and retry.";
     }
     if (code === "PROVIDER_AUTH") {
-      return "Provider authentication failed. Please verify your API key.";
+      return "Provider authentication failed. Update your API key in AI Settings and retry.";
     }
     if (code === "PROVIDER_NOT_RUNNING") {
       return "Provider not running. If you selected Ollama, install and start it on this device, then restart Runtime.";
     }
     if (code === "PROVIDER_TIMEOUT") {
-      return "This request took too long. Try again or send a shorter prompt.";
+      return "Provider timed out. Retry with a shorter prompt or switch provider.";
     }
     if (code === "PROVIDER_RESTART_REQUIRED") {
       return "Provider isn't ready yet. Try again. If it keeps failing, restart Runtime to reload AI Settings.";
     }
     if (code === "AI_PROVIDER_REQUIRED") {
-      return "Connect your AI provider key in AI Settings to chat.";
+      return "No usable model provider is configured. Connect one in AI Settings.";
+    }
+    if (code === "RUNTIME_NOT_RUNNING") {
+      return "Runtime is not running. Start the agent in Config and retry.";
+    }
+    if (code === "RUNTIME_BACKEND_STARTING") {
+      return "Runtime backend is starting. Wait a few seconds and retry.";
+    }
+    if (code === "RUNTIME_DB_STARTUP") {
+      return "Runtime database startup failed. Use Reset Everything in Config, then start the agent again.";
+    }
+    if (code === "RUNTIME_PORT_CONFLICT") {
+      return "Runtime failed to start because its API port is already in use. Stop stale processes and retry.";
+    }
+    if (code === "CHAT_REQUEST_FAILED") {
+      return "Provider request failed. Check Runtime status in Config and retry.";
     }
     const raw =
       err instanceof Error ? err.message : typeof err === "string" ? err : "";
@@ -5399,7 +5596,7 @@ export class MilaidyApp extends LitElement {
       lower.includes("required: $") ||
       lower.includes("ai_apicallerror: insufficient credits")
     ) {
-      return "Provider credits are exhausted. Add credits or switch providers in AI Settings.";
+      return "No model credits available for this provider. Add credits or switch provider in AI Settings.";
     }
 
     if (
@@ -5418,7 +5615,7 @@ export class MilaidyApp extends LitElement {
       lower.includes("network request failed") ||
       lower.includes("econnrefused")
     ) {
-      return "Connection issue. Runtime backend is not ready yet. Please wait a moment and try again.";
+      return "Runtime backend is unreachable. Make sure backend is running, then retry.";
     }
 
     if (
@@ -5426,7 +5623,7 @@ export class MilaidyApp extends LitElement {
       lower.includes("timeout") ||
       lower.includes("exceeded timeout")
     ) {
-      return "Provider timed out. Try again.";
+      return "Provider timed out. Retry with a shorter prompt or switch provider.";
     }
 
     if (
@@ -5434,7 +5631,7 @@ export class MilaidyApp extends LitElement {
       lower.includes("ai_provider_required") ||
       lower.includes("provider not connected")
     ) {
-      return "Connect your AI provider key in AI Settings to chat.";
+      return "No usable model provider is configured. Connect one in AI Settings.";
     }
 
     if (
@@ -5446,7 +5643,7 @@ export class MilaidyApp extends LitElement {
     }
 
     if (lower.includes("agent is not running")) {
-      return "Runtime is not running. Start the agent, then send again.";
+      return "Runtime is not running. Start the agent in Config and retry.";
     }
 
     if (lower.includes("429") || lower.includes("rate limit")) {
@@ -5534,7 +5731,9 @@ export class MilaidyApp extends LitElement {
     return (
       value ===
         "sorry, i couldn't generate a response right now. please try again." ||
-      value === "provider timed out. try again."
+      value === "provider timed out. try again." ||
+      value ===
+        "no response from the model. check provider status in ai settings and retry."
     );
   }
 
@@ -5572,7 +5771,7 @@ export class MilaidyApp extends LitElement {
       ) {
         return {
           message:
-            "Provider credits are exhausted. Add credits to the current provider or switch to another provider in AI Settings.",
+            "No model credits available for this provider. Add credits or switch provider in AI Settings.",
           label: "Credits exhausted",
           tone: "warn",
           detail: "Insufficient provider credits",
@@ -5586,7 +5785,7 @@ export class MilaidyApp extends LitElement {
       ) {
         return {
           message:
-            "Provider quota or rate limit reached. Check billing/usage limits, then retry.",
+            "Provider quota or rate limit reached. Check billing/usage limits and retry.",
           label: "Quota issue",
           tone: "warn",
           detail: "Rate limit or quota reached",
@@ -5610,7 +5809,7 @@ export class MilaidyApp extends LitElement {
       if (joined.includes("agent is not running")) {
         return {
           message:
-            "Runtime is not running. Start the agent in Config, then retry chat.",
+            "Runtime is not running. Start the agent in Config and retry.",
           label: "Agent stopped",
           tone: "warn",
           detail: "Agent runtime is stopped",
@@ -5835,7 +6034,11 @@ export class MilaidyApp extends LitElement {
       prev.state === next.state &&
       prev.agentName === next.agentName &&
       (prev.model ?? "") === (next.model ?? "") &&
-      (prev.startedAt ?? 0) === (next.startedAt ?? 0)
+      (prev.startedAt ?? 0) === (next.startedAt ?? 0) &&
+      (prev.startup?.phase ?? "") === (next.startup?.phase ?? "") &&
+      (prev.pendingRestart ?? false) === (next.pendingRestart ?? false) &&
+      (prev.pendingRestartReasons?.[0] ?? "") ===
+        (next.pendingRestartReasons?.[0] ?? "")
     ) {
       // Ignore uptime-only websocket churn to keep UI responsive while typing.
       return;
@@ -6700,7 +6903,9 @@ export class MilaidyApp extends LitElement {
         Math.floor(Math.random() * RUNTIME_HANDLE_SUFFIX_WORDS.length)
       ];
     const rand = crypto.getRandomValues(new Uint32Array(2));
-    const chunk = ((BigInt(rand[0]!) << 32n) | BigInt(rand[1]!)).toString(36);
+    const upper = BigInt(rand[0] ?? 0);
+    const lower = BigInt(rand[1] ?? 0);
+    const chunk = ((upper << 32n) | lower).toString(36);
     const tail = chunk.padStart(10, "0").slice(-10);
     return `${word}${tail}`;
   }
@@ -7164,8 +7369,19 @@ export class MilaidyApp extends LitElement {
     this.onboardingStep = bounded;
   }
 
+  private scrollOnboardingToTop(): void {
+    const onboardingRoot =
+      this.shadowRoot?.querySelector<HTMLElement>(".onboarding");
+    const appShell = this.shadowRoot?.querySelector<HTMLElement>(".app-shell");
+    if (onboardingRoot) onboardingRoot.scrollTop = 0;
+    if (appShell) appShell.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
   private async handleOnboardingNext(): Promise<void> {
     this.setOnboardingStep(this.onboardingStep + 1);
+    await this.updateComplete;
+    this.scrollOnboardingToTop();
   }
 
   private handleOnboardingBack(): void {
@@ -7186,7 +7402,7 @@ export class MilaidyApp extends LitElement {
             selectedProvider?.keyPrefix ?? null,
           )
         : false;
-      this.providerSetupApplying = needsKey && keyLooksValid;
+      const shouldMarkProviderApplying = needsKey && keyLooksValid;
 
       const style = this.onboardingOptions.styles.find(
         (s) => s.catchphrase === this.onboardingStyle,
@@ -7291,6 +7507,7 @@ export class MilaidyApp extends LitElement {
         telegramBotToken: this.onboardingTelegramToken || undefined,
         discordBotToken: this.onboardingDiscordToken || undefined,
       };
+      this.providerSetupApplying = shouldMarkProviderApplying;
       for (let attempt = 0; attempt < 3 && !onboardingSaved; attempt++) {
         try {
           await client.submitOnboarding(payload);
@@ -7309,7 +7526,6 @@ export class MilaidyApp extends LitElement {
       }
 
       if (!onboardingSaved) {
-        this.providerSetupApplying = false;
         this.nameValidationMessage =
           "Could not save setup right now. Please try again.";
         this.showUiNotice(
@@ -7318,18 +7534,9 @@ export class MilaidyApp extends LitElement {
         return;
       }
 
-      const selectedProviderId = (this.onboardingProvider || "").trim();
-      const selectedProviderKey = this.onboardingApiKey.trim();
-      if (selectedProviderId) {
-        try {
-          await client.switchProvider(
-            selectedProviderId,
-            selectedProviderKey || undefined,
-          );
-        } catch (err) {
-          console.warn("Provider switch after onboarding failed:", err);
-        }
-      }
+      // Single-path onboarding: provider + key are applied by /api/onboarding.
+      // Avoid a second switch call here (it can trigger duplicate restarts and
+      // conflicting startup transitions).
 
       this.onboardingComplete = true;
       // Always land in Chat after onboarding even if the URL previously pointed
@@ -7338,24 +7545,17 @@ export class MilaidyApp extends LitElement {
 
       // Persist profile/theme to backend config so it survives across devices.
       await this.syncProfileToServer();
-      try {
-        this.setAgentStatus(await client.restartAgent());
-      } catch {
-        // ignore
-      }
       // Refresh plugins so the chat lock can clear without a manual reload.
       try {
         await this.loadPlugins();
       } catch {
         // ignore
-      } finally {
-        this.providerSetupApplying = false;
       }
     } catch (err) {
       console.error("Onboarding finish failed:", err);
-      this.providerSetupApplying = false;
       this.nameValidationMessage = "Could not finish setup. Try again.";
     } finally {
+      this.providerSetupApplying = false;
       this.onboardingFinishing = false;
     }
   }
@@ -7523,6 +7723,7 @@ export class MilaidyApp extends LitElement {
     const status = this.agentStatus;
     const state = status?.state ?? "not_started";
     const stateLabel = this.formatAgentStateLabel(state);
+    const statePillClass = state === "error" ? "stopped" : state;
     const name = this.userDisplayName || "@you";
     const providerForChat = this.getPreferredAiProviderForChat();
     const providerConfigured = providerForChat
@@ -7574,9 +7775,12 @@ export class MilaidyApp extends LitElement {
               Wallet: <b>${walletConnected ? "Connected" : "Not connected"}</b>
             </span>
           </div>
-          <span class="status-pill ${state}">${stateLabel}</span>
+          <span class="status-pill ${statePillClass}">${stateLabel}</span>
           ${
-            state === "not_started" || state === "stopped" || state === "paused"
+            state === "not_started" ||
+            state === "stopped" ||
+            state === "paused" ||
+            state === "error"
               ? html`<button class="lifecycle-btn" @click=${this.handleStart}>Start</button>`
               : state === "restarting"
                 ? html`<span class="lifecycle-btn" style="opacity:0.6;cursor:default;">Restarting…</span>`
@@ -8021,6 +8225,7 @@ export class MilaidyApp extends LitElement {
 
   private formatAgentStateLabel(state: string): string {
     if (!state) return "Unknown";
+    if (state === "error") return "Standby";
     return state.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
@@ -8054,7 +8259,16 @@ export class MilaidyApp extends LitElement {
   }
 
   private getPreferredAiProviderForChat(): PluginInfo | null {
-    return this.getActiveAiProvider() ?? this.getSelectedAiProvider();
+    const selected = this.getSelectedAiProvider();
+    if (selected && this.isChatProviderReady(selected)) return selected;
+    const ready = this.plugins.find(
+      (p) => this.isAiProviderPlugin(p) && this.isChatProviderReady(p),
+    );
+    if (ready) return ready;
+    if (selected?.enabled) return selected;
+    const active = this.getActiveAiProvider();
+    if (active) return active;
+    return selected ?? null;
   }
 
   private isAnthropicSubscriptionProvider(plugin: PluginInfo): boolean {
@@ -8310,13 +8524,12 @@ export class MilaidyApp extends LitElement {
     const state = this.agentStatus?.state ?? "not_started";
     const runtimeNeedsStart =
       state === "not_started" ||
+      state === "error" ||
       (state === "stopped" && !this.chatResumePending);
     const activeSession =
       this.chatSessions.find((s) => s.id === this.activeSessionId) ?? null;
     const sessionName = activeSession?.name ?? "Current Chat";
     const enabledToolCount = this.plugins.filter((p) => p.enabled).length;
-    const activeProvider = this.getActiveAiProvider();
-    const selectedProvider = this.getSelectedAiProvider();
     const providerForChat = this.getPreferredAiProviderForChat();
     const providerIdForChat = providerForChat
       ? canonicalProviderId(providerForChat.id)
@@ -8324,38 +8537,32 @@ export class MilaidyApp extends LitElement {
     const providerBlockedByCredits = Boolean(
       providerIdForChat && this.creditBlockedProviderId === providerIdForChat,
     );
-    const chatProviderReady = providerForChat
-      ? this.isChatProviderReady(providerForChat) && !providerBlockedByCredits
+    const chatProviderConnected = providerForChat
+      ? this.isChatProviderConnected(providerForChat)
       : false;
-    const chatProviderIssue = chatProviderReady
-      ? null
-      : providerBlockedByCredits
-        ? "Provider credits are exhausted. Top up credits or switch provider in AI Settings."
-        : this.providerSetupApplying
-          ? "Applying your model provider settings. Runtime will unlock chat after restart."
-          : providerForChat
-            ? !providerForChat.enabled
-              ? `Enable ${providerForChat.name} in AI Settings to unlock chat.`
-              : providerForChat.validationErrors.length > 0
-                ? (providerForChat.validationErrors[0]?.message ??
-                  "Provider needs setup.")
-                : (providerForChat.envKey ?? "").trim() &&
-                    providerForChat.id !== "ollama"
-                  ? `Add your ${providerForChat.name} API key in AI Settings to unlock chat.`
-                  : "Provider needs setup."
-            : selectedProvider
-              ? `Enable ${selectedProvider.name} in AI Settings to unlock chat.`
-              : !activeProvider
-                ? "Enable a model provider in AI Settings to start chatting."
-                : activeProvider.validationErrors.length > 0
-                  ? (activeProvider.validationErrors[0]?.message ??
-                    "Provider needs setup.")
-                  : "Provider needs setup.";
-    const chatLockBanner = !chatProviderReady
+    const chatProviderReady = providerForChat
+      ? this.isChatProviderReady(providerForChat)
+      : false;
+    const chatProviderSoftIssue =
+      chatProviderConnected && !chatProviderReady
+        ? (providerForChat?.validationErrors?.[0]?.message ??
+          "Selected provider is connected but may fail requests. Check key, auth, or credits.")
+        : null;
+    const chatProviderWarningBanner = chatProviderSoftIssue
       ? html`
-          <div style="margin:10px 0 6px;padding:8px 10px;border:1px solid rgba(241,196,15,0.55);background:rgba(241,196,15,0.10);border-radius:12px;font-size:12px;color:var(--text-strong);display:flex;justify-content:space-between;gap:10px;align-items:center;">
+          <div style="margin:8px 0 6px;padding:8px 10px;border:1px solid rgba(241,196,15,0.45);background:rgba(241,196,15,0.08);border-radius:12px;font-size:12px;color:var(--text-strong);display:flex;justify-content:space-between;gap:10px;align-items:center;">
             <div style="color:var(--muted);line-height:1.35;flex:1;min-width:0;">
-              <b style="color:var(--text-strong);">Chat locked:</b> ${chatProviderIssue}
+              <b style="color:var(--text-strong);">Provider status:</b> ${chatProviderSoftIssue}
+            </div>
+            <button class="plugin-secondary-btn" @click=${() => void this.openAiProviderSettingsFromChat()}>Open AI Settings</button>
+          </div>
+        `
+      : "";
+    const creditsWarningBanner = providerBlockedByCredits
+      ? html`
+          <div style="margin:8px 0 6px;padding:8px 10px;border:1px solid rgba(241,196,15,0.45);background:rgba(241,196,15,0.08);border-radius:12px;font-size:12px;color:var(--text-strong);display:flex;justify-content:space-between;gap:10px;align-items:center;">
+            <div style="color:var(--muted);line-height:1.35;flex:1;min-width:0;">
+              <b style="color:var(--text-strong);">Provider warning:</b> Credits are exhausted. Add credits or switch provider in AI Settings.
             </div>
             <button class="plugin-secondary-btn" @click=${() => void this.openAiProviderSettingsFromChat()}>Open AI Settings</button>
           </div>
@@ -8401,28 +8608,18 @@ export class MilaidyApp extends LitElement {
             ${
               this.chatSending
                 ? "Runtime is working on your request."
-                : runtimeNeedsStart
-                  ? "Runtime is not running. Start the agent to chat."
-                  : this.chatResumePending
-                    ? "Response stopped. Add context if needed, then press Start."
-                    : "Runtime is live."
+                : state === "restarting" || state === "starting"
+                  ? "Runtime is restarting. Send a message to retry once it is ready."
+                  : runtimeNeedsStart
+                    ? "Runtime is offline. Send a message to auto-start or use Start Agent."
+                    : this.chatResumePending
+                      ? "Response stopped. Add context if needed, then press Start."
+                      : "Runtime is live."
             }
           </span>
         </div>
-        ${chatLockBanner}
-        ${
-          runtimeNeedsStart
-            ? html`
-              <div class="start-agent-box" style="margin-bottom:10px;">
-                <p>Runtime is paused. Start the agent to begin chatting.</p>
-                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                  <button class="btn" style="min-width:180px;" @click=${this.handleStart}>Start Agent</button>
-                  <button class="btn btn-outline" style="min-width:180px;" @click=${() => void this.toggleStyleSettings()}>Response mode</button>
-                </div>
-              </div>
-            `
-            : ""
-        }
+        ${chatProviderWarningBanner}
+        ${creditsWarningBanner}
 	        <div class="chat-messages" @scroll=${this.handleChatScroll}>
           ${
             hasMessageOverflow
@@ -8518,24 +8715,20 @@ export class MilaidyApp extends LitElement {
             class="chat-input"
             rows="1"
             placeholder=${
-              !chatProviderReady
-                ? providerBlockedByCredits
-                  ? "Provider credits exhausted. Top up or switch provider..."
-                  : "Connect a model provider in AI Settings to chat..."
-                : runtimeNeedsStart
-                  ? "Start the agent to begin chatting..."
-                  : this.chatResumePending
-                    ? "Add new context before restarting..."
-                    : "Message Runtime..."
+              runtimeNeedsStart
+                ? "Message Runtime..."
+                : this.chatResumePending
+                  ? "Add new context before restarting..."
+                  : "Message Runtime..."
             }
             .value=${this.chatInput}
             @input=${this.handleChatInput}
             @keydown=${this.handleChatKeydown}
-            ?disabled=${this.chatSending || !chatProviderReady || runtimeNeedsStart}
+            ?disabled=${this.chatSending}
           ></textarea>
           <div class="chat-send-stack">
             ${
-              (showStop || showStartResume) && chatProviderReady
+              showStop || showStartResume
                 ? html`
                   <button
                     class="chat-control-btn"
@@ -8553,7 +8746,7 @@ export class MilaidyApp extends LitElement {
             <button
               class="chat-send-btn btn"
               @click=${() => void this.handleChatSend()}
-              ?disabled=${this.chatSending || !chatProviderReady || runtimeNeedsStart}
+              ?disabled=${this.chatSending}
             >
               ${this.chatSending ? "..." : "Send"}
             </button>
@@ -9196,12 +9389,16 @@ export class MilaidyApp extends LitElement {
     const metricScope =
       viewMode === "ai" ? aiCorePlugins : availableConnections;
     const enabledCount = metricScope.filter((p) => p.enabled).length;
-    const configuredCount = metricScope.filter((p) =>
-      this.isPluginUserReady(p),
-    ).length;
-    const needsSetupCount = metricScope.filter(
-      (p) => !this.isPluginUserReady(p),
-    ).length;
+    const configuredCount =
+      viewMode === "ai"
+        ? metricScope.filter((p) => p.enabled && this.isPluginUserReady(p))
+            .length
+        : metricScope.filter((p) => this.isPluginUserReady(p)).length;
+    const needsSetupCount =
+      viewMode === "ai"
+        ? metricScope.filter((p) => p.enabled && !this.isPluginUserReady(p))
+            .length
+        : metricScope.filter((p) => !this.isPluginUserReady(p)).length;
     const requiresSetup = metricScope.filter(
       (p) =>
         p.enabled &&
@@ -9301,7 +9498,7 @@ export class MilaidyApp extends LitElement {
             </div>
             <div class="plugin-kpi">
               <div class="plugin-kpi-value">${viewMode === "ai" ? needsSetupCount : requiresSetup.length}</div>
-              <div class="plugin-kpi-label">Needs setup</div>
+              <div class="plugin-kpi-label">${viewMode === "ai" ? "Active needs setup" : "Needs setup"}</div>
             </div>
           </div>
 
@@ -9795,6 +9992,11 @@ export class MilaidyApp extends LitElement {
     });
     if (hasKeyValidationError) return false;
     return this.isPluginEffectivelyConfigured(target);
+  }
+
+  private isChatProviderConnected(plugin: PluginInfo): boolean {
+    if (!this.isAiProviderPlugin(plugin)) return false;
+    return plugin.enabled;
   }
 
   private isChatProviderReady(plugin: PluginInfo): boolean {

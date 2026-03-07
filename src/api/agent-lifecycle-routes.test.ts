@@ -23,6 +23,7 @@ describe("agent lifecycle routes", () => {
   let state: AgentLifecycleRouteState;
   let enableAutonomy: ReturnType<typeof vi.fn>;
   let disableAutonomy: ReturnType<typeof vi.fn>;
+  let onRestart: (() => Promise<AgentRuntime | null>) | undefined;
 
   beforeEach(() => {
     enableAutonomy = vi.fn(async () => undefined);
@@ -40,6 +41,7 @@ describe("agent lifecycle routes", () => {
       model: undefined,
       startedAt: undefined,
     };
+    onRestart = undefined;
   });
 
   const invoke = createRouteInvoker<
@@ -54,11 +56,16 @@ describe("agent lifecycle routes", () => {
         method: ctx.method,
         pathname: ctx.pathname,
         state: ctx.runtime,
+        onRestart,
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
       }),
     { runtimeProvider: () => state },
   );
+
+  async function flushAsyncStart(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 
   test("returns false for non-lifecycle routes", async () => {
     const result = await invoke({
@@ -106,6 +113,154 @@ describe("agent lifecycle routes", () => {
       error: "Agent is not running",
     });
     expect(enableAutonomy).not.toHaveBeenCalled();
+  });
+
+  test("start returns initializing message when runtime is booting without restart handler", async () => {
+    state.runtime = null;
+    state.agentState = "starting";
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: {
+        state: "starting",
+        agentName: "Milady",
+      },
+    });
+  });
+
+  test("start does not trigger restart while runtime is already booting", async () => {
+    state.runtime = null;
+    state.agentState = "restarting";
+    onRestart = vi.fn(async () =>
+      createRuntimeWithAutonomyService(
+        {
+          enableAutonomy,
+          disableAutonomy,
+        },
+        [{ name: "openai-recovered" }],
+      ),
+    );
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: {
+        state: "starting",
+      },
+    });
+    expect(onRestart).not.toHaveBeenCalled();
+  });
+
+  test("start bootstraps runtime through restart handler when runtime is unavailable", async () => {
+    state.runtime = null;
+    onRestart = vi.fn(async () =>
+      createRuntimeWithAutonomyService(
+        {
+          enableAutonomy,
+          disableAutonomy,
+        },
+        [{ name: "openai-recovered" }],
+      ),
+    );
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+    await flushAsyncStart();
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: { state: "starting" },
+    });
+    expect(onRestart).toHaveBeenCalledTimes(1);
+    expect(state.agentState).toBe("running");
+    expect(state.model).toBe("openai-recovered");
+    expect(enableAutonomy).toHaveBeenCalledTimes(1);
+  });
+
+  test("start returns initializing message when restart handler returns null", async () => {
+    state.runtime = null;
+    state.agentState = "restarting";
+    onRestart = vi.fn(async () => null);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: {
+        state: "starting",
+      },
+    });
+  });
+
+  test("start reports starting immediately when restart handler throws", async () => {
+    state.runtime = null;
+    onRestart = vi.fn(async () => {
+      throw new Error("bootstrap failed");
+    });
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+    await flushAsyncStart();
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: { state: "starting" },
+    });
+    expect(state.agentState).toBe("starting");
+  });
+
+  test("start returns immediately even when restart handler begins with sync work", async () => {
+    state.runtime = null;
+    onRestart = vi.fn(async () => {
+      const blockStart = Date.now();
+      while (Date.now() - blockStart < 200) {
+        // Simulate expensive synchronous setup before first await.
+      }
+      return createRuntimeWithAutonomyService(
+        {
+          enableAutonomy,
+          disableAutonomy,
+        },
+        [{ name: "openai-recovered" }],
+      );
+    });
+
+    const startedAt = Date.now();
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/start",
+    });
+    const elapsedMs = Date.now() - startedAt;
+    await flushAsyncStart();
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      status: { state: "starting" },
+    });
+    expect(elapsedMs).toBeLessThan(100);
+    expect(onRestart).toHaveBeenCalledTimes(1);
   });
 
   test("stops the agent and disables autonomy", async () => {

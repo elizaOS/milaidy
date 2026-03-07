@@ -66,6 +66,9 @@ const withQuietErrors: NonNullable<ProxyOptions["configure"]> = (proxy) => {
 export default defineConfig(() => {
   const envBase = process.env.MILAIDY_CONTROL_UI_BASE_PATH?.trim();
   const base = envBase ? normalizeBase(envBase) : "./";
+  const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
+  const apiTarget = `http://127.0.0.1:${apiPort}`;
+  const wsTarget = `ws://127.0.0.1:${apiPort}`;
   return {
     base,
     publicDir: path.resolve(here, "public"),
@@ -83,12 +86,12 @@ export default defineConfig(() => {
       strictPort: false,
       proxy: {
         "/api": {
-          target: "http://localhost:31337",
+          target: apiTarget,
           changeOrigin: true,
           configure: withQuietErrors,
         },
         "/ws": {
-          target: "ws://localhost:31337",
+          target: wsTarget,
           ws: true,
           configure: withQuietErrors,
         },

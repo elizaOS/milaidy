@@ -433,7 +433,6 @@ export async function handleWalletRoutes(
       "BIRDEYE_API_KEY",
       "EVM_ADDRESS",
       "SOLANA_ADDRESS",
-      "WALLET_DISCONNECT",
       "WALLET_DISABLE_EVM",
     ];
 
@@ -466,10 +465,13 @@ export async function handleWalletRoutes(
       delete process.env.SOLANA_PRIVATE_KEY;
       (config.env as Record<string, string>).EVM_PRIVATE_KEY = "";
       (config.env as Record<string, string>).SOLANA_PRIVATE_KEY = "";
+      // WALLET_DISCONNECT is an ephemeral runtime toggle; persisting it causes
+      // repeated restart reasons and startup loops across subsequent boots.
       process.env.WALLET_DISCONNECT = "1";
-      (config.env as Record<string, string>).WALLET_DISCONNECT = "1";
+      delete (config.env as Record<string, string>).WALLET_DISCONNECT;
     } else {
       delete process.env.WALLET_DISCONNECT;
+      delete (config.env as Record<string, string>).WALLET_DISCONNECT;
       ensureWalletKeysInEnvAndConfig(config);
     }
 
@@ -505,7 +507,8 @@ export async function handleWalletRoutes(
     env.SOLANA_PRIVATE_KEY = "";
     env.EVM_ADDRESS = "";
     env.SOLANA_ADDRESS = "";
-    env.WALLET_DISCONNECT = "1";
+    // Keep WALLET_DISCONNECT process-local only to avoid boot loops.
+    delete env.WALLET_DISCONNECT;
 
     try {
       saveConfig(config);

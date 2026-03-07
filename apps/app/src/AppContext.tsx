@@ -2390,6 +2390,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await client.resetAgent();
       setAgentStatus(null);
+      setStartupError(null);
+      setAuthRequired(false);
+      setOnboardingLoading(false);
       setOnboardingComplete(false);
       setOnboardingStep("welcome");
       setConversationMessages([]);
@@ -2871,6 +2874,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
               );
             }
           } else {
+            const apiErr = asApiLikeError(err);
+            const lower = String(
+              apiErr?.message ?? (err instanceof Error ? err.message : err),
+            ).toLowerCase();
+            const immediateErrorText =
+              apiErr?.kind === "timeout"
+                ? "Provider response timed out. Retry, switch model provider, or use a shorter request."
+                : apiErr?.kind === "network" ||
+                    lower.includes("failed to fetch") ||
+                    lower.includes("networkerror") ||
+                    lower.includes("econnrefused")
+                  ? "Runtime backend is unreachable. Make sure backend is running, then retry."
+                  : null;
+            if (immediateErrorText) {
+              setConversationMessages((prev) =>
+                prev.map((message) =>
+                  message.id === assistantMsgId
+                    ? { ...message, text: immediateErrorText }
+                    : message,
+                ),
+              );
+            }
             await loadConversationMessages(convId);
           }
         } finally {
@@ -2982,6 +3007,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ),
             );
             return;
+          }
+          const apiErr = asApiLikeError(err);
+          const lower = String(
+            apiErr?.message ?? (err instanceof Error ? err.message : err),
+          ).toLowerCase();
+          const immediateErrorText =
+            apiErr?.kind === "timeout"
+              ? "Provider response timed out. Retry, switch model provider, or use a shorter request."
+              : apiErr?.kind === "network" ||
+                  lower.includes("failed to fetch") ||
+                  lower.includes("networkerror") ||
+                  lower.includes("econnrefused")
+                ? "Runtime backend is unreachable. Make sure backend is running, then retry."
+                : null;
+          if (immediateErrorText) {
+            setConversationMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMsgId
+                  ? { ...message, text: immediateErrorText }
+                  : message,
+              ),
+            );
           }
           await loadConversationMessages(convId);
         } finally {
@@ -3973,10 +4020,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       setOnboardingComplete(true);
       setTab("chat");
+      // Single-path onboarding: backend applies provider settings and restart
+      // scheduling. Avoid forcing another client restart here.
       try {
-        setAgentStatus(await client.restartAgent());
+        setAgentStatus(await client.getStatus());
       } catch {
-        /* ignore */
+        /* ignore status refresh errors */
       }
     } catch (err) {
       window.alert(

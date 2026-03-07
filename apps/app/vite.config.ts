@@ -10,6 +10,7 @@ const miladyRoot = path.resolve(here, "../..");
 
 // The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
 const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
+const uiPort = Number(process.env.MILADY_UI_PORT) || 2138;
 
 /**
  * Dev-only middleware that handles CORS for Electron's custom-scheme origin
@@ -90,7 +91,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 2138,
+    port: uiPort,
     strictPort: true,
     cors: {
       origin: true,

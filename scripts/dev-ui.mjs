@@ -28,8 +28,10 @@ import { ethers } from "ethers";
 import JSON5 from "json5";
 
 const API_PORT = 31337;
-const UI_PORT = 2138;
+const UI_PORT = Number(process.env.MILADY_UI_PORT) || 2138;
 const cwd = process.cwd();
+const DEFAULT_DEV_STATE_DIR = path.join(cwd, ".milady-state");
+const DEFAULT_DEV_CONFIG_PATH = path.join(DEFAULT_DEV_STATE_DIR, "milady.json");
 const uiOnly = process.argv.includes("--ui-only");
 const devLogLevel =
   (process.env.MILADY_DEV_LOG_LEVEL ?? process.env.LOG_LEVEL ?? "info")
@@ -172,18 +174,35 @@ function coerceBoolean(value) {
   return null;
 }
 
-function resolveMiladyConfigPath() {
+function resolveDevStatePaths() {
   const explicitConfigPath = process.env.MILADY_CONFIG_PATH?.trim();
   if (explicitConfigPath) {
-    return path.resolve(explicitConfigPath);
+    const configPath = path.resolve(explicitConfigPath);
+    return {
+      configPath,
+      stateDir: path.dirname(configPath),
+    };
   }
 
   const explicitStateDir = process.env.MILADY_STATE_DIR?.trim();
   if (explicitStateDir) {
-    return path.join(path.resolve(explicitStateDir), "milady.json");
+    const stateDir = path.resolve(explicitStateDir);
+    return {
+      stateDir,
+      configPath: path.join(stateDir, "milady.json"),
+    };
   }
 
-  return path.join(os.homedir(), ".milady", "milady.json");
+  return {
+    stateDir: DEFAULT_DEV_STATE_DIR,
+    configPath: DEFAULT_DEV_CONFIG_PATH,
+  };
+}
+
+const DEV_STATE_PATHS = resolveDevStatePaths();
+
+function resolveMiladyConfigPath() {
+  return DEV_STATE_PATHS.configPath;
 }
 
 function loadMiladyConfigForDev() {
@@ -281,8 +300,7 @@ function resolveStealthImportFlags() {
   // Auto-detect subscription credentials: if the user has logged in via
   // a subscription provider, enable the corresponding stealth interceptor
   // automatically (unless explicitly disabled above).
-  const stateDir =
-    process.env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  const stateDir = DEV_STATE_PATHS.stateDir;
   if (openaiFlag === null) {
     const codexAuthPath = path.join(stateDir, "auth", "openai-codex.json");
     if (existsSync(codexAuthPath)) {
@@ -718,6 +736,7 @@ async function bootstrapOnchainDev() {
 
   return {
     env: {
+      MILADY_STATE_DIR: path.dirname(configPath),
       MILADY_CONFIG_PATH: configPath,
       EVM_PRIVATE_KEY: DEFAULT_EVM_DEV_PRIVATE_KEY,
       MILADY_DEV_CHAIN_ID: String(ANVIL_CHAIN_ID),
@@ -1036,8 +1055,16 @@ if (uiOnly) {
     cwd,
     env: {
       ...process.env,
+      MILADY_STATE_DIR:
+        (chainEnv.MILADY_STATE_DIR || "").trim() || DEV_STATE_PATHS.stateDir,
+      MILADY_CONFIG_PATH:
+        (chainEnv.MILADY_CONFIG_PATH || "").trim() ||
+        DEV_STATE_PATHS.configPath,
       ...chainEnv,
       MILADY_PORT: String(API_PORT),
+      MILADY_STRICT_PORT: "1",
+      MILADY_RUNTIME_AUTO_DB_RESET:
+        process.env.MILADY_RUNTIME_AUTO_DB_RESET ?? "1",
       MILADY_HEADLESS: "1",
       LOG_LEVEL: devLogLevel,
     },

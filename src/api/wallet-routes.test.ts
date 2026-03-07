@@ -14,6 +14,7 @@ const ENV_KEYS = [
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
   "SOLANA_RPC_URL",
+  "WALLET_DISCONNECT",
 ] as const;
 
 const ORIGINAL_ENV = Object.fromEntries(
@@ -274,6 +275,37 @@ describe("wallet routes", () => {
     );
     expect(result.saveConfig).toHaveBeenCalledWith(result.config);
     expect(result.payload).toEqual({ ok: true });
+  });
+
+  test("wallet disconnect stays process-local and is not persisted to config env", async () => {
+    const config = { env: { WALLET_DISCONNECT: "1" } } as MiladyConfig;
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/wallet/disconnect",
+      config,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(process.env.WALLET_DISCONNECT).toBe("1");
+    expect(
+      (result.config.env as Record<string, string>).WALLET_DISCONNECT,
+    ).toBe(undefined);
+  });
+
+  test("PUT /api/wallet/config disconnect clears persisted WALLET_DISCONNECT", async () => {
+    const config = { env: { WALLET_DISCONNECT: "1" } } as MiladyConfig;
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/wallet/config",
+      body: { WALLET_DISCONNECT: "1" },
+      config,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(process.env.WALLET_DISCONNECT).toBe("1");
+    expect(
+      (result.config.env as Record<string, string>).WALLET_DISCONNECT,
+    ).toBe(undefined);
   });
 
   test("blocks wallet export when rejection is returned", async () => {

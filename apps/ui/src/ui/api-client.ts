@@ -11,6 +11,7 @@
 
 export type AgentState =
   | "not_started"
+  | "starting"
   | "running"
   | "paused"
   | "stopped"
@@ -447,10 +448,21 @@ export class MilaidyClient {
       throw new Error("Runtime API is unavailable in this context");
     }
     const makeRequest = async (token: string | null) => {
+      const isConversationMessageRoute =
+        path.startsWith("/api/conversations/") &&
+        (path.includes("/messages") || path.includes("/greeting"));
       const isChatRoute =
-        path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
-      // Keep chat bounded so users get quick feedback when provider/backends fail.
-      const timeoutMs = isChatRoute ? 25000 : 12000;
+        path.startsWith("/api/chat") ||
+        path.startsWith("/api/v2/chat") ||
+        isConversationMessageRoute;
+      const isControlRoute =
+        path === "/api/agent/start" ||
+        path === "/api/agent/restart" ||
+        path === "/api/agent/reset" ||
+        path === "/api/provider/switch" ||
+        path.startsWith("/api/plugins/");
+      // Chat should fail fast; startup/restart/provider paths need more headroom.
+      const timeoutMs = isChatRoute ? 60000 : isControlRoute ? 45000 : 12000;
       const timeoutPromise = new Promise<never>((_, reject) => {
         const t = setTimeout(() => {
           clearTimeout(t);
@@ -475,11 +487,38 @@ export class MilaidyClient {
     ): Promise<Response> => {
       // Fail fast on chat so users aren't stuck waiting on retries.
       // Non-chat routes can retry a bit longer during startup/restarts.
+      const isConversationMessageRoute =
+        path.startsWith("/api/conversations/") &&
+        (path.includes("/messages") || path.includes("/greeting"));
       const isChatRoute =
-        path.startsWith("/api/chat") || path.startsWith("/api/v2/chat");
-      const maxAttempts = isChatRoute ? 1 : 10;
+        path.startsWith("/api/chat") ||
+        path.startsWith("/api/v2/chat") ||
+        isConversationMessageRoute;
+      const isControlRoute =
+        path === "/api/agent/start" ||
+        path === "/api/agent/restart" ||
+        path === "/api/agent/reset" ||
+        path === "/api/provider/switch";
+      const maxAttempts = isChatRoute ? 2 : isControlRoute ? 20 : 10;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const res = await makeRequest(token);
+        let res: Response;
+        try {
+          res = await makeRequest(token);
+        } catch (err) {
+          const lower =
+            err instanceof Error ? err.message.toLowerCase() : String(err);
+          const retryableNetworkError =
+            lower.includes("failed to fetch") ||
+            lower.includes("networkerror") ||
+            lower.includes("network request failed") ||
+            lower.includes("econnrefused");
+          if (!retryableNetworkError || attempt === maxAttempts) {
+            throw err;
+          }
+          const delayMs = Math.min(250 * attempt, 1000);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
         if (res.status !== 503) return res;
 
         const body = (await res
@@ -938,7 +977,8 @@ export class MilaidyClient {
     if (!this.wsHandlers.has(type)) {
       this.wsHandlers.set(type, new Set());
     }
-    this.wsHandlers.get(type)!.add(handler);
+    const handlers = this.wsHandlers.get(type);
+    handlers?.add(handler);
     return () => {
       this.wsHandlers.get(type)?.delete(handler);
     };
@@ -1014,7 +1054,9 @@ export class MilaidyClient {
     return (
       value ===
         "sorry, i couldn't generate a response right now. please try again." ||
-      value === "provider timed out. try again."
+      value === "provider timed out. try again." ||
+      value ===
+        "no response from the model. check provider status in ai settings and retry."
     );
   }
 

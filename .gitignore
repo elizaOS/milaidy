@@ -41,6 +41,10 @@ plugins/plugin-blooio/
 .vscode/
 .claude/settings.local.json
 .claude/skills/
+.milady-state/
+.milady-state-debug/
+.milady-state.backup-*/
+.milady-state*.backup*/
 .git-workspace/
 IDENTITY.md
 USER.md
