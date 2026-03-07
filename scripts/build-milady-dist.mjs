@@ -28,19 +28,19 @@ const MILADY_DIST = path.join(ROOT, "apps", "app", "electron", "milady-dist");
 const DIST_ELECTRON = path.join(ROOT, "dist-electron");
 
 function run(cmd, opts = {}) {
-    console.log(`\n>>> ${cmd}`);
-    execSync(cmd, {
-        cwd: opts.cwd || ROOT,
-        stdio: "inherit",
-        shell: true,
-        env: { ...process.env, ...opts.env },
-    });
+  console.log(`\n>>> ${cmd}`);
+  execSync(cmd, {
+    cwd: opts.cwd || ROOT,
+    stdio: "inherit",
+    shell: true,
+    env: { ...process.env, ...opts.env },
+  });
 }
 
 function header(msg) {
-    console.log(`\n${"=".repeat(60)}`);
-    console.log(`  ${msg}`);
-    console.log(`${"=".repeat(60)}`);
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`  ${msg}`);
+  console.log(`${"=".repeat(60)}`);
 }
 
 // ── Step 1: Build core ──────────────────────────────────────────────────
@@ -67,36 +67,33 @@ header("Step 4/5: Copying bundled JS to apps/app/electron/milady-dist/");
 
 // Clean and recreate milady-dist
 if (fs.existsSync(MILADY_DIST)) {
-    fs.rmSync(MILADY_DIST, { recursive: true, force: true });
+  fs.rmSync(MILADY_DIST, { recursive: true, force: true });
 }
 fs.mkdirSync(MILADY_DIST, { recursive: true });
 
 // Walk dist-electron/ and copy all .js files preserving directory structure
 function copyJsFiles(srcDir, destDir) {
-    let count = 0;
-    const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-    for (const entry of entries) {
-        const srcPath = path.join(srcDir, entry.name);
-        const destPath = path.join(destDir, entry.name);
-        if (entry.isDirectory()) {
-            count += copyJsFiles(srcPath, destPath);
-        } else if (entry.name.endsWith(".js")) {
-            fs.mkdirSync(path.dirname(destPath), { recursive: true });
-            fs.copyFileSync(srcPath, destPath);
-            count++;
-        }
+  let count = 0;
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      count += copyJsFiles(srcPath, destPath);
+    } else if (entry.name.endsWith(".js")) {
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+      count++;
     }
-    return count;
+  }
+  return count;
 }
 
 const jsCount = copyJsFiles(DIST_ELECTRON, MILADY_DIST);
 console.log(`Copied ${jsCount} JS files to milady-dist/`);
 
 // Write ESM package.json
-fs.writeFileSync(
-    path.join(MILADY_DIST, "package.json"),
-    '{"type":"module"}\n',
-);
+fs.writeFileSync(path.join(MILADY_DIST, "package.json"), '{"type":"module"}\n');
 console.log("Wrote milady-dist/package.json");
 
 // ── Step 5: Copy plugins and native dependencies ────────────────────────
@@ -116,6 +113,6 @@ console.log(`server.js: ${serverExists ? "✓" : "✗ MISSING"}`);
 console.log(`eliza.js: ${elizaExists ? "✓" : "✗ MISSING"}`);
 
 if (!serverExists || !elizaExists) {
-    console.error("\nERROR: Critical files missing from milady-dist!");
-    process.exit(1);
+  console.error("\nERROR: Critical files missing from milady-dist!");
+  process.exit(1);
 }
