@@ -86,14 +86,9 @@ function hasNativeBinding(modulePath: string, patterns: string[]): boolean {
 
 describe("Native Module Installation Verification", () => {
   describe("TensorFlow.js", () => {
-    it("@tensorflow/tfjs-node is installed", async () => {
-      const result = await canImportModule("@tensorflow/tfjs-node");
-      if (!result.success) {
-        console.warn(
-          `[native-modules] tfjs-node import failed: ${result.error}`,
-        );
-      }
-      // We check installation, not necessarily successful import (may need rebuild for Electron)
+    it.skip("@tensorflow/tfjs-node is installed", async () => {
+      // Skipped: @tensorflow/tfjs-node removed from root deps — native build blocker on Windows.
+      // tfjs-core and model packages remain; tfjs-node is Electron-only and excluded from rebuild.
       const packagePath = path.join(
         packageRoot,
         "node_modules",
@@ -103,7 +98,8 @@ describe("Native Module Installation Verification", () => {
       expect(fs.existsSync(packagePath)).toBe(true);
     });
 
-    it("@tensorflow/tfjs-node has native binding", () => {
+    it.skip("@tensorflow/tfjs-node has native binding", () => {
+      // Skipped: @tensorflow/tfjs-node removed from root deps — see above.
       const hasBinding = hasNativeBinding("@tensorflow/tfjs-node", [
         "tfjs_binding.node",
         ".node",
@@ -343,9 +339,9 @@ describe("Electron Native Module Configuration", () => {
     const deps = electronPkg.dependencies || {};
 
     // Check for native modules in electron app
+    // Note: @tensorflow/tfjs-node excluded — Windows native build blocker
     expect(deps).toHaveProperty("sharp");
     expect(deps).toHaveProperty("canvas");
-    expect(deps).toHaveProperty("@tensorflow/tfjs-node");
     expect(deps).toHaveProperty("onnxruntime-node");
   });
 
@@ -360,8 +356,8 @@ describe("Electron Native Module Configuration", () => {
     const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
     const scripts = electronPkg.scripts || {};
 
-    // Build script should include electron-rebuild
-    expect(scripts.build).toContain("rebuild");
+    // Build script should compile TypeScript (rebuild handled by electron-builder)
+    expect(scripts.build).toContain("tsc");
   });
 });
 
