@@ -133,10 +133,40 @@ jobs:
 
       - name: Setup Bun (macOS Intel via Rosetta)
         if: matrix.platform.os == 'macos' && matrix.platform.artifact-name == 'macos-x64'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-          bun-download-url: https://github.com/oven-sh/bun/releases/latest/download/bun-darwin-x64.zip
+        run: |
+          BUN_ARCHIVE="$RUNNER_TEMP/bun-darwin-x64.zip"
+          BUN_ROOT="$RUNNER_TEMP/bun-darwin-x64"
+          BUN_HOME="$HOME/.bun"
+          BUN_BIN_DIR="$BUN_HOME/bin"
+          BUN_WRAPPER="$BUN_BIN_DIR/bun"
+          BUNX_WRAPPER="$BUN_BIN_DIR/bunx"
+
+          curl -fsSL \
+            "https://github.com/oven-sh/bun/releases/latest/download/bun-darwin-x64.zip" \
+            -o "$BUN_ARCHIVE"
+          rm -rf "$BUN_ROOT"
+          mkdir -p "$BUN_ROOT" "$BUN_BIN_DIR"
+          unzip -q "$BUN_ARCHIVE" -d "$BUN_ROOT"
+
+          BUN_REAL="$(find "$BUN_ROOT" -type f -name bun | head -n 1)"
+          if [ -z "$BUN_REAL" ]; then
+            echo "::error::Failed to locate downloaded x64 bun binary"
+            exit 1
+          fi
+          chmod +x "$BUN_REAL"
+
+          cat > "$BUN_WRAPPER" <<EOF
+          #!/bin/bash
+          exec arch -x86_64 "$BUN_REAL" "\$@"
+          EOF
+          cat > "$BUNX_WRAPPER" <<EOF
+          #!/bin/bash
+          exec arch -x86_64 "$BUN_REAL" x "\$@"
+          EOF
+          chmod +x "$BUN_WRAPPER" "$BUNX_WRAPPER"
+
+          echo "$BUN_BIN_DIR" >> "$GITHUB_PATH"
+          arch -x86_64 "$BUN_REAL" --version
 
 
       - name: Cache Bun install

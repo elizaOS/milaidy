@@ -50,7 +50,10 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("name: Setup Node.js (macOS Intel via Rosetta)");
     expect(workflow).toContain('architecture: "x64"');
     expect(workflow).toContain("name: Setup Bun (macOS Intel via Rosetta)");
+    expect(workflow).toContain("curl -fsSL \\");
     expect(workflow).toContain("bun-darwin-x64.zip");
+    expect(workflow).toContain('exec arch -x86_64 "$BUN_REAL" "\\$@"');
+    expect(workflow).toContain('exec arch -x86_64 "$BUN_REAL" x "\\$@"');
     expect(workflow).toContain(
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
