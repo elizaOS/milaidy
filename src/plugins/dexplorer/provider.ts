@@ -1,9 +1,9 @@
 /**
- * DexScreener Provider — injects DexScreener capabilities into agent context.
+ * Dexplorer Provider — injects Dexplorer capabilities into agent context.
  *
- * Tells the LLM what DexScreener actions are available and any active alert rules.
+ * Tells the LLM what Dexplorer actions are available and any active alert rules.
  *
- * @module plugins/dexscreener/provider
+ * @module plugins/dexplorer/provider
  */
 
 import type {
@@ -14,11 +14,11 @@ import type {
   State,
 } from "@elizaos/core";
 import { loadConfig } from "./config-store";
-import type { AlertRule, DexScreenerPluginConfig } from "./types";
+import type { AlertRule, DexplorerPluginConfig } from "./types";
 
-export const dexScreenerProvider: Provider = {
-  name: "dexscreener",
-  description: "DexScreener token scanning and alert capabilities",
+export const dexplorerProvider: Provider = {
+  name: "dexplorer",
+  description: "Dexplorer token scanning and alert capabilities",
 
   async get(
     runtime: IAgentRuntime,
@@ -30,9 +30,9 @@ export const dexScreenerProvider: Provider = {
     const activeRules = rules.filter((r: AlertRule) => r.enabled);
 
     const lines = [
-      "## DexScreener Integration",
+      "## Dexplorer Integration",
       "",
-      "You have DexScreener token scanning capabilities:",
+      "You have Dexplorer token scanning capabilities:",
       "- **DEX_SCAN**: Scan for hot tokens (scored 0-100) across chains (solana, base, ethereum, bsc, arbitrum)",
       "- **DEX_SEARCH**: Search for specific tokens by name/symbol",
       "- **DEX_INSPECT**: Get detailed pair info for a chain:address",
@@ -47,9 +47,8 @@ export const dexScreenerProvider: Provider = {
         `**Active Alert Rules:** ${activeRules.length} rule(s) configured`,
       );
       for (const rule of activeRules) {
-        const hookLabel = rule.autoHook ? " [auto-hook]" : "";
         lines.push(
-          `- ${rule.name}: score >= ${rule.minScore}, ${rule.chains.length > 0 ? rule.chains.join("/") : "all chains"}${hookLabel}`,
+          `- ${rule.name}: score >= ${rule.minScore}, ${rule.chains.length > 0 ? rule.chains.join("/") : "all chains"} [hook]`,
         );
       }
     }

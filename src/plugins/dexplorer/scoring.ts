@@ -1,10 +1,10 @@
 /**
- * DexScreener token scoring engine — 8-component weighted scoring (0-100).
+ * Dexplorer token scoring engine — 8-component weighted scoring (0-100).
  *
  * Our own implementation. Scores volume, transactions, liquidity, momentum,
  * buy/sell flow pressure, boost activity, recency, and profile status.
  *
- * @module plugins/dexscreener/scoring
+ * @module plugins/dexplorer/scoring
  */
 
 import type { DexPairSnapshot, RiskProfile, TokenScore } from "./types";

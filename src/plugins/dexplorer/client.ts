@@ -1,9 +1,9 @@
 /**
- * DexScreener API client — our own implementation with rate limiting and caching.
+ * Dexplorer API client — our own implementation with rate limiting and caching.
  *
  * Uses the free, public DexScreener API. No keys required.
  *
- * @module plugins/dexscreener/client
+ * @module plugins/dexplorer/client
  */
 
 import type { DexPairSnapshot } from "./types";
@@ -67,7 +67,7 @@ interface CacheEntry<T> {
 
 // ---------- Client ----------
 
-export class DexScreenerClient {
+export class DexplorerClient {
   private readonly cacheTtlMs: number;
   private readonly cache = new Map<string, CacheEntry<unknown>>();
   private readonly limiters: Record<string, SlidingWindowLimiter>;

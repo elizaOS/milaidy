@@ -84,7 +84,7 @@ function makeRule(overrides: Partial<AlertRule> = {}): AlertRule {
     requiredTags: [],
     blockedRiskFlags: [],
     autoHook: true,
-    hookAction: "dexscreener:alert",
+    hookAction: "dexplorer:alert",
     ...overrides,
   };
 }

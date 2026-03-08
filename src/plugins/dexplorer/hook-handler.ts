@@ -1,14 +1,14 @@
 /**
- * DexScreener Hook Handler — default handler for dexscreener:alert hook events.
+ * Dexplorer Hook Handler — default handler for dexplorer:alert hook events.
  *
  * This handler is automatically registered when the plugin initializes.
  * It reacts to alert hook events by pushing formatted messages back into
  * the hook event's message queue, which the session can display to the user.
  *
- * Users can register additional handlers for "gateway:dexscreener:alert"
+ * Users can register additional handlers for "gateway:dexplorer:alert"
  * to build custom automations (trading bots, notification pipelines, etc.).
  *
- * @module plugins/dexscreener/hook-handler
+ * @module plugins/dexplorer/hook-handler
  */
 
 import { logger } from "@elizaos/core";
@@ -17,24 +17,24 @@ import type { HookEvent } from "../../hooks/types";
 import type { DexAlertEvent } from "./types";
 
 /**
- * Default hook handler for DexScreener alerts.
+ * Default hook handler for Dexplorer alerts.
  *
  * Formats the alert into a human-readable message and pushes it into
  * the hook event's message array so the session UI can display it.
  */
-async function handleDexScreenerAlert(event: HookEvent): Promise<void> {
+async function handleDexplorerAlert(event: HookEvent): Promise<void> {
   const alert = event.context.alert as DexAlertEvent | undefined;
   if (!alert) {
     logger.warn(
-      { src: "dexscreener-hook-handler" },
-      "Received dexscreener:alert event without alert data",
+      { src: "dexplorer-hook-handler" },
+      "Received dexplorer:alert event without alert data",
     );
     return;
   }
 
   const top = alert.topCandidate;
   const lines: string[] = [
-    `[DexScreener] ${alert.ruleName}`,
+    `[Dexplorer] ${alert.ruleName}`,
   ];
 
   if (top) {
@@ -65,26 +65,26 @@ async function handleDexScreenerAlert(event: HookEvent): Promise<void> {
 
   logger.info(
     {
-      src: "dexscreener-hook-handler",
+      src: "dexplorer-hook-handler",
       rule: alert.ruleName,
       candidateCount: alert.candidates.length,
       topToken: top?.token,
       topScore: top?.score,
     },
-    `DexScreener alert processed: ${alert.ruleName}`,
+    `Dexplorer alert processed: ${alert.ruleName}`,
   );
 }
 
 /**
- * Register the default DexScreener hook handler.
+ * Register the default Dexplorer hook handler.
  *
- * Listens on "gateway:dexscreener:alert" for alerts fired by the hook bridge.
+ * Listens on "gateway:dexplorer:alert" for alerts fired by the hook bridge.
  */
-export function registerDexScreenerHookHandler(): void {
-  registerHook("gateway:dexscreener:alert", handleDexScreenerAlert);
+export function registerDexplorerHookHandler(): void {
+  registerHook("gateway:dexplorer:alert", handleDexplorerAlert);
 
   logger.info(
-    { src: "dexscreener-hook-handler" },
-    "Registered DexScreener alert hook handler on gateway:dexscreener:alert",
+    { src: "dexplorer-hook-handler" },
+    "Registered Dexplorer alert hook handler on gateway:dexplorer:alert",
   );
 }

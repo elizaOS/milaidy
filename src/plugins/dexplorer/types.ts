@@ -1,9 +1,9 @@
 /**
- * DexScreener Integration — Type definitions.
+ * Dexplorer Integration — Type definitions.
  *
- * Our own DexScreener types built for Milady's runtime.
+ * Our own types built for Milady's runtime, powered by the DexScreener API.
  *
- * @module plugins/dexscreener/types
+ * @module plugins/dexplorer/types
  */
 
 // ---------- API / Data Types ----------
@@ -109,9 +109,9 @@ export interface AlertRule {
   requiredTags: string[];
   /** Risk flags that block the alert. */
   blockedRiskFlags: string[];
-  /** When true, alert fires as a Milady hook event (the key feature). */
+  /** When true, alert fires as a Milady hook event (always on in Dexplorer). */
   autoHook: boolean;
-  /** Hook event action name (defaults to "dexscreener:alert"). */
+  /** Hook event action name (defaults to "dexplorer:alert"). */
   hookAction?: string;
   /** Last time an alert was sent for this rule (ISO string). */
   lastAlertAt?: string;
@@ -126,7 +126,7 @@ export const DEFAULT_ALERT_RULE: Omit<AlertRule, "id" | "name"> = {
   requiredTags: [],
   blockedRiskFlags: [],
   autoHook: true,
-  hookAction: "dexscreener:alert",
+  hookAction: "dexplorer:alert",
 };
 
 // ---------- Alert Event (passed to hooks) ----------
@@ -157,15 +157,11 @@ export interface DexAlertEvent {
 
 // ---------- Plugin Config ----------
 
-export interface DexScreenerPluginConfig {
-  /** Polling interval in seconds for the scanner service. */
-  scanIntervalSeconds?: number;
+export interface DexplorerPluginConfig {
   /** Default scan filters. */
   filters?: Partial<ScanFilters>;
   /** Alert rules. */
   alertRules?: AlertRule[];
   /** API cache TTL in seconds. */
   cacheTtlSeconds?: number;
-  /** Whether to register alerts as hooks automatically. */
-  autoHookEnabled?: boolean;
 }

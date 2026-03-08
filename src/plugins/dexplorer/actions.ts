@@ -1,13 +1,13 @@
 /**
- * DexScreener Actions — elizaOS actions for agent-driven token scanning.
+ * Dexplorer Actions — elizaOS actions for agent-driven token scanning.
  *
  * Actions:
  *   DEX_SCAN          — Scan for hot tokens across chains
  *   DEX_SEARCH         — Search for a specific token or pair
  *   DEX_INSPECT        — Deep-inspect a token on a chain
- *   DEX_CONFIGURE_ALERT — Create or update an alert rule with optional auto-hook
+ *   DEX_CONFIGURE_ALERT — Create or update an alert rule with hook integration
  *
- * @module plugins/dexscreener/actions
+ * @module plugins/dexplorer/actions
  */
 
 import crypto from "node:crypto";
@@ -20,19 +20,19 @@ import type {
   Memory,
   State,
 } from "@elizaos/core";
-import { DexScreenerClient } from "./client";
+import { DexplorerClient } from "./client";
 import { loadConfig, saveConfig } from "./config-store";
 import { DexScanner } from "./scanner";
 import type {
   AlertRule,
-  DexScreenerPluginConfig,
+  DexplorerPluginConfig,
   ScanFilters,
   TokenCandidate,
 } from "./types";
 import { DEFAULT_ALERT_RULE, DEFAULT_SCAN_FILTERS } from "./types";
 
 function buildFilters(
-  config: DexScreenerPluginConfig,
+  config: DexplorerPluginConfig,
   overrides?: Partial<ScanFilters>,
 ): ScanFilters {
   return {
@@ -64,7 +64,7 @@ const SCAN_KEYWORDS = [
   "scan dex",
   "hot tokens",
   "dex scan",
-  "dexscreener scan",
+  "dexplorer scan",
   "token scan",
   "find hot",
   "scan for tokens",
@@ -75,7 +75,7 @@ const SCAN_KEYWORDS = [
 
 export const dexScanAction: Action = {
   name: "DEX_SCAN",
-  similes: ["DEXSCREENER_SCAN", "SCAN_TOKENS", "HOT_TOKENS"],
+  similes: ["DEXPLORER_SCAN", "SCAN_TOKENS", "HOT_TOKENS"],
   description:
     "Scan DexScreener for hot tokens across configured chains. Scores tokens 0-100 based on volume, liquidity, momentum, and flow pressure.",
   validate: async (_runtime, message) => {
@@ -109,7 +109,7 @@ export const dexScanAction: Action = {
     });
 
     try {
-      const client = new DexScreenerClient(config.cacheTtlSeconds);
+      const client = new DexplorerClient(config.cacheTtlSeconds);
       const scanner = new DexScanner(client);
       const candidates = await scanner.scan(filters);
 
@@ -124,7 +124,7 @@ export const dexScanAction: Action = {
 
       const lines = candidates.map((c, i) => formatCandidate(c, i));
       const responseText = [
-        `## DexScreener Scan Results`,
+        `## Dexplorer Scan Results`,
         `Found **${candidates.length}** hot tokens on ${filters.chains.join(", ")}:`,
         "",
         ...lines,
@@ -170,12 +170,12 @@ const SEARCH_KEYWORDS = [
   "dex search",
   "find token",
   "look up token",
-  "dexscreener search",
+  "dexplorer search",
 ];
 
 export const dexSearchAction: Action = {
   name: "DEX_SEARCH",
-  similes: ["DEXSCREENER_SEARCH", "SEARCH_TOKEN", "FIND_TOKEN"],
+  similes: ["DEXPLORER_SEARCH", "SEARCH_TOKEN", "FIND_TOKEN"],
   description: "Search DexScreener for a specific token or trading pair.",
   validate: async (_runtime, message) => {
     const text = message.content.text?.toLowerCase() ?? "";
@@ -208,7 +208,7 @@ export const dexSearchAction: Action = {
     }
 
     try {
-      const client = new DexScreenerClient(config.cacheTtlSeconds);
+      const client = new DexplorerClient(config.cacheTtlSeconds);
       const scanner = new DexScanner(client);
       const results = await scanner.searchTokens(query, 10);
 
@@ -251,7 +251,7 @@ const INSPECT_KEYWORDS = [
 
 export const dexInspectAction: Action = {
   name: "DEX_INSPECT",
-  similes: ["DEXSCREENER_INSPECT", "TOKEN_DETAILS", "TOKEN_INFO"],
+  similes: ["DEXPLORER_INSPECT", "TOKEN_DETAILS", "TOKEN_INFO"],
   description:
     "Get detailed information about a specific token on a chain from DexScreener.",
   validate: async (_runtime, message) => {
@@ -283,7 +283,7 @@ export const dexInspectAction: Action = {
     const tokenAddress = match[2];
 
     try {
-      const client = new DexScreenerClient(config.cacheTtlSeconds);
+      const client = new DexplorerClient(config.cacheTtlSeconds);
       const scanner = new DexScanner(client);
       const pairs = await scanner.inspectToken(chainId, tokenAddress);
 
@@ -328,7 +328,7 @@ export const dexInspectAction: Action = {
 
 const ALERT_KEYWORDS = [
   "dex alert",
-  "dexscreener alert",
+  "dexplorer alert",
   "token alert",
   "set alert",
   "create alert",
@@ -340,14 +340,14 @@ const ALERT_KEYWORDS = [
 export const dexConfigureAlertAction: Action = {
   name: "DEX_CONFIGURE_ALERT",
   similes: [
-    "DEXSCREENER_ALERT",
+    "DEXPLORER_ALERT",
     "SET_TOKEN_ALERT",
     "CREATE_DEX_ALERT",
     "DEX_AUTO_HOOK",
   ],
   description:
-    "Create or configure a DexScreener alert rule that fires as a Milady hook when conditions are met. " +
-    "Specify minimum score, chains, required tags, and whether to auto-hook.",
+    "Create or configure a Dexplorer alert rule that fires as a Milady hook when conditions are met. " +
+    "Specify minimum score, chains, required tags, and delivery channels.",
   validate: async (_runtime, message) => {
     const text = message.content.text?.toLowerCase() ?? "";
     return ALERT_KEYWORDS.some((kw) => text.includes(kw));
@@ -384,15 +384,8 @@ export const dexConfigureAlertAction: Action = {
       cooldownSeconds = cooldownMatch[2].startsWith("m") ? val * 60 : val;
     }
 
-    // Determine if auto-hook is explicitly mentioned
-    const wantsAutoHook =
-      text.toLowerCase().includes("auto hook") ||
-      text.toLowerCase().includes("autohook") ||
-      text.toLowerCase().includes("automatic hook") ||
-      text.toLowerCase().includes("hook");
-
     // Extract a name
-    let name = "DexScreener Alert";
+    let name = "Dexplorer Alert";
     const nameMatch = text.match(
       /(?:name|call(?:ed)?|titled?)\s*[:\s]?\s*"?([^"]+)"?/i,
     );
@@ -405,13 +398,11 @@ export const dexConfigureAlertAction: Action = {
       minScore,
       cooldownSeconds,
       chains,
-      channels: wantsAutoHook
-        ? ["hook", "log"]
-        : ["log"],
+      channels: ["hook", "log"],
       requiredTags: [],
       blockedRiskFlags: [],
-      autoHook: wantsAutoHook,
-      hookAction: "dexscreener:alert",
+      autoHook: true,
+      hookAction: "dexplorer:alert",
     };
 
     // Store rule in runtime settings
@@ -422,9 +413,8 @@ export const dexConfigureAlertAction: Action = {
     // Persist through runtime
     saveConfig(runtime, { ...config, alertRules: updatedRules });
 
-    const hookStatus = wantsAutoHook
-      ? "Alerts will fire as **Milady hooks** (`gateway:dexscreener:alert`) so other hooks/plugins can react automatically."
-      : "Alerts will be logged. Add `auto hook` to enable automatic Milady hook integration.";
+    const hookStatus =
+      "Alerts will fire as **Milady hooks** (`gateway:dexplorer:alert`) so other hooks/plugins can react automatically.";
 
     const responseText = [
       `## Alert Rule Created`,
@@ -434,7 +424,7 @@ export const dexConfigureAlertAction: Action = {
       `- **Min Score:** ${rule.minScore}`,
       `- **Cooldown:** ${rule.cooldownSeconds}s`,
       `- **Chains:** ${rule.chains.length > 0 ? rule.chains.join(", ") : "all configured"}`,
-      `- **Auto-Hook:** ${rule.autoHook ? "enabled" : "disabled"}`,
+      `- **Hook:** enabled`,
       "",
       hookStatus,
     ].join("\n");
@@ -450,7 +440,7 @@ export const dexConfigureAlertAction: Action = {
     return {
       success: true,
       text: responseText,
-      data: { ruleId: rule.id, autoHook: rule.autoHook },
+      data: { ruleId: rule.id, autoHook: true },
     };
   },
 };

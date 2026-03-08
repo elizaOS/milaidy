@@ -1,13 +1,13 @@
 /**
- * DexScreener hot-token scanner — discovers, scores, and ranks tokens.
+ * Dexplorer hot-token scanner — discovers, scores, and ranks tokens.
  *
  * Collects seed tokens from boost/profile/takeover/search endpoints,
  * fetches pair data, scores and enriches candidates with risk analysis.
  *
- * @module plugins/dexscreener/scanner
+ * @module plugins/dexplorer/scanner
  */
 
-import { DexScreenerClient } from "./client";
+import { DexplorerClient } from "./client";
 import { computeRisk, scoreToken } from "./scoring";
 import type {
   DexPairSnapshot,
@@ -38,9 +38,9 @@ function toInt(v: unknown, d = 0): number {
 }
 
 export class DexScanner {
-  private readonly client: DexScreenerClient;
+  private readonly client: DexplorerClient;
 
-  constructor(client: DexScreenerClient) {
+  constructor(client: DexplorerClient) {
     this.client = client;
   }
 
@@ -198,7 +198,7 @@ export class DexScanner {
   ): Map<string, DexPairSnapshot> {
     const best = new Map<string, DexPairSnapshot>();
     for (const row of rows) {
-      const pair = DexScreenerClient.parsePairSnapshot(row);
+      const pair = DexplorerClient.parsePairSnapshot(row);
       const key = `${pair.chainId}:${pair.baseAddress}`;
       const existing = best.get(key);
       if (!existing || this.pairRank(pair) > this.pairRank(existing)) {
@@ -304,7 +304,7 @@ export class DexScanner {
     const rows = await this.client.searchPairs(query);
     return rows
       .slice(0, limit)
-      .map((r) => DexScreenerClient.parsePairSnapshot(r));
+      .map((r) => DexplorerClient.parsePairSnapshot(r));
   }
 
   async inspectToken(
@@ -313,7 +313,7 @@ export class DexScanner {
   ): Promise<DexPairSnapshot[]> {
     const rows = await this.client.getTokenPairs(chainId, tokenAddress);
     return rows
-      .map((r) => DexScreenerClient.parsePairSnapshot(r))
+      .map((r) => DexplorerClient.parsePairSnapshot(r))
       .sort(
         (a, b) =>
           b.liquidityUsd - a.liquidityUsd ||

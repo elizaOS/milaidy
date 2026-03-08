@@ -1,19 +1,18 @@
 /**
- * DexScreener Hook Bridge — converts token alerts into Milady hook events.
+ * Dexplorer Hook Bridge — converts token alerts into Milady hook events.
  *
- * This is the core integration: when the scanner finds tokens matching an
- * alert rule, the bridge fires Milady hook events so other hooks/plugins
- * can react automatically (execute trades, send notifications, log to
- * workspace, update dashboards, etc.).
+ * This is the core integration: when tokens match an alert rule, the bridge
+ * fires Milady hook events so other hooks/plugins can react automatically
+ * (execute trades, send notifications, log to workspace, update dashboards, etc.).
  *
- * Users can opt-in per alert rule via `autoHook: true`.
+ * Alerts always fire as hooks — this is the native integration mode.
  *
  * Hook events fired:
  *   type: "gateway"
- *   action: "dexscreener:alert"      (or custom per rule)
+ *   action: "dexplorer:alert"      (or custom per rule)
  *   context: { rule, candidates, topCandidate, ... }
  *
- * @module plugins/dexscreener/hook-bridge
+ * @module plugins/dexplorer/hook-bridge
  */
 
 import { logger } from "@elizaos/core";
@@ -130,24 +129,24 @@ export function buildAlertEvent(
 }
 
 /**
- * Fire a Milady hook event for a DexScreener alert.
+ * Fire a Milady hook event for a Dexplorer alert.
  *
- * This is what makes alerts "automatic hooks" — any registered hook handler
- * listening for gateway:dexscreener:alert (or the custom action) will execute.
+ * Alerts always fire as hooks — any registered hook handler listening for
+ * gateway:dexplorer:alert (or the custom action) will execute.
  */
 export async function fireAlertHook(
   rule: AlertRule,
   alertEvent: DexAlertEvent,
-  sessionKey = "dexscreener",
+  sessionKey = "dexplorer",
 ): Promise<void> {
-  const action = rule.hookAction ?? "dexscreener:alert";
+  const action = rule.hookAction ?? "dexplorer:alert";
 
   const hookEvent: HookEvent = createHookEvent(
     "gateway",
     action,
     sessionKey,
     {
-      source: "dexscreener-plugin",
+      source: "dexplorer-plugin",
       ruleId: rule.id,
       ruleName: rule.name,
       alert: alertEvent,
@@ -161,14 +160,14 @@ export async function fireAlertHook(
 
   logger.info(
     {
-      src: "dexscreener-hook-bridge",
+      src: "dexplorer-hook-bridge",
       ruleId: rule.id,
       ruleName: rule.name,
       action,
       candidateCount: alertEvent.candidates.length,
       topToken: alertEvent.topCandidate?.token,
     },
-    `Firing DexScreener hook: ${action}`,
+    `Firing Dexplorer hook: ${action}`,
   );
 
   await triggerHook(hookEvent);
@@ -177,8 +176,8 @@ export async function fireAlertHook(
 /**
  * Process a set of candidates against all alert rules.
  *
- * For each rule that fires, optionally sends the alert through the hook
- * system and/or webhook. Returns updated rules with lastAlertAt set.
+ * For each rule that fires, sends the alert through the hook system
+ * and/or webhook. Returns updated rules with lastAlertAt set.
  */
 export async function processAlerts(
   rules: AlertRule[],
@@ -215,14 +214,14 @@ export async function processAlerts(
     const alertEvent = buildAlertEvent(rule, matchingCandidates);
     const now = new Date().toISOString();
 
-    // Fire as Milady hook if autoHook is enabled
-    if (rule.autoHook && rule.channels.includes("hook")) {
+    // Always fire as Milady hook
+    if (rule.channels.includes("hook")) {
       try {
         await fireAlertHook(rule, alertEvent, opts.sessionKey);
       } catch (err) {
         logger.error(
           {
-            src: "dexscreener-hook-bridge",
+            src: "dexplorer-hook-bridge",
             ruleId: rule.id,
             error: err instanceof Error ? err.message : String(err),
           },
@@ -238,7 +237,7 @@ export async function processAlerts(
       } catch (err) {
         logger.error(
           {
-            src: "dexscreener-hook-bridge",
+            src: "dexplorer-hook-bridge",
             ruleId: rule.id,
             error: err instanceof Error ? err.message : String(err),
           },
@@ -252,14 +251,14 @@ export async function processAlerts(
       const top = alertEvent.topCandidate;
       logger.info(
         {
-          src: "dexscreener-alert",
+          src: "dexplorer-alert",
           rule: rule.name,
           topToken: top?.token,
           topScore: top?.score,
           topChain: top?.chainId,
           matchCount: matchingCandidates.length,
         },
-        `[DexScreener Alert] ${rule.name}: ${top?.chainId}:${top?.token} score=${top?.score}`,
+        `[Dexplorer Alert] ${rule.name}: ${top?.chainId}:${top?.token} score=${top?.score}`,
       );
     }
 
