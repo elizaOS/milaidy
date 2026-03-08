@@ -14,10 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Hoisted mutable ref — controls what files git clone creates
 // ---------------------------------------------------------------------------
 
-const { gitFixtureRef, gitSymlinksRef } = vi.hoisted(() => ({
-  gitFixtureRef: { files: {} as Record<string, string> },
-  gitSymlinksRef: { links: {} as Record<string, string> },
-}));
+var gitFixtureRef = { files: {} as Record<string, string> };
+var gitSymlinksRef = { links: {} as Record<string, string> };
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,15 +33,10 @@ vi.mock("../src/diagnostics/integration-observability", () => ({
 }));
 
 vi.mock("node:child_process", async () => {
-  const actual =
-    await vi.importActual<typeof import("node:child_process")>(
-      "node:child_process",
-    );
   const nodeFs = await import("node:fs");
   const nodePath = await import("node:path");
 
   return {
-    ...actual,
     execFile: vi.fn(
       (cmd: string, args: string[], optionsOrCb: unknown, cb?: unknown) => {
         let callback = typeof optionsOrCb === "function" ? optionsOrCb : cb;
@@ -98,16 +91,14 @@ vi.mock("node:child_process", async () => {
 let tmpDir: string;
 let workspaceDir: string;
 let savedEnv: Record<string, string | undefined>;
+let savedFetch: typeof globalThis.fetch | undefined;
 
 function stubFetch(response: { ok: boolean; status: number; body: unknown }) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok: response.ok,
-      status: response.status,
-      json: vi.fn().mockResolvedValue(response.body),
-    } as unknown as Response),
-  );
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: response.ok,
+    status: response.status,
+    json: vi.fn().mockResolvedValue(response.body),
+  } as unknown as Response) as typeof globalThis.fetch;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +122,7 @@ beforeEach(async () => {
   delete process.env.CLAWHUB_REGISTRY;
   delete process.env.SKILLS_MARKETPLACE_URL;
   delete process.env.SKILLSMP_API_KEY;
+  savedFetch = globalThis.fetch;
 
   gitFixtureRef.files = {};
   gitSymlinksRef.links = {};
@@ -138,7 +130,11 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
+  if (savedFetch === undefined) {
+    delete (globalThis as { fetch?: typeof globalThis.fetch }).fetch;
+  } else {
+    globalThis.fetch = savedFetch;
+  }
   for (const [key, value] of Object.entries(savedEnv)) {
     if (value === undefined) {
       delete process.env[key];
@@ -225,10 +221,11 @@ describe("Skills Marketplace E2E", () => {
     });
 
     it("throws on network timeout", async () => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockRejectedValue(new Error("The operation was aborted")),
-      );
+      globalThis.fetch = vi
+        .fn()
+        .mockRejectedValue(
+          new Error("The operation was aborted"),
+        ) as typeof globalThis.fetch;
 
       const { searchSkillsMarketplace } = await import(
         "../src/services/skill-marketplace"
@@ -423,7 +420,7 @@ describe("Skills Marketplace E2E", () => {
       expect(await listInstalledMarketplaceSkills(workspaceDir)).toHaveLength(
         1,
       );
-      await expect(fs.access(record.installPath)).resolves.toBeUndefined();
+      await fs.access(record.installPath);
 
       // Uninstall
       const removed = await uninstallMarketplaceSkill(
