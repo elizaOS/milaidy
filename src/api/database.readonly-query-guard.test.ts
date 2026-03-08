@@ -593,7 +593,10 @@ describe("database read-only query guard", () => {
     { sql: "EXECUTE stmt", keyword: "EXECUTE" },
     { sql: "DEALLOCATE stmt", keyword: "DEALLOCATE" },
     { sql: "REINDEX TABLE users", keyword: "REINDEX" },
-    { sql: "MERGE INTO tgt USING src ON true WHEN MATCHED THEN DELETE", keyword: "MERGE" },
+    {
+      sql: "MERGE INTO tgt USING src ON true WHEN MATCHED THEN DELETE",
+      keyword: "MERGE",
+    },
     { sql: "CALL my_procedure()", keyword: "CALL" },
     { sql: "REFRESH MATERIALIZED VIEW mv", keyword: "REFRESH" },
     { sql: "DISCARD ALL", keyword: "DISCARD" },
@@ -618,7 +621,10 @@ describe("database read-only query guard", () => {
 
   it.each([
     { sql: "SELECT lo_unlink(12345)", fn: "LO_UNLINK" },
-    { sql: "SELECT pg_read_binary_file('/etc/passwd')", fn: "PG_READ_BINARY_FILE" },
+    {
+      sql: "SELECT pg_read_binary_file('/etc/passwd')",
+      fn: "PG_READ_BINARY_FILE",
+    },
     { sql: "SELECT pg_ls_dir('/tmp')", fn: "PG_LS_DIR" },
     { sql: "SELECT pg_cancel_backend(42)", fn: "PG_CANCEL_BACKEND" },
     { sql: "SELECT pg_reload_conf()", fn: "PG_RELOAD_CONF" },
