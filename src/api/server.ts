@@ -30,6 +30,7 @@ import {
 import type {
   CoordinationLLMResponse,
   SwarmEvent,
+  TaskCompletionSummary,
   TaskContext,
 } from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
@@ -5676,6 +5677,15 @@ function getCoordinatorFromRuntime(runtime: AgentRuntime): {
       taskContext: TaskContext,
     ) => Promise<CoordinationLLMResponse | null>,
   ) => void;
+  setSwarmCompleteCallback?: (
+    cb: (payload: {
+      tasks: TaskCompletionSummary[];
+      total: number;
+      completed: number;
+      stopped: number;
+      errored: number;
+    }) => Promise<void>,
+  ) => void;
 } | null {
   const coordinator = runtime.getService("SWARM_COORDINATOR");
   if (coordinator)
@@ -5712,6 +5722,78 @@ function wireCodingAgentWsBridge(st: ServerState): boolean {
     // as `eventType` so it doesn't overwrite the WS message dispatch type.
     const { type: eventType, ...rest } = event;
     st.broadcastWs?.({ type: "pty-session-event", eventType, ...rest });
+  });
+  return true;
+}
+
+/**
+ * Wire the SwarmCoordinator's swarmCompleteCallback so that when all agents
+ * finish, we synthesize a summary via the agent's LLM and post it as a
+ * persisted message in the conversation.
+ */
+function wireCodingAgentSwarmSynthesis(st: ServerState): boolean {
+  if (!st.runtime) return false;
+  const coordinator = getCoordinatorFromRuntime(st.runtime);
+  if (!coordinator?.setSwarmCompleteCallback) return false;
+
+  coordinator.setSwarmCompleteCallback(async (payload) => {
+    const runtime = st.runtime;
+    if (!runtime) {
+      logger.warn(
+        "[swarm-synthesis] No runtime available — skipping synthesis",
+      );
+      return;
+    }
+
+    logger.info(
+      `[swarm-synthesis] Generating synthesis for ${payload.total} tasks (${payload.completed} completed, ${payload.stopped} stopped, ${payload.errored} errored)`,
+    );
+
+    // Build a structured summary of all task results
+    const taskLines = payload.tasks
+      .map(
+        (t) =>
+          `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${t.completionSummary || "No summary available"}`,
+      )
+      .join("\n\n");
+
+    const prompt =
+      `You are summarizing the results of a coding agent swarm for the user. ` +
+      `${payload.total} agents were dispatched. ${payload.completed} completed, ` +
+      `${payload.stopped} stopped, ${payload.errored} errored.\n\n` +
+      `Here are the individual task results:\n\n${taskLines}\n\n` +
+      `Write a concise, conversational summary of what was accomplished. ` +
+      `Highlight key outcomes (PRs created, issues found, research results). ` +
+      `If any tasks failed or stopped, mention what went wrong. ` +
+      `Keep your personality — be warm and helpful but brief.`;
+
+    try {
+      const synthesis = await runtime.useModel(ModelType.TEXT_SMALL, {
+        prompt,
+        maxTokens: 2048,
+        temperature: 0.7,
+      });
+
+      if (synthesis?.trim()) {
+        logger.info("[swarm-synthesis] Synthesis generated, routing to user");
+        // Persist as a real conversation message (not ephemeral)
+        await routeAutonomyTextToUser(st, synthesis.trim(), "swarm_synthesis");
+      } else {
+        logger.warn("[swarm-synthesis] LLM returned empty synthesis");
+      }
+    } catch (err) {
+      logger.error(`[swarm-synthesis] LLM call failed: ${err}`);
+      // Fall back to generic message on LLM failure
+      const parts: string[] = [];
+      if (payload.completed > 0) parts.push(`${payload.completed} completed`);
+      if (payload.stopped > 0) parts.push(`${payload.stopped} stopped`);
+      if (payload.errored > 0) parts.push(`${payload.errored} errored`);
+      await routeAutonomyTextToUser(
+        st,
+        `All ${payload.total} coding agents finished (${parts.join(", ")}). Review their work when you're ready.`,
+        "coding-agent",
+      );
+    }
   });
   return true;
 }
@@ -14933,6 +15015,7 @@ export async function startApiServer(opts?: {
             wireChatBridge: wireCodingAgentChatBridge,
             wireWsBridge: wireCodingAgentWsBridge,
             wireEventRouting: wireCoordinatorEventRouting,
+            wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
             context: "restart",
             logger,
           });
@@ -15385,6 +15468,7 @@ export async function startApiServer(opts?: {
       wireChatBridge: wireCodingAgentChatBridge,
       wireWsBridge: wireCodingAgentWsBridge,
       wireEventRouting: wireCoordinatorEventRouting,
+      wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
       context: "boot",
       logger,
     });
@@ -15754,6 +15838,7 @@ export async function startApiServer(opts?: {
       wireChatBridge: wireCodingAgentChatBridge,
       wireWsBridge: wireCodingAgentWsBridge,
       wireEventRouting: wireCoordinatorEventRouting,
+      wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
       context: "restart",
       logger,
     });

@@ -858,6 +858,49 @@ function createRuntimeForCreditErrorTests(): AgentRuntime {
 }
 
 // ---------------------------------------------------------------------------
+// Test isolation — redirect all state to a temp directory so tests never
+// touch the real ~/.milady config, database, or plugins.
+// ---------------------------------------------------------------------------
+
+let _e2eTempDir: string;
+let _origStateDirEnv: string | undefined;
+
+beforeAll(async () => {
+  _origStateDirEnv = process.env.MILADY_STATE_DIR;
+  _e2eTempDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-e2e-"));
+  process.env.MILADY_STATE_DIR = _e2eTempDir;
+
+  // Seed a minimal config so the server can start
+  await fs.writeFile(
+    path.join(_e2eTempDir, "milady.json"),
+    JSON.stringify({
+      agents: {
+        defaults: { workspace: path.join(_e2eTempDir, "workspace") },
+        list: [{ id: "main", default: true, name: "TestAgent" }],
+      },
+      ui: { theme: "dark" },
+      cloud: { enabled: false },
+      env: {},
+      features: {},
+      plugins: { entries: {} },
+      database: { provider: "pglite" },
+    }),
+  );
+  await fs.mkdir(path.join(_e2eTempDir, "workspace"), { recursive: true });
+});
+
+afterAll(async () => {
+  if (_origStateDirEnv !== undefined) {
+    process.env.MILADY_STATE_DIR = _origStateDirEnv;
+  } else {
+    delete process.env.MILADY_STATE_DIR;
+  }
+  if (_e2eTempDir) {
+    await fs.rm(_e2eTempDir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

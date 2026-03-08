@@ -25,6 +25,7 @@ import {
   CHANNEL_PLUGIN_MAP,
   CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
+  cleanStalePglitePid,
   collectPluginNames,
   deduplicatePluginActions,
   findRuntimePluginExport,
@@ -2323,5 +2324,81 @@ describe("deduplicatePluginActions", () => {
     expect(p1.actions?.map((a) => a.name)).toEqual(["SHARED"]);
     expect(p2.actions?.map((a) => a.name)).toEqual(["UNIQUE_2"]);
     expect(p3.actions?.map((a) => a.name)).toEqual(["UNIQUE_3"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanStalePglitePid
+// ---------------------------------------------------------------------------
+
+describe("cleanStalePglitePid", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-pid-test-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("does nothing when postmaster.pid does not exist", () => {
+    // Should not throw
+    cleanStalePglitePid(tmpDir);
+    // No pid file to check
+  });
+
+  it("removes a stale pid file when the process is not running", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    // Use a PID that is extremely unlikely to be running
+    await fs.writeFile(pidPath, "999999999\n/tmp/pglite\n5432\n");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+  });
+
+  it("leaves the pid file intact when the process is still running", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    // Use our own PID — guaranteed to be running
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(true);
+  });
+
+  it("removes a malformed pid file (non-numeric)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "not-a-number\n");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+  });
+
+  it("removes a malformed pid file (empty)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
   });
 });

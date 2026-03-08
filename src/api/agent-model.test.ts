@@ -56,4 +56,30 @@ describe("detectRuntimeModel", () => {
 
     expect(detectRuntimeModel(runtime)).toBeUndefined();
   });
+
+  it("prefers config model.primary over plugin name scanning", () => {
+    const runtime = makeRuntime({
+      character: { name: "Milady" } as AgentRuntime["character"],
+      plugins: [
+        { name: "@elizaos/plugin-anthropic" },
+      ] as AgentRuntime["plugins"],
+    });
+    const config = {
+      agents: { defaults: { model: { primary: "openai/gpt-5.2" } } },
+    };
+
+    // Config says openai, plugin says anthropic — config should win
+    expect(detectRuntimeModel(runtime, config)).toBe("openai/gpt-5.2");
+  });
+
+  it("falls back to plugin scanning when config model.primary is absent", () => {
+    const runtime = makeRuntime({
+      character: { name: "Milady" } as AgentRuntime["character"],
+      plugins: [
+        { name: "@elizaos/plugin-anthropic" },
+      ] as AgentRuntime["plugins"],
+    });
+
+    expect(detectRuntimeModel(runtime, {})).toBe("@elizaos/plugin-anthropic");
+  });
 });

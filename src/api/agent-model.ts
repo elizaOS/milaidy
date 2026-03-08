@@ -92,6 +92,14 @@ export function detectRuntimeModel(
   const configured = readCharacterModel(runtime);
   if (configured) return configured;
 
+  // Check config-based model.primary — this is the user's explicit choice
+  // (set via provider switch or onboarding) and should take priority over
+  // plugin name scanning which can match default/utility plugins.
+  const configModel = normalizeModelSpec(
+    config?.agents?.defaults?.model?.primary,
+  );
+  if (configModel) return configModel;
+
   const pluginNames = Array.isArray(runtime.plugins)
     ? runtime.plugins
         .map((plugin) =>
@@ -107,12 +115,6 @@ export function detectRuntimeModel(
       if (index >= 0) return pluginNames[index];
     }
   }
-
-  // Check config-based model.primary (set by applySubscriptionCredentials)
-  const configModel = normalizeModelSpec(
-    config?.agents?.defaults?.model?.primary,
-  );
-  if (configModel) return configModel;
 
   // Last resort: check environment for known API keys
   for (const { envVar, label } of ENV_PROVIDER_SIGNALS) {

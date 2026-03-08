@@ -16,6 +16,8 @@ export interface WireCoordinatorOpts<S extends WirableState = WirableState> {
   wireWsBridge: (state: S) => boolean;
   /** Wire the event-routing bridge. Returns true on success. */
   wireEventRouting: (state: S) => boolean;
+  /** Wire the swarm-complete synthesis callback. Returns true on success. */
+  wireSwarmSynthesis?: (state: S) => boolean;
   /** Label for log messages (e.g. "boot", "restart"). */
   context: string;
   /** Logger with warn/debug methods. */
@@ -26,6 +28,7 @@ export interface WireResult {
   chat: boolean;
   ws: boolean;
   eventRouting: boolean;
+  swarmSynthesis: boolean;
 }
 
 const POLL_INTERVAL_MS = 2_000;
@@ -49,15 +52,27 @@ export async function wireCoordinatorBridgesWhenReady<S extends WirableState>(
   state: S,
   opts: WireCoordinatorOpts<S>,
 ): Promise<WireResult> {
-  const { wireChatBridge, wireWsBridge, wireEventRouting, context, logger } =
-    opts;
-  const result: WireResult = { chat: false, ws: false, eventRouting: false };
+  const {
+    wireChatBridge,
+    wireWsBridge,
+    wireEventRouting,
+    wireSwarmSynthesis,
+    context,
+    logger,
+  } = opts;
+  const result: WireResult = {
+    chat: false,
+    ws: false,
+    eventRouting: false,
+    swarmSynthesis: false,
+  };
 
   try {
     // 1. Immediate attempt
     result.chat = wireChatBridge(state);
     result.ws = wireWsBridge(state);
     result.eventRouting = wireEventRouting(state);
+    result.swarmSynthesis = wireSwarmSynthesis?.(state) ?? false;
 
     if (result.chat && result.ws && result.eventRouting) {
       logger.debug?.(
@@ -105,6 +120,8 @@ export async function wireCoordinatorBridgesWhenReady<S extends WirableState>(
       if (!result.chat) result.chat = wireChatBridge(state);
       if (!result.ws) result.ws = wireWsBridge(state);
       if (!result.eventRouting) result.eventRouting = wireEventRouting(state);
+      if (!result.swarmSynthesis && wireSwarmSynthesis)
+        result.swarmSynthesis = wireSwarmSynthesis(state);
 
       if (result.chat && result.ws && result.eventRouting) {
         logger.debug?.(
@@ -147,6 +164,7 @@ function broadcastWarning(
     !result.chat && "chat",
     !result.ws && "ws",
     !result.eventRouting && "event-routing",
+    !result.swarmSynthesis && "swarm-synthesis",
   ]
     .filter(Boolean)
     .join(", ");
