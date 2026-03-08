@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { client, type QueryResult, type TableInfo } from "../api-client";
 
 const PAGE_SIZE = 25;
+const MAX_THREE_PIXEL_RATIO = 2;
 
 type ViewMode = "list" | "graph" | "3d";
 
@@ -578,14 +579,90 @@ function VectorGraph3D({
         return;
       }
 
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const geometry = new THREE.SphereGeometry(0.06, 16, 16);
+      const spheres: THREE.Mesh[] = [];
+      let gridHelper: THREE.GridHelper | null = null;
+      let axisGeom: THREE.BufferGeometry | null = null;
+      let axisMat: THREE.LineBasicMaterial | null = null;
+      let onMouseDown: ((e: MouseEvent) => void) | null = null;
+      let onMouseUp: (() => void) | null = null;
+      let onMouseMove: ((e: MouseEvent) => void) | null = null;
+      let onClick: ((e: MouseEvent) => void) | null = null;
+      let onWheel: ((e: WheelEvent) => void) | null = null;
+      let onMouseLeave: (() => void) | null = null;
+      let handleResize: (() => void) | null = null;
+      let cleanedUp = false;
+
+      cleanupRef.current = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        cancelAnimationFrame(animationRef.current);
+        if (handleResize) {
+          window.removeEventListener("resize", handleResize);
+        }
+        if (onMouseDown) {
+          renderer.domElement.removeEventListener("mousedown", onMouseDown);
+        }
+        if (onMouseUp) {
+          renderer.domElement.removeEventListener("mouseup", onMouseUp);
+        }
+        if (onMouseMove) {
+          renderer.domElement.removeEventListener("mousemove", onMouseMove);
+        }
+        if (onClick) {
+          renderer.domElement.removeEventListener("click", onClick);
+        }
+        if (onWheel) {
+          renderer.domElement.removeEventListener("wheel", onWheel);
+        }
+        if (onMouseLeave) {
+          renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
+        }
+        geometry.dispose();
+        axisGeom?.dispose();
+        axisMat?.dispose();
+        if (gridHelper) {
+          const gridMaterial = Array.isArray(gridHelper.material)
+            ? gridHelper.material
+            : [gridHelper.material];
+          for (const material of gridMaterial) {
+            material.dispose();
+          }
+          gridHelper.geometry.dispose();
+        }
+        for (const sphere of spheres) {
+          const material = sphere.material;
+          if (Array.isArray(material)) {
+            for (const entry of material) {
+              entry.dispose();
+            }
+          } else {
+            material.dispose();
+          }
+        }
+        renderer.dispose();
+        rendererRef.current = null;
+        sceneRef.current = null;
+        cameraRef.current = null;
+        spheresRef.current = [];
+        if (container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
+      };
+
       renderer.setSize(W, H);
       renderer.setPixelRatio(
         Math.min(window.devicePixelRatio || 1, MAX_THREE_PIXEL_RATIO),
       );
       container.appendChild(renderer.domElement);
       rendererRef.current = renderer;
-      const raycaster = new THREE.Raycaster();
-      const pointer = new THREE.Vector2();
+      if (cancelled) {
+        cleanupRef.current?.();
+        cleanupRef.current = null;
+        return;
+      }
 
       // Compute bounds for scaling
       let minX = Infinity,
@@ -611,10 +688,6 @@ function VectorGraph3D({
       const centerY = (minY + maxY) / 2;
       const centerZ = (minZ + maxZ) / 2;
 
-      // Create spheres
-      const spheres: THREE.Mesh[] = [];
-      const geometry = new THREE.SphereGeometry(0.06, 16, 16);
-
       for (let i = 0; i < points3D.length; i++) {
         const [x, y, z] = points3D[i];
         const mem = withEmbeddings[i];
@@ -637,13 +710,13 @@ function VectorGraph3D({
       spheresRef.current = spheres;
 
       // Add subtle grid helper
-      const gridHelper = new THREE.GridHelper(6, 12, 0x333333, 0x222222);
+      gridHelper = new THREE.GridHelper(6, 12, 0x333333, 0x222222);
       gridHelper.position.y = -2;
       scene.add(gridHelper);
 
       // Add axis lines
       const axisLength = 2.5;
-      const axisGeom = new THREE.BufferGeometry();
+      axisGeom = new THREE.BufferGeometry();
       const axisPositions = new Float32Array([
         -axisLength,
         0,
@@ -668,7 +741,7 @@ function VectorGraph3D({
         "position",
         new THREE.BufferAttribute(axisPositions, 3),
       );
-      const axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+      axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
       const axisLines = new THREE.LineSegments(axisGeom, axisMat);
       scene.add(axisLines);
 
@@ -699,17 +772,17 @@ function VectorGraph3D({
         camera.lookAt(0, 0, 0);
       };
 
-      const onMouseDown = (e: MouseEvent) => {
+      onMouseDown = (e: MouseEvent) => {
         isDraggingRef.current = true;
         mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
       };
 
-      const onMouseUp = () => {
+      onMouseUp = () => {
         isDraggingRef.current = false;
         mouseDownPosRef.current = null;
       };
 
-      const onMouseMove = (e: MouseEvent) => {
+      onMouseMove = (e: MouseEvent) => {
         if (isDraggingRef.current) {
           targetTheta -= e.movementX * 0.01;
           targetPhi -= e.movementY * 0.01;
@@ -741,7 +814,7 @@ function VectorGraph3D({
         }
       };
 
-      const onClick = (e: MouseEvent) => {
+      onClick = (e: MouseEvent) => {
         // Only trigger click if we didn't drag much
         if (mouseDownPosRef.current) {
           const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
@@ -760,13 +833,13 @@ function VectorGraph3D({
         }
       };
 
-      const onWheel = (e: WheelEvent) => {
+      onWheel = (e: WheelEvent) => {
         e.preventDefault();
         targetRadius += e.deltaY * 0.005;
         targetRadius = Math.max(2, Math.min(15, targetRadius));
       };
 
-      const onMouseLeave = () => {
+      onMouseLeave = () => {
         isDraggingRef.current = false;
         setHoveredIdx(null);
         setTooltipPos(null);
@@ -780,6 +853,11 @@ function VectorGraph3D({
         passive: false,
       });
       renderer.domElement.addEventListener("mouseleave", onMouseLeave);
+      if (cancelled) {
+        cleanupRef.current?.();
+        cleanupRef.current = null;
+        return;
+      }
 
       // Animation loop
       const animate = () => {
@@ -790,53 +868,13 @@ function VectorGraph3D({
       animate();
 
       // Resize handler
-      const handleResize = () => {
+      handleResize = () => {
         const newW = container.clientWidth;
         camera.aspect = newW / H;
         camera.updateProjectionMatrix();
         renderer.setSize(newW, H);
       };
       window.addEventListener("resize", handleResize);
-
-      // Store cleanup fn so the synchronous cleanup return can call it
-      cleanupRef.current = () => {
-        cancelAnimationFrame(animationRef.current);
-        window.removeEventListener("resize", handleResize);
-        renderer.domElement.removeEventListener("mousedown", onMouseDown);
-        renderer.domElement.removeEventListener("mouseup", onMouseUp);
-        renderer.domElement.removeEventListener("mousemove", onMouseMove);
-        renderer.domElement.removeEventListener("click", onClick);
-        renderer.domElement.removeEventListener("wheel", onWheel);
-        renderer.domElement.removeEventListener("mouseleave", onMouseLeave);
-        geometry.dispose();
-        axisGeom.dispose();
-        axisMat.dispose();
-        const gridMaterial = Array.isArray(gridHelper.material)
-          ? gridHelper.material
-          : [gridHelper.material];
-        for (const material of gridMaterial) {
-          material.dispose();
-        }
-        gridHelper.geometry.dispose();
-        for (const sphere of spheres) {
-          const material = sphere.material;
-          if (Array.isArray(material)) {
-            for (const entry of material) {
-              entry.dispose();
-            }
-          } else {
-            material.dispose();
-          }
-        }
-        renderer.dispose();
-        rendererRef.current = null;
-        sceneRef.current = null;
-        cameraRef.current = null;
-        spheresRef.current = [];
-        if (container.contains(renderer.domElement)) {
-          container.removeChild(renderer.domElement);
-        }
-      };
     })(); // end async IIFE
 
     return () => {
