@@ -11,10 +11,15 @@ vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
 }));
 
+const mockedDnsLookup = dnsLookup as unknown as {
+  mockRejectedValue: (value: unknown) => unknown;
+  mockResolvedValue: (value: unknown) => unknown;
+};
+
 describe("validateMcpServerConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(dnsLookup).mockResolvedValue([
+    mockedDnsLookup.mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
   });
@@ -195,9 +200,7 @@ describe("validateMcpServerConfig", () => {
   });
 
   it("rejects remote URLs when DNS resolves to blocked addresses", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
-      { address: "127.0.0.1", family: 4 },
-    ]);
+    mockedDnsLookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
     const rejection = await validateMcpServerConfig({
       type: "streamable-http",
       url: "https://metadata.nip.io/mcp",
@@ -207,7 +210,7 @@ describe("validateMcpServerConfig", () => {
   });
 
   it("rejects remote URLs when DNS lookup fails", async () => {
-    vi.mocked(dnsLookup).mockRejectedValue(new Error("DNS failure"));
+    mockedDnsLookup.mockRejectedValue(new Error("DNS failure"));
     const rejection = await validateMcpServerConfig({
       type: "streamable-http",
       url: "https://mcp.example.com/mcp",
@@ -313,12 +316,102 @@ describe("validateMcpServerConfig", () => {
       "env must be a plain object of string key-value pairs",
     );
   });
+
+  // ── cwd / timeoutInMillis validation ──────────────────────────────────────
+
+  it("rejects non-string cwd", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      cwd: 42,
+    });
+    expect(rejection).toBe("cwd must be a string");
+  });
+
+  it("accepts valid string cwd", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      cwd: "/tmp/mcp-server",
+    });
+    expect(rejection).toBeNull();
+  });
+
+  it("rejects negative timeoutInMillis", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      timeoutInMillis: -1,
+    });
+    expect(rejection).toBe("timeoutInMillis must be a non-negative number");
+  });
+
+  it("rejects NaN timeoutInMillis", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      timeoutInMillis: Number.NaN,
+    });
+    expect(rejection).toBe("timeoutInMillis must be a non-negative number");
+  });
+
+  it("rejects non-number timeoutInMillis", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      timeoutInMillis: "5000",
+    });
+    expect(rejection).toBe("timeoutInMillis must be a non-negative number");
+  });
+
+  it("accepts valid timeoutInMillis", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "stdio",
+      command: "npx",
+      timeoutInMillis: 30000,
+    });
+    expect(rejection).toBeNull();
+  });
+
+  // ── http / sse config type acceptance ─────────────────────────────────────
+
+  it("accepts type http with valid URL", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "http",
+      url: "https://mcp.example.com/api",
+    });
+    expect(rejection).toBeNull();
+  });
+
+  it("accepts type sse with valid URL", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "sse",
+      url: "https://mcp.example.com/events",
+    });
+    expect(rejection).toBeNull();
+  });
+
+  it("rejects type http with localhost URL (SSRF)", async () => {
+    mockedDnsLookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+    const rejection = await validateMcpServerConfig({
+      type: "http",
+      url: "http://localhost:3000/api",
+    });
+    expect(rejection).toContain("localhost");
+  });
+
+  it("rejects type sse without URL", async () => {
+    const rejection = await validateMcpServerConfig({
+      type: "sse",
+    });
+    expect(rejection).toContain("URL is required");
+  });
 });
 
 describe("resolveMcpServersRejection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(dnsLookup).mockResolvedValue([
+    mockedDnsLookup.mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
   });

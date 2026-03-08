@@ -35,9 +35,11 @@ vi.mock("../../src/AppContext", () => ({
 vi.mock("../../src/api-client", () => ({
   client: {
     getAgentSelfStatus: vi.fn(async () => null),
+    onWsEvent: vi.fn(() => () => {}),
   },
 }));
 
+import { client } from "../../src/api-client";
 import { ConversationsSidebar } from "../../src/components/ConversationsSidebar";
 
 function createContext(
@@ -81,6 +83,7 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
 describe("ConversationsSidebar game-modal variant", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
+    vi.clearAllMocks();
   });
 
   it("renders game-modal list and keeps new/select/delete actions working", async () => {
@@ -194,5 +197,32 @@ describe("ConversationsSidebar game-modal variant", () => {
       "conv-2",
       "Renamed room",
     );
+  });
+
+  it("refreshes self status on websocket status events", async () => {
+    mockUseApp.mockReturnValue(createContext());
+    const mockedClient = vi.mocked(client);
+    const getAgentSelfStatus = vi.mocked(mockedClient.getAgentSelfStatus);
+    const onWsEvent = vi.mocked(mockedClient.onWsEvent);
+    const wsHandlers: Record<string, (() => void) | undefined> = {};
+    onWsEvent.mockImplementation((type, handler) => {
+      wsHandlers[type] = () => handler({});
+      return () => {};
+    });
+
+    await act(async () => {
+      TestRenderer.create(
+        React.createElement(ConversationsSidebar, { variant: "game-modal" }),
+      );
+    });
+
+    expect(getAgentSelfStatus).toHaveBeenCalledTimes(1);
+    expect(wsHandlers.status).toBeTypeOf("function");
+
+    await act(async () => {
+      wsHandlers.status?.();
+    });
+
+    expect(getAgentSelfStatus).toHaveBeenCalledTimes(2);
   });
 });

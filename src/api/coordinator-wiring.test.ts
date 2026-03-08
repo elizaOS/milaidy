@@ -50,7 +50,12 @@ describe("wireCoordinatorBridgesWhenReady", () => {
 
     const result = await wireCoordinatorBridgesWhenReady(state, opts);
 
-    expect(result).toEqual({ chat: true, ws: true, eventRouting: true });
+    expect(result).toEqual({
+      chat: true,
+      ws: true,
+      eventRouting: true,
+      swarmSynthesis: false,
+    });
     expect(opts.wireChatBridge).toHaveBeenCalledTimes(1);
     expect(opts.wireWsBridge).toHaveBeenCalledTimes(1);
     expect(opts.wireEventRouting).toHaveBeenCalledTimes(1);
@@ -152,7 +157,12 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     await vi.advanceTimersByTimeAsync(3_000);
     const result = await promise;
 
-    expect(result).toEqual({ chat: true, ws: true, eventRouting: true });
+    expect(result).toEqual({
+      chat: true,
+      ws: true,
+      eventRouting: true,
+      swarmSynthesis: false,
+    });
     // Chat succeeded on first try — should NOT be retried
     expect(wireChatBridge).toHaveBeenCalledTimes(1);
     // WS/event: initial + 1 retry
@@ -176,7 +186,12 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     const result = await promise;
 
-    expect(result).toEqual({ chat: false, ws: false, eventRouting: false });
+    expect(result).toEqual({
+      chat: false,
+      ws: false,
+      eventRouting: false,
+      swarmSynthesis: false,
+    });
     // initial (1) + 5 retries = 6
     expect(wireChatBridge).toHaveBeenCalledTimes(6);
     expect(state.broadcastWs).toHaveBeenCalledWith(

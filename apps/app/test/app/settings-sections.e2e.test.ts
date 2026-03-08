@@ -18,23 +18,17 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUseApp } = vi.hoisted(() => ({
-  mockUseApp: vi.fn(),
-}));
+const mockUseApp = vi.fn();
 
-vi.mock("../../src/AppContext", async () => {
-  const actual = await vi.importActual("../../src/AppContext");
-  return {
-    ...actual,
-    useApp: () => mockUseApp(),
-    THEMES: [
-      { id: "milady", label: "Milady" },
-      { id: "dark", label: "Dark" },
-      { id: "light", label: "Light" },
-      { id: "solarized", label: "Solarized" },
-    ],
-  };
-});
+vi.mock("../../src/AppContext", () => ({
+  useApp: () => mockUseApp(),
+  THEMES: [
+    { id: "milady", label: "Milady" },
+    { id: "dark", label: "Dark" },
+    { id: "light", label: "Light" },
+    { id: "solarized", label: "Solarized" },
+  ],
+}));
 
 vi.mock("../../src/components/MediaSettingsSection", () => ({
   MediaSettingsSection: () =>
@@ -92,6 +86,7 @@ type SettingsState = {
   pluginSaveSuccess: boolean;
   // Theme
   currentTheme: string;
+  uiLanguage: string;
   // Other
   [key: string]: unknown;
 };
@@ -123,6 +118,50 @@ function createSettingsState(): SettingsState {
     pluginSaving: false,
     pluginSaveSuccess: false,
     currentTheme: "milady",
+    uiLanguage: "en",
+  };
+}
+
+function createUseAppMock(
+  state: SettingsState,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    ...state,
+    exportBusy: false,
+    exportPassword: "",
+    exportIncludeLogs: false,
+    exportError: null,
+    exportSuccess: null,
+    importBusy: false,
+    importPassword: "",
+    importFile: null,
+    importError: null,
+    importSuccess: null,
+    loadPlugins: vi.fn(),
+    handlePluginToggle: vi.fn().mockImplementation((pluginName: string) => {
+      const plugin = state.plugins.find((p) => p.name === pluginName);
+      if (plugin) plugin.enabled = !plugin.enabled;
+    }),
+    setTheme: (theme: string) => {
+      state.currentTheme = theme;
+    },
+    setUiLanguage: (language: string) => {
+      state.uiLanguage = language;
+    },
+    setActionNotice: vi.fn(),
+    setTab: vi.fn(),
+    loadUpdateStatus: vi.fn(),
+    handlePluginConfigSave: vi.fn(),
+    handleCloudLogin: vi.fn(),
+    handleCloudDisconnect: vi.fn(),
+    handleReset: vi.fn(),
+    handleAgentExport: vi.fn(),
+    handleAgentImport: vi.fn(),
+    setState: (key: string, value: unknown) => {
+      state[key] = value;
+    },
+    ...overrides,
   };
 }
 
@@ -136,32 +175,26 @@ describe("SettingsView Sections", () => {
     themeSwitched = null;
     handleResetCalled = false;
 
-    vi.spyOn(window, "confirm").mockImplementation(() => true);
+    (
+      globalThis as typeof globalThis & {
+        window?: Window & typeof globalThis;
+      }
+    ).window = {
+      confirm: () => true,
+    } as Window & typeof globalThis;
 
     mockUseApp.mockReset();
-    mockUseApp.mockImplementation(() => ({
-      ...state,
-      loadPlugins: vi.fn(),
-      handlePluginToggle: vi.fn().mockImplementation((pluginName: string) => {
-        const plugin = state.plugins.find((p) => p.name === pluginName);
-        if (plugin) plugin.enabled = !plugin.enabled;
+    mockUseApp.mockImplementation(() =>
+      createUseAppMock(state, {
+        setTheme: (theme: string) => {
+          themeSwitched = theme;
+          state.currentTheme = theme;
+        },
+        handleReset: async () => {
+          handleResetCalled = true;
+        },
       }),
-      setTheme: (theme: string) => {
-        themeSwitched = theme;
-        state.currentTheme = theme;
-      },
-      setTab: vi.fn(),
-      loadUpdateStatus: vi.fn(),
-      handlePluginConfigSave: vi.fn(),
-      handleCloudLogin: vi.fn(),
-      handleCloudDisconnect: vi.fn(),
-      handleReset: async () => {
-        handleResetCalled = true;
-      },
-      setState: (key: string, value: unknown) => {
-        state[key] = value;
-      },
-    }));
+    );
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -547,23 +580,7 @@ describe("Settings Persistence", () => {
     state = createSettingsState();
 
     mockUseApp.mockReset();
-    mockUseApp.mockImplementation(() => ({
-      ...state,
-      loadPlugins: vi.fn(),
-      handlePluginToggle: vi.fn(),
-      setTheme: (theme: string) => {
-        state.currentTheme = theme;
-      },
-      setTab: vi.fn(),
-      loadUpdateStatus: vi.fn(),
-      handlePluginConfigSave: vi.fn(),
-      handleCloudLogin: vi.fn(),
-      handleCloudDisconnect: vi.fn(),
-      handleReset: vi.fn(),
-      setState: (key: string, value: unknown) => {
-        state[key] = value;
-      },
-    }));
+    mockUseApp.mockImplementation(() => createUseAppMock(state));
   });
 
   it("theme selection persists in state", async () => {

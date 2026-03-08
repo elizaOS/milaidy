@@ -136,7 +136,7 @@ export function CompanionShell({ tab }: CompanionShellProps) {
               >
                 {f.isSkills && <SkillsView inModal />}
                 {f.isCharacter && <CharacterView inModal />}
-                {f.isSettings && <SettingsView inModal />}
+                {f.isSettings && <SettingsView inModal onClose={close} />}
                 {f.isPlugins && <PluginsView inModal />}
                 {f.isAdvancedOverlay && <AdvancedPageView inModal />}
                 {f.isApps && <AppsPageView inModal />}

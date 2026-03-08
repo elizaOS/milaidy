@@ -63,6 +63,7 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
   let port: number;
   let close: () => Promise<void>;
   const TOKEN = "test-auth-token-mw04";
+  const WRONG_TOKEN = "wrong-token-should-be-rejected";
   const prevToken = process.env.MILADY_API_TOKEN;
 
   beforeAll(async () => {
@@ -96,6 +97,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       });
       expect(status).not.toBe(401);
     });
+
+    it("rejects config mutation with wrong token", async () => {
+      const { status, data } = await req(port, "PUT", "/api/config", {
+        body: { agentName: "hacked" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   // ── Secrets mutation ──────────────────────────────────────────────
@@ -115,6 +125,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects secrets update with wrong token", async () => {
+      const { status, data } = await req(port, "PUT", "/api/secrets", {
+        body: { OPENAI_API_KEY: "stolen" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -136,6 +155,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       });
       expect(status).not.toBe(401);
     });
+
+    it("rejects connector creation with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/connectors", {
+        body: { name: "telegram", config: {} },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   // ── MCP config mutation ───────────────────────────────────────────
@@ -155,6 +183,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects MCP config update with wrong token", async () => {
+      const { status, data } = await req(port, "PUT", "/api/mcp/config", {
+        body: { servers: {} },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -176,6 +213,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       });
       expect(status).not.toBe(401);
     });
+
+    it("rejects wallet generation with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/wallet/generate", {
+        body: { chain: "evm" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   describe("PUT /api/wallet/config", () => {
@@ -194,6 +240,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       });
       expect(status).not.toBe(401);
     });
+
+    it("rejects wallet config update with wrong token", async () => {
+      const { status, data } = await req(port, "PUT", "/api/wallet/config", {
+        body: { alchemyApiKey: "stolen" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   // ── Agent restart ─────────────────────────────────────────────────
@@ -211,6 +266,14 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       });
       // 501 is expected (no onRestart handler), but NOT 401
       expect(status).not.toBe(401);
+    });
+
+    it("rejects agent restart with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/agent/restart", {
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -232,6 +295,17 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects connector deletion with wrong token", async () => {
+      const { status, data } = await req(
+        port,
+        "DELETE",
+        "/api/connectors/telegram",
+        { token: WRONG_TOKEN },
+      );
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -255,6 +329,20 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects MCP server creation with wrong token", async () => {
+      const { status, data } = await req(
+        port,
+        "POST",
+        "/api/mcp/config/server",
+        {
+          body: { name: "evil", command: "cat /etc/passwd" },
+          token: WRONG_TOKEN,
+        },
+      );
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -280,6 +368,17 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       );
       expect(status).not.toBe(401);
     });
+
+    it("rejects MCP server deletion with wrong token", async () => {
+      const { status, data } = await req(
+        port,
+        "DELETE",
+        "/api/mcp/config/server/evil-server",
+        { token: WRONG_TOKEN },
+      );
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   // ── Wallet import ───────────────────────────────────────────────
@@ -299,6 +398,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects wallet import with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/wallet/import", {
+        body: { chain: "evm", privateKey: "0xSTOLEN" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 
@@ -321,6 +429,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
       // Not 401 — may fail for other reasons (no wallet configured) but auth gate passes
       expect(status).not.toBe(401);
     });
+
+    it("rejects wallet export with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/wallet/export", {
+        body: { chain: "evm" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
+    });
   });
 
   // ── Terminal execution ────────────────────────────────────────────
@@ -340,6 +457,15 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
         token: TOKEN,
       });
       expect(status).not.toBe(401);
+    });
+
+    it("rejects terminal execution with wrong token", async () => {
+      const { status, data } = await req(port, "POST", "/api/terminal/run", {
+        body: { command: "echo hacked" },
+        token: WRONG_TOKEN,
+      });
+      expect(status).toBe(401);
+      expect(data.error).toMatch(/unauthorized/i);
     });
   });
 });

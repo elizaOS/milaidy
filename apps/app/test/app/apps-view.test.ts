@@ -44,7 +44,10 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
-import { AppsView } from "../../src/components/AppsView";
+import {
+  AppsView,
+  shouldShowAppInAppsView,
+} from "../../src/components/AppsView";
 
 function createApp(
   name: string,
@@ -197,6 +200,36 @@ describe("AppsView", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("uses an exact clawbal allowlist in production", () => {
+    expect(
+      shouldShowAppInAppsView(
+        createApp("@iqlabs-official/plugin-clawbal", "Clawbal", "Game"),
+        true,
+      ),
+    ).toBe(true);
+    expect(
+      shouldShowAppInAppsView(
+        createApp("evil-clawbal", "Spoof", "Spoofed package"),
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      shouldShowAppInAppsView(
+        createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena"),
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not restrict the apps list by clawbal in development", () => {
+    expect(
+      shouldShowAppInAppsView(
+        createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena"),
+        false,
+      ),
+    ).toBe(true);
   });
 
   it("loads apps and launches iframe viewer flow", async () => {

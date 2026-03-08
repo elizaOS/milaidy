@@ -11,6 +11,10 @@ const WINDOWS_SMOKE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/smoke-test-windows.ps1",
 );
+const MACOS_STAGE_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("stages the built renderer before packaging", () => {
@@ -55,6 +59,38 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).not.toContain("runner: macos-15-intel");
   });
 
+  it("keeps updater transport files off the public GitHub release asset list", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Collect public release files");
+    expect(workflow).toContain(' -name "*.dmg" -o \\');
+    expect(workflow).toContain(' -name "*.exe" -o \\');
+    expect(workflow).toContain(' -name "*Setup*.tar.gz" \\');
+
+    expect(workflow).toContain("name: Collect update channel files");
+    expect(workflow).toContain(' -name "*.tar.zst" -o \\');
+    expect(workflow).toContain(' -name "*-update.json" \\');
+    expect(workflow).toContain("files: release-files/*");
+    expect(workflow).toContain("update-channel/");
+  });
+
+  it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
+    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+
+    expect(stageScript).toContain("notarization happens on the final");
+    expect(stageScript).toContain(
+      "Gatekeeper validation on the app itself would fail here.",
+    );
+    expect(stageScript).toContain(
+      'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).not.toContain(
+      'spctl -a -vv --type exec "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).toContain("xcrun notarytool submit \\");
+    expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
+  });
+
   it("reads the Windows packaged startup log from %APPDATA%", () => {
     const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
 
@@ -64,5 +100,22 @@ describe("Electrobun release workflow drift", () => {
     expect(smokeScript).not.toContain(
       'Join-Path $env:USERPROFILE ".config\\\\Milady\\\\milady-startup.log"',
     );
+  });
+
+  it("collects Windows smoke diagnostics from runner environment paths before upload", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Collect Windows smoke diagnostics");
+    expect(workflow).toContain("name: Upload Windows smoke diagnostics");
+    expect(workflow).toContain(
+      'Join-Path $env:APPDATA "Milady\\\\milady-startup.log"',
+    );
+    expect(workflow).toContain(
+      'Join-Path $env:LOCALAPPDATA "com.miladyai.milady"',
+    );
+    expect(workflow).toContain(
+      "path: apps/app/electrobun/artifacts/windows-smoke-diagnostics/**",
+    );
+    expect(workflow).not.toContain("env.USERPROFILE }}\\.config\\Milady");
   });
 });

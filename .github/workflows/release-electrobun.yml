@@ -472,6 +472,23 @@ jobs:
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
+          retry_stapler_validate() {
+            local target="$1"
+            local attempts="${2:-5}"
+            local delay_seconds="${3:-15}"
+            local attempt
+            for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+              if xcrun stapler validate "$target"; then
+                return 0
+              fi
+              if [ "$attempt" -lt "$attempts" ]; then
+                echo "::warning::stapler validate failed for $target (attempt $attempt/$attempts); retrying..."
+                sleep "$((delay_seconds * attempt))"
+              fi
+            done
+            return 1
+          }
+
           apps=()
           while IFS= read -r app; do
             apps+=("$app")
@@ -521,7 +538,7 @@ jobs:
               exit 1
             }
             spctl -a -vv --type exec "$app"
-            xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
+            retry_stapler_validate "$app" 3 10 || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
           done
           found_dmg=0
           while IFS= read -r dmg; do
@@ -534,7 +551,7 @@ jobs:
               echo "::error::Missing Developer ID Application signature on $dmg"
               exit 1
             }
-            xcrun stapler validate "$dmg"
+            retry_stapler_validate "$dmg"
           done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.dmg" | sort)
           if [ "$found_dmg" -eq 0 ]; then
             echo "::error::No DMG found in apps/app/electrobun/artifacts"
@@ -552,14 +569,42 @@ jobs:
           SKIP_SIGNATURE_CHECK=1 \
           bash apps/app/electrobun/scripts/smoke-test.sh
 
+      - name: Collect Windows smoke diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $diagnosticsDir = Join-Path $PWD "apps/app/electrobun/artifacts/windows-smoke-diagnostics"
+          $startupLog = Join-Path $env:APPDATA "Milady\\milady-startup.log"
+          $wrapperRoot = Join-Path $env:LOCALAPPDATA "com.miladyai.milady"
+
+          Remove-Item $diagnosticsDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $diagnosticsDir | Out-Null
+
+          if (Test-Path $startupLog) {
+            Copy-Item $startupLog -Destination (Join-Path $diagnosticsDir "milady-startup.log") -Force
+          } else {
+            Write-Warning "Windows startup log not found at $startupLog"
+          }
+
+          if (Test-Path $wrapperRoot) {
+            Get-ChildItem -Path $wrapperRoot -Recurse -File -Filter "wrapper-diagnostics.json" -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                $relativePath = $_.FullName.Substring($wrapperRoot.Length).TrimStart('\\')
+                $destination = Join-Path $diagnosticsDir $relativePath
+                $destinationParent = Split-Path -Parent $destination
+                New-Item -ItemType Directory -Force -Path $destinationParent | Out-Null
+                Copy-Item $_.FullName -Destination $destination -Force
+              }
+          } else {
+            Write-Warning "Wrapper diagnostics root not found at $wrapperRoot"
+          }
+
       - name: Upload Windows smoke diagnostics
         if: failure() && matrix.platform.os == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
-          path: |
-            ${{ env.USERPROFILE }}\.config\Milady\milady-startup.log
-            ${{ env.LOCALAPPDATA }}\com.miladyai.milady\**\wrapper-diagnostics.json
+          path: apps/app/electrobun/artifacts/windows-smoke-diagnostics/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -610,20 +655,27 @@ jobs:
       - name: List artifacts
         run: find release-artifacts -type f | sort 2>/dev/null || echo "No artifacts"
 
-      - name: Collect release files
+      - name: Collect public release files
         run: |
           mkdir -p release-files
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
-            -name "*.tar.zst" -o \
             -name "*.exe" -o \
-            -name "*.zip" -o \
-            -name "*.tar.gz" -o \
-            -name "*-update.json" -o \
-            -name "*.patch" \
+            -name "*Setup*.tar.gz" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
-          echo "=== Release files ==="
+          echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
+
+      - name: Collect update channel files
+        run: |
+          mkdir -p update-channel
+          find release-artifacts -type f \( \
+            -name "*.tar.zst" -o \
+            -name "*.patch" -o \
+            -name "*-update.json" \
+          \) -exec cp {} update-channel/ \; 2>/dev/null || true
+          echo "=== Update channel files ==="
+          ls -lh update-channel/ 2>/dev/null || echo "None"
 
       - name: Generate checksums
         run: |
@@ -667,14 +719,6 @@ jobs:
           # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           echo "$RELEASE_HOST_FINGERPRINT" >> ~/.ssh/known_hosts
-          mkdir -p update-channel
-          find release-files -maxdepth 1 -type f \( \
-            -name "*.tar.zst" -o \
-            -name "*.patch" -o \
-            -name "*-update.json" \
-          \) -exec cp {} update-channel/ \;
-          echo "=== Update channel files ==="
-          ls -lh update-channel/
           # Electrobun resolves update metadata and tarballs at the flat
           # release root, keyed by platform prefix, not inside version folders.
           rsync -av --delete-after \

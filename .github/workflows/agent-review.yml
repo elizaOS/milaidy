@@ -25,43 +25,87 @@ jobs:
         with:
           script: |
             const isPR = !!context.payload.pull_request;
-            const title = isPR
+            const title = (isPR
               ? context.payload.pull_request.title
-              : context.payload.issue.title;
-            const body = isPR
+              : context.payload.issue.title) || '';
+            const body = (isPR
               ? context.payload.pull_request.body || ''
-              : context.payload.issue.body || '';
+              : context.payload.issue.body || '') || '';
             const text = `${title}\n${body}`.toLowerCase();
 
-            // aesthetic/UI keywords (pure visual changes)
+            const anyMatch = (patterns) => patterns.some((pattern) => text.includes(pattern));
+
+            let paths = [];
+            if (isPR) {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              });
+              paths = files.map((file) => file.filename.toLowerCase());
+            }
+
+            const hasFiles = paths.length > 0;
+            const allPathsMatch = (regex) => hasFiles && paths.every((path) => regex.test(path));
+            const anyPathMatch = (regex) => paths.some((path) => regex.test(path));
+
+            const isDocsOnly = allPathsMatch(/(^docs\/)|(^|\/)readme\.md$|\.mdx?$/);
+            const isCiOnly = allPathsMatch(/^\.github\/(workflows|actions)\//);
+            const isTestsOnly = allPathsMatch(/(^test\/)|(\.test\.[tj]sx?$)|(\.spec\.[tj]sx?$)|vitest.*config/);
+
+            const securityPatterns = ['security', 'vulnerability', 'cve', 'injection', 'xss', 'csrf', 'sqli', 'auth bypass'];
+            const docsPatterns = ['docs:', 'documentation', 'readme', 'changelog'];
+            const bugPatterns = ['fix:', 'bug', 'regression', 'broken', 'crash', 'error', 'hotfix', 'resolve'];
+            const featurePatterns = ['feat:', 'feature', 'add ', 'introduce', 'implement', 'support', 'new '];
+            const refactorPatterns = ['refactor', 'cleanup', 'simplify', 'restructure'];
+            const chorePatterns = ['chore:', 'maintenance', 'deps', 'dependency bump', 'housekeeping'];
             const aestheticPatterns = [
               'redesign', 'restyle', 'theme', 'color', 'colour', 'font',
               'layout', 'css', 'styling', 'ui overhaul', 'visual',
-              'dark mode', 'light mode', 'icon', 'logo',
-              'prettier', 'beautif'
+              'dark mode', 'light mode', 'icon', 'logo', 'spacing', 'typography',
             ];
-
-            // technical keywords that override aesthetic classification
-            // (a PR mentioning 'animation files' alongside 'install' is not aesthetic)
             const technicalPatterns = [
-              'install', 'build', 'script', 'clone', 'deploy', 'ci',
-              'test', 'refactor', 'api', 'endpoint', 'migration',
-              'security', 'performance', 'config', 'postinstall',
-              'dependency', 'dependencies', 'webpack', 'vite'
+              'api', 'endpoint', 'migration', 'security', 'performance', 'config',
+              'dependency', 'dependencies', 'build', 'deploy', 'ci', 'test',
+              'runtime', 'provider', 'convex', 'plugin', 'schema',
             ];
-
-            const isAesthetic = aestheticPatterns.some(p => text.includes(p));
-            const isTechnical = technicalPatterns.some(p => text.includes(p));
-            const isBugFix = text.includes('fix') || text.includes('bug') ||
-              text.includes('crash') || text.includes('error') ||
-              text.includes('broken') || text.includes('regression');
 
             let category = 'feature';
-            if (isAesthetic && !isTechnical) category = 'aesthetic';
-            if (isBugFix) category = 'bugfix';
+
+            if (anyMatch(securityPatterns)) {
+              category = 'security';
+            } else if (isDocsOnly || (anyMatch(docsPatterns) && !hasFiles)) {
+              category = 'docs';
+            } else if (isCiOnly) {
+              category = 'ci';
+            } else if (isTestsOnly) {
+              category = 'test';
+            } else if (anyMatch(refactorPatterns) && !anyMatch(bugPatterns) && !anyMatch(featurePatterns)) {
+              category = 'refactor';
+            } else if (anyMatch(chorePatterns) && !anyMatch(featurePatterns)) {
+              category = 'chore';
+            } else {
+              const bugScore =
+                (anyMatch(bugPatterns) ? 2 : 0) +
+                (anyPathMatch(/(fix|bug|regression|hotfix)/) ? 1 : 0);
+              const featureScore =
+                (anyMatch(featurePatterns) ? 2 : 0) +
+                (anyPathMatch(/(^src\/)|(^apps\/app\/src\/)/) ? 1 : 0);
+              const isAesthetic = anyMatch(aestheticPatterns);
+              const isTechnical = anyMatch(technicalPatterns);
+
+              if (isAesthetic && !isTechnical) {
+                category = 'aesthetic';
+              } else if (bugScore >= featureScore + 1) {
+                category = 'bugfix';
+              } else {
+                category = 'feature';
+              }
+            }
 
             core.setOutput('category', category);
-            console.log(`Classified as: ${category}`);
+            console.log(`Classified as: ${category} | files=${paths.length}`);
 
   review-pr:
     if: github.event_name == 'pull_request_target'
@@ -749,8 +793,9 @@ jobs:
 
             // Map tier to label
             const tierLabel = `trust:${result.tier}`;
+            const categoryLabel = `category:${category}`;
 
-            // Remove old trust labels
+            // Remove old trust/category labels
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -759,6 +804,14 @@ jobs:
 
             for (const label of labels) {
               if (label.name.startsWith('trust:')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label.name,
+                }).catch(() => {});
+              }
+              if (label.name.startsWith('category:')) {
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -788,15 +841,24 @@ jobs:
                 description: `${result.tierInfo.description} (auto-managed)`,
               });
             } catch (e) { /* label exists */ }
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: categoryLabel,
+                color: '1f6feb',
+                description: 'Auto-managed semantic PR category',
+              });
+            } catch (e) { /* label exists */ }
 
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              labels: [tierLabel],
+              labels: [tierLabel, categoryLabel],
             });
 
-            console.log(`Trust updated: ${author} → ${result.score}/100 (${result.tier}), ${result.breakdown.recencyWeightedPoints} weighted pts`);
+            console.log(`Trust/category updated: ${author} → ${result.score}/100 (${result.tier}), category=${category}, ${result.breakdown.recencyWeightedPoints} weighted pts`);
 
   auto-merge:
     name: Auto-merge approved PRs
@@ -879,6 +941,187 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
           GH_REPO: ${{ github.repository }}
           MERGE_METHOD: ${{ vars.AGENT_REVIEW_MERGE_METHOD }}
+
+  create-followup-issues:
+    name: Create Follow-up Issues From Approved Review
+    needs: [review-pr]
+    if: github.event_name == 'pull_request_target' && needs.review-pr.result == 'success' && needs.review-pr.outputs.verdict == 'approve'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Extract follow-up recommendations and open issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const crypto = require('crypto');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const runMarker = `<!-- agent-review-run:${context.runId}:${process.env.GITHUB_RUN_ATTEMPT || '1'}:${context.payload.pull_request.head.sha} -->`;
+
+            const decisionPattern = /\bDecision(?:\*{0,2})?\s*:\s*(?:\*{0,2})\s*(APPROVE|REQUEST CHANGES|CLOSE)\b/i;
+            const sectionPattern = /(?:^|\n)\s*(?:#{1,6}\s*)?(?:\d+\.\s*)?(?:\*{0,2})?(follow[- ]?up|after merge|post[- ]?merge|next steps?)(?:\*{0,2})?\s*:?\s*$/i;
+            const bulletPattern = /^\s*(?:[-*]|\d+\.)\s+(.*)$/;
+            const checkboxPattern = /^\s*-\s*\[\s\]\s+(.*)$/i;
+
+            function normalizeEntry(text) {
+              return text
+                .replace(/`/g, "")
+                .replace(/\*\*/g, "")
+                .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+                .replace(/\s+/g, " ")
+                .trim();
+            }
+
+            function extractFollowupItems(body) {
+              if (!body || !sectionPattern.test(body)) return [];
+
+              const lines = body.split(/\r?\n/);
+              const items = [];
+              let inSection = false;
+
+              for (const rawLine of lines) {
+                const line = rawLine.trimEnd();
+
+                if (sectionPattern.test(line)) {
+                  inSection = true;
+                  continue;
+                }
+
+                if (inSection && /^#{1,6}\s+/.test(line)) {
+                  inSection = false;
+                  continue;
+                }
+
+                if (!inSection) continue;
+
+                const checkboxMatch = line.match(checkboxPattern);
+                if (checkboxMatch?.[1]) {
+                  const entry = normalizeEntry(checkboxMatch[1]);
+                  if (entry) items.push(entry);
+                  continue;
+                }
+
+                const bulletMatch = line.match(bulletPattern);
+                if (bulletMatch?.[1]) {
+                  const entry = normalizeEntry(bulletMatch[1]);
+                  if (entry) items.push(entry);
+                }
+              }
+
+              return [...new Set(items)].slice(0, 12);
+            }
+
+            async function loadRunReviewBody() {
+              const [comments, reviews] = await Promise.all([
+                github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                }),
+                github.paginate(github.rest.pulls.listReviews, {
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  per_page: 100,
+                }),
+              ]);
+
+              const normalizedReviews = reviews.map((review) => ({
+                ...review,
+                created_at: review.submitted_at || review.created_at,
+              }));
+
+              const candidates = [
+                ...comments.filter((entry) => entry.body?.includes(runMarker)),
+                ...normalizedReviews.filter((entry) =>
+                  entry.body?.includes(runMarker),
+                ),
+              ].sort(
+                (left, right) =>
+                  new Date(right.created_at).getTime() -
+                  new Date(left.created_at).getTime(),
+              );
+
+              return candidates.find((entry) => {
+                const decision = entry.body?.match(decisionPattern)?.[1]?.toUpperCase();
+                return decision === "APPROVE";
+              })?.body;
+            }
+
+            async function hasExistingIssue(marker) {
+              const query = `repo:${owner}/${repo} type:issue in:body "${marker}"`;
+              const { data } = await github.rest.search.issuesAndPullRequests({
+                q: query,
+                per_page: 1,
+              });
+              return data.total_count > 0;
+            }
+
+            const reviewBody = await loadRunReviewBody();
+            const followupItems = extractFollowupItems(reviewBody || "");
+
+            if (followupItems.length === 0) {
+              core.notice("No follow-up recommendations detected for approved review.");
+              return;
+            }
+
+            const created = [];
+            for (const item of followupItems) {
+              const itemHash = crypto
+                .createHash('sha256')
+                .update(item)
+                .digest('hex')
+                .slice(0, 12);
+              const marker = `followup-from-pr:${prNumber}:${itemHash}`;
+              if (await hasExistingIssue(marker)) {
+                core.notice(`Follow-up already tracked: ${item}`);
+                continue;
+              }
+
+              const title = `[Follow-up] ${item}`.slice(0, 250);
+              const body = [
+                `Auto-created from approved PR #${prNumber} review follow-up.`,
+                ``,
+                `Source PR: https://github.com/${owner}/${repo}/pull/${prNumber}`,
+                `Source title: ${prTitle}`,
+                ``,
+                `Recommended follow-up:`,
+                `- ${item}`,
+                ``,
+                `<!-- ${marker} -->`,
+              ].join('\n');
+
+              const issue = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+              });
+              created.push(issue.data);
+            }
+
+            if (created.length === 0) {
+              core.notice("No new follow-up issues created (all already existed).");
+              return;
+            }
+
+            const summary = created
+              .map((issue) => `- #${issue.number} ${issue.title}`)
+              .join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: `Created follow-up issues from approved review:\n${summary}`,
+            });
 
   close-pr:
     name: Close PRs with CLOSE verdict

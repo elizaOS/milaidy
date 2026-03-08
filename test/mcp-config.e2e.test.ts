@@ -507,6 +507,57 @@ describe("MCP reject-path: prototype pollution & config inclusion", () => {
     expect(typeof data.error).toBe("string");
   });
 
+  it("rejects $include as server name via POST (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "$include",
+      config: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@test/ok"],
+      },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
+
+  it("rejects cloud metadata SSRF target via remote URL (400)", async () => {
+    const { status, data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "ssrf-metadata",
+      config: {
+        type: "streamable-http",
+        url: "http://metadata.google.internal/computeMetadata/v1/",
+      },
+    });
+    expect(status).toBe(400);
+    expect(typeof data.error).toBe("string");
+  });
+
+  it("does not reject http config type at type-validation stage", async () => {
+    // Uses a non-resolving host — DNS check fails but the type itself is accepted
+    const { data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "http-type-test",
+      config: {
+        type: "http",
+        url: "https://mcp.example.com/api",
+      },
+    });
+    // Error should be DNS resolution, not "Invalid config type"
+    const errStr = String(data.error ?? "");
+    expect(errStr).not.toContain("Invalid config type");
+  });
+
+  it("does not reject sse config type at type-validation stage", async () => {
+    const { data } = await req(port, "POST", "/api/mcp/config/server", {
+      name: "sse-type-test",
+      config: {
+        type: "sse",
+        url: "https://mcp.example.com/events",
+      },
+    });
+    const errStr = String(data.error ?? "");
+    expect(errStr).not.toContain("Invalid config type");
+  });
+
   it("handles URL-encoded server name in DELETE path", async () => {
     const name = "server with spaces";
     await req(port, "POST", "/api/mcp/config/server", {

@@ -82,6 +82,8 @@ export async function handleSubscriptionRoutes(
       delete state._anthropicFlow;
       json(res, { success: true, expiresAt: credentials.expires });
     } catch (err) {
+      // Clean up stale flow so a subsequent /start can begin fresh
+      delete state._anthropicFlow;
       logger.error(
         `[api] Anthropic exchange failed: ${err instanceof Error ? err.stack : err}`,
       );

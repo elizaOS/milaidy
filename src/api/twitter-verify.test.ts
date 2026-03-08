@@ -173,6 +173,26 @@ describe("twitter-verify (MW-10)", () => {
         expectedApi:
           "https://api.fxtwitter.com/holder123/status/1234567890123456789",
       },
+      {
+        label: "URL with query params",
+        url: "https://x.com/alice/status/9999?s=20&t=xyz",
+        expectedApi: "https://api.fxtwitter.com/alice/status/9999",
+      },
+      {
+        label: "URL with fragment",
+        url: "https://x.com/alice/status/9999#m",
+        expectedApi: "https://api.fxtwitter.com/alice/status/9999",
+      },
+      {
+        label: "mobile.twitter.com URL",
+        url: "https://mobile.twitter.com/bob/status/5555",
+        expectedApi: "https://api.fxtwitter.com/bob/status/5555",
+      },
+      {
+        label: "www.x.com URL",
+        url: "https://www.x.com/carol/status/7777",
+        expectedApi: "https://api.fxtwitter.com/carol/status/7777",
+      },
     ])("parses valid $label and calls FxTwitter API", async ({
       url,
       expectedApi,
@@ -367,6 +387,15 @@ describe("twitter-verify (MW-10)", () => {
 
   describe("whitelist storage", () => {
     it("returns empty whitelist when no file exists", () => {
+      const wl = loadWhitelist();
+      expect(wl).toEqual({ verified: {} });
+    });
+
+    it("returns empty whitelist when file contains corrupt JSON", () => {
+      fs.writeFileSync(
+        path.join(MOCK_STATE_DIR, "whitelist.json"),
+        "{{not valid json!",
+      );
       const wl = loadWhitelist();
       expect(wl).toEqual({ verified: {} });
     });

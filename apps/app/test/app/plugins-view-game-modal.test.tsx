@@ -15,9 +15,52 @@ const mockTestPluginConnection = vi.fn(async () => ({
   success: true,
   durationMs: 12,
 }));
+const mockOpenExternalInvoke = vi.fn(async () => undefined);
 
 let narrowViewport = false;
 let originalMatchMedia: typeof window.matchMedia | undefined;
+
+function ensureWindowGlobals() {
+  const root = globalThis as typeof globalThis & {
+    window?: typeof globalThis & Window;
+    localStorage?: Storage;
+  };
+  if (!root.window) {
+    Object.defineProperty(root, "window", {
+      configurable: true,
+      writable: true,
+      value: root,
+    });
+  }
+  if (!root.localStorage) {
+    const store = new Map<string, string>();
+    Object.defineProperty(root, "localStorage", {
+      configurable: true,
+      writable: true,
+      value: {
+        get length() {
+          return store.size;
+        },
+        clear: () => store.clear(),
+        getItem: (key: string) => store.get(key) ?? null,
+        key: (index: number) => Array.from(store.keys())[index] ?? null,
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+      } satisfies Storage,
+    });
+  }
+  if (typeof root.window.open !== "function") {
+    Object.defineProperty(root.window, "open", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    });
+  }
+}
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -53,6 +96,7 @@ function createPlugin(
   id: string,
   name: string,
   category: PluginInfo["category"] = "feature",
+  overrides: Partial<PluginInfo> = {},
 ): PluginInfo {
   return {
     id,
@@ -79,6 +123,10 @@ function createPlugin(
     version: "1.0.0",
     isActive: true,
     icon: "🧩",
+    homepage: undefined,
+    repository: undefined,
+    setupGuideUrl: undefined,
+    ...overrides,
   };
 }
 
@@ -104,6 +152,7 @@ function baseContext(plugins?: PluginInfo[]) {
 
 describe("PluginsView game modal", () => {
   beforeEach(() => {
+    ensureWindowGlobals();
     mockUseApp.mockReset();
     mockOnWsEvent.mockReset();
     mockHandlePluginToggle.mockReset();
@@ -139,6 +188,12 @@ describe("PluginsView game modal", () => {
         dispatchEvent: vi.fn(),
       })),
     });
+    Object.defineProperty(window, "electron", {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+    mockOpenExternalInvoke.mockReset();
   });
 
   afterEach(() => {
@@ -293,5 +348,109 @@ describe("PluginsView game modal", () => {
       await saveBtn.props.onClick();
     });
     expect(mockHandlePluginConfigSave).toHaveBeenCalledWith("test-plugin", {});
+  });
+
+  it("shows retake only in streaming mode", async () => {
+    mockUseApp.mockReturnValue(
+      baseContext([
+        createPlugin("retake", "Retake.tv", "streaming"),
+        createPlugin("discord", "Discord", "connector"),
+      ]),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "streaming" }),
+      );
+    });
+
+    expect(text(tree?.root)).toContain("Retake.tv");
+    expect(text(tree?.root)).not.toContain("Discord");
+  });
+
+  it("renders setup links on cards and opens detail links via desktop IPC with browser fallback", async () => {
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockImplementation(() => null as unknown as Window);
+    Object.defineProperty(window, "electron", {
+      configurable: true,
+      writable: true,
+      value: {
+        ipcRenderer: {
+          invoke: mockOpenExternalInvoke,
+        },
+      },
+    });
+
+    mockUseApp.mockReturnValue(
+      baseContext([
+        createPlugin("retake", "Retake.tv", "streaming", {
+          setupGuideUrl: "https://docs.milady.ai/plugin-setup-guide#retaketv",
+          repository:
+            "https://github.com/milady-ai/milady/tree/main/packages/plugin-retake",
+        }),
+      ]),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { mode: "streaming" }),
+      );
+    });
+
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-link-btn")).length,
+    ).toBeGreaterThan(0);
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "streaming" }),
+      );
+    });
+
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-game-link-btn"))
+        .length,
+    ).toBeGreaterThan(0);
+
+    const setupButton = tree?.root.findAll(
+      (node) =>
+        hasClass(node, "plugins-game-link-btn") &&
+        text(node).includes("Setup guide"),
+    )[0];
+    await act(async () => {
+      setupButton.props.onClick();
+      await Promise.resolve();
+    });
+    expect(mockOpenExternalInvoke).toHaveBeenCalledWith(
+      "desktop:openExternal",
+      {
+        url: "https://docs.milady.ai/plugin-setup-guide#retaketv",
+      },
+    );
+
+    Object.defineProperty(window, "electron", {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+    const sourceButton = tree?.root.findAll(
+      (node) =>
+        hasClass(node, "plugins-game-link-btn") &&
+        text(node).includes("Source"),
+    )[0];
+    await act(async () => {
+      sourceButton.props.onClick();
+      await Promise.resolve();
+    });
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/milady-ai/milady/tree/main/packages/plugin-retake",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    openSpy.mockRestore();
   });
 });

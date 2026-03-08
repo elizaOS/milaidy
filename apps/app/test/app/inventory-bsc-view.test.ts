@@ -362,13 +362,26 @@ describe("InventoryView BSC-first", () => {
         node.type === "button" &&
         node.props["data-testid"] === "wallet-token-preflight",
     )[0];
+    const tokenInput = tree?.root.findAll(
+      (node) =>
+        node.type === "input" &&
+        node.props["data-testid"] === "wallet-quick-token-input",
+    )[0];
     const quoteButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         node.props["data-testid"] === "wallet-token-quote",
     )[0];
     expect(preflightButton).toBeDefined();
+    expect(tokenInput).toBeDefined();
     expect(quoteButton).toBeDefined();
+
+    await act(async () => {
+      tokenInput.props.onChange({
+        target: { value: "0x1234567890abcdef1234567890abcdef12345678" },
+      });
+      await flushAsync();
+    });
 
     await act(async () => {
       preflightButton.props.onClick();

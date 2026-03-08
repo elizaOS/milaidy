@@ -25,6 +25,7 @@ const requiredWorkflowSnippets = [
   '"identifier":"com.miladyai.milady"',
   "Stage standard macOS release app",
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
+  "retry_stapler_validate()",
   "Smoke test packaged macOS app",
   "SMOKE_DIAGNOSTICS_DIR:",
   "SKIP_BUILD=1",
@@ -97,9 +98,15 @@ function assertMacArtifactStagerLooksCorrect() {
   const requiredSnippets = [
     'find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst"',
     "no macOS updater tarball found",
+    'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
+    "/usr/bin/clang \\",
+    'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
+    'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     "hdiutil create \\",
+    "retry_command 3 20 xcrun notarytool submit \\",
+    'retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"',
     'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
   ];
   const missing = requiredSnippets.filter(
@@ -187,6 +194,9 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     "dump_failure_diagnostics()",
     "write_bundle_diagnostics()",
     "collect_recent_crash_reports()",
+    "build_launcher_command()",
+    'if [[ "$(uname)" == "Darwin" && -n "${GITHUB_ACTIONS:-}" ]]',
+    'TERM="${TERM:-dumb}"',
     "attach_dmg_with_retry()",
     'MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"',
     'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',

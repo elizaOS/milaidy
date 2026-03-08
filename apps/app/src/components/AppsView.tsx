@@ -30,6 +30,16 @@ const HYPERSCAPE_COMMAND_OPTIONS = [
   "use",
   "stop",
 ] as const;
+export const PROD_ALLOWED_APPS = new Set(["@iqlabs-official/plugin-clawbal"]);
+
+export function shouldShowAppInAppsView(
+  app: Pick<RegistryAppInfo, "name">,
+  isProd = import.meta.env.PROD,
+): boolean {
+  if (!isProd) return true;
+  return PROD_ALLOWED_APPS.has(app.name);
+}
+
 const HYPERSCAPE_SCRIPTED_ROLE_OPTIONS: Array<{
   value: HyperscapeScriptedRole;
   label: string;
@@ -518,10 +528,7 @@ export function AppsView() {
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const filtered = apps.filter((app) => {
-    if (app.category !== "app") return false;
-
-    // Hardcode disable non-clawbal apps in production for now
-    if (import.meta.env.PROD && !app.name.includes("clawbal")) {
+    if (!shouldShowAppInAppsView(app)) {
       return false;
     }
 

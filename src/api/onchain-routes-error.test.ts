@@ -203,4 +203,24 @@ describe("on-chain route error propagation (MW-02)", () => {
     expect(status).toBe(500);
     expect(data.error).toMatch(/insufficient funds/i);
   });
+
+  it("POST /api/drop/mint with shiny returns 500 on service failure", async () => {
+    const { status, data } = await req(port, "POST", "/api/drop/mint", {
+      name: "TestAgent",
+      shiny: true,
+    });
+    expect(status).toBe(500);
+    expect(data.error).toMatch(/insufficient funds for shiny/i);
+  });
+
+  it("POST /api/drop/mint-whitelist returns 500 on invalid proof", async () => {
+    const { status, data } = await req(
+      port,
+      "POST",
+      "/api/drop/mint-whitelist",
+      { name: "TestAgent", proof: ["0xabc"] },
+    );
+    expect(status).toBe(500);
+    expect(data.error).toMatch(/invalid proof/i);
+  });
 });

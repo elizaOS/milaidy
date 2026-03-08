@@ -54,6 +54,7 @@
               "guides/mcp-marketplace",
               "chat-commands",
               "guides/media-generation",
+              "plugin-setup-guide",
               "guides/themes",
               "guides/agent-export"
             ]
@@ -143,6 +144,7 @@
               "plugins/overview",
               "plugins/architecture",
               "plugins/registry",
+              "guides/registry",
               "plugins/create-a-plugin",
               "plugins/development",
               "plugins/local-plugins",

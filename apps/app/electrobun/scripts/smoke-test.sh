@@ -258,6 +258,44 @@ escape_regex() {
   printf '%s' "$1" | sed -e 's/[][(){}.^$+*?|\\]/\\&/g'
 }
 
+build_launcher_command() {
+  LAUNCH_COMMAND=("$LAUNCHER_PATH")
+
+  # The Electrobun macOS launcher copies the inherited environment before it
+  # spawns Bun. GitHub Actions runners inject a very large env block, and the
+  # x64 launcher can segfault in std.process.getEnvMap() before our app starts.
+  # Launch the packaged app with a small user-like environment in CI so the
+  # smoke test reflects end-user startup instead of runner-specific env noise.
+  if [[ "$(uname)" == "Darwin" && -n "${GITHUB_ACTIONS:-}" ]]; then
+    local launch_user=""
+    local launch_path=""
+    local launch_shell=""
+    local launch_lang=""
+    local launch_lc_all=""
+
+    launch_user="${USER:-$(id -un 2>/dev/null || echo runner)}"
+    launch_path="${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
+    launch_shell="${SHELL:-/bin/bash}"
+    launch_lang="${LANG:-en_US.UTF-8}"
+    launch_lc_all="${LC_ALL:-$launch_lang}"
+
+    LAUNCH_COMMAND=(
+      /usr/bin/env
+      -i
+      HOME="$HOME"
+      PATH="$launch_path"
+      SHELL="$launch_shell"
+      USER="$launch_user"
+      LOGNAME="${LOGNAME:-$launch_user}"
+      TMPDIR="${TMPDIR:-/tmp}"
+      LANG="$launch_lang"
+      LC_ALL="$launch_lc_all"
+      TERM="${TERM:-dumb}"
+      "$LAUNCHER_PATH"
+    )
+  fi
+}
+
 find_live_packaged_pid() {
   if [[ -z "$LAUNCH_APP_BUNDLE" ]]; then
     return 0
@@ -429,7 +467,8 @@ fi
 
 LAUNCHER_STDOUT="$(mktemp /tmp/milady-smoke-launcher.stdout.XXXXXX)"
 LAUNCHER_STDERR="$(mktemp /tmp/milady-smoke-launcher.stderr.XXXXXX)"
-"$LAUNCHER_PATH" >"$LAUNCHER_STDOUT" 2>"$LAUNCHER_STDERR" &
+build_launcher_command
+"${LAUNCH_COMMAND[@]}" >"$LAUNCHER_STDOUT" 2>"$LAUNCHER_STDERR" &
 PID="$!"
 sleep 2
 

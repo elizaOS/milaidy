@@ -554,18 +554,25 @@ function VectorGraph3D({
       camera.position.set(0, 0, 5);
       cameraRef.current = camera;
 
-      // Renderer — try WebGPU first, fall back to WebGL
+      // Renderer — try WebGPU first, fall back to WebGL.
       let renderer: THREE.WebGLRenderer;
-      const WebGPURenderer = (
-        THREE as { WebGPURenderer?: typeof THREE.WebGLRenderer }
-      ).WebGPURenderer;
-      if (navigator.gpu && WebGPURenderer) {
+      if (navigator.gpu) {
         try {
-          renderer = new WebGPURenderer({
-            antialias: true,
-          }) as unknown as THREE.WebGLRenderer;
-          const r = renderer as unknown as { init?: () => Promise<void> };
-          if (r.init) await r.init();
+          const webgpuModule = (await import("three/webgpu")) as {
+            WebGPURenderer?: new (options?: {
+              antialias?: boolean;
+            }) => THREE.WebGLRenderer & { init?: () => Promise<void> };
+          };
+          const WebGPURenderer = webgpuModule.WebGPURenderer;
+          if (WebGPURenderer) {
+            const webgpuRenderer = new WebGPURenderer({
+              antialias: true,
+            });
+            await webgpuRenderer.init?.();
+            renderer = webgpuRenderer;
+          } else {
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+          }
         } catch {
           renderer = new THREE.WebGLRenderer({ antialias: true });
         }

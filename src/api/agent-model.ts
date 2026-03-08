@@ -79,8 +79,8 @@ function readCharacterModel(runtime: AgentRuntime): string | undefined {
  *
  * Preference order:
  * 1) Explicit character model settings (provider/model)
- * 2) Loaded AI provider plugin name
- * 3) Config-based model.primary (set by subscription auth)
+ * 2) Config-based model.primary (user's explicit provider choice)
+ * 3) Loaded AI provider plugin name
  * 4) Environment variable API keys
  */
 export function detectRuntimeModel(
@@ -91,6 +91,14 @@ export function detectRuntimeModel(
 
   const configured = readCharacterModel(runtime);
   if (configured) return configured;
+
+  // Check config-based model.primary — this is the user's explicit choice
+  // (set via provider switch or onboarding) and should take priority over
+  // plugin name scanning which can match default/utility plugins.
+  const configModel = normalizeModelSpec(
+    config?.agents?.defaults?.model?.primary,
+  );
+  if (configModel) return configModel;
 
   const pluginNames = Array.isArray(runtime.plugins)
     ? runtime.plugins
@@ -107,12 +115,6 @@ export function detectRuntimeModel(
       if (index >= 0) return pluginNames[index];
     }
   }
-
-  // Check config-based model.primary (set by applySubscriptionCredentials)
-  const configModel = normalizeModelSpec(
-    config?.agents?.defaults?.model?.primary,
-  );
-  if (configModel) return configModel;
 
   // Last resort: check environment for known API keys
   for (const { envVar, label } of ENV_PROVIDER_SIGNALS) {
