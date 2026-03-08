@@ -183,7 +183,10 @@ export function AutonomousPanel({
           <p className="text-muted">Agent not running</p>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto"
+          style={{ scrollbarGutter: "stable" }}
+        >
           <div className="border-b border-border px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-muted mb-2">
               Current
