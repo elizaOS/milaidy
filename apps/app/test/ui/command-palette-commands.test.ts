@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildCommandPaletteCommands } from "../../src/components/command-palette-commands";
 
-function buildArgs(overrides: Partial<Parameters<typeof buildCommandPaletteCommands>[0]> = {}) {
+function buildArgs(
+  overrides: Partial<Parameters<typeof buildCommandPaletteCommands>[0]> = {},
+) {
   return {
     agentState: "running",
     activeGameViewerUrl: "",
