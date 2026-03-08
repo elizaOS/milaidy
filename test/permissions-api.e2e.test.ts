@@ -463,20 +463,18 @@ describe("Permissions API E2E", () => {
         },
       };
 
-      const { status } = await req(
-        port,
-        "PUT",
-        "/api/permissions/state",
-        {
-          permissions: mockPermissions,
-        }
-      );
+      const { status } = await req(port, "PUT", "/api/permissions/state", {
+        permissions: mockPermissions,
+      });
       expect(status).toBe(200);
 
       // Verify config was updated via the GET /api/config route (simulated by reading config if possible, or we could just trust the server side logic, but let's test it)
       // Since this is an E2E test of the API, we can fetch the config and verify plugins.entries
       const { data: configData } = await req(port, "GET", "/api/config");
-      const plugins = configData.plugins as Record<string, any>;
+      const plugins = configData.plugins as Record<
+        string,
+        Record<string, Record<string, unknown>>
+      >;
       expect(plugins?.entries?.browser?.enabled).toBe(true);
       expect(plugins?.entries?.computeruse?.enabled).toBe(true);
       expect(plugins?.entries?.vision?.enabled).toBe(true);
@@ -485,17 +483,24 @@ describe("Permissions API E2E", () => {
     // Use a fresh test server to avoid config bleeding
     it("does not auto-enable capabilities that are explicitly disabled", async () => {
       // Start a fresh test server to ensure clean config state
-      const { port: cleanPort, close: cleanClose } = await startApiServer({ port: 0 });
+      const { port: cleanPort, close: cleanClose } = await startApiServer({
+        port: 0,
+      });
       try {
-        const { status: configSetupStatus } = await req(cleanPort, "PUT", "/api/config", {
-          plugins: {
-            entries: {
-              browser: { enabled: false },
-              computeruse: { enabled: false },
-              vision: { enabled: false }
-            }
-          }
-        });
+        const { status: configSetupStatus } = await req(
+          cleanPort,
+          "PUT",
+          "/api/config",
+          {
+            plugins: {
+              entries: {
+                browser: { enabled: false },
+                computeruse: { enabled: false },
+                vision: { enabled: false },
+              },
+            },
+          },
+        );
         expect(configSetupStatus).toBe(200);
 
         const mockPermissions = {
@@ -519,12 +524,15 @@ describe("Permissions API E2E", () => {
           "/api/permissions/state",
           {
             permissions: mockPermissions,
-          }
+          },
         );
         expect(status).toBe(200);
 
         const { data: configData } = await req(cleanPort, "GET", "/api/config");
-        const plugins = configData.plugins as Record<string, any>;
+        const plugins = configData.plugins as Record<
+          string,
+          Record<string, Record<string, unknown>>
+        >;
         expect(plugins?.entries?.browser?.enabled).toBe(false);
         expect(plugins?.entries?.computeruse?.enabled).toBe(false);
         expect(plugins?.entries?.vision?.enabled).toBe(false);

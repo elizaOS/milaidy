@@ -55,7 +55,7 @@ function createApp(
     name,
     displayName,
     description,
-    category: "game",
+    category: "app",
     launchType: "connect",
     launchUrl: `https://example.com/${displayName.toLowerCase()}`,
     icon: null,

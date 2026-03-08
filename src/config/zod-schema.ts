@@ -24,6 +24,7 @@ import {
   GoogleChatConfigSchema,
   IMessageConfigSchema,
   MSTeamsConfigSchema,
+  PumpfunStreamConfigSchema,
   RetakeConfigSchema,
   SignalConfigSchema,
   SlackConfigSchema,
@@ -32,6 +33,7 @@ import {
   TwitchStreamConfigSchema,
   TwitterConfigSchema,
   WhatsAppConfigSchema,
+  XStreamConfigSchema,
   YoutubeStreamConfigSchema,
 } from "./zod-schema.providers-core";
 import {
@@ -163,6 +165,8 @@ const StreamingSchema = z
     twitch: TwitchStreamConfigSchema.optional(),
     youtube: YoutubeStreamConfigSchema.optional(),
     customRtmp: CustomRtmpConfigSchema.optional(),
+    pumpfun: PumpfunStreamConfigSchema.optional(),
+    x: XStreamConfigSchema.optional(),
   })
   .passthrough() // Allow extension streaming destination configs
   .optional();

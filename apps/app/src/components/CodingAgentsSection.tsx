@@ -87,10 +87,18 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                     : "border-border hover:border-border-hover"
                 }`}
               >
-                <button
-                  type="button"
+                {/* biome-ignore lint/a11y/useSemanticElements: intentional div — <button> causes React hydration error due to nested <button> for Stop action */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="w-full text-left px-2 py-1.5 cursor-pointer bg-transparent"
                   onClick={() => toggleTerminal(session.sessionId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleTerminal(session.sessionId);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-1.5">
                     <span
@@ -140,7 +148,7 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                       </button>
                     )}
                   </div>
-                </button>
+                </div>
                 {mountedSessions.has(session.sessionId) && (
                   <div
                     className="mx-2 mb-1.5 rounded overflow-hidden"

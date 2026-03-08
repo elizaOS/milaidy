@@ -96,9 +96,9 @@ These variables configure access to AI model providers. Set at least one to enab
 | `ZAI_API_KEY` | Zai | Zai model provider |
 | `Z_AI_API_KEY` | Zai | Alias -- automatically copied to `ZAI_API_KEY` at startup if `ZAI_API_KEY` is unset |
 | `OLLAMA_BASE_URL` | Ollama (local) | Base URL for a local Ollama server (not an API key) |
-| `ELIZAOS_CLOUD_API_KEY` | ElizaOS Cloud | Cloud-hosted model inference via ElizaOS |
-| `ELIZAOS_CLOUD_ENABLED` | ElizaOS Cloud | Set to `1` to enable ElizaOS Cloud (requires API key) |
-| `ELIZAOS_CLOUD_BASE_URL` | ElizaOS Cloud | Override the ElizaOS Cloud endpoint URL. Set automatically from config when cloud is enabled. |
+| `ELIZAOS_CLOUD_API_KEY` | elizaOS Cloud | Cloud-hosted model inference via elizaOS |
+| `ELIZAOS_CLOUD_ENABLED` | elizaOS Cloud | Set to `1` to enable elizaOS Cloud (requires API key) |
+| `ELIZAOS_CLOUD_BASE_URL` | elizaOS Cloud | Override the elizaOS Cloud endpoint URL. Set automatically from config when cloud is enabled. |
 
 Use `milady models` to check which providers are currently configured.
 
@@ -124,7 +124,7 @@ These variables affect how Milady stores and applies credentials.
 
 ## Database
 
-These variables configure the database backend used by the ElizaOS runtime.
+These variables configure the database backend used by the elizaOS runtime.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -141,8 +141,8 @@ These variables override the default model selections used by the runtime.
 |----------|-------------|---------|
 | `SMALL_MODEL` | Override the small/fast model used for lightweight tasks. | (from provider defaults) |
 | `LARGE_MODEL` | Override the large/capable model used for complex tasks. | (from provider defaults) |
-| `ELIZAOS_CLOUD_SMALL_MODEL` | Override the small model when using ElizaOS Cloud. | (from cloud defaults) |
-| `ELIZAOS_CLOUD_LARGE_MODEL` | Override the large model when using ElizaOS Cloud. | (from cloud defaults) |
+| `ELIZAOS_CLOUD_SMALL_MODEL` | Override the small model when using elizaOS Cloud. | (from cloud defaults) |
+| `ELIZAOS_CLOUD_LARGE_MODEL` | Override the large model when using elizaOS Cloud. | (from cloud defaults) |
 
 ---
 
@@ -163,12 +163,12 @@ These variables configure local embedding model inference. Only relevant when us
 
 ## Runtime Behavior
 
-These variables control ElizaOS runtime initialization behavior.
+These variables control elizaOS runtime initialization behavior.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS` | Allow destructive database migrations on startup. Automatically set to `true` by Milady. | `true` (set by Milady) |
-| `IGNORE_BOOTSTRAP` | Skip the ElizaOS bootstrap plugin. Automatically set to `true` by Milady (Milady provides its own bootstrap). | `true` (set by Milady) |
+| `IGNORE_BOOTSTRAP` | Skip the elizaOS bootstrap plugin. Automatically set to `true` by Milady (Milady provides its own bootstrap). | `true` (set by Milady) |
 | `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | When set to `1`, disables loading plugin overrides from workspace directories. | (unset) |
 | `MILADY_BUNDLED_VERSION` | Override the bundled version string returned by the version resolver. Used in special packaging scenarios. | (unset) |
 

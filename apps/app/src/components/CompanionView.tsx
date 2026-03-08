@@ -1,68 +1,210 @@
-import { useApp } from "../AppContext";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  getVrmBackgroundUrl,
+  getVrmNeedsFlip,
+  getVrmPreviewUrl,
+  getVrmTitle,
+  getVrmUrl,
+  useApp,
+  VRM_COUNT,
+} from "../AppContext";
+import { createTranslator } from "../i18n";
+import { ChatModalView } from "./ChatModalView";
+import { CompanionCharacterRoster } from "./companion/CompanionCharacterRoster";
+import { CompanionHeader } from "./companion/CompanionHeader";
+import { CompanionHubNav } from "./companion/CompanionHubNav";
+import { useCompanionViewState } from "./companion/useCompanionViewState";
+import { VrmStage } from "./companion/VrmStage";
 
-/**
- * Minimal Companion scaffold for upstream.
- *
- * This view is intentionally lightweight and feature-flagged. It allows
- * iterative Companion work without changing default navigation behavior.
- */
 export function CompanionView() {
-  const { agentStatus, setTab } = useApp();
+  const {
+    setState,
+    selectedVrmIndex,
+    customVrmUrl,
+    customBackgroundUrl,
+    uiLanguage,
+    setUiLanguage,
+    setTab,
+    setUiShellMode,
+    // Header properties
+    agentStatus,
+    cloudEnabled,
+    cloudConnected,
+    cloudCredits,
+    cloudCreditsCritical,
+    cloudCreditsLow,
+    cloudTopUpUrl,
+    walletAddresses,
+    lifecycleBusy,
+    lifecycleAction,
+    handlePauseResume,
+    handleRestart,
+  } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+
+  // Compute Header properties
+  const name = agentStatus?.agentName ?? "Milady";
+  const agentState = agentStatus?.state ?? "not_started";
+
+  const stateColor =
+    agentState === "running"
+      ? "text-ok border-ok"
+      : agentState === "paused" ||
+          agentState === "restarting" ||
+          agentState === "starting"
+        ? "text-warn border-warn"
+        : agentState === "error"
+          ? "text-danger border-danger"
+          : "text-muted border-muted";
+
+  const restartBusy = lifecycleBusy && lifecycleAction === "restart";
+  const pauseResumeBusy = lifecycleBusy;
+  const pauseResumeDisabled =
+    lifecycleBusy || agentState === "restarting" || agentState === "starting";
+
+  const creditColor = cloudCreditsCritical
+    ? "border-danger text-danger"
+    : cloudCreditsLow
+      ? "border-warn text-warn"
+      : "border-ok text-ok";
+
+  const evmShort = walletAddresses?.evmAddress
+    ? `${walletAddresses.evmAddress.slice(0, 4)}...${walletAddresses.evmAddress.slice(-4)}`
+    : null;
+  const solShort = walletAddresses?.solanaAddress
+    ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}`
+    : null;
+
+  const [characterRosterOpen, setCharacterRosterOpen] = useState(false);
+  const [chatDockOpen, setChatDockOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth > 1024 : true,
+  );
+  const vrmFileInputRef = useRef<HTMLInputElement | null>(null);
+  const bgFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Upload state (extracted hook)
+  const { handleRosterVrmUpload, handleBgUpload } = useCompanionViewState(t);
+
+  const handleSwitchToNativeShell = useCallback(() => {
+    setUiShellMode("native");
+    setTab("chat");
+  }, [setTab, setUiShellMode]);
+
+  const safeSelectedVrmIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
+  const vrmPath =
+    selectedVrmIndex === 0 && customVrmUrl
+      ? customVrmUrl
+      : getVrmUrl(safeSelectedVrmIndex);
+  const fallbackPreviewUrl =
+    selectedVrmIndex > 0
+      ? getVrmPreviewUrl(safeSelectedVrmIndex)
+      : getVrmPreviewUrl(1);
+  const vrmBackgroundUrl =
+    selectedVrmIndex === 0 && customVrmUrl
+      ? customBackgroundUrl || getVrmBackgroundUrl(1)
+      : getVrmBackgroundUrl(safeSelectedVrmIndex);
+  const needsFlip =
+    selectedVrmIndex > 0 && getVrmNeedsFlip(safeSelectedVrmIndex);
+
+  const rosterItems = useMemo(
+    () =>
+      Array.from({ length: VRM_COUNT }, (_, i) => {
+        const index = i + 1;
+        return {
+          index,
+          previewUrl: getVrmPreviewUrl(index),
+          title: getVrmTitle(index),
+        };
+      }),
+    [],
+  );
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <section className="border border-border bg-card rounded-lg p-4 sm:p-5">
-        <div className="text-xs uppercase tracking-wide text-muted mb-2">
-          Experimental
-        </div>
-        <h2 className="text-xl font-semibold text-txt-strong mb-2">
-          Companion Mode (Scaffold)
-        </h2>
-        <p className="text-sm text-muted">
-          Companion mode is enabled via feature flag and currently uses a
-          minimal scaffold in upstream. Core workflows remain available from
-          existing tabs while we iterate in small PRs.
-        </p>
-      </section>
+    <div
+      className="anime-comp-screen font-display"
+      style={{
+        backgroundImage: `url("${vrmBackgroundUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="anime-comp-bg-graphic" />
 
-      <section className="border border-border bg-card rounded-lg p-4 sm:p-5">
-        <div className="text-sm text-muted mb-1">Agent Status</div>
-        <div className="text-base font-medium text-txt-strong capitalize">
-          {agentStatus?.state ?? "unknown"}
-        </div>
-        <div className="text-xs text-muted mt-1">
-          {agentStatus?.agentName ?? "Milady"}
-        </div>
-      </section>
+      {/* Model Layer */}
+      <VrmStage
+        vrmPath={vrmPath}
+        fallbackPreviewUrl={fallbackPreviewUrl}
+        needsFlip={needsFlip}
+        chatDockOpen={chatDockOpen}
+        t={t}
+      />
 
-      <section className="border border-border bg-card rounded-lg p-4 sm:p-5">
-        <div className="text-sm font-medium text-txt-strong mb-3">
-          Quick Navigation
+      {/* UI Overlay */}
+      <div className="anime-comp-ui-layer">
+        {/* Top Header */}
+        <CompanionHeader
+          chatDockOpen={chatDockOpen}
+          setChatDockOpen={setChatDockOpen}
+          characterRosterOpen={characterRosterOpen}
+          setCharacterRosterOpen={setCharacterRosterOpen}
+          name={name}
+          agentState={agentState}
+          stateColor={stateColor}
+          lifecycleBusy={lifecycleBusy}
+          restartBusy={restartBusy}
+          pauseResumeBusy={pauseResumeBusy}
+          pauseResumeDisabled={pauseResumeDisabled}
+          handlePauseResume={handlePauseResume}
+          handleRestart={handleRestart}
+          cloudEnabled={cloudEnabled}
+          cloudConnected={cloudConnected}
+          cloudCredits={cloudCredits}
+          creditColor={creditColor}
+          cloudTopUpUrl={cloudTopUpUrl}
+          evmShort={evmShort}
+          solShort={solShort}
+          setTab={setTab}
+          handleSwitchToNativeShell={handleSwitchToNativeShell}
+          uiLanguage={uiLanguage}
+          setUiLanguage={setUiLanguage}
+          t={t}
+        />
+
+        <div
+          className={`anime-comp-chat-dock-anchor ${chatDockOpen ? "is-open" : ""}`}
+          data-testid="companion-chat-dock"
+        >
+          <ChatModalView
+            variant="companion-dock"
+            onRequestClose={() => setChatDockOpen(false)}
+          />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn text-xs py-2 px-3"
-            onClick={() => setTab("chat")}
-          >
-            Open Chat
-          </button>
-          <button
-            type="button"
-            className="btn text-xs py-2 px-3"
-            onClick={() => setTab("character")}
-          >
-            Open Character
-          </button>
-          <button
-            type="button"
-            className="btn text-xs py-2 px-3"
-            onClick={() => setTab("settings")}
-          >
-            Open Settings
-          </button>
+
+        {/* Main Content Area */}
+        <div className="anime-comp-main-grid">
+          {/* Center (Empty to show character) */}
+          <div className="anime-comp-center" />
+
+          {/* Right Panel: Actions + Character Drawer */}
+          <aside className="anime-comp-right-panel">
+            <CompanionCharacterRoster
+              rosterItems={rosterItems}
+              selectedVrmIndex={selectedVrmIndex}
+              safeSelectedVrmIndex={safeSelectedVrmIndex}
+              characterRosterOpen={characterRosterOpen}
+              setState={setState}
+              handleRosterVrmUpload={handleRosterVrmUpload}
+              handleBgUpload={handleBgUpload}
+              vrmFileInputRef={vrmFileInputRef}
+              bgFileInputRef={bgFileInputRef}
+              t={t}
+            />
+
+            {/* Game HUD Icon Menu */}
+            <CompanionHubNav setTab={setTab} t={t} />
+          </aside>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

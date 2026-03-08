@@ -28,6 +28,30 @@ The script `scripts/copy-electron-plugins-and-deps.mjs`:
 
 We do **not** try to exclude deps that might already be inlined by tsdown into plugin dist/, because plugins can `require()` at runtime; excluding them would risk "Cannot find module" in the packaged app.
 
+## Release workflow: design and WHYs
+
+The release workflow (`.github/workflows/release.yml`) is designed for **reproducible, fail-fast builds** and **diagnosable failures**. Key choices and their reasons:
+
+- **Strict shell (`bash -euo pipefail`)** — Applied at job default for `build-desktop` so every step exits on first error, undefined variable, or pipe failure. **Why:** Without it, a failing command in the middle of a script can be ignored and the step still "succeeds", producing broken artifacts or confusing later failures.
+- **Retry loops with final assertion** — `bun install` steps retry up to 3 times, then run the same install command once more after the loop. **Why:** If all retries failed, the loop exits without failing the step; the final run ensures the step fails with a clear install error instead of silently continuing.
+- **Crash dump uses `@electron/asar`** — When electron-builder crashes, we list ASAR contents with `npx @electron/asar list`, not the deprecated `asar` package. **Why:** The deprecated package can be missing or incompatible; `@electron/asar` is the maintained tool and works when the build fails.
+- **`find -print0` and `while IFS= read -r -d ''`** — Copying JS into `milady-dist` and removing node-gyp artifacts use null-delimited find + read. **Why:** Filenames with newlines or spaces would break `find | while read`; null-delimited iteration is safe for any path.
+- **DMG path via `find` + `stat -f`** — We pick the newest DMG with `find dist -name '*.dmg' -exec stat -f '%m\t%N' {} \; | sort -rn | head -1` instead of `ls -t dist/*.dmg`. **Why:** `ls -t` with a glob can fail or behave oddly when no DMG exists or paths have spaces; find + stat is robust and this step runs only on macOS where `stat -f` is available.
+- **Remove node-gyp build artifacts before packaging** — We delete `build-tmp*` and `node_gyp_bins` under `node_modules` (root and milady-dist). **Why:** @tensorflow/tfjs-node and other native addons leave symlinks to system Python there; electron-builder refuses to pack symlinks to paths outside the app (security), so the pack step would fail without removal.
+- **Size report includes `milady-dist`** — We report sizes of both `app.asar.unpacked/node_modules` and `app.asar.unpacked/milady-dist` (and its node_modules when present). **Why:** Both regions contribute to artifact size; reporting both makes it obvious where bloat comes from.
+- **Single Capacitor build step** — One "Build Capacitor app" step runs `npx vite build` on all platforms. **Why:** The previous split (non-Windows vs Windows) was redundant; vite build works everywhere, so one step reduces drift and confusion.
+- **Packaged DMG E2E: 240s CDP timeout in CI, stdout/stderr dump on timeout** — In CI we use a longer CDP wait and on timeout we log app stdout/stderr before failing. **Why:** CI can be slower; a longer timeout reduces flaky failures. Dumping logs makes CDP timeouts debuggable instead of silent.
+
+## Node.js and Bun in CI: WHYs
+
+CI workflows that need Node (for node-gyp / native modules or npm registry) were timing out on Node download and install. We fixed this as follows.
+
+- **`useblacksmith/setup-node@v5` on Blacksmith runners** — In `test.yml`, jobs that run on `blacksmith-4vcpu-ubuntu-2404` (app-startup-e2e, electron-ui-e2e Linux) use `useblacksmith/setup-node` instead of `actions/setup-node`. **Why:** Blacksmith’s action uses their colocated cache (same DC as the runner), so Node binaries are served at ~400MB/s and we avoid slow or failing downloads from nodejs.org.
+- **`actions/setup-node@v3` (not v4) on GitHub-hosted runners** — Release, test (macOS legs), nightly, publish-npm, and other workflows pin to `@v3`. **Why:** v4 has a known slow post-action step and often triggers nodejs.org downloads that time out; v3 uses the runner toolcache when the version is present and avoids the regression.
+- **`check-latest: false`** — We set this explicitly on every `setup-node` step. **Why:** With the default, the action can hit nodejs.org to check for a newer patch; that adds latency and can timeout. We want a fixed, cached Node version for reproducible CI.
+- **Bun global cache (`~/.bun/install/cache`)** — test.yml, release.yml, benchmark-tests.yml, publish-npm.yml, and nightly.yml all cache this path with `actions/cache@v4` keyed by `bun.lock`. **Why:** Bun install is fast, but re-downloading every package every run was still a major cost; caching the global cache avoids re-downloading tarballs while letting `bun install` do its fast hardlink/clonefile into `node_modules`. We do not cache `node_modules` itself — compression/upload cost exceeds the gain.
+- **`timeout-minutes` on jobs** — We set explicit timeouts (e.g. 20–30 min for test jobs, 45 for release build-desktop). **Why:** So a hung or extremely slow run fails in a bounded time instead of burning runner hours; also makes flakiness visible.
+
 ## Where this runs
 
 - **Release:** `.github/workflows/release.yml` — on version tag push; builds all platforms and uploads artifacts.

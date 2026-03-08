@@ -125,7 +125,7 @@ describe("plugin loading parity across modes", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "MILAIDY_USE_PI_AI",
+    "MILADY_USE_PI_AI",
   ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {

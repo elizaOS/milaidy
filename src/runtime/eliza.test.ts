@@ -77,7 +77,7 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "MILAIDY_USE_PI_AI",
+    "MILADY_USE_PI_AI",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDAN_VAULT_PATH",
   ];
@@ -127,7 +127,7 @@ describe("collectPluginNames", () => {
 
   it("includes all core plugins for an empty config", () => {
     // Guard against accidental removal from CORE_PLUGINS array
-    expect(CORE_PLUGINS).toHaveLength(18);
+    expect(CORE_PLUGINS).toHaveLength(17);
 
     const expectedCorePlugins = [
       "@elizaos/plugin-sql",
@@ -137,7 +137,6 @@ describe("collectPluginNames", () => {
       "@elizaos/plugin-rolodex",
       "@elizaos/plugin-trajectory-logger",
       "@elizaos/plugin-agent-orchestrator",
-      "@elizaos/plugin-coding-agent",
       "@elizaos/plugin-cron",
       "@elizaos/plugin-shell",
       "@elizaos/plugin-plugin-manager",
@@ -183,8 +182,8 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
   });
 
-  it("adds pi-ai provider plugin when MILAIDY_USE_PI_AI is enabled", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
+  it("adds pi-ai provider plugin when MILADY_USE_PI_AI is enabled", () => {
+    process.env.MILADY_USE_PI_AI = "1";
     const names = collectPluginNames({} as MiladyConfig);
 
     expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
@@ -195,7 +194,7 @@ describe("collectPluginNames", () => {
   });
 
   it("cloud mode takes precedence over pi-ai mode", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
+    process.env.MILADY_USE_PI_AI = "1";
     const config = {
       cloud: { enabled: true },
     } as unknown as MiladyConfig;
@@ -206,7 +205,7 @@ describe("collectPluginNames", () => {
   });
 
   it("pi-ai mode overrides explicit direct-provider entries", () => {
-    process.env.MILAIDY_USE_PI_AI = "1";
+    process.env.MILADY_USE_PI_AI = "1";
     const config = {
       plugins: {
         entries: {

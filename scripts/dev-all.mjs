@@ -4,7 +4,7 @@
  *
  * Launches in parallel:
  *   1. App (Vite dev server on port 2138, proxies /api and /ws to runtime)
- *   2. ElizaOS runtime (agent + plugins)
+ *   2. elizaOS runtime (agent + plugins)
  *
  * All processes share stdio; Ctrl-C kills them all.
  */

@@ -4,7 +4,7 @@ sidebarTitle: Architecture
 description: High-level overview of the Milady AI system architecture, layers, plugin system, and cross-platform delivery.
 ---
 
-Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture. This page covers the full system from entry points through runtime lifecycle, plugin loading, API surface, and build tooling.
+Milady is a cross-platform AI agent runtime built on top of [elizaOS](https://elizaos.ai). It delivers the same backend across CLI, web, desktop (Electron), and mobile (Capacitor) surfaces through a layered architecture. This page covers the full system from entry points through runtime lifecycle, plugin loading, API surface, and build tooling.
 
 ## High-Level Diagram
 
@@ -26,7 +26,7 @@ Milady is a cross-platform AI agent runtime built on top of [ElizaOS](https://el
                              |
                              v
 +---------------------------------------------------------------+
-|                    Runtime Layer (ElizaOS)                     |
+|                    Runtime Layer (elizaOS)                     |
 |  AgentRuntime + Plugin system                                 |
 |  13 core plugins + optional plugins + Milady plugin           |
 |  Providers, Actions, Services, Evaluators                     |
@@ -88,7 +88,7 @@ This allows other packages (e.g., the Electron app, the dev-server) to programma
 
 ### Dev-Server Entry (`src/runtime/dev-server.ts`)
 
-A combined dev server that starts the ElizaOS runtime in headless mode and wires it into the API server. Used during development (`bun run dev`):
+A combined dev server that starts the elizaOS runtime in headless mode and wires it into the API server. Used during development (`bun run dev`):
 
 1. Loads `.env` files for parity with CLI mode
 2. Creates the runtime via `startEliza({ headless: true })`
@@ -113,13 +113,13 @@ The `startEliza()` function in `src/runtime/eliza.ts` orchestrates the full life
     Push connector secrets (`DISCORD_API_TOKEN`, `TELEGRAM_BOT_TOKEN`, etc.) from config into `process.env`. Auto-resolve Discord Application ID from bot token via the Discord API. Propagate cloud, x402, and database config into env vars.
   </Step>
   <Step title="Build Character">
-    Construct an ElizaOS `Character` object from the Milady config: agent name, bio, system prompt, style, adjectives, topics, message examples, and API key secrets.
+    Construct an elizaOS `Character` object from the Milady config: agent name, bio, system prompt, style, adjectives, topics, message examples, and API key secrets.
   </Step>
   <Step title="Prepare Workspace">
     Ensure `~/.milady/workspace/` exists with bootstrap files. Create the `~/.milady/plugins/custom/` directory for drop-in plugins.
   </Step>
   <Step title="Create Milady Plugin">
-    Instantiate the bridge plugin that provides workspace context, session keys, emotes, custom actions, trigger tasks, and autonomous state tracking to the ElizaOS runtime.
+    Instantiate the bridge plugin that provides workspace context, session keys, emotes, custom actions, trigger tasks, and autonomous state tracking to the elizaOS runtime.
   </Step>
   <Step title="Resolve and Load Plugins">
     Run the full plugin resolution pipeline (detailed below). Plugins are loaded in parallel for faster startup.
@@ -167,13 +167,13 @@ Restart is pluggable via `setRestartHandler()`:
 | Dev-server / API | Hot-swap | Stops the current runtime, reloads config from disk, creates a new `AgentRuntime`, and swaps the reference in the API server |
 | Electron | `AgentManager.restart()` | Uses the Electron app's native restart mechanism |
 
-## ElizaOS Integration Layer
+## elizaOS Integration Layer
 
-Milady extends ElizaOS through several integration points:
+Milady extends elizaOS through several integration points:
 
 ### Plugin System Bridge
 
-The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a standard ElizaOS `Plugin` that bridges Milady-specific functionality into the runtime:
+The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a standard elizaOS `Plugin` that bridges Milady-specific functionality into the runtime:
 
 **Providers** (injected into every LLM context):
 - `channelProfileProvider` -- channel-specific personality profiles
@@ -204,7 +204,7 @@ Every plugin is wrapped with error boundaries before registration (`wrapPluginWi
 - **`init()` wrapper** -- catches crashes during plugin initialization, logs the error, and allows the agent to continue in degraded mode
 - **Provider wrappers** -- catches crashes in provider `get()` calls (invoked every conversation turn), returns an error marker instead of crashing the agent
 
-Actions are not wrapped because ElizaOS's own action dispatch already has error boundaries.
+Actions are not wrapped because elizaOS's own action dispatch already has error boundaries.
 
 ### Method Binding Fixes
 
@@ -272,7 +272,7 @@ Two plugins require special ordering to avoid race conditions:
 
 ## Action, Provider, and Evaluator System
 
-Milady inherits ElizaOS's three-part extension model:
+Milady inherits elizaOS's three-part extension model:
 
 ### Providers
 
@@ -365,7 +365,7 @@ Routes are organized into domain-specific handler modules:
 | `training-routes.ts` | `/api/training/*` | Fine-tuning orchestration |
 | `trigger-routes.ts` | `/api/triggers/*` | Trigger task management |
 | `wallet-routes.ts` | `/api/wallet/*` | Wallet addresses, balances, NFTs |
-| `apps-routes.ts` | `/api/apps/*` | ElizaOS app marketplace |
+| `apps-routes.ts` | `/api/apps/*` | elizaOS app marketplace |
 
 ### Authentication
 
@@ -426,10 +426,10 @@ Milady's `src/services/` directory contains standalone service modules:
 | **Self-Updater** | `self-updater.ts` | Detect install method and run the appropriate upgrade command |
 | **Update Checker** | `update-checker.ts` | Query npm registry for new versions on the configured channel |
 | **Update Notifier** | `update-notifier.ts` | Fire-and-forget background check that prints a one-line notice |
-| **App Manager** | `app-manager.ts` | Launch and manage ElizaOS marketplace apps |
+| **App Manager** | `app-manager.ts` | Launch and manage elizaOS marketplace apps |
 | **Sandbox Engine** | `sandbox-engine.ts` | Container-based code execution sandboxing |
 | **Sandbox Manager** | `sandbox-manager.ts` | Docker container lifecycle for sandboxed execution |
-| **Registry Client** | `registry-client.ts` | ElizaOS plugin registry API client |
+| **Registry Client** | `registry-client.ts` | elizaOS plugin registry API client |
 | **Skill Marketplace** | `skill-marketplace.ts` | Search, install, and manage skills from the marketplace |
 | **Training Service** | `training-service.ts` | Fine-tuning orchestration with Ollama integration |
 | **Agent Export** | `agent-export.ts` | Export agent state (character, knowledge, config) as portable archives |

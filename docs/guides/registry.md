@@ -1,11 +1,11 @@
 ---
 title: Plugin Registry Guide
-description: How to discover, configure, submit, and maintain plugins in the Milady/ElizaOS plugin registry.
+description: How to discover, configure, submit, and maintain plugins in the Milady/elizaOS plugin registry.
 ---
 
 # Plugin Registry Guide
 
-The plugin registry is the central index of available ElizaOS plugins. This guide covers discovering, using, and submitting plugins to the registry.
+The plugin registry is the central index of available elizaOS plugins. This guide covers discovering, using, and submitting plugins to the registry.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ The plugin registry is:
 - **Metadata** including name, description, category, and configuration
 - **Discovery system** for finding and loading plugins
 
-Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the ElizaOS ecosystem.
+Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the elizaOS ecosystem.
 
 ---
 
@@ -138,7 +138,7 @@ Each plugin in the registry has a manifest entry:
   "dirName": "plugin-telegram",
   "name": "Telegram",
   "npmName": "@elizaos/plugin-telegram",
-  "description": "Telegram bot connector for ElizaOS agents",
+  "description": "Telegram bot connector for elizaOS agents",
   "category": "connector",
   "envKey": "TELEGRAM_BOT_TOKEN",
   "configKeys": [

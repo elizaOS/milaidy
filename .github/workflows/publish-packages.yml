@@ -43,7 +43,7 @@ jobs:
   # ── Prepare version info ───────────────────────────────────────────────
   prepare:
     name: Prepare
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.ver.outputs.version }}
       npm_version: ${{ steps.ver.outputs.npm_version }}
@@ -91,7 +91,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.pypi)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       id-token: write  # OIDC trusted publishing
     environment:
@@ -153,7 +153,7 @@ jobs:
     if: |
       (github.event_name == 'release' && needs.prepare.outputs.is_prerelease == 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.homebrew)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.snap)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -239,7 +239,9 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.apt)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write  # gh release upload
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -327,7 +329,9 @@ jobs:
     if: |
       (github.event_name == 'release' && needs.prepare.outputs.is_prerelease == 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.flatpak)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write  # gh release upload
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -372,7 +376,7 @@ jobs:
     name: Publish Summary
     needs: [prepare, publish-pypi, update-homebrew, publish-snap, build-deb, build-flatpak]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Summary
         run: |

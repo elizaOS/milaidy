@@ -6,12 +6,7 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2023",
-      "ScriptHost"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2023", "ScriptHost"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -24,9 +19,7 @@
     "useDefineForClassFields": false,
     "baseUrl": "."
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "dist",

@@ -99,6 +99,9 @@ export function ProviderSwitcher({
   const [anthropicConnected, setAnthropicConnected] = useState(false);
   const [openaiConnected, setOpenaiConnected] = useState(false);
 
+  /* ── Cloud inference state ─────────────────────────────────────── */
+  const [cloudHandlesInference, setCloudHandlesInference] = useState(true);
+
   /* ── pi-ai state ──────────────────────────────────────────────── */
   const [piAiEnabled, setPiAiEnabled] = useState(false);
   const [piAiModelSpec, setPiAiModelSpec] = useState("");
@@ -159,16 +162,29 @@ export function ProviderSwitcher({
           models?.large || envLarge || (cloudEnabledCfg ? defaultLarge : ""),
         );
         const rawPiAi =
-          (typeof vars.MILAIDY_USE_PI_AI === "string"
-            ? vars.MILAIDY_USE_PI_AI
+          (typeof vars.MILADY_USE_PI_AI === "string"
+            ? vars.MILADY_USE_PI_AI
             : undefined) ||
-          (typeof env?.MILAIDY_USE_PI_AI === "string"
-            ? env.MILAIDY_USE_PI_AI
+          (typeof env?.MILADY_USE_PI_AI === "string"
+            ? env.MILADY_USE_PI_AI
             : "");
         const piAiOn = ["1", "true", "yes"].includes(
           rawPiAi.trim().toLowerCase(),
         );
         setPiAiEnabled(piAiOn);
+
+        // Check if cloud handles inference or user has own keys
+        const cloudServices = cloud?.services as
+          | Record<string, unknown>
+          | undefined;
+        const inferenceMode =
+          typeof cloud?.inferenceMode === "string"
+            ? cloud.inferenceMode
+            : "cloud";
+        const inferenceToggle = cloudServices?.inference !== false;
+        setCloudHandlesInference(
+          cloudEnabledCfg && inferenceMode === "cloud" && inferenceToggle,
+        );
 
         const agents = cfg.agents as Record<string, unknown> | undefined;
         const defaults = agents?.defaults as
@@ -217,11 +233,12 @@ export function ProviderSwitcher({
       if (selectedProviderId !== "pi-ai") setSelectedProviderId("pi-ai");
       return;
     }
-    if (cloudEnabled) {
+    // Only auto-select cloud if cloud handles inference (not just enabled)
+    if (cloudHandlesInference) {
       if (selectedProviderId !== "__cloud__")
         setSelectedProviderId("__cloud__");
     }
-  }, [cloudEnabled, piAiEnabled, selectedProviderId]);
+  }, [cloudHandlesInference, piAiEnabled, selectedProviderId]);
 
   const resolvedSelectedId =
     selectedProviderId === "__cloud__"
@@ -232,7 +249,7 @@ export function ProviderSwitcher({
             (allAiProviders.some((p) => p.id === selectedProviderId) ||
               isSubscriptionId(selectedProviderId))
           ? selectedProviderId
-          : cloudEnabled
+          : cloudHandlesInference
             ? "__cloud__"
             : piAiEnabled
               ? "pi-ai"
@@ -265,18 +282,22 @@ export function ProviderSwitcher({
         !target.enabled || enabledAiProviders.some((p) => p.id !== newId);
       if (cloudEnabled || piAiEnabled) {
         try {
+          // Disable cloud inference but keep cloud connected for RPC/services
           await client.updateConfig({
-            cloud: { enabled: false },
-            env: { vars: { MILAIDY_USE_PI_AI: "" } },
+            cloud: {
+              services: { inference: false },
+              inferenceMode: "byok",
+            },
+            env: { vars: { MILADY_USE_PI_AI: "" } },
           });
-          setState("cloudEnabled", false);
           setPiAiEnabled(false);
+          setCloudHandlesInference(false);
           if (!willTogglePlugins) {
             await client.restartAgent();
           }
         } catch (err) {
           console.warn(
-            "[milady] Failed to disable cloud/pi-ai config during provider switch",
+            "[milady] Failed to update cloud inference config during provider switch",
             err,
           );
         }
@@ -294,7 +315,6 @@ export function ProviderSwitcher({
       allAiProviders,
       enabledAiProviders,
       handlePluginToggle,
-      setState,
       cloudEnabled,
       piAiEnabled,
     ],
@@ -312,16 +332,20 @@ export function ProviderSwitcher({
       if (!target) return;
 
       try {
+        // Disable cloud inference but keep cloud connected for RPC/services
         await client.updateConfig({
-          cloud: { enabled: false },
-          env: { vars: { MILAIDY_USE_PI_AI: "" } },
+          cloud: {
+            services: { inference: false },
+            inferenceMode: "byok",
+          },
+          env: { vars: { MILADY_USE_PI_AI: "" } },
         });
         const switchId =
           providerId === "anthropic-subscription"
             ? "anthropic-subscription"
             : "openai-codex";
         await client.switchProvider(switchId);
-        setState("cloudEnabled", false);
+        setCloudHandlesInference(false);
         setPiAiEnabled(false);
       } catch (err) {
         console.warn("[milady] Provider switch failed", err);
@@ -335,7 +359,7 @@ export function ProviderSwitcher({
         }
       }
     },
-    [allAiProviders, enabledAiProviders, handlePluginToggle, setState],
+    [allAiProviders, enabledAiProviders, handlePluginToggle],
   );
 
   const handleSelectCloud = useCallback(async () => {
@@ -343,8 +367,12 @@ export function ProviderSwitcher({
     setSelectedProviderId("__cloud__");
     try {
       await client.updateConfig({
-        cloud: { enabled: true },
-        env: { vars: { MILAIDY_USE_PI_AI: "" } },
+        cloud: {
+          enabled: true,
+          services: { inference: true },
+          inferenceMode: "cloud",
+        },
+        env: { vars: { MILADY_USE_PI_AI: "" } },
         agents: { defaults: { model: { primary: null } } },
         models: {
           small: currentSmallModel || "moonshotai/kimi-k2-turbo",
@@ -352,6 +380,7 @@ export function ProviderSwitcher({
         },
       });
       setState("cloudEnabled", true);
+      setCloudHandlesInference(true);
       setPiAiEnabled(false);
       await client.restartAgent();
     } catch (err) {
@@ -364,8 +393,11 @@ export function ProviderSwitcher({
     setPiAiSaveSuccess(false);
     try {
       await client.updateConfig({
-        cloud: { enabled: false },
-        env: { vars: { MILAIDY_USE_PI_AI: "1" } },
+        cloud: {
+          services: { inference: false },
+          inferenceMode: "byok",
+        },
+        env: { vars: { MILADY_USE_PI_AI: "1" } },
         agents: {
           defaults: {
             model: {
@@ -374,7 +406,6 @@ export function ProviderSwitcher({
           },
         },
       });
-      setState("cloudEnabled", false);
       setPiAiEnabled(true);
       setPiAiSaveSuccess(true);
       setTimeout(() => setPiAiSaveSuccess(false), 2000);
@@ -384,7 +415,7 @@ export function ProviderSwitcher({
     } finally {
       setPiAiSaving(false);
     }
-  }, [piAiModelSpec, setState]);
+  }, [piAiModelSpec]);
 
   const handleSelectPiAi = useCallback(async () => {
     hasManualSelection.current = true;

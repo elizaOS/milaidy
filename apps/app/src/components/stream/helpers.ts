@@ -68,6 +68,14 @@ export function getEventSource(event: StreamEventEnvelope): string {
 
 export type AgentMode = "gaming" | "terminal" | "chatting" | "idle";
 
+export type StreamSourceType = "stream-tab" | "game" | "custom-url";
+
+export const STREAM_SOURCE_LABELS: Record<StreamSourceType, string> = {
+  "stream-tab": "Stream Tab",
+  game: "Game",
+  "custom-url": "Custom URL",
+};
+
 // ---------------------------------------------------------------------------
 // Popout / Always-on-top
 // ---------------------------------------------------------------------------

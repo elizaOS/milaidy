@@ -8,7 +8,7 @@ Triggers are scheduled tasks that wake the Milady agent at defined times or inte
 
 ## Architecture Overview
 
-Triggers are built on top of the ElizaOS task system. Each trigger is stored as a task with the name `TRIGGER_DISPATCH` and the tags `["queue", "repeat", "trigger"]`. The trigger configuration lives in `task.metadata.trigger` and the execution history lives in `task.metadata.triggerRuns`.
+Triggers are built on top of the elizaOS task system. Each trigger is stored as a task with the name `TRIGGER_DISPATCH` and the tags `["queue", "repeat", "trigger"]`. The trigger configuration lives in `task.metadata.trigger` and the execution history lives in `task.metadata.triggerRuns`.
 
 The trigger system consists of four source modules:
 

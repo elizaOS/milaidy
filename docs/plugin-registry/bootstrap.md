@@ -5,12 +5,12 @@ description: "Core message processing pipeline — message handling, response ge
 ---
 
 <Note>
-**Upstream dependency notice.** The bootstrap plugin is part of `@elizaos/core` (upstream ElizaOS), not the Milady local codebase. The action names, evaluator names, provider names, and configuration keys documented below are derived from ElizaOS upstream documentation and should be verified against your installed `@elizaos/core` version.
+**Upstream dependency notice.** The bootstrap plugin is part of `@elizaos/core` (upstream elizaOS), not the Milady local codebase. The action names, evaluator names, provider names, and configuration keys documented below are derived from elizaOS upstream documentation and should be verified against your installed `@elizaos/core` version.
 
 Milady sets `IGNORE_BOOTSTRAP=true` (see `src/runtime/eliza.ts:2511-2512`) to prevent the core from auto-loading `@elizaos/plugin-bootstrap`. Milady uses `@elizaos/plugin-trust` instead, which provides its own settings/roles providers and actions. The `plugin-bootstrap` (v1.x) is incompatible with the 2.0.0-alpha.x runtime used by Milady.
 </Note>
 
-The Bootstrap plugin is the foundational message processing layer in the upstream ElizaOS framework. It is bundled in `@elizaos/core` and auto-loaded by default — however, Milady disables it in favor of `@elizaos/plugin-trust`.
+The Bootstrap plugin is the foundational message processing layer in the upstream elizaOS framework. It is bundled in `@elizaos/core` and auto-loaded by default — however, Milady disables it in favor of `@elizaos/plugin-trust`.
 
 **Package:** `@elizaos/plugin-bootstrap` (bundled in `@elizaos/core`)
 
