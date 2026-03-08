@@ -172,6 +172,18 @@ describe("AgentManager", () => {
       );
       expect(new Set(candidates).size).toBe(candidates.length);
     });
+
+    it("includes the extracted app runtime path used by self-extracting installs", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/bin",
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/bin/launcher",
+      );
+
+      expect(candidates[0]).toBe(
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/Resources/app/milady-dist",
+      );
+      expect(new Set(candidates).size).toBe(candidates.length);
+    });
   });
 
   afterEach(() => {
@@ -207,10 +219,9 @@ describe("AgentManager", () => {
         }
       });
 
-      // Make server.js not found to trigger early error
+      // Make both packaged entry candidates missing to trigger early error
       const existsSync = await getExistsSyncMock();
       existsSync.mockImplementation((p: string) => {
-        if (typeof p === "string" && p.endsWith("server.js")) return false;
         if (p === MOCK_DIST_PATH) return true;
         return false;
       });

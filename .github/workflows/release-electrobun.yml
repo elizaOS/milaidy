@@ -340,6 +340,10 @@ jobs:
           echo "=== Electrobun artifacts ==="
           find apps/app/electrobun/artifacts -type f 2>/dev/null | sort || echo "(no artifacts directory)"
 
+      - name: Smoke test packaged Windows app
+        if: matrix.platform.os == 'windows'
+        run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
+
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
