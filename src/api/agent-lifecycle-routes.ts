@@ -25,10 +25,11 @@ export interface AgentLifecycleRouteContext
     Pick<RouteHelpers, "json" | "error"> {
   state: AgentLifecycleRouteState;
   onRestart?: (() => Promise<AgentRuntime | null>) | undefined;
+  onStop?: (() => Promise<void> | void) | undefined;
 }
 
 const RUNTIME_ATTACH_WAIT_MS = 2_500;
-const START_RESTART_TIMEOUT_MS = 8_000;
+const START_RESTART_TIMEOUT_MS = 20_000;
 
 function respondStartingStatus(
   json: RouteHelpers["json"],
@@ -59,16 +60,37 @@ async function waitForRuntimeFromState(
   return state.runtime;
 }
 
+type RestartAttemptResult = {
+  runtime: AgentRuntime | null;
+  timedOut: boolean;
+};
+
 async function waitForRestartWithTimeout(
   onRestart: () => Promise<AgentRuntime | null>,
   timeoutMs: number,
-): Promise<AgentRuntime | null> {
-  return await Promise.race<AgentRuntime | null>([
-    onRestart(),
-    new Promise<null>((resolve) =>
-      setTimeout(() => resolve(null), Math.max(0, timeoutMs)),
-    ),
-  ]);
+): Promise<RestartAttemptResult> {
+  const timeoutSentinel = Symbol("restart-timeout");
+  const result = await Promise.race<AgentRuntime | null | typeof timeoutSentinel>(
+    [
+      onRestart(),
+      new Promise<typeof timeoutSentinel>((resolve) =>
+        setTimeout(() => resolve(timeoutSentinel), Math.max(0, timeoutMs)),
+      ),
+    ],
+  );
+  if (result === timeoutSentinel) {
+    return { runtime: null, timedOut: true };
+  }
+  return { runtime: result, timedOut: false };
+}
+
+function applyStartFailureState(
+  state: AgentLifecycleRouteState,
+  fallbackState: AgentStateStatus = "error",
+): void {
+  state.agentState = fallbackState;
+  state.startedAt = undefined;
+  state.model = undefined;
 }
 
 function applyRuntimeRunningState(
@@ -132,7 +154,7 @@ async function tryDisableAutonomy(runtime: AgentRuntime | null): Promise<void> {
 export async function handleAgentLifecycleRoutes(
   ctx: AgentLifecycleRouteContext,
 ): Promise<boolean> {
-  const { res, method, pathname, state, onRestart, json, error } = ctx;
+  const { res, method, pathname, state, onRestart, onStop, json, error } = ctx;
 
   // ── POST /api/agent/start ─────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/agent/start") {
@@ -170,24 +192,32 @@ export async function handleAgentLifecycleRoutes(
         setTimeout(() => {
           void (async () => {
             try {
-              let restartedRuntime = await waitForRestartWithTimeout(
+              const restartAttempt = await waitForRestartWithTimeout(
                 onRestart,
                 START_RESTART_TIMEOUT_MS,
               );
+              let restartedRuntime = restartAttempt.runtime;
+
+              if (!restartAttempt.timedOut && !restartedRuntime) {
+                applyStartFailureState(state);
+                return;
+              }
+
               if (!restartedRuntime) {
                 restartedRuntime = await waitForRuntimeFromState(
                   state,
-                  RUNTIME_ATTACH_WAIT_MS,
+                  START_RESTART_TIMEOUT_MS,
                 );
               }
               if (!restartedRuntime) {
-                // Keep startup non-blocking: runtime bootstrap may still be
-                // in-flight and will publish final state via status updates.
+                applyStartFailureState(state);
                 return;
               }
               applyRuntimeRunningState(state, restartedRuntime);
               await tryEnableAutonomy(restartedRuntime);
-            } catch {}
+            } catch {
+              applyStartFailureState(state);
+            }
           })();
         }, 0);
         return true;
@@ -214,7 +244,23 @@ export async function handleAgentLifecycleRoutes(
 
   // ── POST /api/agent/stop ──────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/agent/stop") {
+    if (onStop) {
+      try {
+        await onStop();
+      } catch {
+        // Host stop hook is best-effort.
+      }
+    }
+
     await tryDisableAutonomy(state.runtime);
+    if (state.runtime) {
+      try {
+        await state.runtime.stop();
+      } catch {
+        // Stop should be best-effort; state still transitions to stopped.
+      }
+      state.runtime = null;
+    }
 
     state.agentState = "stopped";
     state.startedAt = undefined;

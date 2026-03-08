@@ -1371,6 +1371,25 @@ describe("isRecoverablePgliteInitError", () => {
     expect(isRecoverablePgliteInitError(err)).toBe(true);
   });
 
+  it("returns true when agent update query fails", () => {
+    const err = new Error(
+      'Failed query: update "agents" set "updated_at" = $1 where "agents"."id" = $2',
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true when memories-embeddings join query fails", () => {
+    const err = new Error(
+      'Failed query: select "memories"."id" from "memories" inner join "embeddings" on "embeddings"."memory_id" = "memories"."id" where "memories"."agent_id" = $1',
+    );
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
+  it("returns true for recoverable SQL error codes", () => {
+    const err = Object.assign(new Error("column missing"), { code: "42703" });
+    expect(isRecoverablePgliteInitError(err)).toBe(true);
+  });
+
   it("returns false for migration failures without recoverable signals", () => {
     const err = new Error(
       '1 migration(s) failed:\n  worlds: relation "foo" does not exist',

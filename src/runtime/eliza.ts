@@ -2027,10 +2027,33 @@ function collectErrorMessages(err: unknown): string[] {
   return messages;
 }
 
+function extractSqlErrorCode(err: unknown): string | null {
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const maybeCode = (current as { code?: unknown }).code;
+    if (typeof maybeCode === "string" && maybeCode.length > 0) {
+      return maybeCode.toUpperCase();
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+
+  return null;
+}
+
 /** @internal Exported for testing. */
 export function isRecoverablePgliteInitError(err: unknown): boolean {
   const haystack = collectErrorMessages(err).join("\n").toLowerCase();
   if (!haystack) return false;
+  const sqlCode = extractSqlErrorCode(err);
+  if (sqlCode) {
+    // invalid_schema_name / undefined_table
+    if (sqlCode === "3F000" || sqlCode === "42P01") return true;
+    // undefined_column / datatype_mismatch
+    if (sqlCode === "42703" || sqlCode === "42804") return true;
+  }
 
   const hasAbort = haystack.includes("aborted(). build with -sassertions");
   const hasPglite = haystack.includes("pglite");
@@ -2051,6 +2074,16 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
       haystack.includes('"agents"."id" = $1')) ||
     haystack.includes('relation "agents" does not exist') ||
     haystack.includes("no such table: agents");
+  const hasAgentWriteFailure =
+    haystack.includes('update "agents" set') ||
+    haystack.includes("failed to update agent") ||
+    haystack.includes('column "username" of relation "agents" does not exist');
+  const hasMemoryReadFailure =
+    haystack.includes('from "memories" inner join "embeddings"') ||
+    haystack.includes('relation "memories" does not exist') ||
+    haystack.includes('relation "embeddings" does not exist') ||
+    haystack.includes("no such table: memories") ||
+    haystack.includes("no such table: embeddings");
   const hasExitStatusCrash =
     haystack.includes("program terminated with exit(1)") ||
     haystack.includes("exitstatus");
@@ -2075,6 +2108,8 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   if (hasMigrationFailureSummary && hasExitStatusCrash) return true;
   // Some corrupted/partial bootstraps fail at the first agents lookup query.
   if (hasAgentsBootstrapLookupFailure) return true;
+  if (hasAgentWriteFailure) return true;
+  if (hasMemoryReadFailure) return true;
   if (hasAbort && hasPglite) return true;
   if (hasRecoverableStorageSignal && (hasPglite || hasSqlite)) return true;
   return false;
@@ -3711,10 +3746,40 @@ export async function startEliza(
     const isRecoverable = isRecoverablePgliteInitError(err);
     const canRetryWithSkipMigrations =
       isRecoverable && !opts?.skipMigrationsForRecovery;
+    const pgliteRecoveryAttempts =
+      opts?.pgliteRecoveryAttempts ?? (opts?.pgliteRecoveryAttempted ? 1 : 0);
+    const MAX_PGLITE_RECOVERY_ATTEMPTS = 2;
+    const pgliteDataDir = resolveActivePgliteDataDir(config);
+    const canRecover =
+      pgliteRecoveryAttempts < MAX_PGLITE_RECOVERY_ATTEMPTS &&
+      pgliteDataDir &&
+      isRecoverable;
 
-    // First fallback: retry startup once in compatibility mode by skipping
-    // plugin migrations. This avoids hard-failing boot on local migration
-    // metadata corruption where core runtime tables are otherwise usable.
+    if (canRecover && pgliteDataDir) {
+      logger.warn(
+        `[milady] Runtime startup DB initialization failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup (${pgliteRecoveryAttempts + 1}/${MAX_PGLITE_RECOVERY_ATTEMPTS}).`,
+      );
+      await resetPgliteDataDir(pgliteDataDir);
+      process.env.PGLITE_DATA_DIR = pgliteDataDir;
+
+      try {
+        await runtime.stop();
+      } catch {
+        // Ignore cleanup errors — retry creates a fresh runtime anyway.
+      }
+
+      return await startEliza({
+        ...opts,
+        // After wiping DB, retry with full migrations on the clean store.
+        skipMigrationsForRecovery: false,
+        pgliteRecoveryAttempted: true,
+        pgliteRecoveryAttempts: pgliteRecoveryAttempts + 1,
+      });
+    }
+
+    // Last-resort fallback: retry startup once in compatibility mode by
+    // skipping plugin migrations. Use this only when clean DB recovery
+    // is unavailable.
     if (canRetryWithSkipMigrations) {
       logger.warn(
         `[milady] Runtime migrations failed (${formatError(err)}). Retrying once with skipMigrations compatibility mode.`,
@@ -3730,38 +3795,7 @@ export async function startEliza(
       });
     }
 
-    const pgliteRecoveryAttempts =
-      opts?.pgliteRecoveryAttempts ?? (opts?.pgliteRecoveryAttempted ? 1 : 0);
-    const MAX_PGLITE_RECOVERY_ATTEMPTS = 2;
-    const pgliteDataDir = resolveActivePgliteDataDir(config);
-    const canRecover =
-      pgliteRecoveryAttempts < MAX_PGLITE_RECOVERY_ATTEMPTS &&
-      pgliteDataDir &&
-      isRecoverable;
-
-    if (!canRecover || !pgliteDataDir) {
-      throw err;
-    }
-
-    logger.warn(
-      `[milady] Runtime startup DB initialization failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup (${pgliteRecoveryAttempts + 1}/${MAX_PGLITE_RECOVERY_ATTEMPTS}).`,
-    );
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
-
-    try {
-      await runtime.stop();
-    } catch {
-      // Ignore cleanup errors — retry creates a fresh runtime anyway.
-    }
-
-    return await startEliza({
-      ...opts,
-      // After wiping DB, retry with full migrations on the clean store.
-      skipMigrationsForRecovery: false,
-      pgliteRecoveryAttempted: true,
-      pgliteRecoveryAttempts: pgliteRecoveryAttempts + 1,
-    });
+    throw err;
   }
 
   installActionAliases(runtime);

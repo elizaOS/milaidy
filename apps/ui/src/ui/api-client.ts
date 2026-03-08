@@ -168,6 +168,12 @@ export interface WorkbenchSummaryOverview {
 export interface WorkbenchOverviewResponse {
   summary: WorkbenchSummaryOverview;
   autonomy: WorkbenchAutonomyOverview;
+  coding?: {
+    available: boolean;
+    taskCount: number;
+    activeTaskCount: number;
+    supervisionLevel: string;
+  };
   tasksAvailable: boolean;
   triggersAvailable: boolean;
   todosAvailable: boolean;

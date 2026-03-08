@@ -15,6 +15,11 @@ export MILADY_HEADLESS="$HEADLESS"
 export MILADY_STRICT_PORT="${MILADY_STRICT_PORT:-1}"
 export MILADY_RUNTIME_AUTO_DB_RESET="${MILADY_RUNTIME_AUTO_DB_RESET:-1}"
 
+# Ensure workspace state dir exists before path-safety checks that resolve
+# MILADY_CONFIG_PATH dirname. Without this, reset flows that remove
+# `.milady-state` can fail startup before runtime even boots.
+mkdir -p "$MILADY_STATE_DIR"
+
 ALLOW_NON_WORKSPACE_STATE="${MILADY_ALLOW_NON_WORKSPACE_STATE:-0}"
 EXPECTED_STATE_DIR="$ROOT_DIR/.milady-state"
 EXPECTED_CONFIG_PATH="$EXPECTED_STATE_DIR/milady.json"
@@ -66,11 +71,28 @@ for stale_port in $(seq "$START_PORT" "$END_PORT"); do
   done
 done
 
+# Wait briefly for killed listeners to fully release the strict port.
+deadline=$((SECONDS + 8))
+while lsof -ti "tcp:${START_PORT}" >/dev/null 2>&1; do
+  if (( SECONDS >= deadline )); then
+    break
+  fi
+  sleep 0.25
+done
+
 # Fail fast if the primary API port is still occupied after cleanup. This
 # prevents silent fallback/port drift where UI and backend target different
 # processes.
 remaining_pid="$(lsof -ti "tcp:${START_PORT}" 2>/dev/null || true)"
 if [[ -n "${remaining_pid}" ]]; then
+  # If a healthy API is already serving on the strict port, reuse it instead
+  # of failing launcher startup (common during fast reset/restart races).
+  if command -v curl >/dev/null 2>&1; then
+    if curl -sS --max-time 1 "http://127.0.0.1:${START_PORT}/api/status" | grep -q '"state"'; then
+      echo "[milady] strict port ${START_PORT} already has a healthy runtime API; reusing existing listener."
+      exit 0
+    fi
+  fi
   echo "[milady] error: port ${START_PORT} is still in use by pid(s): ${remaining_pid}"
   echo "[milady] stop the conflicting process, then retry dev runtime."
   exit 1
@@ -83,8 +105,6 @@ if [[ "$WIPE_DB" == "1" ]]; then
     "$MILADY_STATE_DIR/workspace/.eliza/.elizadb" \
     "$HOME/.milady/workspace/.eliza/.elizadb"
 fi
-
-mkdir -p "$MILADY_STATE_DIR"
 
 echo "[milady] dev-runtime state: $MILADY_STATE_DIR"
 echo "[milady] dev-runtime config: $MILADY_CONFIG_PATH"

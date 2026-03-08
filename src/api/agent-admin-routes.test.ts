@@ -21,10 +21,13 @@ describe("agent admin routes", () => {
   let onReset: (() => Promise<void> | void) | undefined;
   let resolveStateDir: ReturnType<typeof vi.fn>;
   let resolvePath: ReturnType<typeof vi.fn>;
+  let resolveConfigPath: ReturnType<typeof vi.fn>;
   let getHomeDir: ReturnType<typeof vi.fn>;
   let isSafeResetStateDir: ReturnType<typeof vi.fn>;
   let stateDirExists: ReturnType<typeof vi.fn>;
   let removeStateDir: ReturnType<typeof vi.fn>;
+  let configFileExists: ReturnType<typeof vi.fn>;
+  let removeConfigFile: ReturnType<typeof vi.fn>;
   let logWarn: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -57,10 +60,13 @@ describe("agent admin routes", () => {
     onReset = undefined;
     resolveStateDir = vi.fn(() => "/tmp/milady-state");
     resolvePath = vi.fn((value: string) => value);
+    resolveConfigPath = vi.fn(() => "/tmp/milady-state/milady.json");
     getHomeDir = vi.fn(() => "/Users/tester");
     isSafeResetStateDir = vi.fn(() => true);
     stateDirExists = vi.fn(() => true);
     removeStateDir = vi.fn();
+    configFileExists = vi.fn(() => true);
+    removeConfigFile = vi.fn();
     logWarn = vi.fn();
   });
 
@@ -82,10 +88,13 @@ describe("agent admin routes", () => {
         error: (res, message, status) => ctx.error(res, message, status),
         resolveStateDir,
         resolvePath,
+        resolveConfigPath,
         getHomeDir,
         isSafeResetStateDir,
         stateDirExists,
         removeStateDir,
+        configFileExists,
+        removeConfigFile,
         logWarn,
       }),
     { runtimeProvider: () => state },
@@ -164,7 +173,7 @@ describe("agent admin routes", () => {
     });
   });
 
-  test("rejects unsafe reset path", async () => {
+  test("unsafe reset path falls back to soft reset", async () => {
     isSafeResetStateDir.mockReturnValue(false);
 
     const result = await invoke({
@@ -172,11 +181,13 @@ describe("agent admin routes", () => {
       pathname: "/api/agent/reset",
     });
 
-    expect(result.status).toBe(400);
-    expect(result.payload).toMatchObject({
-      error: expect.stringContaining("does not appear safe to delete"),
-    });
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({ ok: true });
+    expect(logWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Refusing to delete unsafe state dir"),
+    );
     expect(removeStateDir).not.toHaveBeenCalled();
+    expect(state.agentState).toBe("not_started");
   });
 
   test("resets runtime and clears server state", async () => {
@@ -204,6 +215,9 @@ describe("agent admin routes", () => {
     expect(state.chatConnectionReady).toBeNull();
     expect(state.chatConnectionPromise).toBeNull();
     expect(removeStateDir).toHaveBeenCalledWith("/tmp/milady-state");
+    expect(removeConfigFile).toHaveBeenCalledWith(
+      "/tmp/milady-state/milady.json",
+    );
   });
 
   test("reset calls onReset hook when provided", async () => {

@@ -40,7 +40,11 @@ import {
   type MiladyConfig,
   saveMiladyConfig,
 } from "../config/config";
-import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
+import {
+  resolveConfigPath,
+  resolveModelsCacheDir,
+  resolveStateDir,
+} from "../config/paths";
 import { isConnectorConfigured } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
@@ -2188,6 +2192,12 @@ const CHAT_RATE_BUCKET_CAP = parseClampedInteger(
   process.env.MILADY_CHAT_RATE_BUCKET_CAP,
   { fallback: 5_000, min: 100, max: 100_000 },
 );
+const CHAT_CONTROL_BUDGETS = {
+  maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
+  rateWindowMs: CHAT_RATE_LIMIT_WINDOW_MS,
+  rateMaxRequests: CHAT_RATE_LIMIT_MAX_REQUESTS,
+  rateBucketCap: CHAT_RATE_BUCKET_CAP,
+};
 
 function resolveChatRateKey(req: http.IncomingMessage): string {
   const auth = req.headers.authorization;
@@ -2461,6 +2471,18 @@ const PROVIDER_TIMEOUT_CHAT_REPLY =
 const GENERIC_NO_RESPONSE_CHAT_REPLY =
   "No response from the model. Check provider status in AI Settings and retry.";
 
+const CODING_SPAWN_INTENT_RE =
+  /\b(?:spawn(?:\s+(?:a|the))?\s+(?:coding\s+)?agent|start\s+(?:a|the)\s+(?:coding\s+)?agent|build\s+(?:a|the)?\s*bot|create\s+(?:a|the)?\s*bot|code\s+task)\b/i;
+
+function isCodingSpawnIntent(prompt: string): boolean {
+  return CODING_SPAWN_INTENT_RE.test(prompt);
+}
+
+function explainTimeoutForPrompt(prompt: string, fallback: string): string {
+  if (!isCodingSpawnIntent(prompt)) return fallback;
+  return "Provider timed out before coding-agent handoff. No agent was spawned yet. Retry once, then reduce prompt length or switch provider.";
+}
+
 function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -2496,7 +2518,7 @@ function findRecentInsufficientCreditsLog(
 
 function findRecentProviderAuthLog(
   logBuffer: LogEntry[],
-  lookbackMs = 60_000,
+  lookbackMs = 30 * 60_000,
 ): LogEntry | null {
   const now = Date.now();
   for (let i = logBuffer.length - 1; i >= 0; i--) {
@@ -2511,7 +2533,7 @@ function findRecentProviderAuthLog(
 
 function findRecentProviderTimeoutLog(
   logBuffer: LogEntry[],
-  lookbackMs = 60_000,
+  lookbackMs = 5 * 60_000,
 ): LogEntry | null {
   const now = Date.now();
   for (let i = logBuffer.length - 1; i >= 0; i--) {
@@ -2689,11 +2711,7 @@ function classifyChatError(err: unknown): ClassifiedChatError {
 
   if (
     lower.includes("migration(s) failed") ||
-    lower.includes("failed query:") ||
     lower.includes("create schema if not exists migrations") ||
-    lower.includes('insert into "relationships"') ||
-    lower.includes("error creating relationship") ||
-    lower.includes('from "relationships"') ||
     lower.includes('from "agents" where "agents"."id" = $1') ||
     lower.includes("from migrations._migrations")
   ) {
@@ -2702,6 +2720,20 @@ function classifyChatError(err: unknown): ClassifiedChatError {
       message:
         "Runtime database write/startup failed. Use Reset Everything in Config, then start the agent again.",
       status: 503,
+    };
+  }
+
+  if (
+    lower.includes('insert into "relationships"') ||
+    lower.includes("error creating relationship") ||
+    lower.includes('from "relationships"') ||
+    (lower.includes("failed query:") && lower.includes("relationships"))
+  ) {
+    return {
+      code: "CHAT_REQUEST_FAILED",
+      message:
+        "Runtime memory write failed while handling this message. Retry once. If it repeats, restart agent in Config.",
+      status: 500,
     };
   }
 
@@ -2815,6 +2847,12 @@ async function generateChatResponse(
     message.content.source.trim().length > 0
       ? message.content.source
       : "api";
+  const promptText =
+    typeof message.content.text === "string" ? message.content.text : "";
+  const isSpawnIntent = isCodingSpawnIntent(promptText);
+  const beforeCodingTaskIds = isSpawnIntent
+    ? await readCodingTaskIds(runtime)
+    : null;
   const emitChunk = (chunk: string): void => {
     if (!chunk) return;
     responseText += chunk;
@@ -3002,9 +3040,21 @@ async function generateChatResponse(
   }
 
   const noResponseFallback = opts?.resolveNoResponseText?.();
-  const finalText = isNoResponsePlaceholder(responseText)
+  let finalText = isNoResponsePlaceholder(responseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
+
+  if (isSpawnIntent) {
+    const afterCodingTaskIds = await readCodingTaskIds(runtime);
+    const hasNewCodingTask =
+      beforeCodingTaskIds &&
+      afterCodingTaskIds &&
+      [...afterCodingTaskIds].some((id) => !beforeCodingTaskIds.has(id));
+    if (!hasNewCodingTask && responseClaimsSpawn(finalText)) {
+      finalText =
+        "Coding agent spawn was not confirmed by the backend. No new coding task was created. Retry once with: 'Spawn agent now'. If it repeats, switch provider or shorten the request.";
+    }
+  }
 
   return {
     text: finalText,
@@ -4860,6 +4910,7 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
   onReset: (() => Promise<void> | void) | null;
+  onStop: (() => Promise<void> | void) | null;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -5548,6 +5599,17 @@ interface WorkbenchTodoView {
   type: string;
 }
 
+interface CodingCoordinatorTaskLike {
+  id?: string;
+  metadata?: {
+    status?: string;
+  };
+}
+
+interface CodingCoordinatorServiceLike {
+  getTasks?: () => Promise<CodingCoordinatorTaskLike[]>;
+}
+
 interface TodoDataServiceLike {
   createTodo: (input: Record<string, unknown>) => Promise<string>;
   getTodos: (
@@ -5559,6 +5621,47 @@ interface TodoDataServiceLike {
     updates: Record<string, unknown>,
   ) => Promise<boolean>;
   deleteTodo: (todoId: string) => Promise<boolean>;
+}
+
+function isCodingTaskActive(task: CodingCoordinatorTaskLike): boolean {
+  const status = String(task.metadata?.status ?? "").toLowerCase();
+  return !["completed", "failed", "error", "cancelled", "stopped"].includes(
+    status,
+  );
+}
+
+async function readCodingTaskIds(
+  runtime: AgentRuntime,
+): Promise<Set<string> | null> {
+  try {
+    const codingCoordinator = runtime.getService(
+      "CODE_TASK",
+    ) as CodingCoordinatorServiceLike | null;
+    if (!codingCoordinator?.getTasks) return null;
+    const tasks = await codingCoordinator.getTasks();
+    return new Set(
+      tasks
+        .map((task) =>
+          typeof task.id === "string" && task.id.trim().length > 0
+            ? task.id
+            : null,
+        )
+        .filter((id): id is string => Boolean(id)),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function responseClaimsSpawn(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("spawned a coding agent") ||
+    lower.includes("i spawned a coding agent") ||
+    lower.includes("i have spawned") ||
+    lower.includes("scaffold") ||
+    lower.includes("created the repo skeleton")
+  );
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -6389,6 +6492,13 @@ async function handleRequest(
       reasons: [...state.pendingRestartReasons],
     });
 
+    // Explicit stop is authoritative: keep restart reasons queued, but do not
+    // auto-apply while the agent is in stopped state.
+    if (state.agentState === "stopped") {
+      state.broadcastStatus?.();
+      return;
+    }
+
     // In hosts with an in-process restart handler (dev-server / desktop),
     // apply the restart automatically so provider/plugin changes take effect
     // without requiring a manual /api/agent/restart call.
@@ -7117,6 +7227,7 @@ async function handleRequest(
         inflight: state.inflightChatRequests,
         maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
       },
+      chatControls: CHAT_CONTROL_BUDGETS,
     });
     return;
   }
@@ -7129,6 +7240,7 @@ async function handleRequest(
       now: Date.now(),
       state: state.agentState,
       startupPhase: state.startup.phase,
+      chatControls: CHAT_CONTROL_BUDGETS,
     });
     return;
   }
@@ -7160,6 +7272,11 @@ async function handleRequest(
         startup: state.startup,
         pendingRestart: state.pendingRestartReasons.length > 0,
         pendingRestartReasons: state.pendingRestartReasons,
+        chatControls: CHAT_CONTROL_BUDGETS,
+        chatLoad: {
+          inflight: state.inflightChatRequests,
+          maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
+        },
       },
       statusCode,
     );
@@ -7806,6 +7923,7 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
+      onStop: ctx?.onStop ?? undefined,
       json,
       error,
     })
@@ -7891,11 +8009,16 @@ async function handleRequest(
       error,
       resolveStateDir,
       resolvePath: path.resolve,
+      resolveConfigPath,
       getHomeDir: os.homedir,
       isSafeResetStateDir,
       stateDirExists: fs.existsSync,
       removeStateDir: (resolvedState) => {
         fs.rmSync(resolvedState, { recursive: true, force: true });
+      },
+      configFileExists: fs.existsSync,
+      removeConfigFile: (resolvedConfigPath) => {
+        fs.rmSync(resolvedConfigPath, { force: true });
       },
       logWarn: (message) => logger.warn(message),
     })
@@ -12663,9 +12786,13 @@ async function handleRequest(
           });
         } else {
           const classified = classifyChatError(err);
+          const timeoutAwareMessage =
+            classified.code === "PROVIDER_TIMEOUT"
+              ? explainTimeoutForPrompt(prompt, classified.message)
+              : classified.message;
           writeSse(res, {
             type: "error",
-            message: classified.message,
+            message: timeoutAwareMessage,
             code: classified.code,
           });
         }
@@ -12767,7 +12894,18 @@ async function handleRequest(
           agentName: state.agentName,
         });
       } else {
-        sendClassifiedChatError(res, err, 500);
+        const classified = classifyChatError(err);
+        json(
+          res,
+          {
+            error:
+              classified.code === "PROVIDER_TIMEOUT"
+                ? explainTimeoutForPrompt(prompt, classified.message)
+                : classified.message,
+            code: classified.code,
+          },
+          classified.status || 500,
+        );
       }
     } finally {
       releaseChatSlot();
@@ -12943,6 +13081,12 @@ async function handleRequest(
       thinking: autonomyState.thinking,
       lastEventAt: latestAutonomyEvent?.ts ?? null,
     };
+    let coding = {
+      available: false,
+      taskCount: 0,
+      activeTaskCount: 0,
+      supervisionLevel: "autonomous" as const,
+    };
     let tasksAvailable = false;
     let triggersAvailable = false;
     let todosAvailable = false;
@@ -12950,6 +13094,23 @@ async function handleRequest(
     let todoData: TodoDataServiceLike | null = null;
 
     if (state.runtime) {
+      try {
+        const codingCoordinator = state.runtime.getService(
+          "CODE_TASK",
+        ) as CodingCoordinatorServiceLike | null;
+        if (codingCoordinator?.getTasks) {
+          const codingTasks = await codingCoordinator.getTasks();
+          coding = {
+            available: true,
+            taskCount: codingTasks.length,
+            activeTaskCount: codingTasks.filter(isCodingTaskActive).length,
+            supervisionLevel: "autonomous",
+          };
+        }
+      } catch {
+        // coding orchestrator unavailable; leave defaults
+      }
+
       try {
         runtimeTasks = await state.runtime.getTasks({});
         tasksAvailable = true;
@@ -13038,6 +13199,7 @@ async function handleRequest(
       todos,
       summary,
       autonomy,
+      coding,
       tasksAvailable,
       triggersAvailable,
       todosAvailable,
@@ -14501,6 +14663,11 @@ export async function startApiServer(opts?: {
    * state directory deletion.
    */
   onReset?: () => Promise<void> | void;
+  /**
+   * Called when the UI requests an explicit stop via `POST /api/agent/stop`.
+   * Hosts can use this to suspend background bootstrap/retry loops.
+   */
+  onStop?: () => Promise<void> | void;
 }): Promise<{
   port: number;
   close: () => Promise<void>;
@@ -14852,13 +15019,14 @@ export async function startApiServer(opts?: {
   // Store the restart callback on the state so the route handler can access it.
   const onRestart = opts?.onRestart ?? null;
   const onReset = opts?.onReset ?? null;
+  const onStop = opts?.onStop ?? null;
 
   console.log(
     `[milady-api] Creating http server (${Date.now() - apiStartTime}ms)`,
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, { onRestart, onReset });
+      await handleRequest(req, res, state, { onRestart, onReset, onStop });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -15743,6 +15911,17 @@ export async function startApiServer(opts?: {
       if (port === 0) return 0;
       if (await isPortAvailable(port)) return port;
       if (strictPort) {
+        // Reset/restart flows can briefly leave the strict port in a
+        // transitional state. Give it a short grace window before failing.
+        const strictDeadline = Date.now() + 8_000;
+        while (Date.now() < strictDeadline) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          // eslint-disable-next-line no-await-in-loop
+          if (await isPortAvailable(port)) {
+            return port;
+          }
+        }
         throw new Error(
           `Port ${port} is already in use and MILADY_STRICT_PORT=1 is set`,
         );

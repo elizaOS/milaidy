@@ -1,4 +1,5 @@
 import type { AgentRuntime, UUID } from "@elizaos/core";
+import path from "node:path";
 import type { MiladyConfig } from "../config/config";
 import { detectRuntimeModel } from "./agent-model";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
@@ -41,10 +42,13 @@ export interface AgentAdminRouteContext
   onReset?: (() => Promise<void> | void) | undefined;
   resolveStateDir: () => string;
   resolvePath: (value: string) => string;
+  resolveConfigPath: () => string;
   getHomeDir: () => string;
   isSafeResetStateDir: (resolvedState: string, homeDir: string) => boolean;
   stateDirExists: (resolvedState: string) => boolean;
   removeStateDir: (resolvedState: string) => void;
+  configFileExists: (resolvedConfigPath: string) => boolean;
+  removeConfigFile: (resolvedConfigPath: string) => void;
   logWarn: (message: string) => void;
 }
 
@@ -109,10 +113,13 @@ export async function handleAgentAdminRoutes(
     error,
     resolveStateDir,
     resolvePath,
+    resolveConfigPath,
     getHomeDir,
     isSafeResetStateDir,
     stateDirExists,
     removeStateDir,
+    configFileExists,
+    removeConfigFile,
     logWarn,
   } = ctx;
 
@@ -179,6 +186,7 @@ export async function handleAgentAdminRoutes(
   if (method === "POST" && pathname === "/api/agent/reset") {
     try {
       const configBeforeReset = state.config;
+      const resetWarnings: string[] = [];
 
       // Let host runtimes quiesce bootstrap/retry loops before we wipe local
       // state. This prevents reset/start races where a stale boot task reattaches.
@@ -222,16 +230,30 @@ export async function handleAgentAdminRoutes(
         logWarn(
           `[milady-api] Refusing to delete unsafe state dir: "${resolvedState}"`,
         );
-        error(
-          res,
-          `Reset aborted: state directory "${resolvedState}" does not appear safe to delete`,
-          400,
+        resetWarnings.push(
+          `State directory "${resolvedState}" was not deleted (safety guard).`,
         );
-        return true;
       }
 
-      if (stateDirExists(resolvedState)) {
+      if (isSafe && stateDirExists(resolvedState)) {
         removeStateDir(resolvedState);
+      }
+
+      // 2a. Always remove config file(s) explicitly so reset returns to
+      // onboarding even when state-dir deletion is blocked.
+      const configCandidates = new Set<string>([
+        resolvePath(resolveConfigPath()),
+        resolvePath(path.join(resolvedState, "milady.json")),
+      ]);
+      for (const configPath of configCandidates) {
+        const configBase = path.basename(configPath).toLowerCase();
+        const parentSafe = isSafeResetStateDir(path.dirname(configPath), home);
+        if (configBase !== "milady.json" || !parentSafe) {
+          continue;
+        }
+        if (configFileExists(configPath)) {
+          removeConfigFile(configPath);
+        }
       }
 
       // 2b. Clear runtime-managed env vars so onboarding starts from a
@@ -257,7 +279,10 @@ export async function handleAgentAdminRoutes(
         state.startup.nextRetryAt = undefined;
       }
 
-      json(res, { ok: true });
+      json(res, {
+        ok: true,
+        warnings: resetWarnings,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       error(res, `Reset failed: ${message}`, 500);

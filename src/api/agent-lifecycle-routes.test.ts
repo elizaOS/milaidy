@@ -15,6 +15,7 @@ function createRuntimeWithAutonomyService(
 ): AgentRuntime {
   return {
     plugins,
+    stop: vi.fn(async () => undefined),
     getService: vi.fn((name: string) => (name === "AUTONOMY" ? service : null)),
   } as unknown as AgentRuntime;
 }
@@ -24,6 +25,7 @@ describe("agent lifecycle routes", () => {
   let enableAutonomy: ReturnType<typeof vi.fn>;
   let disableAutonomy: ReturnType<typeof vi.fn>;
   let onRestart: (() => Promise<AgentRuntime | null>) | undefined;
+  let onStop: (() => Promise<void> | void) | undefined;
 
   beforeEach(() => {
     enableAutonomy = vi.fn(async () => undefined);
@@ -42,6 +44,7 @@ describe("agent lifecycle routes", () => {
       startedAt: undefined,
     };
     onRestart = undefined;
+    onStop = undefined;
   });
 
   const invoke = createRouteInvoker<
@@ -57,6 +60,7 @@ describe("agent lifecycle routes", () => {
         pathname: ctx.pathname,
         state: ctx.runtime,
         onRestart,
+        onStop,
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
       }),
@@ -227,7 +231,7 @@ describe("agent lifecycle routes", () => {
       ok: true,
       status: { state: "starting" },
     });
-    expect(state.agentState).toBe("starting");
+    expect(state.agentState).toBe("error");
   });
 
   test("start returns immediately even when restart handler begins with sync work", async () => {
@@ -275,6 +279,7 @@ describe("agent lifecycle routes", () => {
 
     expect(result.status).toBe(200);
     expect(state.agentState).toBe("stopped");
+    expect(state.runtime).toBeNull();
     expect(state.startedAt).toBeUndefined();
     expect(state.model).toBeUndefined();
     expect(disableAutonomy).toHaveBeenCalledTimes(1);
@@ -282,6 +287,19 @@ describe("agent lifecycle routes", () => {
       ok: true,
       status: { state: "stopped", agentName: "Milady" },
     });
+  });
+
+  test("stop invokes host onStop hook when provided", async () => {
+    onStop = vi.fn(async () => undefined);
+    state.agentState = "running";
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/stop",
+    });
+
+    expect(result.status).toBe(200);
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   test("pauses the agent and reports uptime", async () => {

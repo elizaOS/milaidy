@@ -45,6 +45,7 @@ plugins/plugin-blooio/
 .milady-state-debug/
 .milady-state.backup-*/
 .milady-state*.backup*/
+.milady-state.pre-rollback-*/
 .git-workspace/
 IDENTITY.md
 USER.md

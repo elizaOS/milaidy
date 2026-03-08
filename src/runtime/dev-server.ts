@@ -4,6 +4,7 @@ console.log(`[milady] Script starting...`);
 
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 /**
  * Combined dev server — starts the ElizaOS runtime in headless mode and
  * wires it into the API server so the Control UI has a live agent to talk to.
@@ -123,6 +124,8 @@ function isRecoverableRuntimeDbError(err: unknown): boolean {
   if (code) {
     // 3F000: invalid_schema_name, 42P01: undefined_table
     if (code === "3F000" || code === "42P01") return true;
+    // 42703: undefined_column, 42804: datatype_mismatch
+    if (code === "42703" || code === "42804") return true;
   }
 
   const msg = formatError(err).toLowerCase();
@@ -133,7 +136,14 @@ function isRecoverableRuntimeDbError(err: unknown): boolean {
     msg.includes('relation "migrations._migrations" does not exist') ||
     msg.includes("create schema if not exists migrations") ||
     msg.includes('from "agents" where "agents"."id" = $1') ||
-    msg.includes('relation "agents" does not exist')
+    msg.includes('relation "agents" does not exist') ||
+    msg.includes("[plugin:sql] failed to update agent") ||
+    msg.includes('update "agents" set') ||
+    msg.includes('from "memories" inner join "embeddings"') ||
+    msg.includes('relation "memories" does not exist') ||
+    msg.includes('relation "embeddings" does not exist') ||
+    msg.includes('column "username" of relation "agents" does not exist') ||
+    msg.includes('column "trajectory_id" of relation "trajectories" does not exist')
   );
 }
 
@@ -183,10 +193,69 @@ async function resetRuntimePgliteDataDir(dataDir: string): Promise<void> {
   await fs.mkdir(normalized, { recursive: true });
 }
 
+async function wipeRuntimePgliteDataDirsForReset(): Promise<void> {
+  const primaryDir = resolveRuntimePgliteDataDir();
+  const legacyDir = path.join(
+    process.env.HOME ?? "",
+    ".milady",
+    "workspace",
+    ".eliza",
+    ".elizadb",
+  );
+  const dirs = new Set<string>([path.resolve(primaryDir)]);
+  if (legacyDir.trim()) {
+    dirs.add(path.resolve(legacyDir));
+  }
+
+  for (const dir of dirs) {
+    const root = path.parse(dir).root;
+    if (dir === root) continue;
+    try {
+      await fs.rm(dir, { recursive: true, force: true });
+      logger.warn(`[milady] Reset removed local runtime DB dir: ${dir}`);
+    } catch (err) {
+      logger.warn(
+        `[milady] Failed to remove runtime DB dir during reset (${dir}): ${formatError(err)}`,
+      );
+    }
+  }
+}
+
 function clearRuntimeBootTimer(): void {
   if (runtimeBootTimer) {
     clearTimeout(runtimeBootTimer);
     runtimeBootTimer = null;
+  }
+}
+
+function reclaimRuntimePortsForReset(basePort: number): void {
+  const start = Math.max(1, basePort);
+  const end = Math.max(start, basePort + 20);
+  const selfPid = process.pid;
+
+  for (let p = start; p <= end; p += 1) {
+    let raw = "";
+    try {
+      raw = execSync(`lsof -ti tcp:${p} 2>/dev/null || true`, {
+        encoding: "utf8",
+      });
+    } catch {
+      raw = "";
+    }
+    const pids = raw
+      .split(/\s+/)
+      .map((v) => Number.parseInt(v, 10))
+      .filter((v) => Number.isFinite(v) && v > 0 && v !== selfPid);
+    for (const pid of pids) {
+      try {
+        process.kill(pid, "SIGKILL");
+        logger.warn(
+          `[milady] Reset reclaimed stale listener pid=${pid} on :${p}`,
+        );
+      } catch {
+        // Best effort only.
+      }
+    }
   }
 }
 
@@ -337,9 +406,9 @@ async function bootstrapRuntime(
       try {
         const pgliteDataDir = resolveRuntimePgliteDataDir();
         logger.warn(
-          `[milady] Runtime DB startup failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying bootstrap once.`,
+          `[milady] Runtime DB startup failed (${formatError(err)}). Wiping local PGLite DB dirs and retrying bootstrap once.`,
         );
-        await resetRuntimePgliteDataDir(pgliteDataDir);
+        await wipeRuntimePgliteDataDirsForReset();
         process.env.PGLITE_DATA_DIR = pgliteDataDir;
         runtimeBootDbResetAttempted = true;
         scheduleRuntimeBootstrap(500, "pglite-recovery");
@@ -435,6 +504,53 @@ async function quiesceRuntimeForReset(reason = "api-reset"): Promise<void> {
     lastErrorAt: undefined,
     nextRetryAt: undefined,
     state: "not_started",
+  });
+
+  // Ensure the next bootstrap starts from a clean local DB schema.
+  await wipeRuntimePgliteDataDirsForReset();
+
+  // Reset Everything should leave a single clean runtime owner. Reclaim stale
+  // listeners on the runtime port range so post-reset onboarding doesn't get
+  // trapped by strict-port bind conflicts.
+  reclaimRuntimePortsForReset(port);
+}
+
+async function quiesceRuntimeForStop(reason = "api-stop"): Promise<void> {
+  logger.info(`[milady] Suspending runtime bootstrap state (${reason})`);
+  runtimeBootSuspended = true;
+  runtimeBootGeneration += 1;
+  clearRuntimeBootTimer();
+  runtimeBootAttempt = 0;
+  runtimeBootFirstFailureAt = null;
+  runtimeBootDbResetAttempted = false;
+
+  const waitDeadline = Date.now() + 10_000;
+  while (
+    runtimeBootInProgress &&
+    !isShuttingDown &&
+    Date.now() < waitDeadline
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  if (currentRuntime) {
+    try {
+      await currentRuntime.stop();
+    } catch (err) {
+      logger.warn(
+        `[milady] Error stopping runtime during stop quiesce: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    currentRuntime = null;
+  }
+
+  apiUpdateStartup?.({
+    phase: "idle",
+    attempt: 0,
+    lastError: undefined,
+    lastErrorAt: undefined,
+    nextRetryAt: undefined,
+    state: "stopped",
   });
 }
 
@@ -554,9 +670,9 @@ async function handleRestart(reason?: string): Promise<AgentRuntime | null> {
         try {
           const pgliteDataDir = resolveRuntimePgliteDataDir();
           logger.warn(
-            `[milady] Runtime restart DB init failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying restart once.`,
+            `[milady] Runtime restart DB init failed (${formatError(err)}). Wiping local PGLite DB dirs and retrying restart once.`,
           );
-          await resetRuntimePgliteDataDir(pgliteDataDir);
+          await wipeRuntimePgliteDataDirsForReset();
           process.env.PGLITE_DATA_DIR = pgliteDataDir;
 
           const recoveredRuntime = await createRuntimeWithTimeout(
@@ -703,6 +819,9 @@ async function main() {
     },
     onReset: async () => {
       await quiesceRuntimeForReset("api");
+    },
+    onStop: async () => {
+      await quiesceRuntimeForStop("api");
     },
   });
   apiUpdateRuntime = updateRuntime;
