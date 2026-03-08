@@ -35,9 +35,7 @@ describe("smoke-test.sh", () => {
     expect(script).toContain(
       'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',
     );
-    expect(script).toContain(
-      'echo "WGPU : wrapper bundle -> $RUNTIME_ARCHIVE"',
-    );
+    expect(script).toContain('echo "WGPU : wrapper bundle -> $RUNTIME_ARCHIVE"');
     expect(script).toContain(
       'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
     );
