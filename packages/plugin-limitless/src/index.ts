@@ -6,13 +6,14 @@ import { getPortfolioAction } from "./actions/get-portfolio.js";
 import { runStrategyAction } from "./actions/run-strategy.js";
 import { approveMarketAction } from "./actions/approve-market.js";
 import { limitlessMarketsProvider } from "./providers/markets-provider.js";
+import { resolvePrivateKey } from "./core/wallet.js";
 
 // Re-export core modules for external use
 export { LimitlessClient } from "./core/markets.js";
 export { TradingClient } from "./core/trading.js";
 export { OrderSigner } from "./core/sign.js";
 export { PortfolioClient } from "./core/portfolio.js";
-export { createLimitlessWallet } from "./core/wallet.js";
+export { createLimitlessWallet, getOrCreateWallet, resolvePrivateKey } from "./core/wallet.js";
 export { getPluginConfig } from "./config.js";
 export type {
   Market,
@@ -45,8 +46,14 @@ export const limitlessPlugin: Plugin = {
       (runtime.getSetting?.("LIMITLESS_API_KEY") as string) ||
       process.env.LIMITLESS_API_KEY;
 
+    const walletKey = resolvePrivateKey(runtime);
+
     if (apiKey) {
-      runtime.logger.info("[limitless] Plugin initialized — Limitless Exchange integration active");
+      if (walletKey) {
+        runtime.logger.info("[limitless] Plugin initialized — Limitless Exchange integration active (wallet found)");
+      } else {
+        runtime.logger.info("[limitless] Plugin initialized — read-only mode (no wallet key found). Set LIMITLESS_PRIVATE_KEY, PRIVATE_KEY, or EVM_PRIVATE_KEY to enable trading.");
+      }
     } else {
       runtime.logger.warn(
         "[limitless] Plugin loaded but LIMITLESS_API_KEY not set — market actions will be unavailable",

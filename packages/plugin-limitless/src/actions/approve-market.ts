@@ -16,7 +16,7 @@ import {
 } from "viem";
 import { base } from "viem/chains";
 import { LimitlessClient } from "../core/markets.js";
-import { createLimitlessWallet } from "../core/wallet.js";
+import { getOrCreateWallet } from "../core/wallet.js";
 import { getPluginConfig } from "../config.js";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -80,7 +80,7 @@ export const approveMarketAction: Action = {
         return { success: true };
       }
 
-      const { client: walletClient, account } = createLimitlessWallet(config.privateKey, runtime.logger);
+      const { client: walletClient, account } = getOrCreateWallet(runtime);
       const limitless = new LimitlessClient(config.apiBaseUrl, config.apiKey);
 
       const market = await limitless.getMarket(params.marketSlug);

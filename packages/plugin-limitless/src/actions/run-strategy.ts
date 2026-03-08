@@ -11,7 +11,7 @@ import { LimitlessClient } from "../core/markets.js";
 import { OrderSigner } from "../core/sign.js";
 import { TradingClient } from "../core/trading.js";
 import { PortfolioClient } from "../core/portfolio.js";
-import { createLimitlessWallet } from "../core/wallet.js";
+import { getOrCreateWallet } from "../core/wallet.js";
 import { getPluginConfig } from "../config.js";
 import type { Market } from "../core/types.js";
 
@@ -118,7 +118,7 @@ export const runStrategyAction: Action = {
         return { success: false, error: "Strategy already running" };
       }
 
-      const { client: walletClient, account } = createLimitlessWallet(config.privateKey, runtime.logger);
+      const { client: walletClient, account } = getOrCreateWallet(runtime);
       const limitless = new LimitlessClient(config.apiBaseUrl, config.apiKey);
       const signer = new OrderSigner(walletClient as any, account, 8453);
       const trading = new TradingClient(

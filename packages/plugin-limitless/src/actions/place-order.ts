@@ -10,7 +10,7 @@ import type {
 import { LimitlessClient } from "../core/markets.js";
 import { OrderSigner } from "../core/sign.js";
 import { TradingClient } from "../core/trading.js";
-import { createLimitlessWallet } from "../core/wallet.js";
+import { getOrCreateWallet } from "../core/wallet.js";
 import { getPluginConfig } from "../config.js";
 
 export const placeOrderAction: Action = {
@@ -32,6 +32,7 @@ export const placeOrderAction: Action = {
     const config = getPluginConfig(runtime);
     return !!config.apiKey && !!config.privateKey;
   },
+
 
   handler: async (
     runtime: IAgentRuntime,
@@ -81,7 +82,7 @@ export const placeOrderAction: Action = {
         return { success: false, error: "Invalid price" };
       }
 
-      const { client: walletClient, account } = createLimitlessWallet(config.privateKey, runtime.logger);
+      const { client: walletClient, account } = getOrCreateWallet(runtime);
       const limitless = new LimitlessClient(config.apiBaseUrl, config.apiKey);
       const signer = new OrderSigner(walletClient as any, account, 8453);
       const trading = new TradingClient(
