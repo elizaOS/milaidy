@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTIFACTS_DIR="${1:-apps/app/electrobun/artifacts}"
 SKIP_SIGNATURE_CHECK="${ELECTROBUN_SKIP_CODESIGN:-0}"
 
@@ -73,6 +74,7 @@ LAUNCHER_PATH="$STAGED_APP_PATH/Contents/MacOS/launcher"
 WGPU_PATH="$STAGED_APP_PATH/Contents/MacOS/libwebgpu_dawn.dylib"
 VERSION_JSON_PATH="$STAGED_APP_PATH/Contents/Resources/version.json"
 RUNTIME_DIR="$STAGED_APP_PATH/Contents/Resources/app/milady-dist"
+DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"
 
 for required_path in "$LAUNCHER_PATH" "$WGPU_PATH" "$VERSION_JSON_PATH" "$RUNTIME_DIR"; do
   if [[ ! -e "$required_path" ]]; then
@@ -81,8 +83,25 @@ for required_path in "$LAUNCHER_PATH" "$WGPU_PATH" "$VERSION_JSON_PATH" "$RUNTIM
   fi
 done
 
+if [[ ! -f "$DIRECT_LAUNCHER_SOURCE" ]]; then
+  echo "stage-macos-release-artifacts: direct launcher source not found: $DIRECT_LAUNCHER_SOURCE"
+  exit 1
+fi
+
+TMP_LAUNCHER_PATH="$TMP_ROOT/direct-launcher"
+/usr/bin/clang \
+  -O2 \
+  -Wall \
+  -Wextra \
+  -mmacosx-version-min=11.0 \
+  "$DIRECT_LAUNCHER_SOURCE" \
+  -o "$TMP_LAUNCHER_PATH"
+install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"
+
 echo "Staged app bundle: $STAGED_APP_PATH"
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
+  codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$LAUNCHER_PATH"
+  codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"
   codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
   spctl -a -vv --type exec "$STAGED_APP_PATH"
 else

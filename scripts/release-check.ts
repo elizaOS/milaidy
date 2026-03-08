@@ -98,6 +98,10 @@ function assertMacArtifactStagerLooksCorrect() {
   const requiredSnippets = [
     'find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst"',
     "no macOS updater tarball found",
+    'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
+    "/usr/bin/clang \\",
+    'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
+    'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     "hdiutil create \\",
