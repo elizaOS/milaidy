@@ -6,9 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 type MachOKind = "executable" | "library" | null;
+type ExecFileSyncFn = typeof execFileSync;
 
 const NATIVE_EXTENSIONS = new Set([".bare", ".dylib", ".node", ".so"]);
 const KNOWN_NATIVE_HELPERS = new Set(["spawn-helper"]);
+const CODESIGN_MAX_ATTEMPTS = 4;
+const CODESIGN_RETRY_DELAY_MS = 5_000;
 
 export function classifyMachOKind(description: string): MachOKind {
   const normalized = description.toLowerCase();
@@ -136,6 +139,52 @@ export function shouldConsiderForCodesign(
   return (stats.mode & 0o111) !== 0;
 }
 
+export function buildCodesignArgs(
+  machOKind: Exclude<MachOKind, null>,
+  developerId: string,
+  filePath: string,
+): string[] {
+  const args = ["--force", "--timestamp", "--sign", developerId];
+  if (machOKind === "executable") {
+    args.push("--options", "runtime");
+  }
+  args.push(filePath);
+  return args;
+}
+
+export function isRetryableCodesignFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("timestamp service is not available");
+}
+
+function formatExecSyncFailure(error: unknown): string {
+  if (error instanceof Error) {
+    const stderr =
+      typeof (error as NodeJS.ErrnoException & { stderr?: unknown }).stderr ===
+      "string"
+        ? (error as NodeJS.ErrnoException & { stderr?: string }).stderr
+        : Buffer.isBuffer(
+              (error as NodeJS.ErrnoException & { stderr?: unknown }).stderr,
+            )
+          ? (
+              error as NodeJS.ErrnoException & {
+                stderr: Buffer;
+              }
+            ).stderr.toString("utf8")
+          : "";
+    const trimmedStderr = stderr.trim();
+    if (trimmedStderr) {
+      return trimmedStderr;
+    }
+    return error.message;
+  }
+  return String(error);
+}
+
+function sleepMs(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function resolveDeveloperId(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
@@ -193,7 +242,11 @@ function collectNativeCandidates(rootDir: string): string[] {
   });
 }
 
-function signRuntimeFile(filePath: string, developerId: string): boolean {
+function signRuntimeFile(
+  filePath: string,
+  developerId: string,
+  execFile: ExecFileSyncFn = execFileSync,
+): boolean {
   const fileDescription = execFileSync("file", ["-b", filePath], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -203,12 +256,33 @@ function signRuntimeFile(filePath: string, developerId: string): boolean {
     return false;
   }
 
-  const codesignArgs = ["--force", "--timestamp", "--sign", developerId];
-  if (machOKind === "executable") {
-    codesignArgs.push("--options", "runtime");
+  const codesignArgs = buildCodesignArgs(machOKind, developerId, filePath);
+
+  for (let attempt = 1; attempt <= CODESIGN_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      execFile("codesign", codesignArgs, {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      return true;
+    } catch (error) {
+      const message = formatExecSyncFailure(error);
+      process.stderr.write(`${message.trim()}\n`);
+
+      if (
+        attempt >= CODESIGN_MAX_ATTEMPTS ||
+        !isRetryableCodesignFailure(message)
+      ) {
+        throw error;
+      }
+
+      console.warn(
+        `[runtime-sign] codesign failed for ${filePath} (attempt ${attempt}/${CODESIGN_MAX_ATTEMPTS}) with a retryable timestamp error; retrying in ${CODESIGN_RETRY_DELAY_MS / 1000}s`,
+      );
+      sleepMs(CODESIGN_RETRY_DELAY_MS);
+    }
   }
-  codesignArgs.push(filePath);
-  execFileSync("codesign", codesignArgs, { stdio: "inherit" });
+
   return true;
 }
 

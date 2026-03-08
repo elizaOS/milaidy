@@ -31,6 +31,7 @@ SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
 LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
+PACKAGED_HANDOFF_GRACE_SECONDS="${PACKAGED_HANDOFF_GRACE_SECONDS:-15}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
@@ -203,9 +204,11 @@ dump_failure_diagnostics() {
     echo "Build env: $BUILD_ENV"
     echo "Startup timeout: $STARTUP_TIMEOUT"
     echo "Liveness timeout: $LIVENESS_TIMEOUT"
+    echo "Packaged handoff grace: $PACKAGED_HANDOFF_GRACE_SECONDS"
     echo "Mounted volume: ${MOUNT_POINT:-<none>}"
     echo "Launch bundle: ${LAUNCH_APP_BUNDLE:-<none>}"
     echo "Launcher path: ${LAUNCHER_PATH:-<none>}"
+    echo "Current packaged PID: $(find_live_packaged_pid)"
     echo ""
     echo "Launcher stdout:"
     cat "$LAUNCHER_STDOUT" 2>/dev/null || true
@@ -326,9 +329,20 @@ echo "Build output contents ($OUTPUT_DIR):"
 find "$OUTPUT_DIR" -maxdepth 3 | sort
 
 APP_BUNDLE=""
+APP_BUNDLE_FALLBACK=""
 while IFS= read -r -d '' f; do
+  if [[ -z "$APP_BUNDLE_FALLBACK" ]]; then
+    APP_BUNDLE_FALLBACK="$f"
+  fi
+  if [[ "$f" == *"/.dmg-staging/"* ]]; then
+    continue
+  fi
   APP_BUNDLE="$f"
 done < <(find "$OUTPUT_DIR" -maxdepth 3 -name "*.app" -type d -print0 2>/dev/null)
+
+if [[ -z "$APP_BUNDLE" ]]; then
+  APP_BUNDLE="$APP_BUNDLE_FALLBACK"
+fi
 
 if [[ -z "$APP_BUNDLE" ]]; then
   DMG_PATH="$(find "$OUTPUT_DIR" -maxdepth 1 -name "*.dmg" -type f -print -quit 2>/dev/null || true)"
@@ -426,8 +440,12 @@ else
   echo "Launcher is running (PID $PID). Waiting for backend health..."
 
   BACKEND_PORT=""
+  HANDOFF_PID=""
+  LAUNCHER_EXIT_OBSERVED_AT=""
   DEADLINE=$((SECONDS + STARTUP_TIMEOUT))
   while [[ $SECONDS -lt $DEADLINE ]]; do
+    LIVE_PID="$(find_live_packaged_pid)"
+
     if [[ -f "$STARTUP_LOG" ]]; then
       LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
       if [[ -z "$BACKEND_PORT" ]]; then
@@ -443,11 +461,29 @@ else
         exit 1
       fi
     fi
+
+    if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" >/dev/null 2>&1; then
+      if [[ "$LIVE_PID" != "$PID" && "$LIVE_PID" != "$HANDOFF_PID" ]]; then
+        echo "Launcher handoff detected; following packaged app process $LIVE_PID."
+        HANDOFF_PID="$LIVE_PID"
+      fi
+    fi
+
     if ! kill -0 "$PID" >/dev/null 2>&1 && [[ -z "$BACKEND_PORT" ]]; then
-      wait "$PID" || true
-      echo "ERROR: Packaged launcher exited before backend announced a port."
-      dump_failure_diagnostics "launcher exited before runtime started"
-      exit 1
+      if [[ -z "$LAUNCHER_EXIT_OBSERVED_AT" ]]; then
+        LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
+        echo "Launcher exited; waiting for packaged app handoff..."
+      fi
+
+      if [[ -z "$LIVE_PID" ]]; then
+        HANDOFF_WAITED=$((SECONDS - LAUNCHER_EXIT_OBSERVED_AT))
+        if [[ "$HANDOFF_WAITED" -ge "$PACKAGED_HANDOFF_GRACE_SECONDS" ]]; then
+          wait "$PID" || true
+          echo "ERROR: Packaged launcher exited and no packaged app process appeared within ${PACKAGED_HANDOFF_GRACE_SECONDS}s."
+          dump_failure_diagnostics "launcher exited before packaged app handoff"
+          exit 1
+        fi
+      fi
     fi
     if [[ -n "$BACKEND_PORT" ]]; then
       if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then

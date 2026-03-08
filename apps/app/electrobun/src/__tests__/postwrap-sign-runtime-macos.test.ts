@@ -5,7 +5,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCodesignArgs,
   classifyMachOKind,
+  isRetryableCodesignFailure,
   resolveRuntimeNodeModulesPath,
   shouldConsiderForCodesign,
 } from "../../scripts/postwrap-sign-runtime-macos";
@@ -26,6 +28,51 @@ describe("classifyMachOKind", () => {
   it("ignores non-Mach-O files", () => {
     expect(classifyMachOKind("ELF 64-bit LSB shared object")).toBeNull();
     expect(classifyMachOKind("ASCII text")).toBeNull();
+  });
+});
+
+describe("buildCodesignArgs", () => {
+  it("adds hardened runtime only for executables", () => {
+    expect(
+      buildCodesignArgs(
+        "executable",
+        "Developer ID Application: Test",
+        "/tmp/helper",
+      ),
+    ).toEqual([
+      "--force",
+      "--timestamp",
+      "--sign",
+      "Developer ID Application: Test",
+      "--options",
+      "runtime",
+      "/tmp/helper",
+    ]);
+
+    expect(
+      buildCodesignArgs(
+        "library",
+        "Developer ID Application: Test",
+        "/tmp/addon.node",
+      ),
+    ).toEqual([
+      "--force",
+      "--timestamp",
+      "--sign",
+      "Developer ID Application: Test",
+      "/tmp/addon.node",
+    ]);
+  });
+});
+
+describe("isRetryableCodesignFailure", () => {
+  it("retries timestamp service outages", () => {
+    expect(
+      isRetryableCodesignFailure("The timestamp service is not available."),
+    ).toBe(true);
+    expect(
+      isRetryableCodesignFailure("codesign: resource envelope is obsolete"),
+    ).toBe(false);
   });
 });
 
