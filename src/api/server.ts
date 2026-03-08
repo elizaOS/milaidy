@@ -2476,18 +2476,6 @@ const PROVIDER_TIMEOUT_CHAT_REPLY =
 const GENERIC_NO_RESPONSE_CHAT_REPLY =
   "No response from the model. Check provider status in AI Settings and retry.";
 
-const CODING_SPAWN_INTENT_RE =
-  /\b(?:spawn(?:\s+(?:a|the))?\s+(?:coding\s+)?agent|start\s+(?:a|the)\s+(?:coding\s+)?agent|build\s+(?:a|the)?\s*bot|create\s+(?:a|the)?\s*bot|code\s+task)\b/i;
-
-function isCodingSpawnIntent(prompt: string): boolean {
-  return CODING_SPAWN_INTENT_RE.test(prompt);
-}
-
-function explainTimeoutForPrompt(prompt: string, fallback: string): string {
-  if (!isCodingSpawnIntent(prompt)) return fallback;
-  return "Provider timed out before coding-agent handoff. No agent was spawned yet. Retry once, then reduce prompt length or switch provider.";
-}
-
 function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -2587,7 +2575,7 @@ interface ClassifiedChatError {
   status: number;
 }
 
-function classifyChatError(err: unknown): ClassifiedChatError {
+export function classifyChatError(err: unknown): ClassifiedChatError {
   const raw = getErrorMessage(err, "");
   const msg = raw.trim();
   const lower = msg.toLowerCase();
@@ -2619,14 +2607,7 @@ function classifyChatError(err: unknown): ClassifiedChatError {
     };
   }
 
-  if (
-    lower.includes("incorrect api key") ||
-    lower.includes("invalid api key") ||
-    lower.includes("invalid or expired api key") ||
-    lower.includes("unauthorized") ||
-    lower.includes("401") ||
-    lower.includes("403")
-  ) {
+  if (isProviderAuthMessage(msg)) {
     return {
       code: "PROVIDER_AUTH",
       message: PROVIDER_AUTH_CHAT_REPLY,
@@ -2852,12 +2833,6 @@ async function generateChatResponse(
     message.content.source.trim().length > 0
       ? message.content.source
       : "api";
-  const promptText =
-    typeof message.content.text === "string" ? message.content.text : "";
-  const isSpawnIntent = isCodingSpawnIntent(promptText);
-  const beforeCodingTaskIds = isSpawnIntent
-    ? await readCodingTaskIds(runtime)
-    : null;
   const emitChunk = (chunk: string): void => {
     if (!chunk) return;
     responseText += chunk;
@@ -3045,21 +3020,9 @@ async function generateChatResponse(
   }
 
   const noResponseFallback = opts?.resolveNoResponseText?.();
-  let finalText = isNoResponsePlaceholder(responseText)
+  const finalText = isNoResponsePlaceholder(responseText)
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
-
-  if (isSpawnIntent) {
-    const afterCodingTaskIds = await readCodingTaskIds(runtime);
-    const hasNewCodingTask =
-      beforeCodingTaskIds &&
-      afterCodingTaskIds &&
-      [...afterCodingTaskIds].some((id) => !beforeCodingTaskIds.has(id));
-    if (!hasNewCodingTask && responseClaimsSpawn(finalText)) {
-      finalText =
-        "Coding agent spawn was not confirmed by the backend. No new coding task was created. Retry once with: 'Spawn agent now'. If it repeats, switch provider or shorten the request.";
-    }
-  }
 
   return {
     text: finalText,
@@ -5632,40 +5595,6 @@ function isCodingTaskActive(task: CodingCoordinatorTaskLike): boolean {
   const status = String(task.metadata?.status ?? "").toLowerCase();
   return !["completed", "failed", "error", "cancelled", "stopped"].includes(
     status,
-  );
-}
-
-async function readCodingTaskIds(
-  runtime: AgentRuntime,
-): Promise<Set<string> | null> {
-  try {
-    const codingCoordinator = runtime.getService(
-      "CODE_TASK",
-    ) as CodingCoordinatorServiceLike | null;
-    if (!codingCoordinator?.getTasks) return null;
-    const tasks = await codingCoordinator.getTasks();
-    return new Set(
-      tasks
-        .map((task) =>
-          typeof task.id === "string" && task.id.trim().length > 0
-            ? task.id
-            : null,
-        )
-        .filter((id): id is string => Boolean(id)),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function responseClaimsSpawn(text: string): boolean {
-  const lower = text.toLowerCase();
-  return (
-    lower.includes("spawned a coding agent") ||
-    lower.includes("i spawned a coding agent") ||
-    lower.includes("i have spawned") ||
-    lower.includes("scaffold") ||
-    lower.includes("created the repo skeleton")
   );
 }
 
@@ -10214,186 +10143,6 @@ async function handleRequest(
     return;
   }
 
-  const HANDLE_LOCK_MS = 48 * 60 * 60 * 1000;
-
-  const getHandleStore = (): {
-    ownership: Record<string, string>;
-    ownerCurrent: Record<string, string>;
-    locks: Record<string, number>;
-  } => {
-    if (!state.config.ui) state.config.ui = {};
-    const uiConfig = state.config.ui as Record<string, unknown>;
-    const handleStore =
-      uiConfig.handleStore && typeof uiConfig.handleStore === "object"
-        ? (uiConfig.handleStore as Record<string, unknown>)
-        : {};
-    uiConfig.handleStore = handleStore;
-
-    const ownership =
-      handleStore.ownership && typeof handleStore.ownership === "object"
-        ? (handleStore.ownership as Record<string, string>)
-        : {};
-    const ownerCurrent =
-      handleStore.ownerCurrent && typeof handleStore.ownerCurrent === "object"
-        ? (handleStore.ownerCurrent as Record<string, string>)
-        : {};
-    const locks =
-      handleStore.locks && typeof handleStore.locks === "object"
-        ? (handleStore.locks as Record<string, number>)
-        : {};
-
-    handleStore.ownership = ownership;
-    handleStore.ownerCurrent = ownerCurrent;
-    handleStore.locks = locks;
-
-    return { ownership, ownerCurrent, locks };
-  };
-
-  const saveHandleStore = (): void => {
-    try {
-      saveMiladyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Failed to save handle store: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  };
-
-  const normalizeHandle = (value: string): string => value.trim().toLowerCase();
-  const resolveHandleOwnerId = (
-    explicitOwnerId: string | null | undefined,
-  ): string => {
-    const fromClient = (explicitOwnerId ?? "").trim();
-    if (fromClient) return fromClient;
-    // Backend fallback for clients that fail to persist local ownerId.
-    return "local-default-owner";
-  };
-
-  // ── GET /api/polymarket/portfolio ───────────────────────────────────────
-  if (method === "GET" && pathname === "/api/polymarket/portfolio") {
-    const configuredWallet =
-      process.env.EVM_ADDRESS?.trim() ||
-      process.env.SOLANA_ADDRESS?.trim() ||
-      null;
-    json(res, {
-      wallet: configuredWallet,
-      connected: Boolean(configuredWallet),
-      availableBalanceUsd: null,
-      openExposureUsd: null,
-      unsettledPnlUsd: null,
-      openPositionsCount: 0,
-      positions: [],
-    });
-    return;
-  }
-
-  // ── GET /api/handles/check ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/handles/check") {
-    const urlObj = new URL(
-      req.url ?? "",
-      `http://${req.headers.host ?? "127.0.0.1"}`,
-    );
-    const handle = normalizeHandle(urlObj.searchParams.get("handle") ?? "");
-    const ownerId = resolveHandleOwnerId(urlObj.searchParams.get("ownerId"));
-    const { ownership, locks } = getHandleStore();
-
-    const handleOwnerId = ownership[handle] ?? null;
-    const lockUntilRaw = locks[ownerId] ?? null;
-    const lockUntil =
-      typeof lockUntilRaw === "number" && Number.isFinite(lockUntilRaw)
-        ? lockUntilRaw
-        : null;
-    const lockActive = lockUntil != null && lockUntil > Date.now();
-
-    const owner: "self" | "other" | "none" = !handleOwnerId
-      ? "none"
-      : handleOwnerId === ownerId
-        ? "self"
-        : "other";
-    const available = owner === "none" || owner === "self";
-
-    json(res, {
-      ok: true,
-      handle,
-      available,
-      owner,
-      lockUntil: lockActive ? lockUntil : null,
-    });
-    return;
-  }
-
-  // ── POST /api/handles/claim ──────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/handles/claim") {
-    const body = await readJsonBody<{
-      handle?: string;
-      ownerId?: string;
-      previousHandle?: string;
-    }>(req, res);
-    if (!body) return;
-
-    const handle = normalizeHandle(body.handle ?? "");
-    const ownerId = resolveHandleOwnerId(body.ownerId);
-    const previousHandle = normalizeHandle(body.previousHandle ?? "");
-
-    if (!handle) {
-      error(res, "handle is required", 400);
-      return;
-    }
-    if (!/^[a-z0-9._-]{2,32}$/.test(handle)) {
-      error(res, "Invalid handle format", 422);
-      return;
-    }
-
-    const { ownership, ownerCurrent, locks } = getHandleStore();
-    const now = Date.now();
-    const lockUntil = locks[ownerId];
-    const currentHandle = ownerCurrent[ownerId] ?? "";
-    const hasActiveLock =
-      typeof lockUntil === "number" &&
-      Number.isFinite(lockUntil) &&
-      lockUntil > now;
-
-    if (hasActiveLock && currentHandle && handle !== currentHandle) {
-      json(
-        res,
-        {
-          error: "Handle change is temporarily locked",
-          details: { lockUntil },
-        },
-        429,
-      );
-      return;
-    }
-
-    const existingOwnerId = ownership[handle];
-    if (existingOwnerId && existingOwnerId !== ownerId) {
-      error(res, "Handle is already taken", 409);
-      return;
-    }
-
-    if (
-      previousHandle &&
-      ownership[previousHandle] === ownerId &&
-      previousHandle !== handle
-    ) {
-      delete ownership[previousHandle];
-    }
-
-    ownership[handle] = ownerId;
-    ownerCurrent[ownerId] = handle;
-    const nextLockUntil = now + HANDLE_LOCK_MS;
-    locks[ownerId] = nextLockUntil;
-
-    saveHandleStore();
-
-    json(res, {
-      ok: true,
-      handle,
-      lockUntil: nextLockUntil,
-    });
-    return;
-  }
-
   // ═══════════════════════════════════════════════════════════════════════
   //  ERC-8004 Registry Routes
   // ═══════════════════════════════════════════════════════════════════════
@@ -12791,13 +12540,9 @@ async function handleRequest(
           });
         } else {
           const classified = classifyChatError(err);
-          const timeoutAwareMessage =
-            classified.code === "PROVIDER_TIMEOUT"
-              ? explainTimeoutForPrompt(prompt, classified.message)
-              : classified.message;
           writeSse(res, {
             type: "error",
-            message: timeoutAwareMessage,
+            message: classified.message,
             code: classified.code,
           });
         }
@@ -12903,10 +12648,7 @@ async function handleRequest(
         json(
           res,
           {
-            error:
-              classified.code === "PROVIDER_TIMEOUT"
-                ? explainTimeoutForPrompt(prompt, classified.message)
-                : classified.message,
+            error: classified.message,
             code: classified.code,
           },
           classified.status || 500,

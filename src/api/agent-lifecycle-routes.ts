@@ -165,62 +165,56 @@ export async function handleAgentLifecycleRoutes(
         return true;
       }
 
-      if (!state.runtime) {
-        if (!onRestart) {
-          if (runtimeBooting) {
-            respondStartingStatus(json, res, state);
-            return true;
-          }
-          state.agentState = "not_started";
-          state.startedAt = undefined;
-          state.model = undefined;
-          error(res, "Agent is not running", 503);
-          return true;
-        }
-
-        state.agentState = "starting";
-        if (!state.startedAt) {
-          state.startedAt = Date.now();
-        }
-        respondStartingStatus(json, res, state);
-
-        // Keep /api/agent/start responsive: kickoff restart in background and
-        // let callers poll status instead of blocking on a full runtime boot.
-        // Schedule on the next tick so sync work inside onRestart() cannot
-        // delay the HTTP response.
-        setTimeout(() => {
-          void (async () => {
-            try {
-              const restartAttempt = await waitForRestartWithTimeout(
-                onRestart,
-                START_RESTART_TIMEOUT_MS,
-              );
-              let restartedRuntime = restartAttempt.runtime;
-
-              if (!restartAttempt.timedOut && !restartedRuntime) {
-                applyStartFailureState(state);
-                return;
-              }
-
-              if (!restartedRuntime) {
-                restartedRuntime = await waitForRuntimeFromState(
-                  state,
-                  START_RESTART_TIMEOUT_MS,
-                );
-              }
-              if (!restartedRuntime) {
-                applyStartFailureState(state);
-                return;
-              }
-              applyRuntimeRunningState(state, restartedRuntime);
-              await tryEnableAutonomy(restartedRuntime);
-            } catch {
-              applyStartFailureState(state);
-            }
-          })();
-        }, 0);
+      if (!onRestart) {
+        state.agentState = "not_started";
+        state.startedAt = undefined;
+        state.model = undefined;
+        error(res, "Agent is not running", 503);
         return true;
       }
+
+      state.agentState = "starting";
+      if (!state.startedAt) {
+        state.startedAt = Date.now();
+      }
+      respondStartingStatus(json, res, state);
+
+      // Keep /api/agent/start responsive: kickoff restart in background and
+      // let callers poll status instead of blocking on a full runtime boot.
+      // Schedule on the next tick so sync work inside onRestart() cannot
+      // delay the HTTP response.
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const restartAttempt = await waitForRestartWithTimeout(
+              onRestart,
+              START_RESTART_TIMEOUT_MS,
+            );
+            let restartedRuntime = restartAttempt.runtime;
+
+            if (!restartAttempt.timedOut && !restartedRuntime) {
+              applyStartFailureState(state);
+              return;
+            }
+
+            if (!restartedRuntime) {
+              restartedRuntime = await waitForRuntimeFromState(
+                state,
+                START_RESTART_TIMEOUT_MS,
+              );
+            }
+            if (!restartedRuntime) {
+              applyStartFailureState(state);
+              return;
+            }
+            applyRuntimeRunningState(state, restartedRuntime);
+            await tryEnableAutonomy(restartedRuntime);
+          } catch {
+            applyStartFailureState(state);
+          }
+        })();
+      }, 0);
+      return true;
     }
     applyRuntimeRunningState(state, state.runtime);
 
