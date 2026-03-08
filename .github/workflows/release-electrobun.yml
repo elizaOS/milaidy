@@ -388,6 +388,15 @@ jobs:
             xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
           done
 
+      - name: Smoke test packaged macOS app
+        if: matrix.platform.os == 'macos'
+        run: |
+          STARTUP_TIMEOUT=420 \
+          LIVENESS_TIMEOUT=10 \
+          SKIP_BUILD=1 \
+          SKIP_SIGNATURE_CHECK=1 \
+          bash apps/app/electrobun/scripts/smoke-test.sh
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

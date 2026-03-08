@@ -28,10 +28,12 @@ APP_DIR="$(cd "$ELECTROBUN_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$ELECTROBUN_DIR/../../.." && pwd)"
 BUILD_ENV="${BUILD_ENV:-canary}"
 SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
 LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
+ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
 MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
 STARTUP_LOG="$HOME/.config/Milady/milady-startup.log"
@@ -75,7 +77,7 @@ kill_stale_processes() {
       kill "$pid" >/dev/null 2>&1 || true
     fi
   done < <(
-    pgrep -f '/(Applications|private/tmp|Volumes)/Milady[^/]*\.app/Contents/MacOS/launcher|milady-dist/eliza\.js' || true
+    pgrep -f '/(Applications|tmp|private/tmp|Volumes)/.*Milady[^/]*\.app/Contents/MacOS/launcher|milady-dist/(eliza|runtime/eliza)\.js' || true
   )
 
   pid="$(lsof -nP -tiTCP:2138 -sTCP:LISTEN 2>/dev/null | head -1 || true)"
@@ -101,40 +103,41 @@ echo " Working dir: $ELECTROBUN_DIR"
 echo "============================================================"
 echo ""
 
-# ── 1. Build prerequisites (core dist + renderer) ────────────────────────────
-echo "[1/7] Building core dist + renderer assets..."
-(cd "$REPO_ROOT" && bunx tsdown && echo '{"type":"module"}' > dist/package.json && node --import tsx scripts/write-build-info.ts)
-(cd "$APP_DIR" && npx vite build)
-echo ""
-
-# ── 2. Bundle runtime node_modules into dist/ ────────────────────────────────
-echo "[2/7] Bundling runtime node_modules into dist/..."
-(cd "$REPO_ROOT" && node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist)
-echo ""
-
-# ── 3. Build native dylib (macOS only) ───────────────────────────────────────
-if [[ "$(uname)" == "Darwin" ]]; then
-  echo "[3/7] Building native macOS effects dylib..."
-  (cd "$ELECTROBUN_DIR" && bun run build:native-effects)
-  DYLIB="$ELECTROBUN_DIR/src/libMacWindowEffects.dylib"
-  if [[ ! -f "$DYLIB" ]]; then
-    echo "ERROR: $DYLIB not found after build. Abort."
-    exit 1
-  fi
-  echo "      OK — $DYLIB ($(du -sh "$DYLIB" | cut -f1))"
+# ── 1-4. Build or reuse packaged artifact ────────────────────────────────────
+if [[ "$SKIP_BUILD" == "1" ]]; then
+  echo "[1/7] Reusing existing packaged artifact (SKIP_BUILD=1)..."
 else
-  echo "[3/7] Skipping dylib build (not macOS)"
-fi
-echo ""
+  echo "[1/7] Building core dist + renderer assets..."
+  (cd "$REPO_ROOT" && bunx tsdown && echo '{"type":"module"}' > dist/package.json && node --import tsx scripts/write-build-info.ts)
+  (cd "$APP_DIR" && npx vite build)
+  echo ""
 
-# ── 4. Build Electrobun app ───────────────────────────────────────────────────
-echo "[4/7] Building Electrobun app (env=$BUILD_ENV)..."
-(cd "$ELECTROBUN_DIR" && ELECTROBUN_DEVELOPER_ID="$BUILD_DEVELOPER_ID" ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" bun run build -- --env="$BUILD_ENV")
+  echo "[2/7] Bundling runtime node_modules into dist/..."
+  (cd "$REPO_ROOT" && node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist)
+  echo ""
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    echo "[3/7] Building native macOS effects dylib..."
+    (cd "$ELECTROBUN_DIR" && bun run build:native-effects)
+    DYLIB="$ELECTROBUN_DIR/src/libMacWindowEffects.dylib"
+    if [[ ! -f "$DYLIB" ]]; then
+      echo "ERROR: $DYLIB not found after build. Abort."
+      exit 1
+    fi
+    echo "      OK — $DYLIB ($(du -sh "$DYLIB" | cut -f1))"
+  else
+    echo "[3/7] Skipping dylib build (not macOS)"
+  fi
+  echo ""
+
+  echo "[4/7] Building Electrobun app (env=$BUILD_ENV)..."
+  (cd "$ELECTROBUN_DIR" && ELECTROBUN_DEVELOPER_ID="$BUILD_DEVELOPER_ID" ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" bun run build -- --env="$BUILD_ENV")
+fi
 echo ""
 
 # ── 5. Locate built .app ─────────────────────────────────────────────────────
 echo "[5/7] Locating built .app bundle..."
-ARTIFACTS_DIR="$ELECTROBUN_DIR/artifacts"
+ARTIFACTS_DIR="${ARTIFACTS_DIR_OVERRIDE:-$ELECTROBUN_DIR/artifacts}"
 LEGACY_DIST_DIR="$ELECTROBUN_DIR/dist"
 OUTPUT_DIR=""
 
@@ -214,8 +217,8 @@ echo ""
 # ── 7. Launch + backend health + liveness check ──────────────────────────────
 echo "[7/7] Launching app for backend + liveness check..."
 if [[ -n "$MOUNT_POINT" ]]; then
-  LAUNCH_APP_BUNDLE="/tmp/$(basename "$APP_BUNDLE")"
-  rm -rf "$LAUNCH_APP_BUNDLE"
+  LAUNCH_APP_DIR="$(mktemp -d /tmp/milady-smoke-app.XXXXXX)"
+  LAUNCH_APP_BUNDLE="$LAUNCH_APP_DIR/$(basename "$APP_BUNDLE")"
   ditto "$APP_BUNDLE" "$LAUNCH_APP_BUNDLE"
 else
   LAUNCH_APP_BUNDLE="$APP_BUNDLE"
@@ -228,24 +231,24 @@ if [[ -f "$STARTUP_LOG" ]]; then
   LOG_OFFSET="$(wc -c < "$STARTUP_LOG" | tr -d ' ')"
 fi
 
-open "$LAUNCH_APP_BUNDLE"
-sleep 2
-
-# Find the process by bundle executable name
-APP_NAME="$(basename "$LAUNCH_APP_BUNDLE" .app)"
-PID="$(pgrep -x "$APP_NAME" 2>/dev/null | head -1 || true)"
-if [[ -z "$PID" ]]; then
-  # Try the executable inside the bundle
-  EXEC_NAME="$(defaults read "$LAUNCH_APP_BUNDLE/Contents/Info" CFBundleExecutable 2>/dev/null || echo "Milady")"
-  PID="$(pgrep -x "$EXEC_NAME" 2>/dev/null | head -1 || true)"
+LAUNCHER_PATH="$LAUNCH_APP_BUNDLE/Contents/MacOS/launcher"
+if [[ ! -x "$LAUNCHER_PATH" ]]; then
+  echo "ERROR: Packaged launcher not found or not executable: $LAUNCHER_PATH"
+  exit 1
 fi
 
+LAUNCHER_STDOUT="$(mktemp /tmp/milady-smoke-launcher.stdout.XXXXXX)"
+LAUNCHER_STDERR="$(mktemp /tmp/milady-smoke-launcher.stderr.XXXXXX)"
+"$LAUNCHER_PATH" >"$LAUNCHER_STDOUT" 2>"$LAUNCHER_STDERR" &
+PID="$!"
+APP_PID="$PID"
+sleep 2
+
 if [[ -z "$PID" ]]; then
-  echo "WARNING: Could not find running process for $APP_NAME. App may have exited immediately."
+  echo "WARNING: Could not start packaged launcher. App may have exited immediately."
   echo "         Check Console.app or crash logs in ~/Library/Logs/DiagnosticReports/"
 else
-  APP_PID="$PID"
-  echo "App is running (PID $PID). Waiting for backend health..."
+  echo "Launcher is running (PID $PID). Waiting for backend health..."
 
   BACKEND_PORT=""
   DEADLINE=$((SECONDS + STARTUP_TIMEOUT))
@@ -258,6 +261,9 @@ else
       if printf '%s\n' "$LOG_SLICE" | grep -Eq 'Cannot find module|Child process exited with code|Failed to start:'; then
         echo "ERROR: Backend startup failed. Recent startup log:"
         printf '%s\n' "$LOG_SLICE" | tail -n 120
+        echo ""
+        echo "Launcher stderr:"
+        cat "$LAUNCHER_STDERR" 2>/dev/null || true
         exit 1
       fi
     fi
@@ -273,12 +279,18 @@ else
   if [[ -z "$BACKEND_PORT" ]]; then
     echo "ERROR: Backend never reported a started port in $STARTUP_LOG"
     [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+    echo ""
+    echo "Launcher stderr:"
+    cat "$LAUNCHER_STDERR" 2>/dev/null || true
     exit 1
   fi
 
   if ! curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
     echo "ERROR: Backend did not answer /api/health on port $BACKEND_PORT"
     [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+    echo ""
+    echo "Launcher stderr:"
+    cat "$LAUNCHER_STDERR" 2>/dev/null || true
     exit 1
   fi
 
@@ -314,10 +326,16 @@ else
     else
       echo "ERROR: App stayed open but backend health check failed after ${LIVENESS_TIMEOUT}s."
       [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+      echo ""
+      echo "Launcher stderr:"
+      cat "$LAUNCHER_STDERR" 2>/dev/null || true
       exit 1
     fi
   else
     echo "ERROR: App exited within ${LIVENESS_TIMEOUT}s. Check crash logs."
+    echo ""
+    echo "Launcher stderr:"
+    cat "$LAUNCHER_STDERR" 2>/dev/null || true
     exit 1
   fi
 fi

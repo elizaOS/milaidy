@@ -18,6 +18,9 @@ const requiredWorkflowSnippets = [
   "apps/app/electrobun/scripts/zip-wrapper.sh",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
+  "Smoke test packaged macOS app",
+  "SKIP_BUILD=1",
+  "bash apps/app/electrobun/scripts/smoke-test.sh",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
@@ -86,10 +89,32 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
   }
 }
 
+function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
+  const script = readFileSync(
+    "apps/app/electrobun/scripts/smoke-test.sh",
+    "utf8",
+  );
+
+  if (!script.includes('LAUNCHER_PATH="$LAUNCH_APP_BUNDLE/Contents/MacOS/launcher"')) {
+    console.error(
+      "release-check: smoke-test.sh must launch the packaged Contents/MacOS/launcher directly.",
+    );
+    process.exit(1);
+  }
+
+  if (script.includes('open "$LAUNCH_APP_BUNDLE"')) {
+    console.error(
+      "release-check: smoke-test.sh must not use open(1); it can reactivate a stale installed bundle.",
+    );
+    process.exit(1);
+  }
+}
+
 function main() {
   assertReleaseWorkflowHasNotaryWrapper();
   assertElectrobunConfigHasPostWrapSigner();
   assertWindowsSmokeScriptHasLeadingParamBlock();
+  assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));
