@@ -136,14 +136,18 @@ export function ConversationsSidebar({
     const onSelfStatusRefresh = () => {
       void syncSelfStatus();
     };
-    const intervalId = window.setInterval(() => {
+    const unbindStatus = client.onWsEvent("status", () => {
       void syncSelfStatus();
-    }, 15000);
+    });
+    const unbindWsReconnected = client.onWsEvent("ws-reconnected", () => {
+      void syncSelfStatus();
+    });
     window.addEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      unbindStatus();
+      unbindWsReconnected();
       window.removeEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
     };
   }, [isGameModal]);
