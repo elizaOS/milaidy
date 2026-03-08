@@ -519,14 +519,42 @@ jobs:
           SKIP_SIGNATURE_CHECK=1 \
           bash apps/app/electrobun/scripts/smoke-test.sh
 
+      - name: Collect Windows smoke diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $diagnosticsDir = Join-Path $PWD "apps/app/electrobun/artifacts/windows-smoke-diagnostics"
+          $startupLog = Join-Path $env:APPDATA "Milady\\milady-startup.log"
+          $wrapperRoot = Join-Path $env:LOCALAPPDATA "com.miladyai.milady"
+
+          Remove-Item $diagnosticsDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $diagnosticsDir | Out-Null
+
+          if (Test-Path $startupLog) {
+            Copy-Item $startupLog -Destination (Join-Path $diagnosticsDir "milady-startup.log") -Force
+          } else {
+            Write-Warning "Windows startup log not found at $startupLog"
+          }
+
+          if (Test-Path $wrapperRoot) {
+            Get-ChildItem -Path $wrapperRoot -Recurse -File -Filter "wrapper-diagnostics.json" -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                $relativePath = $_.FullName.Substring($wrapperRoot.Length).TrimStart('\\')
+                $destination = Join-Path $diagnosticsDir $relativePath
+                $destinationParent = Split-Path -Parent $destination
+                New-Item -ItemType Directory -Force -Path $destinationParent | Out-Null
+                Copy-Item $_.FullName -Destination $destination -Force
+              }
+          } else {
+            Write-Warning "Wrapper diagnostics root not found at $wrapperRoot"
+          }
+
       - name: Upload Windows smoke diagnostics
         if: failure() && matrix.platform.os == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
-          path: |
-            ${{ env.USERPROFILE }}\.config\Milady\milady-startup.log
-            ${{ env.LOCALAPPDATA }}\com.miladyai.milady\**\wrapper-diagnostics.json
+          path: apps/app/electrobun/artifacts/windows-smoke-diagnostics/**
           if-no-files-found: warn
           retention-days: 14
 

@@ -84,4 +84,21 @@ describe("Electrobun release workflow drift", () => {
       'Join-Path $env:USERPROFILE ".config\\\\Milady\\\\milady-startup.log"',
     );
   });
+
+  it("collects Windows smoke diagnostics from runner environment paths before upload", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Collect Windows smoke diagnostics");
+    expect(workflow).toContain("name: Upload Windows smoke diagnostics");
+    expect(workflow).toContain(
+      'Join-Path $env:APPDATA "Milady\\\\milady-startup.log"',
+    );
+    expect(workflow).toContain(
+      'Join-Path $env:LOCALAPPDATA "com.miladyai.milady"',
+    );
+    expect(workflow).toContain(
+      "path: apps/app/electrobun/artifacts/windows-smoke-diagnostics/**",
+    );
+    expect(workflow).not.toContain("env.USERPROFILE }}\\.config\\Milady");
+  });
 });
