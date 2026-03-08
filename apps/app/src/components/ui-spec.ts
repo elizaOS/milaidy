@@ -170,6 +170,8 @@ export type UiComponentType =
   | "DropdownMenu"
   | "Tabs"
   | "Pagination"
+  // Metric
+  | "Metric"
   // Visualization
   | "BarGraph"
   | "LineGraph"
