@@ -25,4 +25,19 @@ describe("smoke-test.sh", () => {
     expect(script).toContain("launcher exited before packaged app handoff");
     expect(script).toContain('if [[ "$f" == *"/.dmg-staging/"* ]]; then');
   });
+
+  it("accepts both wrapper bundles and direct app bundles", () => {
+    const script = fs.readFileSync(SMOKE_TEST_PATH, "utf8");
+
+    expect(script).toContain(
+      'RUNTIME_ARCHIVE="$(find "$APP_BUNDLE/Contents/Resources"',
+    );
+    expect(script).toContain(
+      'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',
+    );
+    expect(script).toContain('echo "WGPU : wrapper bundle -> $RUNTIME_ARCHIVE"');
+    expect(script).toContain(
+      'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
+    );
+  });
 });

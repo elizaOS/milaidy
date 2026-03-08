@@ -389,6 +389,16 @@ jobs:
           echo "=== Electrobun artifacts ==="
           find apps/app/electrobun/artifacts -type f 2>/dev/null | sort || echo "(no artifacts directory)"
 
+      - name: Stage standard macOS release app
+        if: matrix.platform.os == 'macos'
+        env:
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+          ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
+          ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+        run: bash apps/app/electrobun/scripts/stage-macos-release-artifacts.sh
+
       - name: Smoke test packaged Windows app
         if: matrix.platform.os == 'windows'
         run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
@@ -463,6 +473,23 @@ jobs:
             spctl -a -vv --type exec "$app"
             xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
           done
+          found_dmg=0
+          while IFS= read -r dmg; do
+            [[ -z "$dmg" ]] && continue
+            found_dmg=1
+            echo "Verifying installer: $dmg"
+            dmg_info="$(codesign -dv --verbose=4 "$dmg" 2>&1 || true)"
+            echo "$dmg_info"
+            echo "$dmg_info" | grep -q "Authority=Developer ID Application" || {
+              echo "::error::Missing Developer ID Application signature on $dmg"
+              exit 1
+            }
+            xcrun stapler validate "$dmg"
+          done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.dmg" | sort)
+          if [ "$found_dmg" -eq 0 ]; then
+            echo "::error::No DMG found in apps/app/electrobun/artifacts"
+            exit 1
+          fi
 
       - name: Smoke test packaged macOS app
         if: matrix.platform.os == 'macos'

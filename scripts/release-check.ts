@@ -23,6 +23,8 @@ const requiredWorkflowSnippets = [
   "Inject version.json into bundle (Windows)",
   "Inject version.json into bundle (macOS / Linux)",
   '"identifier":"com.miladyai.milady"',
+  "Stage standard macOS release app",
+  "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
   "Smoke test packaged macOS app",
   "SMOKE_DIAGNOSTICS_DIR:",
   "SKIP_BUILD=1",
@@ -79,6 +81,32 @@ function assertElectrobunConfigHasPostWrapSigner() {
   if (missing.length > 0) {
     console.error(
       "release-check: electrobun config is missing postBuild signer wiring:",
+    );
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertMacArtifactStagerLooksCorrect() {
+  const script = readFileSync(
+    "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
+    "utf8",
+  );
+  const requiredSnippets = [
+    'find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst"',
+    "no macOS updater tarball found",
+    'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
+    'spctl -a -vv --type exec "$STAGED_APP_PATH"',
+    'hdiutil create \\',
+    'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
+  ];
+  const missing = requiredSnippets.filter((snippet) => !script.includes(snippet));
+
+  if (missing.length > 0) {
+    console.error(
+      "release-check: macOS artifact stager is missing required release wiring:",
     );
     for (const snippet of missing) {
       console.error(`  - ${snippet}`);
@@ -159,6 +187,8 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     "collect_recent_crash_reports()",
     "attach_dmg_with_retry()",
     'MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"',
+    'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',
+    'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
     'dump_failure_diagnostics "launcher exited before backend startup"',
     'dump_failure_diagnostics "backend never reported a started port"',
   ];
@@ -179,6 +209,7 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
 function main() {
   assertReleaseWorkflowHasNotaryWrapper();
   assertElectrobunConfigHasPostWrapSigner();
+  assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
   const results = runPackDry();

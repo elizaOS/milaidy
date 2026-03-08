@@ -363,15 +363,20 @@ echo "Found: $APP_BUNDLE"
 echo "Size : $(du -sh "$APP_BUNDLE" | cut -f1)"
 
 RUNTIME_ARCHIVE="$(find "$APP_BUNDLE/Contents/Resources" -maxdepth 1 -name "*.tar.zst" -type f -print -quit 2>/dev/null || true)"
-if [[ -z "$RUNTIME_ARCHIVE" ]]; then
-  echo "ERROR: Packaged runtime archive not found inside $APP_BUNDLE"
+DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"
+DIRECT_RUNTIME_DIR="$APP_BUNDLE/Contents/Resources/app/milady-dist"
+if [[ -n "$RUNTIME_ARCHIVE" ]]; then
+  if ! tar --zstd -tf "$RUNTIME_ARCHIVE" | grep -q "Contents/MacOS/libwebgpu_dawn\\.dylib$"; then
+    echo "ERROR: Bundled Dawn runtime not found inside $RUNTIME_ARCHIVE"
+    exit 1
+  fi
+  echo "WGPU : wrapper bundle -> $RUNTIME_ARCHIVE"
+elif [[ -f "$DIRECT_WGPU_DYLIB" && -d "$DIRECT_RUNTIME_DIR" ]]; then
+  echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"
+else
+  echo "ERROR: Neither a packaged runtime archive nor a direct WebGPU runtime was found in $APP_BUNDLE"
   exit 1
 fi
-if ! tar --zstd -tf "$RUNTIME_ARCHIVE" | grep -q "Contents/MacOS/libwebgpu_dawn\\.dylib$"; then
-  echo "ERROR: Bundled Dawn runtime not found inside $RUNTIME_ARCHIVE"
-  exit 1
-fi
-echo "WGPU : $RUNTIME_ARCHIVE -> Contents/MacOS/libwebgpu_dawn.dylib"
 echo ""
 
 # ── 6. Signature + notarization check ────────────────────────────────────────
