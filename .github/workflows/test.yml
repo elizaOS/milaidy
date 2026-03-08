@@ -229,6 +229,8 @@ jobs:
           apps/app/test/app/startup-token-401.e2e.test.ts
 
   electron-ui-e2e:
+    # Desktop packaging/build validation is release-only. Keep PR/branch CI fast.
+    if: startsWith(github.ref, 'refs/tags/v')
     name: Electron Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -356,6 +358,8 @@ jobs:
           retention-days: 14
 
   electron-packaged-dmg-e2e:
+    # Desktop packaging/build validation is release-only. Keep PR/branch CI fast.
+    if: startsWith(github.ref, 'refs/tags/v')
     name: Electron Packaged DMG E2E (macOS)
     runs-on: macos-latest
     timeout-minutes: 30
