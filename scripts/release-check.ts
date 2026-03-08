@@ -99,10 +99,12 @@ function assertMacArtifactStagerLooksCorrect() {
     "no macOS updater tarball found",
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     'spctl -a -vv --type exec "$STAGED_APP_PATH"',
-    'hdiutil create \\',
+    "hdiutil create \\",
     'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
   ];
-  const missing = requiredSnippets.filter((snippet) => !script.includes(snippet));
+  const missing = requiredSnippets.filter(
+    (snippet) => !script.includes(snippet),
+  );
 
   if (missing.length > 0) {
     console.error(

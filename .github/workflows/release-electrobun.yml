@@ -82,7 +82,7 @@ jobs:
     name: Build ${{ matrix.platform.name }}
     needs: prepare
     runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 75
     defaults:
       run:
         shell: bash -euo pipefail {0}
