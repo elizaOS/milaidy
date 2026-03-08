@@ -38,7 +38,8 @@ type BunSubprocess = ReturnType<typeof Bun.spawn>;
 
 const DEFAULT_PORT = 2138;
 const HEALTH_POLL_INTERVAL_MS = 500;
-const HEALTH_POLL_TIMEOUT_MS = 60_000;
+// 120s: Windows first-run can be slow (PGLite WASM init + 100+ plugins)
+const HEALTH_POLL_TIMEOUT_MS = 120_000;
 const SIGTERM_GRACE_MS = 5_000;
 
 // ---------------------------------------------------------------------------
@@ -97,6 +98,65 @@ function shortError(err: unknown, maxLen = 280): string {
  *   1. MILADY_DIST_PATH env var (explicit override)
  *   2. Walk up from import.meta.dir to find milady-dist as a sibling
  */
+export function getMiladyDistFallbackCandidates(
+  moduleDir: string = import.meta.dir,
+  execPath: string = process.execPath,
+): string[] {
+  const execDir = execPath ? path.dirname(execPath) : moduleDir;
+
+  return [
+    // macOS: inside .app bundle (Contents/Resources/app/milady-dist)
+    path.resolve(execDir, "../Resources/app/milady-dist"),
+    // Windows NSIS/portable: resources/app/milady-dist next to exe
+    path.resolve(execDir, "resources/app/milady-dist"),
+    path.resolve(execDir, "../resources/app/milady-dist"),
+    path.resolve(moduleDir, "app/milady-dist"),
+    path.resolve(moduleDir, "../app/milady-dist"),
+    path.resolve(moduleDir, "../milady-dist"),
+    path.resolve(moduleDir, "../../../milady-dist"),
+  ].filter((candidate, index, all) => all.indexOf(candidate) === index);
+}
+
+function resolveBunExecutablePath(execPath: string = process.execPath): string {
+  const executableName = process.platform === "win32" ? "bun.exe" : "bun";
+  const execDir = execPath ? path.dirname(execPath) : "";
+  const candidates = [
+    execPath,
+    execDir ? path.join(execDir, executableName) : "",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    if (
+      path.basename(candidate).toLowerCase() === executableName.toLowerCase()
+    ) {
+      return candidate;
+    }
+  }
+
+  const bunGlobal = Bun as { which?: (binary: string) => string | null };
+  const whichCandidate =
+    typeof bunGlobal.which === "function" ? bunGlobal.which("bun") : null;
+  if (whichCandidate) return whichCandidate;
+
+  // Windows: bun is not always on PATH; check well-known install locations.
+  if (process.platform === "win32") {
+    const localAppData =
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
+    const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
+    const winCandidates = [
+      path.join(localAppData, "bun", "bun.exe"),
+      path.join(programFiles, "bun", "bun.exe"),
+      path.join(os.homedir(), ".bun", "bin", "bun.exe"),
+    ];
+    for (const candidate of winCandidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+
+  return "bun";
+}
+
 function resolveMiladyDistPath(): string {
   // 1. Env override
   const envPath = process.env.MILADY_DIST_PATH;
@@ -110,25 +170,55 @@ function resolveMiladyDistPath(): string {
     );
   }
 
-  // 2. Walk up from import.meta.dir looking for milady-dist
+  // 2. Walk up from import.meta.dir looking for milady-dist or dist
   let dir = import.meta.dir;
-  const maxDepth = 10;
+  const maxDepth = 15;
   for (let i = 0; i < maxDepth; i++) {
-    const candidate = path.join(dir, "milady-dist");
-    if (fs.existsSync(candidate)) {
-      return candidate;
+    // Packaged: milady-dist sibling
+    const miladyDist = path.join(dir, "milady-dist");
+    if (fs.existsSync(miladyDist)) {
+      return miladyDist;
+    }
+    // Dev monorepo: dist/ sibling containing eliza.js
+    const devDist = path.join(dir, "dist");
+    if (fs.existsSync(path.join(devDist, "eliza.js"))) {
+      return devDist;
     }
     const parent = path.dirname(dir);
     if (parent === dir) break; // reached filesystem root
     dir = parent;
   }
 
-  // 3. Fallback: relative to electrobun app root (3 levels up from native/)
-  const fallback = path.resolve(import.meta.dir, "../../../milady-dist");
+  // 3. Packaged/dev fallbacks derived from the launcher path and module dir.
+  for (const candidate of getMiladyDistFallbackCandidates()) {
+    if (fs.existsSync(candidate)) {
+      diagnosticLog(
+        `[Agent] Could not find milady-dist by walking up; using fallback: ${candidate}`,
+      );
+      return candidate;
+    }
+  }
+
+  const fallback = getMiladyDistFallbackCandidates()[0];
   diagnosticLog(
     `[Agent] Could not find milady-dist by walking up; using fallback: ${fallback}`,
   );
   return fallback;
+}
+
+function resolveElizaEntryPath(miladyDistPath: string): string | null {
+  const candidates = [
+    path.join(miladyDistPath, "eliza.js"),
+    path.join(miladyDistPath, "runtime", "eliza.js"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,13 +226,14 @@ function resolveMiladyDistPath(): string {
 // ---------------------------------------------------------------------------
 
 async function waitForHealthy(
-  port: number,
+  getPort: () => number,
   timeoutMs: number = HEALTH_POLL_TIMEOUT_MS,
 ): Promise<boolean> {
-  const url = `http://localhost:${port}/api/health`;
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
+    const port = getPort();
+    const url = `http://127.0.0.1:${port}/api/health`;
     try {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(2_000),
@@ -203,6 +294,7 @@ async function watchStdoutForReady(
 async function drainStderrToLog(
   stream: ReadableStream<Uint8Array>,
   signal: AbortSignal,
+  onLine?: (line: string) => void,
 ): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = "";
@@ -220,11 +312,13 @@ async function drainStderrToLog(
       for (const line of lines) {
         if (line.trim()) {
           diagnosticLog(`[Agent][stderr] ${line}`);
+          onLine?.(line);
         }
       }
     }
     if (buffer.trim()) {
       diagnosticLog(`[Agent][stderr] ${buffer}`);
+      onLine?.(buffer);
     }
     reader.releaseLock();
   } catch (err) {
@@ -236,12 +330,37 @@ async function drainStderrToLog(
   }
 }
 
+// Any PGLite query failure is unrecoverable within the same process (stale WASM state).
+// Catch all "Failed query:" patterns so we auto-recover from any DB corruption.
+const PGLITE_MIGRATION_RE = /Failed query:|create schema if not exists/i;
+
+function resolvePgliteDataDir(): string {
+  return path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb");
+}
+
+function deletePgliteDataDir(): void {
+  const dir = resolvePgliteDataDir();
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      diagnosticLog(`[Agent] Deleted corrupt PGLite data dir: ${dir}`);
+    }
+  } catch (err) {
+    diagnosticLog(
+      `[Agent] Failed to delete PGLite data dir: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // AgentManager -- singleton
 // ---------------------------------------------------------------------------
 
 export class AgentManager {
   private sendToWebview: SendToWebview | null = null;
+  private readonly statusListeners = new Set<
+    (status: Readonly<AgentStatus>) => void
+  >();
   private status: AgentStatus = {
     state: "not_started",
     agentName: null,
@@ -251,9 +370,20 @@ export class AgentManager {
   };
   private childProcess: BunSubprocess | null = null;
   private stdioAbortController: AbortController | null = null;
+  private hasPgliteError = false;
+  private pgliteRecoveryDone = false;
 
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
+  }
+
+  onStatusChange(
+    listener: (status: Readonly<AgentStatus>) => void,
+  ): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
   }
 
   /** Start the agent runtime as a child process. Idempotent. */
@@ -266,6 +396,9 @@ export class AgentManager {
     if (this.status.state === "running" || this.status.state === "starting") {
       return this.status;
     }
+
+    // Reset per-startup flags
+    this.pgliteRecoveryDone = false;
 
     // Clean up any stale process before starting
     if (this.childProcess) {
@@ -286,9 +419,10 @@ export class AgentManager {
       const miladyDistPath = resolveMiladyDistPath();
       diagnosticLog(`[Agent] Resolved milady dist: ${miladyDistPath}`);
 
-      // Verify server.js exists
-      const serverEntryPath = path.join(miladyDistPath, "server.js");
-      if (!fs.existsSync(serverEntryPath)) {
+      // Packaged builds can expose the runnable entry either at the dist root
+      // or under runtime/. Prefer the root file but accept both layouts.
+      const serverEntryPath = resolveElizaEntryPath(miladyDistPath);
+      if (!serverEntryPath) {
         const distExists = fs.existsSync(miladyDistPath);
         let contents = "<directory missing>";
         if (distExists) {
@@ -298,7 +432,7 @@ export class AgentManager {
             contents = "<unreadable>";
           }
         }
-        const errMsg = `server.js not found at ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
+        const errMsg = `No runnable eliza entry found in ${miladyDistPath} (checked eliza.js and runtime/eliza.js; dist exists: ${distExists}, contents: ${contents})`;
         diagnosticLog(`[Agent] ${errMsg}`);
         this.status = {
           state: "error",
@@ -311,14 +445,10 @@ export class AgentManager {
         return this.status;
       }
 
-      // Check eliza.js presence for diagnostics (server.js loads it internally)
-      const elizaPath = path.join(miladyDistPath, "eliza.js");
-      diagnosticLog(
-        `[Agent] server.js: exists, eliza.js: ${fs.existsSync(elizaPath)}`,
-      );
+      diagnosticLog(`[Agent] eliza entry: exists (${serverEntryPath})`);
 
       // Resolve port
-      const apiPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
+      let apiPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
       diagnosticLog(`[Agent] Starting child process on port ${apiPort}...`);
 
       // Build NODE_PATH so the child can find node_modules
@@ -357,8 +487,15 @@ export class AgentManager {
         diagnosticLog(`[Agent] Child NODE_PATH: ${childEnv.NODE_PATH}`);
       }
 
+      const bunExecutable = resolveBunExecutablePath();
+      diagnosticLog(`[Agent] Using Bun executable: ${bunExecutable}`);
+      diagnosticLog(
+        `[Agent] Bun exists on disk: ${fs.existsSync(bunExecutable)}`,
+      );
+
       // Spawn the child process
-      const proc = Bun.spawn(["bun", "run", serverEntryPath], {
+      const spawnTime = Date.now();
+      const proc = Bun.spawn([bunExecutable, "run", serverEntryPath], {
         cwd: miladyDistPath,
         env: childEnv,
         stdout: "pipe",
@@ -366,6 +503,9 @@ export class AgentManager {
       });
 
       this.childProcess = proc;
+      diagnosticLog(
+        `[Agent] Child spawned pid=${proc.pid} elapsed=${Date.now() - spawnTime}ms`,
+      );
 
       // Set up abort controller for stdio watchers
       this.stdioAbortController = new AbortController();
@@ -388,13 +528,31 @@ export class AgentManager {
           (line: string) => {
             diagnosticLog(`[Agent][stdout] ${line}`);
             const lower = line.toLowerCase();
-            if (
+            // Parse dynamic port from "[milady-api] Listening on http://host:PORT"
+            const portMatch = line.match(
+              /Listening on https?:\/\/[^:]+:(\d+)/i,
+            );
+            if (portMatch) {
+              const parsedPort = parseInt(portMatch[1], 10);
+              if (!Number.isNaN(parsedPort) && parsedPort > 0) {
+                if (parsedPort !== apiPort) {
+                  diagnosticLog(
+                    `[Agent] Server bound to dynamic port ${parsedPort} (requested ${apiPort})`,
+                  );
+                  apiPort = parsedPort;
+                }
+                detectedListening = true;
+              }
+            } else if (
               lower.includes("listening on port") ||
               lower.includes("server started") ||
               lower.includes("ready on")
             ) {
               detectedListening = true;
             }
+            // Update status port so callers see the actual bound port
+            this.status = { ...this.status, port: apiPort };
+            this.emitStatus();
           },
           signal,
         ).catch(() => {
@@ -402,9 +560,14 @@ export class AgentManager {
         });
       }
 
-      // Drain stderr to diagnostic log
+      // Drain stderr to diagnostic log; detect PGLite migration failures
+      this.hasPgliteError = false;
       if (proc.stderr) {
-        drainStderrToLog(proc.stderr, signal).catch(() => {
+        drainStderrToLog(proc.stderr, signal, (line) => {
+          if (PGLITE_MIGRATION_RE.test(line)) {
+            this.hasPgliteError = true;
+          }
+        }).catch(() => {
           // Stream ended or aborted -- expected on shutdown
         });
       }
@@ -413,10 +576,11 @@ export class AgentManager {
       this.monitorChildExit(proc);
 
       // Wait for the health endpoint to respond
+      // Use a getter so the health check follows dynamic port reassignment from stdout
       diagnosticLog(
-        `[Agent] Waiting for health endpoint at http://localhost:${apiPort}/api/health ...`,
+        `[Agent] Waiting for health endpoint at http://127.0.0.1:${apiPort}/api/health ...`,
       );
-      const healthy = await waitForHealthy(apiPort);
+      const healthy = await waitForHealthy(() => apiPort);
 
       if (!healthy) {
         // Check if process already exited
@@ -462,7 +626,7 @@ export class AgentManager {
       };
       this.emitStatus();
       diagnosticLog(
-        `[Agent] Runtime started -- agent: ${agentName}, port: ${apiPort}, pid: ${proc.pid}`,
+        `[Agent] Runtime started -- agent: ${agentName}, port: ${apiPort}, pid: ${proc.pid}, startup_ms: ${Date.now() - spawnTime}`,
       );
       return this.status;
     } catch (err) {
@@ -555,6 +719,14 @@ export class AgentManager {
     if (this.sendToWebview) {
       this.sendToWebview("agentStatusUpdate", this.status);
     }
+    const statusSnapshot = { ...this.status };
+    for (const listener of this.statusListeners) {
+      try {
+        listener(statusSnapshot);
+      } catch (err) {
+        console.warn("[Agent] status listener failed:", err);
+      }
+    }
   }
 
   /**
@@ -575,6 +747,27 @@ export class AgentManager {
             `[Agent] Child process exited unexpectedly with code ${exitCode} (pid: ${proc.pid})`,
           );
           this.childProcess = null;
+
+          // Auto-recover from PGLite migration failures by deleting the DB
+          // and spawning a fresh process (new process = fresh WASM state).
+          if (this.hasPgliteError && !this.pgliteRecoveryDone) {
+            this.pgliteRecoveryDone = true;
+            diagnosticLog(
+              "[Agent] PGLite migration error detected — deleting DB and retrying with fresh process",
+            );
+            deletePgliteDataDir();
+            this.status = {
+              state: "not_started",
+              agentName: null,
+              port: null,
+              startedAt: null,
+              error: null,
+            };
+            // Delay slightly so OS releases file handles before respawn
+            setTimeout(() => void this.start(), 500);
+            return;
+          }
+
           this.status = {
             state: "error",
             agentName: this.status.agentName,
@@ -654,7 +847,7 @@ export class AgentManager {
    */
   private async fetchAgentName(port: number): Promise<string> {
     try {
-      const response = await fetch(`http://localhost:${port}/api/agents`, {
+      const response = await fetch(`http://127.0.0.1:${port}/api/agents`, {
         signal: AbortSignal.timeout(5_000),
       });
       if (response.ok) {

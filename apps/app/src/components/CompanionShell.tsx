@@ -15,7 +15,6 @@ import { CompanionView } from "./CompanionView";
 import { ConnectorsPageView } from "./ConnectorsPageView";
 import {
   ACCENT_COLORS,
-  COMPANION_OVERLAY_TABS,
   cardBackground,
   cardBorderColor,
   cardBoxShadow,

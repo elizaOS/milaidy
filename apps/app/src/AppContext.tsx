@@ -81,6 +81,7 @@ import {
   markPendingAutonomyGapsPartial,
   mergeAutonomyEvents,
 } from "./autonomy-events";
+import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   expandSavedCustomCommand,
   loadSavedCustomCommands,
@@ -757,7 +758,7 @@ type LoadConversationMessagesResult =
   | { ok: true }
   | { ok: false; status?: number; message: string };
 
-export type StartupPhase = "starting-backend" | "initializing-agent";
+export type StartupPhase = "starting-backend" | "initializing-agent" | "ready";
 
 export type StartupErrorReason =
   | "backend-timeout"
@@ -774,7 +775,6 @@ export interface StartupErrorState {
   path?: string;
 }
 
-const BACKEND_STARTUP_TIMEOUT_MS = 30_000;
 const AGENT_READY_TIMEOUT_MS = 90_000;
 
 interface ApiLikeError {
@@ -4637,7 +4637,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const resp = await client.cloudLogin();
       if (!resp.ok) throw new Error("Failed to start login session");
-      window.open(resp.browserUrl, "_blank");
+      // Use desktop IPC to open in the system browser — window.open() is
+      // a no-op in WKWebView (Electrobun) for external URLs.
+      const electronApi = (
+        window as {
+          electron?: {
+            ipcRenderer: {
+              invoke: (ch: string, p?: unknown) => Promise<unknown>;
+            };
+          };
+        }
+      ).electron;
+      if (electronApi?.ipcRenderer) {
+        await electronApi.ipcRenderer.invoke("desktop:openExternal", {
+          url: resp.browserUrl,
+        });
+      } else {
+        window.open(resp.browserUrl, "_blank");
+      }
       // Poll for completion
       let attempts = 0;
       cloudLoginPollTimer.current = window.setInterval(async () => {
@@ -5012,7 +5029,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           reason: "backend-timeout",
           phase: "starting-backend",
           message: `Backend did not become reachable within ${Math.round(
-            BACKEND_STARTUP_TIMEOUT_MS / 1000,
+            getBackendStartupTimeoutMs() / 1000,
           )}s.`,
           detail: formatStartupErrorDetail(err),
           status: apiErr?.status,
@@ -5149,13 +5166,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupPhase("starting-backend");
       setAuthRequired(false);
       setConnected(false);
-      const backendDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+      const backendStartedAt = Date.now();
       let lastBackendError: unknown = null;
 
       // Keep the splash screen up until the backend is reachable.
       let backendAttempts = 0;
       while (!cancelled) {
-        if (Date.now() >= backendDeadlineAt) {
+        if (Date.now() - backendStartedAt >= getBackendStartupTimeoutMs()) {
           setStartupError(describeBackendFailure(lastBackendError, true));
           setOnboardingLoading(false);
           return;
@@ -5209,10 +5226,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // On fresh installs, unblock to onboarding as soon as options are available.
       if (onboardingNeedsOptions) {
-        const optionsDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+        const optionsStartedAt = Date.now();
         let optionsError: unknown = null;
         while (!cancelled) {
-          if (Date.now() >= optionsDeadlineAt) {
+          if (Date.now() - optionsStartedAt >= getBackendStartupTimeoutMs()) {
             setStartupError(describeBackendFailure(optionsError, true));
             setOnboardingLoading(false);
             return;
@@ -5319,6 +5336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       setStartupError(null);
+      setStartupPhase("ready");
       setOnboardingLoading(false);
 
       // Load conversations — if none exist, create one and request a greeting

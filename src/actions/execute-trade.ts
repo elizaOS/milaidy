@@ -56,7 +56,7 @@ export const executeTradeAction: Action = {
     return Boolean(hasWallet);
   },
 
-  handler: async (_runtime, message, _state, options) => {
+  handler: async (_runtime, _message, _state, options) => {
     try {
       const params = (options as HandlerOptions | undefined)?.parameters;
       logger.debug(

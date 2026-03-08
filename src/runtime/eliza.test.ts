@@ -9,6 +9,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findPluginExport } from "../cli/plugins-cli";
@@ -33,9 +34,11 @@ import {
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
+  resolveMiladyPluginImportSpecifier,
   resolvePackageEntry,
   resolvePrimaryModel,
   scanDropInPlugins,
+  shouldIgnoreMissingPluginExport,
 } from "./eliza";
 
 // ---------------------------------------------------------------------------
@@ -279,6 +282,16 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
   });
 
+  it("normalizes streaming-base short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["streaming-base"] },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@milady/plugin-streaming-base")).toBe(true);
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(false);
+  });
+
   it("normalizes cua short IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["cua"] },
@@ -373,6 +386,30 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+  });
+
+  it("uses the Milady streaming-base package when enabled via plugins.entries", () => {
+    const config = {
+      plugins: {
+        entries: { "streaming-base": { enabled: true } },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@milady/plugin-streaming-base")).toBe(true);
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(false);
+  });
+
+  it("uses the Milady x-streaming package when enabled via plugins.entries", () => {
+    const config = {
+      plugins: {
+        entries: { "x-streaming": { enabled: true } },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@milady/plugin-x-streaming")).toBe(true);
+    expect(names.has("@elizaos/plugin-x-streaming")).toBe(false);
   });
 
   it("uses @elizaos/plugin-telegram from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
@@ -1790,6 +1827,66 @@ describe("mergeDropInPlugins", () => {
     });
     expect(accepted).toHaveLength(0);
     expect(skipped).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveMiladyPluginImportSpecifier
+// ---------------------------------------------------------------------------
+
+describe("resolveMiladyPluginImportSpecifier", () => {
+  it("prefers a bundled local plugin wrapper when one exists", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
+    const runtimeDir = path.join(tmpDir, "runtime");
+    const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
+
+    await fs.mkdir(runtimeDir, { recursive: true });
+    await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
+    await fs.writeFile(pluginIndex, "export default {};\n");
+
+    const specifier = resolveMiladyPluginImportSpecifier(
+      "@milady/plugin-retake",
+      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+    );
+
+    expect(specifier).toBe(pathToFileURL(pluginIndex).href);
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("falls back to the bundled package when no local wrapper exists", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
+    const runtimeDir = path.join(tmpDir, "runtime");
+    await fs.mkdir(runtimeDir, { recursive: true });
+
+    const specifier = resolveMiladyPluginImportSpecifier(
+      "@milady/plugin-x-streaming",
+      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+    );
+
+    expect(specifier).toBe("@milady/plugin-x-streaming");
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("leaves non-Milady plugins unchanged", () => {
+    expect(resolveMiladyPluginImportSpecifier("@elizaos/plugin-discord")).toBe(
+      "@elizaos/plugin-discord",
+    );
+  });
+});
+
+describe("shouldIgnoreMissingPluginExport", () => {
+  it("ignores helper-only streaming-base package exports", () => {
+    expect(
+      shouldIgnoreMissingPluginExport("@milady/plugin-streaming-base"),
+    ).toBe(true);
+  });
+
+  it("does not ignore real plugins", () => {
+    expect(shouldIgnoreMissingPluginExport("@milady/plugin-x-streaming")).toBe(
+      false,
+    );
   });
 });
 

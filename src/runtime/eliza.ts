@@ -650,8 +650,12 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   piAi: PI_AI_PLUGIN_PACKAGE,
   x402: "@elizaos/plugin-x402",
   "coding-agent": "@elizaos/plugin-agent-orchestrator",
+  "streaming-base": "@milady/plugin-streaming-base",
   "twitch-streaming": "@milady/plugin-twitch-streaming",
   "youtube-streaming": "@milady/plugin-youtube-streaming",
+  "custom-rtmp": "@milady/plugin-custom-rtmp",
+  "pumpfun-streaming": "@milady/plugin-pumpfun-streaming",
+  "x-streaming": "@milady/plugin-x-streaming",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -1133,6 +1137,28 @@ function getWorkspacePluginOverridePath(pluginName: string): string | null {
   return null;
 }
 
+export function resolveMiladyPluginImportSpecifier(
+  pluginName: string,
+  runtimeModuleUrl = import.meta.url,
+): string {
+  if (!pluginName.startsWith("@milady/plugin-")) {
+    return pluginName;
+  }
+
+  const shortName = pluginName.replace("@milady/plugin-", "");
+  const thisDir = path.dirname(fileURLToPath(runtimeModuleUrl));
+  const distRoot = thisDir.endsWith("runtime")
+    ? path.resolve(thisDir, "..")
+    : thisDir;
+  const indexPath = path.resolve(distRoot, "plugins", shortName, "index.js");
+
+  return existsSync(indexPath) ? pathToFileURL(indexPath).href : pluginName;
+}
+
+export function shouldIgnoreMissingPluginExport(pluginName: string): boolean {
+  return pluginName === "@milady/plugin-streaming-base";
+}
+
 // ---------------------------------------------------------------------------
 // Plugin resolution
 // ---------------------------------------------------------------------------
@@ -1395,23 +1421,10 @@ async function resolvePlugins(
           }
         }
       } else if (pluginName.startsWith("@milady/plugin-")) {
-        // Local Milady plugin — resolve from the compiled dist directory.
-        // Import the index.js directly (importFromPath's resolvePackageEntry
-        // fails because there's no package.json and the extensionless
-        // fallback doesn't match the .js file on disk).
-        const shortName = pluginName.replace("@milady/plugin-", "");
-        const thisDir = path.dirname(fileURLToPath(import.meta.url));
-        const distRoot = thisDir.endsWith("runtime")
-          ? path.resolve(thisDir, "..")
-          : thisDir;
-        const indexPath = path.resolve(
-          distRoot,
-          "plugins",
-          shortName,
-          "index.js",
-        );
+        // Milady plugins can resolve either from bundled local wrappers
+        // under milady-dist/plugins/* or from packaged node_modules.
         mod = (await import(
-          pathToFileURL(indexPath).href
+          resolveMiladyPluginImportSpecifier(pluginName)
         )) as PluginModuleShape;
       } else {
         // Built-in/npm plugin — try bundled static import first, then
@@ -1435,6 +1448,13 @@ async function resolvePlugins(
         logger.debug(`[milady] ✓ Loaded plugin: ${pluginName}`);
         return { name: pluginName, plugin: wrappedPlugin };
       } else {
+        if (shouldIgnoreMissingPluginExport(pluginName)) {
+          logger.info(
+            `[milady] Skipping helper package ${pluginName}: no Plugin export is expected`,
+          );
+          return null;
+        }
+
         const msg = `[milady] Plugin ${pluginName} did not export a valid Plugin object`;
         failedPlugins.push({
           name: pluginName,

@@ -8,7 +8,6 @@
  * Called once during app startup after the BrowserView is created.
  */
 
-import type { BrowserView } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
@@ -19,21 +18,55 @@ import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
 import { getSwabbleManager } from "./native/swabble";
 import { getTalkModeManager } from "./native/talkmode";
-import type { MiladyRPCSchema, PipState } from "./rpc-schema";
+import type { PipState } from "./rpc-schema";
 
 // PiP state (simple in-memory store — no dedicated manager needed)
 let pipState: PipState = { enabled: false };
 
+/** Push current OS permission states to the agent REST API in-process. */
+async function syncPermissionsToRestApi(): Promise<void> {
+  const port = getAgentManager().getPort();
+  if (!port) return;
+  try {
+    const permissions = await getPermissionManager().checkAllPermissions();
+    await fetch(`http://127.0.0.1:${port}/api/permissions/state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions }),
+    });
+  } catch {
+    // non-fatal — renderer will still get data via IPC response
+  }
+}
+
+type SendToWebview = (message: string, payload?: unknown) => void;
+
 /**
- * Register all RPC request handlers on the given BrowserView.
+ * Structural type for the Electrobun RPC instance used in rpc-handlers.
+ * The createRPC return value exposes setRequestHandler, but the base
+ * RPCWithTransport interface does not include it.
+ *
+ * `any` is an explicit escape hatch here: the individual handlers are fully
+ * typed at their call-sites via `Parameters<typeof manager.method>[0]`, so
+ * type safety lives in the concrete handler definitions, not this wrapper.
+ */
+type ElectrobunRpcWithHandlers = {
+  // biome-ignore lint/suspicious/noExplicitAny: Electrobun doesn't export a typed setRequestHandler interface; individual handlers are typed at call-sites
+  setRequestHandler?: (handlers: Record<string, (params: any) => any>) => void;
+};
+
+/**
+ * Register all RPC request handlers on the given rpc instance.
  *
  * Each handler receives typed params and must return the typed response
  * matching MiladyRPCSchema.bun.requests[method].
  */
-export function registerRpcHandlers(view: BrowserView<MiladyRPCSchema>): void {
-  const rpc = view.rpc;
+export function registerRpcHandlers(
+  rpc: ElectrobunRpcWithHandlers | null | undefined,
+  sendToWebview: SendToWebview,
+): void {
   if (!rpc) {
-    console.error("[RPC] No RPC instance on BrowserView");
+    console.error("[RPC] No RPC instance provided");
     return;
   }
 
@@ -48,323 +81,302 @@ export function registerRpcHandlers(view: BrowserView<MiladyRPCSchema>): void {
   const swabble = getSwabbleManager();
   const talkmode = getTalkModeManager();
 
-  // ---- Agent ----
-  rpc.handleRequest.agentStart(async () => agent.start());
-  rpc.handleRequest.agentStop(async () => {
-    await agent.stop();
-    return { ok: true };
-  });
-  rpc.handleRequest.agentRestart(async () => agent.restart());
-  rpc.handleRequest.agentStatus(async () => agent.getStatus());
+  rpc?.setRequestHandler?.({
+    // ---- Agent ----
+    agentStart: async () => agent.start(),
+    agentStop: async () => {
+      await agent.stop();
+      return { ok: true };
+    },
+    agentRestart: async () => agent.restart(),
+    agentStatus: async () => agent.getStatus(),
 
-  // ---- Desktop: Tray ----
-  rpc.handleRequest.desktopCreateTray(async (params) =>
-    desktop.createTray(params),
-  );
-  rpc.handleRequest.desktopUpdateTray(async (params) =>
-    desktop.updateTray(params),
-  );
-  rpc.handleRequest.desktopDestroyTray(async () => desktop.destroyTray());
-  rpc.handleRequest.desktopSetTrayMenu(async (params) =>
-    desktop.setTrayMenu(params),
-  );
+    // ---- Desktop: Tray ----
+    desktopCreateTray: async (
+      params: Parameters<typeof desktop.createTray>[0],
+    ) => desktop.createTray(params),
+    desktopUpdateTray: async (
+      params: Parameters<typeof desktop.updateTray>[0],
+    ) => desktop.updateTray(params),
+    desktopDestroyTray: async () => desktop.destroyTray(),
+    desktopSetTrayMenu: async (
+      params: Parameters<typeof desktop.setTrayMenu>[0],
+    ) => desktop.setTrayMenu(params),
 
-  // ---- Desktop: Shortcuts ----
-  rpc.handleRequest.desktopRegisterShortcut(async (params) =>
-    desktop.registerShortcut(params),
-  );
-  rpc.handleRequest.desktopUnregisterShortcut(async (params) =>
-    desktop.unregisterShortcut(params),
-  );
-  rpc.handleRequest.desktopUnregisterAllShortcuts(async () =>
-    desktop.unregisterAllShortcuts(),
-  );
-  rpc.handleRequest.desktopIsShortcutRegistered(async (params) =>
-    desktop.isShortcutRegistered(params),
-  );
+    // ---- Desktop: Shortcuts ----
+    desktopRegisterShortcut: async (
+      params: Parameters<typeof desktop.registerShortcut>[0],
+    ) => desktop.registerShortcut(params),
+    desktopUnregisterShortcut: async (
+      params: Parameters<typeof desktop.unregisterShortcut>[0],
+    ) => desktop.unregisterShortcut(params),
+    desktopUnregisterAllShortcuts: async () => desktop.unregisterAllShortcuts(),
+    desktopIsShortcutRegistered: async (
+      params: Parameters<typeof desktop.isShortcutRegistered>[0],
+    ) => desktop.isShortcutRegistered(params),
 
-  // ---- Desktop: Auto Launch ----
-  rpc.handleRequest.desktopSetAutoLaunch(async (params) =>
-    desktop.setAutoLaunch(params),
-  );
-  rpc.handleRequest.desktopGetAutoLaunchStatus(async () =>
-    desktop.getAutoLaunchStatus(),
-  );
+    // ---- Desktop: Auto Launch ----
+    desktopSetAutoLaunch: async (
+      params: Parameters<typeof desktop.setAutoLaunch>[0],
+    ) => desktop.setAutoLaunch(params),
+    desktopGetAutoLaunchStatus: async () => desktop.getAutoLaunchStatus(),
 
-  // ---- Desktop: Window ----
-  rpc.handleRequest.desktopSetWindowOptions(async (params) =>
-    desktop.setWindowOptions(params),
-  );
-  rpc.handleRequest.desktopGetWindowBounds(async () =>
-    desktop.getWindowBounds(),
-  );
-  rpc.handleRequest.desktopSetWindowBounds(async (params) =>
-    desktop.setWindowBounds(params),
-  );
-  rpc.handleRequest.desktopMinimizeWindow(async () => desktop.minimizeWindow());
-  rpc.handleRequest.desktopMaximizeWindow(async () => desktop.maximizeWindow());
-  rpc.handleRequest.desktopUnmaximizeWindow(async () =>
-    desktop.unmaximizeWindow(),
-  );
-  rpc.handleRequest.desktopCloseWindow(async () => desktop.closeWindow());
-  rpc.handleRequest.desktopShowWindow(async () => desktop.showWindow());
-  rpc.handleRequest.desktopHideWindow(async () => desktop.hideWindow());
-  rpc.handleRequest.desktopFocusWindow(async () => desktop.focusWindow());
-  rpc.handleRequest.desktopIsWindowMaximized(async () =>
-    desktop.isWindowMaximized(),
-  );
-  rpc.handleRequest.desktopIsWindowMinimized(async () =>
-    desktop.isWindowMinimized(),
-  );
-  rpc.handleRequest.desktopIsWindowVisible(async () =>
-    desktop.isWindowVisible(),
-  );
-  rpc.handleRequest.desktopIsWindowFocused(async () =>
-    desktop.isWindowFocused(),
-  );
-  rpc.handleRequest.desktopSetAlwaysOnTop(async (params) =>
-    desktop.setAlwaysOnTop(params),
-  );
-  rpc.handleRequest.desktopSetFullscreen(async (params) =>
-    desktop.setFullscreen(params),
-  );
-  rpc.handleRequest.desktopSetOpacity(async (params) =>
-    desktop.setOpacity(params),
-  );
+    // ---- Desktop: Window ----
+    desktopSetWindowOptions: async (
+      params: Parameters<typeof desktop.setWindowOptions>[0],
+    ) => desktop.setWindowOptions(params),
+    desktopGetWindowBounds: async () => desktop.getWindowBounds(),
+    desktopSetWindowBounds: async (
+      params: Parameters<typeof desktop.setWindowBounds>[0],
+    ) => desktop.setWindowBounds(params),
+    desktopMinimizeWindow: async () => desktop.minimizeWindow(),
+    desktopMaximizeWindow: async () => desktop.maximizeWindow(),
+    desktopUnmaximizeWindow: async () => desktop.unmaximizeWindow(),
+    desktopCloseWindow: async () => desktop.closeWindow(),
+    desktopShowWindow: async () => desktop.showWindow(),
+    desktopHideWindow: async () => desktop.hideWindow(),
+    desktopFocusWindow: async () => desktop.focusWindow(),
+    desktopIsWindowMaximized: async () => desktop.isWindowMaximized(),
+    desktopIsWindowMinimized: async () => desktop.isWindowMinimized(),
+    desktopIsWindowVisible: async () => desktop.isWindowVisible(),
+    desktopIsWindowFocused: async () => desktop.isWindowFocused(),
+    desktopSetAlwaysOnTop: async (
+      params: Parameters<typeof desktop.setAlwaysOnTop>[0],
+    ) => desktop.setAlwaysOnTop(params),
+    desktopSetFullscreen: async (
+      params: Parameters<typeof desktop.setFullscreen>[0],
+    ) => desktop.setFullscreen(params),
+    desktopSetOpacity: async (
+      params: Parameters<typeof desktop.setOpacity>[0],
+    ) => desktop.setOpacity(params),
 
-  // ---- Desktop: Notifications ----
-  rpc.handleRequest.desktopShowNotification(async (params) =>
-    desktop.showNotification(params),
-  );
-  rpc.handleRequest.desktopCloseNotification(async (params) =>
-    desktop.closeNotification(params),
-  );
+    // ---- Desktop: Notifications ----
+    desktopShowNotification: async (
+      params: Parameters<typeof desktop.showNotification>[0],
+    ) => desktop.showNotification(params),
+    desktopCloseNotification: async (
+      params: Parameters<typeof desktop.closeNotification>[0],
+    ) => desktop.closeNotification(params),
 
-  // ---- Desktop: Power ----
-  rpc.handleRequest.desktopGetPowerState(async () => desktop.getPowerState());
+    // ---- Desktop: Power ----
+    desktopGetPowerState: async () => desktop.getPowerState(),
 
-  // ---- Desktop: App ----
-  rpc.handleRequest.desktopQuit(async () => desktop.quit());
-  rpc.handleRequest.desktopRelaunch(async () => desktop.relaunch());
-  rpc.handleRequest.desktopGetVersion(async () => desktop.getVersion());
-  rpc.handleRequest.desktopIsPackaged(async () => desktop.isPackaged());
-  rpc.handleRequest.desktopGetPath(async (params) => desktop.getPath(params));
-  rpc.handleRequest.desktopBeep(async () => desktop.beep());
+    // ---- Desktop: App ----
+    desktopQuit: async () => desktop.quit(),
+    desktopRelaunch: async () => desktop.relaunch(),
+    desktopGetVersion: async () => desktop.getVersion(),
+    desktopIsPackaged: async () => desktop.isPackaged(),
+    desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
+      desktop.getPath(params),
+    desktopBeep: async () => desktop.beep(),
 
-  // ---- Desktop: Clipboard ----
-  rpc.handleRequest.desktopWriteToClipboard(async (params) =>
-    desktop.writeToClipboard(params),
-  );
-  rpc.handleRequest.desktopReadFromClipboard(async () =>
-    desktop.readFromClipboard(),
-  );
-  rpc.handleRequest.desktopClearClipboard(async () => desktop.clearClipboard());
+    // ---- Desktop: Clipboard ----
+    desktopWriteToClipboard: async (
+      params: Parameters<typeof desktop.writeToClipboard>[0],
+    ) => desktop.writeToClipboard(params),
+    desktopReadFromClipboard: async () => desktop.readFromClipboard(),
+    desktopClearClipboard: async () => desktop.clearClipboard(),
 
-  // ---- Desktop: Shell ----
-  rpc.handleRequest.desktopOpenExternal(async (params) =>
-    desktop.openExternal(params),
-  );
-  rpc.handleRequest.desktopShowItemInFolder(async (params) =>
-    desktop.showItemInFolder(params),
-  );
+    // ---- Desktop: Shell ----
+    desktopOpenExternal: async (
+      params: Parameters<typeof desktop.openExternal>[0],
+    ) => desktop.openExternal(params),
+    desktopShowItemInFolder: async (
+      params: Parameters<typeof desktop.showItemInFolder>[0],
+    ) => desktop.showItemInFolder(params),
 
-  // ---- Gateway ----
-  rpc.handleRequest.gatewayStartDiscovery(async (params) =>
-    gateway.startDiscovery(params || undefined),
-  );
-  rpc.handleRequest.gatewayStopDiscovery(async () => gateway.stopDiscovery());
-  rpc.handleRequest.gatewayIsDiscovering(async () => ({
-    isDiscovering: gateway.isDiscoveryActive(),
-  }));
-  rpc.handleRequest.gatewayGetDiscoveredGateways(async () => ({
-    gateways: gateway.getDiscoveredGateways(),
-  }));
+    // ---- Gateway ----
+    gatewayStartDiscovery: async (
+      params: Parameters<typeof gateway.startDiscovery>[0] | undefined,
+    ) => gateway.startDiscovery(params || undefined),
+    gatewayStopDiscovery: async () => gateway.stopDiscovery(),
+    gatewayIsDiscovering: async () => ({
+      isDiscovering: gateway.isDiscoveryActive(),
+    }),
+    gatewayGetDiscoveredGateways: async () => ({
+      gateways: gateway.getDiscoveredGateways(),
+    }),
 
-  // ---- Permissions ----
-  rpc.handleRequest.permissionsCheck(async (params) =>
-    permissions.checkPermission(params.id, params.forceRefresh),
-  );
-  rpc.handleRequest.permissionsCheckFeature(async (params) =>
-    permissions.checkFeaturePermissions(params.featureId),
-  );
-  rpc.handleRequest.permissionsRequest(async (params) =>
-    permissions.requestPermission(params.id),
-  );
-  rpc.handleRequest.permissionsGetAll(async (params) =>
-    permissions.checkAllPermissions(params?.forceRefresh),
-  );
-  rpc.handleRequest.permissionsGetPlatform(async () => process.platform);
-  rpc.handleRequest.permissionsIsShellEnabled(async () =>
-    permissions.isShellEnabled(),
-  );
-  rpc.handleRequest.permissionsSetShellEnabled(async (params) => {
-    permissions.setShellEnabled(params.enabled);
-    return permissions.checkPermission("shell");
-  });
-  rpc.handleRequest.permissionsClearCache(async () => permissions.clearCache());
-  rpc.handleRequest.permissionsOpenSettings(async (params) =>
-    permissions.openSettings(params.id),
-  );
+    // ---- Permissions ----
+    permissionsCheck: async (params: {
+      id: Parameters<typeof permissions.checkPermission>[0];
+      forceRefresh?: boolean;
+    }) => permissions.checkPermission(params.id, params.forceRefresh),
+    permissionsCheckFeature: async (params: {
+      featureId: Parameters<typeof permissions.checkFeaturePermissions>[0];
+    }) => permissions.checkFeaturePermissions(params.featureId),
+    permissionsRequest: async (params: {
+      id: Parameters<typeof permissions.requestPermission>[0];
+    }) => {
+      const result = await permissions.requestPermission(params.id);
+      syncPermissionsToRestApi();
+      return result;
+    },
+    permissionsGetAll: async (
+      params: { forceRefresh?: boolean } | undefined,
+    ) => {
+      const result = await permissions.checkAllPermissions(
+        params?.forceRefresh,
+      );
+      syncPermissionsToRestApi();
+      return result;
+    },
+    permissionsGetPlatform: async () => process.platform,
+    permissionsIsShellEnabled: async () => permissions.isShellEnabled(),
+    permissionsSetShellEnabled: async (params: { enabled: boolean }) => {
+      permissions.setShellEnabled(params.enabled);
+      return permissions.checkPermission("shell");
+    },
+    permissionsClearCache: async () => permissions.clearCache(),
+    permissionsOpenSettings: async (params: {
+      id: Parameters<typeof permissions.openSettings>[0];
+    }) => permissions.openSettings(params.id),
 
-  // ---- Location ----
-  rpc.handleRequest.locationGetCurrentPosition(async () =>
-    location.getCurrentPosition(),
-  );
-  rpc.handleRequest.locationWatchPosition(async (params) =>
-    location.watchPosition(params),
-  );
-  rpc.handleRequest.locationClearWatch(async (params) =>
-    location.clearWatch(params),
-  );
-  rpc.handleRequest.locationGetLastKnownLocation(async () =>
-    location.getLastKnownLocation(),
-  );
+    // ---- Location ----
+    locationGetCurrentPosition: async () => location.getCurrentPosition(),
+    locationWatchPosition: async (
+      params: Parameters<typeof location.watchPosition>[0],
+    ) => location.watchPosition(params),
+    locationClearWatch: async (
+      params: Parameters<typeof location.clearWatch>[0],
+    ) => location.clearWatch(params),
+    locationGetLastKnownLocation: async () => location.getLastKnownLocation(),
 
-  // ---- Camera ----
-  rpc.handleRequest.cameraGetDevices(async () => camera.getDevices());
-  rpc.handleRequest.cameraStartPreview(async (params) =>
-    camera.startPreview(params),
-  );
-  rpc.handleRequest.cameraStopPreview(async () => camera.stopPreview());
-  rpc.handleRequest.cameraSwitchCamera(async (params) =>
-    camera.switchCamera(params),
-  );
-  rpc.handleRequest.cameraCapturePhoto(async () => camera.capturePhoto());
-  rpc.handleRequest.cameraStartRecording(async () => camera.startRecording());
-  rpc.handleRequest.cameraStopRecording(async () => camera.stopRecording());
-  rpc.handleRequest.cameraGetRecordingState(async () =>
-    camera.getRecordingState(),
-  );
-  rpc.handleRequest.cameraCheckPermissions(async () =>
-    camera.checkPermissions(),
-  );
-  rpc.handleRequest.cameraRequestPermissions(async () =>
-    camera.requestPermissions(),
-  );
+    // ---- Camera ----
+    cameraGetDevices: async () => camera.getDevices(),
+    cameraStartPreview: async (
+      params: Parameters<typeof camera.startPreview>[0],
+    ) => camera.startPreview(params),
+    cameraStopPreview: async () => camera.stopPreview(),
+    cameraSwitchCamera: async (
+      params: Parameters<typeof camera.switchCamera>[0],
+    ) => camera.switchCamera(params),
+    cameraCapturePhoto: async () => camera.capturePhoto(),
+    cameraStartRecording: async () => camera.startRecording(),
+    cameraStopRecording: async () => camera.stopRecording(),
+    cameraGetRecordingState: async () => camera.getRecordingState(),
+    cameraCheckPermissions: async () => camera.checkPermissions(),
+    cameraRequestPermissions: async () => camera.requestPermissions(),
 
-  // ---- Canvas ----
-  rpc.handleRequest.canvasCreateWindow(async (params) =>
-    canvas.createWindow(params),
-  );
-  rpc.handleRequest.canvasDestroyWindow(async (params) =>
-    canvas.destroyWindow(params),
-  );
-  rpc.handleRequest.canvasNavigate(async (params) => canvas.navigate(params));
-  rpc.handleRequest.canvasEval(async (params) => canvas.eval(params));
-  rpc.handleRequest.canvasSnapshot(async (params) => canvas.snapshot(params));
-  rpc.handleRequest.canvasA2uiPush(async (params) => canvas.a2uiPush(params));
-  rpc.handleRequest.canvasA2uiReset(async (params) => canvas.a2uiReset(params));
-  rpc.handleRequest.canvasShow(async (params) => canvas.show(params));
-  rpc.handleRequest.canvasHide(async (params) => canvas.hide(params));
-  rpc.handleRequest.canvasResize(async (params) => canvas.resize(params));
-  rpc.handleRequest.canvasFocus(async (params) => canvas.focus(params));
-  rpc.handleRequest.canvasGetBounds(async (params) => canvas.getBounds(params));
-  rpc.handleRequest.canvasSetBounds(async (params) => canvas.setBounds(params));
-  rpc.handleRequest.canvasListWindows(async () => canvas.listWindows());
+    // ---- Canvas ----
+    canvasCreateWindow: async (
+      params: Parameters<typeof canvas.createWindow>[0],
+    ) => canvas.createWindow(params),
+    canvasDestroyWindow: async (
+      params: Parameters<typeof canvas.destroyWindow>[0],
+    ) => canvas.destroyWindow(params),
+    canvasNavigate: async (params: Parameters<typeof canvas.navigate>[0]) =>
+      canvas.navigate(params),
+    canvasEval: async (params: Parameters<typeof canvas.eval>[0]) =>
+      canvas.eval(params),
+    canvasSnapshot: async (params: Parameters<typeof canvas.snapshot>[0]) =>
+      canvas.snapshot(params),
+    canvasA2uiPush: async (params: Parameters<typeof canvas.a2uiPush>[0]) =>
+      canvas.a2uiPush(params),
+    canvasA2uiReset: async (params: Parameters<typeof canvas.a2uiReset>[0]) =>
+      canvas.a2uiReset(params),
+    canvasShow: async (params: Parameters<typeof canvas.show>[0]) =>
+      canvas.show(params),
+    canvasHide: async (params: Parameters<typeof canvas.hide>[0]) =>
+      canvas.hide(params),
+    canvasResize: async (params: Parameters<typeof canvas.resize>[0]) =>
+      canvas.resize(params),
+    canvasFocus: async (params: Parameters<typeof canvas.focus>[0]) =>
+      canvas.focus(params),
+    canvasGetBounds: async (params: Parameters<typeof canvas.getBounds>[0]) =>
+      canvas.getBounds(params),
+    canvasSetBounds: async (params: Parameters<typeof canvas.setBounds>[0]) =>
+      canvas.setBounds(params),
+    canvasListWindows: async () => canvas.listWindows(),
 
-  // ---- Screencapture ----
-  rpc.handleRequest.screencaptureGetSources(async () =>
-    screencapture.getSources(),
-  );
-  rpc.handleRequest.screencaptureTakeScreenshot(async () =>
-    screencapture.takeScreenshot(),
-  );
-  rpc.handleRequest.screencaptureCaptureWindow(async (params) =>
-    screencapture.captureWindow(params),
-  );
-  rpc.handleRequest.screencaptureStartRecording(async () =>
-    screencapture.startRecording(),
-  );
-  rpc.handleRequest.screencaptureStopRecording(async () =>
-    screencapture.stopRecording(),
-  );
-  rpc.handleRequest.screencapturePauseRecording(async () =>
-    screencapture.pauseRecording(),
-  );
-  rpc.handleRequest.screencaptureResumeRecording(async () =>
-    screencapture.resumeRecording(),
-  );
-  rpc.handleRequest.screencaptureGetRecordingState(async () =>
-    screencapture.getRecordingState(),
-  );
-  rpc.handleRequest.screencaptureStartFrameCapture(async (params) =>
-    screencapture.startFrameCapture(params),
-  );
-  rpc.handleRequest.screencaptureStopFrameCapture(async () =>
-    screencapture.stopFrameCapture(),
-  );
-  rpc.handleRequest.screencaptureIsFrameCaptureActive(async () =>
-    screencapture.isFrameCaptureActive(),
-  );
-  rpc.handleRequest.screencaptureSaveScreenshot(async (params) =>
-    screencapture.saveScreenshot(params),
-  );
-  rpc.handleRequest.screencaptureSwitchSource(async (params) =>
-    screencapture.switchSource(params),
-  );
+    // ---- Screencapture ----
+    screencaptureGetSources: async () => screencapture.getSources(),
+    screencaptureTakeScreenshot: async () => screencapture.takeScreenshot(),
+    screencaptureCaptureWindow: async (
+      params: Parameters<typeof screencapture.captureWindow>[0],
+    ) => screencapture.captureWindow(params),
+    screencaptureStartRecording: async () => screencapture.startRecording(),
+    screencaptureStopRecording: async () => screencapture.stopRecording(),
+    screencapturePauseRecording: async () => screencapture.pauseRecording(),
+    screencaptureResumeRecording: async () => screencapture.resumeRecording(),
+    screencaptureGetRecordingState: async () =>
+      screencapture.getRecordingState(),
+    screencaptureStartFrameCapture: async (
+      params: Parameters<typeof screencapture.startFrameCapture>[0],
+    ) => screencapture.startFrameCapture(params),
+    screencaptureStopFrameCapture: async () => screencapture.stopFrameCapture(),
+    screencaptureIsFrameCaptureActive: async () =>
+      screencapture.isFrameCaptureActive(),
+    screencaptureSaveScreenshot: async (
+      params: Parameters<typeof screencapture.saveScreenshot>[0],
+    ) => screencapture.saveScreenshot(params),
+    screencaptureSwitchSource: async (
+      params: Parameters<typeof screencapture.switchSource>[0],
+    ) => screencapture.switchSource(params),
+    screencaptureSetCaptureTarget: async (_params: unknown) => {
+      // Revert to main webview. Popout windows call setCaptureTarget(win.webview)
+      // directly on the Bun side when they open.
+      screencapture.setCaptureTarget(null);
+      return { available: true };
+    },
 
-  // ---- Swabble ----
-  rpc.handleRequest.swabbleStart(async () => swabble.start());
-  rpc.handleRequest.swabbleStop(async () => swabble.stop());
-  rpc.handleRequest.swabbleIsListening(async () => swabble.isListening());
-  rpc.handleRequest.swabbleGetConfig(async () => swabble.getConfig());
-  rpc.handleRequest.swabbleUpdateConfig(async (params) =>
-    swabble.updateConfig(params),
-  );
-  rpc.handleRequest.swabbleIsWhisperAvailable(async () =>
-    swabble.isWhisperAvailableCheck(),
-  );
-  rpc.handleRequest.swabbleAudioChunk(async (params) =>
-    swabble.audioChunk(params),
-  );
+    // ---- Swabble ----
+    swabbleStart: async (params: Parameters<typeof swabble.start>[0]) =>
+      swabble.start(params),
+    swabbleStop: async () => swabble.stop(),
+    swabbleIsListening: async () => swabble.isListening(),
+    swabbleGetConfig: async () => swabble.getConfig(),
+    swabbleUpdateConfig: async (
+      params: Parameters<typeof swabble.updateConfig>[0],
+    ) => swabble.updateConfig(params),
+    swabbleIsWhisperAvailable: async () => swabble.isWhisperAvailableCheck(),
+    swabbleAudioChunk: async (
+      params: Parameters<typeof swabble.audioChunk>[0],
+    ) => swabble.audioChunk(params),
 
-  // ---- TalkMode ----
-  rpc.handleRequest.talkmodeStart(async () => talkmode.start());
-  rpc.handleRequest.talkmodeStop(async () => talkmode.stop());
-  rpc.handleRequest.talkmodeSpeak(async (params) => talkmode.speak(params));
-  rpc.handleRequest.talkmodeStopSpeaking(async () => talkmode.stopSpeaking());
-  rpc.handleRequest.talkmodeGetState(async () => talkmode.getState());
-  rpc.handleRequest.talkmodeIsEnabled(async () => talkmode.isEnabled());
-  rpc.handleRequest.talkmodeIsSpeaking(async () => talkmode.isSpeaking());
-  rpc.handleRequest.talkmodeGetWhisperInfo(async () =>
-    talkmode.getWhisperInfo(),
-  );
-  rpc.handleRequest.talkmodeIsWhisperAvailable(async () =>
-    talkmode.isWhisperAvailableCheck(),
-  );
-  rpc.handleRequest.talkmodeUpdateConfig(async (params) =>
-    talkmode.updateConfig(params),
-  );
-  rpc.handleRequest.talkmodeAudioChunk(async (params) =>
-    talkmode.audioChunk(params),
-  );
+    // ---- TalkMode ----
+    talkmodeStart: async () => talkmode.start(),
+    talkmodeStop: async () => talkmode.stop(),
+    talkmodeSpeak: async (params: Parameters<typeof talkmode.speak>[0]) =>
+      talkmode.speak(params),
+    talkmodeStopSpeaking: async () => talkmode.stopSpeaking(),
+    talkmodeGetState: async () => talkmode.getState(),
+    talkmodeIsEnabled: async () => talkmode.isEnabled(),
+    talkmodeIsSpeaking: async () => talkmode.isSpeaking(),
+    talkmodeGetWhisperInfo: async () => talkmode.getWhisperInfo(),
+    talkmodeIsWhisperAvailable: async () => talkmode.isWhisperAvailableCheck(),
+    talkmodeUpdateConfig: async (
+      params: Parameters<typeof talkmode.updateConfig>[0],
+    ) => talkmode.updateConfig(params),
+    talkmodeAudioChunk: async (
+      params: Parameters<typeof talkmode.audioChunk>[0],
+    ) => talkmode.audioChunk(params),
 
-  // ---- Context Menu ----
-  // These forward text selections from the renderer context menu to the agent.
-  // The renderer handles the actual context menu UI.
-  rpc.handleRequest.contextMenuAskAgent(async (_params) => {
-    // Forward to agent via the running API server
-    // TODO: POST to /api/chat or similar endpoint
-  });
-  rpc.handleRequest.contextMenuCreateSkill(async (_params) => {
-    // Forward to agent
-  });
-  rpc.handleRequest.contextMenuQuoteInChat(async (_params) => {
-    // Forward to renderer as a message
-  });
-  rpc.handleRequest.contextMenuSaveAsCommand(async (_params) => {
-    // Forward to agent
-  });
+    // ---- Context Menu ----
+    // These forward text selections from the renderer context menu to the agent.
+    contextMenuAskAgent: async (params: { text: string }) => {
+      sendToWebview("contextMenu:askAgent", { text: params.text });
+    },
+    contextMenuCreateSkill: async (params: { text: string }) => {
+      sendToWebview("contextMenu:createSkill", { text: params.text });
+    },
+    contextMenuQuoteInChat: async (params: { text: string }) => {
+      sendToWebview("contextMenu:quoteInChat", { text: params.text });
+    },
+    contextMenuSaveAsCommand: async (params: { text: string }) => {
+      sendToWebview("contextMenu:saveAsCommand", { text: params.text });
+    },
 
-  // ---- LIFO (PiP) ----
-  rpc.handleRequest.lifoGetPipState(async () => pipState);
-  rpc.handleRequest.lifoSetPip(async (params) => {
-    pipState = params;
-    if (params.enabled) {
-      desktop.setAlwaysOnTop({ flag: true });
-    } else {
-      desktop.setAlwaysOnTop({ flag: false });
-    }
+    // ---- LIFO (PiP) ----
+    lifoGetPipState: async () => pipState,
+    lifoSetPip: async (params: PipState) => {
+      pipState = params;
+      if (params.enabled) {
+        desktop.setAlwaysOnTop({ flag: true });
+      } else {
+        desktop.setAlwaysOnTop({ flag: false });
+      }
+    },
   });
 
   console.log("[RPC] All handlers registered");

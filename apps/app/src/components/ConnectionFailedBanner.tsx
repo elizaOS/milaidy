@@ -1,10 +1,12 @@
 import { useApp } from "../AppContext";
+import { isElectrobunRuntime } from "../bridge/electrobun-runtime";
 
 /**
  * Banner shown during WebSocket reconnection attempts (amber) and
  * after all attempts are exhausted (red). Offers Retry when failed.
  */
 export function ConnectionFailedBanner() {
+  const bannerTop = isElectrobunRuntime() ? 40 : 0;
   const {
     backendConnection,
     backendDisconnectedBannerDismissed,
@@ -17,7 +19,10 @@ export function ConnectionFailedBanner() {
   // ── Reconnecting: amber banner with attempt counter ──────────────────
   if (backendConnection.state === "reconnecting") {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center gap-3 bg-amber-500 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+      <div
+        className="fixed left-0 right-0 z-[9999] flex items-center gap-3 bg-amber-500 px-4 py-2 text-[13px] font-medium text-white shadow-lg"
+        style={{ top: bannerTop }}
+      >
         <svg
           className="h-4 w-4 shrink-0 animate-spin"
           viewBox="0 0 24 24"
@@ -53,7 +58,10 @@ export function ConnectionFailedBanner() {
     !backendDisconnectedBannerDismissed
   ) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 bg-danger px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+      <div
+        className="fixed left-0 right-0 z-[9999] flex items-center justify-between gap-3 bg-danger px-4 py-2 text-[13px] font-medium text-white shadow-lg"
+        style={{ top: bannerTop }}
+      >
         <span className="truncate">
           Connection lost after {backendConnection.maxReconnectAttempts}{" "}
           attempts. Real-time updates are paused.

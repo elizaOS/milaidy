@@ -77,6 +77,12 @@ describe("CanvasManager.eval() URL allowlist", () => {
       expect(result).toBe("ok");
     });
 
+    it("allows http://127.0.0.1:3000", async () => {
+      injectFakeCanvas(manager, "c4b", "http://127.0.0.1:3000");
+      const result = await manager.eval({ id: "c4b", script: "1+1" });
+      expect(result).toBe("ok");
+    });
+
     it("allows file:// URLs", async () => {
       injectFakeCanvas(manager, "c5", "file:///Users/test/index.html");
       const result = await manager.eval({ id: "c5", script: "1+1" });
@@ -129,26 +135,16 @@ describe("CanvasManager.eval() URL allowlist", () => {
   describe("edge cases (hostname spoofing attempts)", () => {
     it("blocks http://localhost.evil.com (subdomain spoof)", async () => {
       injectFakeCanvas(manager, "c20", "http://localhost.evil.com");
-      // This should be blocked because startsWith("http://localhost") matches,
-      // but the actual host is localhost.evil.com. The current implementation
-      // allows this because it uses startsWith. This test documents the behavior.
-      // If the implementation is tightened, this test should be updated.
-      //
-      // NOTE: startsWith("http://localhost") will match "http://localhost.evil.com"
-      // which is a known limitation. The test documents current behavior.
-      const result = await manager.eval({ id: "c20", script: "1+1" });
-      // Current implementation allows this due to startsWith match
-      expect(result).toBe("ok");
+      await expect(manager.eval({ id: "c20", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
 
     it("blocks http://localhost@external.com (credential-based spoof)", async () => {
       injectFakeCanvas(manager, "c21", "http://localhost@external.com");
-      // http://localhost@external.com - the "localhost" is in the userinfo,
-      // the actual host is external.com. startsWith("http://localhost") matches.
-      // This documents the current behavior as a known edge case.
-      const result = await manager.eval({ id: "c21", script: "1+1" });
-      // Current implementation allows this due to startsWith match
-      expect(result).toBe("ok");
+      await expect(manager.eval({ id: "c21", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
   });
 

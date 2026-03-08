@@ -715,6 +715,25 @@ install_desktop_app() {
 
   success "${app_name} installed to /Applications"
   info "You can launch it from Spotlight or your Applications folder."
+
+  # ── Optional macOS system tools ───────────────────────────────────────────
+  # imagesnap: enables camera capture for VisionService
+  if command -v brew &>/dev/null; then
+    if ! command -v imagesnap &>/dev/null; then
+      if confirm "Install imagesnap for camera support? (requires Homebrew)" "Y"; then
+        brew install imagesnap
+        success "imagesnap installed — camera capture enabled"
+      else
+        info "Skipping imagesnap. Camera features will be unavailable."
+        info "Install later with: brew install imagesnap"
+      fi
+    else
+      success "imagesnap already installed"
+    fi
+  else
+    info "Homebrew not found — skipping imagesnap."
+    info "Install Homebrew and then run: brew install imagesnap"
+  fi
 }
 
 # ── Post-install setup ───────────────────────────────────────────────────────
