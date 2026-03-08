@@ -89,6 +89,7 @@ export const AUTH_PROVIDER_PLUGINS: Record<string, string> = {
   MILADY_USE_PI_AI: "@elizaos/plugin-pi-ai",
   CUA_API_KEY: "@elizaos/plugin-cua",
   CUA_HOST: "@elizaos/plugin-cua",
+  LIMITLESS_API_KEY: "@milady/plugin-limitless",
   OBSIDIAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   OBSIDAN_VAULT_PATH: "@elizaos/plugin-obsidian",
   REPOPROMPT_CLI_PATH: "@elizaos/plugin-repoprompt",

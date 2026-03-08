@@ -45,6 +45,7 @@ export const OPTIONAL_CORE_PLUGINS: readonly string[] = [
   "@elizaos/plugin-twitch", // Twitch integration
   "@elizaos/plugin-edge-tts", // text-to-speech (Microsoft Edge TTS)
   "@elizaos/plugin-elevenlabs", // ElevenLabs text-to-speech
+  "@milady/plugin-limitless", // Limitless Exchange prediction market trading
   // "@elizaos/plugin-directives", // directive processing - not yet ready
   // "@elizaos/plugin-commands", // slash command handling - not yet ready
   // "@elizaos/plugin-mcp", // MCP protocol support - not yet ready

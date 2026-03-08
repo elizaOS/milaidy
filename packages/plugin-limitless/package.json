@@ -1,0 +1,95 @@
+{
+  "name": "@milady/plugin-limitless",
+  "description": "Limitless Exchange prediction market trading plugin for Milady — discover markets, place orders, and run autonomous trading strategies on Base chain",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "MIT",
+  "keywords": [
+    "elizaos",
+    "elizaos-plugin",
+    "prediction-markets",
+    "limitless",
+    "base-chain",
+    "trading",
+    "defi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "packages/plugin-limitless"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "dependencies": {
+    "@elizaos/core": "next",
+    "cross-fetch": "^4.1.0",
+    "viem": "^2.20.0",
+    "socket.io-client": "^4.8.0",
+    "eventsource": "^4.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "prepare": "bun run build.ts",
+    "test": "bun test"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "LIMITLESS_PRIVATE_KEY": {
+        "type": "string",
+        "description": "Hex private key for the wallet used to trade on Limitless Exchange (Base chain). Required for order signing and execution.",
+        "required": true,
+        "sensitive": true
+      },
+      "LIMITLESS_API_KEY": {
+        "type": "string",
+        "description": "API key for the Limitless Exchange API (lmts_... format).",
+        "required": true,
+        "sensitive": true
+      },
+      "LIMITLESS_DRY_RUN": {
+        "type": "string",
+        "description": "Set to 'true' to simulate trades without executing. Defaults to 'true' for safety.",
+        "required": false,
+        "default": "true"
+      },
+      "LIMITLESS_MAX_SINGLE_TRADE_USD": {
+        "type": "string",
+        "description": "Maximum USD amount per single trade. Defaults to 10.",
+        "required": false,
+        "default": "10"
+      },
+      "LIMITLESS_MAX_TOTAL_EXPOSURE_USD": {
+        "type": "string",
+        "description": "Maximum total USD exposure across all positions. Defaults to 50.",
+        "required": false,
+        "default": "50"
+      },
+      "COINGECKO_API_KEY": {
+        "type": "string",
+        "description": "CoinGecko API key for price feeds (optional, used by signal-sniper strategy).",
+        "required": false,
+        "sensitive": true
+      }
+    }
+  }
+}

@@ -61,6 +61,15 @@ declare module "@elizaos/plugin-together" {
   export { plugin };
 }
 
+declare module "@milady/plugin-limitless" {
+  const plugin: import("@elizaos/core").Plugin;
+  export default plugin;
+  export { plugin as limitlessPlugin };
+  export { LimitlessClient } from "@milady/plugin-limitless";
+  export { TradingClient } from "@milady/plugin-limitless";
+  export { PortfolioClient } from "@milady/plugin-limitless";
+}
+
 declare module "@opinion-labs/opinion-clob-sdk" {
   export class Client {
     constructor(opts: Record<string, unknown>);
