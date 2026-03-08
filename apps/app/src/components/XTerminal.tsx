@@ -3,6 +3,14 @@ import { useEffect, useRef } from "react";
 import { client } from "../api-client";
 
 /**
+ * Regex to strip the "clear scrollback" ANSI escape (`\e[3J`) from terminal
+ * output. Agents emit this to clear history, but we want to preserve it in
+ * the UI so users can scroll back.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence stripping requires control chars
+export const CLEAR_SCROLLBACK_RE = /\x1b\[3J/g;
+
+/**
  * Embedded xterm.js terminal pane for a PTY session.
  *
  * Lifecycle:
@@ -59,6 +67,9 @@ export function XTerminal({
       });
       const fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);
+
+      // Hide until hydration completes to prevent scroll-from-top flash
+      container.style.visibility = "hidden";
       terminal.open(container);
 
       termRef.current = terminal;
@@ -71,14 +82,21 @@ export function XTerminal({
         // Container may not be visible yet
       }
 
-      // 1. Hydrate with buffered output FIRST (full history up to now)
+      // 1. Hydrate with buffered output (full history).
+      //    Strip \e[3J (clear scrollback) to preserve scroll history.
+      //    Container stays hidden until write completes to prevent flash.
       const buffered = await client.getPtyBufferedOutput(sessionId);
       if (disposed) return;
       if (buffered) {
-        terminal.write(buffered);
+        terminal.write(buffered.replace(CLEAR_SCROLLBACK_RE, ""), () => {
+          if (!disposed) {
+            terminal.scrollToBottom();
+            container.style.visibility = "";
+          }
+        });
+      } else {
+        container.style.visibility = "";
       }
-      // Show the most recent output, not the top of history
-      terminal.scrollToBottom();
 
       // 2. THEN subscribe to live output — avoids duplicate data from the
       //    overlap window between subscribe and hydration completing.
@@ -89,7 +107,7 @@ export function XTerminal({
           typeof msg.data === "string" &&
           !disposed
         ) {
-          terminal.write(msg.data);
+          terminal.write(msg.data.replace(CLEAR_SCROLLBACK_RE, ""));
         }
       });
 
@@ -100,9 +118,11 @@ export function XTerminal({
         }
       });
 
-      // 4. Resize handling
+      // 4. Resize handling — skip fit when container is collapsed (height < 10)
+      //    to avoid sending bad dimensions to the server PTY.
       resizeObserver = new ResizeObserver(() => {
         if (disposed) return;
+        if (container.clientHeight < 10) return;
         try {
           fitAddon.fit();
           client.resizePty(sessionId, terminal.cols, terminal.rows);

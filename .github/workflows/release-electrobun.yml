@@ -1,0 +1,634 @@
+# Build & Release — Electrobun desktop app (signed/notarized on macOS, CEF on Windows/Linux)
+# Produces installer artifacts plus platform-prefixed .tar.zst/*-update.json
+# update channel files.
+#
+# Required GitHub Secrets (macOS signing + notarization):
+#   CSC_LINK                     – base64-encoded Developer ID Application .p12
+#   CSC_KEY_PASSWORD             – password for the .p12 certificate
+#   APPLE_ID                     – Apple ID email for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD  – app-specific password from appleid.apple.com
+#   APPLE_TEAM_ID                – 10-char Apple Developer Team ID
+#
+# The workflow imports the certificate into a temporary keychain, extracts the
+# Developer ID identity string, and passes that to Electrobun as
+# ELECTROBUN_DEVELOPER_ID for the final `electrobun build`.
+#
+# Optional release-host upload secrets:
+#   RELEASE_UPLOAD_KEY           – SSH private key for releases@milady.ai
+#   RELEASE_HOST_FINGERPRINT     – pinned SSH host key entry for milady.ai
+name: Build & Release (Electrobun)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v2.0.0-alpha.3)"
+        required: false
+        type: string
+      draft:
+        description: "Create as draft release"
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-electrobun-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      env: ${{ steps.version.outputs.env }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version + env
+        id: version
+        run: |
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          VERSION="${TAG#v}"
+          # canary for pre-release tags, stable for everything else
+          if echo "$VERSION" | grep -qE '(alpha|beta|rc|nightly)'; then
+            BUILD_ENV="canary"
+          else
+            BUILD_ENV="stable"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "env=$BUILD_ENV" >> "$GITHUB_OUTPUT"
+          echo "Release: $VERSION (tag: $TAG, env: $BUILD_ENV)"
+
+  build:
+    name: Build ${{ matrix.platform.name }}
+    needs: prepare
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: macOS (Apple Silicon)
+            os: macos
+            runner: macos-14
+            artifact-name: macos-arm64
+          - name: macOS (Intel)
+            os: macos
+            runner: macos-15-intel
+            artifact-name: macos-x64
+          - name: Windows
+            os: windows
+            runner: windows-latest
+            artifact-name: windows-x64
+          - name: Linux
+            os: linux
+            runner: ubuntu-latest
+            artifact-name: linux-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-electrobun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-${{ runner.os }}-
+
+      - name: Install root dependencies
+        # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node
+        # which has no pre-built binary for Node 22 on Windows and fails to compile).
+        # Workspace prepare scripts are NOT suppressed by --ignore-scripts in bun.
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Align version with release tag
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.RELEASE_VERSION;
+            for (const file of [
+              'package.json',
+              'apps/app/package.json',
+              'apps/app/electrobun/package.json',
+            ]) {
+              try {
+                const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+                pkg.version = version;
+                fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+              } catch (e) {
+                console.warn('Could not update ' + file + ':', e.message);
+              }
+            }
+            // Update version in electrobun.config.ts
+            const cfgPath = 'apps/app/electrobun/electrobun.config.ts';
+            let cfg = fs.readFileSync(cfgPath, 'utf8');
+            cfg = cfg.replace(/version:\s*\"[^\"]+\"/, 'version: \"' + version + '\"');
+            fs.writeFileSync(cfgPath, cfg);
+          "
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+
+      - name: Build core dist (server bundle)
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
+
+      - name: Build renderer (Vite)
+        run: |
+          bun install --ignore-scripts
+          npx vite build
+        working-directory: apps/app
+
+      # Copy the Vite-built frontend into the Electrobun renderer directory.
+      # The bun entry point (src/index.ts) resolves the renderer at
+      # ../renderer/index.html relative to itself, which maps to
+      # apps/app/electrobun/renderer/ at build time and
+      # Resources/app/renderer/ in the packaged bundle.
+      # Without this step the renderer directory is absent from the package
+      # and the window opens to a file-not-found error.
+      - name: Stage renderer for Electrobun bundle
+        run: |
+          rm -rf apps/app/electrobun/renderer
+          cp -r apps/app/dist apps/app/electrobun/renderer
+
+      # macOS: compile Objective-C++ native effects dylib
+      - name: Build native macOS effects dylib
+        if: matrix.platform.os == 'macos'
+        run: bun run build:native-effects
+        working-directory: apps/app/electrobun
+
+      # Build the webview bridge preload (window.electron shim injected into the webview)
+      - name: Build webview bridge preload
+        run: bun run build:preload
+        working-directory: apps/app/electrobun
+
+      # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
+      # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
+      - name: Build whisper.cpp (on-device STT)
+        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
+        run: bun run build:whisper
+        working-directory: apps/app/electrobun
+
+      # Import the Developer ID certificate into a temporary keychain.
+      # Requires CSC_LINK (base64-encoded .p12) + CSC_KEY_PASSWORD.
+      # The signing identity string is extracted and passed to Electrobun as
+      # ELECTROBUN_DEVELOPER_ID in the build step below.
+      - name: Set up macOS signing keychain
+        if: matrix.platform.os == 'macos'
+        id: macos-keychain
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -z "$CSC_LINK" ]; then
+            echo "::warning::CSC_LINK not set — building unsigned (no codesign/notarize)"
+            echo "skip_codesign=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/milady-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          # Create a short-lived keychain for this build
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Decode and import the .p12 certificate
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          echo "$CSC_LINK" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CSC_KEY_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm -f "$CERT_PATH"
+
+          # Add to the keychain search list (preserving login keychain)
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+          # Allow codesign to access the key without a password prompt
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Extract identity for Electrobun
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' identity found in certificate"
+            exit 1
+          fi
+          echo "Signing identity: $IDENTITY"
+          echo "developer_id=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "skip_codesign=" >> "$GITHUB_OUTPUT"
+
+      - name: Sign native macOS effects dylib
+        if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
+        env:
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+        run: |
+          DYLIB="apps/app/electrobun/src/libMacWindowEffects.dylib"
+          if [ ! -f "$DYLIB" ]; then
+            echo "::error::Expected $DYLIB to exist after build:native-effects"
+            exit 1
+          fi
+          codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$DYLIB"
+          codesign --verify --strict --verbose=2 "$DYLIB"
+
+      - name: Install quiet macOS packaging wrappers
+        if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
+        run: |
+          wrapper_dir="$RUNNER_TEMP/milady-notary-bin"
+          mkdir -p "$wrapper_dir"
+          cp apps/app/electrobun/scripts/xcrun-wrapper.sh "$wrapper_dir/xcrun"
+          cp apps/app/electrobun/scripts/zip-wrapper.sh "$wrapper_dir/zip"
+          chmod +x "$wrapper_dir/xcrun"
+          chmod +x "$wrapper_dir/zip"
+          echo "$wrapper_dir" >> "$GITHUB_PATH"
+
+      # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
+      # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
+      # Copy the runtime package closure that the built server bundle still imports
+      # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
+      # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
+      - name: Bundle backend node_modules into dist/
+        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+
+      - name: Install electrobun CLI
+        run: |
+          ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
+          echo "Installing electrobun@$ELECTROBUN_VERSION"
+          bun install -g "electrobun@$ELECTROBUN_VERSION"
+
+      # electrobun.cjs downloads its native binary then calls:
+      #   execSync(`tar -xzf "${tarballPath}"`, { cwd: cacheDir })
+      # GNU tar (found first in PATH on Windows) treats the C: drive letter as
+      # user@host, failing with "Cannot connect to C:". We bypass this entirely
+      # by pre-downloading the tarball and extracting it with Windows' built-in
+      # BSD tar (C:\Windows\System32\tar.exe, full path) before the build runs.
+      # electrobun.cjs checks existsSync(cliBinary) first and skips the download.
+      - name: Pre-extract electrobun native CLI on Windows
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $electrobunDir = Join-Path $env:USERPROFILE ".bun\install\global\node_modules\electrobun"
+          $cacheDir     = Join-Path $electrobunDir ".cache"
+          $binDir       = Join-Path $electrobunDir "bin"
+          $cliBinary    = Join-Path $cacheDir "electrobun.exe"
+          $binBinary    = Join-Path $binDir "electrobun.exe"
+
+          if (Test-Path $binBinary) {
+            Write-Host "electrobun CLI already present at $binBinary — skipping download"
+            exit 0
+          }
+
+          $version   = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $tarUrl    = "https://github.com/blackboardsh/electrobun/releases/download/v$version/electrobun-cli-win-x64.tar.gz"
+          $tarPath   = Join-Path $cacheDir "electrobun-win-x64.tar.gz"
+
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          Write-Host "Downloading electrobun CLI from $tarUrl"
+          Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath -UseBasicParsing
+
+          Write-Host "Extracting with Windows BSD tar..."
+          & "C:\Windows\System32\tar.exe" -xzf $tarPath -C $cacheDir
+          Remove-Item $tarPath -Force
+
+          if (-not (Test-Path $cliBinary)) {
+            Write-Error "electrobun.exe not found in $cacheDir after extraction"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+          Copy-Item $cliBinary $binBinary
+          Write-Host "electrobun CLI ready at $binBinary"
+
+      - name: Build Electrobun app
+        run: electrobun build --env=${{ needs.prepare.outputs.env }}
+        working-directory: apps/app/electrobun
+        env:
+          # Electrobun reads these env vars directly. The workflow derives the
+          # signing identity from CSC_LINK/CSC_KEY_PASSWORD during keychain setup
+          # and maps the notarization credentials from the standard repo secrets.
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+          ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
+          ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+          ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
+          ELECTROBUN_REAL_ZIP: /usr/bin/zip
+
+      # Inject version.json into the packaged Resources directory.
+      # The bun entry getVersionInfo() reads ../Resources/version.json and
+      # throws if absent, killing the process before main() runs.
+      # Electrobun does not generate this file for us, so write it from the
+      # release metadata after the packaged bundle exists.
+      - name: Inject version.json into bundle (Windows)
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/app/electrobun/package.json | ConvertFrom-Json).version
+          $envName = "${{ needs.prepare.outputs.env }}"
+          $buildRoot = "apps/app/electrobun/build"
+
+          Get-ChildItem -Path $buildRoot -Recurse -Directory -Filter "Resources" | ForEach-Object {
+            $versionJson = @{
+              identifier = "com.miladyai.milady"
+              channel = $envName
+              name = "milady"
+              version = $version
+            } | ConvertTo-Json -Compress
+            $dest = Join-Path $_.FullName "version.json"
+            Write-Host "Writing $dest"
+            Set-Content -Path $dest -Value $versionJson -Encoding utf8
+          }
+
+      - name: Inject version.json into bundle (macOS / Linux)
+        if: matrix.platform.os != 'windows'
+        run: |
+          VERSION="$(node -p "require('./apps/app/electrobun/package.json').version")"
+          ENV_NAME="${{ needs.prepare.outputs.env }}"
+          find apps/app/electrobun/build -type d -name "Resources" | while read -r res_dir; do
+            dest="$res_dir/version.json"
+            printf '{"identifier":"com.miladyai.milady","channel":"%s","name":"milady","version":"%s"}' \
+              "$ENV_NAME" "$VERSION" > "$dest"
+            echo "Wrote $dest"
+          done
+
+      - name: List build output
+        run: |
+          echo "=== Electrobun artifacts ==="
+          find apps/app/electrobun/artifacts -type f 2>/dev/null | sort || echo "(no artifacts directory)"
+
+      - name: Stage standard macOS release app
+        if: matrix.platform.os == 'macos'
+        env:
+          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
+          ELECTROBUN_APPLEID: ${{ secrets.APPLE_ID }}
+          ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
+          ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+        run: bash apps/app/electrobun/scripts/stage-macos-release-artifacts.sh
+
+      - name: Smoke test packaged Windows app
+        if: matrix.platform.os == 'windows'
+        run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
+
+      - name: Stage Windows setup executables
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
+          $setupExecutables = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
+          if (-not $setupExecutables) {
+            Write-Error "No Windows setup executable found under apps/app/electrobun/build"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          foreach ($setupExecutable in $setupExecutables) {
+            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
+            Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
+          }
+
+      - name: Verify macOS signature and notarization
+        if: matrix.platform.os == 'macos'
+        run: |
+          apps=()
+          while IFS= read -r app; do
+            apps+=("$app")
+          done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app" | sort)
+          mounted_volume=""
+          if [ "${#apps[@]}" -eq 0 ]; then
+            dmgs=(apps/app/electrobun/artifacts/*.dmg)
+            if [ "${#dmgs[@]}" -eq 0 ]; then
+              echo "::warning::No .app bundle or .dmg found — skipping codesign check"
+              exit 0
+            fi
+            dmg="${dmgs[0]}"
+            echo "No .app bundle found in artifacts; mounting DMG: $dmg"
+            mount_line=""
+            for attempt in 1 2 3 4 5; do
+              attach_output="$(hdiutil attach -nobrowse -readonly "$dmg" 2>&1)" && \
+                mount_line="$(printf '%s\n' "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')" && \
+                [ -n "$mount_line" ] && [ -d "$mount_line" ] && break
+              echo "::warning::DMG attach attempt $attempt/5 failed"
+              if [ -n "${attach_output:-}" ]; then
+                printf '%s\n' "$attach_output"
+              fi
+              mount_line=""
+              sleep 2
+            done
+            if [ -z "$mount_line" ]; then
+              echo "::error::Failed to determine mounted DMG volume"
+              exit 1
+            fi
+            mounted_volume="$mount_line"
+            trap 'if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true; fi' EXIT
+            apps=()
+            while IFS= read -r app; do
+              apps+=("$app")
+            done < <(find "$mounted_volume" -maxdepth 1 -type d -name "*.app" | sort)
+            if [ "${#apps[@]}" -eq 0 ]; then
+              echo "::error::No .app bundle found inside mounted DMG"
+              exit 1
+            fi
+          fi
+          for app in "${apps[@]}"; do
+            echo "Verifying: $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
+            echo "$info" | grep -q "Authority=Developer ID Application" || {
+              echo "::error::Missing Developer ID Application signature on $app"
+              exit 1
+            }
+            spctl -a -vv --type exec "$app"
+            xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
+          done
+          found_dmg=0
+          while IFS= read -r dmg; do
+            [[ -z "$dmg" ]] && continue
+            found_dmg=1
+            echo "Verifying installer: $dmg"
+            dmg_info="$(codesign -dv --verbose=4 "$dmg" 2>&1 || true)"
+            echo "$dmg_info"
+            echo "$dmg_info" | grep -q "Authority=Developer ID Application" || {
+              echo "::error::Missing Developer ID Application signature on $dmg"
+              exit 1
+            }
+            xcrun stapler validate "$dmg"
+          done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.dmg" | sort)
+          if [ "$found_dmg" -eq 0 ]; then
+            echo "::error::No DMG found in apps/app/electrobun/artifacts"
+            exit 1
+          fi
+
+      - name: Smoke test packaged macOS app
+        if: matrix.platform.os == 'macos'
+        env:
+          SMOKE_DIAGNOSTICS_DIR: ${{ runner.temp }}/milady-smoke-diagnostics
+        run: |
+          STARTUP_TIMEOUT=420 \
+          LIVENESS_TIMEOUT=10 \
+          SKIP_BUILD=1 \
+          SKIP_SIGNATURE_CHECK=1 \
+          bash apps/app/electrobun/scripts/smoke-test.sh
+
+      - name: Upload Windows smoke diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
+          path: |
+            ${{ env.USERPROFILE }}\.config\Milady\milady-startup.log
+            ${{ env.LOCALAPPDATA }}\com.miladyai.milady\**\wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload macOS smoke diagnostics
+        if: failure() && matrix.platform.os == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
+          path: |
+            ${{ runner.temp }}/milady-smoke-diagnostics/**
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}
+          path: |
+            apps/app/electrobun/artifacts/*.dmg
+            apps/app/electrobun/artifacts/*.tar.zst
+            apps/app/electrobun/artifacts/*.exe
+            apps/app/electrobun/artifacts/*.zip
+            apps/app/electrobun/artifacts/*.tar.gz
+            apps/app/electrobun/artifacts/*-update.json
+            apps/app/electrobun/artifacts/*.patch
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: electrobun-*
+          merge-multiple: false
+
+      - name: List artifacts
+        run: find release-artifacts -type f | sort 2>/dev/null || echo "No artifacts"
+
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f \( \
+            -name "*.dmg" -o \
+            -name "*.tar.zst" -o \
+            -name "*.exe" -o \
+            -name "*.zip" -o \
+            -name "*.tar.gz" -o \
+            -name "*-update.json" -o \
+            -name "*.patch" \
+          \) -exec cp {} release-files/ \; 2>/dev/null || true
+          echo "=== Release files ==="
+          ls -lh release-files/ 2>/dev/null || echo "None"
+
+      - name: Generate checksums
+        run: |
+          cd release-files
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Milady ${{ needs.prepare.outputs.tag }}
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') || contains(needs.prepare.outputs.version, 'rc') || contains(needs.prepare.outputs.version, 'nightly') }}
+          generate_release_notes: true
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload platform-prefixed update manifests + tarballs to
+      # milady.ai/releases/ so the Electrobun updater can discover them via the
+      # flat baseUrl contract in electrobun.config.ts:
+      #   ${baseUrl}/${platformPrefix}-update.json
+      #   ${baseUrl}/${platformPrefix}-${tarballFileName}
+      # Requires RELEASE_UPLOAD_KEY secret (SSH private key for releases server).
+      # Skipped for draft releases — test/preview builds must not pollute the production update channel.
+      - name: Upload update channel files to milady.ai/releases/
+        if: ${{ !inputs.draft }}
+        env:
+          RELEASE_UPLOAD_KEY: ${{ secrets.RELEASE_UPLOAD_KEY }}
+          RELEASE_HOST_FINGERPRINT: ${{ secrets.RELEASE_HOST_FINGERPRINT }}
+        run: |
+          if [ -z "$RELEASE_UPLOAD_KEY" ]; then
+            echo "No RELEASE_UPLOAD_KEY secret — skipping upload"
+            exit 0
+          fi
+          echo "$RELEASE_UPLOAD_KEY" > /tmp/release_key
+          chmod 600 /tmp/release_key
+          # Pin the host fingerprint from the RELEASE_HOST_FINGERPRINT secret so SSH
+          # verifies the server identity without disabling host-key checking.
+          # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$RELEASE_HOST_FINGERPRINT" >> ~/.ssh/known_hosts
+          mkdir -p update-channel
+          find release-files -maxdepth 1 -type f \( \
+            -name "*.tar.zst" -o \
+            -name "*.patch" -o \
+            -name "*-update.json" \
+          \) -exec cp {} update-channel/ \;
+          echo "=== Update channel files ==="
+          ls -lh update-channel/
+          # Electrobun resolves update metadata and tarballs at the flat
+          # release root, keyed by platform prefix, not inside version folders.
+          rsync -av --delete-after \
+            -e "ssh -i /tmp/release_key" \
+            update-channel/ \
+            releases@milady.ai:/var/www/releases/
+          rm -f /tmp/release_key

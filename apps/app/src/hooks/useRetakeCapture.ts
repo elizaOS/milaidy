@@ -5,7 +5,7 @@
  * compositor output including cross-origin iframes (unlike the old canvas approach
  * which was blocked by same-origin policy).
  *
- * The main process handles capture + HTTP POST to /api/retake/frame directly.
+ * The main process handles capture + HTTP POST to /api/stream/frame directly.
  * This hook just sends start/stop signals.
  */
 
@@ -44,7 +44,8 @@ export function useRetakeCapture(
         .invoke("screencapture:startFrameCapture", {
           fps,
           quality: JPEG_QUALITY,
-          endpoint: "/api/retake/frame",
+          apiBase: window.__MILADY_API_BASE__ ?? "http://localhost:2138",
+          endpoint: "/api/stream/frame",
         })
         .catch((err) => {
           console.warn("[retake] Failed to start frame capture:", err);

@@ -64,20 +64,27 @@ export function resolveExternalApiBase(
  * that writes the values to `window.__MILADY_API_BASE__` and
  * `window.__MILADY_API_TOKEN__`.
  */
+/**
+ * Structural type for the send proxy on an Electrobun RPC instance.
+ * Scoped to only the message this module needs to send.
+ */
+type ApiBaseUpdateRpc = {
+  send?: {
+    apiBaseUpdate?: (payload: { base: string; token?: string }) => void;
+  };
+};
+
 export function pushApiBaseToRenderer(
-  win: {
-    webview: {
-      rpc?: { sendMessage?: Record<string, (payload: unknown) => void> };
-    };
-  },
+  win: { webview: { rpc?: unknown } },
   base: string,
   apiToken?: string,
 ): void {
   const trimmedToken = apiToken?.trim();
   const payload = { base, token: trimmedToken || undefined };
   try {
-    win.webview.rpc?.sendMessage?.apiBaseUpdate?.(payload);
-  } catch {
-    // Webview not ready yet -- will be retried on next poll cycle
+    const rpcSend = (win.webview?.rpc as ApiBaseUpdateRpc | undefined)?.send;
+    rpcSend?.apiBaseUpdate?.(payload);
+  } catch (err) {
+    console.warn(`[ApiBase] Push failed:`, err);
   }
 }

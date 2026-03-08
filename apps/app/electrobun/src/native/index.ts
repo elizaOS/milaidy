@@ -36,7 +36,9 @@ export function initializeNativeModules(
   getGatewayDiscovery().setSendToWebview(sendToWebview);
   getLocationManager().setSendToWebview(sendToWebview);
   getPermissionManager().setSendToWebview(sendToWebview);
-  getScreenCaptureManager().setSendToWebview(sendToWebview);
+  const screencapture = getScreenCaptureManager();
+  screencapture.setSendToWebview(sendToWebview);
+  screencapture.setMainWebview(mainWindow.webview);
   getSwabbleManager().setSendToWebview(sendToWebview);
   getTalkModeManager().setSendToWebview(sendToWebview);
 }

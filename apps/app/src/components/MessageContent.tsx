@@ -19,10 +19,37 @@ import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { paramsToSchema } from "./PluginsView";
 import { UiRenderer } from "./ui-renderer";
-import type { UiSpec } from "./ui-spec";
+import type { PatchOp, UiSpec } from "./ui-spec";
 
-/** Reject prototype-pollution plugin IDs that could slip through the regex. */
+/** Reject prototype-pollution keys that should never be traversed or rendered. */
 const BLOCKED_IDS = new Set(["__proto__", "constructor", "prototype"]);
+const SAFE_PLUGIN_ID_RE = /^[\w-]+$/;
+
+function createSafeRecord(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
+function sanitizePatchValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePatchValue(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const safe = createSafeRecord();
+  for (const [key, nestedValue] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (BLOCKED_IDS.has(key)) continue;
+    safe[key] = sanitizePatchValue(nestedValue);
+  }
+  return safe;
+}
+
+function isSafeNormalizedPluginId(id: string): boolean {
+  return !BLOCKED_IDS.has(id) && SAFE_PLUGIN_ID_RE.test(id);
+}
 
 export interface MessageContentProps {
   message: ConversationMessage;
@@ -37,8 +64,16 @@ type Segment =
 
 // ── Detection ───────────────────────────────────────────────────────
 
-const CONFIG_RE = /\[CONFIG:(\w[\w-]*)\]/g;
+const CONFIG_RE = /\[CONFIG:([@\w][\w@./:-]*)\]/g;
 const FENCED_JSON_RE = /```(?:json)?\s*\n([\s\S]*?)```/g;
+
+/**
+ * Strip ElizaOS action XML blocks (`<actions>...</actions>` and
+ * `<params>...</params>`) from displayed text. These are framework
+ * metadata, not user-facing content.
+ */
+const ACTION_XML_RE =
+  /\s*<actions>[\s\S]*?<\/actions>\s*|\s*<params>[\s\S]*?<\/params>\s*/g;
 
 function tryParse(s: string): unknown {
   try {
@@ -58,29 +93,202 @@ function isUiSpec(obj: unknown): obj is UiSpec {
   );
 }
 
+// ── JSONL patch support (Chat Mode) ─────────────────────────────────
+
 /**
- * Parse message text for [CONFIG:id] markers and fenced UiSpec JSON.
+ * Quick pre-check: does this line look like a JSON patch object?
+ * Handles both compact `{"op":` and spaced `{ "op":` formats.
+ */
+export function looksLikePatch(trimmed: string): boolean {
+  if (!trimmed.startsWith("{")) return false;
+  return trimmed.includes('"op"') && trimmed.includes('"path"');
+}
+
+/** Try to parse a single line as an RFC 6902 JSON Patch operation. */
+export function tryParsePatch(line: string): PatchOp | null {
+  const t = line.trim();
+  if (!looksLikePatch(t)) return null;
+  try {
+    const obj = JSON.parse(t) as Record<string, unknown>;
+    if (typeof obj.op === "string" && typeof obj.path === "string")
+      return obj as PatchOp;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Apply a list of RFC 6902 patches to build a UiSpec.
+ *
+ * Only handles the paths the catalog emits:
+ *   /root              → spec.root
+ *   /elements/<id>     → spec.elements[id]
+ *   /state/<key>       → spec.state[key]
+ *   /state             → spec.state (whole object)
+ */
+export function compilePatches(patches: PatchOp[]): UiSpec | null {
+  const spec: {
+    root?: string;
+    elements: Record<string, unknown>;
+    state: Record<string, unknown>;
+  } = { elements: {}, state: createSafeRecord() };
+
+  for (const patch of patches) {
+    if (patch.op !== "add" && patch.op !== "replace") continue;
+    const { path, value } = patch as {
+      op: string;
+      path: string;
+      value: unknown;
+    };
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length === 0) continue;
+
+    if (parts[0] === "root" && parts.length === 1) {
+      spec.root = value as string;
+    } else if (parts[0] === "elements" && parts.length === 2) {
+      spec.elements[parts[1]] = value;
+    } else if (parts[0] === "state" && parts.length === 1) {
+      const nextState = sanitizePatchValue(value);
+      spec.state =
+        nextState && typeof nextState === "object" && !Array.isArray(nextState)
+          ? (nextState as Record<string, unknown>)
+          : createSafeRecord();
+    } else if (parts[0] === "state" && parts.length >= 2) {
+      // Nested state path: /state/key or /state/key/subkey
+      let cursor = spec.state;
+      let blockedPath = false;
+      for (let i = 1; i < parts.length - 1; i++) {
+        const k = parts[i];
+        if (BLOCKED_IDS.has(k)) {
+          blockedPath = true;
+          break;
+        }
+        if (
+          !cursor[k] ||
+          typeof cursor[k] !== "object" ||
+          Array.isArray(cursor[k])
+        ) {
+          cursor[k] = createSafeRecord();
+        }
+        cursor = cursor[k] as Record<string, unknown>;
+      }
+      if (blockedPath) continue;
+      const leaf = parts[parts.length - 1];
+      if (BLOCKED_IDS.has(leaf)) continue;
+      cursor[leaf] = sanitizePatchValue(value);
+    }
+  }
+
+  return isUiSpec(spec) ? (spec as unknown as UiSpec) : null;
+}
+
+/**
+ * Scan `text` for blocks of consecutive JSONL patch lines and return
+ * their character regions plus the compiled UiSpec.
+ *
+ * A patch block is a run of lines where each non-empty line parses as a
+ * valid PatchOp. A single empty line between patch lines is allowed.
+ */
+export function findPatchRegions(
+  text: string,
+): Array<{ start: number; end: number; spec: UiSpec; raw: string }> {
+  const results: Array<{
+    start: number;
+    end: number;
+    spec: UiSpec;
+    raw: string;
+  }> = [];
+  const lines = text.split("\n");
+
+  let blockStart = -1;
+  let blockEnd = 0;
+  let patches: PatchOp[] = [];
+  let rawLines: string[] = [];
+  let pos = 0;
+
+  const flush = () => {
+    if (patches.length >= 1) {
+      const spec = compilePatches(patches);
+      if (spec) {
+        results.push({
+          start: blockStart,
+          end: blockEnd,
+          spec,
+          raw: rawLines.join("\n"),
+        });
+      }
+    }
+    blockStart = -1;
+    patches = [];
+    rawLines = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // +1 for the newline that split() consumed (except the very last line)
+    const lineLen = line.length + (i < lines.length - 1 ? 1 : 0);
+    const trimmed = line.trim();
+
+    if (looksLikePatch(trimmed)) {
+      const patch = tryParsePatch(trimmed);
+      if (patch) {
+        if (blockStart === -1) blockStart = pos;
+        patches.push(patch);
+        rawLines.push(line);
+        blockEnd = pos + lineLen;
+        pos += lineLen;
+        continue;
+      }
+    }
+
+    // Empty line: peek ahead to see if the next non-empty line is a patch
+    if (trimmed.length === 0 && blockStart !== -1) {
+      const nextPatch = lines.slice(i + 1).find((l) => l.trim().length > 0);
+      if (nextPatch && tryParsePatch(nextPatch) !== null) {
+        // Allow the gap and keep going
+        pos += lineLen;
+        continue;
+      }
+    }
+
+    // Non-patch content — flush any open block
+    if (blockStart !== -1) flush();
+    pos += lineLen;
+  }
+
+  if (blockStart !== -1) flush();
+  return results;
+}
+
+/**
+ * Parse message text for [CONFIG:id] markers, fenced UiSpec JSON, and
+ * inline JSONL patch blocks (Chat Mode).
  * Returns an array of segments for rendering.
  */
 function parseSegments(text: string): Segment[] {
+  // Strip ElizaOS framework XML (action selection, params) before rendering
+  const cleaned = text.replace(ACTION_XML_RE, "").trim();
+  if (!cleaned) return [{ kind: "text", text: "" }];
+
   // Build a unified list of match regions sorted by position
   const regions: Array<{ start: number; end: number; segment: Segment }> = [];
 
   // 1. Find [CONFIG:pluginId] markers
   CONFIG_RE.lastIndex = 0;
-  let m: RegExpExecArray | null = CONFIG_RE.exec(text);
+  let m: RegExpExecArray | null = CONFIG_RE.exec(cleaned);
   while (m !== null) {
     regions.push({
       start: m.index,
       end: m.index + m[0].length,
       segment: { kind: "config", pluginId: m[1] },
     });
-    m = CONFIG_RE.exec(text);
+    m = CONFIG_RE.exec(cleaned);
   }
 
-  // 2. Find fenced JSON that is a UiSpec
+  // 2. Find fenced JSON that is a UiSpec (Generate Mode / legacy format)
   FENCED_JSON_RE.lastIndex = 0;
-  m = FENCED_JSON_RE.exec(text);
+  m = FENCED_JSON_RE.exec(cleaned);
   while (m !== null) {
     const json = m[1].trim();
     const parsed = tryParse(json);
@@ -91,12 +299,27 @@ function parseSegments(text: string): Segment[] {
         segment: { kind: "ui-spec", spec: parsed, raw: json },
       });
     }
-    m = FENCED_JSON_RE.exec(text);
+    m = FENCED_JSON_RE.exec(cleaned);
+  }
+
+  // 3. Find inline JSONL patch blocks (Chat Mode)
+  for (const patch of findPatchRegions(cleaned)) {
+    // Skip if this region overlaps with an already-found fenced block
+    const overlaps = regions.some(
+      (r) => patch.start < r.end && patch.end > r.start,
+    );
+    if (!overlaps) {
+      regions.push({
+        start: patch.start,
+        end: patch.end,
+        segment: { kind: "ui-spec", spec: patch.spec, raw: patch.raw },
+      });
+    }
   }
 
   // No special content found — return plain text
   if (regions.length === 0) {
-    return [{ kind: "text", text }];
+    return [{ kind: "text", text: cleaned }];
   }
 
   // Sort by start position, then interleave with text segments
@@ -110,7 +333,7 @@ function parseSegments(text: string): Segment[] {
 
     // Push preceding text
     if (r.start > cursor) {
-      const t = text.slice(cursor, r.start);
+      const t = cleaned.slice(cursor, r.start);
       if (t.trim()) segments.push({ kind: "text", text: t });
     }
     segments.push(r.segment);
@@ -118,8 +341,8 @@ function parseSegments(text: string): Segment[] {
   }
 
   // Trailing text
-  if (cursor < text.length) {
-    const t = text.slice(cursor);
+  if (cursor < cleaned.length) {
+    const t = cleaned.slice(cursor);
     if (t.trim()) segments.push({ kind: "text", text: t });
   }
 
@@ -128,7 +351,13 @@ function parseSegments(text: string): Segment[] {
 
 // ── InlinePluginConfig ──────────────────────────────────────────────
 
-function InlinePluginConfig({ pluginId }: { pluginId: string }) {
+/** Normalize plugin ID: strip @scope/plugin- prefix so both "discord" and "@elizaos/plugin-discord" resolve. */
+export function normalizePluginId(id: string): string {
+  return id.replace(/^@[^/]+\/plugin-/, "");
+}
+
+function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
+  const pluginId = normalizePluginId(rawPluginId);
   const [plugin, setPlugin] = useState<PluginInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -458,7 +687,7 @@ export function MessageContent({ message }: MessageContentProps) {
 
   // Fast path: single plain-text segment (most messages)
   if (segments.length === 1 && segments[0].kind === "text") {
-    return <div className="whitespace-pre-wrap">{message.text}</div>;
+    return <div className="whitespace-pre-wrap">{segments[0].text}</div>;
   }
 
   return (
@@ -488,7 +717,9 @@ export function MessageContent({ message }: MessageContentProps) {
                 </div>
               );
             case "config":
-              if (BLOCKED_IDS.has(seg.pluginId)) return null;
+              if (!isSafeNormalizedPluginId(normalizePluginId(seg.pluginId))) {
+                return null;
+              }
               return (
                 <InlinePluginConfig key={segmentKey} pluginId={seg.pluginId} />
               );

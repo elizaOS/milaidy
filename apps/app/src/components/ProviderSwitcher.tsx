@@ -100,7 +100,7 @@ export function ProviderSwitcher({
   const [openaiConnected, setOpenaiConnected] = useState(false);
 
   /* ── Cloud inference state ─────────────────────────────────────── */
-  const [cloudHandlesInference, setCloudHandlesInference] = useState(true);
+  const [cloudHandlesInference, setCloudHandlesInference] = useState(false);
 
   /* ── pi-ai state ──────────────────────────────────────────────── */
   const [piAiEnabled, setPiAiEnabled] = useState(false);

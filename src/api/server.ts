@@ -27,6 +27,11 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
+import type {
+  CoordinationLLMResponse,
+  SwarmEvent,
+  TaskContext,
+} from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -46,6 +51,11 @@ import {
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
+import {
+  type AgentEventPayloadLike,
+  type AgentEventServiceLike,
+  getAgentEventService,
+} from "../runtime/agent-event-service";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {
   buildTestHandler,
@@ -100,7 +110,6 @@ import {
   buildBscSellUnsignedTx,
   buildBscTradePreflight,
   buildBscTradeQuote,
-  readTokenDecimals,
   resolvePrimaryBscRpcUrl,
 } from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
@@ -142,12 +151,7 @@ import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
-import type {
-  CoordinationLLMResponse,
-  PTYService,
-  SwarmEvent,
-  TaskContext,
-} from "./parse-action-block";
+import type { PTYService } from "./parse-action-block";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -160,7 +164,7 @@ import {
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
-import { shouldServeSpaFallback } from "./spa-fallback-guard";
+
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
@@ -201,8 +205,7 @@ type ConnectorRouteHandler = (
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
 ): AgentEventServiceLike | null {
-  if (!runtime) return null;
-  return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
+  return getAgentEventService(runtime);
 }
 
 function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
@@ -304,7 +307,7 @@ function initializeOGCodeInState(): void {
 }
 
 /** Metadata for a web-chat conversation. */
-interface ConversationMeta {
+export interface ConversationMeta {
   id: string;
   title: string;
   roomId: UUID;
@@ -472,37 +475,6 @@ interface LogEntry {
   message: string;
   source: string;
   tags: string[];
-}
-
-interface AgentEventPayloadLike {
-  runId: string;
-  seq: number;
-  stream: string;
-  ts: number;
-  data: object;
-  sessionKey?: string;
-  agentId?: string;
-  roomId?: UUID;
-}
-
-interface HeartbeatEventPayloadLike {
-  ts: number;
-  status: string;
-  to?: string;
-  preview?: string;
-  durationMs?: number;
-  hasMedia?: boolean;
-  reason?: string;
-  channel?: string;
-  silent?: boolean;
-  indicatorType?: string;
-}
-
-interface AgentEventServiceLike {
-  subscribe: (listener: (event: AgentEventPayloadLike) => void) => () => void;
-  subscribeHeartbeat: (
-    listener: (event: HeartbeatEventPayloadLike) => void,
-  ) => () => void;
 }
 
 type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
@@ -4350,11 +4322,6 @@ export function canUseLocalTradeExecution(
 type AgentAutomationMode = "connectors-only" | "full";
 
 const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
-const TRADE_PERMISSION_MODES = new Set<TradePermissionMode>([
-  "user-sign-only",
-  "manual-local-key",
-  "agent-auto",
-]);
 const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
   "connectors-only",
   "full",
@@ -5602,7 +5569,7 @@ function serializeForRuntimeDebug(
  * Stores the message as a Memory in the conversation room and broadcasts
  * a `proactive-message` WS event to the frontend.
  */
-async function routeAutonomyTextToUser(
+export async function routeAutonomyTextToUser(
   state: ServerState,
   responseText: string,
   source = "autonomy",
@@ -5628,25 +5595,33 @@ async function routeAutonomyTextToUser(
   }
   if (!conv) return; // No conversations exist yet
 
-  // Store as memory in the conversation's room
-  const agentMessage = createMessageMemory({
-    id: crypto.randomUUID() as UUID,
-    entityId: runtime.agentId,
-    roomId: conv.roomId,
-    content: {
-      text: normalizedText,
-      source,
-    },
-  });
-  await runtime.createMemory(agentMessage, "messages");
+  // Ephemeral sources: broadcast to UI but don't persist to DB.
+  // Coding-agent status updates and coordinator decisions are transient —
+  // they bloat the database without adding long-term value.
+  const ephemeralSources = new Set(["coding-agent", "coordinator", "action"]);
+
+  const messageId = crypto.randomUUID() as UUID;
+
+  if (!ephemeralSources.has(source)) {
+    const agentMessage = createMessageMemory({
+      id: messageId,
+      entityId: runtime.agentId,
+      roomId: conv.roomId,
+      content: {
+        text: normalizedText,
+        source,
+      },
+    });
+    await runtime.createMemory(agentMessage, "messages");
+  }
   conv.updatedAt = new Date().toISOString();
 
-  // Broadcast to all WS clients
+  // Broadcast to all WS clients (always, even for ephemeral sources)
   state.broadcastWs?.({
     type: "proactive-message",
     conversationId: conv.id,
     message: {
-      id: agentMessage.id ?? `auto-${Date.now()}`,
+      id: messageId,
       role: "assistant",
       text: normalizedText,
       timestamp: Date.now(),
@@ -13950,7 +13925,7 @@ async function handleRequest(
     state.broadcastWs?.({
       type: "emote",
       emoteId: emote.id,
-      glbPath: emote.glbPath,
+      path: emote.path,
       duration: emote.duration,
       loop: emote.loop,
     });

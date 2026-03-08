@@ -1,4 +1,9 @@
-import { type VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+import {
+  MToonMaterialLoaderPlugin,
+  type VRM,
+  VRMLoaderPlugin,
+  VRMUtils,
+} from "@pixiv/three-vrm";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -28,6 +33,25 @@ export type VrmEngineState = {
 };
 
 type UpdateCallback = () => void;
+type RendererBackend = "webgl" | "webgpu";
+type RendererLike = Pick<
+  THREE.WebGLRenderer,
+  | "dispose"
+  | "domElement"
+  | "render"
+  | "setClearColor"
+  | "setPixelRatio"
+  | "setSize"
+> & {
+  forceContextLoss?: () => void;
+  outputColorSpace?: string;
+  shadowMap?: {
+    enabled: boolean;
+    type: THREE.ShadowMapType;
+  };
+  toneMapping?: THREE.ToneMapping;
+  toneMappingExposure?: number;
+};
 
 const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   enabled: false,
@@ -36,9 +60,55 @@ const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   rotationAmplitude: 0.01,
   speed: 0.8,
 };
+const MAX_RENDERER_PIXEL_RATIO = 2;
+
+function getRendererPixelRatio(): number {
+  if (typeof window === "undefined") return 1;
+  return Math.min(
+    Math.max(window.devicePixelRatio || 1, 1),
+    MAX_RENDERER_PIXEL_RATIO,
+  );
+}
+
+/**
+ * Create the best available renderer for the current platform.
+ * Tries WebGPU first (better performance on macOS WKWebView and modern CEF).
+ * Falls back to WebGL if WebGPU is unavailable or fails to initialize.
+ * THREE.WebGPURenderer is async-init and requires await renderer.init().
+ */
+async function createRenderer(
+  canvas: HTMLCanvasElement,
+): Promise<{ backend: RendererBackend; renderer: RendererLike }> {
+  if (typeof navigator !== "undefined" && navigator.gpu) {
+    try {
+      const { WebGPURenderer } = await import("three/webgpu");
+      const renderer = new WebGPURenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+      }) as unknown as RendererLike & { init?: () => Promise<unknown> };
+      await renderer.init?.();
+      console.info("[VrmEngine] Using WebGPURenderer");
+      return { backend: "webgpu", renderer };
+    } catch (err) {
+      console.warn(
+        "[VrmEngine] WebGPURenderer failed, falling back to WebGL:",
+        err,
+      );
+    }
+  }
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+  }) as unknown as RendererLike;
+  console.info("[VrmEngine] Using WebGLRenderer");
+  return { backend: "webgl", renderer };
+}
 
 export class VrmEngine {
-  private renderer: THREE.WebGLRenderer | null = null;
+  private renderer: RendererLike | null = null;
+  private rendererBackend: RendererBackend = "webgl";
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
   private clock = new THREE.Clock();
@@ -55,12 +125,6 @@ export class VrmEngine {
   private vrmName: string | null = null;
   private lookAtTarget = new THREE.Vector3(0, 0.5, 0);
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb");
-  private readonly idleBreathingFbxUrl = resolveAppAssetUrl(
-    "animations/BreathingIdle.fbx",
-  );
-  private readonly idleFallbackFbxUrl = resolveAppAssetUrl(
-    "animations/Idle.fbx",
-  );
   private forceFaceCameraFlip = false;
   private cameraAnimation: CameraAnimationConfig = {
     ...DEFAULT_CAMERA_ANIMATION,
@@ -80,6 +144,9 @@ export class VrmEngine {
   private interactionEnabled = false;
   private interactionMode: InteractionMode = "free";
   private cameraProfile: CameraProfile = "chat";
+  private readyPromise: Promise<void> = Promise.resolve();
+  private resolveReady: (() => void) | null = null;
+  private rejectReady: ((error?: unknown) => void) | null = null;
 
   private handleControlStart = (): void => {
     if (!this.interactionEnabled) return;
@@ -93,6 +160,28 @@ export class VrmEngine {
       this.lookAtTarget.copy(this.controls.target);
     }
   };
+
+  whenReady(): Promise<void> {
+    return this.readyPromise;
+  }
+
+  private resetReadyPromise(): void {
+    this.readyPromise = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
+  }
+
+  private settleReady(error?: unknown): void {
+    if (error) {
+      this.rejectReady?.(error);
+    } else {
+      this.resolveReady?.();
+    }
+    this.resolveReady = null;
+    this.rejectReady = null;
+  }
+
   setup(canvas: HTMLCanvasElement, onUpdate: UpdateCallback): void {
     if (this.initialized && this.renderer?.domElement === canvas) {
       this.onUpdate = onUpdate;
@@ -101,47 +190,73 @@ export class VrmEngine {
     if (this.initialized) this.dispose();
     this.onUpdate = onUpdate;
     this.loadingAborted = false;
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
-    });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.NoToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer = renderer;
-    const scene = new THREE.Scene();
-    this.scene = scene;
-    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
-    camera.position.set(0, 1.2, 5.0);
-    this.camera = camera;
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = false;
-    controls.target.copy(this.lookAtTarget);
-    controls.addEventListener("start", this.handleControlStart);
-    controls.addEventListener("end", this.handleControlEnd);
-    this.cameraManager.applyInteractionMode(controls, this.interactionMode);
-    controls.update();
-    this.controls = controls;
-    this.setInteractionEnabled(this.interactionEnabled);
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambient);
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(1, 1, 1).normalize();
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.setScalar(1024);
-    scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    fillLight.position.set(-1, 0.5, -1).normalize();
-    scene.add(fillLight);
-    this.footShadow.create(scene);
-    this.resize(canvas.clientWidth, canvas.clientHeight);
-    this.initialized = true;
-    this.loop();
+    this.resetReadyPromise();
+    // Async renderer creation: tries WebGPU, falls back to WebGL.
+    // setup() remains synchronous for callers; the loop starts after init resolves.
+    void (async () => {
+      try {
+        const { backend, renderer } = await createRenderer(canvas);
+        // Guard: if dispose() was called while we were awaiting, abort.
+        if (this.loadingAborted) {
+          renderer.dispose();
+          if (backend === "webgl") {
+            renderer.forceContextLoss?.();
+          }
+          this.settleReady();
+          return;
+        }
+        renderer.setPixelRatio(getRendererPixelRatio());
+        renderer.setClearColor(0x000000, 0);
+        if (backend === "webgl") {
+          const webglRenderer = renderer as THREE.WebGLRenderer;
+          webglRenderer.shadowMap.enabled = true;
+          webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          webglRenderer.toneMapping = THREE.NoToneMapping;
+          webglRenderer.toneMappingExposure = 1.0;
+          webglRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        }
+        this.renderer = renderer;
+        this.rendererBackend = backend;
+        const scene = new THREE.Scene();
+        this.scene = scene;
+        const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+        camera.position.set(0, 1.2, 5.0);
+        this.camera = camera;
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = false;
+        controls.target.copy(this.lookAtTarget);
+        controls.addEventListener("start", this.handleControlStart);
+        controls.addEventListener("end", this.handleControlEnd);
+        this.cameraManager.applyInteractionMode(controls, this.interactionMode);
+        controls.update();
+        this.controls = controls;
+        this.setInteractionEnabled(this.interactionEnabled);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambient);
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        keyLight.position.set(1, 1, 1).normalize();
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.setScalar(1024);
+        scene.add(keyLight);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        fillLight.position.set(-1, 0.5, -1).normalize();
+        scene.add(fillLight);
+        this.footShadow.create(scene);
+        this.resize(canvas.clientWidth, canvas.clientHeight);
+        this.initialized = true;
+        this.loop();
+        this.settleReady();
+      } catch (error) {
+        this.initialized = false;
+        this.renderer = null;
+        this.rendererBackend = "webgl";
+        this.scene = null;
+        this.camera = null;
+        this.controls = null;
+        console.error("[VrmEngine] Failed to initialize renderer:", error);
+        this.settleReady(error);
+      }
+    })();
   }
 
   isInitialized(): boolean {
@@ -150,6 +265,7 @@ export class VrmEngine {
   dispose(): void {
     this.loadingAborted = true;
     this.initialized = false;
+    this.settleReady();
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -177,8 +293,14 @@ export class VrmEngine {
     }
     this.emoteAction = null;
     this.emoteClipCache.clear();
-    this.renderer?.dispose();
+    if (this.renderer) {
+      this.renderer.dispose();
+      if (this.rendererBackend === "webgl") {
+        this.renderer.forceContextLoss?.();
+      }
+    }
     this.renderer = null;
+    this.rendererBackend = "webgl";
     this.scene = null;
     this.camera = null;
     this.onUpdate = null;
@@ -310,6 +432,7 @@ export class VrmEngine {
     }
   }
   async loadVrmFromUrl(url: string, name?: string): Promise<void> {
+    await this.whenReady();
     if (!this.scene) throw new Error("VrmEngine not initialized");
     if (!this.camera) throw new Error("VrmEngine not initialized");
     if (this.loadingAborted) return;
@@ -325,7 +448,19 @@ export class VrmEngine {
       this.emoteClipCache.clear();
     }
     const loader = new GLTFLoader();
-    loader.register((parser) => new VRMLoaderPlugin(parser));
+    const webGpuNodes =
+      this.rendererBackend === "webgpu"
+        ? await import("@pixiv/three-vrm/nodes")
+        : null;
+    loader.register((parser) => {
+      if (webGpuNodes) {
+        const mtoonMaterialPlugin = new MToonMaterialLoaderPlugin(parser, {
+          materialType: webGpuNodes.MToonNodeMaterial,
+        });
+        return new VRMLoaderPlugin(parser, { mtoonMaterialPlugin });
+      }
+      return new VRMLoaderPlugin(parser);
+    });
     const gltf = await loader.loadAsync(url);
     if (
       this.loadingAborted ||
@@ -450,8 +585,6 @@ export class VrmEngine {
     const clip = await loadIdleClip(
       vrm,
       this.idleGlbUrl,
-      this.idleBreathingFbxUrl,
-      this.idleFallbackFbxUrl,
       this.animationLoaderContext,
     );
     if (!clip) return;

@@ -614,9 +614,13 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
       </SectionCard>
 
       {/* CODING AGENTS SECTION */}
-      <div id="coding-agents">
+      <SectionCard
+        id="coding-agents"
+        title="Coding Agents"
+        description="Configure AI coding agents for multi-agent task execution."
+      >
         <CodingAgentSettingsSection />
-      </div>
+      </SectionCard>
 
       {/* WALLET & RPC SECTION */}
       <SectionCard

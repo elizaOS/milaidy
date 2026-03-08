@@ -24,6 +24,7 @@ import {
   type VoicePlaybackStartEvent,
 } from "../hooks/useVoiceChat";
 import { createTranslator } from "../i18n";
+import { AgentActivityBox } from "./AgentActivityBox";
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
 
@@ -37,6 +38,23 @@ function isMobileViewport(): boolean {
 
 const CHAT_INPUT_MIN_HEIGHT_PX = 38;
 const CHAT_INPUT_MAX_HEIGHT_PX = 200;
+
+/**
+ * Routine coding-agent status messages that belong in the activity box, not chat.
+ * These messages are intentionally stored in the database (for audit/debugging)
+ * but filtered from the visible chat UI — this is by design, not a bug.
+ */
+const ROUTINE_CODING_AGENT_RE =
+  /^\[.+?\] (?:Approved:|Responded:|Sent keys:|Turn done, continuing:|Idle for \d+[smh])/;
+
+export function isRoutineCodingAgentMessage(msg: {
+  source?: string;
+  text: string;
+}): boolean {
+  return (
+    msg.source === "coding-agent" && ROUTINE_CODING_AGENT_RE.test(msg.text)
+  );
+}
 
 export type ChatViewVariant = "default" | "game-modal";
 
@@ -65,6 +83,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     setChatPendingImages,
     uiLanguage,
     openEmotePicker,
+    ptySessions,
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
@@ -194,7 +213,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             !chatFirstTokenReceived &&
             msg.role === "assistant" &&
             !msg.text.trim()
-          ),
+          ) && !isRoutineCodingAgentMessage(msg),
       ),
     [chatFirstTokenReceived, chatSending, msgs],
   );
@@ -449,6 +468,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           </div>
         )}
       </div>
+
+      {/* Agent activity box — sticky status per active coding-agent task */}
+      <AgentActivityBox sessions={ptySessions} />
 
       {/* Share ingest notice */}
       {shareIngestNotice && (

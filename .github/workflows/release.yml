@@ -1,48 +1,18 @@
-# Build & Release — produces signed/notarized desktop artifacts and GitHub Release.
-# Design and WHYs (strict shell, retries, asar crash dump, path safety, etc.): docs/build-and-release.md
-name: Build & Release
+name: Legacy Electron Release (disabled)
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag (e.g. v2.0.0-alpha.3)"
-        required: false
-        type: string
-      draft:
-        description: "Create as draft release"
-        required: false
-        type: boolean
-        default: true
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-
-env:
-  CI: "true"
-  NODE_OPTIONS: "--max-old-space-size=8192"
+permissions: {}
 
 jobs:
-  prepare:
-    name: Prepare Release
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
+  redirect:
+    name: Use Electrobun Release Workflow
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
+      - name: Explain workflow migration
         run: |
+<<<<<<< HEAD
           if [[ -n "${{ inputs.tag }}" ]]; then
             TAG="${{ inputs.tag }}"
           elif [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -664,3 +634,8 @@ jobs:
           files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+=======
+          echo "Electron desktop releases have been retired."
+          echo "Use .github/workflows/release-electrobun.yml instead."
+          echo "This compatibility workflow intentionally does not reference apps/app/electron."
+>>>>>>> 6a813290cfa27316311617d51bc82021a8766a3a

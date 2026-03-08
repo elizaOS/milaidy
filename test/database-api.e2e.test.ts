@@ -14,7 +14,10 @@
  * - Input validation for row and query operations
  * - Routing correctness (404 for unmatched paths)
  */
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server";
 
@@ -73,8 +76,16 @@ function req(
 describe("Database API E2E (no runtime)", () => {
   let port: number;
   let close: () => Promise<void>;
+  let tmpConfigDir: string;
+  let savedConfigPath: string | undefined;
 
   beforeAll(async () => {
+    // Isolate config writes to a temp directory so tests never clobber
+    // the real ~/.milady/milady.json (which would destroy user data).
+    tmpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-db-e2e-"));
+    savedConfigPath = process.env.MILADY_CONFIG_PATH;
+    process.env.MILADY_CONFIG_PATH = path.join(tmpConfigDir, "milady.json");
+
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -82,6 +93,9 @@ describe("Database API E2E (no runtime)", () => {
 
   afterAll(async () => {
     await close();
+    if (savedConfigPath === undefined) delete process.env.MILADY_CONFIG_PATH;
+    else process.env.MILADY_CONFIG_PATH = savedConfigPath;
+    fs.rmSync(tmpConfigDir, { recursive: true, force: true });
   });
 
   // ── Group 1: Database Status ──────────────────────────────────────────

@@ -4,40 +4,12 @@ import type {
   Provider,
   ProviderResult,
   State,
-  UUID,
 } from "@elizaos/core";
-
-interface AgentEventPayloadLike {
-  runId: string;
-  seq: number;
-  stream: string;
-  ts: number;
-  data: Record<string, unknown>;
-  sessionKey?: string;
-  agentId?: string;
-  roomId?: UUID;
-}
-
-interface HeartbeatEventPayloadLike {
-  ts: number;
-  status: string;
-  to?: string;
-  preview?: string;
-  durationMs?: number;
-  hasMedia?: boolean;
-  reason?: string;
-  channel?: string;
-  silent?: boolean;
-  indicatorType?: string;
-}
-
-interface AgentEventServiceLike {
-  subscribe: (listener: (event: AgentEventPayloadLike) => void) => () => void;
-  subscribeHeartbeat?: (
-    listener: (event: HeartbeatEventPayloadLike) => void,
-  ) => () => void;
-  getLastHeartbeat?: () => HeartbeatEventPayloadLike | null;
-}
+import {
+  type AgentEventPayloadLike,
+  getAgentEventService,
+  type HeartbeatEventPayloadLike,
+} from "../runtime/agent-event-service";
 
 interface AutonomousEventCacheState {
   runtime: IAgentRuntime;
@@ -51,12 +23,6 @@ const lastHeartbeatByAgentId = new Map<string, HeartbeatEventPayloadLike>();
 
 function getRuntimeAgentId(runtime: IAgentRuntime): string {
   return String(runtime.agentId);
-}
-
-function getAgentEventService(
-  runtime: IAgentRuntime,
-): AgentEventServiceLike | null {
-  return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
 }
 
 function pushCachedEvent(agentId: string, event: AgentEventPayloadLike): void {

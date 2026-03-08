@@ -48,6 +48,12 @@ export interface InventoryDataOutput {
   bscNativeBalance: string | null;
 }
 
+function hasContractAddress(
+  row: TokenRow,
+): row is TokenRow & { contractAddress: string } {
+  return typeof row.contractAddress === "string";
+}
+
 export function useInventoryData({
   walletBalances,
   walletAddresses,
@@ -171,8 +177,11 @@ export function useInventoryData({
     if (chainFocus === "bsc" || chainFocus === "all") {
       const knownBscContracts = new Set(
         rows
-          .filter((row) => isBscChainName(row.chain) && row.contractAddress)
-          .map((row) => toNormalizedAddress(row.contractAddress!)),
+          .filter(
+            (row): row is TokenRow & { contractAddress: string } =>
+              isBscChainName(row.chain) && hasContractAddress(row),
+          )
+          .map((row) => toNormalizedAddress(row.contractAddress)),
       );
       for (const tracked of trackedBscTokens) {
         const normalized = toNormalizedAddress(tracked.contractAddress);

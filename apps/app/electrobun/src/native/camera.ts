@@ -6,12 +6,8 @@
  * permission status — actual capture happens client-side.
  */
 
-type SendToWebview = (message: string, payload?: unknown) => void;
-
 export class CameraManager {
-  setSendToWebview(fn: SendToWebview): void {
-    this.sendToWebview = fn;
-  }
+  setSendToWebview(_fn: (message: string, payload?: unknown) => void): void {}
 
   async getDevices() {
     // Renderer uses navigator.mediaDevices.enumerateDevices() directly
@@ -55,9 +51,7 @@ export class CameraManager {
     return { status: "prompt" };
   }
 
-  dispose(): void {
-    this.sendToWebview = null;
-  }
+  dispose(): void {}
 }
 
 let cameraManager: CameraManager | null = null;

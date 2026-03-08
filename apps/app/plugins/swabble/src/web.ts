@@ -112,8 +112,159 @@ export class SwabbleWeb extends WebPlugin {
   private mediaStream: MediaStream | null = null;
   private levelInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Native IPC state (Electron/Electrobun)
+  private captureStream: MediaStream | null = null;
+  private captureContext: AudioContext | null = null;
+  private captureProcessor: ScriptProcessorNode | null = null;
+  private ipcHandlers: Array<{
+    channel: string;
+    listener: (...args: unknown[]) => void;
+  }> = [];
+  private usingNativeIpc = false;
+
+  private getIpc(): {
+    invoke(ch: string, ...a: unknown[]): Promise<unknown>;
+    send(ch: string, ...a: unknown[]): void;
+    on(ch: string, fn: (...a: unknown[]) => void): void;
+    removeListener(ch: string, fn: (...a: unknown[]) => void): void;
+  } | null {
+    return (
+      (
+        window as {
+          electron?: {
+            ipcRenderer?: {
+              invoke(ch: string, ...a: unknown[]): Promise<unknown>;
+              send(ch: string, ...a: unknown[]): void;
+              on(ch: string, fn: (...a: unknown[]) => void): void;
+              removeListener(ch: string, fn: (...a: unknown[]) => void): void;
+            };
+          };
+        }
+      ).electron?.ipcRenderer ?? null
+    );
+  }
+
+  /** True when running inside Electrobun (vs plain Electron). */
+  private isElectrobun(): boolean {
+    return !!(window as unknown as Record<string, unknown>).__ELECTROBUN__;
+  }
+
+  private setupNativeListeners(): void {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    const map: Array<[string, string]> = [
+      ["swabble:wakeWord", "wakeWord"],
+      ["swabble:stateChange", "stateChange"],
+      ["swabble:audioLevel", "audioLevel"],
+      ["swabble:transcript", "transcript"],
+      ["swabble:error", "error"],
+    ];
+    for (const [ch, ev] of map) {
+      const listener = (...args: unknown[]) => {
+        this.notifyListeners(ev, args[0] as Record<string, unknown>);
+      };
+      ipc.on(ch, listener);
+      this.ipcHandlers.push({ channel: ch, listener });
+    }
+  }
+
+  private removeNativeListeners(): void {
+    const ipc = this.getIpc();
+    for (const { channel, listener } of this.ipcHandlers) {
+      ipc?.removeListener(channel, listener);
+    }
+    this.ipcHandlers = [];
+  }
+
+  private async startNativeAudioCapture(sampleRate = 16000): Promise<void> {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    const stream = await navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .catch(() => null);
+    if (!stream) return;
+    this.captureStream = stream;
+    this.captureContext = new AudioContext();
+    const source = this.captureContext.createMediaStreamSource(stream);
+    const processor = this.captureContext.createScriptProcessor(4096, 1, 1);
+    this.captureProcessor = processor;
+    const inputRate = this.captureContext.sampleRate;
+    processor.onaudioprocess = (e: AudioProcessingEvent) => {
+      const input = e.inputBuffer.getChannelData(0);
+      const ratio = inputRate / sampleRate;
+      const out = new Float32Array(Math.round(input.length / ratio));
+      for (let i = 0; i < out.length; i++) {
+        let acc = 0;
+        let cnt = 0;
+        const start = Math.round(i * ratio);
+        const end = Math.round((i + 1) * ratio);
+        for (let j = start; j < end && j < input.length; j++) {
+          acc += input[j];
+          cnt++;
+        }
+        out[i] = cnt > 0 ? acc / cnt : 0;
+      }
+      if (this.isElectrobun()) {
+        // Electrobun: handleRequest expects invoke + base64-encoded Float32 PCM
+        const bytes = new Uint8Array(
+          out.buffer,
+          out.byteOffset,
+          out.byteLength,
+        );
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++)
+          binary += String.fromCharCode(bytes[i]);
+        ipc
+          .invoke("swabble:audioChunk", { data: btoa(binary) })
+          .catch(() => {});
+      } else {
+        // Electron: ipcMain.on expects send + raw typed array
+        ipc.send("swabble:audioChunk", out);
+      }
+    };
+    source.connect(processor);
+    const sink = this.captureContext.createGain();
+    sink.gain.value = 0;
+    processor.connect(sink);
+    sink.connect(this.captureContext.destination);
+  }
+
+  private stopNativeAudioCapture(): void {
+    this.captureProcessor?.disconnect();
+    this.captureProcessor = null;
+    this.captureContext?.close();
+    this.captureContext = null;
+    this.captureStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.captureStream = null;
+  }
+
   async start(options: SwabbleStartOptions): Promise<SwabbleStartResult> {
     if (this.isActive) return { started: true };
+
+    // Delegate to native IPC when running in Electron or Electrobun
+    const ipc = this.getIpc();
+    if (ipc) {
+      try {
+        const result = (await ipc.invoke(
+          "swabble:start",
+          options as unknown,
+        )) as SwabbleStartResult;
+        if (result?.started) {
+          this.isActive = true;
+          this.usingNativeIpc = true;
+          this.config = options.config;
+          this.setupNativeListeners();
+          await this.startNativeAudioCapture(
+            options.config.sampleRate ?? 16000,
+          );
+          return result;
+        }
+      } catch {
+        // Fall through to Web Speech API
+      }
+    }
 
     const SpeechRecognitionAPI = getSpeechRecognition();
     if (!SpeechRecognitionAPI) {
@@ -247,6 +398,19 @@ export class SwabbleWeb extends WebPlugin {
 
   async stop(): Promise<void> {
     this.isActive = false;
+
+    // Clean up native IPC if in native mode
+    if (this.usingNativeIpc) {
+      this.usingNativeIpc = false;
+      this.removeNativeListeners();
+      this.stopNativeAudioCapture();
+      this.getIpc()
+        ?.invoke("swabble:stop")
+        .catch(() => {});
+      this.notifyListeners("stateChange", { state: "idle" });
+      return;
+    }
+
     if (this.recognition) {
       this.recognition.stop();
       this.recognition = null;
@@ -273,6 +437,13 @@ export class SwabbleWeb extends WebPlugin {
       if (options.config.locale && this.recognition) {
         this.recognition.lang = options.config.locale;
       }
+    }
+
+    // Sync to native IPC if active
+    if (this.usingNativeIpc) {
+      this.getIpc()
+        ?.invoke("swabble:updateConfig", options)
+        .catch(() => {});
     }
   }
 

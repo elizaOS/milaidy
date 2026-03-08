@@ -1271,6 +1271,8 @@ export interface CodingAgentSession {
   autoResolvedCount: number;
   /** Description of the active tool when status is "tool_running". */
   toolDescription?: string;
+  /** Latest activity text for the agent activity box. */
+  lastActivity?: string;
 }
 
 export interface CodingAgentStatus {

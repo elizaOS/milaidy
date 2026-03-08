@@ -121,6 +121,35 @@ describe("permission routes", () => {
     expect(result.payload).toMatchObject({ updated: true });
   });
 
+  test("does not schedule a restart during startup permission sync", async () => {
+    state.runtime = {} as never;
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/permissions/state",
+      body: {
+        startup: true,
+        permissions: {
+          accessibility: {
+            id: "accessibility",
+            status: "granted",
+            lastChecked: 123,
+            canRequest: true,
+          },
+          "screen-recording": {
+            id: "screen-recording",
+            status: "granted",
+            lastChecked: 124,
+            canRequest: true,
+          },
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(saveConfig).toHaveBeenCalledWith(state.config);
+    expect(scheduleRuntimeRestart).not.toHaveBeenCalled();
+  });
+
   test("rejects invalid nested permission id path", async () => {
     const result = await invoke({
       method: "GET",

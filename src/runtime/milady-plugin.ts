@@ -12,8 +12,10 @@ import type {
   Plugin,
   Provider,
   ProviderResult,
+  ServiceClass,
   State,
 } from "@elizaos/core";
+import { AgentEventService } from "@elizaos/core";
 import { emoteAction } from "../actions/emote";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
@@ -136,6 +138,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     name: "milady",
     description:
       "Milady workspace context, session keys, and lifecycle actions",
+
+    services: [AgentEventService as unknown as ServiceClass],
 
     init: async (_pluginConfig, runtime) => {
       registerTriggerTaskWorker(runtime);

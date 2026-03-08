@@ -10,11 +10,23 @@ export default defineConfig({
       path.join(here, "test/**/*.test.ts"),
       path.join(here, "test/**/*.test.tsx"),
     ],
+    exclude: [
+      path.join(here, "test/electron/**"),
+      path.join(here, "test/electron-ui/**"),
+    ],
     setupFiles: [path.join(here, "test/setup.ts")],
     environment: "node",
     alias: {
       electron: path.join(here, "test/__mocks__/electron.ts"),
       "@elizaos/skills": path.join(here, "test/__mocks__/elizaos-skills.ts"),
+      "@elizaos/plugin-pdf": path.join(
+        here,
+        "..",
+        "..",
+        "test",
+        "stubs",
+        "empty-module.mjs",
+      ),
       "@milady/capacitor-gateway": path.join(
         here,
         "plugins/gateway/src/index.ts",
