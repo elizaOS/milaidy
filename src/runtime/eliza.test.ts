@@ -2473,6 +2473,34 @@ describe("cleanStalePglitePid", () => {
     expect(exists).toBe(true);
   });
 
+  it("leaves the pid file intact on EPERM (process exists under different user)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "12345\n/tmp/pglite\n5432\n");
+
+    // Mock process.kill to throw EPERM (process exists but different owner)
+    const origKill = process.kill;
+    process.kill = ((pid: number, signal?: number) => {
+      if (signal === 0) {
+        const err = new Error("EPERM") as NodeJS.ErrnoException;
+        err.code = "EPERM";
+        throw err;
+      }
+      return origKill.call(process, pid, signal);
+    }) as typeof process.kill;
+
+    try {
+      cleanStalePglitePid(tmpDir);
+    } finally {
+      process.kill = origKill;
+    }
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(true);
+  });
+
   it("removes a malformed pid file (non-numeric)", async () => {
     const pidPath = path.join(tmpDir, "postmaster.pid");
     await fs.writeFile(pidPath, "not-a-number\n");

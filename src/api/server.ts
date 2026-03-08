@@ -5709,66 +5709,92 @@ function wireCodingAgentSwarmSynthesis(st: ServerState): boolean {
   const coordinator = getCoordinatorFromRuntime(st.runtime);
   if (!coordinator?.setSwarmCompleteCallback) return false;
 
-  coordinator.setSwarmCompleteCallback(async (payload) => {
-    const runtime = st.runtime;
-    if (!runtime) {
-      logger.warn(
-        "[swarm-synthesis] No runtime available — skipping synthesis",
-      );
-      return;
-    }
-
-    logger.info(
-      `[swarm-synthesis] Generating synthesis for ${payload.total} tasks (${payload.completed} completed, ${payload.stopped} stopped, ${payload.errored} errored)`,
-    );
-
-    // Build a structured summary of all task results
-    const taskLines = payload.tasks
-      .map(
-        (t) =>
-          `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${t.completionSummary || "No summary available"}`,
-      )
-      .join("\n\n");
-
-    const prompt =
-      `You are summarizing the results of a coding agent swarm for the user. ` +
-      `${payload.total} agents were dispatched. ${payload.completed} completed, ` +
-      `${payload.stopped} stopped, ${payload.errored} errored.\n\n` +
-      `Here are the individual task results:\n\n${taskLines}\n\n` +
-      `Write a concise, conversational summary of what was accomplished. ` +
-      `Highlight key outcomes (PRs created, issues found, research results). ` +
-      `If any tasks failed or stopped, mention what went wrong. ` +
-      `Keep your personality — be warm and helpful but brief.`;
-
-    try {
-      const synthesis = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt,
-        maxTokens: 2048,
-        temperature: 0.7,
-      });
-
-      if (synthesis?.trim()) {
-        logger.info("[swarm-synthesis] Synthesis generated, routing to user");
-        // Persist as a real conversation message (not ephemeral)
-        await routeAutonomyTextToUser(st, synthesis.trim(), "swarm_synthesis");
-      } else {
-        logger.warn("[swarm-synthesis] LLM returned empty synthesis");
-      }
-    } catch (err) {
-      logger.error(`[swarm-synthesis] LLM call failed: ${err}`);
-      // Fall back to generic message on LLM failure
-      const parts: string[] = [];
-      if (payload.completed > 0) parts.push(`${payload.completed} completed`);
-      if (payload.stopped > 0) parts.push(`${payload.stopped} stopped`);
-      if (payload.errored > 0) parts.push(`${payload.errored} errored`);
-      await routeAutonomyTextToUser(
-        st,
-        `All ${payload.total} coding agents finished (${parts.join(", ")}). Review their work when you're ready.`,
-        "coding-agent",
-      );
-    }
-  });
+  coordinator.setSwarmCompleteCallback((payload) =>
+    handleSwarmSynthesis(st, payload),
+  );
   return true;
+}
+
+/**
+ * Handle swarm completion by synthesizing a summary via the LLM.
+ * Extracted from wireCodingAgentSwarmSynthesis for testability.
+ *
+ * Paths: (A) LLM returns synthesis → route to user,
+ *        (B) LLM returns empty → warn,
+ *        (C) LLM throws → fallback generic message.
+ */
+export async function handleSwarmSynthesis(
+  st: { runtime: AgentRuntime | null },
+  payload: {
+    tasks: Array<{
+      sessionId: string;
+      label: string;
+      agentType: string;
+      originalTask: string;
+      status: string;
+      completionSummary: string;
+    }>;
+    total: number;
+    completed: number;
+    stopped: number;
+    errored: number;
+  },
+  routeMessage: (text: string, source: string) => Promise<void> = (
+    text,
+    source,
+  ) => routeAutonomyTextToUser(st as ServerState, text, source),
+): Promise<void> {
+  const runtime = st.runtime;
+  if (!runtime) {
+    logger.warn("[swarm-synthesis] No runtime available — skipping synthesis");
+    return;
+  }
+
+  logger.info(
+    `[swarm-synthesis] Generating synthesis for ${payload.total} tasks (${payload.completed} completed, ${payload.stopped} stopped, ${payload.errored} errored)`,
+  );
+
+  const taskLines = payload.tasks
+    .map(
+      (t) =>
+        `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${t.completionSummary || "No summary available"}`,
+    )
+    .join("\n\n");
+
+  const prompt =
+    `You are summarizing the results of a coding agent swarm for the user. ` +
+    `${payload.total} agents were dispatched. ${payload.completed} completed, ` +
+    `${payload.stopped} stopped, ${payload.errored} errored.\n\n` +
+    `Here are the individual task results:\n\n${taskLines}\n\n` +
+    `Write a concise, conversational summary of what was accomplished. ` +
+    `Highlight key outcomes (PRs created, issues found, research results). ` +
+    `If any tasks failed or stopped, mention what went wrong. ` +
+    `Keep your personality — be warm and helpful but brief.`;
+
+  try {
+    const synthesis = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt,
+      maxTokens: 2048,
+      temperature: 0.7,
+    });
+
+    if (synthesis?.trim()) {
+      logger.info("[swarm-synthesis] Synthesis generated, routing to user");
+      await routeMessage(synthesis.trim(), "swarm_synthesis");
+    } else {
+      logger.warn("[swarm-synthesis] LLM returned empty synthesis");
+    }
+  } catch (err) {
+    logger.error(`[swarm-synthesis] LLM call failed: ${err}`);
+    const parts: string[] = [];
+    if (payload.completed > 0) parts.push(`${payload.completed} completed`);
+    if (payload.stopped > 0) parts.push(`${payload.stopped} stopped`);
+    if (payload.errored > 0) parts.push(`${payload.errored} errored`);
+    await routeMessage(
+      `All ${payload.total} coding agents finished (${parts.join(", ")}). Review their work when you're ready.`,
+      "coding-agent",
+    );
+  }
 }
 
 // ── Parse Action Block from Milaidy's Response ─────────────────────────

@@ -2018,12 +2018,21 @@ export function cleanStalePglitePid(dataDir: string): void {
       logger.info(
         `[milady] PGlite postmaster.pid references running process ${pid} — leaving intact`,
       );
-    } catch {
-      // Process doesn't exist — stale pid file
-      unlinkSync(pidPath);
-      logger.warn(
-        `[milady] Removed stale PGlite postmaster.pid (process ${pid} no longer running)`,
-      );
+    } catch (killErr: unknown) {
+      const code = (killErr as NodeJS.ErrnoException).code;
+      if (code === "ESRCH") {
+        // Process doesn't exist — stale pid file, safe to remove
+        unlinkSync(pidPath);
+        logger.warn(
+          `[milady] Removed stale PGlite postmaster.pid (process ${pid} not running)`,
+        );
+      } else {
+        // EPERM or other — process may be alive under a different user,
+        // leave the file alone to avoid data directory corruption
+        logger.warn(
+          `[milady] Cannot confirm postmaster.pid staleness (${code}) — leaving intact`,
+        );
+      }
     }
   } catch (err) {
     logger.warn(
