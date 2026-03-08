@@ -120,7 +120,7 @@ describe("TalkModeManager", () => {
         (m) => m.message === "talkmodeStateChanged",
       );
       expect(msg).toBeDefined();
-      expect((msg!.payload as { state: string }).state).toBe("listening");
+      expect((msg?.payload as { state: string }).state).toBe("listening");
     });
 
     it("includes fallback reason when whisper is unavailable", async () => {
@@ -160,7 +160,7 @@ describe("TalkModeManager", () => {
         (m) => m.message === "talkmodeStateChanged",
       );
       expect(msg).toBeDefined();
-      expect((msg!.payload as { state: string }).state).toBe("idle");
+      expect((msg?.payload as { state: string }).state).toBe("idle");
     });
   });
 

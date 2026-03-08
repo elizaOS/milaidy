@@ -29,7 +29,7 @@ async function syncPermissionsToRestApi(): Promise<void> {
   if (!port) return;
   try {
     const permissions = await getPermissionManager().checkAllPermissions();
-    await fetch(`http://localhost:${port}/api/permissions/state`, {
+    await fetch(`http://127.0.0.1:${port}/api/permissions/state`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ permissions }),

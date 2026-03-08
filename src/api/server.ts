@@ -52,10 +52,9 @@ import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
 import {
-  getAgentEventService,
   type AgentEventPayloadLike,
   type AgentEventServiceLike,
-  type HeartbeatEventPayloadLike,
+  getAgentEventService,
 } from "../runtime/agent-event-service";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {

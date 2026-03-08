@@ -223,10 +223,10 @@ jobs:
       - name: Run app startup/onboarding tests
         run: >
           bunx vitest run --config apps/app/vitest.config.ts
-          apps/app/test/electron/electron-startup.e2e.test.ts
-          apps/app/test/electron/electron-plugin-entrypoints.e2e.test.ts
           apps/app/test/app/startup-chat.e2e.test.ts
           apps/app/test/app/startup-onboarding.e2e.test.ts
+          apps/app/test/app/startup-backend-missing.e2e.test.ts
+          apps/app/test/app/startup-token-401.e2e.test.ts
 
   electron-ui-e2e:
     name: Electron Build (${{ matrix.os }})
@@ -286,11 +286,30 @@ jobs:
       - name: Run repository postinstall patches
         run: bun run postinstall
 
-      - name: Build web assets
-        run: bun run --filter @milady/app build
+      - name: Build core dist (server bundle)
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
 
-      - name: Build Electron app
-        run: bun run --filter @milady/app build:electron
+      - name: Build renderer assets
+        run: |
+          cd apps/app
+          npx vite build
+
+      - name: Build native macOS effects dylib
+        if: runner.os == 'macOS'
+        run: |
+          cd apps/app/electrobun
+          bun run build:native-effects
+
+      - name: Bundle backend node_modules into dist/
+        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+
+      - name: Build Electrobun app
+        run: |
+          cd apps/app/electrobun
+          ELECTROBUN_SKIP_CODESIGN=1 bun run build -- --env=canary
 
   electron-packaged-dmg-e2e:
     name: Electron Packaged DMG E2E (macOS)
@@ -335,17 +354,12 @@ jobs:
       - name: Run repository postinstall patches
         run: bun run postinstall
 
-      - name: Build web assets
-        run: bun run --filter @milady/app build
-
-      - name: Sync Electron platform
-        run: bun run --filter @milady/app cap:sync:electron
-
-      - name: Build standalone DMG
+      - name: Build and smoke test packaged macOS app
         run: |
-          cd apps/app/electron
-          bun run electron:make:dmg:test
-        continue-on-error: true
+          STARTUP_TIMEOUT=240 \
+          LIVENESS_TIMEOUT=10 \
+          SKIP_SIGNATURE_CHECK=1 \
+          bash apps/app/electrobun/scripts/smoke-test.sh
 
   cloud-live-e2e:
     name: Cloud Live E2E (Eliza Cloud)

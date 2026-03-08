@@ -126,10 +126,7 @@ async function getExistsSyncMock(): Promise<Mock> {
 // ---------------------------------------------------------------------------
 // Import AFTER mocks
 // ---------------------------------------------------------------------------
-import {
-  AgentManager,
-  getMiladyDistFallbackCandidates,
-} from "../native/agent";
+import { AgentManager, getMiladyDistFallbackCandidates } from "../native/agent";
 
 describe("AgentManager", () => {
   let manager: AgentManager;
@@ -294,7 +291,8 @@ describe("AgentManager", () => {
       const existsSync = await getExistsSyncMock();
       existsSync.mockImplementation((p: string) => {
         if (p === MOCK_DIST_PATH) return true;
-        if (typeof p === "string" && p.endsWith("/runtime/eliza.js")) return true;
+        if (typeof p === "string" && p.endsWith("/runtime/eliza.js"))
+          return true;
         if (typeof p === "string" && p.endsWith("/eliza.js")) return false;
         return false;
       });
@@ -552,6 +550,31 @@ describe("AgentManager", () => {
       expect(messages.length).toBeGreaterThanOrEqual(2);
       expect(messages[0].message).toBe("agentStatusUpdate");
       expect((messages[0].payload as { state: string }).state).toBe("starting");
+    });
+  });
+
+  describe("onStatusChange()", () => {
+    it("notifies listeners and supports unsubscribe", async () => {
+      const states: string[] = [];
+      const unsubscribe = manager.onStatusChange((status) => {
+        states.push(status.state);
+      });
+
+      const existsSync = await getExistsSyncMock();
+      existsSync.mockImplementation((p: string) => {
+        if (typeof p === "string" && p.endsWith("server.js")) return false;
+        if (p === MOCK_DIST_PATH) return true;
+        return false;
+      });
+
+      await manager.start();
+      expect(states).toEqual(["starting", "error"]);
+
+      unsubscribe();
+      states.length = 0;
+
+      await manager.start();
+      expect(states).toEqual([]);
     });
   });
 });

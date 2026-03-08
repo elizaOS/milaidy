@@ -6,7 +6,6 @@
  * Memory search/get actions are superseded by plugin-scratchpad.
  */
 
-import { AgentEventService } from "@elizaos/core";
 import type {
   IAgentRuntime,
   Memory,
@@ -16,6 +15,7 @@ import type {
   ServiceClass,
   State,
 } from "@elizaos/core";
+import { AgentEventService } from "@elizaos/core";
 import { emoteAction } from "../actions/emote";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";

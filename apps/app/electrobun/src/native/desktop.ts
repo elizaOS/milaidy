@@ -22,7 +22,7 @@
  * - No shell.beep — no-op
  */
 
-import fs from "node:fs";
+import * as fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Electrobun, {
@@ -125,12 +125,6 @@ export class DesktopManager {
 
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
-  /** Callback invoked before process.exit on quit — for cleanup (e.g. disposeNativeModules) */
-  private onBeforeQuit: (() => void) | null = null;
-
-  setOnBeforeQuit(fn: () => void): void {
-    this.onBeforeQuit = fn;
-  }
 
   // MARK: - Configuration
 
@@ -392,12 +386,14 @@ export class DesktopManager {
   }): Promise<void> {
     const appPath = process.execPath;
 
+    const openAsHidden = options.openAsHidden ?? false;
+
     if (process.platform === "darwin") {
-      await this.setAutoLaunchMac(options.enabled, appPath);
+      await this.setAutoLaunchMac(options.enabled, appPath, openAsHidden);
     } else if (process.platform === "linux") {
-      this.setAutoLaunchLinux(options.enabled, appPath);
+      this.setAutoLaunchLinux(options.enabled, appPath, openAsHidden);
     } else if (process.platform === "win32") {
-      await this.setAutoLaunchWin(options.enabled, appPath);
+      await this.setAutoLaunchWin(options.enabled, appPath, openAsHidden);
     } else {
       console.warn(
         `[DesktopManager] setAutoLaunch: unsupported platform ${process.platform}`,
@@ -411,17 +407,23 @@ export class DesktopManager {
   }> {
     if (process.platform === "darwin") {
       const plistPath = this.getMacLaunchAgentPath();
-      return { enabled: fs.existsSync(plistPath), openAsHidden: false };
+      if (!fs.existsSync(plistPath))
+        return { enabled: false, openAsHidden: false };
+      const content = fs.readFileSync(plistPath, "utf8");
+      return { enabled: true, openAsHidden: content.includes("--hidden") };
     }
 
     if (process.platform === "linux") {
       const desktopPath = this.getLinuxAutostartPath();
-      return { enabled: fs.existsSync(desktopPath), openAsHidden: false };
+      if (!fs.existsSync(desktopPath))
+        return { enabled: false, openAsHidden: false };
+      const content = fs.readFileSync(desktopPath, "utf8");
+      return { enabled: true, openAsHidden: content.includes("--hidden") };
     }
 
     if (process.platform === "win32") {
-      const enabled = await this.getAutoLaunchStatusWin();
-      return { enabled, openAsHidden: false };
+      const { enabled, openAsHidden } = await this.getAutoLaunchStatusWin();
+      return { enabled, openAsHidden };
     }
 
     return { enabled: false, openAsHidden: false };
@@ -441,10 +443,12 @@ export class DesktopManager {
   private async setAutoLaunchMac(
     enabled: boolean,
     appPath: string,
+    openAsHidden = false,
   ): Promise<void> {
     const plistPath = this.getMacLaunchAgentPath();
 
     if (enabled) {
+      const hiddenArg = openAsHidden ? "\n    <string>--hidden</string>" : "";
       const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -453,7 +457,7 @@ export class DesktopManager {
   <string>com.miladyai.milady</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${appPath}</string>
+    <string>${appPath}</string>${hiddenArg}
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -491,14 +495,19 @@ export class DesktopManager {
     return path.join(os.homedir(), ".config", "autostart", "milady.desktop");
   }
 
-  private setAutoLaunchLinux(enabled: boolean, appPath: string): void {
+  private setAutoLaunchLinux(
+    enabled: boolean,
+    appPath: string,
+    openAsHidden = false,
+  ): void {
     const desktopPath = this.getLinuxAutostartPath();
 
     if (enabled) {
+      const execLine = openAsHidden ? `${appPath} --hidden` : appPath;
       const desktopContent = `[Desktop Entry]
 Type=Application
 Name=Milady
-Exec=${appPath}
+Exec=${execLine}
 X-GNOME-Autostart-enabled=true
 `;
       const dir = path.dirname(desktopPath);
@@ -521,8 +530,10 @@ X-GNOME-Autostart-enabled=true
   private async setAutoLaunchWin(
     enabled: boolean,
     appPath: string,
+    openAsHidden = false,
   ): Promise<void> {
     if (enabled) {
+      const launchValue = openAsHidden ? `${appPath} --hidden` : appPath;
       const proc = Bun.spawn(
         [
           "reg",
@@ -533,7 +544,7 @@ X-GNOME-Autostart-enabled=true
           "/t",
           "REG_SZ",
           "/d",
-          appPath,
+          launchValue,
           "/f",
         ],
         { stdout: "pipe", stderr: "pipe" },
@@ -548,7 +559,10 @@ X-GNOME-Autostart-enabled=true
     }
   }
 
-  private async getAutoLaunchStatusWin(): Promise<boolean> {
+  private async getAutoLaunchStatusWin(): Promise<{
+    enabled: boolean;
+    openAsHidden: boolean;
+  }> {
     try {
       const proc = Bun.spawn(
         ["reg", "query", this.WIN_REG_KEY, "/v", "Milady"],
@@ -558,9 +572,11 @@ X-GNOME-Autostart-enabled=true
         new Response(proc.stdout).text(),
         proc.exited,
       ]);
-      return stdout.includes("Milady");
+      if (!stdout.includes("Milady"))
+        return { enabled: false, openAsHidden: false };
+      return { enabled: true, openAsHidden: stdout.includes("--hidden") };
     } catch {
-      return false;
+      return { enabled: false, openAsHidden: false };
     }
   }
 

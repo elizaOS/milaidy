@@ -6,8 +6,8 @@ import type {
   State,
 } from "@elizaos/core";
 import {
-  getAgentEventService,
   type AgentEventPayloadLike,
+  getAgentEventService,
   type HeartbeatEventPayloadLike,
 } from "../runtime/agent-event-service";
 

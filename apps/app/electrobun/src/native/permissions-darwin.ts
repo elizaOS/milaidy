@@ -55,20 +55,6 @@ function getNativeLib() {
 
 const APP_BUNDLE_ID = "com.miladyai.milady";
 
-async function runCommand(cmd: string): Promise<string> {
-  try {
-    const proc = Bun.spawn(["sh", "-c", cmd], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await new Response(proc.stdout).text();
-    await proc.exited;
-    return output.trim();
-  } catch {
-    return "";
-  }
-}
-
 type PermissionStatus = "granted" | "denied" | "not-determined";
 
 function checkMicrophonePermission(): PermissionStatus {
@@ -126,7 +112,6 @@ export async function checkPermission(
         ? lib.checkAccessibilityPermission()
         : (() => {
             // Fallback: osascript heuristic
-            // biome-ignore lint/suspicious/noAsyncPromiseExecutor: sync fallback
             return false;
           })();
       return {

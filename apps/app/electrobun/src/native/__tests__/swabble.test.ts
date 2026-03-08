@@ -128,7 +128,7 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:stateChange",
       );
       expect(stateMsg).toBeDefined();
-      expect((stateMsg!.payload as { state: string }).state).toBe("listening");
+      expect((stateMsg?.payload as { state: string }).state).toBe("listening");
     });
 
     it("sets isListening to true after successful start", async () => {
@@ -167,7 +167,7 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:stateChange",
       );
       expect(stateMsg).toBeDefined();
-      expect((stateMsg!.payload as { state: string }).state).toBe("idle");
+      expect((stateMsg?.payload as { state: string }).state).toBe("idle");
     });
   });
 
@@ -189,7 +189,7 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:audioChunkPush",
       );
       expect(pushMsg).toBeDefined();
-      expect((pushMsg!.payload as { data: string }).data).toBe(chunkB64);
+      expect((pushMsg?.payload as { data: string }).data).toBe(chunkB64);
     });
 
     it("does nothing when not listening", async () => {
@@ -280,7 +280,7 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:wakeWord",
       );
       expect(wakeMsg).toBeDefined();
-      const payload = wakeMsg!.payload as {
+      const payload = wakeMsg?.payload as {
         wakeWord: string;
         command: string;
         transcript: string;

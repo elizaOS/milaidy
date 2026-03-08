@@ -182,7 +182,10 @@ function getRuntimeVariantConstraints(variant: string): {
   libc: string | null;
   arch: string | null;
 } {
-  const tokens = variant.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const tokens = variant
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
   let os: string | null = null;
   let libc: string | null = null;
   let arch: string | null = null;
@@ -772,9 +775,7 @@ export function selectCopyTargetNodeModules({
   }
 
   const topLevelVersion = topLevelVersions.get(name);
-  if (
-    topLevelVersion === resolvedVersion
-  ) {
+  if (topLevelVersion === resolvedVersion) {
     return targetNodeModules;
   }
 

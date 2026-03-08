@@ -8,8 +8,8 @@ import {
   getRuntimeDependencies,
   getRuntimeDependencyEntries,
   inferVersionFromBunEntryPath,
-  isPackageCompatibleWithCurrentPlatform,
   isExactVersionSpecifier,
+  isPackageCompatibleWithCurrentPlatform,
   matchesRuntimeVariant,
   normalizeResolvedPackage,
   selectCopyTargetNodeModules,
@@ -329,7 +329,7 @@ describe("isPackageCompatibleWithCurrentPlatform", () => {
     expect(isPackageCompatibleWithCurrentPlatform(packageJsonPath)).toBe(false);
   });
 
-  it("keeps packages that match the current macOS arm64 host", () => {
+  it("keeps packages that match the current host platform", () => {
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), "runtime-platform-test-"),
     );
@@ -338,10 +338,10 @@ describe("isPackageCompatibleWithCurrentPlatform", () => {
     fs.writeFileSync(
       packageJsonPath,
       JSON.stringify({
-        name: "@img/sharp-darwin-arm64",
+        name: `@img/sharp-${process.platform}-${process.arch}`,
         version: "1.0.0",
-        os: ["darwin"],
-        cpu: ["arm64"],
+        os: [process.platform],
+        cpu: [process.arch],
       }),
     );
 

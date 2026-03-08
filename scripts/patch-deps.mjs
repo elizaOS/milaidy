@@ -650,7 +650,9 @@ if (pdfTargets.length === 0) {
       } else if (src.includes('from "pdfjs-dist"')) {
         src = src.replace(pdfNodeImportRegex, pdfLegacySpecifier);
         patched = true;
-        console.log("  - Redirected plugin-pdf Node build to pdfjs-dist legacy entry.");
+        console.log(
+          "  - Redirected plugin-pdf Node build to pdfjs-dist legacy entry.",
+        );
       }
     }
 

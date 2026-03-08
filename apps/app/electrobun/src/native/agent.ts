@@ -122,7 +122,9 @@ function resolveBunExecutablePath(execPath: string = process.execPath): string {
 
   for (const candidate of candidates) {
     if (!fs.existsSync(candidate)) continue;
-    if (path.basename(candidate).toLowerCase() === executableName.toLowerCase()) {
+    if (
+      path.basename(candidate).toLowerCase() === executableName.toLowerCase()
+    ) {
       return candidate;
     }
   }
@@ -209,7 +211,7 @@ async function waitForHealthy(
 
   while (Date.now() < deadline) {
     const port = getPort();
-    const url = `http://localhost:${port}/api/health`;
+    const url = `http://127.0.0.1:${port}/api/health`;
     try {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(2_000),
@@ -334,6 +336,9 @@ function deletePgliteDataDir(): void {
 
 export class AgentManager {
   private sendToWebview: SendToWebview | null = null;
+  private readonly statusListeners = new Set<
+    (status: Readonly<AgentStatus>) => void
+  >();
   private status: AgentStatus = {
     state: "not_started",
     agentName: null,
@@ -348,6 +353,15 @@ export class AgentManager {
 
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
+  }
+
+  onStatusChange(
+    listener: (status: Readonly<AgentStatus>) => void,
+  ): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
   }
 
   /** Start the agent runtime as a child process. Idempotent. */
@@ -535,7 +549,7 @@ export class AgentManager {
       // Wait for the health endpoint to respond
       // Use a getter so the health check follows dynamic port reassignment from stdout
       diagnosticLog(
-        `[Agent] Waiting for health endpoint at http://localhost:${apiPort}/api/health ...`,
+        `[Agent] Waiting for health endpoint at http://127.0.0.1:${apiPort}/api/health ...`,
       );
       const healthy = await waitForHealthy(() => apiPort);
 
@@ -676,6 +690,14 @@ export class AgentManager {
     if (this.sendToWebview) {
       this.sendToWebview("agentStatusUpdate", this.status);
     }
+    const statusSnapshot = { ...this.status };
+    for (const listener of this.statusListeners) {
+      try {
+        listener(statusSnapshot);
+      } catch (err) {
+        console.warn("[Agent] status listener failed:", err);
+      }
+    }
   }
 
   /**
@@ -796,7 +818,7 @@ export class AgentManager {
    */
   private async fetchAgentName(port: number): Promise<string> {
     try {
-      const response = await fetch(`http://localhost:${port}/api/agents`, {
+      const response = await fetch(`http://127.0.0.1:${port}/api/agents`, {
         signal: AbortSignal.timeout(5_000),
       });
       if (response.ok) {

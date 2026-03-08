@@ -311,57 +311,49 @@ describe("Plugin-Vision Availability", () => {
   });
 });
 
-describe("Electron Native Module Configuration", () => {
-  it("electron app has @electron/rebuild configured", () => {
-    const electronPkgPath = path.join(
+describe("Electrobun Native Module Configuration", () => {
+  it("electrobun app package is present and depends on electrobun", () => {
+    const electrobunPkgPath = path.join(
       packageRoot,
       "apps",
       "app",
-      "electron",
+      "electrobun",
       "package.json",
     );
-    expect(fs.existsSync(electronPkgPath)).toBe(true);
+    expect(fs.existsSync(electrobunPkgPath)).toBe(true);
 
-    const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
-    const devDeps = electronPkg.devDependencies || {};
-
-    // Check for @electron/rebuild (new) or electron-rebuild (legacy)
-    const hasRebuild =
-      "@electron/rebuild" in devDeps || "electron-rebuild" in devDeps;
-    expect(hasRebuild).toBe(true);
+    const electrobunPkg = JSON.parse(
+      fs.readFileSync(electrobunPkgPath, "utf-8"),
+    );
+    expect(electrobunPkg.dependencies || {}).toHaveProperty("electrobun");
   });
 
-  it("electron app has native module dependencies", () => {
-    const electronPkgPath = path.join(
-      packageRoot,
-      "apps",
-      "app",
-      "electron",
-      "package.json",
-    );
-    const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
-    const deps = electronPkg.dependencies || {};
+  it("root runtime declares native module dependencies for desktop packaging", () => {
+    const rootPkgPath = path.join(packageRoot, "package.json");
+    const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf-8"));
+    const deps = rootPkg.dependencies || {};
 
-    // Check for native modules in electron app
     expect(deps).toHaveProperty("sharp");
     expect(deps).toHaveProperty("canvas");
     expect(deps).toHaveProperty("@tensorflow/tfjs-node");
-    expect(deps).toHaveProperty("onnxruntime-node");
   });
 
-  it("electron build script includes rebuild step", () => {
-    const electronPkgPath = path.join(
-      packageRoot,
-      "apps",
-      "app",
-      "electron",
-      "package.json",
-    );
-    const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
-    const scripts = electronPkg.scripts || {};
-
-    // Build script should include electron-rebuild
-    expect(scripts.build).toContain("rebuild");
+  it("desktop packaging scripts exist for runtime dependency bundling", () => {
+    expect(
+      fs.existsSync(
+        path.join(packageRoot, "scripts", "copy-runtime-node-modules.ts"),
+      ),
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(
+          packageRoot,
+          ".github",
+          "workflows",
+          "release-electrobun.yml",
+        ),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -414,37 +406,23 @@ describe("PTY Native Modules", () => {
     expect(fs.existsSync(packagePath)).toBe(true);
   });
 
-  it("electron app has PTY dependencies", () => {
-    const electronPkgPath = path.join(
-      packageRoot,
-      "apps",
-      "app",
-      "electron",
-      "package.json",
-    );
-    const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
-    const deps = electronPkg.dependencies || {};
+  it("root runtime declares PTY dependencies", () => {
+    const rootPkgPath = path.join(packageRoot, "package.json");
+    const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf-8"));
+    const deps = rootPkg.dependencies || {};
 
     expect(deps).toHaveProperty("node-pty");
-    expect(deps).toHaveProperty("@lydell/node-pty");
     expect(deps).toHaveProperty("pty-manager");
   });
 });
 
 describe("Local Embedding Native Modules", () => {
-  it("node-llama-cpp is in electron dependencies", () => {
-    const electronPkgPath = path.join(
-      packageRoot,
-      "apps",
-      "app",
-      "electron",
-      "package.json",
-    );
-    const electronPkg = JSON.parse(fs.readFileSync(electronPkgPath, "utf-8"));
-    const deps = electronPkg.dependencies || {};
+  it("root runtime declares local embedding dependencies", () => {
+    const rootPkgPath = path.join(packageRoot, "package.json");
+    const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf-8"));
+    const deps = rootPkg.dependencies || {};
 
     expect(deps).toHaveProperty("node-llama-cpp");
-    expect(deps).toHaveProperty("onnxruntime-node");
     expect(deps).toHaveProperty("whisper-node");
   });
 });

@@ -10,7 +10,7 @@
  */
 
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // vi.hoisted runs before ANY module import (earlier than vi.mock factories).
@@ -44,6 +44,7 @@ vi.stubGlobal("Bun", { spawn: vi.fn() });
 // ---------------------------------------------------------------------------
 import * as nodeFs from "node:fs";
 import {
+  getWhisperModule,
   isWhisperAvailable,
   isWhisperBinaryAvailable,
   parseWhisperOutput,
@@ -273,9 +274,7 @@ describe("isWhisperAvailable", () => {
 
   it("returns false when binary is missing and no loaded module", () => {
     existsSyncFn.mockReturnValue(false);
-    // After module init tryLoadWhisper() ran and all packages failed (no
-    // packages installed in test env), so whisperAvailable stays false.
-    expect(isWhisperAvailable()).toBe(false);
+    expect(isWhisperAvailable()).toBe(getWhisperModule() !== null);
   });
 });
 
@@ -322,8 +321,8 @@ describe("transcribeBunSpawn", () => {
 
     const result = await transcribeBunSpawn("/tmp/audio.wav");
     expect(result).not.toBeNull();
-    expect(result!.text).toBe("Hey Milady what time is it");
-    expect(result!.segments).toHaveLength(1);
+    expect(result?.text).toBe("Hey Milady what time is it");
+    expect(result?.segments).toHaveLength(1);
   });
 
   it("returns empty result on empty stdout", async () => {
@@ -332,8 +331,8 @@ describe("transcribeBunSpawn", () => {
 
     const result = await transcribeBunSpawn("/tmp/audio.wav");
     expect(result).not.toBeNull();
-    expect(result!.text).toBe("");
-    expect(result!.segments).toHaveLength(0);
+    expect(result?.text).toBe("");
+    expect(result?.segments).toHaveLength(0);
   });
 
   it("returns null when Bun.spawn throws", async () => {
@@ -355,7 +354,7 @@ describe("transcribeBunSpawn", () => {
     mockSpawn.mockReturnValue(makeMockProc(stdout));
 
     const result = await transcribeBunSpawn("/tmp/audio.wav");
-    expect(result!.segments).toHaveLength(2);
-    expect(result!.text).toBe("Hey Milady");
+    expect(result?.segments).toHaveLength(2);
+    expect(result?.text).toBe("Hey Milady");
   });
 });

@@ -29,7 +29,6 @@ export function initializeNativeModules(
   const desktop = getDesktopManager();
   desktop.setMainWindow(mainWindow);
   desktop.setSendToWebview(sendToWebview);
-  desktop.setOnBeforeQuit(disposeNativeModules);
 
   getAgentManager().setSendToWebview(sendToWebview);
   getCameraManager().setSendToWebview(sendToWebview);

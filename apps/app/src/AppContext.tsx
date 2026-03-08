@@ -73,7 +73,6 @@ import {
   type WorkbenchOverview,
 } from "./api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
-import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   type AutonomyEventStore,
   type AutonomyRunHealthMap,
@@ -82,6 +81,7 @@ import {
   markPendingAutonomyGapsPartial,
   mergeAutonomyEvents,
 } from "./autonomy-events";
+import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   expandSavedCustomCommand,
   loadSavedCustomCommands,

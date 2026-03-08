@@ -209,7 +209,7 @@ export class ScreenCaptureManager {
 
     const fps = options?.fps ?? 10;
     const quality = options?.quality ?? 70;
-    const apiBase = options?.apiBase ?? "http://localhost:2138";
+    const apiBase = options?.apiBase ?? "http://127.0.0.1:2138";
     const endpointPath = options?.endpoint ?? "/api/stream/frame";
     const endpoint = `${apiBase}${endpointPath}`;
     const interval = Math.round(1000 / fps);

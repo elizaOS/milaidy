@@ -12,12 +12,10 @@ import {
 
 describe("classifyMachOKind", () => {
   it("classifies Mach-O executables and libraries", () => {
-    expect(
-      classifyMachOKind("Mach-O 64-bit executable arm64"),
-    ).toBe("executable");
-    expect(
-      classifyMachOKind("Mach-O 64-bit bundle arm64"),
-    ).toBe("library");
+    expect(classifyMachOKind("Mach-O 64-bit executable arm64")).toBe(
+      "executable",
+    );
+    expect(classifyMachOKind("Mach-O 64-bit bundle arm64")).toBe("library");
     expect(
       classifyMachOKind(
         "Mach-O 64-bit dynamically linked shared library arm64",
@@ -53,7 +51,14 @@ describe("resolveRuntimeNodeModulesPath", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
     const appBundle = path.join(tempDir, "Milady canary.app");
     fs.mkdirSync(
-      path.join(appBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      path.join(
+        appBundle,
+        "Contents",
+        "Resources",
+        "app",
+        "milady-dist",
+        "node_modules",
+      ),
       { recursive: true },
     );
 
@@ -79,11 +84,25 @@ describe("resolveRuntimeNodeModulesPath", () => {
     const stableBundle = path.join(tempDir, "Milady.app");
     const canaryBundle = path.join(tempDir, "Milady canary.app");
     fs.mkdirSync(
-      path.join(stableBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      path.join(
+        stableBundle,
+        "Contents",
+        "Resources",
+        "app",
+        "milady-dist",
+        "node_modules",
+      ),
       { recursive: true },
     );
     fs.mkdirSync(
-      path.join(canaryBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      path.join(
+        canaryBundle,
+        "Contents",
+        "Resources",
+        "app",
+        "milady-dist",
+        "node_modules",
+      ),
       { recursive: true },
     );
 
@@ -106,15 +125,15 @@ describe("resolveRuntimeNodeModulesPath", () => {
   });
 
   it("accepts a milady-dist directory and appends node_modules", () => {
-    expect(
-      resolveRuntimeNodeModulesPath(["/tmp/milady-dist"], {}),
-    ).toBe("/tmp/milady-dist/node_modules");
+    expect(resolveRuntimeNodeModulesPath(["/tmp/milady-dist"], {})).toBe(
+      "/tmp/milady-dist/node_modules",
+    );
   });
 
   it("accepts an explicit dist/node_modules path for pre-wrap signing", () => {
-    expect(
-      resolveRuntimeNodeModulesPath(["/tmp/dist/node_modules"], {}),
-    ).toBe("/tmp/dist/node_modules");
+    expect(resolveRuntimeNodeModulesPath(["/tmp/dist/node_modules"], {})).toBe(
+      "/tmp/dist/node_modules",
+    );
   });
 });
 

@@ -271,7 +271,9 @@ async function startRendererServer(): Promise<string> {
   // If the agent falls back to a dynamic port, apiBaseUpdate messages will
   // update window.__MILADY_API_BASE__ and the client will pick it up lazily.
   const agentPort = Number(process.env.MILADY_PORT) || 2138;
-  const agentApiBase = `http://localhost:${agentPort}`;
+  // Use 127.0.0.1 explicitly: on Windows 11, "localhost" resolves to ::1 (IPv6)
+  // by default, but the agent server binds to 127.0.0.1 (IPv4), causing ECONNREFUSED.
+  const agentApiBase = `http://127.0.0.1:${agentPort}`;
 
   // Inject the API base into index.html so it's available before React mounts.
   function injectApiBaseIntoHtml(html: string): string {
@@ -527,7 +529,7 @@ function injectApiBase(win: BrowserWindow): void {
   const agent = getAgentManager();
   const port = agent.getPort();
   if (port) {
-    pushApiBaseToRenderer(win, `http://localhost:${port}`);
+    pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
   }
 }
 
@@ -545,7 +547,7 @@ async function syncPermissionsToRestApi(
 ): Promise<void> {
   try {
     const permissions = await getPermissionManager().checkAllPermissions();
-    await fetch(`http://localhost:${port}/api/permissions/state`, {
+    await fetch(`http://127.0.0.1:${port}/api/permissions/state`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ permissions, startup }),
@@ -568,7 +570,7 @@ async function startAgent(win: BrowserWindow): Promise<void> {
         process.env as Record<string, string | undefined>,
       );
       if (!resolution.base) {
-        pushApiBaseToRenderer(win, `http://localhost:${status.port}`);
+        pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
       }
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.
@@ -620,7 +622,9 @@ async function setupUpdater(): Promise<void> {
       if (entry.status === "update-available") {
         // checkForUpdate found a new version — notify renderer
         const info = Updater.updateInfo();
-        sendToActiveRenderer("desktopUpdateAvailable", { version: info.version });
+        sendToActiveRenderer("desktopUpdateAvailable", {
+          version: info.version,
+        });
       } else if (entry.status === "download-complete") {
         // downloadUpdate finished — update is ready to apply
         const info = Updater.updateInfo();
@@ -673,11 +677,13 @@ function setupDeepLinks(): void {
 // Shutdown
 // ============================================================================
 
-function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
+function setupShutdown(cleanupFns: Array<() => void>): void {
   Electrobun.events.on("before-quit", () => {
     isQuitting = true;
     console.log("[Main] App quitting, disposing native modules...");
-    clearInterval(apiBaseInterval);
+    for (const cleanupFn of cleanupFns) {
+      cleanupFn();
+    }
     disposeNativeModules();
   });
 }
@@ -701,21 +707,36 @@ function initializeBundledWebGPU(): void {
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
   initializeBundledWebGPU();
+  const cleanupFns: Array<() => void> = [];
 
   // Set up app menu
   setupApplicationMenu();
 
+  cleanupFns.push(
+    getAgentManager().onStatusChange((status) => {
+      if (currentWindow && status.port) {
+        injectApiBase(currentWindow);
+      }
+    }),
+  );
+
   // Create and attach the primary window.
-  attachMainWindow(await createMainWindow());
+  const mainWin = attachMainWindow(await createMainWindow());
+
+  // If launched with --hidden (e.g. auto-launch with openAsHidden), minimize immediately.
+  if (process.argv.includes("--hidden")) {
+    try {
+      mainWin.minimize();
+    } catch (err) {
+      console.warn(
+        "[Main] Failed to minimize window on --hidden startup:",
+        err,
+      );
+    }
+  }
 
   // Set up deep link handling
   setupDeepLinks();
-
-  const apiBaseInterval = setInterval(() => {
-    if (currentWindow) {
-      injectApiBase(currentWindow);
-    }
-  }, 5_000);
 
   // Set up system tray with default icon
   const desktop = getDesktopManager();
@@ -747,7 +768,7 @@ async function main(): Promise<void> {
   void setupUpdater();
 
   // Set up clean shutdown
-  setupShutdown(apiBaseInterval);
+  setupShutdown(cleanupFns);
 
   console.log("[Main] Milady started successfully");
 }

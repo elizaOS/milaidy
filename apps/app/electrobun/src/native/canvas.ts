@@ -213,13 +213,28 @@ export class CanvasManager {
 
       if (process.platform === "darwin") {
         proc = Bun.spawn(
-          ["screencapture", "-x", "-R", `${x},${y},${w},${h}`, "-t", "png", tmpPath],
+          [
+            "screencapture",
+            "-x",
+            "-R",
+            `${x},${y},${w},${h}`,
+            "-t",
+            "png",
+            tmpPath,
+          ],
           { stdout: "pipe", stderr: "pipe" },
         );
       } else {
         // Linux: ImageMagick `import` with root window crop
         proc = Bun.spawn(
-          ["import", "-window", "root", "-crop", `${w}x${h}+${x}+${y}`, tmpPath],
+          [
+            "import",
+            "-window",
+            "root",
+            "-crop",
+            `${w}x${h}+${x}+${y}`,
+            tmpPath,
+          ],
           { stdout: "pipe", stderr: "pipe" },
         );
       }

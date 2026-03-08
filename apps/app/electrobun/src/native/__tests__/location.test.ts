@@ -71,10 +71,10 @@ describe("LocationManager", () => {
 
       const pos = await manager.getCurrentPosition();
       expect(pos).not.toBeNull();
-      expect(pos!.latitude).toBe(48.8566);
-      expect(pos!.longitude).toBe(2.3522);
-      expect(pos!.accuracy).toBe(5000);
-      expect(typeof pos!.timestamp).toBe("number");
+      expect(pos?.latitude).toBe(48.8566);
+      expect(pos?.longitude).toBe(2.3522);
+      expect(pos?.accuracy).toBe(5000);
+      expect(typeof pos?.timestamp).toBe("number");
     });
 
     it("returns coordinates from ipapi.co (latitude/longitude fields)", async () => {
@@ -86,8 +86,8 @@ describe("LocationManager", () => {
         );
 
       const pos = await manager.getCurrentPosition();
-      expect(pos!.latitude).toBe(51.5074);
-      expect(pos!.longitude).toBe(-0.1278);
+      expect(pos?.latitude).toBe(51.5074);
+      expect(pos?.longitude).toBe(-0.1278);
     });
 
     it("falls back to the next service when first throws", async () => {
@@ -96,7 +96,7 @@ describe("LocationManager", () => {
         .mockResolvedValueOnce(makeOkResponse({ lat: 40.7128, lon: -74.006 }));
 
       const pos = await manager.getCurrentPosition();
-      expect(pos!.latitude).toBe(40.7128);
+      expect(pos?.latitude).toBe(40.7128);
     });
 
     it("returns null when all services fail", async () => {
@@ -114,7 +114,7 @@ describe("LocationManager", () => {
         .mockResolvedValueOnce(makeOkResponse({ lat: 35.6762, lon: 139.6503 }));
 
       const pos = await manager.getCurrentPosition();
-      expect(pos!.latitude).toBe(35.6762);
+      expect(pos?.latitude).toBe(35.6762);
     });
 
     it("skips responses with non-numeric coordinates", async () => {
@@ -125,7 +125,7 @@ describe("LocationManager", () => {
         );
 
       const pos = await manager.getCurrentPosition();
-      expect(pos!.latitude).toBe(37.7749);
+      expect(pos?.latitude).toBe(37.7749);
     });
 
     it("returns null when json() throws", async () => {
@@ -157,7 +157,7 @@ describe("LocationManager", () => {
       await manager.getCurrentPosition();
       const last = await manager.getLastKnownLocation();
       expect(last).not.toBeNull();
-      expect(last!.latitude).toBe(48.8566);
+      expect(last?.latitude).toBe(48.8566);
     });
 
     it("returns null when getCurrentPosition fails", async () => {
@@ -178,8 +178,8 @@ describe("LocationManager", () => {
       await manager.getCurrentPosition();
 
       const last = await manager.getLastKnownLocation();
-      expect(last!.latitude).toBe(3);
-      expect(last!.longitude).toBe(4);
+      expect(last?.latitude).toBe(3);
+      expect(last?.longitude).toBe(4);
     });
   });
 

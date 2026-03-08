@@ -30,11 +30,13 @@ vi.mock("node:fs", () => {
   const writeFileSyncFn = vi.fn();
   const mkdirSyncFn = vi.fn();
   const unlinkSyncFn = vi.fn();
+  const readFileSyncFn = vi.fn(() => "");
   const fns = {
     existsSync: existsSyncFn,
     writeFileSync: writeFileSyncFn,
     mkdirSync: mkdirSyncFn,
     unlinkSync: unlinkSyncFn,
+    readFileSync: readFileSyncFn,
   };
   return { default: fns, ...fns };
 });
@@ -95,13 +97,14 @@ vi.stubGlobal("Bun", {
 
 import * as nodeFs from "node:fs";
 import * as electrobunBun from "electrobun/bun";
-import * as macEffects from "../mac-window-effects";
 import { DesktopManager } from "../desktop";
+import * as macEffects from "../mac-window-effects";
 
 const mockExistsSync = nodeFs.existsSync as ReturnType<typeof vi.fn>;
 const mockWriteFileSync = nodeFs.writeFileSync as ReturnType<typeof vi.fn>;
 const mockMkdirSync = nodeFs.mkdirSync as ReturnType<typeof vi.fn>;
 const mockUnlinkSync = nodeFs.unlinkSync as ReturnType<typeof vi.fn>;
+const mockReadFileSync = nodeFs.readFileSync as ReturnType<typeof vi.fn>;
 const mockOpenExternal = electrobunBun.Utils.openExternal as ReturnType<
   typeof vi.fn
 >;
@@ -152,6 +155,7 @@ describe("DesktopManager", () => {
     mockWriteFileSync.mockReset();
     mockMkdirSync.mockReset();
     mockUnlinkSync.mockReset();
+    mockReadFileSync.mockReset().mockReturnValue("");
     mockOpenExternal.mockReset();
     mockShowItemInFolder.mockReset();
     mockSpawn.mockReset().mockReturnValue(makeSpawnResult(""));
@@ -335,6 +339,20 @@ describe("DesktopManager", () => {
       expect(mockSpawn).not.toHaveBeenCalled();
       expect(mockUnlinkSync).not.toHaveBeenCalled();
     });
+
+    it("includes --hidden arg in plist ProgramArguments when openAsHidden is true", async () => {
+      mockExistsSync.mockReturnValue(true);
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: true });
+      const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+      expect(content).toContain("--hidden");
+    });
+
+    it("does not include --hidden arg in plist when openAsHidden is false", async () => {
+      mockExistsSync.mockReturnValue(true);
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: false });
+      const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+      expect(content).not.toContain("--hidden");
+    });
   });
 
   // ── setAutoLaunch — Linux ─────────────────────────────────────────────────
@@ -378,6 +396,20 @@ describe("DesktopManager", () => {
       await manager.setAutoLaunch({ enabled: false });
       expect(mockUnlinkSync).not.toHaveBeenCalled();
     });
+
+    it("appends --hidden to Exec line when openAsHidden is true", async () => {
+      mockExistsSync.mockReturnValue(true);
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: true });
+      const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+      expect(content).toContain(`${process.execPath} --hidden`);
+    });
+
+    it("does not append --hidden to Exec line when openAsHidden is false", async () => {
+      mockExistsSync.mockReturnValue(true);
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: false });
+      const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+      expect(content).not.toContain("--hidden");
+    });
   });
 
   // ── setAutoLaunch — Windows ───────────────────────────────────────────────
@@ -406,6 +438,20 @@ describe("DesktopManager", () => {
         expect.any(Object),
       );
     });
+
+    it("appends --hidden to registry value when openAsHidden is true", async () => {
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: true });
+      const [args] = mockSpawn.mock.calls[0] as [string[]];
+      const valueIdx = args.indexOf("/d") + 1;
+      expect(args[valueIdx]).toBe(`${process.execPath} --hidden`);
+    });
+
+    it("does not append --hidden to registry value when openAsHidden is false", async () => {
+      await manager.setAutoLaunch({ enabled: true, openAsHidden: false });
+      const [args] = mockSpawn.mock.calls[0] as [string[]];
+      const valueIdx = args.indexOf("/d") + 1;
+      expect(args[valueIdx]).toBe(process.execPath);
+    });
   });
 
   // ── getAutoLaunchStatus ───────────────────────────────────────────────────
@@ -414,9 +460,17 @@ describe("DesktopManager", () => {
     it("returns enabled: true on macOS when plist exists", async () => {
       setPlatform("darwin");
       mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue("<key>RunAtLoad</key>");
       const status = await manager.getAutoLaunchStatus();
       expect(status.enabled).toBe(true);
       expect(status.openAsHidden).toBe(false);
+    });
+
+    it("returns openAsHidden: true on macOS when plist contains --hidden", async () => {
+      setPlatform("darwin");
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue("<string>--hidden</string>");
+      expect((await manager.getAutoLaunchStatus()).openAsHidden).toBe(true);
     });
 
     it("returns enabled: false on macOS when plist is missing", async () => {
@@ -428,7 +482,15 @@ describe("DesktopManager", () => {
     it("returns enabled: true on Linux when .desktop file exists", async () => {
       setPlatform("linux");
       mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue("Exec=/path/to/app");
       expect((await manager.getAutoLaunchStatus()).enabled).toBe(true);
+    });
+
+    it("returns openAsHidden: true on Linux when .desktop Exec contains --hidden", async () => {
+      setPlatform("linux");
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue("Exec=/path/to/app --hidden");
+      expect((await manager.getAutoLaunchStatus()).openAsHidden).toBe(true);
     });
 
     it("returns enabled: false on Linux when .desktop file is missing", async () => {
@@ -443,6 +505,14 @@ describe("DesktopManager", () => {
         makeSpawnResult("Milady    REG_SZ    /path/to/app"),
       );
       expect((await manager.getAutoLaunchStatus()).enabled).toBe(true);
+    });
+
+    it("returns openAsHidden: true on Windows when reg value contains --hidden", async () => {
+      setPlatform("win32");
+      mockSpawn.mockReturnValue(
+        makeSpawnResult("Milady    REG_SZ    /path/to/app --hidden"),
+      );
+      expect((await manager.getAutoLaunchStatus()).openAsHidden).toBe(true);
     });
 
     it("returns enabled: false on Windows when reg query output lacks 'Milady'", async () => {
@@ -475,9 +545,9 @@ describe("DesktopManager", () => {
       };
 
       mockIsAppActive.mockReturnValue(false);
-      manager.setMainWindow(fakeWindow as unknown as Parameters<
-        DesktopManager["setMainWindow"]
-      >[0]);
+      manager.setMainWindow(
+        fakeWindow as unknown as Parameters<DesktopManager["setMainWindow"]>[0],
+      );
 
       await vi.advanceTimersByTimeAsync(600);
       expect(mockMakeKeyAndOrderFront).not.toHaveBeenCalled();

@@ -156,7 +156,7 @@ function countByClass(
   node: TestRenderer.ReactTestInstance,
   className: string,
 ): number {
-  return node.root.findAll(
+  return node.findAll(
     (candidate) =>
       typeof candidate.props.className === "string" &&
       candidate.props.className.split(/\s+/).includes(className),
@@ -249,7 +249,11 @@ describe("CompanionView", () => {
       tree = TestRenderer.create(React.createElement(CompanionView));
     });
 
-    const rosterCount = countByClass(tree!, "anime-roster");
+    expect(tree).toBeDefined();
+    if (!tree) {
+      throw new Error("CompanionView did not render");
+    }
+    const rosterCount = countByClass(tree.root, "anime-roster");
     expect(rosterCount).toBe(1);
   });
 

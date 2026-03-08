@@ -72,7 +72,8 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   }
 
   if (bundleCandidates.length === 1) {
-    return bundleCandidates[0]!;
+    const [bundleCandidate] = bundleCandidates;
+    return bundleCandidate ?? null;
   }
 
   const appName = env.ELECTROBUN_APP_NAME?.trim();
@@ -135,7 +136,9 @@ export function shouldConsiderForCodesign(
   return (stats.mode & 0o111) !== 0;
 }
 
-function resolveDeveloperId(env: NodeJS.ProcessEnv = process.env): string | null {
+function resolveDeveloperId(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
   const explicitIdentity = env.ELECTROBUN_DEVELOPER_ID?.trim();
   if (explicitIdentity) {
     return explicitIdentity;

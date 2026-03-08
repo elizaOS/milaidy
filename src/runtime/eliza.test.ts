@@ -1869,9 +1869,9 @@ describe("resolveMiladyPluginImportSpecifier", () => {
   });
 
   it("leaves non-Milady plugins unchanged", () => {
-    expect(
-      resolveMiladyPluginImportSpecifier("@elizaos/plugin-discord"),
-    ).toBe("@elizaos/plugin-discord");
+    expect(resolveMiladyPluginImportSpecifier("@elizaos/plugin-discord")).toBe(
+      "@elizaos/plugin-discord",
+    );
   });
 });
 
