@@ -11,10 +11,15 @@ vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
 }));
 
+const mockedDnsLookup = dnsLookup as unknown as {
+  mockRejectedValue: (value: unknown) => unknown;
+  mockResolvedValue: (value: unknown) => unknown;
+};
+
 describe("validateMcpServerConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(dnsLookup).mockResolvedValue([
+    mockedDnsLookup.mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
   });
@@ -195,9 +200,7 @@ describe("validateMcpServerConfig", () => {
   });
 
   it("rejects remote URLs when DNS resolves to blocked addresses", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
-      { address: "127.0.0.1", family: 4 },
-    ]);
+    mockedDnsLookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
     const rejection = await validateMcpServerConfig({
       type: "streamable-http",
       url: "https://metadata.nip.io/mcp",
@@ -207,7 +210,7 @@ describe("validateMcpServerConfig", () => {
   });
 
   it("rejects remote URLs when DNS lookup fails", async () => {
-    vi.mocked(dnsLookup).mockRejectedValue(new Error("DNS failure"));
+    mockedDnsLookup.mockRejectedValue(new Error("DNS failure"));
     const rejection = await validateMcpServerConfig({
       type: "streamable-http",
       url: "https://mcp.example.com/mcp",
@@ -389,9 +392,7 @@ describe("validateMcpServerConfig", () => {
   });
 
   it("rejects type http with localhost URL (SSRF)", async () => {
-    vi.mocked(dnsLookup).mockResolvedValue([
-      { address: "127.0.0.1", family: 4 },
-    ]);
+    mockedDnsLookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
     const rejection = await validateMcpServerConfig({
       type: "http",
       url: "http://localhost:3000/api",
@@ -410,7 +411,7 @@ describe("validateMcpServerConfig", () => {
 describe("resolveMcpServersRejection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(dnsLookup).mockResolvedValue([
+    mockedDnsLookup.mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
   });
