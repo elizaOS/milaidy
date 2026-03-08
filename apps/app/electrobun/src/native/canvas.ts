@@ -7,12 +7,40 @@
  * Uses Electrobun's BrowserWindow + BrowserView for each canvas window.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
 import { BrowserWindow } from "electrobun/bun";
 import type {
   CanvasWindowInfo,
   CanvasWindowOptions,
   WindowBounds,
 } from "../rpc-schema";
+
+/**
+ * Structural type for accessing evaluateJavascriptWithResponse via requestProxy.
+ * `requestProxy` is present at runtime on every createRPC result but is not
+ * reflected in the base RPCWithTransport interface exported by electrobun.
+ */
+type WebviewEvalRpc = {
+  requestProxy?: {
+    evaluateJavascriptWithResponse?: (params: {
+      script: string;
+    }) => Promise<unknown>;
+  };
+};
+
+/**
+ * Returns true only if the URL hostname is strictly localhost or 127.0.0.1.
+ * Uses URL parsing to prevent bypass via `http://localhost.evil.com` etc.
+ */
+function isAllowedCanvasUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -46,6 +74,9 @@ export class CanvasManager {
         height: options.height ?? 600,
       },
       transparent: options.transparent ?? false,
+      sandbox: true,
+      // @ts-expect-error — partition is a valid Electrobun option not yet typed
+      partition: "canvas-isolated",
     });
 
     const canvas: CanvasWindow = {
@@ -83,12 +114,38 @@ export class CanvasManager {
     }
   }
 
-  async navigate(options: { id: string; url: string }): Promise<void> {
+  async navigate(options: {
+    id: string;
+    url: string;
+  }): Promise<{ available: boolean }> {
     const canvas = this.windows.get(options.id);
-    if (canvas) {
-      canvas.window.webview.loadURL(options.url);
-      canvas.url = options.url;
+    if (!canvas) return { available: false };
+
+    const url = options.url ?? "";
+    // Validate URL scheme and host before loading to prevent open redirect
+    // to arbitrary external origins.
+    let allowed = false;
+    try {
+      const parsed = new URL(url);
+      // data: URLs are excluded: the bridge preload is injected into every
+      // canvas window, so a data: page would receive the preload script and
+      // could spoof RPC messages. Only local-origin URLs are permitted.
+      allowed =
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.protocol === "file:";
+    } catch {
+      allowed = false;
     }
+
+    if (!allowed) {
+      console.warn(`[Canvas] Blocked navigation to disallowed URL: ${url}`);
+      return { available: false };
+    }
+
+    canvas.window.webview.loadURL(url);
+    canvas.url = url;
+    return { available: true };
   }
 
   /**
@@ -103,11 +160,12 @@ export class CanvasManager {
     const canvas = this.windows.get(options.id);
     if (!canvas) return null;
 
-    // Security: only allow eval on local/internal canvas URLs
+    // Security: only allow eval on local/internal canvas URLs.
+    // Uses URL parsing (not startsWith) to prevent bypasses like
+    // http://localhost.evil.com or http://localhost@external.com.
     const currentUrl = canvas.window.webview?.url ?? "";
     const isInternal =
-      currentUrl.startsWith("http://localhost") ||
-      currentUrl.startsWith("https://localhost") ||
+      isAllowedCanvasUrl(currentUrl) ||
       currentUrl.startsWith("file://") ||
       currentUrl === "" ||
       currentUrl === "about:blank";
@@ -118,23 +176,66 @@ export class CanvasManager {
     }
 
     try {
-      return await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
-        { script: options.script },
-      );
+      const evalRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      return await evalRpc?.requestProxy?.evaluateJavascriptWithResponse?.({
+        script: options.script,
+      });
     } catch (err) {
       console.error(`[Canvas] eval error in ${options.id}:`, err);
       return null;
     }
   }
 
-  async snapshot(_options: {
+  async snapshot(options: {
     id: string;
     format?: string;
     quality?: number;
   }): Promise<{ data: string } | null> {
-    // Electrobun doesn't have a direct capturePage equivalent.
-    // Would need to use evaluateJavascriptWithResponse to capture via canvas element.
-    return null;
+    const canvas = this.windows.get(options.id);
+    if (!canvas) return null;
+
+    // Windows has no readily available CLI screenshot tool — skip.
+    if (process.platform === "win32") return null;
+
+    try {
+      const pos = canvas.window.getPosition();
+      const size = canvas.window.getSize();
+      const x = pos.x ?? 0;
+      const y = pos.y ?? 0;
+      const w = size.width;
+      const h = size.height;
+
+      // Skip if window is hidden off-screen (see hide() which uses -99999)
+      if (x < -1000 || y < -1000) return null;
+
+      const tmpPath = `${os.tmpdir()}/milady-canvas-snapshot-${Date.now()}.png`;
+      let proc: ReturnType<typeof Bun.spawn>;
+
+      if (process.platform === "darwin") {
+        proc = Bun.spawn(
+          ["screencapture", "-x", "-R", `${x},${y},${w},${h}`, "-t", "png", tmpPath],
+          { stdout: "pipe", stderr: "pipe" },
+        );
+      } else {
+        // Linux: ImageMagick `import` with root window crop
+        proc = Bun.spawn(
+          ["import", "-window", "root", "-crop", `${w}x${h}+${x}+${y}`, tmpPath],
+          { stdout: "pipe", stderr: "pipe" },
+        );
+      }
+
+      await proc.exited;
+
+      if (!fs.existsSync(tmpPath)) return null;
+      const buf = fs.readFileSync(tmpPath);
+      fs.unlinkSync(tmpPath);
+
+      if (buf.length < 100) return null; // empty or failed capture
+
+      return { data: buf.toString("base64") };
+    } catch {
+      return null;
+    }
   }
 
   async a2uiPush(options: { id: string; payload: unknown }): Promise<void> {
@@ -147,9 +248,8 @@ export class CanvasManager {
       }
     `;
     try {
-      await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
-        { script },
-      );
+      const pushRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      await pushRpc?.requestProxy?.evaluateJavascriptWithResponse?.({ script });
     } catch {
       // Window may have been destroyed
     }
@@ -165,9 +265,10 @@ export class CanvasManager {
       }
     `;
     try {
-      await canvas.window.webview.rpc?.requestProxy.evaluateJavascriptWithResponse(
-        { script },
-      );
+      const resetRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      await resetRpc?.requestProxy?.evaluateJavascriptWithResponse?.({
+        script,
+      });
     } catch {
       // Window may have been destroyed
     }
@@ -178,8 +279,12 @@ export class CanvasManager {
   }
 
   async hide(options: { id: string }): Promise<void> {
-    // Electrobun doesn't have hide() — use minimize as fallback
-    this.windows.get(options.id)?.window.minimize();
+    // Electrobun has no hide() API — move off-screen so the window
+    // disappears without showing a dock bounce or taskbar entry.
+    const win = this.windows.get(options.id)?.window;
+    if (win) {
+      win.setPosition(-99999, -99999);
+    }
   }
 
   async resize(options: {

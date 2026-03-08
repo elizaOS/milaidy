@@ -16,20 +16,24 @@ import {
 // (which is Bun-only and undefined in Node/vitest).
 const MOCK_DIST_PATH = "/mock/milady-dist";
 process.env.MILADY_DIST_PATH = MOCK_DIST_PATH;
+const ORIGINAL_EXEC_PATH = process.execPath;
 
 vi.mock("node:fs", () => {
   const existsSyncFn = vi.fn(() => true);
+  const rmSyncFn = vi.fn();
   return {
     default: {
       existsSync: existsSyncFn,
       mkdirSync: vi.fn(),
       appendFileSync: vi.fn(),
       readdirSync: vi.fn(() => ["server.js"]),
+      rmSync: rmSyncFn,
     },
     existsSync: existsSyncFn,
     mkdirSync: vi.fn(),
     appendFileSync: vi.fn(),
     readdirSync: vi.fn(() => ["server.js"]),
+    rmSync: rmSyncFn,
   };
 });
 
@@ -103,6 +107,16 @@ function createMockProcess(
   };
 }
 
+function makeReadableStream(text: string) {
+  const encoded = new TextEncoder().encode(text);
+  return new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(encoded);
+      c.close();
+    },
+  });
+}
+
 /** Get the mocked fs.existsSync function to configure behavior per-test */
 async function getExistsSyncMock(): Promise<Mock> {
   const fs = await import("node:fs");
@@ -112,20 +126,72 @@ async function getExistsSyncMock(): Promise<Mock> {
 // ---------------------------------------------------------------------------
 // Import AFTER mocks
 // ---------------------------------------------------------------------------
-import { AgentManager } from "../native/agent";
+import {
+  AgentManager,
+  getMiladyDistFallbackCandidates,
+} from "../native/agent";
 
 describe("AgentManager", () => {
   let manager: AgentManager;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    Object.defineProperty(process, "execPath", {
+      configurable: true,
+      value: ORIGINAL_EXEC_PATH,
+    });
     // Default: all filesystem checks return true (dist exists, server.js exists, etc.)
     const existsSync = await getExistsSyncMock();
     existsSync.mockReturnValue(true);
     manager = new AgentManager();
   });
 
+  describe("milady-dist fallback candidates", () => {
+    it("prefers the Resources/app runtime path for installed apps", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/Applications/Milady-canary.app/Contents/Resources",
+        "/Applications/Milady-canary.app/Contents/MacOS/launcher",
+      );
+
+      expect(candidates[0]).toBe(
+        "/Applications/Milady-canary.app/Contents/Resources/app/milady-dist",
+      );
+      expect(candidates).toContain(
+        "/Applications/Milady-canary.app/Contents/milady-dist",
+      );
+    });
+
+    it("includes the sibling milady-dist path for extracted app runtimes", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/private/tmp/Milady-canary.app/Contents/Resources/app/bun",
+        "/private/tmp/Milady-canary.app/Contents/MacOS/launcher",
+      );
+
+      expect(candidates).toContain(
+        "/private/tmp/Milady-canary.app/Contents/Resources/app/milady-dist",
+      );
+      expect(new Set(candidates).size).toBe(candidates.length);
+    });
+
+    it("includes the extracted app runtime path used by self-extracting installs", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/bin",
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/bin/launcher",
+      );
+
+      expect(candidates[0]).toBe(
+        "/tmp/com.miladyai.milady/canary/self-extraction/Milady-canary/Resources/app/milady-dist",
+      );
+      expect(new Set(candidates).size).toBe(candidates.length);
+    });
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(process, "execPath", {
+      configurable: true,
+      value: ORIGINAL_EXEC_PATH,
+    });
     manager.dispose();
   });
 
@@ -153,10 +219,9 @@ describe("AgentManager", () => {
         }
       });
 
-      // Make server.js not found to trigger early error
+      // Make both packaged entry candidates missing to trigger early error
       const existsSync = await getExistsSyncMock();
       existsSync.mockImplementation((p: string) => {
-        if (typeof p === "string" && p.endsWith("server.js")) return false;
         if (p === MOCK_DIST_PATH) return true;
         return false;
       });
@@ -167,17 +232,16 @@ describe("AgentManager", () => {
       expect(states[0]).toBe("starting");
     });
 
-    it("transitions to error when server.js not found", async () => {
+    it("transitions to error when no runnable eliza entry exists", async () => {
       const existsSync = await getExistsSyncMock();
       existsSync.mockImplementation((p: string) => {
-        if (typeof p === "string" && p.endsWith("server.js")) return false;
-        if (p === MOCK_DIST_PATH) return true;
+        if (typeof p === "string" && p === MOCK_DIST_PATH) return true;
         return false;
       });
 
       const status = await manager.start();
       expect(status.state).toBe("error");
-      expect(status.error).toContain("server.js not found");
+      expect(status.error).toContain("No runnable eliza entry found");
     });
 
     it("is idempotent when already running", async () => {
@@ -201,7 +265,7 @@ describe("AgentManager", () => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
-    it("spawns bun process with correct args when server.js exists", async () => {
+    it("spawns bun process with the root eliza entry when present", async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
@@ -220,9 +284,67 @@ describe("AgentManager", () => {
 
       expect(mockSpawn).toHaveBeenCalledTimes(1);
       const spawnArgs = mockSpawn.mock.calls[0];
-      expect(spawnArgs[0]).toEqual(expect.arrayContaining(["bun", "run"]));
+      expect(spawnArgs[0][1]).toBe("run");
+      expect(spawnArgs[0][2]).toBe("/mock/milady-dist/eliza.js");
       // cwd should be the dist path
       expect(spawnArgs[1].cwd).toBe(MOCK_DIST_PATH);
+    });
+
+    it("falls back to runtime/eliza.js for packaged layouts without a root entry", async () => {
+      const existsSync = await getExistsSyncMock();
+      existsSync.mockImplementation((p: string) => {
+        if (p === MOCK_DIST_PATH) return true;
+        if (typeof p === "string" && p.endsWith("/runtime/eliza.js")) return true;
+        if (typeof p === "string" && p.endsWith("/eliza.js")) return false;
+        return false;
+      });
+
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      await manager.start();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        [expect.any(String), "run", "/mock/milady-dist/runtime/eliza.js"],
+        expect.objectContaining({
+          cwd: MOCK_DIST_PATH,
+        }),
+      );
+    });
+
+    it("uses the bundled Bun executable for installed app launches", async () => {
+      Object.defineProperty(process, "execPath", {
+        configurable: true,
+        value: "/Applications/Milady-canary.app/Contents/MacOS/launcher",
+      });
+
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      await manager.start();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        [
+          "/Applications/Milady-canary.app/Contents/MacOS/bun",
+          "run",
+          "/mock/milady-dist/eliza.js",
+        ],
+        expect.objectContaining({
+          cwd: MOCK_DIST_PATH,
+        }),
+      );
     });
 
     it("uses MILADY_PORT env var when set", async () => {
@@ -261,6 +383,43 @@ describe("AgentManager", () => {
       const status = await manager.start();
       expect(status.state).toBe("running");
       expect(status.agentName).toBe("Milady");
+    });
+
+    it("restarts once after a PGLite migration failure is detected", async () => {
+      vi.useFakeTimers();
+      const mockProc1 = createMockProcess({
+        pid: 111,
+        stderr: makeReadableStream("Failed query: create schema if not exists"),
+      });
+      const mockProc2 = createMockProcess({ pid: 222 });
+      mockSpawn.mockReturnValueOnce(mockProc1).mockReturnValueOnce(mockProc2);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      const status = await manager.start();
+      expect(status.state).toBe("running");
+
+      mockProc1._exitDeferred.resolve(1);
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(500);
+
+      const fs = await import("node:fs");
+      expect(fs.default.rmSync).toHaveBeenCalledWith(
+        "/mock/home/.milady/workspace/.eliza/.elizadb",
+        { recursive: true, force: true },
+      );
+      expect(mockSpawn).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
     });
   });
 

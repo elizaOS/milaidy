@@ -1,11 +1,12 @@
-# Build & Release — produces signed/notarized desktop artifacts and GitHub Release.
-# Design and WHYs (strict shell, retries, asar crash dump, path safety, etc.): docs/build-and-release.md
-name: Build & Release
+# Legacy Electron desktop release workflow.
+# On the Electrobun branch, `.github/workflows/release-electrobun.yml` is the
+# only tag-triggered desktop release path. Keep this workflow manual so a
+# version tag does not race both Electron and Electrobun release pipelines.
+# Design and WHYs (strict shell, retries, asar crash dump, path safety, etc.):
+# docs/build-and-release.md
+name: Build & Release (Legacy Electron)
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:

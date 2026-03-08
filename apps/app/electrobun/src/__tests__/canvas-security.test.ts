@@ -129,26 +129,20 @@ describe("CanvasManager.eval() URL allowlist", () => {
   describe("edge cases (hostname spoofing attempts)", () => {
     it("blocks http://localhost.evil.com (subdomain spoof)", async () => {
       injectFakeCanvas(manager, "c20", "http://localhost.evil.com");
-      // This should be blocked because startsWith("http://localhost") matches,
-      // but the actual host is localhost.evil.com. The current implementation
-      // allows this because it uses startsWith. This test documents the behavior.
-      // If the implementation is tightened, this test should be updated.
-      //
-      // NOTE: startsWith("http://localhost") will match "http://localhost.evil.com"
-      // which is a known limitation. The test documents current behavior.
-      const result = await manager.eval({ id: "c20", script: "1+1" });
-      // Current implementation allows this due to startsWith match
-      expect(result).toBe("ok");
+      // The URL allowlist now uses hostname parsing (hostname === "localhost"),
+      // so subdomain spoofs are correctly blocked.
+      await expect(
+        manager.eval({ id: "c20", script: "1+1" }),
+      ).rejects.toThrow();
     });
 
     it("blocks http://localhost@external.com (credential-based spoof)", async () => {
       injectFakeCanvas(manager, "c21", "http://localhost@external.com");
-      // http://localhost@external.com - the "localhost" is in the userinfo,
-      // the actual host is external.com. startsWith("http://localhost") matches.
-      // This documents the current behavior as a known edge case.
-      const result = await manager.eval({ id: "c21", script: "1+1" });
-      // Current implementation allows this due to startsWith match
-      expect(result).toBe("ok");
+      // The URL allowlist uses URL parsing: the actual hostname is external.com,
+      // so the credential-based spoof is correctly blocked.
+      await expect(
+        manager.eval({ id: "c21", script: "1+1" }),
+      ).rejects.toThrow();
     });
   });
 

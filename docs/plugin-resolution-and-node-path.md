@@ -64,7 +64,7 @@ tsdown with `noExternal: [/.*/]` inlines most dependencies, but `@elizaos/plugin
 
 ## Packaged app: no-op
 
-In the packaged `.app`, `eliza.js` lives at `app.asar.unpacked/milady-dist/eliza.js`. Two levels up is `Contents/Resources/` — no `node_modules` there. The `existsSync` check in `eliza.ts` returns false, so the NODE_PATH code is skipped entirely. The packaged app uses `copy-electron-plugins-and-deps.mjs` to copy plugins into `milady-dist/node_modules` and sets ASAR `node_modules` on `NODE_PATH` in `agent.ts`. No change to packaged behavior.
+In the packaged `.app`, `eliza.js` lives at `app.asar.unpacked/milady-dist/eliza.js`. Two levels up is `Contents/Resources/` — no `node_modules` there. The `existsSync` check in `eliza.ts` returns false, so the NODE_PATH code is skipped entirely. The packaged app instead copies runtime packages into `milady-dist/node_modules` during the desktop build (`copy-electron-plugins-and-deps.mjs` for legacy Electron, `copy-runtime-node-modules.ts` for Electrobun) and `agent.ts` sets that packaged `node_modules` directory on `NODE_PATH`.
 
 ## Bun and published package exports
 

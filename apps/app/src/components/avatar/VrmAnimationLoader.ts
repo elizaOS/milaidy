@@ -1,8 +1,7 @@
 import type { VRM } from "@pixiv/three-vrm";
-import * as THREE from "three";
+import type * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { MIXAMO_IDLE_CANDIDATE_URLS } from "./mixamoAnimationCatalog";
 
 /**
  * Context needed by the animation loader to check whether the owning engine
@@ -18,74 +17,31 @@ export type AnimationLoaderContext = {
 /**
  * Load and return an idle {@link THREE.AnimationClip} for the given VRM.
  *
- * Tries the GLB idle first, then falls back through a series of FBX sources.
- * Returns `null` only when the load was aborted (engine disposed / VRM replaced).
- * Throws when no usable idle clip can be found.
+ * Loads the GLB idle animation and retargets it to VRM bones.
+ * Returns `null` when the load was aborted (engine disposed / VRM replaced).
+ * Throws when the idle clip cannot be loaded.
  */
 export async function loadIdleClip(
   vrm: VRM,
   idleGlbUrl: string,
-  idleBreathingFbxUrl: string,
-  idleFallbackFbxUrl: string,
   ctx: AnimationLoaderContext,
 ): Promise<THREE.AnimationClip | null> {
-  let clip: THREE.AnimationClip | null = null;
+  const { retargetMixamoGltfToVrm } = await import("./retargetMixamoGltfToVrm");
+  if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
 
-  try {
-    const { retargetMixamoGltfToVrm } = await import(
-      "./retargetMixamoGltfToVrm"
-    );
-    if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
+  const gltfLoader = new GLTFLoader();
+  const gltf = await gltfLoader.loadAsync(idleGlbUrl);
+  if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
 
-    const gltfLoader = new GLTFLoader();
-    const gltf = await gltfLoader.loadAsync(idleGlbUrl);
-    if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
-
-    gltf.scene.updateMatrixWorld(true);
-    vrm.scene.updateMatrixWorld(true);
-    clip = retargetMixamoGltfToVrm(
-      { scene: gltf.scene, animations: gltf.animations },
-      vrm,
-    );
-  } catch {
-    // LFS pointers or missing glb assets are common in forks; fall back to FBX.
-  }
+  gltf.scene.updateMatrixWorld(true);
+  vrm.scene.updateMatrixWorld(true);
+  const clip = retargetMixamoGltfToVrm(
+    { scene: gltf.scene, animations: gltf.animations },
+    vrm,
+  );
 
   if (!clip) {
-    const { retargetMixamoFbxToVrm } = await import("./retargetMixamoFbxToVrm");
-    if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
-
-    const fbxLoader = new FBXLoader();
-    const fallbackUrls = Array.from(
-      new Set([
-        idleBreathingFbxUrl,
-        idleFallbackFbxUrl,
-        ...MIXAMO_IDLE_CANDIDATE_URLS,
-      ]),
-    );
-    for (const url of fallbackUrls) {
-      try {
-        const fbx = await fbxLoader.loadAsync(url);
-        if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
-
-        fbx.updateMatrixWorld(true);
-        vrm.scene.updateMatrixWorld(true);
-        const sourceClip =
-          THREE.AnimationClip.findByName(fbx.animations, "mixamo.com") ??
-          fbx.animations[0];
-        if (!sourceClip) continue;
-        clip = retargetMixamoFbxToVrm(fbx, sourceClip, vrm);
-        if (clip) break;
-      } catch {
-        // Try the next fallback animation source.
-      }
-    }
-  }
-
-  if (!clip) {
-    throw new Error(
-      "No usable idle animation (idle.glb/BreathingIdle.fbx/Idle.fbx/mixamo idle fallback)",
-    );
+    throw new Error("No usable idle animation (idle.glb)");
   }
 
   if (ctx.isAborted() || !ctx.isCurrentVrm(vrm)) return null;
@@ -93,42 +49,42 @@ export async function loadIdleClip(
 }
 
 /**
- * Load a single emote animation clip (FBX or GLB/glTF) and retarget it to
+ * Load a single emote animation clip (GLB/FBX) and retarget it to
  * the supplied VRM. Returns `null` when the load was aborted or the file
  * format could not be processed.
+ *
+ * Supports both `.glb` / `.gltf` files (retargeted via retargetMixamoGltfToVrm)
+ * and Mixamo `.fbx` files (retargeted via retargetMixamoFbxToVrm).
  */
 export async function loadEmoteClip(
   path: string,
   vrm: VRM,
   ctx: AnimationLoaderContext,
 ): Promise<THREE.AnimationClip | null> {
-  const isFbx = path.toLowerCase().endsWith(".fbx");
-
   try {
+    if (!ctx.isCurrentVrm(vrm)) return null;
+
+    const isFbx = path.toLowerCase().endsWith(".fbx");
+
     if (isFbx) {
       const { retargetMixamoFbxToVrm } = await import(
         "./retargetMixamoFbxToVrm"
       );
+      const fbxLoader = new FBXLoader();
+      const fbx = await fbxLoader.loadAsync(path);
       if (!ctx.isCurrentVrm(vrm)) return null;
 
-      const loader = new FBXLoader();
-      const fbx = await loader.loadAsync(path);
-      if (!ctx.isCurrentVrm(vrm)) return null;
-
-      fbx.updateMatrixWorld(true);
-      vrm.scene.updateMatrixWorld(true);
-      const sourceClip =
-        THREE.AnimationClip.findByName(fbx.animations, "mixamo.com") ??
-        fbx.animations[0];
-      if (!sourceClip) return null;
+      const sourceClip = fbx.animations[0];
+      if (!sourceClip) {
+        console.warn(`[VrmEngine] FBX has no animations: ${path}`);
+        return null;
+      }
       return retargetMixamoFbxToVrm(fbx, sourceClip, vrm);
     }
 
     const { retargetMixamoGltfToVrm } = await import(
       "./retargetMixamoGltfToVrm"
     );
-    if (!ctx.isCurrentVrm(vrm)) return null;
-
     const loader = new GLTFLoader();
     const gltf = await loader.loadAsync(path);
     if (!ctx.isCurrentVrm(vrm)) return null;
