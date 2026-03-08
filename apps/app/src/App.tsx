@@ -16,6 +16,7 @@ import {
   CompanionShell,
 } from "./components/CompanionShell";
 import { CompanionView } from "./components/CompanionView";
+import { TRADER_TABS, TraderShell } from "./components/TraderShell";
 import { ConnectionFailedBanner } from "./components/ConnectionFailedBanner";
 import { ConnectorsPageView } from "./components/ConnectorsPageView";
 import { ConversationsSidebar } from "./components/ConversationsSidebar";
@@ -130,7 +131,7 @@ export function App() {
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
   const effectiveTab: Tab =
-    shellMode === "native" && tab === "companion"
+    (shellMode === "native" || shellMode === "trader") && tab === "companion"
       ? "chat"
       : shellMode === "companion" && tab === "chat"
         ? "companion"
@@ -367,6 +368,32 @@ export function App() {
             <LifoSandboxView />
           </main>
         </div>
+      </BugReportProvider>
+    );
+  }
+
+  /* ── Trader shell mode ───────────────────────────────────────────── */
+  if (shellMode === "trader") {
+    return (
+      <BugReportProvider value={bugReport}>
+        <TraderShell tab={effectiveTab} actionNotice={actionNotice} />
+        <CommandPalette />
+        <RestartBanner />
+        <MemoryDebugPanel />
+        <BugReportModal />
+        {actionNotice && (
+          <div
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
+              actionNotice.tone === "error"
+                ? "bg-danger"
+                : actionNotice.tone === "success"
+                  ? "bg-ok"
+                  : "bg-accent"
+            }`}
+          >
+            {actionNotice.text}
+          </div>
+        )}
       </BugReportProvider>
     );
   }

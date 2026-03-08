@@ -161,21 +161,37 @@ export function Header() {
     setCopied(type);
   };
 
-  // Shell mode toggle (companion vs native)
+  // Shell mode toggle (companion → native → trader → companion)
   const shellMode = uiShellMode ?? "companion";
-  const isNativeShell = shellMode === "native";
-  const shellToggleStateLabel = isNativeShell
-    ? t("header.nativeMode")
-    : t("header.companionMode");
-  const shellToggleActionLabel = isNativeShell
-    ? t("header.switchToCompanion")
-    : t("header.switchToNative");
-  const shellToggleClass = isNativeShell
-    ? "border-[#22c55e] text-[#22c55e] bg-[rgba(34,197,94,0.12)] hover:bg-[rgba(34,197,94,0.2)] shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_16px_rgba(34,197,94,0.22)]"
-    : "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_16px_rgba(212,175,55,0.2)]";
+
+  const SHELL_MODE_META: Record<string, { label: string; next: "companion" | "native" | "trader"; nextLabel: string; className: string }> = {
+    companion: {
+      label: t("header.companionMode"),
+      next: "native",
+      nextLabel: t("header.switchToNative"),
+      className: "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_16px_rgba(212,175,55,0.2)]",
+    },
+    native: {
+      label: t("header.nativeMode"),
+      next: "trader",
+      nextLabel: "Switch to Trader",
+      className: "border-[#22c55e] text-[#22c55e] bg-[rgba(34,197,94,0.12)] hover:bg-[rgba(34,197,94,0.2)] shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_16px_rgba(34,197,94,0.22)]",
+    },
+    trader: {
+      label: "Trader Mode",
+      next: "companion",
+      nextLabel: t("header.switchToCompanion"),
+      className: "border-[#00e1ff] text-[#00e1ff] bg-[rgba(0,225,255,0.12)] hover:bg-[rgba(0,225,255,0.2)] shadow-[0_0_0_1px_rgba(0,225,255,0.35),0_0_16px_rgba(0,225,255,0.22)]",
+    },
+  };
+
+  const currentMeta = SHELL_MODE_META[shellMode] ?? SHELL_MODE_META.companion;
+  const shellToggleStateLabel = currentMeta.label;
+  const shellToggleActionLabel = currentMeta.nextLabel;
+  const shellToggleClass = currentMeta.className;
 
   const handleShellToggle = () => {
-    const nextMode = shellMode === "companion" ? "native" : "companion";
+    const nextMode = currentMeta.next;
     setUiShellMode(nextMode);
     setTab(nextMode === "companion" ? "companion" : "chat");
   };
