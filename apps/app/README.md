@@ -130,7 +130,7 @@ Dynamic plugin imports (`import("@elizaos/plugin-*")`) resolve from the importin
 
 ### Build and release (Electron bundle, CI)
 
-Plugin and native deps for the packaged app are copied into `milady-dist/node_modules` by `scripts/copy-electron-plugins-and-deps.mjs`, which **derives** the list from each @elizaos package's `package.json` (no manual list). macOS Intel builds run install and build under Rosetta so x64 native binaries are included. **Why:** [Build and release (CI, desktop binaries)](../../docs/build-and-release.md) explains arch, copy script, and release workflow.
+Plugin and native deps for the packaged app are copied into `milady-dist/node_modules` by the release packaging scripts (`scripts/copy-electron-plugins-and-deps.mjs` for legacy Electron, `scripts/copy-runtime-node-modules.ts` for Electrobun). They **derive** the runtime package closure from installed package metadata and the built server bundle instead of maintaining a manual allowlist. macOS Intel builds run install and build under Rosetta so x64 native binaries are included. **Why:** [Build and release (CI, desktop binaries)](../../docs/build-and-release.md) explains arch, copy script, and release workflow.
 
 ### Tests
 

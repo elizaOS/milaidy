@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useApp } from "../AppContext";
+import { isElectrobunRuntime } from "../bridge/electrobun-runtime";
 
 export function RestartBanner() {
   const {
@@ -31,8 +32,13 @@ export function RestartBanner() {
         ? `${reasons.length} changes pending — restart to apply.`
         : "Restart required to apply changes.";
 
+  // In Electrobun the native drag region occupies the top ~40 px, so we
+  // shift the banner below it to keep buttons clickable.
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9998] flex items-center justify-between gap-3 bg-amber-600 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+    <div
+      className="fixed left-0 right-0 z-[9998] flex items-center justify-between gap-3 bg-amber-600 px-4 py-2 text-[13px] font-medium text-white shadow-lg"
+      style={{ top: isElectrobunRuntime() ? 40 : 0 }}
+    >
       <span className="truncate">{text}</span>
       <div className="flex items-center gap-2 shrink-0">
         <button

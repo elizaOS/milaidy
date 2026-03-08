@@ -30,12 +30,12 @@ describe("plugin-bridge", () => {
 
   it("detects web platform in test env", () => {
     expect(platform).toBe("web");
-    expect(isWeb).toBe(true);
+    expect(isWeb()).toBe(true);
     expect(isNative).toBe(false);
     expect(isIOS).toBe(false);
     expect(isAndroid).toBe(false);
-    expect(isElectron).toBe(false);
-    expect(isMacOS).toBe(isElectron);
+    expect(isElectron()).toBe(false);
+    expect(isMacOS()).toBe(isElectron());
   });
 
   // -- Capabilities --

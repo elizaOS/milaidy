@@ -27,15 +27,25 @@ import type { SwabblePlugin as ISwabblePlugin } from "@milady/capacitor-swabble"
 import { Swabble as SwabblePlugin } from "@milady/capacitor-swabble";
 import type { TalkModePlugin as ITalkModePlugin } from "@milady/capacitor-talkmode";
 import { TalkMode as TalkModePlugin } from "@milady/capacitor-talkmode";
+import { isElectrobunRuntime } from "./electrobun-runtime";
 
 // Platform detection
 const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-const isElectron = platform === "electron";
-const isWeb = platform === "web";
-const isMacOS = isElectron; // Electron is used for macOS/desktop
+
+function isElectronPlatform(): boolean {
+  return platform === "electron" || isElectrobunRuntime();
+}
+
+function isWebPlatform(): boolean {
+  return platform === "web" && !isElectrobunRuntime();
+}
+
+function isMacOSPlatform(): boolean {
+  return isElectronPlatform();
+}
 
 /**
  * Plugin capability flags
@@ -93,6 +103,7 @@ export interface PluginCapabilities {
  * Get plugin capabilities for the current platform
  */
 export function getPluginCapabilities(): PluginCapabilities {
+  const isElectron = isElectronPlatform();
   return {
     gateway: {
       available: true, // Web fallback available
@@ -238,10 +249,13 @@ let pluginsInstance: MiladyPlugins | null = null;
  */
 export function getPlugins(): MiladyPlugins {
   if (pluginsInstance) {
-    return pluginsInstance;
+    if (pluginsInstance.desktop.isNative === isElectronPlatform()) {
+      return pluginsInstance;
+    }
   }
 
   const capabilities = getPluginCapabilities();
+  const isElectron = isElectronPlatform();
 
   pluginsInstance = {
     gateway: {
@@ -335,4 +349,12 @@ export function isFeatureAvailable(
 }
 
 // Export platform info
-export { platform, isNative, isIOS, isAndroid, isElectron, isWeb, isMacOS };
+export {
+  platform,
+  isNative,
+  isIOS,
+  isAndroid,
+  isElectronPlatform as isElectron,
+  isWebPlatform as isWeb,
+  isMacOSPlatform as isMacOS,
+};

@@ -51,6 +51,11 @@ import {
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
+import {
+  type AgentEventPayloadLike,
+  type AgentEventServiceLike,
+  getAgentEventService,
+} from "../runtime/agent-event-service";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {
   buildTestHandler,
@@ -200,8 +205,7 @@ type ConnectorRouteHandler = (
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
 ): AgentEventServiceLike | null {
-  if (!runtime) return null;
-  return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
+  return getAgentEventService(runtime);
 }
 
 function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
@@ -471,37 +475,6 @@ interface LogEntry {
   message: string;
   source: string;
   tags: string[];
-}
-
-interface AgentEventPayloadLike {
-  runId: string;
-  seq: number;
-  stream: string;
-  ts: number;
-  data: object;
-  sessionKey?: string;
-  agentId?: string;
-  roomId?: UUID;
-}
-
-interface HeartbeatEventPayloadLike {
-  ts: number;
-  status: string;
-  to?: string;
-  preview?: string;
-  durationMs?: number;
-  hasMedia?: boolean;
-  reason?: string;
-  channel?: string;
-  silent?: boolean;
-  indicatorType?: string;
-}
-
-interface AgentEventServiceLike {
-  subscribe: (listener: (event: AgentEventPayloadLike) => void) => () => void;
-  subscribeHeartbeat: (
-    listener: (event: HeartbeatEventPayloadLike) => void,
-  ) => () => void;
 }
 
 type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
@@ -13952,7 +13925,7 @@ async function handleRequest(
     state.broadcastWs?.({
       type: "emote",
       emoteId: emote.id,
-      glbPath: emote.glbPath,
+      path: emote.path,
       duration: emote.duration,
       loop: emote.loop,
     });

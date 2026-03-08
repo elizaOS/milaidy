@@ -1207,8 +1207,8 @@ kbd {
   background: color-mix(in srgb, #f0b90b 4%, transparent 96%);
 }
 
-.wt__row--native:hover {
-  background: color-mix(in srgb, #f0b90b 8%, var(--bg) 92%) !important;
+.wt__row--native.wt__row--native:hover {
+  background: color-mix(in srgb, #f0b90b 8%, var(--bg) 92%);
 }
 
 /* ── Native badge label ──────────────────────────────────────────── */

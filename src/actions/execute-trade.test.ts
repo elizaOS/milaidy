@@ -486,7 +486,7 @@ describe("EXECUTE_TRADE action", () => {
     });
 
     const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect((opts.headers as Record<string, string>)["Authorization"]).toBe(
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
       "Bearer test-secret-token",
     );
 
@@ -523,7 +523,7 @@ describe("EXECUTE_TRADE action", () => {
 
     const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(
-      (opts.headers as Record<string, string>)["Authorization"],
+      (opts.headers as Record<string, string>).Authorization,
     ).toBeUndefined();
 
     process.env.MILADY_API_TOKEN = originalToken;
@@ -536,7 +536,7 @@ describe("EXECUTE_TRADE action", () => {
     // Now we require structured params only.
     const result = await executeTradeAction.handler(
       {} as never,
-      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      { content: { text: `buy 0.5 BNB worth of ${VALID_TOKEN}` } } as never,
       {} as never,
       {
         parameters: { tokenAddress: VALID_TOKEN, amount: "0.5" },
@@ -549,7 +549,7 @@ describe("EXECUTE_TRADE action", () => {
   it("returns missing-param error when tokenAddress is not in structured params (no text fallback)", async () => {
     const result = await executeTradeAction.handler(
       {} as never,
-      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      { content: { text: `buy 0.5 BNB worth of ${VALID_TOKEN}` } } as never,
       {} as never,
       { parameters: { side: "buy", amount: "0.5" } } as HandlerOptions,
     );
@@ -560,7 +560,7 @@ describe("EXECUTE_TRADE action", () => {
   it("returns missing-param error when amount is not in structured params (no text fallback)", async () => {
     const result = await executeTradeAction.handler(
       {} as never,
-      { content: { text: "buy 0.5 BNB worth of " + VALID_TOKEN } } as never,
+      { content: { text: `buy 0.5 BNB worth of ${VALID_TOKEN}` } } as never,
       {} as never,
       {
         parameters: { side: "buy", tokenAddress: VALID_TOKEN },

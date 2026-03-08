@@ -1,6 +1,8 @@
 # Build and release (CI, desktop binaries)
 
-Why the release pipeline and Electron bundle work the way they do.
+> Branch note: on `test/electrobun-cross-platform`, `.github/workflows/release-electrobun.yml` is the canonical tag-triggered desktop release workflow. `.github/workflows/release.yml` is kept as a manual legacy Electron fallback only.
+
+Why the release pipeline and desktop bundle work the way they do.
 
 ## macOS: why two DMGs (arm64 and x64)
 
@@ -12,19 +14,19 @@ We ship **separate** `Milady-arm64.dmg` and `Milady-x64.dmg` because:
 
 See `.github/workflows/release.yml`: the "Install root dependencies", "Install Electron dependencies", and "Build Electron app" steps branch on `matrix.platform.artifact-name === "macos-x64"` and wrap the command in `arch -x86_64` when building the Intel artifact.
 
-## Electron bundle: why we copy plugins and deps
+## Desktop bundle: why we copy plugins and deps
 
 The packaged app runs the agent from `milady-dist/` (bundled JS + `node_modules`). The main bundle is built by tsdown with dependencies inlined where possible, but:
 
 - **Plugins** (`@elizaos/plugin-*`) are loaded at runtime; their dist/ and any **runtime-only** dependencies (native addons, optional requires, etc.) must be present in `milady-dist/node_modules`.
 - **Why not rely on a single global node_modules at pack time?** The app is built into an ASAR (and unpacked dirs); resolution at runtime is from the app directory. So we copy the subset we need into `apps/app/electron/milady-dist/node_modules` before `electron-builder` runs.
 
-The script `scripts/copy-electron-plugins-and-deps.mjs`:
+The packaging scripts derive that subset instead of keeping a hand-maintained allowlist:
 
-1. Discovers which `@elizaos/*` packages to copy (from root package.json; plugins must have a `dist/` folder).
-2. Copies those packages into `milady-dist/node_modules`.
-3. **Walks each package's `package.json` dependencies** (and optionalDependencies) recursively and copies those too. **Why:** Plugins declare what they need; we derive the full set so we don't maintain a manual list and miss new deps.
-4. Skips known dev/renderer-only packages (e.g. `typescript`, `lucide-react`) to avoid bloating the bundle. See script header and `DEP_SKIP` for rationale.
+1. `scripts/copy-electron-plugins-and-deps.mjs` handles the legacy Electron build and copies the installed `@elizaos/*` set plus their transitive runtime deps into `apps/app/electron/milady-dist/node_modules`.
+2. `scripts/copy-runtime-node-modules.ts` handles the Electrobun build and scans the built `dist/` output for bare package imports, unions that with the installed `@elizaos/*` and `@milady/plugin-*` packages from the repo root, then recursively copies their runtime deps into `dist/node_modules`.
+3. Both approaches **walk package.json `dependencies` and `optionalDependencies` recursively**. **Why:** dynamic plugin loading and native optional deps change more often than the release workflow; deriving the closure from installed package metadata avoids shipping a stale allowlist.
+4. Known dev/renderer-only packages (for example `typescript`, `lucide-react`) are skipped to keep the packaged runtime smaller.
 
 We do **not** try to exclude deps that might already be inlined by tsdown into plugin dist/, because plugins can `require()` at runtime; excluding them would risk "Cannot find module" in the packaged app.
 
@@ -56,8 +58,47 @@ CI workflows that need Node (for node-gyp / native modules or npm registry) were
 
 ## Where this runs
 
-- **Release:** `.github/workflows/release.yml` — on version tag push; builds all platforms and uploads artifacts.
+- **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64, Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
+- **Legacy Electron release:** `.github/workflows/release.yml` — manual fallback only on this branch.
 - **Local desktop build:** From repo root, build core and app, then e.g. `cd apps/app/electron && bunx electron-builder build --mac --arm64 --publish never`. For a full signed/notarized local test, see `scripts/verify-build.sh` (macOS).
+
+## Electrobun update-channel naming
+
+Electrobun v1.15.x writes **platform-prefixed flat artifact names** into `apps/app/electrobun/artifacts/`, for example:
+
+- `canary-macos-arm64-Milady-canary.app.tar.zst`
+- `canary-macos-arm64-Milady-canary.dmg`
+- `canary-macos-arm64-update.json`
+
+Why the workflow mirrors that shape directly to `https://milady.ai/releases/`:
+
+- The Electrobun updater resolves manifests at `${baseUrl}/${platformPrefix}-update.json`, not `${baseUrl}/${channel}/update.json`.
+- It also resolves tarballs at `${baseUrl}/${platformPrefix}-${tarballFileName}`.
+- Because of that, the release upload step must publish `*-update.json`, `*.tar.zst`, and optional `*.patch` files at the **flat release root**. Uploading only a generic `update.json` or nesting files under version folders breaks in-app updates.
+
+## Desktop WebGPU: browser + native
+
+Milady now carries both WebGPU paths in the desktop app:
+
+- **Renderer-side WebGPU:** the existing avatar and vector-browser scenes run in the webview and prefer `three/webgpu` when the embedded browser exposes `navigator.gpu`.
+- **Electrobun-native WebGPU:** `apps/app/electrobun/electrobun.config.ts` enables `bundleWGPU: true` on macOS, Windows, and Linux, so packaged desktop builds also include Dawn (`libwebgpu_dawn.*`) for Bun-side `GpuWindow`, `WGPUView`, and `<electrobun-wgpu>` surfaces.
+- **Renderer choice for packaged builds:** macOS stays on the native renderer by default, while Windows and Linux default to bundled CEF. That matches Electrobun's current cross-platform guidance: Linux distribution should use CEF-backed `BrowserWindow`/`BrowserView` instances, and CEF gives us the most consistent browser-side WebGPU path on the non-macOS desktop targets.
+
+Why this split exists:
+
+- The current UI/React surfaces already live in the renderer webview, so browser WebGPU remains the lowest-risk path for those scenes.
+- Bundling Dawn keeps the desktop runtime ready for native GPU surfaces and Bun-side compute/render workloads without maintaining a separate desktop flavor.
+
+## Electrobun backend startup verification
+
+The local Electrobun smoke test now verifies the backend, not just the window shell:
+
+- After building, `apps/app/electrobun/scripts/smoke-test.sh` launches the packaged app and tails `~/.config/Milady/milady-startup.log`.
+- It fails if the child runtime logs `Cannot find module`, exits before becoming healthy, or never reaches `Runtime started -- agent: ... port: ...`.
+- Once the startup log reports a port, the script probes `http://127.0.0.1:${port}/api/health` and requires that endpoint to stay healthy for the liveness window.
+- On Windows, `apps/app/electrobun/scripts/smoke-test-windows.ps1` now prefers the packaged `*.tar.zst` bundle and launches its `launcher.exe` directly. It only falls back to the `Milady-Setup*.exe` installer path when no direct packaged bundle artifact is available.
+
+Why: the previous smoke test could pass while the launcher stayed open but the embedded agent backend had already crashed.
 
 ## See also
 

@@ -61,78 +61,81 @@ export function TokensTable({
           </tr>
         </thead>
         <tbody>
-          {visibleRows.map((row, idx) => (
-            <tr
-              key={`${row.chain}-${row.symbol}-${idx}`}
-              className={`border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors${row.isNative ? " wt__row--native" : ""}`}
-            >
-              {/* Logo */}
-              <td className="pl-3 pr-2 py-3 align-middle">
-                <TokenLogo
-                  symbol={row.symbol}
-                  chain={row.chain}
-                  contractAddress={row.contractAddress}
-                  preferredLogoUrl={row.logoUrl}
-                  size={32}
-                />
-              </td>
-              {/* Symbol + name */}
-              <td className="px-3 py-3 align-middle">
-                <div className="flex items-center gap-2">
-                  <div>
-                    <div className="text-sm font-bold font-mono leading-tight">
-                      {row.symbol}
-                    </div>
-                    <div className="text-[10px] text-muted leading-tight mt-0.5">
-                      {row.isNative ? (
-                        <span className="wt__native-badge">native gas</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="truncate max-w-[160px] inline-block">
-                            {row.name}
-                          </span>
-                          {row.isTracked && (
-                            <span className="wt__native-badge">
-                              {t("wallet.manual")}
+          {visibleRows.map((row, idx) => {
+            const contractAddress = row.contractAddress;
+            return (
+              <tr
+                key={`${row.chain}-${row.symbol}-${idx}`}
+                className={`border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors${row.isNative ? " wt__row--native" : ""}`}
+              >
+                {/* Logo */}
+                <td className="pl-3 pr-2 py-3 align-middle">
+                  <TokenLogo
+                    symbol={row.symbol}
+                    chain={row.chain}
+                    contractAddress={contractAddress}
+                    preferredLogoUrl={row.logoUrl}
+                    size={32}
+                  />
+                </td>
+                {/* Symbol + name */}
+                <td className="px-3 py-3 align-middle">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-bold font-mono leading-tight">
+                        {row.symbol}
+                      </div>
+                      <div className="text-[10px] text-muted leading-tight mt-0.5">
+                        {row.isNative ? (
+                          <span className="wt__native-badge">native gas</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="truncate max-w-[160px] inline-block">
+                              {row.name}
                             </span>
-                          )}
-                        </span>
-                      )}
+                            {row.isTracked && (
+                              <span className="wt__native-badge">
+                                {t("wallet.manual")}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {inventoryChainFocus === "all" && (
+                      <span className="text-[9px] text-muted font-mono border border-border px-1 py-0.5 rounded shrink-0">
+                        {row.chain}
+                      </span>
+                    )}
                   </div>
-                  {inventoryChainFocus === "all" && (
-                    <span className="text-[9px] text-muted font-mono border border-border px-1 py-0.5 rounded shrink-0">
-                      {row.chain}
-                    </span>
+                </td>
+                {/* Balance */}
+                <td className="px-3 py-3 align-middle font-mono text-sm text-right whitespace-nowrap">
+                  {formatBalance(row.balance)}
+                </td>
+                {/* Value */}
+                <td className="px-3 py-3 align-middle font-mono text-sm text-right text-muted whitespace-nowrap">
+                  {row.valueUsd > 0
+                    ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "\u2014"}
+                </td>
+                {/* Actions */}
+                <td className="pl-2 pr-3 py-3 align-middle whitespace-nowrap text-right">
+                  {row.isTracked && contractAddress && (
+                    <button
+                      type="button"
+                      data-testid="wallet-token-untrack"
+                      className="wt__row-btn is-remove"
+                      title={t("wallet.removeManualTitle")}
+                      onClick={() => handleUntrackToken(contractAddress)}
+                    >
+                      {t("wallet.remove")}
+                    </button>
                   )}
-                </div>
-              </td>
-              {/* Balance */}
-              <td className="px-3 py-3 align-middle font-mono text-sm text-right whitespace-nowrap">
-                {formatBalance(row.balance)}
-              </td>
-              {/* Value */}
-              <td className="px-3 py-3 align-middle font-mono text-sm text-right text-muted whitespace-nowrap">
-                {row.valueUsd > 0
-                  ? `$${row.valueUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : "\u2014"}
-              </td>
-              {/* Actions */}
-              <td className="pl-2 pr-3 py-3 align-middle whitespace-nowrap text-right">
-                {row.isTracked && row.contractAddress && (
-                  <button
-                    type="button"
-                    data-testid="wallet-token-untrack"
-                    className="wt__row-btn is-remove"
-                    title={t("wallet.removeManualTitle")}
-                    onClick={() => handleUntrackToken(row.contractAddress!)}
-                  >
-                    {t("wallet.remove")}
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

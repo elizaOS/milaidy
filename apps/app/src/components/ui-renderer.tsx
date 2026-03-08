@@ -1164,6 +1164,40 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
   );
 };
 
+// ── Metric / KPI ────────────────────────────────────────────────────
+
+const MetricComponent: ComponentFn = (props) => {
+  const trend = props.trend as string | undefined;
+  const trendColor =
+    trend === "up"
+      ? "text-green-400"
+      : trend === "down"
+        ? "text-red-400"
+        : "text-[var(--muted)]";
+  return (
+    <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-[var(--border)] bg-[var(--card)]">
+      <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider font-medium">
+        {String(props.label ?? "")}
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xl font-semibold text-[var(--txt)]">
+          {props.value != null ? String(props.value) : "—"}
+        </span>
+        {props.unit != null && (
+          <span className="text-xs text-[var(--muted)]">
+            {String(props.unit)}
+          </span>
+        )}
+      </div>
+      {props.change != null && (
+        <div className={`text-[11px] font-medium ${trendColor}`}>
+          {String(props.change)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Visualization ───────────────────────────────────────────────────
 
 const BarGraphComponent: ComponentFn = (props) => {
@@ -1494,6 +1528,8 @@ const COMPONENTS: Record<string, ComponentFn> = {
   DropdownMenu: DropdownMenuComponent,
   Tabs: TabsComponent,
   Pagination: PaginationComponent,
+  // Metric
+  Metric: MetricComponent,
   // Visualization
   BarGraph: BarGraphComponent,
   LineGraph: LineGraphComponent,

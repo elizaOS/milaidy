@@ -166,10 +166,10 @@ describe("generateCatalogPrompt", () => {
 
   test("includes UiSpec format description", () => {
     const prompt = generateCatalogPrompt();
-    expect(prompt).toContain("Spec format");
-    expect(prompt).toContain('"root"');
-    expect(prompt).toContain('"elements"');
-    expect(prompt).toContain('"state"');
+    expect(prompt).toContain("JSONL patches");
+    expect(prompt).toContain('"/root"');
+    expect(prompt).toContain('"/elements/');
+    expect(prompt).toContain('"/state/');
   });
 
   test("includes component list with descriptions", () => {
@@ -239,7 +239,8 @@ describe("generateCatalogPrompt", () => {
     });
 
     expect(promptWithExample).toContain("Example");
-    expect(promptWithExample).toContain('"root": "main"');
+    // Generate mode example uses JSONL patch format
+    expect(promptWithExample).toContain('"op":"add"');
     expect(promptWithExample).toContain("Contact Us");
 
     // Example section should not be in prompt without examples
@@ -276,8 +277,8 @@ describe("generateCatalogPrompt", () => {
     // Should not have [object Object] which indicates improper serialization
     expect(prompt).not.toContain("[object Object]");
 
-    // JSON examples should be properly fenced
-    expect(prompt).toContain("```json");
+    // Should contain JSONL patch examples
+    expect(prompt).toContain('"op":"add"');
     expect(prompt).toContain("```");
 
     // Line count should be reasonable

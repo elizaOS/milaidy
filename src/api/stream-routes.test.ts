@@ -272,8 +272,8 @@ describe("handleStreamRoute", () => {
   // ── POST /api/stream/frame ────────────────────────────────────────────
 
   describe("POST /api/stream/frame", () => {
-    it("returns 503 when StreamManager is not running", async () => {
-      const { res, getStatus, getJson } = createMockHttpResponse();
+    it("returns 200 and skips FFmpeg writes when StreamManager is not running", async () => {
+      const { res, getStatus } = createMockHttpResponse();
       const req = createMockIncomingMessage({
         method: "POST",
         url: "/api/stream/frame",
@@ -293,12 +293,8 @@ describe("handleStreamRoute", () => {
       );
 
       expect(handled).toBe(true);
-      expect(getStatus()).toBe(503);
-      expect(getJson()).toEqual(
-        expect.objectContaining({
-          error: expect.stringContaining("not running"),
-        }),
-      );
+      expect(getStatus()).toBe(200);
+      expect(state.streamManager.writeFrame).not.toHaveBeenCalled();
     });
 
     it("returns 400 for an empty frame body when stream is running", async () => {
