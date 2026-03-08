@@ -1497,6 +1497,34 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(getJson()).toEqual({ status: "pending" });
   });
 
+  it("returns 502 when Eliza Cloud returns malformed login status JSON", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error("invalid json");
+      },
+    } as Response);
+
+    const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        url: "/api/cloud/login/status?sessionId=test-session",
+      }) as http.IncomingMessage,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      cloudState(),
+    );
+
+    expect(handled).toBe(true);
+    expect(res.statusCode).toBe(502);
+    expect(getJson()).toEqual({
+      status: "error",
+      error: "Invalid response from Eliza Cloud",
+    });
+  });
+
   it("persists runtime DB secrets when they are initially missing", async () => {
     const initMock = vi.fn();
     const updateAgentMock = vi.fn(async () => undefined);

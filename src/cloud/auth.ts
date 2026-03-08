@@ -24,6 +24,18 @@ export interface CloudLoginOptions {
 
 const DEFAULT_CLOUD_REQUEST_TIMEOUT_MS = 10_000;
 
+function redactSessionUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.searchParams.has("session")) {
+      parsed.searchParams.set("session", "[redacted]");
+    }
+    return parsed.toString();
+  } catch {
+    return url.replace(/([?&]session=)[^&]+/i, "$1[redacted]");
+  }
+}
+
 function isRedirectResponse(response: Response): boolean {
   return response.status >= 300 && response.status < 400;
 }
@@ -101,7 +113,7 @@ export async function cloudLogin(
   }
 
   const browserUrl = `${baseUrl}/auth/cli-login?session=${encodeURIComponent(sessionId)}`;
-  logger.info(`[cloud-auth] Browser URL: ${browserUrl}`);
+  logger.info(`[cloud-auth] Browser URL: ${redactSessionUrl(browserUrl)}`);
   options.onBrowserUrl?.(browserUrl);
 
   const deadline = Date.now() + timeoutMs;

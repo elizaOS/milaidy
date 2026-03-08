@@ -1,7 +1,7 @@
 /**
- * elizaOS runtime entry point for Milady.
+ * ElizaOS runtime entry point for Milady.
  *
- * Starts the elizaOS agent runtime with Milady's plugin configuration.
+ * Starts the ElizaOS agent runtime with Milady's plugin configuration.
  * Can be run directly via: node --import tsx src/runtime/eliza.ts
  * Or via the CLI: milady start
  *
@@ -9,13 +9,7 @@
  */
 import crypto from "node:crypto";
 import type { Dirent } from "node:fs";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  symlinkSync,
-  unlinkSync,
-} from "node:fs";
+import { existsSync, mkdirSync, symlinkSync } from "node:fs";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -52,10 +46,15 @@ import {
   type UUID,
 } from "@elizaos/core";
 import * as pluginAgentOrchestrator from "@elizaos/plugin-agent-orchestrator";
+import {
+  configureAgentOrchestratorPlugin,
+  createSubAgentProvider,
+} from "@elizaos/plugin-agent-orchestrator";
 import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
 import * as pluginBrowser from "@elizaos/plugin-browser";
 import * as pluginCli from "@elizaos/plugin-cli";
+import * as pluginCodingAgent from "@elizaos/plugin-coding-agent";
 import * as pluginComputeruse from "@elizaos/plugin-computeruse";
 import * as pluginCron from "@elizaos/plugin-cron";
 import * as pluginDiscord from "@elizaos/plugin-discord";
@@ -118,7 +117,7 @@ import { SandboxAuditLog } from "../security/audit-log";
 import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
-import { createMiladyPlugin } from "./milady-plugin";
+import { createMiladyPlugin, enrichActionDescriptions } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
@@ -141,6 +140,7 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-rolodex": pluginRolodex,
   "@elizaos/plugin-trajectory-logger": pluginTrajectoryLogger,
   "@elizaos/plugin-agent-orchestrator": pluginAgentOrchestrator,
+  "@elizaos/plugin-coding-agent": pluginCodingAgent,
   "@elizaos/plugin-cron": pluginCron,
   "@elizaos/plugin-shell": pluginShell,
   "@elizaos/plugin-plugin-manager": pluginPluginManager,
@@ -167,7 +167,7 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-experience": pluginExperience,
 };
 
-// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-agent-orchestrator) resolve.
+// NODE_PATH so dynamic plugin imports (e.g. @elizaos/plugin-coding-agent) resolve.
 // WHY: When eliza is loaded from dist/ or by a test runner, Node's resolution does not
 // search repo root node_modules; import("@elizaos/plugin-*") then fails. We prepend
 // repo root node_modules only if not already in NODE_PATH (run-node.mjs may have set it)
@@ -303,7 +303,7 @@ function configureLocalEmbeddingPlugin(
   // Set default models directory if not present
   setEnvIfMissing("MODELS_DIR", path.join(os.homedir(), ".eliza", "models"));
 
-  // Normalize Google AI API key aliases — the elizaOS plugin and @google/genai
+  // Normalize Google AI API key aliases — the ElizaOS plugin and @google/genai
   // SDK expect different env var names. Canonicalize to the long form that
   // @elizaos/plugin-google-genai reads via runtime.getSetting(). Users can set
   // any of: GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY.
@@ -338,7 +338,7 @@ function formatError(err: unknown): string {
  *
  * When multiple plugins define an action with the same `name`, only the first
  * occurrence is kept.  This prevents "Action already registered" warnings from
- * elizaOS core.  The function mutates each plugin's `actions` array in-place.
+ * ElizaOS core.  The function mutates each plugin's `actions` array in-place.
  */
 export function deduplicatePluginActions(plugins: Plugin[]): void {
   const seen = new Set<string>();
@@ -511,10 +511,10 @@ function cancelOnboarding(): never {
 
 /**
  * Maps Milady channel config fields to the environment variable names
- * that elizaOS plugins expect.
+ * that ElizaOS plugins expect.
  *
  * Milady stores channel credentials under `config.channels.<name>.<field>`,
- * while elizaOS plugins read them from process.env.
+ * while ElizaOS plugins read them from process.env.
  */
 const RETAKE_CHANNEL_ACCESS_TOKEN_ENV = "RETAKE_AGENT_TOKEN";
 
@@ -605,7 +605,7 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
 const PI_AI_PLUGIN_PACKAGE = "@elizaos/plugin-pi-ai";
 
 function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.MILADY_USE_PI_AI;
+  const raw = env.MILAIDY_USE_PI_AI;
   if (!raw) return false;
   const value = String(raw).trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
@@ -625,7 +625,7 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   AIGATEWAY_API_KEY: "@elizaos/plugin-vercel-ai-gateway",
   OLLAMA_BASE_URL: "@elizaos/plugin-ollama",
   ZAI_API_KEY: "@homunculuslabs/plugin-zai",
-  MILADY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
+  MILAIDY_USE_PI_AI: PI_AI_PLUGIN_PACKAGE,
   // ElizaCloud — loaded when API key is present OR cloud is explicitly enabled
   ELIZAOS_CLOUD_API_KEY: "@elizaos/plugin-elizacloud",
   ELIZAOS_CLOUD_ENABLED: "@elizaos/plugin-elizacloud",
@@ -639,10 +639,12 @@ const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
  */
 const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   browser: "@elizaos/plugin-browser",
-  vision: "@elizaos/plugin-vision",
+  code: "@elizaos/plugin-code",
   cron: "@elizaos/plugin-cron",
   cua: "@elizaos/plugin-cua",
   computeruse: "@elizaos/plugin-computeruse",
+  knowledge: "@elizaos/plugin-knowledge",
+  vision: "@elizaos/plugin-vision",
   obsidian: "@elizaos/plugin-obsidian",
   repoprompt: "@elizaos/plugin-repoprompt",
   repoPrompt: "@elizaos/plugin-repoprompt",
@@ -650,12 +652,8 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   piAi: PI_AI_PLUGIN_PACKAGE,
   x402: "@elizaos/plugin-x402",
   "coding-agent": "@elizaos/plugin-agent-orchestrator",
-  "streaming-base": "@milady/plugin-streaming-base",
   "twitch-streaming": "@milady/plugin-twitch-streaming",
   "youtube-streaming": "@milady/plugin-youtube-streaming",
-  "custom-rtmp": "@milady/plugin-custom-rtmp",
-  "pumpfun-streaming": "@milady/plugin-pumpfun-streaming",
-  "x-streaming": "@milady/plugin-x-streaming",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -735,24 +733,6 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   const cloudExplicitlyDisabled = cloudMode === false;
   const cloudEffectivelyEnabled =
     cloudMode === true || (!cloudExplicitlyDisabled && cloudHasApiKey);
-  // When inferenceMode is "byok" or "local", OR services.inference is false,
-  // the user wants their own AI provider keys — cloud stays enabled for
-  // RPC/services but does NOT hijack model inference.
-  //
-  // If the user chose a subscription provider (e.g. anthropic-subscription)
-  // during onboarding and never explicitly set inferenceMode, treat that as
-  // "byok" — the subscription IS the user's inference choice.
-  const hasSubscriptionProvider = Boolean(
-    config.agents?.defaults?.subscriptionProvider,
-  );
-  const explicitInferenceMode = config.cloud?.inferenceMode;
-  const cloudInferenceMode =
-    explicitInferenceMode ?? (hasSubscriptionProvider ? "byok" : "cloud");
-  const cloudInferenceToggle = config.cloud?.services?.inference ?? true;
-  const cloudHandlesInference =
-    cloudEffectivelyEnabled &&
-    cloudInferenceMode === "cloud" &&
-    cloudInferenceToggle !== false;
   const configEnv = config.env as
     | (Record<string, unknown> & { vars?: Record<string, unknown> })
     | undefined;
@@ -760,13 +740,13 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
     (configEnv?.vars &&
     typeof configEnv.vars === "object" &&
     !Array.isArray(configEnv.vars)
-      ? (configEnv.vars as Record<string, unknown>).MILADY_USE_PI_AI
-      : undefined) ?? configEnv?.MILADY_USE_PI_AI;
+      ? (configEnv.vars as Record<string, unknown>).MILAIDY_USE_PI_AI
+      : undefined) ?? configEnv?.MILAIDY_USE_PI_AI;
   const piAiEnabled =
     isPiAiEnabledFromEnv(process.env) ||
     (typeof configPiAiFlag === "string" &&
       isPiAiEnabledFromEnv({
-        MILADY_USE_PI_AI: configPiAiFlag,
+        MILAIDY_USE_PI_AI: configPiAiFlag,
       } as NodeJS.ProcessEnv));
 
   const pluginEntries = (config.plugins as Record<string, unknown> | undefined)
@@ -826,7 +806,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   // Model-provider plugins — load when env key is present
   for (const [envKey, pluginName] of Object.entries(PROVIDER_PLUGIN_MAP)) {
-    if (envKey === "MILADY_USE_PI_AI") {
+    if (envKey === "MILAIDY_USE_PI_AI") {
       // pi-ai enablement uses dedicated boolean parsing + precedence logic below.
       continue;
     }
@@ -860,37 +840,18 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   const applyProviderPrecedence = (): void => {
     // Provider precedence:
-    // 1) ElizaCloud for inference (when enabled AND inferenceMode is "cloud")
-    // 2) pi-ai (when enabled and cloud inference is not active)
+    // 1) ElizaCloud (when enabled)
+    // 2) pi-ai (when enabled and cloud is not active)
     // 3) direct provider plugins (api-key/env based)
-    //
-    // When inferenceMode is "byok" or "local", cloud stays loaded for
-    // RPC/services but direct AI provider plugins are preserved so the
-    // user's own API keys (e.g. Anthropic) handle model inference.
     if (cloudEffectivelyEnabled) {
       pluginsToLoad.add("@elizaos/plugin-elizacloud");
 
-      if (cloudHandlesInference) {
-        // Cloud handles ALL model calls — remove direct AI provider plugins.
-        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
-        directProviders.delete("@elizaos/plugin-elizacloud");
-        for (const p of directProviders) {
-          pluginsToLoad.delete(p);
-        }
-        return;
-      }
-      // inferenceMode is "byok" or "local" — keep direct provider plugins.
-      // Cloud plugin stays loaded for non-inference cloud services (RPC, media, etc.)
-      // Pi-ai takes priority over direct providers when cloud inference is disabled.
-      if (shouldEnablePiAi) {
-        pluginsToLoad.add(PI_AI_PLUGIN_PACKAGE);
-        // Remove direct provider plugins — pi-ai handles inference selection.
-        const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
-        directProviders.delete(PI_AI_PLUGIN_PACKAGE);
-        directProviders.delete("@elizaos/plugin-elizacloud");
-        for (const p of directProviders) {
-          pluginsToLoad.delete(p);
-        }
+      // When cloud is active, remove direct AI provider plugins and pi-ai —
+      // the cloud plugin handles ALL model calls via its own gateway.
+      const directProviders = new Set(Object.values(PROVIDER_PLUGIN_MAP));
+      directProviders.delete("@elizaos/plugin-elizacloud");
+      for (const p of directProviders) {
+        pluginsToLoad.delete(p);
       }
       return;
     }
@@ -962,13 +923,6 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   // x402 plugin — auto-load when config section enabled
   if (config.x402?.enabled) {
     pluginsToLoad.add("@elizaos/plugin-x402");
-  }
-
-  // Opinion plugin — auto-load when API key is present.
-  // NOT in PROVIDER_PLUGIN_MAP because it is a feature plugin, not a model
-  // provider, and would be incorrectly removed during provider precedence.
-  if (process.env.OPINION_API_KEY?.trim()) {
-    pluginsToLoad.add("@milady/plugin-opinion");
   }
 
   // User-installed plugins from config.plugins.installs
@@ -1137,28 +1091,6 @@ function getWorkspacePluginOverridePath(pluginName: string): string | null {
   return null;
 }
 
-export function resolveMiladyPluginImportSpecifier(
-  pluginName: string,
-  runtimeModuleUrl = import.meta.url,
-): string {
-  if (!pluginName.startsWith("@milady/plugin-")) {
-    return pluginName;
-  }
-
-  const shortName = pluginName.replace("@milady/plugin-", "");
-  const thisDir = path.dirname(fileURLToPath(runtimeModuleUrl));
-  const distRoot = thisDir.endsWith("runtime")
-    ? path.resolve(thisDir, "..")
-    : thisDir;
-  const indexPath = path.resolve(distRoot, "plugins", shortName, "index.js");
-
-  return existsSync(indexPath) ? pathToFileURL(indexPath).href : pluginName;
-}
-
-export function shouldIgnoreMissingPluginExport(pluginName: string): boolean {
-  return pluginName === "@milady/plugin-streaming-base";
-}
-
 // ---------------------------------------------------------------------------
 // Plugin resolution
 // ---------------------------------------------------------------------------
@@ -1247,7 +1179,7 @@ export function ensureBrowserServerLink(): boolean {
 
 /**
  * Resolve Milady plugins from config and auto-enable logic.
- * Returns an array of elizaOS Plugin instances ready for AgentRuntime.
+ * Returns an array of ElizaOS Plugin instances ready for AgentRuntime.
  *
  * Handles three categories of plugins:
  * 1. Built-in/npm plugins — imported by package name
@@ -1421,10 +1353,23 @@ async function resolvePlugins(
           }
         }
       } else if (pluginName.startsWith("@milady/plugin-")) {
-        // Milady plugins can resolve either from bundled local wrappers
-        // under milady-dist/plugins/* or from packaged node_modules.
+        // Local Milady plugin — resolve from the compiled dist directory.
+        // Import the index.js directly (importFromPath's resolvePackageEntry
+        // fails because there's no package.json and the extensionless
+        // fallback doesn't match the .js file on disk).
+        const shortName = pluginName.replace("@milady/plugin-", "");
+        const thisDir = path.dirname(fileURLToPath(import.meta.url));
+        const distRoot = thisDir.endsWith("runtime")
+          ? path.resolve(thisDir, "..")
+          : thisDir;
+        const indexPath = path.resolve(
+          distRoot,
+          "plugins",
+          shortName,
+          "index.js",
+        );
         mod = (await import(
-          resolveMiladyPluginImportSpecifier(pluginName)
+          pathToFileURL(indexPath).href
         )) as PluginModuleShape;
       } else {
         // Built-in/npm plugin — try bundled static import first, then
@@ -1448,13 +1393,6 @@ async function resolvePlugins(
         logger.debug(`[milady] ✓ Loaded plugin: ${pluginName}`);
         return { name: pluginName, plugin: wrappedPlugin };
       } else {
-        if (shouldIgnoreMissingPluginExport(pluginName)) {
-          logger.info(
-            `[milady] Skipping helper package ${pluginName}: no Plugin export is expected`,
-          );
-          return null;
-        }
-
         const msg = `[milady] Plugin ${pluginName} did not export a valid Plugin object`;
         failedPlugins.push({
           name: pluginName,
@@ -1564,7 +1502,7 @@ export function repairBrokenInstallRecord(
  * Wrap a plugin's `init` and `providers` with error boundaries so that a
  * crash in any single plugin does not take down the entire agent or GUI.
  *
- * NOTE: Actions are NOT wrapped here because elizaOS's action dispatch
+ * NOTE: Actions are NOT wrapped here because ElizaOS's action dispatch
  * already has its own error boundary.  Only `init` (startup) and
  * `providers` (called every turn) need protection at this layer.
  *
@@ -1733,7 +1671,7 @@ export async function resolvePackageEntry(pkgRoot: string): Promise<string> {
 
 /**
  * Propagate channel credentials from Milady config into process.env so
- * that elizaOS plugins can find them.
+ * that ElizaOS plugins can find them.
  */
 /** @internal Exported for testing. */
 export function applyConnectorSecretsToEnv(config: MiladyConfig): void {
@@ -1852,57 +1790,16 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
 
   // Propagate model names so the cloud plugin picks them up.  Falls back to
   // sensible defaults when cloud is enabled but no explicit selection exists.
-  // Skip when inferenceMode is "byok"/"local" or services.inference is off —
-  // user's own keys handle models.
-  // If the user chose a subscription provider, treat that as "byok" unless
-  // they explicitly set inferenceMode to "cloud".
-  const hasSubProvider = Boolean(config.agents?.defaults?.subscriptionProvider);
-  const explicitMode = cloud.inferenceMode;
-  const inferenceMode = explicitMode ?? (hasSubProvider ? "byok" : "cloud");
-  const inferenceToggle = cloud.services?.inference ?? true;
-  const cloudDoesInference =
-    inferenceMode === "cloud" && inferenceToggle !== false;
   const models = (config as Record<string, unknown>).models as
     | { small?: string; large?: string }
     | undefined;
-  if (effectivelyEnabled && cloudDoesInference) {
+  if (effectivelyEnabled) {
     const small = models?.small || "openai/gpt-5-mini";
     const large = models?.large || "anthropic/claude-sonnet-4.5";
     process.env.SMALL_MODEL = small;
     process.env.LARGE_MODEL = large;
     process.env.ELIZAOS_CLOUD_SMALL_MODEL = small;
     process.env.ELIZAOS_CLOUD_LARGE_MODEL = large;
-  } else if (effectivelyEnabled) {
-    // Cloud enabled but inference handled by user's own keys — clean cloud
-    // model env vars so the cloud plugin doesn't intercept model calls.
-    delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
-    delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
-  }
-
-  // Propagate per-service disable flags so downstream code can check them
-  // without needing direct access to the MiladyConfig object.
-  const services = cloud.services;
-  if (services) {
-    if (services.tts === false) {
-      process.env.MILADY_CLOUD_TTS_DISABLED = "true";
-    } else {
-      delete process.env.MILADY_CLOUD_TTS_DISABLED;
-    }
-    if (services.media === false) {
-      process.env.MILADY_CLOUD_MEDIA_DISABLED = "true";
-    } else {
-      delete process.env.MILADY_CLOUD_MEDIA_DISABLED;
-    }
-    if (services.embeddings === false) {
-      process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED = "true";
-    } else {
-      delete process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED;
-    }
-    if (services.rpc === false) {
-      process.env.MILADY_CLOUD_RPC_DISABLED = "true";
-    } else {
-      delete process.env.MILADY_CLOUD_RPC_DISABLED;
-    }
   }
 }
 
@@ -1982,62 +1879,7 @@ export function applyDatabaseConfigToEnv(config: MiladyConfig): void {
       logger.info(
         `[milady] PGlite data dir: ${dataDir} (${alreadyExisted ? "existed" : "created"})`,
       );
-
-      // Remove stale postmaster.pid left by a crashed process. Without this,
-      // PGlite sees the lock and either fails or triggers the destructive
-      // resetPgliteDataDir path, wiping all conversation history.
-      cleanStalePglitePid(dataDir);
     }
-  }
-}
-
-/**
- * Check for and remove a stale postmaster.pid in the PGlite data directory.
- * The pid file is stale if the recorded process is no longer running.
- */
-export function cleanStalePglitePid(dataDir: string): void {
-  const pidPath = path.join(dataDir, "postmaster.pid");
-  if (!existsSync(pidPath)) return;
-
-  try {
-    const content = readFileSync(pidPath, "utf-8");
-    const firstLine = content.split("\n")[0]?.trim();
-    const pid = parseInt(firstLine, 10);
-
-    if (Number.isNaN(pid) || pid <= 0) {
-      // Malformed pid file — remove it
-      unlinkSync(pidPath);
-      logger.warn(`[milady] Removed malformed PGlite postmaster.pid`);
-      return;
-    }
-
-    // Check if the process is still alive
-    try {
-      process.kill(pid, 0); // signal 0 = existence check, doesn't kill
-      // Process exists — pid file is NOT stale, leave it alone
-      logger.info(
-        `[milady] PGlite postmaster.pid references running process ${pid} — leaving intact`,
-      );
-    } catch (killErr: unknown) {
-      const code = (killErr as NodeJS.ErrnoException).code;
-      if (code === "ESRCH") {
-        // Process doesn't exist — stale pid file, safe to remove
-        unlinkSync(pidPath);
-        logger.warn(
-          `[milady] Removed stale PGlite postmaster.pid (process ${pid} not running)`,
-        );
-      } else {
-        // EPERM or other — process may be alive under a different user,
-        // leave the file alone to avoid data directory corruption
-        logger.warn(
-          `[milady] Cannot confirm postmaster.pid staleness (${code}) — leaving intact`,
-        );
-      }
-    }
-  } catch (err) {
-    logger.warn(
-      `[milady] Failed to check PGlite postmaster.pid: ${formatError(err)}`,
-    );
   }
 }
 
@@ -2228,7 +2070,7 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
   runtime.getConversationLength = runtime.getConversationLength.bind(runtime);
 
   // Wrap getSetting() to fall back to process.env for known keys when the
-  // core returns null. elizaOS core returns null for missing keys, but some
+  // core returns null. ElizaOS core returns null for missing keys, but some
   // plugins (e.g. @elizaos/plugin-google-genai) check `!== undefined` and
   // convert null to the string "null", causing API calls like `models/null`.
   // Scoped to an allowlist to avoid leaking arbitrary env vars to plugins.
@@ -2359,7 +2201,7 @@ async function registerSqlPluginWithRecovery(
 }
 
 /**
- * Build an elizaOS Character from the Milady config.
+ * Build an ElizaOS Character from the Milady config.
  *
  * Resolves the agent name from `config.agents.list` (first entry) or
  * `config.ui.assistant.name`, falling back to "Milady".  Character
@@ -2367,6 +2209,131 @@ async function registerSqlPluginWithRecovery(
  * database — not the config file — so we only provide sensible defaults
  * here for the initial bootstrap.
  */
+/**
+ * Custom message handler template that fixes ElizaOS's REPLY-gravity problem.
+ *
+ * The default ElizaOS template instructs the LLM to put REPLY first
+ * ("REPLY should come FIRST to acknowledge the user's request"), but when
+ * ACTION_PLANNING is disabled (the default), the runtime only keeps the
+ * first action — so "REPLY,EXECUTE_COMMAND" becomes just "REPLY" and the
+ * real action never fires.
+ *
+ * This template tells the LLM to use the specific action ALONE when a task
+ * is requested, falling back to REPLY only for pure conversation.
+ */
+const MILAIDY_MESSAGE_HANDLER_TEMPLATE = `<task>Generate dialog and actions for the character {{agentName}}.</task>
+
+<instructions>
+Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
+
+ACTION SELECTION — CRITICAL RULES:
+- You may ONLY select ONE action per response.
+- ALWAYS prefer a specific action over REPLY. Actions fetch real data and perform real work; REPLY only uses what you already know.
+- If you should not respond at all, select IGNORE.
+
+ACTION vs REPLY decision:
+1. IMPERATIVE requests ("run X", "create X", "install X", "send X", "cancel X") → match the verb to the most specific available action. If no action name matches the verb exactly, look for an action whose description covers the intent.
+2. INFORMATION-RETRIEVAL questions ("show my X", "list X", "what are my X", "tell me about X", "how do I use X") → use the action that retrieves that data, if an available action can provide it. These are NOT general conversation — they request specific information.
+3. GENERAL conversation with no matching action (greetings, opinions, jokes, open-ended questions about topics) → REPLY.
+4. Nothing to say → IGNORE.
+
+When multiple actions could match, prefer the one that matches the user's INTENT (what they want to happen) over the one that matches a keyword in their message.
+
+DISAMBIGUATION — safety-first routing:
+- FILE OPERATIONS: If the user mentions a file path or filename, ALWAYS use READ_FILE instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND for files if the user explicitly says "run", "execute", or "compile".
+- GIT OPERATIONS: If the user mentions git (commit, diff, log, status, branch, push, pull), ALWAYS use GIT instead of EXECUTE_COMMAND. Only use EXECUTE_COMMAND if the user explicitly says "run git ..." or GIT cannot handle the specific subcommand.
+- SKILLS vs FILES: "search for X in skills" or "find a skill" → SEARCH_SKILLS. "search for X in files" or "find X in code" → SEARCH_FILES. The word "skill" or "plugin" routes to skill actions, not file search.
+- SHELL SAFETY: EXECUTE_COMMAND is a last resort. If a more specific action exists for the task (READ_FILE, WRITE_FILE, GIT, SEARCH_FILES, LIST_FILES, MANAGE_PROCESS), ALWAYS use that instead.
+
+WRONG: User says "show my tasks" → actions: REPLY (describes tasks from memory)
+RIGHT: User says "show my tasks" → actions: LIST_TASKS (fetches real task data)
+
+WRONG: User says "run ls -la" → actions: REPLY (describes what it would do)
+RIGHT: User says "run ls -la" → actions: EXECUTE_COMMAND (actually runs the command)
+
+WRONG: User says "what do you think about AI?" → actions: SEARCH_SKILLS
+RIGHT: User says "what do you think about AI?" → actions: REPLY (general conversation, no action applies)
+
+WRONG: User says "read package.json" → actions: EXECUTE_COMMAND (cat package.json)
+RIGHT: User says "read package.json" → actions: READ_FILE (safe file read)
+
+WRONG: User says "show the git diff" → actions: EXECUTE_COMMAND (git diff)
+RIGHT: User says "show the git diff" → actions: GIT (dedicated git action)
+
+IMPORTANT ACTION PARAMETERS:
+- Some actions accept input parameters that you should extract from the conversation
+- When an action has parameters listed in its description, include a <params> block for that action
+- Extract parameter values from the user's message and conversation context
+- Required parameters MUST be provided; optional parameters can be omitted if not mentioned
+- If you cannot determine a required parameter value, ask the user for clarification in your <text>
+
+EXAMPLE (action parameters):
+User message: "Send a message to @dev_guru on telegram saying Hello!"
+Actions: SEND_MESSAGE
+Params:
+<params>
+    <SEND_MESSAGE>
+        <targetType>user</targetType>
+        <source>telegram</source>
+        <target>dev_guru</target>
+        <text>Hello!</text>
+    </SEND_MESSAGE>
+</params>
+
+IMPORTANT PROVIDER SELECTION RULES:
+- Only include providers if they are needed to respond accurately.
+- If the message mentions images, photos, pictures, attachments, or visual content, OR if you see "(Attachments:" in the conversation, you MUST include "ATTACHMENTS" in your providers list
+- If the message asks about or references specific people, include "ENTITIES" in your providers list
+- If the message asks about relationships or connections between people, include "RELATIONSHIPS" in your providers list
+- If the message asks about facts or specific information, include "FACTS" in your providers list
+- If the message asks about the environment or world context, include "WORLD" in your providers list
+- If no additional context is needed, you may leave the providers list empty.
+
+IMPORTANT CODE BLOCK FORMATTING RULES:
+- If {{agentName}} includes code examples, snippets, or multi-line code in the response, ALWAYS wrap the code with \`\`\` fenced code blocks (specify the language if known, e.g., \`\`\`python).
+- ONLY use fenced code blocks for actual code. Do NOT wrap non-code text, instructions, or single words in fenced code blocks.
+- If including inline code (short single words or function names), use single backticks (\`) as appropriate.
+- This ensures the user sees clearly formatted and copyable code when relevant.
+
+First, think about what you want to do next and plan your actions. Then, write the next message and include the action you plan to take.
+</instructions>
+
+<keys>
+"thought" should be a short description of what the agent is thinking about and planning.
+"actions" should be the SINGLE action {{agentName}} will take (if simply responding with text, use REPLY; if not responding, use IGNORE; otherwise use the specific action name)
+"providers" should be a comma-separated list of the providers that {{agentName}} will use to have the right context for responding and acting (NEVER use "IGNORE" as a provider - use specific provider names like ATTACHMENTS, ENTITIES, FACTS, KNOWLEDGE, etc.)
+"text" should be the text of the next message for {{agentName}} which they will send to the conversation.
+"params" (optional) should contain action parameters when actions require input. Format as nested XML with action name as wrapper.
+</keys>
+
+<output>
+Do NOT include any thinking, reasoning, or <think> sections in your response.
+Go directly to the XML response format without any preamble or explanation.
+
+Respond using XML format like this:
+<response>
+    <thought>Your thought here</thought>
+    <actions>ACTION_NAME</actions>
+    <providers>PROVIDER1,PROVIDER2</providers>
+    <text>Your response text here</text>
+    <params>
+        <ACTION_NAME>
+            <paramName1>value1</paramName1>
+            <paramName2>value2</paramName2>
+        </ACTION_NAME>
+    </params>
+</response>
+
+The <params> block is optional - only include when actions require input parameters.
+If an action has no parameters or you're only using REPLY/IGNORE, omit <params> entirely.
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
+</output>
+
+<providers>
+{{providers}}
+</providers>`;
+
 /** @internal Exported for testing. */
 export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // Resolve name: agents list → ui assistant → "Milady"
@@ -2378,11 +2345,11 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // defaults when the preset data is not present (e.g. pre-onboarding
   // bootstrap or configs created before this change).
   const bio = agentEntry?.bio ?? [
-    "{{name}} is an AI assistant powered by Milady and elizaOS.",
+    "{{name}} is an AI assistant powered by Milady and ElizaOS.",
   ];
   const systemPrompt =
     agentEntry?.system ??
-    "You are {{name}}, an autonomous AI agent powered by elizaOS.";
+    "You are {{name}}, an autonomous AI agent powered by ElizaOS.";
   const style = agentEntry?.style;
   const adjectives = agentEntry?.adjectives;
   const topics = agentEntry?.topics;
@@ -2492,6 +2459,16 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     ...(postExamples ? { postExamples } : {}),
     ...(mappedExamples ? { messageExamples: mappedExamples } : {}),
     secrets,
+    templates: {
+      messageHandlerTemplate: MILAIDY_MESSAGE_HANDLER_TEMPLATE,
+    },
+    settings: {
+      // Bypass the BM25 action filter entirely.  With ~52 actions the default
+      // threshold of 15 causes ActionFilterService to silently drop relevant
+      // actions.  At this scale, sending all validated actions to the LLM is
+      // fine — our custom messageHandlerTemplate provides routing guidance.
+      ACTION_FILTER_THRESHOLD: "100",
+    },
   });
 }
 
@@ -2500,7 +2477,7 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
  *
  * Milady stores the model under `agents.defaults.model.primary` as an
  * AgentModelListConfig object. Returns undefined when no model is
- * explicitly configured (elizaOS falls back to whichever model
+ * explicitly configured (ElizaOS falls back to whichever model
  * plugin is loaded).
  */
 /** @internal Exported for testing. */
@@ -2994,7 +2971,7 @@ export interface BootElizaRuntimeOptions {
 }
 
 /**
- * Boot the elizaOS runtime without starting the readline chat loop.
+ * Boot the ElizaOS runtime without starting the readline chat loop.
  *
  * This is a convenience wrapper around {@link startEliza} in headless mode,
  * with optional config guards.
@@ -3062,7 +3039,7 @@ export const logToChatListener = (entry: LogEntry) => {
 };
 
 /**
- * Start the elizaOS runtime with Milady's configuration.
+ * Start the ElizaOS runtime with Milady's configuration.
  *
  * In headless mode the runtime is returned instead of entering the
  * interactive readline loop.
@@ -3124,7 +3101,7 @@ export async function startEliza(
 
   // 2e. Propagate arbitrary env vars from config.env into process.env.
   // Milady stores user-defined env vars (plugin settings, API URLs, etc.)
-  // in config.env; elizaOS plugins read them via process.env / getSetting.
+  // in config.env; ElizaOS plugins read them via process.env / getSetting.
   if (
     config.env &&
     typeof config.env === "object" &&
@@ -3209,10 +3186,12 @@ export async function startEliza(
     const { applySubscriptionCredentials } = await import("../auth/index");
     await applySubscriptionCredentials(config);
   } catch (err) {
-    logger.warn(`[milady] Failed to apply subscription credentials: ${err}`);
+    logger.error(
+      `[auth] Failed to apply subscription credentials: ${err}. Check Admin > Logs for details.`,
+    );
   }
 
-  // 3. Build elizaOS Character from Milady config
+  // 3. Build ElizaOS Character from Milady config
   const character = buildCharacterFromConfig(config);
 
   const primaryModel = resolvePrimaryModel(config);
@@ -3301,12 +3280,22 @@ export async function startEliza(
   }
 
   // 7. Create the AgentRuntime with Milady plugin + resolved plugins
-  //    All CORE_PLUGINS are pre-registered sequentially (in CORE_PLUGINS
-  //    order) before runtime.initialize() so that cross-plugin getService()
-  //    calls always resolve.  runtime.initialize() registers remaining
-  //    characterPlugins (connectors, providers, custom) in parallel — those
-  //    are NOT core and don't have ordering dependencies.
-  const PREREGISTER_PLUGINS = new Set(CORE_PLUGINS);
+  //    plugin-sql must be registered first so its database adapter is available
+  //    before other plugins (e.g. plugin-personality) run their init functions.
+  //    runtime.initialize() registers all characterPlugins in parallel, so we
+  //    pre-register plugin-sql here to avoid the race condition.
+  //
+  //    plugin-local-embedding must also be pre-registered so its TEXT_EMBEDDING
+  //    handler (priority 10) is available before any services start.  Without
+  //    this, the bootstrap plugin's ActionFilterService and EmbeddingGeneration
+  //    service can race ahead and use the cloud plugin's TEXT_EMBEDDING handler
+  //    (priority 0) — which hits a paid API — because local-embedding's init()
+  //    takes longer (environment setup, model path validation) and hasn't
+  //    registered its model handler yet when services start generating embeddings.
+  const PREREGISTER_PLUGINS = new Set([
+    "@elizaos/plugin-sql",
+    "@elizaos/plugin-local-embedding",
+  ]);
   const sqlPlugin = resolvedPlugins.find(
     (p) => p.name === "@elizaos/plugin-sql",
   );
@@ -3345,6 +3334,101 @@ export async function startEliza(
 
   // Workspace skills directory (highest precedence for overrides)
   const workspaceSkillsDir = workspaceDir ? `${workspaceDir}/skills` : null;
+
+  // 7b. Configure plugin-agent-orchestrator before runtime init.
+  // The plugin is in CORE_PLUGINS but its service throws unless configured.
+  //
+  // We register a lazy provider that captures the runtime ref after init.
+  // executeTask is only called at task execution time, long after runtime exists.
+  // The provider uses the "eliza" sub-agent type by default (tool-calling loop
+  // using the runtime's LLM — no external SDK dependencies). Can be overridden
+  // via ELIZA_CODE_ACTIVE_SUB_AGENT env var (e.g. "claude-code", "codex").
+  let runtimeRef: AgentRuntime | null = null;
+  let cachedProvider: ReturnType<typeof createSubAgentProvider> | null = null;
+
+  const lazyElizaProvider = {
+    id: "eliza",
+    label: "Eliza (native tool-calling)",
+    description:
+      "Executes tasks using the runtime LLM with file/shell tools. " +
+      "No external SDK dependencies.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milady] executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedProvider) {
+        cachedProvider = createSubAgentProvider(
+          runtimeRef,
+          "eliza",
+          "eliza",
+          "Eliza (native tool-calling)",
+        );
+      }
+      return cachedProvider.executeTask(task, ctx);
+    },
+  };
+
+  // Codex provider — always registered. The upstream CodexSdkSubAgent
+  // lazy-imports @openai/codex-sdk at execution time, so it won't crash at
+  // startup if the package isn't installed. Auth is resolved by the SDK at
+  // runtime via: CODEX_API_KEY > OPENAI_API_KEY > ~/.codex/auth.json (CLI
+  // login tokens). Users with the Codex CLI installed get auth for free.
+  let cachedCodexProvider: ReturnType<typeof createSubAgentProvider> | null =
+    null;
+  const lazyCodexProvider = {
+    id: "codex" as const,
+    label: "Codex (OpenAI)",
+    description:
+      "Executes tasks using the OpenAI Codex SDK. " +
+      "Auth: CODEX_API_KEY, OPENAI_API_KEY, or ~/.codex/auth.json.",
+    executeTask: async (
+      task: import("@elizaos/plugin-agent-orchestrator").OrchestratedTask,
+      ctx: import("@elizaos/plugin-agent-orchestrator").ProviderTaskExecutionContext,
+    ): Promise<import("@elizaos/plugin-agent-orchestrator").TaskResult> => {
+      if (!runtimeRef) {
+        logger.error(
+          "[milady] codex executeTask called before runtime was initialized",
+        );
+        return {
+          success: false,
+          summary: "Runtime not initialized yet",
+          filesCreated: [],
+          filesModified: [],
+          error: "Runtime not available",
+        };
+      }
+      if (!cachedCodexProvider) {
+        cachedCodexProvider = createSubAgentProvider(
+          runtimeRef,
+          "codex",
+          "codex",
+          "Codex (OpenAI)",
+        );
+      }
+      return cachedCodexProvider.executeTask(task, ctx);
+    },
+  };
+
+  configureAgentOrchestratorPlugin({
+    providers: [lazyElizaProvider, lazyCodexProvider],
+    defaultProviderId: "eliza",
+    // NOTE: workingDirectory is the CWD for sub-agent tools but does NOT form
+    // a security sandbox. Upstream tools use path.resolve() without containment
+    // checks. Shell access is also effectively unrestricted.
+    getWorkingDirectory: () => workspaceDir ?? process.cwd(),
+  });
 
   // ── Sandbox mode setup ──────────────────────────────────────────────────
   const sandboxConfig = config.agents?.defaults?.sandbox;
@@ -3420,7 +3504,7 @@ export async function startEliza(
   // ── End sandbox setup ───────────────────────────────────────────────────
 
   // ── Boost preferred model plugin priority ─────────────────────────────
-  // elizaOS selects the model handler with the highest `priority` for each
+  // ElizaOS selects the model handler with the highest `priority` for each
   // ModelType.  All provider plugins default to priority 0, so whichever
   // registers first wins — essentially random when using Promise.all.
   // When the user has explicitly chosen a primary model provider (via
@@ -3440,7 +3524,7 @@ export async function startEliza(
   }
 
   // Deduplicate actions across all plugins to avoid "Action already registered"
-  // warnings from elizaOS core. First plugin wins (miladyPlugin is first).
+  // warnings from ElizaOS core. First plugin wins (miladyPlugin is first).
   deduplicatePluginActions([miladyPlugin, ...pluginsForRuntime]);
 
   let runtime = new AgentRuntime({
@@ -3507,6 +3591,7 @@ export async function startEliza(
         : {}),
     },
   });
+  runtimeRef = runtime;
   installRuntimeMethodBindings(runtime);
 
   // 7b. Pre-register plugin-sql so the adapter is ready before other plugins init.
@@ -3548,33 +3633,6 @@ export async function startEliza(
         "will fall back to whatever TEXT_EMBEDDING handler is registered by " +
         "other plugins (may incur cloud API costs)",
     );
-  }
-
-  // 7e. Pre-register remaining core plugins sequentially in CORE_PLUGINS order.
-  //     Each registerPlugin() call runs the plugin's init() before proceeding
-  //     to the next, guaranteeing that cross-plugin getService() calls resolve.
-  {
-    const alreadyPreRegistered = new Set([
-      "@elizaos/plugin-sql",
-      "@elizaos/plugin-local-embedding",
-    ]);
-    for (const name of CORE_PLUGINS) {
-      if (alreadyPreRegistered.has(name)) continue;
-      const resolved = resolvedPlugins.find((p) => p.name === name);
-      if (!resolved) {
-        logger.debug(
-          `[milady] Core plugin ${name} not resolved — skipping pre-registration`,
-        );
-        continue;
-      }
-      try {
-        await runtime.registerPlugin(resolved.plugin);
-      } catch (err) {
-        logger.warn(
-          `[milady] Core plugin ${name} pre-registration failed: ${formatError(err)}`,
-        );
-      }
-    }
   }
 
   const warmAgentSkillsService = async (): Promise<void> => {
@@ -3704,6 +3762,104 @@ export async function startEliza(
   }
 
   installActionAliases(runtime);
+
+  // 8b. Enrich action descriptions now that all plugins have registered their
+  //     actions.  Then rebuild the ActionFilterService index so the BM25 scores
+  //     reflect the enriched text (buildIndex() ran during initialize() with
+  //     the original descriptions).
+  enrichActionDescriptions(runtime);
+  const actionFilter = runtime.getService("action_filter") as
+    | { buildIndex(rt: typeof runtime): Promise<void> }
+    | undefined;
+  if (actionFilter?.buildIndex) {
+    await actionFilter.buildIndex(runtime);
+  }
+
+  // 8c. Wire task-result surfacing: when a task completes or fails, post
+  //     the result summary as a message in the originating room so the user
+  //     sees the outcome without having to run LIST_TASKS.
+  //     Returns a teardown function so hot-reload can clean up listeners.
+  function wireTaskResultSurfacing(rt: AgentRuntime): (() => void) | null {
+    type TaskDoneEvent = {
+      taskId: string;
+      data?: Record<string, unknown>;
+    };
+    type TaskDoneListener = (event: TaskDoneEvent) => void | Promise<void>;
+    type TaskResultService =
+      import("@elizaos/plugin-agent-orchestrator").AgentOrchestratorService & {
+        on: (
+          event: "task:completed" | "task:failed",
+          listener: TaskDoneListener,
+        ) => void;
+        off: (
+          event: "task:completed" | "task:failed",
+          listener: TaskDoneListener,
+        ) => void;
+      };
+
+    try {
+      const svc = rt.getService("CODE_TASK") as TaskResultService | undefined;
+      if (!svc?.on) return null;
+
+      const handleTaskDone: TaskDoneListener = async (event) => {
+        try {
+          const task = await svc.getTask(event.taskId);
+          if (!task?.roomId) return;
+
+          const result = task.metadata?.result;
+          const status = task.metadata?.status;
+          const isSuccess = status === "completed" && result?.success === true;
+
+          const parts: string[] = [];
+          parts.push(
+            isSuccess
+              ? `Task completed: ${task.name}`
+              : `Task failed: ${task.name}`,
+          );
+          if (result?.summary) parts.push(result.summary);
+          if (result?.error) parts.push(`Error: ${result.error}`);
+          if (result?.filesModified?.length) {
+            parts.push(`Files modified: ${result.filesModified.join(", ")}`);
+          }
+          if (result?.filesCreated?.length) {
+            parts.push(`Files created: ${result.filesCreated.join(", ")}`);
+          }
+
+          const text = parts.join("\n");
+          await rt.createMemory(
+            {
+              entityId: rt.agentId,
+              roomId: task.roomId,
+              content: { text, source: "orchestrator" },
+            },
+            "messages",
+          );
+          logger.info(
+            `[milaidy] Task result posted to room ${task.roomId}: ${task.name}`,
+          );
+        } catch (err) {
+          logger.warn(
+            `[milaidy] Failed to surface task result: ${formatError(err)}`,
+          );
+        }
+      };
+
+      svc.on("task:completed", handleTaskDone);
+      svc.on("task:failed", handleTaskDone);
+      logger.info("[milaidy] Task result surfacing enabled");
+
+      return () => {
+        svc.off("task:completed", handleTaskDone);
+        svc.off("task:failed", handleTaskDone);
+      };
+    } catch (err) {
+      logger.debug(
+        `[milaidy] Could not wire task result surfacing: ${formatError(err)}`,
+      );
+      return null;
+    }
+  }
+  let teardownTaskSurfacing = wireTaskResultSurfacing(runtime);
 
   // 9. Graceful shutdown handler
   //
@@ -3906,27 +4062,9 @@ export async function startEliza(
             await newRuntime.registerPlugin(freshLocalEmbeddingPlugin.plugin);
           }
 
-          // Pre-register remaining core plugins sequentially (same as startup)
-          {
-            const alreadyPreRegistered = new Set([
-              "@elizaos/plugin-sql",
-              "@elizaos/plugin-local-embedding",
-            ]);
-            for (const name of CORE_PLUGINS) {
-              if (alreadyPreRegistered.has(name)) continue;
-              const resolved = resolvedPlugins.find((p) => p.name === name);
-              if (!resolved) continue;
-              try {
-                await newRuntime.registerPlugin(resolved.plugin);
-              } catch (err) {
-                logger.warn(
-                  `[milady] Hot-reload: core plugin ${name} pre-registration failed: ${formatError(err)}`,
-                );
-              }
-            }
-          }
-
           await newRuntime.initialize();
+          teardownTaskSurfacing?.(); // clean up old listeners
+
           await waitForTrajectoryLoggerService(
             newRuntime,
             "hot-reload runtime.initialize()",
@@ -3949,6 +4087,10 @@ export async function startEliza(
 
           installActionAliases(newRuntime);
           runtime = newRuntime;
+          runtimeRef = newRuntime;
+          cachedProvider = null; // force re-creation with new runtime
+          cachedCodexProvider = null;
+          teardownTaskSurfacing = wireTaskResultSurfacing(newRuntime);
           logger.info("[milady] Hot-reload: Runtime restarted successfully");
           return newRuntime;
         } catch (err) {

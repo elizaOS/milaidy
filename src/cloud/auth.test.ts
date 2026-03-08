@@ -11,11 +11,23 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { loggerInfoMock } = vi.hoisted(() => ({
+  loggerInfoMock: vi.fn(),
+}));
+
 vi.mock("./validate-url", () => {
   return {
     validateCloudBaseUrl: vi.fn().mockResolvedValue(null),
   };
 });
+
+vi.mock("@elizaos/core", () => ({
+  logger: {
+    info: loggerInfoMock,
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 import { cloudLogin } from "./auth";
 
@@ -109,6 +121,12 @@ describe("cloudLogin", () => {
     expect(result.expiresAt).toBeNull();
     expect(browserUrl).toContain(
       "https://test.elizacloud.ai/auth/cli-login?session=",
+    );
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      expect.stringContaining("session=%5Bredacted%5D"),
+    );
+    expect(loggerInfoMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("session=test-session"),
     );
     expect(pollCount).toBe(3);
   });

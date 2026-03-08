@@ -252,7 +252,15 @@ export async function handleCloudRoute(
       };
     } catch (parseErr) {
       loginPollSpan.failure({ error: parseErr, statusCode: pollRes.status });
-      throw parseErr;
+      sendJson(
+        res,
+        {
+          status: "error",
+          error: "Invalid response from Eliza Cloud",
+        },
+        502,
+      );
+      return true;
     }
     loginPollSpan.success({ statusCode: pollRes.status });
 

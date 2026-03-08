@@ -2,7 +2,7 @@
  * REST API server for the Milady Control UI.
  *
  * Exposes HTTP endpoints that the UI frontend expects, backed by the
- * elizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
+ * ElizaOS AgentRuntime. Default port: 2138. In dev mode, the Vite UI
  * dev server proxies /api and /ws here (see scripts/dev-ui.mjs).
  */
 
@@ -27,16 +27,8 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import type {
-  CoordinationLLMResponse,
-  SwarmEvent,
-  TaskCompletionSummary,
-  TaskContext,
-} from "@elizaos/plugin-agent-orchestrator";
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
-import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
-import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import type { CloudManager } from "../cloud/cloud-manager";
 import {
   configFileExists,
@@ -45,23 +37,17 @@ import {
   saveMiladyConfig,
 } from "../config/config";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
-import {
-  isConnectorConfigured,
-  isStreamingDestinationConfigured,
-} from "../config/plugin-auto-enable";
+import { isConnectorConfigured } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
-import {
-  type AgentEventPayloadLike,
-  type AgentEventServiceLike,
-  getAgentEventService,
-} from "../runtime/agent-event-service";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
+import { resolvePrimaryModel } from "../runtime/eliza";
+import { actionLog, clearActionLog } from "../runtime/milady-plugin";
 import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
@@ -79,10 +65,6 @@ import {
   isPluginManagerLike,
   type PluginManagerLike,
 } from "../services/plugin-manager-types";
-import {
-  ensurePrivyWalletsForCustomUser,
-  isPrivyWalletProvisioningEnabled,
-} from "../services/privy-wallets";
 import type { SandboxManager } from "../services/sandbox-manager";
 import {
   installMarketplaceSkill,
@@ -99,20 +81,12 @@ import {
 import { parseClampedInteger } from "../utils/number-parsing";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
-import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
+import { detectRuntimeModel } from "./agent-model";
 import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
 import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
-import {
-  buildBscApproveUnsignedTx,
-  buildBscBuyUnsignedTx,
-  buildBscSellUnsignedTx,
-  buildBscTradePreflight,
-  buildBscTradeQuote,
-  resolvePrimaryBscRpcUrl,
-} from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -123,12 +97,6 @@ import {
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
 } from "./compat-utils";
-import { ConnectorHealthMonitor } from "./connector-health";
-import { wireCoordinatorBridgesWhenReady } from "./coordinator-wiring";
-import {
-  isInsufficientCreditsError,
-  isInsufficientCreditsMessage,
-} from "./credit-detection";
 import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 import { DropService } from "./drop-service";
@@ -150,9 +118,13 @@ import {
 import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
-import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
-import type { PTYService } from "./parse-action-block";
+import type {
+  CoordinationLLMResponse,
+  PTYService,
+  SwarmEvent,
+  TaskContext,
+} from "./parse-action-block";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
   type PluginParamInfo,
@@ -165,7 +137,6 @@ import {
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
-
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
 import { handleTrainingRoutes } from "./training-routes";
@@ -181,11 +152,6 @@ import {
 import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
-import {
-  loadWalletTradingProfile,
-  recordWalletTradeLedgerEntry,
-  updateWalletTradeLedgerEntryStatus,
-} from "./wallet-trading-profile";
 import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
@@ -206,7 +172,8 @@ type ConnectorRouteHandler = (
 function getAgentEventSvc(
   runtime: AgentRuntime | null,
 ): AgentEventServiceLike | null {
-  return getAgentEventService(runtime);
+  if (!runtime) return null;
+  return runtime.getService("AGENT_EVENT") as AgentEventServiceLike | null;
 }
 
 function requirePluginManager(runtime: AgentRuntime | null): PluginManagerLike {
@@ -232,60 +199,6 @@ function isUuidLike(value: string): value is UUID {
 }
 
 const OG_FILENAME = ".og";
-const DELETED_CONVERSATIONS_FILENAME = "deleted-conversations.v1.json";
-const MAX_DELETED_CONVERSATION_IDS = 5000;
-
-interface DeletedConversationsStateFile {
-  version: 1;
-  updatedAt: string;
-  ids: string[];
-}
-
-function readDeletedConversationIdsFromState(): Set<string> {
-  const filePath = path.join(resolveStateDir(), DELETED_CONVERSATIONS_FILENAME);
-  if (!fs.existsSync(filePath)) return new Set();
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<DeletedConversationsStateFile>;
-    const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
-    return new Set(
-      ids
-        .map((id) => (typeof id === "string" ? id.trim() : ""))
-        .filter((id) => id.length > 0),
-    );
-  } catch (err) {
-    logger.warn(
-      `[milady-api] Failed to read deleted conversations state: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return new Set();
-  }
-}
-
-function persistDeletedConversationIdsToState(ids: Set<string>): void {
-  const dir = resolveStateDir();
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
-
-  const normalized = Array.from(ids)
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0)
-    .slice(-MAX_DELETED_CONVERSATION_IDS);
-
-  const filePath = path.join(dir, DELETED_CONVERSATIONS_FILENAME);
-  const tmpFilePath = `${filePath}.${process.pid}.tmp`;
-  const payload: DeletedConversationsStateFile = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    ids: normalized,
-  };
-
-  fs.writeFileSync(tmpFilePath, `${JSON.stringify(payload, null, 2)}\n`, {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-  fs.renameSync(tmpFilePath, filePath);
-}
 
 function readOGCodeFromState(): string | null {
   const filePath = path.join(resolveStateDir(), OG_FILENAME);
@@ -308,7 +221,7 @@ function initializeOGCodeInState(): void {
 }
 
 /** Metadata for a web-chat conversation. */
-export interface ConversationMeta {
+interface ConversationMeta {
   id: string;
   title: string;
   roomId: UUID;
@@ -337,6 +250,8 @@ interface ServerState {
     | "error";
   agentName: string;
   model: string | undefined;
+  activeProvider: "subscription" | "cloud" | "api-key" | "unknown";
+  fallbackActive: boolean;
   startedAt: number | undefined;
   startup: AgentStartupDiagnostics;
   plugins: PluginEntry[];
@@ -351,12 +266,10 @@ interface ServerState {
   adminEntityId: UUID | null;
   /** Conversation metadata by conversation id. */
   conversations: Map<string, ConversationMeta>;
-  /** Tombstones for conversation IDs explicitly deleted by the user. */
-  deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
   cloudManager: CloudManager | null;
   sandboxManager: SandboxManager | null;
-  /** App manager for launching and managing elizaOS apps. */
+  /** App manager for launching and managing ElizaOS apps. */
   appManager: AppManager;
   /** Fine-tuning/training orchestration service. */
   trainingService: TrainingServiceLike | null;
@@ -392,16 +305,10 @@ interface ServerState {
   >;
   /** Whether shell access is enabled (can be toggled in UI). */
   shellEnabled?: boolean;
-  /** Agent automation permission mode for self-directed config changes. */
-  agentAutomationMode?: AgentAutomationMode;
-  /** Wallet trade execution permission mode (user-sign/manual/agent-auto). */
-  tradePermissionMode?: TradePermissionMode;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
   /** Route handlers registered by connector plugins (loaded dynamically). */
   connectorRouteHandlers: ConnectorRouteHandler[];
-  /** Connector health monitor for detecting dead connectors. */
-  connectorHealthMonitor: ConnectorHealthMonitor | null;
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
@@ -457,8 +364,6 @@ interface PluginEntry {
   loadError?: string;
   /** Server-provided UI hints for plugin configuration fields. */
   configUiHints?: Record<string, Record<string, unknown>>;
-  /** Optional icon URL or emoji for the plugin card header. */
-  icon?: string | null;
 }
 
 interface SkillEntry {
@@ -476,6 +381,37 @@ interface LogEntry {
   message: string;
   source: string;
   tags: string[];
+}
+
+interface AgentEventPayloadLike {
+  runId: string;
+  seq: number;
+  stream: string;
+  ts: number;
+  data: object;
+  sessionKey?: string;
+  agentId?: string;
+  roomId?: UUID;
+}
+
+interface HeartbeatEventPayloadLike {
+  ts: number;
+  status: string;
+  to?: string;
+  preview?: string;
+  durationMs?: number;
+  hasMedia?: boolean;
+  reason?: string;
+  channel?: string;
+  silent?: boolean;
+  indicatorType?: string;
+}
+
+interface AgentEventServiceLike {
+  subscribe: (listener: (event: AgentEventPayloadLike) => void) => () => void;
+  subscribeHeartbeat: (
+    listener: (event: HeartbeatEventPayloadLike) => void,
+  ) => () => void;
 }
 
 type StreamEventType = "agent_event" | "heartbeat_event" | "training_event";
@@ -691,8 +627,6 @@ interface PluginIndexEntry {
   version?: string;
   pluginDeps?: string[];
   configUiHints?: Record<string, Record<string, unknown>>;
-  logoUrl?: string;
-  icon?: string;
 }
 
 interface PluginIndex {
@@ -922,9 +856,6 @@ const BLOCKED_ENV_KEYS = new Set([
   // Wallet private keys — writable via API would enable key theft / replacement
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
-  // Opinion Trade plugin secrets
-  "OPINION_PRIVATE_KEY",
-  "OPINION_API_KEY",
   // Third-party auth tokens
   "GITHUB_TOKEN",
   // Database connection strings
@@ -1153,8 +1084,6 @@ function discoverInstalledPlugins(
     let pluginConfigKeys: string[] = [];
     let pluginParameters: PluginParamDef[] = [];
 
-    let pluginIcon: string | null = null;
-
     if (installPath) {
       // Check npm layout first, then direct layout
       const candidates = [
@@ -1176,10 +1105,7 @@ function discoverInstalledPlugins(
                 displayName?: string;
                 configKeys?: string[];
                 configDefaults?: Record<string, string>;
-                logoUrl?: string;
               };
-              logoUrl?: string;
-              icon?: string;
             };
             if (pkg.name) name = pkg.name;
             if (pkg.description) description = pkg.description;
@@ -1201,9 +1127,6 @@ function discoverInstalledPlugins(
                 currentValue: null,
               }));
             }
-            // Map logoUrl or icon from package.json if available
-            pluginIcon =
-              pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? null;
             break;
           }
         } catch {
@@ -1215,7 +1138,6 @@ function discoverInstalledPlugins(
     entries.push({
       id,
       name,
-      npmName: packageName,
       description,
       enabled: false, // Will be updated against the runtime below
       configured:
@@ -1227,7 +1149,6 @@ function discoverInstalledPlugins(
       parameters: pluginParameters,
       validationErrors: [],
       validationWarnings: [],
-      icon: pluginIcon,
     });
   }
 
@@ -1309,7 +1230,6 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-            icon: p.logoUrl ?? p.icon ?? null,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -2075,8 +1995,6 @@ function error(res: http.ServerResponse, message: string, status = 400): void {
 const STATIC_MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
-  ".glb": "model/gltf-binary",
-  ".gltf": "model/gltf+json",
   ".html": "text/html; charset=utf-8",
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
@@ -2085,15 +2003,11 @@ const STATIC_MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".map": "application/json",
   ".mjs": "application/javascript; charset=utf-8",
-  ".mp3": "audio/mpeg",
-  ".ogg": "audio/ogg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
-  ".vrm": "model/gltf-binary",
   ".wasm": "application/wasm",
-  ".wav": "audio/wav",
   ".webp": "image/webp",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
@@ -2223,14 +2137,8 @@ function serveStaticUi(
       return true;
     }
   } catch {
-    // Missing file falls through to SPA index fallback below.
+    // Missing file falls through to SPA index fallback.
   }
-
-  // Only serve the SPA index.html for navigation-like requests (no file extension
-  // or .html). Asset requests (.vrm, .js, .png, etc.) that miss on disk should 404
-  // rather than silently returning HTML — which breaks binary loaders like GLTFLoader.
-  const reqExt = path.extname(decodedPath).toLowerCase();
-  if (reqExt && reqExt !== ".html") return false;
 
   if (!uiIndexHtml) return false;
   sendStaticResponse(
@@ -2250,12 +2158,6 @@ function serveStaticUi(
 interface ChatGenerationResult {
   text: string;
   agentName: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    model?: string;
-  };
 }
 
 interface ChatGenerateOptions {
@@ -2263,6 +2165,9 @@ interface ChatGenerateOptions {
   isAborted?: () => boolean;
   resolveNoResponseText?: () => string;
 }
+
+const INSUFFICIENT_CREDITS_RE =
+  /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
 
 const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
   "Sorry, we're out of credits right now. Please top up your credits and try again.",
@@ -2279,6 +2184,10 @@ function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return fallback;
+}
+
+function isInsufficientCreditsMessage(message: string): boolean {
+  return INSUFFICIENT_CREDITS_RE.test(message);
 }
 
 function pickInsufficientCreditsChatReply(): string {
@@ -2311,7 +2220,8 @@ function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
 }
 
 function getInsufficientCreditsReplyFromError(err: unknown): string | null {
-  return isInsufficientCreditsError(err)
+  const msg = getErrorMessage(err, "");
+  return isInsufficientCreditsMessage(msg)
     ? pickInsufficientCreditsChatReply()
     : null;
 }
@@ -2569,20 +2479,9 @@ async function generateChatResponse(
     ? (noResponseFallback ?? (responseText || "(no response)"))
     : responseText;
 
-  // Estimate token usage from text lengths (~4 chars per token)
-  const promptText = extractCompatTextContent(message.content) ?? "";
-  const estPromptTokens = Math.ceil(promptText.length / 4);
-  const estCompletionTokens = Math.ceil(finalText.length / 4);
-
   return {
     text: finalText,
     agentName,
-    usage: {
-      promptTokens: estPromptTokens,
-      completionTokens: estCompletionTokens,
-      totalTokens: estPromptTokens + estCompletionTokens,
-      model: detectRuntimeModel(runtime, undefined) ?? undefined,
-    },
   };
 }
 
@@ -2798,7 +2697,7 @@ export function validateChatImages(images: unknown): string | null {
  * action handlers (e.g. POST_TWEET) while the message is in-memory. The
  * extra fields are intentionally stripped before the message is persisted.
  *
- * Note: `_data`/`_mimeType` survive only because elizaOS passes the
+ * Note: `_data`/`_mimeType` survive only because ElizaOS passes the
  * `userMessage` object reference directly to action handlers without
  * deep-cloning or serializing it. If that ever changes, action handlers
  * that read these fields will silently receive `undefined`.
@@ -4275,123 +4174,11 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Trade permission helpers (exported for use by awareness contributors)
-// ---------------------------------------------------------------------------
-
-export type TradePermissionMode =
-  | "user-sign-only"
-  | "manual-local-key"
-  | "agent-auto";
-
-/**
- * Resolve the active trade permission mode from config.
- * Falls back to "user-sign-only" when not configured.
- */
-export function resolveTradePermissionMode(
-  config: MiladyConfig,
-): TradePermissionMode {
-  const raw = (config.features as Record<string, unknown> | undefined)
-    ?.tradePermissionMode;
-  if (
-    raw === "user-sign-only" ||
-    raw === "manual-local-key" ||
-    raw === "agent-auto"
-  ) {
-    return raw;
-  }
-  return "user-sign-only";
-}
-
-/**
- * Returns true if local-key execution is permitted for the given actor.
- * @param mode    The resolved trade permission mode.
- * @param isAgent True when the caller is the agent (autonomous), false for user-initiated flows.
- */
-export function canUseLocalTradeExecution(
-  mode: TradePermissionMode,
-  isAgent: boolean,
-): boolean {
-  if (mode === "agent-auto") return true;
-  if (mode === "manual-local-key") return !isAgent;
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// Automation & agent permission helpers
-// ---------------------------------------------------------------------------
-
-type AgentAutomationMode = "connectors-only" | "full";
-
-const AGENT_AUTOMATION_HEADER = "x-milady-agent-action";
-const AGENT_AUTOMATION_MODES = new Set<AgentAutomationMode>([
-  "connectors-only",
-  "full",
-]);
-
-function parseAgentAutomationMode(value: unknown): AgentAutomationMode | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (!AGENT_AUTOMATION_MODES.has(normalized as AgentAutomationMode)) {
-    return null;
-  }
-  return normalized as AgentAutomationMode;
-}
-
-function resolveAgentAutomationModeFromConfig(
-  config: MiladyConfig,
-): AgentAutomationMode {
-  const features =
-    config.features && typeof config.features === "object"
-      ? (config.features as Record<string, unknown>)
-      : null;
-  const agentAutomation =
-    features?.agentAutomation &&
-    typeof features.agentAutomation === "object" &&
-    !Array.isArray(features.agentAutomation)
-      ? (features.agentAutomation as Record<string, unknown>)
-      : null;
-  return parseAgentAutomationMode(agentAutomation?.mode) ?? "full";
-}
-
-function isAgentAutomationRequest(req: http.IncomingMessage): boolean {
-  const raw = req.headers[AGENT_AUTOMATION_HEADER];
-  if (typeof raw !== "string") return false;
-  return /^(1|true|yes|agent)$/i.test(raw.trim());
-}
-
-function persistAgentAutomationMode(
-  state: ServerState,
-  mode: AgentAutomationMode,
-): void {
-  state.agentAutomationMode = mode;
-  if (!state.config.features) {
-    state.config.features = {};
-  }
-
-  const features = state.config.features as Record<
-    string,
-    boolean | { enabled?: boolean; [k: string]: unknown }
-  >;
-  const current = features.agentAutomation;
-  const currentObject =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? (current as Record<string, unknown>)
-      : {};
-
-  features.agentAutomation = {
-    ...currentObject,
-    enabled: true,
-    mode,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
-  onRuntimeSwapped?: () => void;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -4536,7 +4323,7 @@ function applyCors(
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token, X-Milady-UI-Language",
+      "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token",
     );
   }
 
@@ -4686,6 +4473,71 @@ function tokenMatches(expected: string, provided: string): boolean {
   const b = Buffer.from(provided, "utf8");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * Detect the active model, provider type, and fallback state from the current
+ * runtime plugins and subscription status. Mutates `state` in place.
+ */
+async function detectProviderState(state: ServerState): Promise<void> {
+  const configuredModel = resolvePrimaryModel(state.config);
+  const pluginMatch = state.runtime
+    ? state.runtime.plugins.find((p) => {
+        const n = p.name.toLowerCase();
+        return (
+          n.includes("anthropic") ||
+          n.includes("openai") ||
+          n.includes("groq") ||
+          n.includes("elizacloud") ||
+          n.includes("google")
+        );
+      })?.name
+    : undefined;
+  // Fall back to LARGE_MODEL env var which typically contains the model string
+  const envModel = process.env.LARGE_MODEL || undefined;
+  const cloudProxy = state.cloudManager?.getProxy();
+  state.model =
+    configuredModel ??
+    (cloudProxy ? cloudProxy.agentName || "cloud" : undefined) ??
+    envModel ??
+    pluginMatch ??
+    "unknown";
+
+  try {
+    const { getSubscriptionStatus } = await import("../auth/index");
+    const subStatus = getSubscriptionStatus();
+    const hasSubscription = subStatus.some(
+      (s: { configured: boolean }) => s.configured,
+    );
+    const hasValidSubscription = subStatus.some(
+      (s: { valid: boolean }) => s.valid,
+    );
+    const isCloudPlugin = pluginMatch?.includes("elizacloud") ?? false;
+
+    if (cloudProxy) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = hasSubscription && !hasValidSubscription;
+    } else if (hasSubscription && hasValidSubscription && !isCloudPlugin) {
+      state.activeProvider = "subscription";
+      state.fallbackActive = false;
+    } else if (hasSubscription && isCloudPlugin) {
+      state.activeProvider = "cloud";
+      state.fallbackActive = true;
+    } else if (
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.GOOGLE_API_KEY
+    ) {
+      state.activeProvider = "api-key";
+      state.fallbackActive = false;
+    } else {
+      state.activeProvider = "unknown";
+      state.fallbackActive = false;
+    }
+  } catch {
+    state.activeProvider = "unknown";
+    state.fallbackActive = false;
+  }
 }
 
 function isLoopbackBindHost(host: string): boolean {
@@ -5570,7 +5422,7 @@ function serializeForRuntimeDebug(
  * Stores the message as a Memory in the conversation room and broadcasts
  * a `proactive-message` WS event to the frontend.
  */
-export async function routeAutonomyTextToUser(
+async function routeAutonomyTextToUser(
   state: ServerState,
   responseText: string,
   source = "autonomy",
@@ -5596,33 +5448,25 @@ export async function routeAutonomyTextToUser(
   }
   if (!conv) return; // No conversations exist yet
 
-  // Ephemeral sources: broadcast to UI but don't persist to DB.
-  // Coding-agent status updates and coordinator decisions are transient —
-  // they bloat the database without adding long-term value.
-  const ephemeralSources = new Set(["coding-agent", "coordinator", "action"]);
-
-  const messageId = crypto.randomUUID() as UUID;
-
-  if (!ephemeralSources.has(source)) {
-    const agentMessage = createMessageMemory({
-      id: messageId,
-      entityId: runtime.agentId,
-      roomId: conv.roomId,
-      content: {
-        text: normalizedText,
-        source,
-      },
-    });
-    await runtime.createMemory(agentMessage, "messages");
-  }
+  // Store as memory in the conversation's room
+  const agentMessage = createMessageMemory({
+    id: crypto.randomUUID() as UUID,
+    entityId: runtime.agentId,
+    roomId: conv.roomId,
+    content: {
+      text: normalizedText,
+      source,
+    },
+  });
+  await runtime.createMemory(agentMessage, "messages");
   conv.updatedAt = new Date().toISOString();
 
-  // Broadcast to all WS clients (always, even for ephemeral sources)
+  // Broadcast to all WS clients
   state.broadcastWs?.({
     type: "proactive-message",
     conversationId: conv.id,
     message: {
-      id: messageId,
+      id: agentMessage.id ?? `auto-${Date.now()}`,
       role: "assistant",
       text: normalizedText,
       timestamp: Date.now(),
@@ -5649,15 +5493,6 @@ function getCoordinatorFromRuntime(runtime: AgentRuntime): {
       sessionId: string,
       taskContext: TaskContext,
     ) => Promise<CoordinationLLMResponse | null>,
-  ) => void;
-  setSwarmCompleteCallback?: (
-    cb: (payload: {
-      tasks: TaskCompletionSummary[];
-      total: number;
-      completed: number;
-      stopped: number;
-      errored: number;
-    }) => Promise<void>,
   ) => void;
 } | null {
   const coordinator = runtime.getService("SWARM_COORDINATOR");
@@ -5699,104 +5534,6 @@ function wireCodingAgentWsBridge(st: ServerState): boolean {
   return true;
 }
 
-/**
- * Wire the SwarmCoordinator's swarmCompleteCallback so that when all agents
- * finish, we synthesize a summary via the agent's LLM and post it as a
- * persisted message in the conversation.
- */
-function wireCodingAgentSwarmSynthesis(st: ServerState): boolean {
-  if (!st.runtime) return false;
-  const coordinator = getCoordinatorFromRuntime(st.runtime);
-  if (!coordinator?.setSwarmCompleteCallback) return false;
-
-  coordinator.setSwarmCompleteCallback((payload) =>
-    handleSwarmSynthesis(st, payload),
-  );
-  return true;
-}
-
-/**
- * Handle swarm completion by synthesizing a summary via the LLM.
- * Extracted from wireCodingAgentSwarmSynthesis for testability.
- *
- * Paths: (A) LLM returns synthesis → route to user,
- *        (B) LLM returns empty → warn,
- *        (C) LLM throws → fallback generic message.
- */
-export async function handleSwarmSynthesis(
-  st: { runtime: AgentRuntime | null },
-  payload: {
-    tasks: Array<{
-      sessionId: string;
-      label: string;
-      agentType: string;
-      originalTask: string;
-      status: string;
-      completionSummary: string;
-    }>;
-    total: number;
-    completed: number;
-    stopped: number;
-    errored: number;
-  },
-  routeMessage: (text: string, source: string) => Promise<void> = (
-    text,
-    source,
-  ) => routeAutonomyTextToUser(st as ServerState, text, source),
-): Promise<void> {
-  const runtime = st.runtime;
-  if (!runtime) {
-    logger.warn("[swarm-synthesis] No runtime available — skipping synthesis");
-    return;
-  }
-
-  logger.info(
-    `[swarm-synthesis] Generating synthesis for ${payload.total} tasks (${payload.completed} completed, ${payload.stopped} stopped, ${payload.errored} errored)`,
-  );
-
-  const taskLines = payload.tasks
-    .map(
-      (t) =>
-        `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${t.completionSummary || "No summary available"}`,
-    )
-    .join("\n\n");
-
-  const prompt =
-    `You are summarizing the results of a coding agent swarm for the user. ` +
-    `${payload.total} agents were dispatched. ${payload.completed} completed, ` +
-    `${payload.stopped} stopped, ${payload.errored} errored.\n\n` +
-    `Here are the individual task results:\n\n${taskLines}\n\n` +
-    `Write a concise, conversational summary of what was accomplished. ` +
-    `Highlight key outcomes (PRs created, issues found, research results). ` +
-    `If any tasks failed or stopped, mention what went wrong. ` +
-    `Keep your personality — be warm and helpful but brief.`;
-
-  try {
-    const synthesis = await runtime.useModel(ModelType.TEXT_SMALL, {
-      prompt,
-      maxTokens: 2048,
-      temperature: 0.7,
-    });
-
-    if (synthesis?.trim()) {
-      logger.info("[swarm-synthesis] Synthesis generated, routing to user");
-      await routeMessage(synthesis.trim(), "swarm_synthesis");
-    } else {
-      logger.warn("[swarm-synthesis] LLM returned empty synthesis");
-    }
-  } catch (err) {
-    logger.error(`[swarm-synthesis] LLM call failed: ${err}`);
-    const parts: string[] = [];
-    if (payload.completed > 0) parts.push(`${payload.completed} completed`);
-    if (payload.stopped > 0) parts.push(`${payload.stopped} stopped`);
-    if (payload.errored > 0) parts.push(`${payload.errored} errored`);
-    await routeMessage(
-      `All ${payload.total} coding agents finished (${parts.join(", ")}). Review their work when you're ready.`,
-      "coding-agent",
-    );
-  }
-}
-
 // ── Parse Action Block from Milaidy's Response ─────────────────────────
 import { parseActionBlock } from "./parse-action-block";
 
@@ -5805,7 +5542,7 @@ import { parseActionBlock } from "./parse-action-block";
 /**
  * Wire the SwarmCoordinator's agentDecisionCallback so coordinator events
  * (blocked prompts, turn completions) route through Milaidy's full
- * elizaOS pipeline (memory, personality, actions) so she has conversation
+ * ElizaOS pipeline (memory, personality, actions) so she has conversation
  * context to make informed decisions. The pipeline's model size is
  * The pipeline's model size is temporarily overridden to TEXT_SMALL
  * via the private `runtime.llmModeOption` (no public setter exists).
@@ -6347,41 +6084,34 @@ async function handleRequest(
     if (!config.env) config.env = {};
     const envCfg = config.env as Record<string, string>;
 
-    // Helper: disable cloud inference while preserving cloud connection
-    // for RPC and other services.  Does NOT delete cloud.apiKey or
-    // cloud.enabled — only toggles inference off.
-    const disableCloudInference = () => {
-      const cloudCfg = config.cloud as Record<string, unknown>;
-      cloudCfg.inferenceMode = "byok";
-      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
-        cloudCfg.services = {};
+    // Helper: clear cloud config & env vars
+    const clearCloud = () => {
+      (config.cloud as Record<string, unknown>).enabled = false;
+      delete (config.cloud as Record<string, unknown>).apiKey;
+      delete process.env.ELIZAOS_CLOUD_API_KEY;
+      delete process.env.ELIZAOS_CLOUD_ENABLED;
+      delete envCfg.ELIZAOS_CLOUD_API_KEY;
+      delete envCfg.ELIZAOS_CLOUD_ENABLED;
+      // Also clear from runtime character secrets if available
+      if (state.runtime?.character?.secrets) {
+        const secrets = state.runtime.character.secrets as Record<
+          string,
+          unknown
+        >;
+        delete secrets.ELIZAOS_CLOUD_API_KEY;
+        delete secrets.ELIZAOS_CLOUD_ENABLED;
       }
-      (cloudCfg.services as Record<string, unknown>).inference = false;
-      // Clean cloud model env vars so the cloud plugin doesn't intercept
-      // model calls — user's own keys handle models.
-      delete process.env.ELIZAOS_CLOUD_SMALL_MODEL;
-      delete process.env.ELIZAOS_CLOUD_LARGE_MODEL;
-    };
-
-    // Helper: enable cloud inference (switching TO cloud)
-    const enableCloudInference = () => {
-      const cloudCfg = config.cloud as Record<string, unknown>;
-      cloudCfg.inferenceMode = "cloud";
-      if (!cloudCfg.services || typeof cloudCfg.services !== "object") {
-        cloudCfg.services = {};
-      }
-      (cloudCfg.services as Record<string, unknown>).inference = true;
     };
 
     // Helper: clear pi-ai mode
     const clearPiAi = () => {
-      delete process.env.MILADY_USE_PI_AI;
-      delete envCfg.MILADY_USE_PI_AI;
+      delete process.env.MILAIDY_USE_PI_AI;
+      delete envCfg.MILAIDY_USE_PI_AI;
 
       const envRoot = config.env as Record<string, unknown>;
       const vars = envRoot.vars;
       if (vars && typeof vars === "object" && !Array.isArray(vars)) {
-        delete (vars as Record<string, unknown>).MILADY_USE_PI_AI;
+        delete (vars as Record<string, unknown>).MILAIDY_USE_PI_AI;
       }
 
       if (state.runtime?.character?.secrets) {
@@ -6389,7 +6119,7 @@ async function handleRequest(
           string,
           unknown
         >;
-        delete secrets.MILADY_USE_PI_AI;
+        delete secrets.MILAIDY_USE_PI_AI;
       }
     };
 
@@ -6456,14 +6186,14 @@ async function handleRequest(
       }
 
       if (provider === "elizacloud") {
-        // Switching TO elizacloud for inference
+        // Switching TO elizacloud
         clearPiAi();
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
-        enableCloudInference();
-        // Ensure cloud is enabled — the actual API key should already be in
-        // config.cloud.apiKey from the original cloud login.
+        // Restore cloud config — the actual API key should already be in
+        // config.cloud.apiKey from the original cloud login.  If it was
+        // wiped, the user will need to re-login via cloud.
         (config.cloud as Record<string, unknown>).enabled = true;
         if (config.cloud.apiKey) {
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
@@ -6471,11 +6201,11 @@ async function handleRequest(
         }
       } else if (provider === "pi-ai") {
         // Switching TO pi-ai credentials mode
-        disableCloudInference();
+        clearCloud();
         await clearSubscriptions();
         clearOtherApiKeys();
-        process.env.MILADY_USE_PI_AI = "1";
-        envCfg.MILADY_USE_PI_AI = "1";
+        process.env.MILAIDY_USE_PI_AI = "1";
+        envCfg.MILAIDY_USE_PI_AI = "1";
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6484,15 +6214,15 @@ async function handleRequest(
           !Array.isArray(envRoot.vars)
             ? (envRoot.vars as Record<string, unknown>)
             : {};
-        vars.MILADY_USE_PI_AI = "1";
+        vars.MILAIDY_USE_PI_AI = "1";
         envRoot.vars = vars;
       } else if (
         provider === "openai-codex" ||
         provider === "openai-subscription"
       ) {
-        // Switching TO OpenAI subscription — keep cloud for RPC
+        // Switching TO OpenAI subscription
         clearPiAi();
-        disableCloudInference();
+        clearCloud();
         clearOtherApiKeys("OPENAI_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete Anthropic subscription but keep OpenAI
@@ -6516,9 +6246,9 @@ async function handleRequest(
           );
         }
       } else if (provider === "anthropic-subscription") {
-        // Switching TO Anthropic subscription — keep cloud for RPC
+        // Switching TO Anthropic subscription
         clearPiAi();
-        disableCloudInference();
+        clearCloud();
         clearOtherApiKeys("ANTHROPIC_API_KEY");
         applySubscriptionProviderConfig(config, provider);
         // Delete OpenAI subscription but keep Anthropic
@@ -6542,9 +6272,9 @@ async function handleRequest(
           );
         }
       } else if (PROVIDER_ENV_KEYS[provider]) {
-        // Switching TO a direct API key provider — keep cloud for RPC
+        // Switching TO a direct API key provider
         clearPiAi();
-        disableCloudInference();
+        clearCloud();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
         const envKey = PROVIDER_ENV_KEYS[provider];
@@ -6643,60 +6373,10 @@ async function handleRequest(
       uptime,
       startup: state.startup,
       cloud: cloudStatus,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
-    });
-    return;
-  }
-
-  // ── GET /api/health ──────────────────────────────────────────────────────
-  // Structured health check endpoint returning subsystem status.
-  if (method === "GET" && pathname === "/api/health") {
-    const runtime = state.runtime;
-    const uptime = state.startedAt
-      ? Math.floor((Date.now() - state.startedAt) / 1000)
-      : 0;
-
-    const loadedPlugins = state.plugins.filter((p) => p.enabled);
-    const failedPlugins = state.plugins.filter(
-      (p) => !p.enabled && !p.configured,
-    );
-
-    let coordinatorStatus: "ok" | "not_wired" = "not_wired";
-    try {
-      if (runtime?.getService("SWARM_COORDINATOR")) {
-        coordinatorStatus = "ok";
-      }
-    } catch {
-      // not available
-    }
-
-    const connectors: Record<string, string> = state.connectorHealthMonitor
-      ? state.connectorHealthMonitor.getConnectorStatuses()
-      : {};
-    if (Object.keys(connectors).length === 0 && state.config.connectors) {
-      for (const [name, cfg] of Object.entries(state.config.connectors)) {
-        if (
-          cfg &&
-          typeof cfg === "object" &&
-          (cfg as Record<string, unknown>).enabled !== false
-        ) {
-          connectors[name] = "configured";
-        }
-      }
-    }
-
-    json(res, {
-      runtime: runtime ? "ok" : "not_initialized",
-      database: runtime ? "ok" : "unknown",
-      plugins: {
-        loaded: loadedPlugins.length,
-        failed: failedPlugins.length,
-      },
-      coordinator: coordinatorStatus,
-      connectors,
-      uptime,
-      agentState: state.agentState,
     });
     return;
   }
@@ -7021,14 +6701,14 @@ async function handleRequest(
       (envCfg as Record<string, unknown>).vars = vars;
 
       const clearPiAiFlag = () => {
-        delete vars.MILADY_USE_PI_AI;
-        delete (config.env as Record<string, string>).MILADY_USE_PI_AI;
-        delete process.env.MILADY_USE_PI_AI;
+        delete vars.MILAIDY_USE_PI_AI;
+        delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
+        delete process.env.MILAIDY_USE_PI_AI;
       };
 
       if (runMode === "local" && providerId === "pi-ai") {
-        vars.MILADY_USE_PI_AI = "1";
-        process.env.MILADY_USE_PI_AI = "1";
+        vars.MILAIDY_USE_PI_AI = "1";
+        process.env.MILAIDY_USE_PI_AI = "1";
 
         // Optional primary model override (provider/model).
         if (!config.agents) config.agents = {};
@@ -7244,6 +6924,10 @@ async function handleRequest(
       json,
     })
   ) {
+    // Detect provider state after lifecycle changes (start/restart)
+    if (state.agentState === "running") {
+      await detectProviderState(state);
+    }
     return;
   }
 
@@ -7320,7 +7004,6 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
-      onRuntimeSwapped: ctx?.onRuntimeSwapped,
       json,
       error,
       resolveStateDir,
@@ -7404,19 +7087,6 @@ async function handleRequest(
   }
 
   if (
-    await handleNfaRoutes({
-      req,
-      res,
-      method,
-      pathname,
-      json,
-      error,
-    })
-  ) {
-    return;
-  }
-
-  if (
     await handleRegistryRoutes({
       req,
       res,
@@ -7461,7 +7131,6 @@ async function handleRequest(
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
-      const npmPkgName = plugin.npmName;
       const isLoaded =
         loadedNames.length > 0 &&
         loadedNames.some((name) => {
@@ -7469,7 +7138,6 @@ async function handleRequest(
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
-            (npmPkgName != null && name === npmPkgName) ||
             name.endsWith(`/${suffix}`) ||
             name.includes(plugin.id)
           );
@@ -7572,25 +7240,7 @@ async function handleRequest(
     }>(req, res);
     if (!body) return;
 
-    // Search both bundled plugins AND store-installed plugins
-    let plugin = state.plugins.find((p) => p.id === pluginId);
-    if (!plugin) {
-      // Check store-installed plugins from config
-      let freshCfg: MiladyConfig;
-      try {
-        freshCfg = loadMiladyConfig();
-      } catch {
-        freshCfg = state.config;
-      }
-      const bundledIds = new Set(state.plugins.map((p) => p.id));
-      const installed = discoverInstalledPlugins(freshCfg, bundledIds);
-      const found = installed.find((p) => p.id === pluginId);
-      if (found) {
-        // Temporarily add to state.plugins so toggle logic works the same way
-        state.plugins.push(found);
-        plugin = found;
-      }
-    }
+    const plugin = state.plugins.find((p) => p.id === pluginId);
     if (!plugin) {
       error(res, `Plugin "${pluginId}" not found`, 404);
       return;
@@ -7944,28 +7594,6 @@ async function handleRequest(
       if (!result.success) {
         json(res, { ok: false, error: result.error }, 422);
         return;
-      }
-
-      // Auto-enable the newly installed plugin so the runtime loads it after restart.
-      const installedId = (result.pluginName ?? pluginName)
-        .replace(/^@[^/]+\/plugin-/, "")
-        .replace(/^@[^/]+\//, "")
-        .replace(/^plugin-/, "");
-      if (!state.config.plugins) {
-        state.config.plugins = {};
-      }
-      if (!state.config.plugins.entries) {
-        (state.config.plugins as Record<string, unknown>).entries = {};
-      }
-      const pluginEntries = (state.config.plugins as Record<string, unknown>)
-        .entries as Record<string, Record<string, unknown>>;
-      pluginEntries[installedId] = { enabled: true };
-      try {
-        saveMiladyConfig(state.config);
-      } catch (err) {
-        logger.warn(
-          `[milady-api] Failed to save config after install: ${err instanceof Error ? err.message : err}`,
-        );
       }
 
       // If autoRestart is not explicitly false, restart the agent
@@ -10242,104 +9870,6 @@ async function handleRequest(
     return;
   }
 
-  // ── POST /api/avatar/background ──────────────────────────────────────────
-  // Upload a custom background image. Saved to ~/.milady/avatars/custom-background.<ext>.
-  if (method === "POST" && pathname === "/api/avatar/background") {
-    const MAX_BG_BYTES = 10 * 1024 * 1024; // 10 MB
-    const rawBody = await readRequestBodyBuffer(req, {
-      maxBytes: MAX_BG_BYTES,
-      returnNullOnTooLarge: true,
-    });
-    if (!rawBody || rawBody.length === 0) {
-      error(res, "Request body is empty or exceeds 10 MB", 400);
-      return;
-    }
-    // Detect image format from magic bytes
-    let ext = "";
-    if (
-      rawBody[0] === 0x89 &&
-      rawBody[1] === 0x50 &&
-      rawBody[2] === 0x4e &&
-      rawBody[3] === 0x47
-    ) {
-      ext = "png";
-    } else if (rawBody[0] === 0xff && rawBody[1] === 0xd8) {
-      ext = "jpg";
-    } else if (
-      rawBody[0] === 0x52 &&
-      rawBody[1] === 0x49 &&
-      rawBody[2] === 0x46 &&
-      rawBody[3] === 0x46 &&
-      rawBody.length >= 12 &&
-      rawBody[8] === 0x57 &&
-      rawBody[9] === 0x45 &&
-      rawBody[10] === 0x42 &&
-      rawBody[11] === 0x50
-    ) {
-      ext = "webp";
-    } else {
-      error(res, "Invalid image file: expected PNG, JPEG, or WebP", 400);
-      return;
-    }
-    const avatarDir = path.join(resolveStateDir(), "avatars");
-    fs.mkdirSync(avatarDir, { recursive: true });
-    // Remove any previous custom background (may have a different extension)
-    for (const old of ["png", "jpg", "webp"]) {
-      const p = path.join(avatarDir, `custom-background.${old}`);
-      try {
-        fs.unlinkSync(p);
-      } catch {}
-    }
-    const bgPath = path.join(avatarDir, `custom-background.${ext}`);
-    fs.writeFileSync(bgPath, rawBody);
-    json(res, { ok: true, size: rawBody.length });
-    return;
-  }
-
-  // ── GET /api/avatar/background ─────────────────────────────────────────────
-  // Serve the user's custom background image if it exists.
-  if (
-    (method === "GET" || method === "HEAD") &&
-    pathname === "/api/avatar/background"
-  ) {
-    const avatarDir = path.join(resolveStateDir(), "avatars");
-    const MIME: Record<string, string> = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      webp: "image/webp",
-    };
-    let found = "";
-    for (const ext of ["png", "jpg", "webp"]) {
-      const p = path.join(avatarDir, `custom-background.${ext}`);
-      try {
-        if (fs.statSync(p).isFile()) {
-          found = p;
-          break;
-        }
-      } catch {}
-    }
-    if (!found) {
-      error(res, "No custom background found", 404);
-      return;
-    }
-    const stat = fs.statSync(found);
-    const fileExt = path.extname(found).slice(1);
-    const headers: Record<string, string | number> = {
-      "Content-Type": MIME[fileExt] || "application/octet-stream",
-      "Content-Length": stat.size,
-      "Cache-Control": "no-cache",
-    };
-    if (method === "HEAD") {
-      res.writeHead(200, headers);
-      res.end();
-      return;
-    }
-    const body = fs.readFileSync(found);
-    res.writeHead(200, headers);
-    res.end(body);
-    return;
-  }
-
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
     const { buildConfigSchema } = await import("../config/schema");
@@ -10562,93 +10092,6 @@ async function handleRequest(
     return;
   }
 
-  // ── GET /api/permissions/automation-mode ──────────────────────────────
-  // Return agent automation permission mode for self-directed config actions.
-  if (method === "GET" && pathname === "/api/permissions/automation-mode") {
-    const mode = state.agentAutomationMode ?? "full";
-    json(res, {
-      mode,
-      options: ["connectors-only", "full"] as AgentAutomationMode[],
-    });
-    return;
-  }
-
-  // ── PUT /api/permissions/automation-mode ──────────────────────────────
-  // Update agent automation permission mode.
-  if (method === "PUT" && pathname === "/api/permissions/automation-mode") {
-    const body = await readJsonBody<{ mode?: unknown }>(req, res);
-    if (!body) return;
-    const parsed = parseAgentAutomationMode(body.mode);
-    if (!parsed) {
-      error(res, 'Invalid mode. Expected "connectors-only" or "full".', 400);
-      return;
-    }
-
-    persistAgentAutomationMode(state, parsed);
-    saveMiladyConfig(state.config);
-
-    json(res, {
-      mode: parsed,
-      options: ["connectors-only", "full"] as AgentAutomationMode[],
-    });
-    return;
-  }
-
-  // ── GET /api/permissions/trade-mode ────────────────────────────────────
-  // Returns the current trade permission mode (must be before handlePermissionRoutes).
-  if (method === "GET" && pathname === "/api/permissions/trade-mode") {
-    const mode = resolveTradePermissionMode(state.config);
-    json(res, {
-      tradePermissionMode: mode,
-      canUserLocalExecute: canUseLocalTradeExecution(mode, false),
-      canAgentAutoTrade: canUseLocalTradeExecution(mode, true),
-    });
-    return;
-  }
-
-  // ── PUT /api/permissions/trade-mode ────────────────────────────────────
-  // Update the trade permission mode.
-  if (method === "PUT" && pathname === "/api/permissions/trade-mode") {
-    const body = await readJsonBody<{ mode?: string }>(req, res);
-    if (!body) return;
-
-    const newMode = body.mode;
-    if (
-      newMode !== "user-sign-only" &&
-      newMode !== "manual-local-key" &&
-      newMode !== "agent-auto"
-    ) {
-      error(
-        res,
-        'mode must be "user-sign-only", "manual-local-key", or "agent-auto"',
-        400,
-      );
-      return;
-    }
-
-    if (!state.config.features) {
-      state.config.features = {};
-    }
-    (state.config.features as Record<string, unknown>).tradePermissionMode =
-      newMode;
-
-    try {
-      saveMiladyConfig(state.config);
-    } catch (err) {
-      logger.warn(
-        `[api] Trade-mode config save failed: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    json(res, {
-      ok: true,
-      tradePermissionMode: newMode,
-      canUserLocalExecute: canUseLocalTradeExecution(newMode, false),
-      canAgentAutoTrade: canUseLocalTradeExecution(newMode, true),
-    });
-    return;
-  }
-
   if (
     await handlePermissionRoutes({
       req,
@@ -10663,809 +10106,6 @@ async function handleRequest(
       scheduleRuntimeRestart,
     })
   ) {
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Agent self-status route
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/agent/self-status ──────────────────────────────────────────
-  // Returns a snapshot of the agent's current capabilities and status,
-  // used by action handlers (can-i, etc.) to evaluate permissions.
-  if (method === "GET" && pathname === "/api/agent/self-status") {
-    const addrs = getWalletAddresses();
-    const evmAddress = addrs.evmAddress ?? null;
-    const tradePermissionMode = resolveTradePermissionMode(state.config);
-    const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
-    const bscRpcReady = Boolean(
-      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
-        process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
-        process.env.BSC_RPC_URL?.trim(),
-    );
-    const canLocalTrade = canUseLocalTradeExecution(tradePermissionMode, false);
-    const canAgentAutoTrade = canUseLocalTradeExecution(
-      tradePermissionMode,
-      true,
-    );
-    const canTrade = Boolean(evmAddress) && bscRpcReady;
-    const automationMode: "connectors-only" | "full" =
-      (state.config.features as Record<string, unknown> | undefined)
-        ?.automationMode === "full"
-        ? "full"
-        : "connectors-only";
-
-    // Include registry snapshot summary if available
-    let registrySummary: string | null = null;
-    const registry = getGlobalAwarenessRegistry();
-    if (registry && state.runtime) {
-      try {
-        registrySummary = await registry.composeSummary(state.runtime);
-      } catch {
-        // Non-fatal: registry may not be initialized yet
-      }
-    }
-
-    // Resolve model from multiple sources (state.model → config → env)
-    const resolvedModel =
-      state.model ??
-      detectRuntimeModel(state.runtime ?? null, state.config) ??
-      null;
-
-    // Derive provider label from model string
-    const resolvedProvider = resolvedModel
-      ? resolveProviderFromModel(resolvedModel)
-      : null;
-
-    // Gather plugin info from the runtime
-    const pluginNames: string[] = [];
-    const aiProviderNames: string[] = [];
-    const connectorNames: string[] = [];
-    const BROWSER_PLUGIN_IDS = new Set([
-      "browser",
-      "browserbase",
-      "chrome-extension",
-    ]);
-    const COMPUTER_PLUGIN_IDS = new Set(["computeruse", "computer-use"]);
-    let hasBrowserPlugin = false;
-    let hasComputerPlugin = false;
-
-    if (state.runtime && Array.isArray(state.runtime.plugins)) {
-      for (const plugin of state.runtime.plugins) {
-        const name = typeof plugin?.name === "string" ? plugin.name.trim() : "";
-        if (!name) continue;
-        pluginNames.push(name);
-        const lower = name.toLowerCase();
-        if (
-          lower.includes("openai") ||
-          lower.includes("anthropic") ||
-          lower.includes("groq") ||
-          lower.includes("gemini") ||
-          lower.includes("openrouter") ||
-          lower.includes("deepseek") ||
-          lower.includes("ollama")
-        ) {
-          aiProviderNames.push(name);
-        }
-        if (
-          lower.includes("discord") ||
-          lower.includes("telegram") ||
-          lower.includes("twitter") ||
-          lower.includes("slack")
-        ) {
-          connectorNames.push(name);
-        }
-        if (BROWSER_PLUGIN_IDS.has(lower)) hasBrowserPlugin = true;
-        if (COMPUTER_PLUGIN_IDS.has(lower)) hasComputerPlugin = true;
-      }
-    }
-
-    json(res, {
-      generatedAt: new Date().toISOString(),
-      state: state.agentState,
-      agentName: state.agentName,
-      model: resolvedModel,
-      provider: resolvedProvider,
-      automationMode,
-      tradePermissionMode,
-      shellEnabled: state.shellEnabled !== false,
-      wallet: {
-        hasWallet: Boolean(evmAddress || addrs.solanaAddress),
-        hasEvm: Boolean(evmAddress),
-        hasSolana: Boolean(addrs.solanaAddress),
-        evmAddress,
-        evmAddressShort:
-          evmAddress && evmAddress.length >= 12
-            ? `${evmAddress.slice(0, 6)}...${evmAddress.slice(-4)}`
-            : evmAddress,
-        solanaAddress: addrs.solanaAddress ?? null,
-        solanaAddressShort:
-          addrs.solanaAddress && addrs.solanaAddress.length >= 12
-            ? `${addrs.solanaAddress.slice(0, 4)}...${addrs.solanaAddress.slice(-4)}`
-            : (addrs.solanaAddress ?? null),
-        localSignerAvailable: localSigner,
-        managedBscRpcReady: bscRpcReady,
-      },
-      plugins: {
-        totalActive: pluginNames.length,
-        active: pluginNames,
-        aiProviders: aiProviderNames,
-        connectors: connectorNames,
-      },
-      capabilities: {
-        canTrade,
-        canLocalTrade: canTrade && localSigner && canLocalTrade,
-        canAutoTrade: canTrade && localSigner && canAgentAutoTrade,
-        canUseBrowser: hasBrowserPlugin,
-        canUseComputer: hasComputerPlugin,
-        canRunTerminal: state.shellEnabled !== false,
-        canInstallPlugins: true,
-        canConfigurePlugins: true,
-        canConfigureConnectors: true,
-      },
-      ...(registrySummary !== null ? { registrySummary } : {}),
-    });
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Privy wallet routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/privy/status ───────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/privy/status") {
-    const enabled = isPrivyWalletProvisioningEnabled();
-    json(res, { enabled, configured: enabled });
-    return;
-  }
-
-  // ── POST /api/privy/login ───────────────────────────────────────────────
-  // Provisions Privy wallets for a custom user ID (agent identifier).
-  if (method === "POST" && pathname === "/api/privy/login") {
-    if (!isPrivyWalletProvisioningEnabled()) {
-      error(res, "Privy wallet provisioning is not configured.", 503);
-      return;
-    }
-    const body = await readJsonBody<{ userId?: string }>(req, res);
-    if (!body) return;
-
-    const userId = (body.userId ?? "").trim();
-    if (!userId) {
-      error(res, "userId is required", 400);
-      return;
-    }
-
-    try {
-      const result = await ensurePrivyWalletsForCustomUser(userId);
-      json(res, { ok: true, ...result });
-    } catch (err) {
-      logger.error(
-        `[api] Privy login failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Privy login failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/privy/logout ──────────────────────────────────────────────
-  if (method === "POST" && pathname === "/api/privy/logout") {
-    // No-op for server-side managed wallets; Privy sessions are stateless.
-    json(res, { ok: true });
-    return;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Subscription status route
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── GET /api/subscription/status (direct handler fallback) ─────────────
-  // Note: subscription-routes.ts handles /api/subscription/* but this is
-  // kept here in case the prefix routing is not active.
-  // (handleSubscriptionRoutes already covers this, so no duplicate needed.)
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // BSC trade routes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // ── POST /api/wallet/trade/preflight ───────────────────────────────────
-  // Check BSC trade readiness (wallet, RPC, chain, gas).
-  if (method === "POST" && pathname === "/api/wallet/trade/preflight") {
-    const body = await readJsonBody<{ tokenAddress?: string }>(req, res);
-    if (!body) return;
-
-    const addrs = getWalletAddresses();
-    try {
-      const result = await buildBscTradePreflight({
-        walletAddress: addrs.evmAddress ?? null,
-        tokenAddress: body.tokenAddress,
-        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-      });
-      json(res, result);
-    } catch (err) {
-      logger.error(
-        `[api] BSC trade preflight failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Trade preflight failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/wallet/trade/quote ────────────────────────────────────────
-  // Produce a BSC trade quote (unsigned transaction data).
-  if (method === "POST" && pathname === "/api/wallet/trade/quote") {
-    const body = await readJsonBody<{
-      side?: string;
-      tokenAddress?: string;
-      amount?: string;
-      slippageBps?: number;
-    }>(req, res);
-    if (!body) return;
-
-    if (!body.side || !body.tokenAddress || !body.amount) {
-      error(res, "side, tokenAddress, and amount are required", 400);
-      return;
-    }
-
-    const addrs = getWalletAddresses();
-    try {
-      const result = await buildBscTradeQuote({
-        walletAddress: addrs.evmAddress ?? null,
-        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-        request: {
-          side: body.side as "buy" | "sell",
-          tokenAddress: body.tokenAddress,
-          amount: body.amount,
-          slippageBps: body.slippageBps,
-        },
-      });
-      json(res, result);
-    } catch (err) {
-      logger.error(
-        `[api] BSC trade quote failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Trade quote failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/wallet/trade/execute ─────────────────────────────────────
-  // Execute or prepare a BSC trade. In "user-sign-only" mode, returns an
-  // unsigned transaction for the user to sign. In local-key modes, executes
-  // using the server-side EVM private key.
-  if (method === "POST" && pathname === "/api/wallet/trade/execute") {
-    const body = await readJsonBody<{
-      side?: string;
-      tokenAddress?: string;
-      amount?: string;
-      slippageBps?: number;
-      deadlineSeconds?: number;
-      confirm?: boolean;
-      source?: "agent" | "manual";
-    }>(req, res);
-    if (!body) return;
-
-    if (!body.side || !body.tokenAddress || !body.amount) {
-      error(res, "side, tokenAddress, and amount are required", 400);
-      return;
-    }
-
-    const tradePermissionMode = resolveTradePermissionMode(state.config);
-    const isAgentRequest = isAgentAutomationRequest(req);
-    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
-    const canExecuteLocally = canUseLocalTradeExecution(
-      tradePermissionMode,
-      isAgentRequest,
-    );
-    const addrs = getWalletAddresses();
-
-    try {
-      const quote = await buildBscTradeQuote({
-        walletAddress: addrs.evmAddress ?? null,
-        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-        request: {
-          side: body.side as "buy" | "sell",
-          tokenAddress: body.tokenAddress,
-          amount: body.amount,
-          slippageBps: body.slippageBps,
-        },
-      });
-
-      const walletAddress = addrs.evmAddress ?? null;
-
-      // Build the unsigned trade transaction
-      const unsignedTx =
-        quote.side === "buy"
-          ? buildBscBuyUnsignedTx(quote, walletAddress, body.deadlineSeconds)
-          : buildBscSellUnsignedTx(quote, walletAddress, body.deadlineSeconds);
-
-      // Build approval tx for sell (if needed)
-      let unsignedApprovalTx:
-        | import("../contracts/wallet").BscUnsignedApprovalTx
-        | undefined;
-      let requiresApproval = false;
-      if (quote.side === "sell" && walletAddress) {
-        unsignedApprovalTx = buildBscApproveUnsignedTx(
-          quote.tokenAddress,
-          walletAddress,
-          quote.routerAddress,
-          quote.quoteIn.amountWei,
-        );
-        requiresApproval = true;
-      }
-
-      // If local execution is not permitted or no private key, return unsigned tx
-      if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
-        json(res, {
-          ok: true,
-          side: quote.side,
-          mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
-          quote,
-          executed: false,
-          requiresUserSignature: true,
-          unsignedTx,
-          unsignedApprovalTx,
-          requiresApproval,
-        });
-        return;
-      }
-
-      // Execute locally with EVM private key
-      const rpcUrl = resolvePrimaryBscRpcUrl({
-        nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-        quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-      });
-
-      if (!rpcUrl) {
-        error(res, "BSC RPC not configured for local execution.", 503);
-        return;
-      }
-
-      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const wallet = new ethers.Wallet(
-        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
-        provider,
-      );
-
-      const nonce = await provider.getTransactionCount(
-        wallet.address,
-        "pending",
-      );
-
-      // Execute approval first if needed
-      let approvalHash: string | undefined;
-      if (requiresApproval && unsignedApprovalTx) {
-        const approvalTxReq: ethers.TransactionRequest = {
-          to: unsignedApprovalTx.to,
-          data: unsignedApprovalTx.data,
-          value: BigInt(unsignedApprovalTx.valueWei),
-          chainId: unsignedApprovalTx.chainId,
-          nonce,
-        };
-        const approvalResponse = await wallet.sendTransaction(approvalTxReq);
-        approvalHash = approvalResponse.hash;
-        // Wait for approval to be mined before submitting trade
-        await approvalResponse.wait(1);
-      }
-
-      const tradeTxReq: ethers.TransactionRequest = {
-        to: unsignedTx.to,
-        data: unsignedTx.data,
-        value: BigInt(unsignedTx.valueWei),
-        chainId: unsignedTx.chainId,
-        nonce: requiresApproval ? nonce + 1 : nonce,
-      };
-
-      const tradeTxResponse = await wallet.sendTransaction(tradeTxReq);
-      const tradeNonce = requiresApproval ? nonce + 1 : nonce;
-
-      const executionResult = {
-        hash: tradeTxResponse.hash,
-        nonce: tradeNonce,
-        gasLimit: tradeTxResponse.gasLimit?.toString() ?? "0",
-        valueWei: unsignedTx.valueWei,
-        explorerUrl: `https://bscscan.com/tx/${tradeTxResponse.hash}`,
-        blockNumber: null as number | null,
-        status: "pending" as "pending" | "success",
-        approvalHash,
-      };
-
-      // Record in ledger
-      const source = body.source ?? "manual";
-      try {
-        recordWalletTradeLedgerEntry({
-          hash: tradeTxResponse.hash,
-          source,
-          side: quote.side,
-          tokenAddress: quote.tokenAddress,
-          slippageBps: quote.slippageBps,
-          route: quote.route,
-          quoteIn: {
-            symbol: quote.quoteIn.symbol,
-            amount: quote.quoteIn.amount,
-            amountWei: quote.quoteIn.amountWei,
-          },
-          quoteOut: {
-            symbol: quote.quoteOut.symbol,
-            amount: quote.quoteOut.amount,
-            amountWei: quote.quoteOut.amountWei,
-          },
-          status: "pending",
-          confirmations: 0,
-          nonce: tradeNonce,
-          blockNumber: null,
-          gasUsed: null,
-          effectiveGasPriceWei: null,
-          explorerUrl: executionResult.explorerUrl,
-        });
-      } catch (ledgerErr) {
-        logger.warn(
-          `[api] Failed to record trade ledger entry: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
-        );
-      }
-
-      provider.destroy();
-
-      json(res, {
-        ok: true,
-        side: quote.side,
-        mode: "local-key",
-        quote,
-        executed: true,
-        requiresUserSignature: false,
-        unsignedTx,
-        unsignedApprovalTx,
-        requiresApproval,
-        execution: executionResult,
-      });
-    } catch (err) {
-      logger.error(
-        `[api] BSC trade execute failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Trade execution failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/wallet/trade/tx-status ────────────────────────────────────
-  // Check the on-chain status of a BSC transaction by hash.
-  if (method === "GET" && pathname === "/api/wallet/trade/tx-status") {
-    const hash = url.searchParams.get("hash");
-    if (!hash?.trim()) {
-      error(res, "hash query parameter is required", 400);
-      return;
-    }
-
-    const rpcUrl = resolvePrimaryBscRpcUrl({
-      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-    });
-
-    if (!rpcUrl) {
-      error(res, "BSC RPC not configured.", 503);
-      return;
-    }
-
-    try {
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const receipt = await provider.getTransactionReceipt(hash);
-
-      let txStatus: "pending" | "success" | "reverted" | "not_found";
-      let blockNumber: number | null = null;
-      let gasUsed: string | null = null;
-      let effectiveGasPriceWei: string | null = null;
-      let confirmations = 0;
-      let nonce: number | null = null;
-
-      if (!receipt) {
-        // Check if tx is in mempool
-        const tx = await provider.getTransaction(hash);
-        txStatus = tx ? "pending" : "not_found";
-        if (tx) nonce = tx.nonce;
-      } else {
-        txStatus = receipt.status === 1 ? "success" : "reverted";
-        blockNumber = receipt.blockNumber ?? null;
-        gasUsed = receipt.gasUsed?.toString() ?? null;
-        effectiveGasPriceWei = receipt.gasPrice?.toString() ?? null;
-        const currentBlock = await provider.getBlockNumber();
-        confirmations =
-          blockNumber !== null ? Math.max(0, currentBlock - blockNumber) : 0;
-        const tx = await provider.getTransaction(hash);
-        if (tx) nonce = tx.nonce;
-      }
-
-      // Update ledger if we have a definitive status
-      if (txStatus === "success" || txStatus === "reverted") {
-        try {
-          updateWalletTradeLedgerEntryStatus(hash, {
-            status: txStatus,
-            confirmations,
-            nonce,
-            blockNumber,
-            gasUsed,
-            effectiveGasPriceWei,
-            explorerUrl: `https://bscscan.com/tx/${hash}`,
-          });
-        } catch (ledgerErr) {
-          logger.warn(
-            `[api] Failed to update trade ledger: ${ledgerErr instanceof Error ? ledgerErr.message : ledgerErr}`,
-          );
-        }
-      }
-
-      provider.destroy();
-
-      json(res, {
-        ok: true,
-        hash,
-        status: txStatus,
-        explorerUrl: `https://bscscan.com/tx/${hash}`,
-        chainId: 56,
-        blockNumber,
-        confirmations,
-        nonce,
-        gasUsed,
-        effectiveGasPriceWei,
-      });
-    } catch (err) {
-      logger.error(
-        `[api] BSC tx-status failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `TX status check failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── GET /api/wallet/trading/profile ────────────────────────────────────
-  // Returns trading P&L profile from the local ledger.
-  if (method === "GET" && pathname === "/api/wallet/trading/profile") {
-    const windowParam = url.searchParams.get("window");
-    const sourceParam = url.searchParams.get("source");
-
-    const window =
-      windowParam === "7d" || windowParam === "30d" || windowParam === "all"
-        ? windowParam
-        : "30d";
-    const source =
-      sourceParam === "agent" ||
-      sourceParam === "manual" ||
-      sourceParam === "all"
-        ? sourceParam
-        : "all";
-
-    try {
-      const profile = loadWalletTradingProfile({ window, source });
-      json(res, profile);
-    } catch (err) {
-      logger.error(
-        `[api] Wallet trading profile failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Trading profile fetch failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/wallet/transfer/execute ──────────────────────────────────
-  // Execute or prepare a BNB/ERC-20 token transfer.
-  if (method === "POST" && pathname === "/api/wallet/transfer/execute") {
-    const body = await readJsonBody<{
-      toAddress?: string;
-      amount?: string;
-      assetSymbol?: string;
-      tokenAddress?: string;
-      confirm?: boolean;
-    }>(req, res);
-    if (!body) return;
-
-    if (
-      !body.toAddress?.trim() ||
-      !body.amount?.trim() ||
-      !body.assetSymbol?.trim()
-    ) {
-      error(res, "toAddress, amount, and assetSymbol are required", 400);
-      return;
-    }
-
-    const tradePermissionMode = resolveTradePermissionMode(state.config);
-    const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
-    const canExecuteLocally = canUseLocalTradeExecution(
-      tradePermissionMode,
-      false,
-    );
-    const addrs = getWalletAddresses();
-
-    let toAddress: string;
-    try {
-      toAddress = ethers.getAddress(body.toAddress.trim());
-    } catch {
-      error(res, "Invalid toAddress — must be a valid EVM address", 400);
-      return;
-    }
-
-    const isBnb = body.assetSymbol.toUpperCase() === "BNB";
-
-    // Fetch actual token decimals to avoid wrong amounts for USDC (6), USDT (6), etc.
-    let decimals = 18;
-    if (body.tokenAddress) {
-      try {
-        const tokenContract = new ethers.Contract(
-          body.tokenAddress,
-          ["function decimals() view returns (uint8)"],
-          new ethers.JsonRpcProvider(
-            resolvePrimaryBscRpcUrl({
-              nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-              quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-            }) ?? "https://bsc-dataseed1.binance.org/",
-          ),
-        );
-        decimals = Number(await tokenContract.decimals());
-      } catch {
-        // Fallback to 18 if decimals call fails
-      }
-    }
-
-    // Build unsigned transfer tx for user-sign mode
-    const unsignedTx = {
-      chainId: 56,
-      from: addrs.evmAddress ?? null,
-      to: isBnb ? toAddress : (body.tokenAddress ?? toAddress),
-      data: isBnb
-        ? "0x"
-        : (() => {
-            const iface = new ethers.Interface([
-              "function transfer(address to, uint256 amount) returns (bool)",
-            ]);
-            return iface.encodeFunctionData("transfer", [
-              toAddress,
-              ethers.parseUnits(body.amount?.trim(), decimals),
-            ]);
-          })(),
-      valueWei: isBnb ? ethers.parseEther(body.amount.trim()).toString() : "0",
-      explorerUrl: "https://bscscan.com",
-      assetSymbol: body.assetSymbol,
-      amount: body.amount.trim(),
-      tokenAddress: body.tokenAddress,
-    };
-
-    if (!hasLocalKey || !canExecuteLocally || body.confirm !== true) {
-      json(res, {
-        ok: true,
-        mode: hasLocalKey && canExecuteLocally ? "local-key" : "user-sign",
-        executed: false,
-        requiresUserSignature: true,
-        toAddress,
-        amount: body.amount.trim(),
-        assetSymbol: body.assetSymbol,
-        tokenAddress: body.tokenAddress,
-        unsignedTx,
-      });
-      return;
-    }
-
-    // Execute locally
-    const rpcUrl = resolvePrimaryBscRpcUrl({
-      nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-      quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-    });
-
-    if (!rpcUrl) {
-      error(res, "BSC RPC not configured for local execution.", 503);
-      return;
-    }
-
-    try {
-      const evmKey = process.env.EVM_PRIVATE_KEY ?? "";
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const wallet = new ethers.Wallet(
-        evmKey.startsWith("0x") ? evmKey : `0x${evmKey}`,
-        provider,
-      );
-
-      const txReq: ethers.TransactionRequest = {
-        to: unsignedTx.to,
-        data: unsignedTx.data,
-        value: BigInt(unsignedTx.valueWei),
-        chainId: unsignedTx.chainId,
-      };
-
-      const txResponse = await wallet.sendTransaction(txReq);
-      const nonce = txResponse.nonce;
-
-      provider.destroy();
-
-      json(res, {
-        ok: true,
-        mode: "local-key",
-        executed: true,
-        requiresUserSignature: false,
-        toAddress,
-        amount: body.amount.trim(),
-        assetSymbol: body.assetSymbol,
-        tokenAddress: body.tokenAddress,
-        unsignedTx,
-        execution: {
-          hash: txResponse.hash,
-          nonce,
-          gasLimit: txResponse.gasLimit?.toString() ?? "0",
-          valueWei: unsignedTx.valueWei,
-          explorerUrl: `https://bscscan.com/tx/${txResponse.hash}`,
-          blockNumber: null,
-          status: "pending",
-        },
-      });
-    } catch (err) {
-      logger.error(
-        `[api] Transfer execute failed: ${err instanceof Error ? err.message : err}`,
-      );
-      error(
-        res,
-        `Transfer failed: ${err instanceof Error ? err.message : "unknown error"}`,
-        500,
-      );
-    }
-    return;
-  }
-
-  // ── POST /api/wallet/production-defaults ───────────────────────────────
-  // Apply opinionated production wallet configuration defaults.
-  // Sets sensible BSC RPC and trade permission defaults when not already
-  // configured.
-  if (method === "POST" && pathname === "/api/wallet/production-defaults") {
-    const changed: string[] = [];
-
-    if (!state.config.features) {
-      state.config.features = {};
-    }
-    const features = state.config.features as Record<string, unknown>;
-
-    // Default trade permission mode: user-sign-only (safe default)
-    if (!features.tradePermissionMode) {
-      features.tradePermissionMode = "user-sign-only";
-      changed.push("tradePermissionMode=user-sign-only");
-    }
-
-    if (changed.length > 0) {
-      try {
-        saveMiladyConfig(state.config);
-      } catch (err) {
-        logger.warn(
-          `[api] production-defaults config save failed: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-    }
-
-    json(res, {
-      ok: true,
-      applied: changed,
-      tradePermissionMode: resolveTradePermissionMode(state.config),
-    });
     return;
   }
 
@@ -11549,51 +10189,6 @@ async function handleRequest(
     }
     if (needsUpdate) {
       await runtime.updateWorld(world);
-    }
-  };
-
-  const markConversationDeleted = (conversationId: string): void => {
-    const normalizedId = conversationId.trim();
-    if (!normalizedId) return;
-    if (state.deletedConversationIds.has(normalizedId)) return;
-
-    state.deletedConversationIds.add(normalizedId);
-    while (state.deletedConversationIds.size > MAX_DELETED_CONVERSATION_IDS) {
-      const oldest = state.deletedConversationIds.values().next().value;
-      if (!oldest) break;
-      state.deletedConversationIds.delete(oldest);
-    }
-
-    try {
-      persistDeletedConversationIdsToState(state.deletedConversationIds);
-    } catch (err) {
-      logger.warn(
-        `[conversations] Failed to persist deleted conversation tombstones: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  };
-
-  const deleteConversationRoomData = async (
-    runtime: AgentRuntime,
-    roomId: UUID,
-  ): Promise<void> => {
-    const runtimeWithDelete = runtime as AgentRuntime & {
-      deleteRoom?: (id: UUID) => Promise<unknown>;
-      adapter?: {
-        db?: {
-          deleteRoom?: (id: UUID) => Promise<unknown>;
-        };
-      };
-    };
-
-    if (typeof runtimeWithDelete.deleteRoom === "function") {
-      await runtimeWithDelete.deleteRoom(roomId);
-      return;
-    }
-
-    const dbDeleteRoom = runtimeWithDelete.adapter?.db?.deleteRoom;
-    if (typeof dbDeleteRoom === "function") {
-      await dbDeleteRoom.call(runtimeWithDelete.adapter?.db, roomId);
     }
   };
 
@@ -12270,12 +10865,10 @@ async function handleRequest(
 
   // ── GET /api/conversations ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/conversations") {
-    const convos = Array.from(state.conversations.values())
-      .filter((c) => !state.deletedConversationIds.has(c.id))
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      );
+    const convos = Array.from(state.conversations.values()).sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
     json(res, { conversations: convos });
     return;
   }
@@ -12457,11 +11050,10 @@ async function handleRequest(
           turnStartedAt,
         );
         conv.updatedAt = new Date().toISOString();
-        writeSseJson(res, {
+        writeSse(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
-          ...(result.usage ? { estimatedUsage: result.usage } : {}),
         });
 
         // Background chat renaming
@@ -12730,18 +11322,199 @@ async function handleRequest(
     !pathname.endsWith("/messages")
   ) {
     const convId = decodeURIComponent(pathname.split("/")[3]);
-    const conv = state.conversations.get(convId);
-    if (conv?.roomId && state.runtime) {
+    state.conversations.delete(convId);
+    json(res, { ok: true });
+    return;
+  }
+
+  // ── GET /api/debug/context — Expose action & context info for benchmarking
+  if (method === "GET" && pathname === "/api/debug/context") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const rt = state.runtime;
+    const actions = rt.actions || [];
+    const actionDetails = actions.map((a) => ({
+      name: a.name,
+      descriptionLength: (a.description || "").length,
+      parameterCount: Array.isArray(a.parameters) ? a.parameters.length : 0,
+      exampleCount: Array.isArray(a.examples) ? a.examples.length : 0,
+      similes: Array.isArray((a as unknown as { similes?: string[] }).similes)
+        ? (a as unknown as { similes?: string[] }).similes
+        : [],
+    }));
+    const providers = rt.providers || [];
+    const plugins = rt.plugins || [];
+
+    // Measure real provider output sizes via composeState
+    let providerSizes: Record<string, number> = {};
+    let totalStateChars = 0;
+    try {
+      const fakeMessage = {
+        id: stringToUuid("benchmark"),
+        entityId: rt.agentId,
+        roomId: stringToUuid("benchmark-room"),
+        content: { text: "benchmark" },
+        createdAt: Date.now(),
+      };
+      const composedState = await rt.composeState(fakeMessage);
+      // Measure each value in state.values (provider outputs are strings)
+      if (composedState?.values) {
+        for (const [key, val] of Object.entries(composedState.values)) {
+          const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+          providerSizes[key] = str.length;
+          totalStateChars += str.length;
+        }
+      }
+    } catch (err) {
+      providerSizes = { error: String(err).length };
+    }
+
+    json(res, {
+      actionCount: actions.length,
+      actions: actionDetails,
+      providerCount: providers.length,
+      providers: providers.map((p: { name: string }) => p.name),
+      pluginCount: plugins.length,
+      plugins: plugins.map((p: { name: string }) => p.name),
+      providerOutputSizes: providerSizes,
+      totalStateChars,
+    });
+    return;
+  }
+
+  // ── POST /api/debug/prompt-preview — Show the full composed state for a message
+  // Returns the exact provider outputs the LLM would see, including formatted actions.
+  if (method === "POST" && pathname === "/api/debug/prompt-preview") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("prompt-preview"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("prompt-preview-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    try {
+      const composedState = await rt.composeState(fakeMessage);
+      // Extract state values — these are the template variables available to the prompt
+      const values = composedState?.values ?? {};
+      // Separate the key sections for readability
+      const sections: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(values)) {
+        const str = typeof val === "string" ? val : JSON.stringify(val ?? "");
+        sections[key] = {
+          chars: str.length,
+          tokens: Math.round(str.length / 4),
+          content: str,
+        };
+      }
+      // Also include the character system prompt (sent as separate system message)
+      const systemPrompt = rt.character?.system ?? "(none)";
+      json(res, {
+        text,
+        systemPrompt,
+        sectionCount: Object.keys(sections).length,
+        sections,
+        totalChars: Object.values(values).reduce(
+          (sum: number, v) =>
+            sum +
+            (typeof v === "string" ? v.length : JSON.stringify(v ?? "").length),
+          0 as number,
+        ),
+      });
+    } catch (err) {
+      error(res, `composeState failed: ${String(err)}`, 500);
+    }
+    return;
+  }
+
+  // ── POST /api/debug/validate-actions — Check which actions pass validate() for a message
+  if (method === "POST" && pathname === "/api/debug/validate-actions") {
+    if (!state.runtime) {
+      error(res, "Runtime not available", 503);
+      return;
+    }
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { text?: string };
+    const text = body?.text;
+    if (!text) {
+      error(res, "Missing 'text' field", 400);
+      return;
+    }
+    const rt = state.runtime;
+    const fakeMessage = {
+      id: stringToUuid("validate-test"),
+      entityId: rt.agentId,
+      roomId: stringToUuid("validate-test-room"),
+      content: { text },
+      createdAt: Date.now(),
+    };
+    const results: { name: string; valid: boolean; error?: string }[] = [];
+    for (const action of rt.actions || []) {
       try {
-        await deleteConversationRoomData(state.runtime, conv.roomId);
+        const valid = await (
+          action as {
+            validate: (r: unknown, m: unknown, s: unknown) => Promise<boolean>;
+          }
+        ).validate(rt, fakeMessage, {});
+        results.push({ name: action.name, valid: !!valid });
       } catch (err) {
-        logger.debug(
-          `[conversations] Failed to delete room data for ${convId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        results.push({
+          name: action.name,
+          valid: false,
+          error: String(err),
+        });
       }
     }
-    state.conversations.delete(convId);
-    markConversationDeleted(convId);
+    const passed = results.filter((r) => r.valid).map((r) => r.name);
+    const failed = results.filter((r) => !r.valid).map((r) => r.name);
+    json(res, {
+      text,
+      passedCount: passed.length,
+      passed,
+      failedCount: failed.length,
+      failed,
+    });
+    return;
+  }
+
+  // ── GET /api/debug/action-log — Return in-memory action log
+  if (method === "GET" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    json(res, { entries: actionLog, count: actionLog.length });
+    return;
+  }
+
+  // ── DELETE /api/debug/action-log — Clear in-memory action log
+  if (method === "DELETE" && pathname === "/api/debug/action-log") {
+    if (process.env.MILAIDY_DEBUG_ACTIONS !== "1") {
+      error(
+        res,
+        "Action debug logging not enabled (set MILAIDY_DEBUG_ACTIONS=1)",
+        403,
+      );
+      return;
+    }
+    clearActionLog();
     json(res, { ok: true });
     return;
   }
@@ -12818,11 +11591,10 @@ async function handleRequest(
       );
 
       if (!aborted) {
-        writeSseJson(res, {
+        writeSse(res, {
           type: "done",
           fullText: result.text,
           agentName: result.agentName,
-          ...(result.usage ? { estimatedUsage: result.usage } : {}),
         });
       }
     } catch (err) {
@@ -12852,7 +11624,7 @@ async function handleRequest(
   }
 
   // ── POST /api/chat (legacy — routes to default conversation) ───────
-  // Routes messages through the full elizaOS message pipeline so the agent
+  // Routes messages through the full ElizaOS message pipeline so the agent
   // has conversation memory, context, and always responds (DM + client_chat
   // bypass the shouldRespond LLM evaluation).
   //
@@ -14033,7 +12805,7 @@ async function handleRequest(
     state.broadcastWs?.({
       type: "emote",
       emoteId: emote.id,
-      path: emote.path,
+      glbPath: emote.glbPath,
       duration: emote.duration,
       loop: emote.loop,
     });
@@ -14575,7 +13347,7 @@ async function handleRequest(
   // connectorRouteHandlers below). Endpoints: /api/stream/*
 
   // ── LTCG Autonomy routes ─────────────────────────────────────────────
-  // The LTCG plugin registers these as elizaOS plugin routes, but Milady's
+  // The LTCG plugin registers these as ElizaOS plugin routes, but Milady's
   // server doesn't dispatch plugin routes. Wire them up directly here.
   if (pathname.startsWith("/api/ltcg/autonomy")) {
     try {
@@ -14747,16 +13519,14 @@ export async function startApiServer(opts?: {
       config.ui?.assistant?.name ??
       "Milady");
 
-  const deletedConversationIds = readDeletedConversationIdsFromState();
-
   const state: ServerState = {
     runtime: opts?.runtime ?? null,
     config,
     agentState: initialAgentState,
     agentName,
-    model: hasRuntime
-      ? detectRuntimeModel(opts.runtime ?? null, config)
-      : undefined,
+    model: hasRuntime ? detectRuntimeModel(opts.runtime ?? null) : undefined,
+    activeProvider: "unknown",
+    fallbackActive: false,
     startedAt:
       hasRuntime || initialAgentState === "starting" ? Date.now() : undefined,
     startup: initialStartup,
@@ -14772,7 +13542,6 @@ export async function startApiServer(opts?: {
     chatConnectionPromise: null,
     adminEntityId: null,
     conversations: new Map(),
-    deletedConversationIds,
     cloudManager: null,
     sandboxManager: null,
     appManager: new AppManager(),
@@ -14786,11 +13555,8 @@ export async function startApiServer(opts?: {
     activeConversationId: null,
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
-    agentAutomationMode: resolveAgentAutomationModeFromConfig(config),
-    tradePermissionMode: resolveTradePermissionMode(config),
     pendingRestartReasons: [],
     connectorRouteHandlers: [],
-    connectorHealthMonitor: null,
   };
 
   // Closure-captured refs for auto-TTS triggering in the event pipeline.
@@ -15006,20 +13772,7 @@ export async function startApiServer(opts?: {
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, {
-        onRestart,
-        onRuntimeSwapped: () => {
-          bindRuntimeStreams(state.runtime);
-          void wireCoordinatorBridgesWhenReady(state, {
-            wireChatBridge: wireCodingAgentChatBridge,
-            wireWsBridge: wireCodingAgentWsBridge,
-            wireEventRouting: wireCoordinatorEventRouting,
-            wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
-            context: "restart",
-            logger,
-          });
-        },
-      });
+      await handleRequest(req, res, state, { onRestart });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -15236,16 +13989,6 @@ export async function startApiServer(opts?: {
       }
     })();
 
-    // ── Connector health monitoring ──────────────────────────────────────────
-    if (state.runtime && state.config.connectors) {
-      state.connectorHealthMonitor = new ConnectorHealthMonitor({
-        runtime: state.runtime,
-        config: state.config,
-        broadcastWs,
-      });
-      state.connectorHealthMonitor.start();
-    }
-
     // ── Dynamic streaming + connector route loading ────────────────────────
     // Always register generic stream routes. If a streaming destination is
     // configured, inject it so /api/stream/live can fetch credentials.
@@ -15268,28 +14011,21 @@ export async function startApiServer(opts?: {
             }
           | undefined;
 
-        // Build destination registry — all configured destinations
-        const connectors = state.config.connectors ?? {};
-        const streaming = (state.config as Record<string, unknown>).streaming as
-          | Record<string, unknown>
+        // Determine active streaming destination
+        let destination:
+          | import("./stream-routes.js").StreamingDestination
           | undefined;
-        const destinations = new Map<
-          string,
-          import("./stream-routes.js").StreamingDestination
-        >();
 
-        // Retake (API-driven, full integration)
+        // Check connectors.retake (primary retake config location)
+        const connectors = state.config.connectors ?? {};
         if (isConnectorConfigured("retake", connectors.retake)) {
           try {
             const retakeMod = "@milady/plugin-retake";
             const { createRetakeDestination } = await import(retakeMod);
-            destinations.set(
-              "retake",
-              createRetakeDestination(
-                connectors.retake as
-                  | { accessToken?: string; apiUrl?: string }
-                  | undefined,
-              ),
+            destination = createRetakeDestination(
+              connectors.retake as
+                | { accessToken?: string; apiUrl?: string }
+                | undefined,
             );
           } catch (err) {
             logger.warn(
@@ -15298,108 +14034,75 @@ export async function startApiServer(opts?: {
           }
         }
 
-        // Custom RTMP
+        // Check streaming.customRtmp
+        const streaming = (state.config as Record<string, unknown>).streaming as
+          | Record<string, unknown>
+          | undefined;
         if (
-          isStreamingDestinationConfigured("customRtmp", streaming?.customRtmp)
+          !destination &&
+          streaming?.customRtmp &&
+          typeof streaming.customRtmp === "object"
         ) {
-          try {
-            const { createCustomRtmpDestination } = await import(
-              "../plugins/custom-rtmp/index.js"
-            );
-            destinations.set(
-              "custom-rtmp",
-              createCustomRtmpDestination(
-                streaming?.customRtmp as {
-                  rtmpUrl?: string;
-                  rtmpKey?: string;
-                },
-              ),
-            );
-          } catch (err) {
-            logger.warn(
-              `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
-            );
+          const rtmpConfig = streaming.customRtmp as Record<string, unknown>;
+          if (rtmpConfig.rtmpUrl && rtmpConfig.rtmpKey) {
+            try {
+              const { createCustomRtmpDestination } = await import(
+                "../plugins/custom-rtmp/index.js"
+              );
+              destination = createCustomRtmpDestination(
+                rtmpConfig as { rtmpUrl?: string; rtmpKey?: string },
+              );
+            } catch (err) {
+              logger.warn(
+                `[milady-api] Failed to load custom-rtmp destination: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
           }
         }
 
-        // Twitch
-        if (isStreamingDestinationConfigured("twitch", streaming?.twitch)) {
-          try {
-            const twitchMod = "@milady/plugin-twitch-streaming";
-            const { createTwitchDestination } = await import(twitchMod);
-            destinations.set(
-              "twitch",
-              createTwitchDestination(
-                streaming?.twitch as { streamKey?: string },
-              ),
-            );
-          } catch (err) {
-            logger.warn(
-              `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
-            );
+        // Check streaming.twitch
+        if (
+          !destination &&
+          streaming?.twitch &&
+          typeof streaming.twitch === "object"
+        ) {
+          const twitchConfig = streaming.twitch as Record<string, unknown>;
+          if (twitchConfig.streamKey) {
+            try {
+              const twitchMod = "@milady/plugin-twitch-streaming";
+              const { createTwitchDestination } = await import(twitchMod);
+              destination = createTwitchDestination(
+                twitchConfig as { streamKey?: string },
+              );
+            } catch (err) {
+              logger.warn(
+                `[milady-api] Failed to load twitch destination: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
           }
         }
 
-        // YouTube
-        if (isStreamingDestinationConfigured("youtube", streaming?.youtube)) {
-          try {
-            const youtubeMod = "@milady/plugin-youtube-streaming";
-            const { createYoutubeDestination } = await import(youtubeMod);
-            destinations.set(
-              "youtube",
-              createYoutubeDestination(
-                streaming?.youtube as { streamKey?: string; rtmpUrl?: string },
-              ),
-            );
-          } catch (err) {
-            logger.warn(
-              `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
-            );
+        // Check streaming.youtube
+        if (
+          !destination &&
+          streaming?.youtube &&
+          typeof streaming.youtube === "object"
+        ) {
+          const ytConfig = streaming.youtube as Record<string, unknown>;
+          if (ytConfig.streamKey) {
+            try {
+              const youtubeMod = "@milady/plugin-youtube-streaming";
+              const { createYoutubeDestination } = await import(youtubeMod);
+              destination = createYoutubeDestination(
+                ytConfig as { streamKey?: string; rtmpUrl?: string },
+              );
+            } catch (err) {
+              logger.warn(
+                `[milady-api] Failed to load youtube destination: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
           }
         }
-
-        // pump.fun
-        if (isStreamingDestinationConfigured("pumpfun", streaming?.pumpfun)) {
-          try {
-            const pumpfunMod = "@milady/plugin-pumpfun-streaming";
-            const { createPumpfunDestination } = await import(pumpfunMod);
-            destinations.set(
-              "pumpfun",
-              createPumpfunDestination(
-                streaming?.pumpfun as { streamKey?: string; rtmpUrl?: string },
-              ),
-            );
-          } catch (err) {
-            logger.warn(
-              `[milady-api] Failed to load pumpfun destination: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
-
-        // X (Twitter)
-        if (isStreamingDestinationConfigured("x", streaming?.x)) {
-          try {
-            const xMod = "@milady/plugin-x-streaming";
-            const { createXStreamDestination } = await import(xMod);
-            destinations.set(
-              "x",
-              createXStreamDestination(
-                streaming?.x as { streamKey?: string; rtmpUrl?: string },
-              ),
-            );
-          } catch (err) {
-            logger.warn(
-              `[milady-api] Failed to load x destination: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
-
-        // Active destination: config preference → first available
-        const activeDestinationId =
-          (streaming?.activeDestination as string | undefined) ??
-          (destinations.size > 0
-            ? destinations.keys().next().value
-            : undefined);
 
         const streamState = {
           streamManager,
@@ -15407,9 +14110,7 @@ export async function startApiServer(opts?: {
           screenCapture,
           captureUrl: (connectors.retake as Record<string, unknown> | undefined)
             ?.captureUrl as string | undefined,
-          destinations,
-          activeDestinationId,
-          activeStreamSource: { type: "stream-tab" as const },
+          destination,
           get config() {
             const cfg = state.config as Record<string, unknown> | undefined;
             const msgs = cfg?.messages as Record<string, unknown> | undefined;
@@ -15430,13 +14131,9 @@ export async function startApiServer(opts?: {
           handleStreamRoute(req, res, pathname, method, streamState),
         );
 
-        const destNames = Array.from(destinations.values())
-          .map((d) => d.name)
-          .join(", ");
-        const destLabel =
-          destinations.size > 0
-            ? `destinations: ${destNames}`
-            : "no destinations";
+        const destLabel = destination
+          ? `destination: ${destination.name}`
+          : "no destination";
         addLog("info", `Stream routes registered (${destLabel})`, "system", [
           "system",
           "streaming",
@@ -15461,16 +14158,23 @@ export async function startApiServer(opts?: {
   bindRuntimeStreams(opts?.runtime ?? null);
   bindTrainingStream();
 
-  // Wire coding-agent bridges at initial boot (event-driven via getServiceLoadPromise)
+  // Wire coding-agent bridges at initial boot (coordinator may not exist yet)
   if (opts?.runtime) {
-    void wireCoordinatorBridgesWhenReady(state, {
-      wireChatBridge: wireCodingAgentChatBridge,
-      wireWsBridge: wireCodingAgentWsBridge,
-      wireEventRouting: wireCoordinatorEventRouting,
-      wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
-      context: "boot",
-      logger,
-    });
+    const chatOk = wireCodingAgentChatBridge(state);
+    const wsOk = wireCodingAgentWsBridge(state);
+    const eventOk = wireCoordinatorEventRouting(state);
+    if (!chatOk || !wsOk || !eventOk) {
+      let wireAttempts = 0;
+      const wireInterval = setInterval(() => {
+        wireAttempts++;
+        const chatDone = chatOk || wireCodingAgentChatBridge(state);
+        const wsDone = wsOk || wireCodingAgentWsBridge(state);
+        const eventDone = eventOk || wireCoordinatorEventRouting(state);
+        if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
+          clearInterval(wireInterval);
+        }
+      }, 1000);
+    }
   }
 
   // Handle upgrade requests for WebSocket
@@ -15687,6 +14391,8 @@ export async function startApiServer(opts?: {
       agentName: state.agentName,
       model: state.model,
       startedAt: state.startedAt,
+      provider: state.activeProvider,
+      fallbackActive: state.fallbackActive,
       startup: state.startup,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
@@ -15758,7 +14464,6 @@ export async function startApiServer(opts?: {
         if (!channelId.startsWith("web-conv-")) continue;
         const convId = channelId.replace("web-conv-", "");
         if (!convId || state.conversations.has(convId)) continue;
-        if (state.deletedConversationIds.has(convId)) continue;
 
         // Peek at the latest message to get a timestamp
         let updatedAt = new Date().toISOString();
@@ -15815,12 +14520,23 @@ export async function startApiServer(opts?: {
     // AppManager doesn't need a runtime reference
     state.agentState = "running";
     state.agentName = rt.character.name ?? "Milady";
-    state.model = detectRuntimeModel(rt, state.config);
+    state.model = detectRuntimeModel(rt);
     state.startedAt = Date.now();
     state.startup = {
       phase: "running",
       attempt: 0,
     };
+
+    // Detect model and provider (async — state updates before broadcast)
+    void detectProviderState(state).then(() => {
+      addLog(
+        state.fallbackActive ? "warn" : "info",
+        `[auth] Active provider: ${state.activeProvider}, model: ${state.model}${state.fallbackActive ? " (fallback)" : ""}`,
+        "auth",
+        ["auth"],
+      );
+      broadcastStatus();
+    });
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -15829,18 +14545,27 @@ export async function startApiServer(opts?: {
     // Restore conversations from DB so they survive restarts
     void restoreConversationsFromDb(rt);
 
-    // Broadcast status update immediately after restart
+    // Broadcast status update immediately (provider fields update async)
     broadcastStatus();
 
-    // Wire coding-agent bridges (event-driven via getServiceLoadPromise)
-    void wireCoordinatorBridgesWhenReady(state, {
-      wireChatBridge: wireCodingAgentChatBridge,
-      wireWsBridge: wireCodingAgentWsBridge,
-      wireEventRouting: wireCoordinatorEventRouting,
-      wireSwarmSynthesis: wireCodingAgentSwarmSynthesis,
-      context: "restart",
-      logger,
-    });
+    // Wire coding-agent bridges (coordinator may not exist yet — retry)
+    {
+      const chatOk = wireCodingAgentChatBridge(state);
+      const wsOk = wireCodingAgentWsBridge(state);
+      const eventOk = wireCoordinatorEventRouting(state);
+      if (!chatOk || !wsOk || !eventOk) {
+        let wireAttempts = 0;
+        const wireInterval = setInterval(() => {
+          wireAttempts++;
+          const chatDone = chatOk || wireCodingAgentChatBridge(state);
+          const wsDone = wsOk || wireCodingAgentWsBridge(state);
+          const eventDone = eventOk || wireCoordinatorEventRouting(state);
+          if ((chatDone && wsDone && eventDone) || wireAttempts >= 15) {
+            clearInterval(wireInterval);
+          }
+        }, 1000);
+      }
+    }
   };
 
   const updateStartup = (
@@ -15925,10 +14650,6 @@ export async function startApiServer(opts?: {
             ).closeIdleConnections;
 
             clearInterval(statusInterval);
-            if (state.connectorHealthMonitor) {
-              state.connectorHealthMonitor.stop();
-              state.connectorHealthMonitor = null;
-            }
             if (detachRuntimeStreams) {
               detachRuntimeStreams();
               detachRuntimeStreams = null;

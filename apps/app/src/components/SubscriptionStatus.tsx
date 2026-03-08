@@ -599,3 +599,54 @@ export function SubscriptionStatus({
     </div>
   );
 }
+
+/**
+ * ActiveProviderBadge — Shows active model provider and fallback state.
+ * Use inside any view where provider status is relevant (Config, Settings, etc).
+ */
+export function ActiveProviderBadge({
+  provider,
+  model,
+  fallbackActive,
+}: {
+  provider?: string;
+  model?: string;
+  fallbackActive?: boolean;
+}) {
+  if (!provider || provider === "unknown") return null;
+
+  const dotColor = fallbackActive
+    ? "var(--danger, #e74c3c)"
+    : "var(--success, #27ae60)";
+  const label = model ?? provider;
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+        padding: "4px 8px",
+        borderRadius: 6,
+        background: "var(--bg-secondary, #f5f5f5)",
+      }}
+    >
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: dotColor,
+          flexShrink: 0,
+        }}
+      />
+      <span>{label}</span>
+      {fallbackActive && (
+        <span style={{ color: "var(--danger, #e74c3c)", fontWeight: 600 }}>
+          (fallback)
+        </span>
+      )}
+    </div>
+  );
+}

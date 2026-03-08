@@ -58,6 +58,16 @@ describe("parseActionBlock", () => {
     });
   });
 
+  it("parses bare JSON with nested objects", () => {
+    const input = `Before acting, the coordinator emitted {"action":"escalate","reasoning":"The task failed validation.","context":{"detail":"missing field","retryable":false}} after inspecting the result.`;
+
+    const result = parseActionBlock(input);
+    expect(result).toEqual({
+      action: "escalate",
+      reasoning: "The task failed validation.",
+    });
+  });
+
   it('parses "ignore" action', () => {
     const input = `\`\`\`json
 {"action": "ignore", "reasoning": "The agent is still working, no intervention needed."}
