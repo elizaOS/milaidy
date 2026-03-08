@@ -90,13 +90,14 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          # Both macOS builds run on macos-14 (Apple Silicon runner). Intel build uses Rosetta (arch -x86_64) so we avoid the slow/deprecated macos-15-intel runner. Electrobun builds for host arch only (no universal binary), so we need two builds.
           - name: macOS (Apple Silicon)
             os: macos
             runner: macos-14
             artifact-name: macos-arm64
           - name: macOS (Intel)
             os: macos
-            runner: macos-15-intel
+            runner: macos-14
             artifact-name: macos-x64
           - name: Windows
             os: windows
@@ -128,7 +129,13 @@ jobs:
         # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node
         # which has no pre-built binary for Node 22 on Windows and fails to compile).
         # Workspace prepare scripts are NOT suppressed by --ignore-scripts in bun.
-        run: bun install --frozen-lockfile --ignore-scripts
+        # macOS Intel: run under Rosetta so node_modules (and later copied milady-dist) are x64.
+        run: |
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun install --frozen-lockfile --ignore-scripts
+          else
+            bun install --frozen-lockfile --ignore-scripts
+          fi
 
       - name: Align version with release tag
         run: |
@@ -158,15 +165,30 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
       - name: Build core dist (server bundle)
+        # tsdown output is pure JS (arch-neutral), but run under Rosetta for
+        # consistency so any native tsx/node resolution matches the x64 install.
         run: |
-          bunx tsdown
-          echo '{"type":"module"}' > dist/package.json
-          node --import tsx scripts/write-build-info.ts
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bunx tsdown
+            echo '{"type":"module"}' > dist/package.json
+            arch -x86_64 node --import tsx scripts/write-build-info.ts
+          else
+            bunx tsdown
+            echo '{"type":"module"}' > dist/package.json
+            node --import tsx scripts/write-build-info.ts
+          fi
 
       - name: Build renderer (Vite)
+        # Vite output is arch-neutral JS/CSS/HTML, but bun install here may pull
+        # native optional deps, so run under Rosetta for the Intel build.
         run: |
-          bun install --ignore-scripts
-          npx vite build
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun install --ignore-scripts
+            arch -x86_64 npx vite build
+          else
+            bun install --ignore-scripts
+            npx vite build
+          fi
         working-directory: apps/app
 
       # Copy the Vite-built frontend into the Electrobun renderer directory.
@@ -184,7 +206,12 @@ jobs:
       # macOS: compile Objective-C++ native effects dylib
       - name: Build native macOS effects dylib
         if: matrix.platform.os == 'macos'
-        run: bun run build:native-effects
+        run: |
+          if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun run build:native-effects
+          else
+            bun run build:native-effects
+          fi
         working-directory: apps/app/electrobun
 
       # Build the webview bridge preload (window.electron shim injected into the webview)
@@ -194,9 +221,15 @@ jobs:
 
       # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
       # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
+      # macOS Intel: build under Rosetta so the binary is x64.
       - name: Build whisper.cpp (on-device STT)
         if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
-        run: bun run build:whisper
+        run: |
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun run build:whisper
+          else
+            bun run build:whisper
+          fi
         working-directory: apps/app/electrobun
 
       # Import the Developer ID certificate into a temporary keychain.
@@ -280,14 +313,25 @@ jobs:
       # Copy the runtime package closure that the built server bundle still imports
       # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
       # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
+      # macOS Intel: run under Rosetta so we copy the x64 node_modules we installed earlier.
       - name: Bundle backend node_modules into dist/
-        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+        run: |
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+          else
+            node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+          fi
 
       - name: Install electrobun CLI
+        # macOS Intel: install under Rosetta so the global electrobun binary is x64 for the app build.
         run: |
           ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
           echo "Installing electrobun@$ELECTROBUN_VERSION"
-          bun install -g "electrobun@$ELECTROBUN_VERSION"
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 bun install -g "electrobun@$ELECTROBUN_VERSION"
+          else
+            bun install -g "electrobun@$ELECTROBUN_VERSION"
+          fi
 
       # electrobun.cjs downloads its native binary then calls:
       #   execSync(`tar -xzf "${tarballPath}"`, { cwd: cacheDir })
@@ -333,7 +377,13 @@ jobs:
           Write-Host "electrobun CLI ready at $binBinary"
 
       - name: Build Electrobun app
-        run: electrobun build --env=${{ needs.prepare.outputs.env }}
+        # macOS Intel: run under Rosetta so the packaged app is x64 (Electrobun builds for host arch only).
+        run: |
+          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
+            arch -x86_64 electrobun build --env=${{ needs.prepare.outputs.env }}
+          else
+            electrobun build --env=${{ needs.prepare.outputs.env }}
+          fi
         working-directory: apps/app/electrobun
         env:
           # Electrobun reads these env vars directly. The workflow derives the

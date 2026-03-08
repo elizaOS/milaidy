@@ -10,9 +10,10 @@ We ship **separate** `Milady-arm64.dmg` and `Milady-x64.dmg` because:
 
 - **Native Node addons** (e.g. `onnxruntime-node`, `whisper-node`) ship prebuilt `.node` binaries per OS and arch. There is no single "universal" npm artifact that contains both arm64 and x64; the addon is built for the arch of the machine that ran `npm install` / `bun install`.
 - **CI runs on arm64** (macos-14). If we only ran `bun install` and `bun run build` in the host arch, `node_modules` would contain only arm64 `.node` files. The packaged app would then fail on Intel with "Cannot find module .../darwin/x64/onnxruntime_binding.node".
-- **So for the macos-x64 artifact** we run install and Electron build under **Rosetta** (`arch -x86_64 bun install`, `arch -x86_64 bun run build`). That makes the install and any native rebuilds produce x64 binaries, so the Intel DMG works.
+- **So for the macos-x64 artifact** we run install and build under **Rosetta** (`arch -x86_64 bun install`, `arch -x86_64 electrobun build`, etc.). That makes the install and any native rebuilds produce x64 binaries, so the Intel DMG works.
+- **Both macOS builds run on the same runner (macos-14).** We do not use the deprecated `macos-15-intel` runner; the Intel artifact is built on the Apple Silicon runner under Rosetta, matching the legacy Electron approach.
 
-See `.github/workflows/release.yml`: the "Install root dependencies", "Install Electron dependencies", and "Build Electron app" steps branch on `matrix.platform.artifact-name === "macos-x64"` and wrap the command in `arch -x86_64` when building the Intel artifact.
+See `.github/workflows/release-electrobun.yml`: the "Install root dependencies", "Build core dist", "Build renderer", "Build native macOS effects dylib", "Build whisper", "Bundle backend node_modules", "Install electrobun CLI", and "Build Electrobun app" steps run under `arch -x86_64` when `matrix.platform.artifact-name === "macos-x64"`. Legacy Electron: `.github/workflows/release.yml` used the same Rosetta pattern for its Intel build.
 
 ## Desktop bundle: why we copy plugins and deps
 
@@ -58,7 +59,7 @@ CI workflows that need Node (for node-gyp / native modules or npm registry) were
 
 ## Where this runs
 
-- **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64, Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
+- **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64 and macOS x64 (both on macos-14, Intel via Rosetta), Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
 - **Legacy Electron release:** `.github/workflows/release.yml` — manual fallback only on this branch.
 - **Local desktop build:** From repo root, build core and app, then e.g. `cd apps/app/electron && bunx electron-builder build --mac --arm64 --publish never`. For a full signed/notarized local test, see `scripts/verify-build.sh` (macOS).
 
