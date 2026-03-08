@@ -2,9 +2,9 @@
 const SCRIPT_START = Date.now();
 console.log(`[milady] Script starting...`);
 
-import { existsSync, promises as fs } from "node:fs";
-import path from "node:path";
 import { execSync } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 /**
  * Combined dev server — starts the ElizaOS runtime in headless mode and
  * wires it into the API server so the Control UI has a live agent to talk to.
@@ -143,7 +143,9 @@ function isRecoverableRuntimeDbError(err: unknown): boolean {
     msg.includes('relation "memories" does not exist') ||
     msg.includes('relation "embeddings" does not exist') ||
     msg.includes('column "username" of relation "agents" does not exist') ||
-    msg.includes('column "trajectory_id" of relation "trajectories" does not exist')
+    msg.includes(
+      'column "trajectory_id" of relation "trajectories" does not exist',
+    )
   );
 }
 
@@ -170,27 +172,6 @@ function resolveRuntimePgliteDataDir(): string {
     ".eliza",
     ".elizadb",
   );
-}
-
-async function resetRuntimePgliteDataDir(dataDir: string): Promise<void> {
-  const normalized = path.resolve(dataDir);
-  const root = path.parse(normalized).root;
-  if (normalized === root) {
-    throw new Error(`Refusing to reset unsafe PGLite path: ${normalized}`);
-  }
-
-  const stamp = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\..*$/, "")
-    .replace("T", "-");
-  const backupDir = `${normalized}.corrupt-${stamp}`;
-
-  if (existsSync(normalized)) {
-    await fs.rename(normalized, backupDir);
-    logger.warn(`[milady] Backed up existing PGLite data dir to ${backupDir}`);
-  }
-  await fs.mkdir(normalized, { recursive: true });
 }
 
 async function wipeRuntimePgliteDataDirsForReset(): Promise<void> {

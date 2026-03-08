@@ -1,5 +1,5 @@
-import type { AgentRuntime, UUID } from "@elizaos/core";
 import path from "node:path";
+import type { AgentRuntime, UUID } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
 import { detectRuntimeModel } from "./agent-model";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";

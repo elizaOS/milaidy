@@ -28,7 +28,6 @@ export interface AgentLifecycleRouteContext
   onStop?: (() => Promise<void> | void) | undefined;
 }
 
-const RUNTIME_ATTACH_WAIT_MS = 2_500;
 const START_RESTART_TIMEOUT_MS = 20_000;
 
 function respondStartingStatus(
@@ -70,14 +69,14 @@ async function waitForRestartWithTimeout(
   timeoutMs: number,
 ): Promise<RestartAttemptResult> {
   const timeoutSentinel = Symbol("restart-timeout");
-  const result = await Promise.race<AgentRuntime | null | typeof timeoutSentinel>(
-    [
-      onRestart(),
-      new Promise<typeof timeoutSentinel>((resolve) =>
-        setTimeout(() => resolve(timeoutSentinel), Math.max(0, timeoutMs)),
-      ),
-    ],
-  );
+  const result = await Promise.race<
+    AgentRuntime | null | typeof timeoutSentinel
+  >([
+    onRestart(),
+    new Promise<typeof timeoutSentinel>((resolve) =>
+      setTimeout(() => resolve(timeoutSentinel), Math.max(0, timeoutMs)),
+    ),
+  ]);
   if (result === timeoutSentinel) {
     return { runtime: null, timedOut: true };
   }

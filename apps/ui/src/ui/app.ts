@@ -5162,7 +5162,9 @@ export class MilaidyApp extends LitElement {
   }
 
   private async ensureAgentRunningForChat(): Promise<boolean> {
-    const pendingRestartRequiresCycle = (status: AgentStatus | null): boolean => {
+    const pendingRestartRequiresCycle = (
+      status: AgentStatus | null,
+    ): boolean => {
       if (!status || status.pendingRestart !== true) return false;
       const reasons = Array.isArray(status.pendingRestartReasons)
         ? status.pendingRestartReasons
@@ -5180,8 +5182,15 @@ export class MilaidyApp extends LitElement {
     };
 
     const currentState = this.agentStatus?.state ?? "not_started";
-    if (currentState === "running" && !pendingRestartRequiresCycle(this.agentStatus)) return true;
-    if (currentState === "running" && pendingRestartRequiresCycle(this.agentStatus)) {
+    if (
+      currentState === "running" &&
+      !pendingRestartRequiresCycle(this.agentStatus)
+    )
+      return true;
+    if (
+      currentState === "running" &&
+      pendingRestartRequiresCycle(this.agentStatus)
+    ) {
       try {
         this.showUiNotice("Applying provider changes. Restarting Runtime...");
         const restarted = await client.restartAgent();
@@ -9068,7 +9077,9 @@ export class MilaidyApp extends LitElement {
               class="chat-send-btn btn"
               @click=${() => void this.handleChatSend()}
               ?disabled=${
-                this.chatSending || this.chatInput.length === 0 || inputOverLimit
+                this.chatSending ||
+                this.chatInput.length === 0 ||
+                inputOverLimit
               }
             >
               ${this.chatSending ? "..." : "Send"}
