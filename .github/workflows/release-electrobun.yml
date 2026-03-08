@@ -169,6 +169,18 @@ jobs:
           npx vite build
         working-directory: apps/app
 
+      # Copy the Vite-built frontend into the Electrobun renderer directory.
+      # The bun entry point (src/index.ts) resolves the renderer at
+      # ../renderer/index.html relative to itself, which maps to
+      # apps/app/electrobun/renderer/ at build time and
+      # Resources/app/renderer/ in the packaged bundle.
+      # Without this step the renderer directory is absent from the package
+      # and the window opens to a file-not-found error.
+      - name: Stage renderer for Electrobun bundle
+        run: |
+          rm -rf apps/app/electrobun/renderer
+          cp -r apps/app/dist apps/app/electrobun/renderer
+
       # macOS: compile Objective-C++ native effects dylib
       - name: Build native macOS effects dylib
         if: matrix.platform.os == 'macos'
@@ -334,6 +346,43 @@ jobs:
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
+
+      # Inject version.json into the packaged Resources directory.
+      # The bun entry getVersionInfo() reads ../Resources/version.json and
+      # throws if absent, killing the process before main() runs.
+      # Electrobun does not generate this file for us, so write it from the
+      # release metadata after the packaged bundle exists.
+      - name: Inject version.json into bundle (Windows)
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/app/electrobun/package.json | ConvertFrom-Json).version
+          $envName = "${{ needs.prepare.outputs.env }}"
+          $buildRoot = "apps/app/electrobun/build"
+
+          Get-ChildItem -Path $buildRoot -Recurse -Directory -Filter "Resources" | ForEach-Object {
+            $versionJson = @{
+              identifier = "com.miladyai.milady"
+              channel = $envName
+              name = "milady"
+              version = $version
+            } | ConvertTo-Json -Compress
+            $dest = Join-Path $_.FullName "version.json"
+            Write-Host "Writing $dest"
+            Set-Content -Path $dest -Value $versionJson -Encoding utf8
+          }
+
+      - name: Inject version.json into bundle (macOS / Linux)
+        if: matrix.platform.os != 'windows'
+        run: |
+          VERSION="$(node -p "require('./apps/app/electrobun/package.json').version")"
+          ENV_NAME="${{ needs.prepare.outputs.env }}"
+          find apps/app/electrobun/build -type d -name "Resources" | while read -r res_dir; do
+            dest="$res_dir/version.json"
+            printf '{"identifier":"com.miladyai.milady","channel":"%s","name":"milady","version":"%s"}' \
+              "$ENV_NAME" "$VERSION" > "$dest"
+            echo "Wrote $dest"
+          done
 
       - name: List build output
         run: |

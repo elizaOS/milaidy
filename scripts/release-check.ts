@@ -18,6 +18,11 @@ const requiredWorkflowSnippets = [
   "apps/app/electrobun/scripts/zip-wrapper.sh",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
+  "Stage renderer for Electrobun bundle",
+  "cp -r apps/app/dist apps/app/electrobun/renderer",
+  "Inject version.json into bundle (Windows)",
+  "Inject version.json into bundle (macOS / Linux)",
+  '"identifier":"com.miladyai.milady"',
   "Smoke test packaged macOS app",
   "SMOKE_DIAGNOSTICS_DIR:",
   "SKIP_BUILD=1",
@@ -102,6 +107,7 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
 
   const requiredSnippets = [
     'Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst"',
+    'Join-Path $env:APPDATA "Milady\\\\milady-startup.log"',
     "Using packaged tarball:",
     "Find-Launcher $selfExtractionRoot",
     "Started extracted launcher:",

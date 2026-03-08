@@ -7,7 +7,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 $resolvedArtifactsDir = (Resolve-Path $ArtifactsDir).Path
-$startupLog = Join-Path $env:USERPROFILE ".config\\Milady\\milady-startup.log"
+# Milady writes its startup log to AppData\Roaming\Milady on Windows, not the
+# Unix-style ~/.config/Milady path used on macOS/Linux.
+$startupLog = Join-Path $env:APPDATA "Milady\\milady-startup.log"
 $selfExtractionRoot = Join-Path $env:LOCALAPPDATA "com.miladyai.milady\\canary\\self-extraction"
 $tempExtractDir = Join-Path $env:RUNNER_TEMP ("milady-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
 
