@@ -8,10 +8,24 @@ const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = Math.max(4, Math.min(16, os.cpus().length));
 const ciWorkers = isWindows ? 2 : 3;
+const electronSrcDir = path
+  .join(repoRoot, "apps", "app", "electron", "src")
+  .replace(/\\/g, "/");
 
 export default defineConfig({
   resolve: {
     alias: [
+      {
+        // Some CI vitest runs canonicalize these relative imports into a
+        // broken `/apps/app/electron/src/...` absolute path. Pin both forms to
+        // the checked-in Electron source tree.
+        find: /^\/apps\/app\/electron\/src\//,
+        replacement: `${electronSrcDir}/`,
+      },
+      {
+        find: /^\.\.\/\.\.\/electron\/src\//,
+        replacement: `${electronSrcDir}/`,
+      },
       {
         find: "milady/plugin-sdk",
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
@@ -170,6 +184,15 @@ export default defineConfig({
       {
         find: "electron",
         replacement: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
+      },
+      {
+        find: "@capacitor-community/electron",
+        replacement: path.join(
+          repoRoot,
+          "test",
+          "stubs",
+          "capacitor-community-electron.ts",
+        ),
       },
     ],
   },

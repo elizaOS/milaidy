@@ -5,7 +5,7 @@ import {
   createApiBaseInjector,
   normalizeApiBase,
   resolveExternalApiBase,
-} from "../../electron/src/api-base";
+} from "../../electron/src/api-base.ts";
 
 describe("normalizeApiBase", () => {
   it("accepts http/https URLs and returns origin", () => {

@@ -2,8 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 
 // Mock electron-is-dev before importing setup.ts — it throws outside Electron.
 vi.mock("electron-is-dev", () => ({ default: false }));
+vi.mock("electron-serve", () => ({
+  default: () => async () => undefined,
+}));
+vi.mock("electron-window-state", () => ({
+  default: () => ({
+    x: 0,
+    y: 0,
+    width: 1280,
+    height: 720,
+    manage: () => undefined,
+  }),
+}));
 
-import { hasPopoutParam } from "../../electron/src/setup";
+import { hasPopoutParam } from "../../electron/src/setup.ts";
 
 describe("hasPopoutParam", () => {
   it("returns true for standard ?popout query param", () => {

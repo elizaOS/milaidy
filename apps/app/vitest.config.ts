@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const electronSrcDir = path.join(here, "electron", "src").replace(/\\/g, "/");
 
 export default defineConfig({
   test: {
@@ -13,7 +14,17 @@ export default defineConfig({
     setupFiles: [path.join(here, "test/setup.ts")],
     environment: "node",
     alias: {
+      "/apps/app/electron/src/": `${electronSrcDir}/`,
+      "../../electron/src/": `${electronSrcDir}/`,
       electron: path.join(here, "test/__mocks__/electron.ts"),
+      "@capacitor-community/electron": path.join(
+        here,
+        "..",
+        "..",
+        "test",
+        "stubs",
+        "capacitor-community-electron.ts",
+      ),
       "@elizaos/skills": path.join(here, "test/__mocks__/elizaos-skills.ts"),
       "@milady/capacitor-gateway": path.join(
         here,
