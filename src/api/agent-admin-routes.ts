@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { AgentRuntime, UUID } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
 import { detectRuntimeModel } from "./agent-model";
@@ -24,6 +25,13 @@ export interface AgentAdminRouteState {
   chatConnectionReady: { userId: UUID; roomId: UUID; worldId: UUID } | null;
   chatConnectionPromise: Promise<void> | null;
   pendingRestartReasons: string[];
+  startup?: {
+    phase: string;
+    attempt: number;
+    lastError?: string;
+    lastErrorAt?: number;
+    nextRetryAt?: number;
+  };
 }
 
 export interface AgentAdminRouteContext
@@ -31,13 +39,49 @@ export interface AgentAdminRouteContext
     Pick<RouteHelpers, "json" | "error"> {
   state: AgentAdminRouteState;
   onRestart?: (() => Promise<AgentRuntime | null>) | undefined;
+  onReset?: (() => Promise<void> | void) | undefined;
   resolveStateDir: () => string;
   resolvePath: (value: string) => string;
+  resolveConfigPath: () => string;
   getHomeDir: () => string;
   isSafeResetStateDir: (resolvedState: string, homeDir: string) => boolean;
   stateDirExists: (resolvedState: string) => boolean;
   removeStateDir: (resolvedState: string) => void;
+  configFileExists: (resolvedConfigPath: string) => boolean;
+  removeConfigFile: (resolvedConfigPath: string) => void;
   logWarn: (message: string) => void;
+}
+
+const RESET_ENV_KEYS = [
+  "ELIZAOS_CLOUD_API_KEY",
+  "ELIZAOS_CLOUD_ENABLED",
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "OPENROUTER_API_KEY",
+  "GOOGLE_GENERATIVE_AI_API_KEY",
+  "GROQ_API_KEY",
+  "XAI_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "MISTRAL_API_KEY",
+  "TOGETHER_API_KEY",
+  "AI_GATEWAY_API_KEY",
+  "AIGATEWAY_API_KEY",
+  "ZAI_API_KEY",
+  "MILAIDY_USE_PI_AI",
+  "OLLAMA_API_ENDPOINT",
+  "OLLAMA_BASE_URL",
+  "POSTGRES_URL",
+  "DATABASE_URL",
+  "PGLITE_DATA_DIR",
+] as const;
+
+function clearManagedRuntimeEnv(): void {
+  // Reset must only clear process env keys owned by Milady runtime/provider
+  // configuration. Do not delete arbitrary user-defined env vars from
+  // config.env.vars on reset.
+  for (const key of RESET_ENV_KEYS) {
+    delete process.env[key];
+  }
 }
 
 export async function handleAgentAdminRoutes(
@@ -49,14 +93,18 @@ export async function handleAgentAdminRoutes(
     pathname,
     state,
     onRestart,
+    onReset,
     json,
     error,
     resolveStateDir,
     resolvePath,
+    resolveConfigPath,
     getHomeDir,
     isSafeResetStateDir,
     stateDirExists,
     removeStateDir,
+    configFileExists,
+    removeConfigFile,
     logWarn,
   } = ctx;
 
@@ -122,6 +170,20 @@ export async function handleAgentAdminRoutes(
   // Wipe config, workspace (memory), and return to onboarding.
   if (method === "POST" && pathname === "/api/agent/reset") {
     try {
+      // Let host runtimes quiesce bootstrap/retry loops before we wipe local
+      // state. This prevents reset/start races where a stale boot task reattaches.
+      if (onReset) {
+        try {
+          await onReset();
+        } catch (resetHookErr) {
+          const message =
+            resetHookErr instanceof Error
+              ? resetHookErr.message
+              : String(resetHookErr);
+          logWarn(`[milady-api] Reset hook failed: ${message}`);
+        }
+      }
+
       // 1. Stop the runtime if it's running
       if (state.runtime) {
         try {
@@ -152,7 +214,7 @@ export async function handleAgentAdminRoutes(
         );
         error(
           res,
-          `Reset aborted: state directory "${resolvedState}" does not appear safe to delete`,
+          `Refusing to reset unsafe state dir: "${resolvedState}"`,
           400,
         );
         return true;
@@ -162,8 +224,29 @@ export async function handleAgentAdminRoutes(
         removeStateDir(resolvedState);
       }
 
+      // 2a. Always remove config file(s) explicitly so reset returns to
+      // onboarding even when state-dir deletion is blocked.
+      const configCandidates = new Set<string>([
+        resolvePath(resolveConfigPath()),
+        resolvePath(path.join(resolvedState, "milady.json")),
+      ]);
+      for (const configPath of configCandidates) {
+        const configBase = path.basename(configPath).toLowerCase();
+        const parentSafe = isSafeResetStateDir(path.dirname(configPath), home);
+        if (configBase !== "milady.json" || !parentSafe) {
+          continue;
+        }
+        if (configFileExists(configPath)) {
+          removeConfigFile(configPath);
+        }
+      }
+
+      // 2b. Clear runtime-managed env vars so onboarding starts from a
+      // clean process state instead of leaking prior provider credentials.
+      clearManagedRuntimeEnv();
+
       // 3. Reset server state
-      state.agentState = "stopped";
+      state.agentState = "not_started";
       state.agentName = "Milady";
       state.model = undefined;
       state.startedAt = undefined;
@@ -173,6 +256,13 @@ export async function handleAgentAdminRoutes(
       state.chatConnectionReady = null;
       state.chatConnectionPromise = null;
       state.pendingRestartReasons = [];
+      if (state.startup) {
+        state.startup.phase = "idle";
+        state.startup.attempt = 0;
+        state.startup.lastError = undefined;
+        state.startup.lastErrorAt = undefined;
+        state.startup.nextRetryAt = undefined;
+      }
 
       json(res, { ok: true });
     } catch (err) {

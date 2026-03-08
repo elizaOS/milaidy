@@ -18,12 +18,16 @@ function createRuntime(name = "Milady"): AgentRuntime {
 describe("agent admin routes", () => {
   let state: AgentAdminRouteState;
   let onRestart: (() => Promise<AgentRuntime | null>) | undefined;
+  let onReset: (() => Promise<void> | void) | undefined;
   let resolveStateDir: ReturnType<typeof vi.fn>;
   let resolvePath: ReturnType<typeof vi.fn>;
+  let resolveConfigPath: ReturnType<typeof vi.fn>;
   let getHomeDir: ReturnType<typeof vi.fn>;
   let isSafeResetStateDir: ReturnType<typeof vi.fn>;
   let stateDirExists: ReturnType<typeof vi.fn>;
   let removeStateDir: ReturnType<typeof vi.fn>;
+  let configFileExists: ReturnType<typeof vi.fn>;
+  let removeConfigFile: ReturnType<typeof vi.fn>;
   let logWarn: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -34,6 +38,13 @@ describe("agent admin routes", () => {
       agentName: "Milady",
       model: "openai",
       startedAt: Date.now() - 1000,
+      startup: {
+        phase: "runtime-error",
+        attempt: 3,
+        lastError: "boom",
+        lastErrorAt: Date.now(),
+        nextRetryAt: Date.now() + 30_000,
+      },
       chatRoomId: "room-id" as UUID,
       chatUserId: "user-id" as UUID,
       chatConnectionReady: {
@@ -42,15 +53,20 @@ describe("agent admin routes", () => {
         worldId: "world-id" as UUID,
       },
       chatConnectionPromise: Promise.resolve(),
+      pendingRestartReasons: [],
     };
 
     onRestart = undefined;
+    onReset = undefined;
     resolveStateDir = vi.fn(() => "/tmp/milady-state");
     resolvePath = vi.fn((value: string) => value);
+    resolveConfigPath = vi.fn(() => "/tmp/milady-state/milady.json");
     getHomeDir = vi.fn(() => "/Users/tester");
     isSafeResetStateDir = vi.fn(() => true);
     stateDirExists = vi.fn(() => true);
     removeStateDir = vi.fn();
+    configFileExists = vi.fn(() => true);
+    removeConfigFile = vi.fn();
     logWarn = vi.fn();
   });
 
@@ -67,14 +83,18 @@ describe("agent admin routes", () => {
         pathname: ctx.pathname,
         state: ctx.runtime,
         onRestart,
+        onReset,
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
         resolveStateDir,
         resolvePath,
+        resolveConfigPath,
         getHomeDir,
         isSafeResetStateDir,
         stateDirExists,
         removeStateDir,
+        configFileExists,
+        removeConfigFile,
         logWarn,
       }),
     { runtimeProvider: () => state },
@@ -153,7 +173,7 @@ describe("agent admin routes", () => {
     });
   });
 
-  test("rejects unsafe reset path", async () => {
+  test("unsafe reset path is rejected", async () => {
     isSafeResetStateDir.mockReturnValue(false);
 
     const result = await invoke({
@@ -163,9 +183,14 @@ describe("agent admin routes", () => {
 
     expect(result.status).toBe(400);
     expect(result.payload).toMatchObject({
-      error: expect.stringContaining("does not appear safe to delete"),
+      error: 'Refusing to reset unsafe state dir: "/tmp/milady-state"',
     });
+    expect(logWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Refusing to delete unsafe state dir"),
+    );
     expect(removeStateDir).not.toHaveBeenCalled();
+    expect(removeConfigFile).not.toHaveBeenCalled();
+    expect(state.agentState).toBe("running");
   });
 
   test("resets runtime and clears server state", async () => {
@@ -177,14 +202,66 @@ describe("agent admin routes", () => {
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({ ok: true });
     expect(state.runtime).toBeNull();
-    expect(state.agentState).toBe("stopped");
+    expect(state.agentState).toBe("not_started");
     expect(state.agentName).toBe("Milady");
     expect(state.model).toBeUndefined();
     expect(state.startedAt).toBeUndefined();
+    expect(state.startup).toMatchObject({
+      phase: "idle",
+      attempt: 0,
+      lastError: undefined,
+      lastErrorAt: undefined,
+      nextRetryAt: undefined,
+    });
     expect(state.chatRoomId).toBeNull();
     expect(state.chatUserId).toBeNull();
     expect(state.chatConnectionReady).toBeNull();
     expect(state.chatConnectionPromise).toBeNull();
     expect(removeStateDir).toHaveBeenCalledWith("/tmp/milady-state");
+    expect(removeConfigFile).toHaveBeenCalledWith(
+      "/tmp/milady-state/milady.json",
+    );
+  });
+
+  test("reset calls onReset hook when provided", async () => {
+    onReset = vi.fn(async () => undefined);
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/reset",
+    });
+
+    expect(result.status).toBe(200);
+    expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  test("reset clears only managed runtime env values", async () => {
+    state.config = {
+      env: {
+        OPENAI_API_KEY: "sk-test",
+        vars: {
+          CUSTOM_PLUGIN_KEY: "custom-value",
+        },
+      },
+    } as MiladyConfig;
+    process.env.OPENAI_API_KEY = "sk-test";
+    process.env.CUSTOM_PLUGIN_KEY = "custom-value";
+    process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    process.env.POSTGRES_URL = "postgresql://example";
+    process.env.DATABASE_URL = "postgresql://example";
+    process.env.PGLITE_DATA_DIR = "/tmp/example-pglite";
+
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/reset",
+    });
+
+    expect(result.status).toBe(200);
+    expect(process.env.OPENAI_API_KEY).toBeUndefined();
+    expect(process.env.CUSTOM_PLUGIN_KEY).toBe("custom-value");
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.POSTGRES_URL).toBeUndefined();
+    expect(process.env.DATABASE_URL).toBeUndefined();
+    expect(process.env.PGLITE_DATA_DIR).toBeUndefined();
   });
 });

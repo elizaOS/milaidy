@@ -299,29 +299,32 @@ describe("Deferred restart E2E (with restart handler)", () => {
     await close();
   });
 
-  it("accumulates reasons, then restart clears them", async () => {
+  it("auto-applies wallet config restarts when an in-process restart handler exists", async () => {
+    const before = restartCallCount;
+
     // 1. Trigger a pending restart via wallet config change
     await req(port, "PUT", "/api/wallet/config", {
       ALCHEMY_API_KEY: "test-key-accumulate",
     });
 
-    // 2. Verify pending reasons are present
+    // 2. Auto-restart is applied immediately, so no pending reasons remain
     let { data } = await req(port, "GET", "/api/status");
-    expect(data.pendingRestart).toBe(true);
-    expect(toStringArray(data.pendingRestartReasons).length).toBeGreaterThan(0);
+    expect(restartCallCount).toBe(before + 1);
+    expect(data.pendingRestart).toBe(false);
+    expect(data.pendingRestartReasons).toEqual([]);
 
-    // 3. Perform explicit restart
+    // 3. Explicit restart still succeeds and leaves restart state clear
     const restartResult = await req(port, "POST", "/api/agent/restart");
     expect(restartResult.data.ok).toBe(true);
     expect(restartResult.data.pendingRestart).toBe(false);
 
-    // 4. Verify pending reasons are cleared
+    // 4. Verify pending reasons remain cleared
     ({ data } = await req(port, "GET", "/api/status"));
     expect(data.pendingRestart).toBe(false);
     expect(data.pendingRestartReasons).toEqual([]);
   });
 
-  it("wallet config changes do not trigger onRestart", async () => {
+  it("wallet config changes trigger onRestart immediately", async () => {
     const before = restartCallCount;
 
     // Multiple wallet config changes
@@ -332,12 +335,12 @@ describe("Deferred restart E2E (with restart handler)", () => {
       ALCHEMY_API_KEY: "test-key-c",
     });
 
-    // onRestart should NOT have been called
-    expect(restartCallCount).toBe(before);
+    // Each config change auto-applies through the registered restart handler
+    expect(restartCallCount).toBe(before + 2);
 
     // Only explicit restart triggers onRestart
     await req(port, "POST", "/api/agent/restart");
-    expect(restartCallCount).toBe(before + 1);
+    expect(restartCallCount).toBe(before + 3);
   });
 
   it("WebSocket restart-required event includes all accumulated reasons", async () => {
