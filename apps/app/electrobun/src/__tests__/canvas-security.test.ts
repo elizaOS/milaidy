@@ -77,6 +77,12 @@ describe("CanvasManager.eval() URL allowlist", () => {
       expect(result).toBe("ok");
     });
 
+    it("allows http://127.0.0.1:3000", async () => {
+      injectFakeCanvas(manager, "c4b", "http://127.0.0.1:3000");
+      const result = await manager.eval({ id: "c4b", script: "1+1" });
+      expect(result).toBe("ok");
+    });
+
     it("allows file:// URLs", async () => {
       injectFakeCanvas(manager, "c5", "file:///Users/test/index.html");
       const result = await manager.eval({ id: "c5", script: "1+1" });
@@ -129,20 +135,16 @@ describe("CanvasManager.eval() URL allowlist", () => {
   describe("edge cases (hostname spoofing attempts)", () => {
     it("blocks http://localhost.evil.com (subdomain spoof)", async () => {
       injectFakeCanvas(manager, "c20", "http://localhost.evil.com");
-      // The URL allowlist now uses hostname parsing (hostname === "localhost"),
-      // so subdomain spoofs are correctly blocked.
-      await expect(
-        manager.eval({ id: "c20", script: "1+1" }),
-      ).rejects.toThrow();
+      await expect(manager.eval({ id: "c20", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
 
     it("blocks http://localhost@external.com (credential-based spoof)", async () => {
       injectFakeCanvas(manager, "c21", "http://localhost@external.com");
-      // The URL allowlist uses URL parsing: the actual hostname is external.com,
-      // so the credential-based spoof is correctly blocked.
-      await expect(
-        manager.eval({ id: "c21", script: "1+1" }),
-      ).rejects.toThrow();
+      await expect(manager.eval({ id: "c21", script: "1+1" })).rejects.toThrow(
+        "canvas:eval blocked",
+      );
     });
   });
 

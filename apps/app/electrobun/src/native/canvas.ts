@@ -30,13 +30,35 @@ type WebviewEvalRpc = {
 };
 
 /**
- * Returns true only if the URL hostname is strictly localhost or 127.0.0.1.
+ * Returns true only for local canvas origins.
  * Uses URL parsing to prevent bypass via `http://localhost.evil.com` etc.
  */
-function isAllowedCanvasUrl(url: string): boolean {
+function isLocalCanvasOrigin(url: string): boolean {
   try {
     const parsed = new URL(url);
     return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true only for URLs that are safe for privileged canvas eval.
+ * This intentionally permits local web content, local files, and blank
+ * initialization pages. It does not rely on prefix matching.
+ */
+function isInternalCanvasEvalUrl(url: string): boolean {
+  if (url === "" || url === "about:blank") {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "file:" ||
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1"
+    );
   } catch {
     return false;
   }
@@ -130,10 +152,7 @@ export class CanvasManager {
       // data: URLs are excluded: the bridge preload is injected into every
       // canvas window, so a data: page would receive the preload script and
       // could spoof RPC messages. Only local-origin URLs are permitted.
-      allowed =
-        parsed.hostname === "localhost" ||
-        parsed.hostname === "127.0.0.1" ||
-        parsed.protocol === "file:";
+      allowed = isLocalCanvasOrigin(url) || parsed.protocol === "file:";
     } catch {
       allowed = false;
     }
@@ -164,12 +183,7 @@ export class CanvasManager {
     // Uses URL parsing (not startsWith) to prevent bypasses like
     // http://localhost.evil.com or http://localhost@external.com.
     const currentUrl = canvas.window.webview?.url ?? "";
-    const isInternal =
-      isAllowedCanvasUrl(currentUrl) ||
-      currentUrl.startsWith("file://") ||
-      currentUrl === "" ||
-      currentUrl === "about:blank";
-    if (!isInternal) {
+    if (!isInternalCanvasEvalUrl(currentUrl)) {
       throw new Error(
         `canvas:eval blocked — canvas ${options.id} has external URL: ${currentUrl}`,
       );
