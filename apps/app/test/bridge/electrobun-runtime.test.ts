@@ -43,9 +43,9 @@ describe("electrobun runtime detection", () => {
     expect(getBackendStartupTimeoutMs()).toBe(30_000);
   });
 
-  it("detects Electrobun from the bridge runtime marker", () => {
+  it("detects Electrobun from the injected webview id", () => {
     Object.defineProperty(globalThis, "window", {
-      value: { __MILADY_RUNTIME__: "electrobun" },
+      value: { __electrobunWebviewId: 11 },
       configurable: true,
       writable: true,
     });

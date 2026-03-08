@@ -475,15 +475,9 @@ declare global {
   interface Window {
     __MILADY_API_BASE__: string;
     __MILADY_API_TOKEN__: string;
-    __ELECTROBUN__: boolean;
-    __MILADY_RUNTIME__: string;
     electron: typeof electronAPI;
   }
 }
 
 // Expose as window.electron for backward compatibility
 window.electron = electronAPI;
-
-// Expose detection flags so the renderer can distinguish Electrobun from web
-window.__ELECTROBUN__ = true;
-window.__MILADY_RUNTIME__ = "electrobun";

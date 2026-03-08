@@ -1,6 +1,4 @@
 interface ElectrobunBrowserWindow extends Window {
-  __ELECTROBUN__?: boolean;
-  __MILADY_RUNTIME__?: string;
   __electrobunWindowId?: number;
   __electrobunWebviewId?: number;
 }
@@ -20,8 +18,6 @@ export function isElectrobunRuntime(): boolean {
   }
 
   return (
-    runtimeWindow.__ELECTROBUN__ === true ||
-    runtimeWindow.__MILADY_RUNTIME__ === "electrobun" ||
     typeof runtimeWindow.__electrobunWindowId === "number" ||
     typeof runtimeWindow.__electrobunWebviewId === "number"
   );
