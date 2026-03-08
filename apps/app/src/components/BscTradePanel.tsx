@@ -19,6 +19,7 @@ import type {
 
 const BSC_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const AMOUNT_PRESETS = [0.05, 0.1, 0.2, 0.5];
+const DEFAULT_QUICK_AMOUNT = "0.1";
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -74,7 +75,7 @@ export function BscTradePanel({
   getBscTradeTxStatus,
 }: BscTradePanelProps) {
   const [quickTokenAddress, setQuickTokenAddress] = useState("");
-  const [quickAmount, setQuickAmount] = useState("");
+  const [quickAmount, setQuickAmount] = useState(DEFAULT_QUICK_AMOUNT);
   const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
     null,
   );
@@ -112,7 +113,7 @@ export function BscTradePanel({
         });
         return;
       }
-      const amount = quickAmount.trim();
+      const amount = quickAmount.trim() || DEFAULT_QUICK_AMOUNT;
       const amountNum = Number.parseFloat(amount);
       if (!Number.isFinite(amountNum) || amountNum <= 0) {
         setActionNotice("Enter a valid BNB amount first.", "error", 3200);
@@ -238,10 +239,67 @@ export function BscTradePanel({
     [requestQuote],
   );
 
-  const handleToolbarQuote = useCallback(
-    async () => requestQuote(quoteSide),
-    [quoteSide, requestQuote],
-  );
+  const handleToolbarQuote = useCallback(async () => {
+    if (!getBscTradeQuote) return;
+    const tokenAddress = quickTokenAddress.trim();
+    if (tokenAddress && !BSC_ADDRESS_RE.test(tokenAddress)) {
+      setActionNotice(
+        "Enter a valid token contract address first.",
+        "error",
+        3200,
+      );
+      setTradeFeedback({
+        tone: "error",
+        text: "Enter a valid token contract address first.",
+      });
+      return;
+    }
+
+    const amount = quickAmount.trim() || DEFAULT_QUICK_AMOUNT;
+    const amountNum = Number.parseFloat(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setActionNotice("Enter a valid BNB amount first.", "error", 3200);
+      setTradeFeedback({
+        tone: "error",
+        text: "Enter a valid BNB amount first.",
+      });
+      return;
+    }
+
+    try {
+      const result = await getBscTradeQuote({
+        side: quoteSide,
+        tokenAddress: tokenAddress || undefined,
+        amount,
+      });
+      setLatestQuote(result);
+      setLatestExecution(null);
+      setTxStatus(null);
+      setPendingTrade(null);
+      setActionNotice(
+        `${quoteSide === "buy" ? "Quote ready" : "Sell quote ready"}: ${result.quoteOut?.amount ?? ""} ${result.quoteOut?.symbol ?? ""}`.trim(),
+        "success",
+        3200,
+      );
+      setTradeFeedback({
+        tone: "success",
+        text: `${quoteSide === "buy" ? "Quote ready" : "Sell quote ready"}: ${result.quoteOut?.amount ?? ""} ${result.quoteOut?.symbol ?? ""}`.trim(),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setActionNotice(message, "error", 4600);
+      setTradeFeedback({
+        tone: "error",
+        text: message,
+      });
+    }
+  }, [
+    getBscTradeQuote,
+    quickAmount,
+    quickTokenAddress,
+    quoteSide,
+    setActionNotice,
+  ]);
 
   const handleRequestExecute = useCallback(() => {
     if (!latestQuote) return;

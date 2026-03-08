@@ -1,3 +1,8 @@
+---
+title: Plugin Setup Guide
+description: Comprehensive setup instructions for Milady connector, AI provider, and streaming plugins.
+---
+
 # Plugin Setup Guide — Milady AI
 
 Comprehensive setup instructions for all connector, AI provider, and streaming plugins.
