@@ -30,6 +30,26 @@ trap cleanup EXIT
 
 mkdir -p "$EXTRACT_DIR" "$DMG_STAGING_DIR"
 
+retry_command() {
+  local attempts="$1"
+  local delay_seconds="$2"
+  shift 2
+
+  local attempt exit_code=0
+  for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+    if "$@"; then
+      return 0
+    fi
+    exit_code=$?
+    echo "Command failed (attempt $attempt/$attempts, exit=$exit_code): $*" >&2
+    if [[ "$attempt" -lt "$attempts" ]]; then
+      sleep "$((delay_seconds * attempt))"
+    fi
+  done
+
+  return "$exit_code"
+}
+
 TARBALL_PATH="$(find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst" | sort | head -1)"
 if [[ -z "$TARBALL_PATH" ]]; then
   echo "stage-macos-release-artifacts: no macOS updater tarball found in $ARTIFACTS_DIR"
@@ -90,13 +110,13 @@ if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; th
 fi
 
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_APPLEID:-}" && -n "${ELECTROBUN_APPLEIDPASS:-}" && -n "${ELECTROBUN_TEAMID:-}" ]]; then
-  xcrun notarytool submit \
+  retry_command 3 20 xcrun notarytool submit \
     --apple-id "$ELECTROBUN_APPLEID" \
     --password "$ELECTROBUN_APPLEIDPASS" \
     --team-id "$ELECTROBUN_TEAMID" \
     --wait \
     "$TEMP_DMG_PATH"
-  xcrun stapler staple "$TEMP_DMG_PATH"
+  retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"
 fi
 
 mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"

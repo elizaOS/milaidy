@@ -422,6 +422,23 @@ jobs:
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
+          retry_stapler_validate() {
+            local target="$1"
+            local attempts="${2:-5}"
+            local delay_seconds="${3:-15}"
+            local attempt
+            for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+              if xcrun stapler validate "$target"; then
+                return 0
+              fi
+              if [ "$attempt" -lt "$attempts" ]; then
+                echo "::warning::stapler validate failed for $target (attempt $attempt/$attempts); retrying..."
+                sleep "$((delay_seconds * attempt))"
+              fi
+            done
+            return 1
+          }
+
           apps=()
           while IFS= read -r app; do
             apps+=("$app")
@@ -471,7 +488,7 @@ jobs:
               exit 1
             }
             spctl -a -vv --type exec "$app"
-            xcrun stapler validate "$app" || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
+            retry_stapler_validate "$app" 3 10 || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
           done
           found_dmg=0
           while IFS= read -r dmg; do
@@ -484,7 +501,7 @@ jobs:
               echo "::error::Missing Developer ID Application signature on $dmg"
               exit 1
             }
-            xcrun stapler validate "$dmg"
+            retry_stapler_validate "$dmg"
           done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.dmg" | sort)
           if [ "$found_dmg" -eq 0 ]; then
             echo "::error::No DMG found in apps/app/electrobun/artifacts"

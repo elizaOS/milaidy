@@ -25,6 +25,7 @@ const requiredWorkflowSnippets = [
   '"identifier":"com.miladyai.milady"',
   "Stage standard macOS release app",
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
+  "retry_stapler_validate()",
   "Smoke test packaged macOS app",
   "SMOKE_DIAGNOSTICS_DIR:",
   "SKIP_BUILD=1",
@@ -100,6 +101,8 @@ function assertMacArtifactStagerLooksCorrect() {
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     "hdiutil create \\",
+    "retry_command 3 20 xcrun notarytool submit \\",
+    'retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"',
     'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
   ];
   const missing = requiredSnippets.filter(
