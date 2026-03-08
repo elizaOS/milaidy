@@ -58,7 +58,7 @@ function assertElectrobunConfigHasPostWrapSigner() {
 
   if (missing.length > 0) {
     console.error(
-      "release-check: electrobun config is missing postWrap signer wiring:",
+      "release-check: electrobun config is missing postBuild signer wiring:",
     );
     for (const snippet of missing) {
       console.error(`  - ${snippet}`);
@@ -67,9 +67,29 @@ function assertElectrobunConfigHasPostWrapSigner() {
   }
 }
 
+function assertWindowsSmokeScriptHasLeadingParamBlock() {
+  const script = readFileSync(
+    "apps/app/electrobun/scripts/smoke-test-windows.ps1",
+    "utf8",
+  );
+  const firstRelevantLine = script
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0 && !line.startsWith("#"));
+
+  if (firstRelevantLine !== "param(") {
+    console.error(
+      "release-check: smoke-test-windows.ps1 must start with a param() block before executable statements.",
+    );
+    console.error(`  - first relevant line: ${firstRelevantLine ?? "<none>"}`);
+    process.exit(1);
+  }
+}
+
 function main() {
   assertReleaseWorkflowHasNotaryWrapper();
   assertElectrobunConfigHasPostWrapSigner();
+  assertWindowsSmokeScriptHasLeadingParamBlock();
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));

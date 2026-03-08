@@ -1,10 +1,10 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\\artifacts"),
   [int]$BackendPort = 2138,
   [int]$TimeoutSeconds = 120
 )
+
+$ErrorActionPreference = "Stop"
 
 $resolvedArtifactsDir = (Resolve-Path $ArtifactsDir).Path
 $startupLog = Join-Path $env:USERPROFILE ".config\\Milady\\milady-startup.log"
