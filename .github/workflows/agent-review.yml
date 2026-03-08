@@ -25,43 +25,87 @@ jobs:
         with:
           script: |
             const isPR = !!context.payload.pull_request;
-            const title = isPR
+            const title = (isPR
               ? context.payload.pull_request.title
-              : context.payload.issue.title;
-            const body = isPR
+              : context.payload.issue.title) || '';
+            const body = (isPR
               ? context.payload.pull_request.body || ''
-              : context.payload.issue.body || '';
+              : context.payload.issue.body || '') || '';
             const text = `${title}\n${body}`.toLowerCase();
 
-            // aesthetic/UI keywords (pure visual changes)
+            const anyMatch = (patterns) => patterns.some((pattern) => text.includes(pattern));
+
+            let paths = [];
+            if (isPR) {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              });
+              paths = files.map((file) => file.filename.toLowerCase());
+            }
+
+            const hasFiles = paths.length > 0;
+            const allPathsMatch = (regex) => hasFiles && paths.every((path) => regex.test(path));
+            const anyPathMatch = (regex) => paths.some((path) => regex.test(path));
+
+            const isDocsOnly = allPathsMatch(/(^docs\/)|(^|\/)readme\.md$|\.mdx?$/);
+            const isCiOnly = allPathsMatch(/^\.github\/(workflows|actions)\//);
+            const isTestsOnly = allPathsMatch(/(^test\/)|(\.test\.[tj]sx?$)|(\.spec\.[tj]sx?$)|vitest.*config/);
+
+            const securityPatterns = ['security', 'vulnerability', 'cve', 'injection', 'xss', 'csrf', 'sqli', 'auth bypass'];
+            const docsPatterns = ['docs:', 'documentation', 'readme', 'changelog'];
+            const bugPatterns = ['fix:', 'bug', 'regression', 'broken', 'crash', 'error', 'hotfix', 'resolve'];
+            const featurePatterns = ['feat:', 'feature', 'add ', 'introduce', 'implement', 'support', 'new '];
+            const refactorPatterns = ['refactor', 'cleanup', 'simplify', 'restructure'];
+            const chorePatterns = ['chore:', 'maintenance', 'deps', 'dependency bump', 'housekeeping'];
             const aestheticPatterns = [
               'redesign', 'restyle', 'theme', 'color', 'colour', 'font',
               'layout', 'css', 'styling', 'ui overhaul', 'visual',
-              'dark mode', 'light mode', 'icon', 'logo',
-              'prettier', 'beautif'
+              'dark mode', 'light mode', 'icon', 'logo', 'spacing', 'typography',
             ];
-
-            // technical keywords that override aesthetic classification
-            // (a PR mentioning 'animation files' alongside 'install' is not aesthetic)
             const technicalPatterns = [
-              'install', 'build', 'script', 'clone', 'deploy', 'ci',
-              'test', 'refactor', 'api', 'endpoint', 'migration',
-              'security', 'performance', 'config', 'postinstall',
-              'dependency', 'dependencies', 'webpack', 'vite'
+              'api', 'endpoint', 'migration', 'security', 'performance', 'config',
+              'dependency', 'dependencies', 'build', 'deploy', 'ci', 'test',
+              'runtime', 'provider', 'convex', 'plugin', 'schema',
             ];
-
-            const isAesthetic = aestheticPatterns.some(p => text.includes(p));
-            const isTechnical = technicalPatterns.some(p => text.includes(p));
-            const isBugFix = text.includes('fix') || text.includes('bug') ||
-              text.includes('crash') || text.includes('error') ||
-              text.includes('broken') || text.includes('regression');
 
             let category = 'feature';
-            if (isAesthetic && !isTechnical) category = 'aesthetic';
-            if (isBugFix) category = 'bugfix';
+
+            if (anyMatch(securityPatterns)) {
+              category = 'security';
+            } else if (isDocsOnly || (anyMatch(docsPatterns) && !hasFiles)) {
+              category = 'docs';
+            } else if (isCiOnly) {
+              category = 'ci';
+            } else if (isTestsOnly) {
+              category = 'test';
+            } else if (anyMatch(refactorPatterns) && !anyMatch(bugPatterns) && !anyMatch(featurePatterns)) {
+              category = 'refactor';
+            } else if (anyMatch(chorePatterns) && !anyMatch(featurePatterns)) {
+              category = 'chore';
+            } else {
+              const bugScore =
+                (anyMatch(bugPatterns) ? 2 : 0) +
+                (anyPathMatch(/(fix|bug|regression|hotfix)/) ? 1 : 0);
+              const featureScore =
+                (anyMatch(featurePatterns) ? 2 : 0) +
+                (anyPathMatch(/(^src\/)|(^apps\/app\/src\/)/) ? 1 : 0);
+              const isAesthetic = anyMatch(aestheticPatterns);
+              const isTechnical = anyMatch(technicalPatterns);
+
+              if (isAesthetic && !isTechnical) {
+                category = 'aesthetic';
+              } else if (bugScore >= featureScore + 1) {
+                category = 'bugfix';
+              } else {
+                category = 'feature';
+              }
+            }
 
             core.setOutput('category', category);
-            console.log(`Classified as: ${category}`);
+            console.log(`Classified as: ${category} | files=${paths.length}`);
 
   review-pr:
     if: github.event_name == 'pull_request_target'
@@ -749,8 +793,9 @@ jobs:
 
             // Map tier to label
             const tierLabel = `trust:${result.tier}`;
+            const categoryLabel = `category:${category}`;
 
-            // Remove old trust labels
+            // Remove old trust/category labels
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -759,6 +804,14 @@ jobs:
 
             for (const label of labels) {
               if (label.name.startsWith('trust:')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label.name,
+                }).catch(() => {});
+              }
+              if (label.name.startsWith('category:')) {
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -788,15 +841,24 @@ jobs:
                 description: `${result.tierInfo.description} (auto-managed)`,
               });
             } catch (e) { /* label exists */ }
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: categoryLabel,
+                color: '1f6feb',
+                description: 'Auto-managed semantic PR category',
+              });
+            } catch (e) { /* label exists */ }
 
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              labels: [tierLabel],
+              labels: [tierLabel, categoryLabel],
             });
 
-            console.log(`Trust updated: ${author} → ${result.score}/100 (${result.tier}), ${result.breakdown.recencyWeightedPoints} weighted pts`);
+            console.log(`Trust/category updated: ${author} → ${result.score}/100 (${result.tier}), category=${category}, ${result.breakdown.recencyWeightedPoints} weighted pts`);
 
   auto-merge:
     name: Auto-merge approved PRs
