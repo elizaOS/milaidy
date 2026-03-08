@@ -5,6 +5,7 @@
 
 import { Mic, Send } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useApp } from "../AppContext";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 
@@ -15,18 +16,22 @@ export function FloatingChatInput() {
   const voice = useVoiceChat({
     onTranscript: useCallback(
       (text: string) => {
-        setState("chatInput", text);
-        setTimeout(() => void handleChatSend("DM"), 50);
+        const transcript = text.trim();
+        if (!transcript) return;
+        flushSync(() => {
+          setState("chatInput", transcript);
+          setTab("chat");
+        });
+        void handleChatSend("DM");
       },
-      [setState, handleChatSend],
+      [handleChatSend, setState, setTab],
     ),
   });
 
   const handleSend = useCallback(() => {
     if (!chatInput.trim()) return;
-    // Switch to chat tab so the reply is visible, then send
     setTab("chat");
-    setTimeout(() => void handleChatSend("DM"), 30);
+    void handleChatSend("DM");
   }, [chatInput, handleChatSend, setTab]);
 
   const handleKeyDown = useCallback(

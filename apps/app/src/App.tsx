@@ -309,7 +309,11 @@ export function App() {
   const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
 
   useLifoAutoPopout({
-    enabled: false,
+    enabled:
+      !lifoPopoutMode &&
+      !onboardingLoading &&
+      onboardingComplete &&
+      !authRequired,
     targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
     onPopupBlocked: () => {
       setActionNotice(

@@ -203,9 +203,9 @@ export function Header() {
           </div>
         )}
 
-        {/* Right side controls — ghost by default, each button fades in on hover */}
+        {/* Right side controls — ghost by default, but visible on keyboard focus */}
         <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-2 w-max ml-auto pr-0.5 [&>*]:opacity-0 [&>*:hover]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200">
+          <div className="flex items-center gap-2 w-max ml-auto pr-0.5 [&>*]:opacity-0 [&>*:hover]:opacity-100 [&>*:focus-visible]:opacity-100 [&>*:focus-within]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200">
             {/* Free Mint Banner */}
             {dropStatus?.dropEnabled &&
               dropStatus?.publicMintOpen &&
