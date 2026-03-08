@@ -96,6 +96,7 @@ The local Electrobun smoke test now verifies the backend, not just the window sh
 - After building, `apps/app/electrobun/scripts/smoke-test.sh` launches the packaged app and tails `~/.config/Milady/milady-startup.log`.
 - It fails if the child runtime logs `Cannot find module`, exits before becoming healthy, or never reaches `Runtime started -- agent: ... port: ...`.
 - Once the startup log reports a port, the script probes `http://127.0.0.1:${port}/api/health` and requires that endpoint to stay healthy for the liveness window.
+- On Windows, `apps/app/electrobun/scripts/smoke-test-windows.ps1` now prefers the packaged `*.tar.zst` bundle and launches its `launcher.exe` directly. It only falls back to the `Milady-Setup*.exe` installer path when no direct packaged bundle artifact is available.
 
 Why: the previous smoke test could pass while the launcher stayed open but the embedded agent backend had already crashed.
 

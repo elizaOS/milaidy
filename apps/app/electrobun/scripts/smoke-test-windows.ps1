@@ -20,6 +20,17 @@ function Find-Launcher([string]$Root) {
     Select-Object -First 1
 }
 
+function Expand-PackagedTarball([string]$ArchivePath, [string]$DestinationPath) {
+  $tarCommand = if (Test-Path "C:\\Windows\\System32\\tar.exe") {
+    "C:\\Windows\\System32\\tar.exe"
+  } else {
+    "tar"
+  }
+
+  New-Item -ItemType Directory -Force -Path $DestinationPath | Out-Null
+  & $tarCommand -xf $ArchivePath -C $DestinationPath
+}
+
 function Stop-MiladyProcesses() {
   Get-Process -ErrorAction SilentlyContinue |
     Where-Object {
@@ -65,38 +76,65 @@ if (Test-Path $selfExtractionRoot) {
 }
 
 $launcher = Find-Launcher $resolvedArtifactsDir
+$packagedTarball = $null
 $installer = $null
 $installerProcess = $null
 $launcherProcess = $null
 $launcherStarted = $false
 
 if (-not $launcher) {
-  $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+  $packagedTarball = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
-  if (-not $installer) {
-    $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
+  if ($packagedTarball) {
+    Write-Host "Using packaged tarball: $($packagedTarball.FullName)"
+    try {
+      Expand-PackagedTarball -ArchivePath $packagedTarball.FullName -DestinationPath $tempExtractDir
+      $launcher = Find-Launcher $tempExtractDir
+      if (-not $launcher) {
+        Write-Warning "Packaged tarball extracted but no launcher.exe was found. Falling back to installer path."
+      }
+    } catch {
+      Write-Warning "Failed to extract packaged tarball: $($_.Exception.Message)"
+      Write-Warning "Falling back to installer path."
+    }
+  }
+
+  if ($launcher) {
+    Write-Host "Using launcher: $($launcher.FullName)"
+    $launcherDir = Split-Path -Parent $launcher.FullName
+    $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
+    $launcherStarted = $true
+  } else {
+    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
       Select-Object -First 1
-    if (-not $installerZip) {
-      throw "No launcher.exe, installer .exe, or installer .zip found under $resolvedArtifactsDir"
+
+    if (-not $installer) {
+      $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+      if (-not $installerZip) {
+        throw "No launcher.exe, packaged .tar.zst, installer .exe, or installer .zip found under $resolvedArtifactsDir"
+      }
+
+      New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
+      Expand-Archive -Path $installerZip.FullName -DestinationPath $tempExtractDir -Force
+      $installer = Get-ChildItem -Path $tempExtractDir -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
     }
 
-    New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
-    Expand-Archive -Path $installerZip.FullName -DestinationPath $tempExtractDir -Force
-    $installer = Get-ChildItem -Path $tempExtractDir -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
-      Select-Object -First 1
-  }
+    if (-not $installer) {
+      throw "No installer executable found for Windows smoke test."
+    }
 
-  if (-not $installer) {
-    throw "No installer executable found for Windows smoke test."
+    Write-Host "Using installer: $($installer.FullName)"
+    $installerProcess = Start-Process -FilePath $installer.FullName -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru
   }
-
-  Write-Host "Using installer: $($installer.FullName)"
-  $installerProcess = Start-Process -FilePath $installer.FullName -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru
 } else {
   Write-Host "Using launcher: $($launcher.FullName)"
   $launcherDir = Split-Path -Parent $launcher.FullName
   $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
+  $launcherStarted = $true
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)

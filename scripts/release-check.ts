@@ -96,6 +96,8 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
   }
 
   const requiredSnippets = [
+    'Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst"',
+    "Using packaged tarball:",
     "Find-Launcher $selfExtractionRoot",
     "Started extracted launcher:",
     "Runtime started -- agent: .* port:",
