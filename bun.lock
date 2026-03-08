@@ -14,7 +14,7 @@
         "@clack/prompts": "^1.0.0",
         "@electric-sql/pglite": "^0.3.3",
         "@elizaos/core": "next",
-        "@elizaos/plugin-agent-orchestrator": "0.3.9",
+        "@elizaos/plugin-agent-orchestrator": "0.3.10",
         "@elizaos/plugin-agent-skills": "next",
         "@elizaos/plugin-anthropic": "next",
         "@elizaos/plugin-browser": "next",
@@ -107,7 +107,7 @@
         "pdfjs-dist": "^5.4.530",
         "pg": "^8.16.3",
         "pino": "^10.3.1",
-        "pty-manager": "1.9.5",
+        "pty-manager": "1.9.6",
         "puppeteer-core": "^24.37.5",
         "qrcode": "^1.5.4",
         "sharp": "^0.33.5",
@@ -455,7 +455,7 @@
     "ai": "6.0.30",
     "drizzle-orm": "0.45.1",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.5",
+    "pty-manager": "1.9.6",
   },
   "packages": {
     "@acemir/cssom": ["@acemir/cssom@0.9.31", "", {}, "sha512-ZnR3GSaH+/vJ0YlHau21FjfLYjMpYVIzTD8M8vIEQvIGxeOXyXdzCI140rrCY862p/C/BbzWsjc1dgnM9mkoTA=="],
@@ -720,7 +720,7 @@
 
     "@elizaos/core": ["@elizaos/core@2.0.0-alpha.12", "", { "dependencies": { "@bufbuild/protobuf": "^2.10.2", "@elizaos/prompts": "file:../prompts", "@langchain/core": "^1.1.12", "@langchain/textsplitters": "^1.0.1", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dedent": "^1.7.1", "dotenv": "^17.2.3", "fast-redact": "^3.5.0", "file-type": "^21.3.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "markdown-it": "^14.1.0", "pdfjs-dist": "^5.4.530", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "zod": "^4.3.6" } }, "sha512-I95hzSf4MpTd+xfEQZC+4mBWx0bT53MgM2GJs5AaTq9VtJCNSI7um00ZXkhdQSa3WGNecTbdPc1Wirang9ghog=="],
 
-    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@0.3.9", "", { "dependencies": { "coding-agent-adapters": "0.12.0", "pty-console": "0.3.1" }, "peerDependencies": { "@elizaos/core": ">=2.0.0-alpha.0", "git-workspace-service": "0.4.4", "pty-manager": "1.9.5" } }, "sha512-yLPZP+m5VTRHQ+JB/eLzNY8Xxo/9RydAqrYiUd2tX8n99QXYVUu01QI/2I8vqixqvDV4DSAOIJg5lKRTKw2m4w=="],
+    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@0.3.10", "", { "dependencies": { "coding-agent-adapters": "0.12.0", "pty-console": "0.3.1" }, "peerDependencies": { "@elizaos/core": ">=2.0.0-alpha.0", "git-workspace-service": "0.4.4", "pty-manager": "1.9.6" } }, "sha512-5fRd2/bbYLs38dW8rrfhlxP2okEYqZK+8iyWK5ItssSMSvwGQ45aemzloXQMLwo+t92YIXZzfWP/i2ulXa5w3g=="],
 
     "@elizaos/plugin-agent-skills": ["@elizaos/plugin-agent-skills@2.0.0-alpha.11", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "fflate": "^0.8.2" } }, "sha512-trFM3i/J+DSmhwVgnt0muWMSToNxbwKq3Su1f9ZnNAnm+H2Fidptsy0OkX78mwqJBfCXIbvnsCFuLNtszjYMqw=="],
 
@@ -2612,7 +2612,7 @@
 
     "levn": ["levn@0.4.1", "", { "dependencies": { "prelude-ls": "^1.2.1", "type-check": "~0.4.0" } }, "sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ=="],
 
-    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d"],
+    "libsignal": ["@whiskeysockets/libsignal-node@github:whiskeysockets/libsignal-node#1c30d7d", { "dependencies": { "curve25519-js": "^0.0.4", "protobufjs": "6.8.8" } }, "WhiskeySockets-libsignal-node-1c30d7d", "sha512-5q4/OuDQaMYx3RpDqMqS3WYyqjrsSMpU8ipQZtpYnm5l6DwNoLV9oIYMDK0NILKW+tyk3tVCIA11BMYQ+A1+GA=="],
 
     "libsodium": ["libsodium@0.7.16", "", {}, "sha512-3HrzSPuzm6Yt9aTYCDxYEG8x8/6C0+ag655Y7rhhWZM9PT4NpdnbqlzXhGZlDnkgR6MeSTnOt/VIyHLs9aSf+Q=="],
 
@@ -3030,7 +3030,7 @@
 
     "pty-console": ["pty-console@0.3.1", "", { "dependencies": { "pty-manager": "^1.9.0" } }, "sha512-ZiI3Oav83AEq1kWIQWfloMN0gM6RiAh+fCMm+ee+8wduOLqfW5AYZx5BEg3eJblCKKVQW22x2mB9UTUoM/Vpcw=="],
 
-    "pty-manager": ["pty-manager@1.9.5", "", { "dependencies": { "node-pty": "^1.0.0" }, "bin": { "pty-worker": "dist/pty-worker.js" } }, "sha512-nB+VLhbZ8kgEAl4bfhzy590fmzgvfmvUHHOmWCrYZE+MP9/M4T+GVCJ4at86pl/CW5tI52RQel1/p5kjTb8jXg=="],
+    "pty-manager": ["pty-manager@1.9.6", "", { "dependencies": { "node-pty": "^1.0.0" }, "bin": { "pty-worker": "dist/pty-worker.js" } }, "sha512-IGfO9YIn3nC07FJcCIPIAp6eAOs2+H80A9+YhnqChJiBAcHlXLHNcpuR9MckbgIT0nwiuu83FsbjQf2nGDJx3g=="],
 
     "public-encrypt": ["public-encrypt@4.0.3", "", { "dependencies": { "bn.js": "^4.1.0", "browserify-rsa": "^4.0.0", "create-hash": "^1.1.0", "parse-asn1": "^5.0.0", "randombytes": "^2.0.1", "safe-buffer": "^5.1.2" } }, "sha512-zVpa8oKZSz5bTMTFClc1fQOnyyEzpl5ozpi1B5YcvBrdohMjH2rfsBtyXcuNuwjsDIXmBYlF2N5FlJYhR29t8Q=="],
 
