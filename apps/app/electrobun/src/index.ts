@@ -239,11 +239,17 @@ function setupShutdown(apiBaseInterval: ReturnType<typeof setInterval>): void {
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
 
-  // Set up app menu
-  setupApplicationMenu();
-
-  // Create main window
+  // Create main window first — on Windows, CEF's event loop is not running
+  // until the first native window is created. Calling setApplicationMenu()
+  // before that point causes the native FFI call to deadlock waiting for the
+  // UI thread. Always create the window before touching any menu APIs.
   const win = await createMainWindow();
+
+  // Set up app menu (must be after createMainWindow on Windows)
+  // Guard macOS-only roles so Windows doesn't receive unknown role strings.
+  if (process.platform !== "win32") {
+    setupApplicationMenu();
+  }
 
   // Wire RPC handlers and native modules
   wireRpcAndModules(win);
