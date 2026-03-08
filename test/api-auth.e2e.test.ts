@@ -234,7 +234,11 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   const TERMINAL_TOKEN = "test-terminal-token-def456";
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED", "MILADY_TERMINAL_RUN_TOKEN");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_TERMINAL_RUN_TOKEN",
+    );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
     process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;

@@ -29,6 +29,7 @@ function getMediaProviderOptions(): MediaProviderFactoryOptions {
     elizaCloudBaseUrl:
       config.cloud?.baseUrl ?? "https://www.elizacloud.ai/api/v1",
     elizaCloudApiKey: config.cloud?.apiKey,
+    cloudMediaDisabled: config.cloud?.services?.media === false,
   };
 }
 

@@ -8,7 +8,7 @@ Connect your agent to Telegram for private chats and group conversations.
 
 ## Overview
 
-The Telegram connector is an external ElizaOS plugin that bridges your agent to Telegram via the Bot API. It is auto-enabled by the runtime when a valid token is detected in your connector configuration.
+The Telegram connector is an external elizaOS plugin that bridges your agent to Telegram via the Bot API. It is auto-enabled by the runtime when a valid token is detected in your connector configuration.
 
 ## Package Info
 

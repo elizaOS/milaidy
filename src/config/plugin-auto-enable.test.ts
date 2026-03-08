@@ -252,14 +252,14 @@ describe("applyPluginAutoEnable — env vars", () => {
     ).toBe(true);
   });
 
-  it("enables pi-ai plugin when MILAIDY_USE_PI_AI is set", () => {
+  it("enables pi-ai plugin when MILADY_USE_PI_AI is set", () => {
     const params = makeParams({
-      env: { MILAIDY_USE_PI_AI: "1" },
+      env: { MILADY_USE_PI_AI: "1" },
     });
     const { config, changes } = applyPluginAutoEnable(params);
 
     expect(config.plugins?.allow).toContain("pi-ai");
-    expect(changes.some((c) => c.includes("MILAIDY_USE_PI_AI"))).toBe(true);
+    expect(changes.some((c) => c.includes("MILADY_USE_PI_AI"))).toBe(true);
   });
 
   it("skips env var with empty string value", () => {
@@ -657,8 +657,8 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
     );
   });
 
-  it("maps MILAIDY_USE_PI_AI to pi-ai plugin", () => {
-    expect(AUTH_PROVIDER_PLUGINS.MILAIDY_USE_PI_AI).toBe(
+  it("maps MILADY_USE_PI_AI to pi-ai plugin", () => {
+    expect(AUTH_PROVIDER_PLUGINS.MILADY_USE_PI_AI).toBe(
       "@elizaos/plugin-pi-ai",
     );
   });

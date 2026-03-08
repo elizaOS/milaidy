@@ -11,7 +11,7 @@ milady-adapter (Python client)
     |  (HTTP requests)
 server.ts (this directory)
     |  (canonical message pipeline)
-ElizaOS AgentRuntime
+elizaOS AgentRuntime
 ```
 
 This directory contains:

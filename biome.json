@@ -25,7 +25,8 @@
       "!vendor",
       "!test/contracts/lib",
       "!test/contracts/out",
-      "!test/contracts/cache"
+      "!test/contracts/cache",
+      "!**/vrms/imported-avatars.json"
     ]
   },
   "assist": {

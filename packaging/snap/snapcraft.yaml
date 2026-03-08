@@ -1,9 +1,9 @@
 name: milady
 version: '2.0.0-alpha.7'
-summary: Personal AI assistant built on ElizaOS
+summary: Personal AI assistant built on elizaOS
 description: |
   Milady is a personal AI assistant you run on your own devices, built on
-  ElizaOS. It provides zero-config onboarding, multi-provider AI support,
+  elizaOS. It provides zero-config onboarding, multi-provider AI support,
   a web dashboard, and a plugin system for extensibility.
 
   Features:
@@ -49,8 +49,13 @@ parts:
         arm64) NODE_ARCH="arm64" ;;
         *) echo "Unsupported arch: $ARCH"; exit 1 ;;
       esac
+
       curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
         | tar xJ --strip-components=1 -C "$CRAFT_PART_INSTALL"
+
+      # ✅ critical: make "node" discoverable for npm's /usr/bin/env node shebang
+      export PATH="$CRAFT_PART_INSTALL/bin:$PATH"
+
       "$CRAFT_PART_INSTALL/bin/node" --version
       "$CRAFT_PART_INSTALL/bin/npm" --version
     organize:

@@ -87,7 +87,7 @@ curl -X POST http://localhost:2138/api/knowledge/documents \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Company FAQ",
-    "content": "Q: What is Milady?\nA: A personal AI assistant built on ElizaOS."
+    "content": "Q: What is Milady?\nA: A personal AI assistant built on elizaOS."
   }'
 ```
 
@@ -242,7 +242,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 | `DELETE` | `/api/conversations/:id` | Delete a conversation |
 
 <Info>
-Conversations are scoped to the web-chat interface. Each conversation maps to an ElizaOS room with a deterministic world ID.
+Conversations are scoped to the web-chat interface. Each conversation maps to an elizaOS room with a deterministic world ID.
 </Info>
 
 ---
@@ -338,7 +338,7 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/registry/plugins` | List all plugins from the ElizaOS registry |
+| `GET` | `/api/registry/plugins` | List all plugins from the elizaOS registry |
 | `GET` | `/api/registry/plugins/:name` | Get details for a specific registry plugin |
 | `GET` | `/api/registry/search` | Search the registry. Params: `q` (required), `limit` |
 | `POST` | `/api/registry/refresh` | Force refresh the registry cache |
@@ -522,7 +522,7 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/core/status` | Get ElizaOS core version and status |
+| `GET` | `/api/core/status` | Get elizaOS core version and status |
 
 ---
 

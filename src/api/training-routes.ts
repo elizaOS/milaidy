@@ -2,6 +2,7 @@ import type { AgentRuntime } from "@elizaos/core";
 import { isLoopbackHost } from "../security/network-policy";
 import { parsePositiveInteger } from "../utils/number-parsing";
 import type { RouteHelpers, RouteRequestContext } from "./route-helpers";
+import { detectAvailableBackends } from "./training-backend-check";
 import type { TrainingServiceLike } from "./training-service-like";
 
 export type TrainingRouteHelpers = RouteHelpers;
@@ -110,6 +111,13 @@ export async function handleTrainingRoutes(
     return true;
   }
 
+  // ── GET /api/training/backends ────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/training/backends") {
+    const backends = await detectAvailableBackends();
+    json(res, { backends });
+    return true;
+  }
+
   // ── GET /api/training/jobs ─────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/training/jobs") {
     json(res, { jobs: trainingService.listJobs() });
@@ -128,6 +136,22 @@ export async function handleTrainingRoutes(
       learningRate?: number;
     }>(req, res);
     if (!body) return true;
+
+    if (body.backend && body.backend !== "cpu") {
+      const backends = await detectAvailableBackends();
+      if (!backends[body.backend]) {
+        const available = (Object.entries(backends) as [string, boolean][])
+          .filter(([, ok]) => ok)
+          .map(([name]) => name)
+          .join(", ");
+        error(
+          res,
+          `Backend '${body.backend}' is not available on this system. Available backends: ${available}`,
+          400,
+        );
+        return true;
+      }
+    }
 
     try {
       const job = await trainingService.startTrainingJob({

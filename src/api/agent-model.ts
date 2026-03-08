@@ -20,6 +20,23 @@ const PROVIDER_HINTS = [
   "pi-ai",
 ] as const;
 
+/**
+ * Env-var → provider label mapping, checked as a last-resort fallback when
+ * character settings and plugin names don't yield a model identifier.
+ */
+const ENV_PROVIDER_SIGNALS: ReadonlyArray<{
+  envVar: string;
+  label: string;
+}> = [
+  { envVar: "ANTHROPIC_API_KEY", label: "anthropic" },
+  { envVar: "OPENAI_API_KEY", label: "openai" },
+  { envVar: "OPENROUTER_API_KEY", label: "openrouter" },
+  { envVar: "GROQ_API_KEY", label: "groq" },
+  { envVar: "GOOGLE_GENERATIVE_AI_API_KEY", label: "gemini" },
+  { envVar: "XAI_API_KEY", label: "xai" },
+  { envVar: "DEEPSEEK_API_KEY", label: "deepseek" },
+];
+
 function normalizeModelSpec(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -63,9 +80,12 @@ function readCharacterModel(runtime: AgentRuntime): string | undefined {
  * Preference order:
  * 1) Explicit character model settings (provider/model)
  * 2) Loaded AI provider plugin name
+ * 3) Config-based model.primary (set by subscription auth)
+ * 4) Environment variable API keys
  */
 export function detectRuntimeModel(
   runtime: AgentRuntime | null,
+  config?: { agents?: { defaults?: { model?: { primary?: string } } } },
 ): string | undefined {
   if (!runtime) return undefined;
 
@@ -79,13 +99,65 @@ export function detectRuntimeModel(
         )
         .filter((name): name is string => name.length > 0)
     : [];
-  if (pluginNames.length === 0) return undefined;
 
-  const lowerPluginNames = pluginNames.map((name) => name.toLowerCase());
-  for (const hint of PROVIDER_HINTS) {
-    const index = lowerPluginNames.findIndex((name) => name.includes(hint));
-    if (index >= 0) return pluginNames[index];
+  if (pluginNames.length > 0) {
+    const lowerPluginNames = pluginNames.map((name) => name.toLowerCase());
+    for (const hint of PROVIDER_HINTS) {
+      const index = lowerPluginNames.findIndex((name) => name.includes(hint));
+      if (index >= 0) return pluginNames[index];
+    }
+  }
+
+  // Check config-based model.primary (set by applySubscriptionCredentials)
+  const configModel = normalizeModelSpec(
+    config?.agents?.defaults?.model?.primary,
+  );
+  if (configModel) return configModel;
+
+  // Last resort: check environment for known API keys
+  for (const { envVar, label } of ENV_PROVIDER_SIGNALS) {
+    const val = process.env[envVar]?.trim();
+    if (val && val.length > 0) return label;
   }
 
   return undefined;
+}
+
+/**
+ * Map a model/provider identifier string to a human-readable provider label.
+ * Mirrors the front-end `resolveProviderLabel()` logic so the API can return
+ * a ready-to-display provider name.
+ */
+export function resolveProviderFromModel(model: string): string | null {
+  const lower = model.trim().toLowerCase();
+  if (!lower) return null;
+
+  const providers: Array<{ match: string; label: string }> = [
+    { match: "elizacloud", label: "Eliza Cloud" },
+    { match: "openrouter", label: "OpenRouter" },
+    { match: "openai", label: "OpenAI" },
+    { match: "anthropic", label: "Anthropic" },
+    { match: "gemini", label: "Google" },
+    { match: "google", label: "Google" },
+    { match: "grok", label: "xAI" },
+    { match: "xai", label: "xAI" },
+    { match: "groq", label: "Groq" },
+    { match: "ollama", label: "Ollama" },
+    { match: "deepseek", label: "DeepSeek" },
+    { match: "mistral", label: "Mistral" },
+    { match: "together", label: "Together AI" },
+    { match: "cohere", label: "Cohere" },
+    { match: "pi-ai", label: "Pi AI" },
+    { match: "moonshot", label: "Moonshot" },
+    { match: "kimi", label: "Kimi" },
+  ];
+  for (const { match, label } of providers) {
+    if (lower.includes(match)) return label;
+  }
+
+  if (lower.startsWith("gpt")) return "OpenAI";
+  if (lower.startsWith("claude")) return "Anthropic";
+  if (lower.startsWith("gemini")) return "Google";
+
+  return null;
 }

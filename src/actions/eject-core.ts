@@ -8,7 +8,7 @@ export const ejectCoreAction: Action = {
   similes: ["FORK_CORE", "CLONE_CORE", "EDIT_CORE_SOURCE"],
 
   description:
-    "Clone ElizaOS core source locally so edits override npm @elizaos/core.",
+    "Clone elizaOS core source locally so edits override npm @elizaos/core.",
 
   validate: async () => true,
 

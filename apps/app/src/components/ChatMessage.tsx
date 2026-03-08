@@ -117,6 +117,25 @@ export function ChatMessage({
         >
           <MessageContent message={message} />
 
+          {/* Stream interruption indicator */}
+          {!isUser && message.interrupted && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-danger/30">
+              <span className="text-xs text-danger">
+                (Response interrupted)
+              </span>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={() => onRetry(message.id)}
+                  className="flex items-center gap-1 px-2 py-0.5 text-xs text-danger border border-danger/40 rounded hover:bg-danger/10 transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Message Actions (on hover) */}
           <div
             className={`absolute ${isUser ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 flex items-center gap-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${showActions ? "opacity-100" : ""}`}

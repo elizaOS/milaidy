@@ -10,7 +10,7 @@
  * 2. /v1/embeddings → local fallback (subscriptions don't support embeddings API)
  * 3. /v1/models → passthrough (works with subscription tokens)
  *
- * Loaded before the ElizaOS runtime so ALL OpenAI calls are patched.
+ * Loaded before the elizaOS runtime so ALL OpenAI calls are patched.
  */
 
 const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
@@ -34,7 +34,7 @@ const MODEL_REMAP = {
   o1: DEFAULT_CODEX_MODEL,
   "o1-mini": DEFAULT_CODEX_MODEL,
   "o1-preview": DEFAULT_CODEX_MODEL,
-  // ElizaOS defaults (plugin-openai alpha.3)
+  // elizaOS defaults (plugin-openai alpha.3)
   "gpt-5": DEFAULT_CODEX_MODEL,
   "gpt-5-mini": DEFAULT_CODEX_MODEL,
   "gpt-5-mini-transcribe": DEFAULT_CODEX_MODEL,

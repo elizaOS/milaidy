@@ -83,7 +83,11 @@ describe("MiladyClient streaming chat endpoints", () => {
     );
 
     expect(tokens).toEqual(["Hello ", "world"]);
-    expect(result).toEqual({ text: "Hello world", agentName: "Milady" });
+    expect(result).toEqual({
+      text: "Hello world",
+      agentName: "Milady",
+      completed: true,
+    });
 
     const firstCall = fetchMock.mock.calls[0];
     const requestUrl = String(firstCall[0]);
@@ -117,7 +121,11 @@ describe("MiladyClient streaming chat endpoints", () => {
     );
 
     expect(tokens).toEqual(["A", "B"]);
-    expect(result).toEqual({ text: "AB", agentName: "Milady" });
+    expect(result).toEqual({
+      text: "AB",
+      agentName: "Milady",
+      completed: false,
+    });
   });
 
   test("streams CRLF-delimited SSE events before stream completion", async () => {
@@ -149,6 +157,7 @@ describe("MiladyClient streaming chat endpoints", () => {
     await expect(pending).resolves.toEqual({
       text: "Hello",
       agentName: "Milady",
+      completed: true,
     });
   });
 

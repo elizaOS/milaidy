@@ -58,7 +58,7 @@ export interface StreamingPluginConfig {
   defaultRtmpUrl: string;
   /** Optional env var for a custom RTMP URL (YouTube supports this) */
   rtmpUrlEnvVar?: string;
-  /** Override the ElizaOS plugin name (defaults to `${platformId}-streaming`) */
+  /** Override the elizaOS plugin name (defaults to `${platformId}-streaming`) */
   pluginName?: string;
   /** Per-destination default overlay layout, seeded on first stream start. */
   defaultOverlayLayout?: OverlayLayoutData;
@@ -159,6 +159,9 @@ export function createStreamingDestination(
         (cfg.rtmpUrlEnvVar ? process.env[cfg.rtmpUrlEnvVar] : undefined) ??
         cfg.defaultRtmpUrl
       ).trim();
+      if (!rtmpUrl) {
+        throw new Error(`${cfg.platformName} RTMP URL not configured`);
+      }
 
       return { rtmpUrl, rtmpKey: streamKey };
     },
@@ -169,10 +172,10 @@ export function createStreamingDestination(
 // ── Plugin factory ──────────────────────────────────────────────────────────
 
 /**
- * Build a complete ElizaOS Plugin for a streaming destination.
+ * Build a complete elizaOS Plugin for a streaming destination.
  *
  * Returns:
- *  - `plugin`  -- the Plugin object to register with ElizaOS
+ *  - `plugin`  -- the Plugin object to register with elizaOS
  *  - `createDestination` -- the destination factory (for the streaming pipeline)
  */
 export function createStreamingPlugin(cfg: StreamingPluginConfig): {

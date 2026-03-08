@@ -93,7 +93,7 @@ Browse all available models at [ollama.com/library](https://ollama.com/library).
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | Default Ollama Model |
+| elizaOS Model Type | Default Ollama Model |
 |-------------------|---------------------|
 | `TEXT_SMALL` | `llama3.2` (3B) |
 | `TEXT_LARGE` | `llama3.3` (70B) |

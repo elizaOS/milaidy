@@ -94,7 +94,7 @@ export type MemoryConfig = {
 
 ### Built-in Backend
 
-The default backend uses ElizaOS core memory via `plugin-sql`. Configure under `milady.json`:
+The default backend uses elizaOS core memory via `plugin-sql`. Configure under `milady.json`:
 
 ```json
 {
@@ -260,7 +260,7 @@ When context approaches token limits, Milady can prune old tool results:
 }
 ```
 
-Context compaction (summarisation of older history) is handled by ElizaOS core auto-compaction in the recent-messages provider.
+Context compaction (summarisation of older history) is handled by elizaOS core auto-compaction in the recent-messages provider.
 
 ## Knowledge Plugin
 

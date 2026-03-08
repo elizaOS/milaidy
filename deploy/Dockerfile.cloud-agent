@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ElizaOS Cloud Agent Container
+# elizaOS Cloud Agent Container
 #
-# Pre-built image for deploying ElizaOS agents to ElizaCloud (AWS ECS).
-# Runs an ElizaOS agent runtime with the ElizaCloud plugin for inference,
+# Pre-built image for deploying elizaOS agents to ElizaCloud (AWS ECS).
+# Runs an elizaOS agent runtime with the ElizaCloud plugin for inference,
 # exposes a health endpoint on $PORT (default 2138), and a bridge HTTP
 # server on $BRIDGE_PORT (default 18790) for communication with milady.
 #

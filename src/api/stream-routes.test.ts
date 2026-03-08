@@ -50,6 +50,8 @@ function mockState(
       mute: vi.fn(async () => {}),
       unmute: vi.fn(async () => {}),
     },
+    destinations: new Map(),
+    activeStreamSource: { type: "stream-tab" as const },
     port: 2138,
     ...overrides,
   };
@@ -395,13 +397,13 @@ describe("handleStreamRoute", () => {
         method: "GET",
         url: "/api/stream/status",
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(req, res, "/api/stream/status", "GET", state);
 
@@ -831,13 +833,13 @@ describe("handleStreamRoute", () => {
         method: "GET",
         url: "/api/streaming/destinations",
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(
         req,
@@ -849,7 +851,7 @@ describe("handleStreamRoute", () => {
 
       expect(getJson()).toEqual({
         ok: true,
-        destinations: [{ id: "retake", name: "Retake.tv" }],
+        destinations: [{ id: "retake", name: "Retake.tv", active: true }],
       });
     });
   });
@@ -902,13 +904,13 @@ describe("handleStreamRoute", () => {
         url: "/api/streaming/destination",
         body: JSON.stringify({ destinationId: "retake" }),
       });
-      const state = mockState({
-        destination: {
-          id: "retake",
-          name: "Retake.tv",
-          getCredentials: vi.fn(),
-        },
-      });
+      const destinations = new Map([
+        [
+          "retake",
+          { id: "retake", name: "Retake.tv", getCredentials: vi.fn() },
+        ],
+      ]);
+      const state = mockState({ destinations });
 
       await handleStreamRoute(
         req,
@@ -2186,5 +2188,236 @@ describe("onAgentMessage()", () => {
 
     await onAgentMessage("Hello world", state);
     // Guard should exit early — no TTS generation attempted
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/stream/source
+// ---------------------------------------------------------------------------
+
+describe("GET /api/stream/source", () => {
+  it("returns the current active stream source", async () => {
+    const state = mockState({
+      activeStreamSource: { type: "game", url: "http://localhost:3000" },
+    });
+    const req = createMockIncomingMessage({
+      method: "GET",
+      url: "/api/stream/source",
+    });
+    const { res, getJson } = createMockHttpResponse();
+
+    const handled = await handleStreamRoute(
+      req,
+      res,
+      "/api/stream/source",
+      "GET",
+      state,
+    );
+
+    expect(handled).toBe(true);
+    const body = getJson() as { source: { type: string; url?: string } };
+    expect(body.source).toEqual({
+      type: "game",
+      url: "http://localhost:3000",
+    });
+  });
+
+  it("returns default stream-tab source", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "GET",
+      url: "/api/stream/source",
+    });
+    const { res, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "GET", state);
+
+    const body = getJson() as { source: { type: string } };
+    expect(body.source.type).toBe("stream-tab");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/stream/source
+// ---------------------------------------------------------------------------
+
+describe("POST /api/stream/source", () => {
+  it("switches to stream-tab source", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({ sourceType: "stream-tab" }),
+    });
+    const { res, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    const body = getJson() as { ok: boolean; source: { type: string } };
+    expect(body.ok).toBe(true);
+    expect(body.source.type).toBe("stream-tab");
+    expect(state.activeStreamSource.type).toBe("stream-tab");
+  });
+
+  it("switches to game source with URL", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "game",
+        customUrl: "http://localhost:8080",
+      }),
+    });
+    const { res, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    const body = getJson() as {
+      ok: boolean;
+      source: { type: string; url?: string };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.source.type).toBe("game");
+    expect(state.activeStreamSource.url).toBe("http://localhost:8080");
+  });
+
+  it("rejects invalid sourceType", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({ sourceType: "invalid" }),
+    });
+    const { res, getStatus } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+  });
+
+  it("rejects custom-url without customUrl", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({ sourceType: "custom-url" }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("customUrl required");
+  });
+
+  it("rejects game without customUrl", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({ sourceType: "game" }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("customUrl required");
+  });
+
+  it("rejects game source with file:// URL (scheme injection guard)", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "game",
+        customUrl: "file:///etc/passwd",
+      }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("http:// or https://");
+  });
+
+  it("rejects custom-url source with javascript: URI (scheme injection guard)", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "custom-url",
+        customUrl: "javascript:alert(1)",
+      }),
+    });
+    const { res, getStatus, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(400);
+    const body = getJson() as { error: string };
+    expect(body.error).toContain("http:// or https://");
+  });
+
+  it("accepts custom-url with http:// scheme", async () => {
+    const state = mockState();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "custom-url",
+        customUrl: "http://localhost:3000",
+      }),
+    });
+    const { res, getStatus } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(getStatus()).toBe(200);
+    expect(state.activeStreamSource).toEqual({
+      type: "custom-url",
+      url: "http://localhost:3000",
+    });
+  });
+
+  it("stops frame capture and restarts when stream is running", async () => {
+    const stopCapture = vi.fn();
+    const startCapture = vi.fn(async () => {});
+    const state = mockState({
+      screenCapture: {
+        isFrameCaptureActive: vi.fn(() => true),
+        startFrameCapture: startCapture,
+        stopFrameCapture: stopCapture,
+      },
+    });
+    (state.streamManager.isRunning as ReturnType<typeof vi.fn>).mockReturnValue(
+      true,
+    );
+
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/source",
+      body: JSON.stringify({
+        sourceType: "custom-url",
+        customUrl: "https://example.com",
+      }),
+    });
+    const { res, getJson } = createMockHttpResponse();
+
+    await handleStreamRoute(req, res, "/api/stream/source", "POST", state);
+
+    expect(stopCapture).toHaveBeenCalled();
+    expect(startCapture).toHaveBeenCalledWith(
+      expect.objectContaining({ gameUrl: "https://example.com" }),
+    );
+    const body = getJson() as { ok: boolean };
+    expect(body.ok).toBe(true);
   });
 });
