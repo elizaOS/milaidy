@@ -140,6 +140,7 @@ export async function wireCoordinatorBridgesWhenReady<S extends WirableState>(
       result,
       context,
       "retries exhausted after service load",
+      !!wireSwarmSynthesis,
     );
     logger.warn(
       `[milady-api] Coordinator wiring incomplete after ${MAX_RETRIES} retries (${context})`,
@@ -159,12 +160,13 @@ function broadcastWarning(
   result: WireResult,
   context: string,
   reason: string,
+  hasSwarmSynthesis?: boolean,
 ): void {
   const missing = [
     !result.chat && "chat",
     !result.ws && "ws",
     !result.eventRouting && "event-routing",
-    !result.swarmSynthesis && "swarm-synthesis",
+    hasSwarmSynthesis && !result.swarmSynthesis && "swarm-synthesis",
   ]
     .filter(Boolean)
     .join(", ");

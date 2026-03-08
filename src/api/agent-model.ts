@@ -79,8 +79,8 @@ function readCharacterModel(runtime: AgentRuntime): string | undefined {
  *
  * Preference order:
  * 1) Explicit character model settings (provider/model)
- * 2) Loaded AI provider plugin name
- * 3) Config-based model.primary (set by subscription auth)
+ * 2) Config-based model.primary (user's explicit provider choice)
+ * 3) Loaded AI provider plugin name
  * 4) Environment variable API keys
  */
 export function detectRuntimeModel(
