@@ -120,6 +120,48 @@ So the diagnostic output on failure would be empty even when logs exist.
 
 ---
 
+## Bug 6 — `new BrowserWindow()` deadlocks on Windows → native window never appears
+
+**Symptom:** After fixes 1–3, the app logs progress further:
+```
+[Main] Starting Milady (Electrobun)...
+[WebGPU] Native Dawn runtime ready at ...
+[Renderer] Static server on http://127.0.0.1:5174
+```
+Then hangs for ~10 seconds inside `new BrowserWindow({...})` and exits.
+No native window ever appears. No CEF helper processes (`bun Helper.exe`,
+`bun Helper (GPU).exe` etc.) are spawned.
+
+**Root cause:** `app.log` always shows:
+```
+setJSUtils called but using map-based approach instead of callbacks
+```
+This means the Electrobun native library (`libNativeWrapper.dll`) could not
+establish direct callback pointers into Bun's JS runtime on Windows, so it
+fell back to a shared-memory polling mechanism.
+
+`new BrowserWindow()` makes a **synchronous** FFI call. The native code
+creates the CEF window and then needs to signal JS that it's ready. With the
+**callbacks** approach this works — native calls a JS function pointer
+directly. With the **map-based** fallback, native writes to a shared map and
+waits for JS to poll it. But JS is **blocked** on the synchronous FFI call and
+cannot poll. Deadlock. After ~10 seconds a native timeout fires and the process
+exits cleanly.
+
+**This is an Electrobun upstream bug on Windows.** It cannot be fixed from
+JavaScript. The fix must be in `libNativeWrapper.dll` / Electrobun's native
+layer to either:
+- Make `createBrowserWindow` async (non-blocking) so the JS event loop stays
+  free to pump the map, or
+- Fix the Windows callback registration so the faster callbacks path works.
+
+**Action:** File / reference against
+[blackboardsh/electrobun](https://github.com/blackboardsh/electrobun).
+Related: [Issue #250 — webviewTagInit timeout on Windows](https://github.com/blackboardsh/electrobun/issues/250)
+(same underlying communication failure; closed by reporter with no upstream fix noted).
+
+---
+
 ## Bug 5 — `launcher.exe` wrong entry point path
 
 **Symptom:** Running `launcher.exe` directly prints:
@@ -155,6 +197,9 @@ blocker.
 
 Bug 5 (launcher shim) is a downstream consequence and should resolve itself
 once the build pipeline is generating correctly via `electrobun build`.
+
+Bug 6 (native window creation deadlock) **requires an Electrobun fix** — it
+is out of scope for this PR but is documented here for tracking.
 
 ---
 
