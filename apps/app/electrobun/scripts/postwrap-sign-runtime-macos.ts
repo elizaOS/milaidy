@@ -47,6 +47,51 @@ function materializeRuntimePath(inputPath: string): string {
   return resolved;
 }
 
+function normalizeBundleStem(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
+  const buildDir = env.ELECTROBUN_BUILD_DIR?.trim();
+  if (!buildDir || env.ELECTROBUN_OS !== "macos") {
+    return null;
+  }
+
+  const resolvedBuildDir = path.resolve(buildDir);
+  if (!fs.existsSync(resolvedBuildDir)) {
+    return null;
+  }
+
+  const bundleCandidates = fs
+    .readdirSync(resolvedBuildDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith(".app"))
+    .map((entry) => path.join(resolvedBuildDir, entry.name));
+
+  if (bundleCandidates.length === 0) {
+    return null;
+  }
+
+  if (bundleCandidates.length === 1) {
+    return bundleCandidates[0]!;
+  }
+
+  const appName = env.ELECTROBUN_APP_NAME?.trim();
+  if (appName) {
+    const normalizedAppName = normalizeBundleStem(appName);
+    const matched = bundleCandidates.find((candidate) => {
+      const stem = path.basename(candidate, ".app");
+      return normalizeBundleStem(stem) === normalizedAppName;
+    });
+    if (matched) {
+      return matched;
+    }
+  }
+
+  throw new Error(
+    `runtime-sign: multiple app bundles found in ${resolvedBuildDir}: ${bundleCandidates.join(", ")}`,
+  );
+}
+
 export function resolveRuntimeNodeModulesPath(
   args = process.argv.slice(2),
   env: NodeJS.ProcessEnv = process.env,
@@ -61,8 +106,13 @@ export function resolveRuntimeNodeModulesPath(
     return materializeRuntimePath(wrapperBundle);
   }
 
+  const buildBundle = resolveBuildBundlePath(env);
+  if (buildBundle) {
+    return materializeRuntimePath(buildBundle);
+  }
+
   throw new Error(
-    "postwrap-sign: runtime node_modules path not provided and ELECTROBUN_WRAPPER_BUNDLE_PATH is unset",
+    "runtime-sign: runtime node_modules path not provided and no Electrobun bundle path was available",
   );
 }
 
@@ -174,21 +224,21 @@ function shouldRun(env: NodeJS.ProcessEnv = process.env): boolean {
 
 function main(): void {
   if (!shouldRun()) {
-    console.log("[postwrap-sign] skipping nested runtime codesign");
+    console.log("[runtime-sign] skipping nested runtime codesign");
     return;
   }
 
   const runtimeNodeModulesPath = resolveRuntimeNodeModulesPath();
   if (!fs.existsSync(runtimeNodeModulesPath)) {
     throw new Error(
-      `postwrap-sign: runtime node_modules not found at ${runtimeNodeModulesPath}`,
+      `runtime-sign: runtime node_modules not found at ${runtimeNodeModulesPath}`,
     );
   }
 
   const developerId = resolveDeveloperId();
   if (!developerId) {
     throw new Error(
-      "postwrap-sign: no Developer ID Application identity available for codesign",
+      "runtime-sign: no Developer ID Application identity available for codesign",
     );
   }
 
@@ -200,7 +250,7 @@ function main(): void {
   }
 
   console.log(
-    `[postwrap-sign] signed ${signedCount} Mach-O file(s) under ${runtimeNodeModulesPath}`,
+    `[runtime-sign] signed ${signedCount} Mach-O file(s) under ${runtimeNodeModulesPath}`,
   );
 }
 

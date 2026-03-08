@@ -16,13 +16,11 @@ const requiredWorkflowSnippets = [
   "Install quiet macOS packaging wrappers",
   "apps/app/electrobun/scripts/xcrun-wrapper.sh",
   "apps/app/electrobun/scripts/zip-wrapper.sh",
-  "Sign macOS runtime node_modules before Electrobun wrap",
-  "bun apps/app/electrobun/scripts/postwrap-sign-runtime-macos.ts dist/node_modules",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
 ];
 const requiredElectrobunConfigSnippets = [
-  'postWrap: "scripts/postwrap-sign-runtime-macos.ts"',
+  'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
 ];
 
 function runPackDry(): PackResult[] {

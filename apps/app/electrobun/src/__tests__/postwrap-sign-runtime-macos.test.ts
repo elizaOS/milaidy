@@ -49,6 +49,62 @@ describe("resolveRuntimeNodeModulesPath", () => {
     ).toBe("/tmp/Milady.app/Contents/Resources/app/milady-dist/node_modules");
   });
 
+  it("derives the runtime node_modules path from the postBuild bundle in ELECTROBUN_BUILD_DIR", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
+    const appBundle = path.join(tempDir, "Milady canary.app");
+    fs.mkdirSync(
+      path.join(appBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      { recursive: true },
+    );
+
+    expect(
+      resolveRuntimeNodeModulesPath([], {
+        ELECTROBUN_BUILD_DIR: tempDir,
+        ELECTROBUN_OS: "macos",
+      }),
+    ).toBe(
+      path.join(
+        appBundle,
+        "Contents",
+        "Resources",
+        "app",
+        "milady-dist",
+        "node_modules",
+      ),
+    );
+  });
+
+  it("matches the correct app bundle in ELECTROBUN_BUILD_DIR using ELECTROBUN_APP_NAME", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
+    const stableBundle = path.join(tempDir, "Milady.app");
+    const canaryBundle = path.join(tempDir, "Milady canary.app");
+    fs.mkdirSync(
+      path.join(stableBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      { recursive: true },
+    );
+    fs.mkdirSync(
+      path.join(canaryBundle, "Contents", "Resources", "app", "milady-dist", "node_modules"),
+      { recursive: true },
+    );
+
+    expect(
+      resolveRuntimeNodeModulesPath([], {
+        ELECTROBUN_BUILD_DIR: tempDir,
+        ELECTROBUN_OS: "macos",
+        ELECTROBUN_APP_NAME: "Milady-canary",
+      }),
+    ).toBe(
+      path.join(
+        canaryBundle,
+        "Contents",
+        "Resources",
+        "app",
+        "milady-dist",
+        "node_modules",
+      ),
+    );
+  });
+
   it("accepts a milady-dist directory and appends node_modules", () => {
     expect(
       resolveRuntimeNodeModulesPath(["/tmp/milady-dist"], {}),

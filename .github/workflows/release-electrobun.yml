@@ -320,12 +320,6 @@ jobs:
           Copy-Item $cliBinary $binBinary
           Write-Host "electrobun CLI ready at $binBinary"
 
-      - name: Sign macOS runtime node_modules before Electrobun wrap
-        if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
-        env:
-          ELECTROBUN_DEVELOPER_ID: ${{ steps.macos-keychain.outputs.developer_id }}
-        run: bun apps/app/electrobun/scripts/postwrap-sign-runtime-macos.ts dist/node_modules
-
       - name: Build Electrobun app
         run: electrobun build --env=${{ needs.prepare.outputs.env }}
         working-directory: apps/app/electrobun

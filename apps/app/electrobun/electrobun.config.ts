@@ -11,9 +11,9 @@ export default {
     exitOnLastWindowClosed: false,
   },
   scripts: {
-    // Sign native code inside milady-dist/node_modules after the final wrapper
-    // app is created, before Electrobun performs the outer bundle notarization.
-    postWrap: "scripts/postwrap-sign-runtime-macos.ts",
+    // Sign native code inside milady-dist/node_modules on the inner app bundle
+    // before Electrobun runs the platform signing/notarization flow.
+    postBuild: "scripts/postwrap-sign-runtime-macos.ts",
   },
   build: {
     bun: {
