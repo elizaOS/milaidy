@@ -42,4 +42,18 @@ describe("smoke-test.sh", () => {
       'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
     );
   });
+
+  it("uses a minimal launcher environment on macOS GitHub Actions", () => {
+    const script = fs.readFileSync(SMOKE_TEST_PATH, "utf8");
+
+    expect(script).toContain("build_launcher_command() {");
+    expect(script).toContain(
+      'if [[ "$(uname)" == "Darwin" && -n "${GITHUB_ACTIONS:-}" ]]; then',
+    );
+    expect(script).toContain("/usr/bin/env");
+    expect(script).toContain("-i");
+    expect(script).toContain('HOME="$HOME"');
+    expect(script).toContain('TERM="${TERM:-dumb}"');
+    expect(script).toContain('"${LAUNCH_COMMAND[@]}" >"$LAUNCHER_STDOUT"');
+  });
 });
