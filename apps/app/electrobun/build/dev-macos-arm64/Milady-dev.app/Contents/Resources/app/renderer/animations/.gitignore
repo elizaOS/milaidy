@@ -1,8 +1,0 @@
-# Animation assets are stored in github.com/milady-ai/avatars
-# and cloned automatically via scripts/ensure-avatars.mjs on install.
-# Do NOT commit binary animation files here.
-*.fbx
-*.glb
-# Keep subdirectory structure
-!emotes/
-!mixamo/

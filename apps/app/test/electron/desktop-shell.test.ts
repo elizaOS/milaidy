@@ -77,12 +77,12 @@ vi.mock("electron", () => ({
 // Import under test
 // ---------------------------------------------------------------------------
 
-let DesktopManager: typeof import("../../electron/src/native/desktop.ts").DesktopManager;
+let DesktopManager: typeof import("../../electron/src/native/desktop").DesktopManager;
 
 beforeEach(async () => {
   vi.clearAllMocks();
   // Re-import to reset singleton state
-  const mod = await import("../../electron/src/native/desktop.ts");
+  const mod = await import("../../electron/src/native/desktop");
   DesktopManager = mod.DesktopManager;
 });
 

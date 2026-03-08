@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { resolveWebAssetDirectory } from "../../electron/src/web-assets.ts";
+import { resolveWebAssetDirectory } from "../../electron/src/web-assets";
 
 const tempDirs: string[] = [];
 
