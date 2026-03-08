@@ -9,6 +9,7 @@
 import { useCallback, useState } from "react";
 import type {
   BscTradeExecuteResponse,
+  BscTradePreflightResponse,
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
@@ -34,7 +35,9 @@ export interface BscTradePanelProps {
   onAddToken: (token: TrackedToken) => void;
   copyToClipboard: (text: string) => Promise<void>;
   setActionNotice: (msg: string, level: string, duration: number) => void;
-  getBscTradePreflight?: () => Promise<void>;
+  getBscTradePreflight?: (
+    tokenAddress?: string,
+  ) => Promise<BscTradePreflightResponse>;
   getBscTradeQuote?: (
     request?: Partial<BscTradeQuoteRequest>,
   ) => Promise<BscTradeQuoteResponse>;
@@ -80,6 +83,11 @@ export function BscTradePanel({
   const [txStatus, setTxStatus] = useState<BscTradeTxStatusResponse | null>(
     null,
   );
+  const [tradeFeedback, setTradeFeedback] = useState<{
+    tone: "error" | "info" | "success";
+    text: string;
+  } | null>(null);
+  const [quoteSide, setQuoteSide] = useState<"buy" | "sell">("buy");
   const [pendingTrade, setPendingTrade] = useState<{
     side: string;
     amount: string;
@@ -88,41 +96,164 @@ export function BscTradePanel({
 
   // ── Trade handlers ──────────────────────────────────────────────────
 
-  const handleQuickBuy = useCallback(async () => {
-    if (!getBscTradeQuote) return;
-    try {
-      const result = await getBscTradeQuote({
-        side: "buy",
-        tokenAddress: quickTokenAddress,
-        amount: quickAmount,
-      });
-      setLatestQuote(result);
-    } catch (err) {
-      setActionNotice(
-        err instanceof Error ? err.message : String(err),
-        "error",
-        4600,
-      );
-    }
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount, setActionNotice]);
+  const requestQuote = useCallback(
+    async (side: "buy" | "sell") => {
+      if (!getBscTradeQuote) return;
+      const tokenAddress = quickTokenAddress.trim();
+      if (!BSC_ADDRESS_RE.test(tokenAddress)) {
+        setActionNotice(
+          "Enter a valid token contract address first.",
+          "error",
+          3200,
+        );
+        setTradeFeedback({
+          tone: "error",
+          text: "Enter a valid token contract address first.",
+        });
+        return;
+      }
+      const amount = quickAmount.trim();
+      const amountNum = Number.parseFloat(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        setActionNotice("Enter a valid BNB amount first.", "error", 3200);
+        setTradeFeedback({
+          tone: "error",
+          text: "Enter a valid BNB amount first.",
+        });
+        return;
+      }
 
-  const handleQuickSell = useCallback(async () => {
-    if (!getBscTradeQuote) return;
-    try {
-      const result = await getBscTradeQuote({
-        side: "sell",
-        tokenAddress: quickTokenAddress,
-        amount: quickAmount,
-      });
-      setLatestQuote(result);
-    } catch (err) {
+      setQuoteSide(side);
+      try {
+        if (getBscTradePreflight) {
+          const preflight = await getBscTradePreflight(tokenAddress);
+          if (!preflight.ok) {
+            setLatestQuote(null);
+            setLatestExecution(null);
+            setTxStatus(null);
+            setPendingTrade(null);
+            setActionNotice(
+              preflight.reasons[0] ?? "Preflight checks failed.",
+              "error",
+              3600,
+            );
+            setTradeFeedback({
+              tone: "error",
+              text: preflight.reasons[0] ?? "Preflight checks failed.",
+            });
+            return;
+          }
+        }
+
+        const result = await getBscTradeQuote({
+          side,
+          tokenAddress,
+          amount,
+        });
+        setLatestQuote(result);
+        setLatestExecution(null);
+        setTxStatus(null);
+        setPendingTrade(null);
+        setActionNotice(
+          `${side === "buy" ? "Quote ready" : "Sell quote ready"}: ${result.quoteOut?.amount ?? ""} ${result.quoteOut?.symbol ?? ""}`.trim(),
+          "success",
+          3200,
+        );
+        setTradeFeedback({
+          tone: "success",
+          text: `${side === "buy" ? "Quote ready" : "Sell quote ready"}: ${result.quoteOut?.amount ?? ""} ${result.quoteOut?.symbol ?? ""}`.trim(),
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setActionNotice(
+          message,
+          "error",
+          4600,
+        );
+        setTradeFeedback({
+          tone: "error",
+          text: message,
+        });
+      }
+    },
+    [
+      getBscTradePreflight,
+      getBscTradeQuote,
+      quickAmount,
+      quickTokenAddress,
+      setActionNotice,
+    ],
+  );
+
+  const handlePreflight = useCallback(async () => {
+    if (!getBscTradePreflight) return;
+    const tokenAddress = quickTokenAddress.trim();
+    if (tokenAddress && !BSC_ADDRESS_RE.test(tokenAddress)) {
       setActionNotice(
-        err instanceof Error ? err.message : String(err),
+        "Enter a valid token contract address first.",
+        "error",
+        3200,
+      );
+      setTradeFeedback({
+        tone: "error",
+        text: "Enter a valid token contract address first.",
+      });
+      return;
+    }
+    try {
+      const result = await getBscTradePreflight(tokenAddress || undefined);
+      if (!result.ok) {
+        setActionNotice(
+          result.reasons[0] ?? "Preflight checks failed.",
+          "error",
+          3600,
+        );
+        setTradeFeedback({
+          tone: "error",
+          text: result.reasons[0] ?? "Preflight checks failed.",
+        });
+        return;
+      }
+      const message = tokenAddress
+        ? "Preflight checks passed."
+        : "Wallet is ready for BSC trading checks.";
+      setActionNotice(
+        message,
+        "success",
+        2600,
+      );
+      setTradeFeedback({
+        tone: "success",
+        text: message,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setActionNotice(
+        message,
         "error",
         4600,
       );
+      setTradeFeedback({
+        tone: "error",
+        text: message,
+      });
     }
-  }, [getBscTradeQuote, quickTokenAddress, quickAmount, setActionNotice]);
+  }, [getBscTradePreflight, quickTokenAddress, setActionNotice]);
+
+  const handleQuickBuy = useCallback(
+    async () => requestQuote("buy"),
+    [requestQuote],
+  );
+
+  const handleQuickSell = useCallback(
+    async () => requestQuote("sell"),
+    [requestQuote],
+  );
+
+  const handleToolbarQuote = useCallback(
+    async () => requestQuote(quoteSide),
+    [quoteSide, requestQuote],
+  );
 
   const handleRequestExecute = useCallback(() => {
     if (!latestQuote) return;
@@ -283,7 +414,9 @@ export function BscTradePanel({
             type="button"
             data-testid="wallet-token-preflight"
             className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-            onClick={() => getBscTradePreflight()}
+            onClick={() => {
+              void handlePreflight();
+            }}
           >
             Preflight
           </button>
@@ -293,12 +426,29 @@ export function BscTradePanel({
             type="button"
             data-testid="wallet-token-quote"
             className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
-            onClick={() => getBscTradeQuote()}
+            onClick={() => {
+              void handleToolbarQuote();
+            }}
           >
             Quote
           </button>
         )}
       </div>
+
+      {tradeFeedback && (
+        <div
+          data-testid="wallet-trade-feedback"
+          className={`border px-2 py-1.5 text-xs ${
+            tradeFeedback.tone === "success"
+              ? "border-green-500/40 text-green-400"
+              : tradeFeedback.tone === "info"
+                ? "border-accent/40 text-accent"
+                : "border-red-500/40 text-red-400"
+          }`}
+        >
+          {tradeFeedback.text}
+        </div>
+      )}
 
       {/* Quick trade panel */}
       <div className="border border-border bg-card p-3 space-y-2">
@@ -344,7 +494,9 @@ export function BscTradePanel({
             type="button"
             data-testid="wallet-quick-buy"
             className="px-3 py-1 border border-green-500 text-green-500 text-xs font-mono cursor-pointer hover:bg-green-500 hover:text-white"
-            onClick={handleQuickBuy}
+            onClick={() => {
+              void handleQuickBuy();
+            }}
           >
             Buy
           </button>
@@ -352,7 +504,9 @@ export function BscTradePanel({
             type="button"
             data-testid="wallet-quick-sell"
             className="px-3 py-1 border border-red-500 text-red-500 text-xs font-mono cursor-pointer hover:bg-red-500 hover:text-white"
-            onClick={handleQuickSell}
+            onClick={() => {
+              void handleQuickSell();
+            }}
           >
             Sell
           </button>

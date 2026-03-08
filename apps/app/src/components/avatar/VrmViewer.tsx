@@ -177,12 +177,18 @@ export function VrmViewer(props: VrmViewerProps) {
         onEngineStateRef.current?.(engine.getState());
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
+        if (currentVrmPathRef.current === vrmUrl) {
+          currentVrmPathRef.current = "";
+        }
         console.warn("Failed to load VRM:", err);
       }
     })();
 
     return () => {
       abortController.abort();
+      if (currentVrmPathRef.current === vrmUrl) {
+        currentVrmPathRef.current = "";
+      }
     };
   }, [props.vrmPath]);
 

@@ -105,6 +105,18 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   },
 ];
 
+function matchesSettingsSection(
+  section: SettingsSectionDef,
+  query: string,
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+  return (
+    section.label.toLowerCase().includes(normalized) ||
+    section.description?.toLowerCase().includes(normalized) === true
+  );
+}
+
 /* ── Modal shell ─────────────────────────────────────────────────────── */
 
 export function Modal({
@@ -198,10 +210,8 @@ function SettingsSidebar({
   const { uiLanguage } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
-  const filteredSections = SETTINGS_SECTIONS.filter(
-    (section) =>
-      section.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      section.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredSections = SETTINGS_SECTIONS.filter((section) =>
+    matchesSettingsSection(section, searchQuery),
   );
 
   return (
@@ -333,16 +343,75 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
-  const { handleReset, uiLanguage } = useApp();
+  const {
+    handleReset,
+    uiLanguage,
+    exportBusy,
+    exportPassword,
+    exportIncludeLogs,
+    exportError,
+    exportSuccess,
+    importBusy,
+    importPassword,
+    importFile,
+    importError,
+    importSuccess,
+    handleAgentExport,
+    handleAgentImport,
+    setState,
+  } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetExportState = useCallback(() => {
+    setState("exportPassword", "");
+    setState("exportIncludeLogs", false);
+    setState("exportError", null);
+    setState("exportSuccess", null);
+  }, [setState]);
+
+  const resetImportState = useCallback(() => {
+    if (importFileInputRef.current) {
+      importFileInputRef.current.value = "";
+    }
+    setState("importPassword", "");
+    setState("importFile", null);
+    setState("importError", null);
+    setState("importSuccess", null);
+  }, [setState]);
+
+  const openExportModal = useCallback(() => {
+    resetExportState();
+    setExportModalOpen(true);
+  }, [resetExportState]);
+
+  const closeExportModal = useCallback(() => {
+    setExportModalOpen(false);
+    resetExportState();
+  }, [resetExportState]);
+
+  const openImportModal = useCallback(() => {
+    resetImportState();
+    setImportModalOpen(true);
+  }, [resetImportState]);
+
+  const closeImportModal = useCallback(() => {
+    setImportModalOpen(false);
+    resetImportState();
+  }, [resetImportState]);
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Export/Import */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <button
           type="button"
+          onClick={openExportModal}
           className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+          aria-haspopup="dialog"
         >
           <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
             <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
@@ -359,7 +428,9 @@ function AdvancedSection() {
 
         <button
           type="button"
+          onClick={openImportModal}
           className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+          aria-haspopup="dialog"
         >
           <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
             <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
@@ -408,13 +479,164 @@ function AdvancedSection() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      <Modal
+        open={exportModalOpen}
+        onClose={closeExportModal}
+        title={t("settings.exportAgent")}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label
+              htmlFor="settings-export-password"
+              className="text-sm font-medium text-txt-strong"
+            >
+              Password
+            </label>
+            <input
+              id="settings-export-password"
+              type="password"
+              value={exportPassword}
+              onChange={(e) => setState("exportPassword", e.target.value)}
+              placeholder="Enter export password"
+              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={exportIncludeLogs}
+                onChange={(e) =>
+                  setState("exportIncludeLogs", e.target.checked)
+                }
+              />
+              Include recent logs in the backup
+            </label>
+          </div>
+
+          {exportError && (
+            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              {exportError}
+            </div>
+          )}
+          {exportSuccess && (
+            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+              {exportSuccess}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
+              onClick={closeExportModal}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+              disabled={exportBusy}
+              onClick={() => void handleAgentExport()}
+            >
+              {exportBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t("settings.export")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={importModalOpen}
+        onClose={closeImportModal}
+        title={t("settings.importAgent")}
+      >
+        <div className="space-y-4">
+          <input
+            ref={importFileInputRef}
+            type="file"
+            className="hidden"
+            accept=".eliza-agent,.agent,application/octet-stream"
+            onChange={(e) => setState("importFile", e.target.files?.[0] ?? null)}
+          />
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-txt-strong">Backup file</div>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
+              onClick={() => importFileInputRef.current?.click()}
+            >
+              <span className="min-w-0 flex-1 truncate text-sm text-txt">
+                {importFile?.name ?? "Choose an exported backup file"}
+              </span>
+              <span className="shrink-0 text-xs font-medium text-accent">
+                {importFile ? "Change" : "Browse"}
+              </span>
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="settings-import-password"
+              className="text-sm font-medium text-txt-strong"
+            >
+              Password
+            </label>
+            <input
+              id="settings-import-password"
+              type="password"
+              value={importPassword}
+              onChange={(e) => setState("importPassword", e.target.value)}
+              placeholder="Enter import password"
+              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          </div>
+
+          {importError && (
+            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              {importError}
+            </div>
+          )}
+          {importSuccess && (
+            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+              {importSuccess}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
+              onClick={closeImportModal}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+              disabled={importBusy}
+              onClick={() => void handleAgentImport()}
+            >
+              {importBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t("settings.import")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
-export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
+export function SettingsView({
+  inModal,
+  onClose,
+}: {
+  inModal?: boolean;
+  onClose?: () => void;
+} = {}) {
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -452,10 +674,32 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     setActionNotice,
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+  const handleClose = useCallback(
+    () => onClose?.() ?? setTab(inModal ? "companion" : "chat"),
+    [inModal, onClose, setTab],
+  );
+  const visibleSections = useMemo(
+    () =>
+      SETTINGS_SECTIONS.filter((section) =>
+        matchesSettingsSection(section, searchQuery),
+      ),
+    [searchQuery],
+  );
+  const visibleSectionIds = useMemo(
+    () => new Set(visibleSections.map((section) => section.id)),
+    [visibleSections],
+  );
 
   useEffect(() => {
     void loadPlugins();
   }, [loadPlugins]);
+
+  useEffect(() => {
+    if (visibleSections.length === 0) return;
+    if (!visibleSectionIds.has(activeSection)) {
+      setActiveSection(visibleSections[0].id);
+    }
+  }, [activeSection, visibleSectionIds, visibleSections]);
 
   // Scroll to section when changed
   const handleSectionChange = useCallback((sectionId: string) => {
@@ -474,7 +718,7 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     if (!root) return;
 
     const handleScroll = () => {
-      const sections = SETTINGS_SECTIONS.map((s) => {
+      const sections = visibleSections.map((s) => {
         const el = root.querySelector(`#${s.id}`) as HTMLElement;
         return { id: s.id, el };
       }).filter((s) => s.el !== null);
@@ -510,222 +754,210 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
     handleScroll();
 
     return () => root.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [visibleSections]);
 
   /* ── Sections content (shared between both layouts) ────────────────── */
   const sectionsContent = (
     <>
-      {/* APPEARANCE SECTION */}
-      <SectionCard
-        id="appearance"
-        title={t("settings.appearance")}
-        description={t("settings.languageHint")}
-      >
-        {/* Language selector */}
-        <div className="mb-5">
+      {visibleSectionIds.has("appearance") && (
+        <SectionCard
+          id="appearance"
+          title={t("settings.appearance")}
+          description={t("settings.languageHint")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <div className="mb-5">
+            <div className="text-xs font-semibold text-txt-strong mb-2">
+              {t("settings.language")}
+            </div>
+            <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                  uiLanguage === "en"
+                    ? "bg-accent text-accent-fg shadow-sm"
+                    : "text-txt hover:bg-bg-hover"
+                }`}
+                onClick={() => {
+                  setUiLanguage("en");
+                  setActionNotice(t("settings.languageSaved"), "success", 2200);
+                }}
+              >
+                {t("settings.languageEnglish")}
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                  uiLanguage === "zh-CN"
+                    ? "bg-accent text-accent-fg shadow-sm"
+                    : "text-txt hover:bg-bg-hover"
+                }`}
+                onClick={() => {
+                  setUiLanguage("zh-CN");
+                  setActionNotice(t("settings.languageSaved"), "success", 2200);
+                }}
+              >
+                {t("settings.languageChineseSimplified")}
+              </button>
+            </div>
+          </div>
+
           <div className="text-xs font-semibold text-txt-strong mb-2">
-            {t("settings.language")}
+            {t("settings.themeStyle")}
           </div>
-          <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
-            <button
-              type="button"
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                uiLanguage === "en"
-                  ? "bg-accent text-accent-fg shadow-sm"
-                  : "text-txt hover:bg-bg-hover"
-              }`}
-              onClick={() => {
-                setUiLanguage("en");
-                setActionNotice(t("settings.languageSaved"), "success", 2200);
-              }}
-            >
-              {t("settings.languageEnglish")}
-            </button>
-            <button
-              type="button"
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                uiLanguage === "zh-CN"
-                  ? "bg-accent text-accent-fg shadow-sm"
-                  : "text-txt hover:bg-bg-hover"
-              }`}
-              onClick={() => {
-                setUiLanguage("zh-CN");
-                setActionNotice(t("settings.languageSaved"), "success", 2200);
-              }}
-            >
-              {t("settings.languageChineseSimplified")}
-            </button>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {THEMES.map((th) => (
+              <button
+                key={th.id}
+                type="button"
+                className={`theme-btn p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
+                  currentTheme === th.id
+                    ? "active border-accent bg-accent-subtle shadow-md"
+                    : "border-border bg-bg hover:bg-bg-hover"
+                }`}
+                onClick={() => setTheme(th.id)}
+              >
+                <div className="text-sm font-semibold text-txt-strong mb-1">
+                  {th.label}
+                </div>
+                <div className="text-[11px] text-muted">{th.hint}</div>
+              </button>
+            ))}
           </div>
-        </div>
+        </SectionCard>
+      )}
 
-        {/* Theme selector */}
-        <div className="text-xs font-semibold text-txt-strong mb-2">
-          {t("settings.themeStyle")}
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {THEMES.map((th) => (
-            <button
-              key={th.id}
-              type="button"
-              className={`theme-btn p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                currentTheme === th.id
-                  ? "active border-accent bg-accent-subtle shadow-md"
-                  : "border-border bg-bg hover:bg-bg-hover"
-              }`}
-              onClick={() => setTheme(th.id)}
-            >
-              <div className="text-sm font-semibold text-txt-strong mb-1">
-                {th.label}
-              </div>
-              <div className="text-[11px] text-muted">{th.hint}</div>
-            </button>
-          ))}
-        </div>
-      </SectionCard>
+      {visibleSectionIds.has("ai-model") && (
+        <SectionCard
+          id="ai-model"
+          title={t("settings.aiModel")}
+          description={t("settings.aiModelDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <ProviderSwitcher
+            cloudEnabled={cloudEnabled}
+            cloudConnected={cloudConnected}
+            cloudCredits={cloudCredits}
+            cloudCreditsLow={cloudCreditsLow}
+            cloudCreditsCritical={cloudCreditsCritical}
+            cloudTopUpUrl={cloudTopUpUrl}
+            cloudUserId={cloudUserId}
+            cloudLoginBusy={cloudLoginBusy}
+            cloudLoginError={cloudLoginError}
+            cloudDisconnecting={cloudDisconnecting}
+            plugins={plugins}
+            pluginSaving={pluginSaving}
+            pluginSaveSuccess={pluginSaveSuccess}
+            loadPlugins={loadPlugins}
+            handlePluginToggle={handlePluginToggle}
+            handlePluginConfigSave={handlePluginConfigSave}
+            handleCloudLogin={handleCloudLogin}
+            handleCloudDisconnect={handleCloudDisconnect}
+            setState={setState}
+            setTab={setTab}
+          />
+        </SectionCard>
+      )}
 
-      {/* AI MODEL SECTION */}
-      <SectionCard
-        id="ai-model"
-        title={t("settings.aiModel")}
-        description={t("settings.aiModelDescription")}
-      >
-        <ProviderSwitcher
-          cloudEnabled={cloudEnabled}
-          cloudConnected={cloudConnected}
-          cloudCredits={cloudCredits}
-          cloudCreditsLow={cloudCreditsLow}
-          cloudCreditsCritical={cloudCreditsCritical}
-          cloudTopUpUrl={cloudTopUpUrl}
-          cloudUserId={cloudUserId}
-          cloudLoginBusy={cloudLoginBusy}
-          cloudLoginError={cloudLoginError}
-          cloudDisconnecting={cloudDisconnecting}
-          plugins={plugins}
-          pluginSaving={pluginSaving}
-          pluginSaveSuccess={pluginSaveSuccess}
-          loadPlugins={loadPlugins}
-          handlePluginToggle={handlePluginToggle}
-          handlePluginConfigSave={handlePluginConfigSave}
-          handleCloudLogin={handleCloudLogin}
-          handleCloudDisconnect={handleCloudDisconnect}
-          setState={setState}
-          setTab={setTab}
-        />
-      </SectionCard>
+      {visibleSectionIds.has("coding-agents") && (
+        <SectionCard
+          id="coding-agents"
+          title="Coding Agents"
+          description="Configure AI coding agents for multi-agent task execution."
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <CodingAgentSettingsSection />
+        </SectionCard>
+      )}
 
-      {/* CODING AGENTS SECTION */}
-      <SectionCard
-        id="coding-agents"
-        title="Coding Agents"
-        description="Configure AI coding agents for multi-agent task execution."
-      >
-        <CodingAgentSettingsSection />
-      </SectionCard>
+      {visibleSectionIds.has("wallet-rpc") && (
+        <SectionCard
+          id="wallet-rpc"
+          title="Wallet & RPC"
+          description="Configure chain RPC providers for trading and market data."
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <ConfigPageView embedded />
+        </SectionCard>
+      )}
 
-      {/* WALLET & RPC SECTION */}
-      <SectionCard
-        id="wallet-rpc"
-        title="Wallet & RPC"
-        description="Configure chain RPC providers for trading and market data."
-      >
-        <ConfigPageView embedded />
-      </SectionCard>
+      {visibleSectionIds.has("media") && (
+        <SectionCard
+          id="media"
+          title={t("settings.mediaGeneration")}
+          description={t("settings.mediaDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <MediaSettingsSection />
+        </SectionCard>
+      )}
 
-      {/* MEDIA SECTION */}
-      <SectionCard
-        id="media"
-        title={t("settings.mediaGeneration")}
-        description={t("settings.mediaDescription")}
-      >
-        <MediaSettingsSection />
-      </SectionCard>
+      {visibleSectionIds.has("voice") && (
+        <SectionCard
+          id="voice"
+          title={t("settings.speechInterface")}
+          description={t("settings.speechDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <VoiceConfigView />
+        </SectionCard>
+      )}
 
-      {/* VOICE SECTION */}
-      <SectionCard
-        id="voice"
-        title={t("settings.speechInterface")}
-        description={t("settings.speechDescription")}
-      >
-        <VoiceConfigView />
-      </SectionCard>
+      {visibleSectionIds.has("permissions") && (
+        <SectionCard
+          id="permissions"
+          title={t("settings.permissionsCapabilities")}
+          description={t("settings.permissionsDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <PermissionsSection />
+        </SectionCard>
+      )}
 
-      {/* PERMISSIONS SECTION */}
-      <SectionCard
-        id="permissions"
-        title={t("settings.permissionsCapabilities")}
-        description={t("settings.permissionsDescription")}
-      >
-        <PermissionsSection />
-      </SectionCard>
+      {visibleSectionIds.has("updates") && (
+        <SectionCard
+          id="updates"
+          title={t("settings.softwareUpdates")}
+          description={t("settings.updatesDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <UpdatesSection />
+        </SectionCard>
+      )}
 
-      {/* UPDATES SECTION */}
-      <SectionCard
-        id="updates"
-        title={t("settings.softwareUpdates")}
-        description={t("settings.updatesDescription")}
-      >
-        <UpdatesSection />
-      </SectionCard>
+      {visibleSectionIds.has("advanced") && (
+        <SectionCard
+          id="advanced"
+          title={t("settings.advancedSettings")}
+          description={t("settings.advancedDescription")}
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <AdvancedSection />
+        </SectionCard>
+      )}
 
-      {/* ADVANCED SECTION */}
-      <SectionCard
-        id="advanced"
-        title={t("settings.advancedSettings")}
-        description={t("settings.advancedDescription")}
-      >
-        <AdvancedSection />
-      </SectionCard>
+      {visibleSections.length === 0 && (
+        <SectionCard
+          id="settings-empty"
+          title="No matching settings"
+          description="Try a broader search or clear the current filter."
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <button
+            type="button"
+            className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
+            onClick={() => setSearchQuery("")}
+          >
+            Clear search
+          </button>
+        </SectionCard>
+      )}
     </>
   );
-
-  /* ── Companion modal layout (dark glass) ───────────────────────────── */
-  if (inModal) {
-    return (
-      <div className="settings-modal-layout">
-        <nav className="settings-icon-sidebar">
-          {SETTINGS_SECTIONS.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                className={`settings-icon-btn ${activeSection === section.id ? "is-active" : ""}`}
-                onClick={() => handleSectionChange(section.id)}
-                title={section.description}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="settings-icon-label">{section.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-        <div
-          ref={contentRef}
-          className="settings-content-area"
-          style={
-            {
-              "--accent": "#7b8fb5",
-              "--surface": "rgba(255, 255, 255, 0.06)",
-              "--s-accent": "#7b8fb5",
-              "--s-text-accent": "#7b8fb5",
-              "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
-              "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
-              "--s-grid-line": "rgba(123, 143, 181, 0.02)",
-              "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
-            } as React.CSSProperties
-          }
-        >
-          <div className="settings-section-pane pt-4">
-            <div className="space-y-8 pb-20">{sectionsContent}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Standard layout (native mode) ─────────────────────────────────── */
   return (
-    <div className="h-full flex flex-col lg:flex-row overflow-hidden bg-bg">
+    <div
+      className={`h-full min-h-0 flex flex-col lg:flex-row overflow-hidden ${inModal ? "bg-transparent" : "bg-bg"}`}
+    >
       <SettingsSidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
@@ -735,10 +967,43 @@ export function SettingsView({ inModal }: { inModal?: boolean } = {}) {
 
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto p-4 lg:p-8 scroll-smooth"
+        className={`flex-1 min-h-0 overflow-y-auto scroll-smooth ${inModal ? "px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6" : "px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"}`}
       >
-        <div className="max-w-3xl mx-auto space-y-8 pb-20">
-          {sectionsContent}
+        <div className={`${inModal ? "max-w-5xl" : "max-w-4xl"} mx-auto`}>
+          <div className="flex items-start justify-between gap-4 border-b border-border/70 pb-4 sm:pb-6">
+            <div className="min-w-0">
+              <h1 className="text-balance text-xl font-bold text-txt-strong sm:text-2xl">
+                {t("nav.settings")}
+              </h1>
+              <p className="mt-1 max-w-2xl text-pretty text-sm text-muted">
+                {t("settings.customizeExperience")}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
+              onClick={handleClose}
+              aria-label="Close settings"
+              title="Close settings"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="relative mt-4 lg:hidden">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+            <input
+              type="text"
+              placeholder={t("settings.searchPlaceholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-border bg-bg py-2.5 pl-10 pr-3 text-sm transition-all placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          </div>
+
+          <div className="space-y-6 pb-20 pt-6 sm:space-y-8">
+            {sectionsContent}
+          </div>
         </div>
       </div>
     </div>

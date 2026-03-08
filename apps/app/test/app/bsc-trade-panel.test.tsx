@@ -1,0 +1,119 @@
+// @vitest-environment jsdom
+import React from "react";
+import TestRenderer, { act } from "react-test-renderer";
+import { describe, expect, it, vi } from "vitest";
+import { BscTradePanel } from "../../src/components/BscTradePanel";
+
+const VALID_TOKEN = "0x1234567890abcdef1234567890abcdef12345678";
+
+function findByTestId(
+  root: TestRenderer.ReactTestInstance,
+  testId: string,
+): TestRenderer.ReactTestInstance {
+  return root.find(
+    (node) => node.props["data-testid"] === testId,
+  );
+}
+
+describe("BscTradePanel", () => {
+  it("surfaces preflight failures from the toolbar button", async () => {
+    const setActionNotice = vi.fn();
+    const getBscTradePreflight = vi.fn().mockResolvedValue({
+      ok: false,
+      reasons: ["RPC missing"],
+    });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(BscTradePanel, {
+          tradeReady: false,
+          bnbBalance: 0,
+          trackedTokens: [],
+          onAddToken: vi.fn(),
+          copyToClipboard: vi.fn().mockResolvedValue(undefined),
+          setActionNotice,
+          getBscTradePreflight,
+          getBscTradeQuote: vi.fn(),
+        }),
+      );
+    });
+
+    const tokenInput = findByTestId(tree!.root, "wallet-quick-token-input");
+    await act(async () => {
+      tokenInput.props.onChange({ target: { value: VALID_TOKEN } });
+    });
+
+    const preflightButton = findByTestId(tree!.root, "wallet-token-preflight");
+    await act(async () => {
+      await preflightButton.props.onClick();
+    });
+
+    expect(getBscTradePreflight).toHaveBeenCalledWith(VALID_TOKEN);
+    expect(setActionNotice).toHaveBeenCalledWith("RPC missing", "error", 3600);
+  });
+
+  it("quotes the current trade inputs from the toolbar button", async () => {
+    const setActionNotice = vi.fn();
+    const getBscTradePreflight = vi.fn().mockResolvedValue({
+      ok: true,
+      reasons: [],
+    });
+    const getBscTradeQuote = vi.fn().mockResolvedValue({
+      side: "buy",
+      tokenAddress: VALID_TOKEN,
+      slippageBps: 100,
+      quoteIn: { amount: "0.1", symbol: "BNB" },
+      quoteOut: { amount: "25", symbol: "TKN" },
+      route: [],
+    });
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(BscTradePanel, {
+          tradeReady: true,
+          bnbBalance: 1,
+          trackedTokens: [],
+          onAddToken: vi.fn(),
+          copyToClipboard: vi.fn().mockResolvedValue(undefined),
+          setActionNotice,
+          getBscTradePreflight,
+          getBscTradeQuote,
+        }),
+      );
+    });
+
+    const tokenInput = findByTestId(tree!.root, "wallet-quick-token-input");
+    await act(async () => {
+      tokenInput.props.onChange({ target: { value: VALID_TOKEN } });
+    });
+
+    const amountPreset = findByTestId(tree!.root, "wallet-quick-amount-0.1");
+    await act(async () => {
+      amountPreset.props.onClick();
+    });
+
+    const quoteButton = findByTestId(tree!.root, "wallet-token-quote");
+    await act(async () => {
+      await quoteButton.props.onClick();
+    });
+
+    expect(getBscTradePreflight).toHaveBeenCalledWith(VALID_TOKEN);
+    expect(getBscTradeQuote).toHaveBeenCalledWith({
+      side: "buy",
+      tokenAddress: VALID_TOKEN,
+      amount: "0.1",
+    });
+
+    const latestQuoteBlocks = tree!.root.findAll(
+      (node) =>
+        node.type === "div" &&
+        node.children.some(
+          (child) =>
+            typeof child === "string" && child.includes("Latest quote"),
+        ),
+    );
+    expect(latestQuoteBlocks.length).toBeGreaterThan(0);
+  });
+});

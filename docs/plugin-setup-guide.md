@@ -543,6 +543,22 @@ Adds the Stream tab to the UI with RTMP destination management.
 - `YOUTUBE_RTMP_URL` — Default: `rtmp://a.rtmp.youtube.com/live2` (rarely needs changing)
 **Tips:** You need a YouTube channel with Live streaming enabled (may require phone verification).
 
+### X Streaming
+Live stream to X using RTMP credentials generated for the active broadcast.
+**Get credentials:** From X Live Producer / Media Studio when you create a live stream
+**Variables:**
+- `X_STREAM_KEY` — Stream key for the broadcast
+- `X_RTMP_URL` — RTMP ingest URL for the broadcast session
+**Tips:** X RTMP credentials are often per-broadcast. Create the stream first, then copy both values directly into the plugin.
+
+### pump.fun Streaming
+Stream to pump.fun using the platform's RTMP ingest credentials.
+**Get credentials:** From the pump.fun live streaming flow when you create a stream
+**Variables:**
+- `PUMPFUN_STREAM_KEY` — Stream key for pump.fun ingest
+- `PUMPFUN_RTMP_URL` — RTMP ingest URL for the current stream
+**Tips:** Treat both values as session credentials. If the stream refuses to start, re-create the broadcast and paste fresh values.
+
 ### Custom RTMP
 Stream to any platform (Facebook, TikTok, Kick, self-hosted RTMP, etc.)
 **Variables:**

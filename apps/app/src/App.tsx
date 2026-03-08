@@ -43,6 +43,7 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
+import { useStreamPopoutNavigation } from "./hooks/useStreamPopoutNavigation";
 import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
 import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
@@ -137,22 +138,7 @@ export function App() {
         : tab;
   const contextMenu = useContextMenu();
 
-  // When the stream is popped out, navigate away; when closed, navigate back.
-  const [streamPoppedOut, setStreamPoppedOut] = useState(false);
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail === "opened") {
-        setStreamPoppedOut(true);
-        setTab("chat");
-      } else if (detail === "closed") {
-        setStreamPoppedOut(false);
-        setTab("stream");
-      }
-    };
-    window.addEventListener("stream-popout", handler);
-    return () => window.removeEventListener("stream-popout", handler);
-  }, [setTab]);
+  useStreamPopoutNavigation(setTab);
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);
@@ -401,7 +387,7 @@ export function App() {
   /* ── Native shell mode (all fork features intact) ─────────────────── */
   return (
     <BugReportProvider value={bugReport}>
-      {tab === "stream" && !streamPoppedOut ? (
+      {tab === "stream" ? (
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
           <Nav />
@@ -409,7 +395,7 @@ export function App() {
             <StreamView />
           </main>
         </div>
-      ) : isChat || (tab === "stream" && streamPoppedOut) ? (
+      ) : isChat ? (
         <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
           <Header />
           <Nav mobileLeft={mobileChatControls} />

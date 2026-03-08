@@ -1185,6 +1185,40 @@ function resolveIcon(p: PluginInfo): LucideIcon | string | null {
   return DEFAULT_ICONS[p.id] ?? null;
 }
 
+function getPluginResourceLinks(
+  plugin: Pick<PluginInfo, "setupGuideUrl" | "homepage" | "repository">,
+): Array<{ key: string; label: string; url: string }> {
+  const seen = new Set<string>();
+  const ordered = [
+    { key: "guide", label: "Setup guide", url: plugin.setupGuideUrl },
+    { key: "official", label: "Official", url: plugin.homepage },
+    { key: "source", label: "Source", url: plugin.repository },
+  ];
+  return ordered.flatMap((item) => {
+    const url = item.url?.trim();
+    if (!url || seen.has(url)) return [];
+    seen.add(url);
+    return [{ key: item.key, label: item.label, url }];
+  });
+}
+
+async function openPluginExternalUrl(url: string): Promise<void> {
+  const electron = (
+    window as {
+      electron?: {
+        ipcRenderer: {
+          invoke: (channel: string, params?: unknown) => Promise<unknown>;
+        };
+      };
+    }
+  ).electron;
+  if (electron?.ipcRenderer) {
+    await electron.ipcRenderer.invoke("desktop:openExternal", { url });
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 /* ── Sub-group Classification ──────────────────────────────────────── */
 
 /** Map plugin IDs to fine-grained sub-groups for the "Feature" category. */
@@ -1762,6 +1796,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
     const isDragging = draggingId === p.id;
     const isDragOver = dragOverId === p.id && draggingId !== p.id;
+    const pluginLinks = getPluginResourceLinks(p);
 
     return (
       <li
@@ -1879,6 +1914,25 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         >
           {p.description || "No description available"}
         </p>
+
+        {pluginLinks.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-3 pb-2">
+            {pluginLinks.map((link) => (
+              <button
+                key={`${p.id}:${link.key}`}
+                type="button"
+                className="plugins-link-btn text-[10px] px-2 py-[2px] border border-border text-muted hover:text-accent hover:border-accent bg-transparent transition-colors cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void openPluginExternalUrl(link.url);
+                }}
+                title={`${link.label}: ${link.url}`}
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Bottom bar: config status + settings button */}
         <div className="flex items-center gap-2 px-3 py-2 border-t border-border mt-auto">
@@ -2017,6 +2071,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     gameVisiblePlugins.find(
       (p: PluginInfo) => p.id === effectiveGameSelected,
     ) ?? null;
+  const selectedPluginLinks = selectedPlugin
+    ? getPluginResourceLinks(selectedPlugin)
+    : [];
 
   // ── Game-modal render ─────────────────────────────────────────────
   if (inModal) {
@@ -2157,6 +2214,22 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               <div className="plugins-game-detail-description">
                 {selectedPlugin.description}
               </div>
+              {selectedPluginLinks.length > 0 && (
+                <div className="plugins-game-detail-links flex flex-wrap gap-2 px-3 pb-3">
+                  {selectedPluginLinks.map((link) => (
+                    <button
+                      key={`${selectedPlugin.id}:${link.key}`}
+                      type="button"
+                      className="plugins-game-link-btn border border-border bg-transparent px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                      onClick={() => {
+                        void openPluginExternalUrl(link.url);
+                      }}
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {selectedPlugin.parameters &&
                 selectedPlugin.parameters.length > 0 && (
                   <div className="plugins-game-detail-config">

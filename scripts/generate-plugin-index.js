@@ -11,7 +11,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +47,16 @@ const AI_PROVIDERS = new Set([
   "zai",
 ]);
 
+export const STREAMING_DESTINATIONS = new Set([
+  "streaming-base",
+  "retake",
+  "custom-rtmp",
+  "youtube-streaming",
+  "twitch-streaming",
+  "x-streaming",
+  "pumpfun-streaming",
+]);
+
 const CONNECTORS = new Set([
   "telegram",
   "discord",
@@ -75,11 +85,116 @@ const CONNECTORS = new Set([
 
 const DATABASES = new Set(["sql", "localdb", "inmemorydb"]);
 
-function categorize(id) {
+export const PLUGIN_SETUP_GUIDE_ROOT =
+  "https://docs.milady.ai/plugin-setup-guide";
+
+const SETUP_GUIDE_ANCHORS = {
+  openai: "#openai",
+  anthropic: "#anthropic",
+  "google-genai": "#google-gemini",
+  groq: "#groq",
+  openrouter: "#openrouter",
+  xai: "#xai-grok",
+  ollama: "#ollama-local-models",
+  "local-ai": "#local-ai",
+  "vercel-ai-gateway": "#vercel-ai-gateway",
+  discord: "#discord",
+  telegram: "#telegram",
+  twitter: "#twitter--x",
+  slack: "#slack",
+  whatsapp: "#whatsapp",
+  instagram: "#instagram",
+  bluesky: "#bluesky",
+  farcaster: "#farcaster",
+  github: "#github",
+  twitch: "#twitch",
+  twilio: "#twilio-sms--voice",
+  matrix: "#matrix",
+  msteams: "#microsoft-teams",
+  "google-chat": "#google-chat",
+  signal: "#signal",
+  imessage: "#imessage-macos-only",
+  bluebubbles: "#bluebubbles-imessage-from-any-platform",
+  blooio: "#blooio-sms-via-api",
+  nostr: "#nostr",
+  line: "#line",
+  feishu: "#feishu-lark",
+  mattermost: "#mattermost",
+  "nextcloud-talk": "#nextcloud-talk",
+  tlon: "#tlon-urbit",
+  zalo: "#zalo-vietnam-messaging",
+  zalouser: "#zalo-user-personal",
+  acp: "#acp-agent-communication-protocol",
+  mcp: "#mcp-model-context-protocol",
+  iq: "#iq-solana-on-chain",
+  "gmail-watch": "#gmail-watch",
+  retake: "#retaketv",
+  "streaming-base": "#enable-streaming-streaming-base",
+  "twitch-streaming": "#twitch-streaming",
+  "youtube-streaming": "#youtube-streaming",
+  "x-streaming": "#x-streaming",
+  "pumpfun-streaming": "#pumpfun-streaming",
+  "custom-rtmp": "#custom-rtmp",
+};
+
+const MILADY_REPO_ROOT = "https://github.com/milady-ai/milady";
+
+export function categorize(id) {
   if (AI_PROVIDERS.has(id)) return "ai-provider";
+  if (STREAMING_DESTINATIONS.has(id)) return "streaming";
   if (CONNECTORS.has(id)) return "connector";
   if (DATABASES.has(id)) return "database";
   return "feature";
+}
+
+export function resolveSetupGuideUrl(id) {
+  const anchor = SETUP_GUIDE_ANCHORS[id];
+  return anchor ? `${PLUGIN_SETUP_GUIDE_ROOT}${anchor}` : undefined;
+}
+
+export function normalizeRepositoryUrl(repository) {
+  const raw =
+    typeof repository === "string"
+      ? repository.trim()
+      : repository?.url?.trim() || "";
+  if (!raw) return undefined;
+  if (/^[\w.-]+\/[\w.-]+$/.test(raw)) return `https://github.com/${raw}`;
+  if (raw.startsWith("git@github.com:")) {
+    return `https://github.com/${raw
+      .slice("git@github.com:".length)
+      .replace(/\.git$/, "")}`;
+  }
+  if (raw.startsWith("git+https://")) return raw.slice(4).replace(/\.git$/, "");
+  if (raw.startsWith("https://") || raw.startsWith("http://")) {
+    return raw.replace(/\.git$/, "");
+  }
+  return undefined;
+}
+
+function deriveMiladyRepositoryUrl(npmName, dirName) {
+  if (!npmName?.startsWith("@milady/")) return undefined;
+  if (!dirName?.startsWith("plugin-")) return undefined;
+  return `${MILADY_REPO_ROOT}/tree/main/packages/${dirName}`;
+}
+
+function readLocalPackageMetadata(dirName, npmName) {
+  if (!dirName) return {};
+  const pkgPath = path.join(packageRoot, "packages", dirName, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    return { repository: deriveMiladyRepositoryUrl(npmName, dirName) };
+  }
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    return {
+      homepage: typeof pkg.homepage === "string" ? pkg.homepage : undefined,
+      repository:
+        normalizeRepositoryUrl(pkg.repository) ??
+        deriveMiladyRepositoryUrl(npmName, dirName),
+      icon: pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? undefined,
+    };
+  } catch {
+    return { repository: deriveMiladyRepositoryUrl(npmName, dirName) };
+  }
 }
 
 function findEnvKey(configKeys) {
@@ -301,6 +416,7 @@ async function main() {
 
     // Get existing entry to preserve hand-authored metadata
     const existingEntry = existingManifest.get(id);
+    const localMeta = readLocalPackageMetadata(dirName, npmName);
 
     // Preserve existing category if the inferred one is just "feature" (default)
     const inferredCategory = categorize(id);
@@ -334,6 +450,60 @@ async function main() {
       version: version || undefined,
       pluginDeps: pluginDeps?.length > 0 ? pluginDeps : undefined,
       pluginParameters: finalPluginParams,
+      ...(pkgInfo.homepage || existingEntry?.homepage || localMeta.homepage
+        ? {
+            homepage:
+              pkgInfo.homepage || existingEntry?.homepage || localMeta.homepage,
+          }
+        : {}),
+      ...(() => {
+        const repository =
+          normalizeRepositoryUrl(
+            pkgInfo.gitRepo ? `https://github.com/${pkgInfo.gitRepo}` : "",
+          ) ??
+          existingEntry?.repository ??
+          localMeta.repository;
+        return repository ? { repository } : {};
+      })(),
+      ...(() => {
+        const setupGuideUrl =
+          resolveSetupGuideUrl(id) ?? existingEntry?.setupGuideUrl;
+        return setupGuideUrl ? { setupGuideUrl } : {};
+      })(),
+      ...(existingEntry?.icon || localMeta.icon
+        ? { icon: existingEntry?.icon ?? localMeta.icon }
+        : {}),
+    });
+  }
+
+  for (const [id, existingEntry] of existingManifest.entries()) {
+    if (entries.some((entry) => entry.id === id)) continue;
+
+    const dirName = existingEntry.dirName || `plugin-${id}`;
+    const npmName = existingEntry.npmName;
+    const localMeta = readLocalPackageMetadata(dirName, npmName);
+    const inferredCategory = categorize(id);
+    const category =
+      inferredCategory === "feature" && existingEntry?.category
+        ? existingEntry.category
+        : inferredCategory;
+    const repository =
+      existingEntry.repository ?? localMeta.repository ?? undefined;
+    const homepage = existingEntry.homepage ?? localMeta.homepage ?? undefined;
+    const setupGuideUrl =
+      existingEntry.setupGuideUrl ?? resolveSetupGuideUrl(id) ?? undefined;
+
+    entries.push({
+      ...existingEntry,
+      id,
+      dirName,
+      category,
+      ...(repository ? { repository } : {}),
+      ...(homepage ? { homepage } : {}),
+      ...(setupGuideUrl ? { setupGuideUrl } : {}),
+      ...(existingEntry.icon || localMeta.icon
+        ? { icon: existingEntry.icon ?? localMeta.icon }
+        : {}),
     });
   }
 
@@ -355,7 +525,14 @@ async function main() {
   console.log(`Generated ${outputPath} (${entries.length} plugins)`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+function isDirectExecution() {
+  const entry = process.argv[1];
+  return Boolean(entry) && import.meta.url === pathToFileURL(entry).href;
+}
+
+if (isDirectExecution()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -458,6 +458,9 @@ interface PluginEntry {
   configUiHints?: Record<string, Record<string, unknown>>;
   /** Optional icon URL or emoji for the plugin card header. */
   icon?: string | null;
+  homepage?: string;
+  repository?: string;
+  setupGuideUrl?: string;
 }
 
 interface SkillEntry {
@@ -692,6 +695,9 @@ interface PluginIndexEntry {
   configUiHints?: Record<string, Record<string, unknown>>;
   logoUrl?: string;
   icon?: string;
+  homepage?: string;
+  repository?: string;
+  setupGuideUrl?: string;
 }
 
 interface PluginIndex {
@@ -1124,7 +1130,7 @@ function aggregateSecrets(plugins: PluginEntry[]): SecretEntry[] {
  * Discover user-installed plugins from the Store (not bundled in the manifest).
  * Reads from config.plugins.installs and tries to enrich with package.json metadata.
  */
-function discoverInstalledPlugins(
+export function discoverInstalledPlugins(
   config: MiladyConfig,
   bundledIds: Set<string>,
 ): PluginEntry[] {
@@ -1153,6 +1159,8 @@ function discoverInstalledPlugins(
     let pluginParameters: PluginParamDef[] = [];
 
     let pluginIcon: string | null = null;
+    let pluginHomepage: string | undefined;
+    let pluginRepository: string | undefined;
 
     if (installPath) {
       // Check npm layout first, then direct layout
@@ -1171,11 +1179,16 @@ function discoverInstalledPlugins(
             const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
               name?: string;
               description?: string;
+              homepage?: string;
+              repository?: string | { type?: string; url?: string };
               elizaos?: {
                 displayName?: string;
                 configKeys?: string[];
                 configDefaults?: Record<string, string>;
                 logoUrl?: string;
+              };
+              agentConfig?: {
+                pluginParameters?: Record<string, Record<string, unknown>>;
               };
               logoUrl?: string;
               icon?: string;
@@ -1199,10 +1212,18 @@ function discoverInstalledPlugins(
                 isSet: Boolean(process.env[key]?.trim()),
                 currentValue: null,
               }));
+            } else if (pkg.agentConfig?.pluginParameters) {
+              pluginConfigKeys = Object.keys(pkg.agentConfig.pluginParameters);
+              pluginParameters = buildParamDefs(pkg.agentConfig.pluginParameters);
             }
             // Map logoUrl or icon from package.json if available
             pluginIcon =
               pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? null;
+            pluginHomepage =
+              typeof pkg.homepage === "string" ? pkg.homepage : undefined;
+            pluginRepository =
+              normalizeRepositoryUrl(pkg.repository) ??
+              deriveMiladyRepositoryUrl(packageName, `plugin-${id}`);
             break;
           }
         } catch {
@@ -1227,6 +1248,9 @@ function discoverInstalledPlugins(
       validationErrors: [],
       validationWarnings: [],
       icon: pluginIcon,
+      homepage: pluginHomepage,
+      repository: pluginRepository,
+      setupGuideUrl: resolvePluginSetupGuideUrl(id),
     });
   }
 
@@ -1239,7 +1263,7 @@ function discoverInstalledPlugins(
  * Discover available plugins from the bundled plugins.json manifest.
  * Falls back to filesystem scanning for monorepo development.
  */
-function discoverPluginsFromManifest(): PluginEntry[] {
+export function discoverPluginsFromManifest(): PluginEntry[] {
   const thisDir =
     import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = findOwnPackageRoot(thisDir);
@@ -1255,9 +1279,17 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       const entries = index.plugins
         .map((p) => {
-          // Use manifest category if available, otherwise fall back to hardcoded categorization
-          const category = p.category ?? categorizePlugin(p.id);
+          const inferredCategory = categorizePlugin(p.id);
+          const category =
+            inferredCategory === "feature"
+              ? (p.category ?? inferredCategory)
+              : inferredCategory;
           const envKey = p.envKey;
+          const bundledMeta = readBundledPluginPackageMetadata(
+            packageRoot,
+            p.dirName,
+            p.npmName,
+          );
           const filteredConfigKeys = p.configKeys.filter(
             (k) => !HIDDEN_KEYS.has(k),
           );
@@ -1308,7 +1340,14 @@ function discoverPluginsFromManifest(): PluginEntry[] {
             version: p.version,
             pluginDeps: p.pluginDeps,
             ...(p.configUiHints ? { configUiHints: p.configUiHints } : {}),
-            icon: p.logoUrl ?? p.icon ?? null,
+            icon: p.logoUrl ?? p.icon ?? bundledMeta.icon ?? null,
+            homepage: p.homepage ?? bundledMeta.homepage,
+            repository:
+              p.repository ??
+              bundledMeta.repository ??
+              deriveMiladyRepositoryUrl(p.npmName, p.dirName),
+            setupGuideUrl:
+              p.setupGuideUrl ?? resolvePluginSetupGuideUrl(p.id),
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -1386,6 +1425,8 @@ function categorizePlugin(
     "youtube",
     "youtube-streaming",
     "twitch-streaming",
+    "x-streaming",
+    "pumpfun-streaming",
   ];
   const databases = ["sql", "localdb", "inmemorydb"];
 
@@ -1394,6 +1435,126 @@ function categorizePlugin(
   if (connectors.includes(id)) return "connector";
   if (databases.includes(id)) return "database";
   return "feature";
+}
+
+const PLUGIN_SETUP_GUIDE_ROOT = "https://docs.milady.ai/plugin-setup-guide";
+const MILADY_REPO_ROOT = "https://github.com/milady-ai/milady";
+
+const PLUGIN_SETUP_GUIDE_ANCHORS: Record<string, string> = {
+  openai: "#openai",
+  anthropic: "#anthropic",
+  "google-genai": "#google-gemini",
+  groq: "#groq",
+  openrouter: "#openrouter",
+  xai: "#xai-grok",
+  ollama: "#ollama-local-models",
+  "local-ai": "#local-ai",
+  "vercel-ai-gateway": "#vercel-ai-gateway",
+  discord: "#discord",
+  telegram: "#telegram",
+  twitter: "#twitter--x",
+  slack: "#slack",
+  whatsapp: "#whatsapp",
+  instagram: "#instagram",
+  bluesky: "#bluesky",
+  farcaster: "#farcaster",
+  github: "#github",
+  twitch: "#twitch",
+  twilio: "#twilio-sms--voice",
+  matrix: "#matrix",
+  msteams: "#microsoft-teams",
+  "google-chat": "#google-chat",
+  signal: "#signal",
+  imessage: "#imessage-macos-only",
+  bluebubbles: "#bluebubbles-imessage-from-any-platform",
+  blooio: "#blooio-sms-via-api",
+  nostr: "#nostr",
+  line: "#line",
+  feishu: "#feishu-lark",
+  mattermost: "#mattermost",
+  "nextcloud-talk": "#nextcloud-talk",
+  tlon: "#tlon-urbit",
+  zalo: "#zalo-vietnam-messaging",
+  zalouser: "#zalo-user-personal",
+  acp: "#acp-agent-communication-protocol",
+  mcp: "#mcp-model-context-protocol",
+  iq: "#iq-solana-on-chain",
+  "gmail-watch": "#gmail-watch",
+  retake: "#retaketv",
+  "streaming-base": "#enable-streaming-streaming-base",
+  "twitch-streaming": "#twitch-streaming",
+  "youtube-streaming": "#youtube-streaming",
+  "x-streaming": "#x-streaming",
+  "pumpfun-streaming": "#pumpfun-streaming",
+  "custom-rtmp": "#custom-rtmp",
+};
+
+export function resolvePluginSetupGuideUrl(id: string): string | undefined {
+  const anchor = PLUGIN_SETUP_GUIDE_ANCHORS[id];
+  return anchor ? `${PLUGIN_SETUP_GUIDE_ROOT}${anchor}` : undefined;
+}
+
+export function normalizeRepositoryUrl(
+  repository:
+    | string
+    | { type?: string; url?: string }
+    | null
+    | undefined,
+): string | undefined {
+  const raw =
+    typeof repository === "string"
+      ? repository.trim()
+      : repository?.url?.trim() || "";
+  if (!raw) return undefined;
+  if (/^[\w.-]+\/[\w.-]+$/.test(raw)) return `https://github.com/${raw}`;
+  if (raw.startsWith("git@github.com:")) {
+    return `https://github.com/${raw
+      .slice("git@github.com:".length)
+      .replace(/\.git$/, "")}`;
+  }
+  if (raw.startsWith("git+https://")) return raw.slice(4).replace(/\.git$/, "");
+  if (raw.startsWith("https://") || raw.startsWith("http://")) {
+    return raw.replace(/\.git$/, "");
+  }
+  return undefined;
+}
+
+function deriveMiladyRepositoryUrl(
+  npmName: string | undefined,
+  dirName: string | undefined,
+): string | undefined {
+  if (!npmName?.startsWith("@milady/")) return undefined;
+  if (!dirName?.startsWith("plugin-")) return undefined;
+  return `${MILADY_REPO_ROOT}/tree/main/packages/${dirName}`;
+}
+
+function readBundledPluginPackageMetadata(
+  packageRoot: string,
+  dirName: string,
+  npmName?: string,
+): { homepage?: string; repository?: string; icon?: string | null } {
+  const pkgPath = path.join(packageRoot, "packages", dirName, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    return { repository: deriveMiladyRepositoryUrl(npmName, dirName) };
+  }
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      homepage?: string;
+      repository?: string | { type?: string; url?: string };
+      logoUrl?: string;
+      icon?: string;
+      elizaos?: { logoUrl?: string };
+    };
+    return {
+      homepage: pkg.homepage ?? undefined,
+      repository:
+        normalizeRepositoryUrl(pkg.repository) ??
+        deriveMiladyRepositoryUrl(npmName, dirName),
+      icon: pkg.logoUrl ?? pkg.elizaos?.logoUrl ?? pkg.icon ?? null,
+    };
+  } catch {
+    return { repository: deriveMiladyRepositoryUrl(npmName, dirName) };
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -687,6 +687,9 @@ export interface PluginInfo {
   configUiHints?: Record<string, ConfigUiHint>;
   /** Optional icon URL or emoji for the plugin card header. */
   icon?: string | null;
+  homepage?: string;
+  repository?: string;
+  setupGuideUrl?: string;
 }
 
 export interface CorePluginEntry {
