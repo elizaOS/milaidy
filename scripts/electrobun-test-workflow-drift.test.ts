@@ -30,11 +30,10 @@ describe("Electrobun test workflow drift", () => {
   it("uploads packaged macOS smoke diagnostics from runner temp", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
+    expect(workflow).toContain("name: Upload packaged macOS smoke diagnostics");
     expect(workflow).toContain(
-      "name: Upload packaged macOS smoke diagnostics",
-    );
-    expect(workflow).toContain(
-      "SMOKE_DIAGNOSTICS_DIR: $" + "{{ runner.temp }}/milady-packaged-dmg-smoke",
+      "SMOKE_DIAGNOSTICS_DIR: $" +
+        "{{ runner.temp }}/milady-packaged-dmg-smoke",
     );
     expect(workflow).toContain(
       "path: |\n            $" +
