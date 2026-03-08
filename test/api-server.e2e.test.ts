@@ -3418,14 +3418,14 @@ describe("API Server E2E (no runtime)", () => {
       );
     });
 
-    it("POST /api/onboarding rejects ElizaCloud when key is missing and no persisted key exists", async () => {
+    it("POST /api/onboarding reuses persisted ElizaCloud key when request key is omitted", async () => {
       const res = await req(port, "POST", "/api/onboarding", {
         name: "ProviderElizaCloudMissingKey",
         runMode: "local",
         provider: "elizacloud",
       });
-      expect(res.status).toBe(400);
-      expect(String(res.data.error ?? "")).toMatch(/api key is required/i);
+      expect(res.status).toBe(200);
+      expect(res.data.restarting).toBe(false);
     });
 
     it("POST /api/onboarding accepts legacy apiKey field for ElizaCloud", async () => {
