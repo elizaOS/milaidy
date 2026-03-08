@@ -1743,7 +1743,12 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const CONTROL_FETCH_TIMEOUT_MS = 45_000;
 const CHAT_FETCH_TIMEOUT_MS = 60_000;
 
-function requestTimeoutForPath(path: string): number {
+function classifyApiPath(path: string): {
+  isChatRoute: boolean;
+  isControlRoute: boolean;
+  timeoutMs: number;
+  maxNetworkAttempts: number;
+} {
   const isConversationMessageRoute =
     path.startsWith("/api/conversations/") &&
     (path.includes("/messages") || path.includes("/greeting"));
@@ -1751,17 +1756,19 @@ function requestTimeoutForPath(path: string): number {
     path.startsWith("/api/chat") ||
     path.startsWith("/api/v2/chat") ||
     isConversationMessageRoute;
-  if (isChatRoute) return CHAT_FETCH_TIMEOUT_MS;
-
   const isControlRoute =
     path === "/api/agent/start" ||
     path === "/api/agent/restart" ||
     path === "/api/agent/reset" ||
     path === "/api/provider/switch" ||
     path.startsWith("/api/plugins/");
-  if (isControlRoute) return CONTROL_FETCH_TIMEOUT_MS;
-
-  return DEFAULT_FETCH_TIMEOUT_MS;
+  const timeoutMs = isChatRoute
+    ? CHAT_FETCH_TIMEOUT_MS
+    : isControlRoute
+      ? CONTROL_FETCH_TIMEOUT_MS
+      : DEFAULT_FETCH_TIMEOUT_MS;
+  const maxNetworkAttempts = isChatRoute ? 2 : isControlRoute ? 3 : 1;
+  return { isChatRoute, isControlRoute, timeoutMs, maxNetworkAttempts };
 }
 
 export class MiladyClient {
@@ -1894,7 +1901,7 @@ export class MiladyClient {
       });
     }
     const makeRequest = async (token: string | null): Promise<Response> => {
-      const timeoutMs = requestTimeoutForPath(path);
+      const { timeoutMs } = classifyApiPath(path);
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => {
         timeoutController.abort();
@@ -1937,20 +1944,7 @@ export class MiladyClient {
       }
     };
 
-    const isConversationMessageRoute =
-      path.startsWith("/api/conversations/") &&
-      (path.includes("/messages") || path.includes("/greeting"));
-    const isChatRoute =
-      path.startsWith("/api/chat") ||
-      path.startsWith("/api/v2/chat") ||
-      isConversationMessageRoute;
-    const isControlRoute =
-      path === "/api/agent/start" ||
-      path === "/api/agent/restart" ||
-      path === "/api/agent/reset" ||
-      path === "/api/provider/switch" ||
-      path.startsWith("/api/plugins/");
-    const maxNetworkAttempts = isChatRoute ? 2 : isControlRoute ? 3 : 1;
+    const { maxNetworkAttempts } = classifyApiPath(path);
     const token = this.apiToken;
     let res: Response;
     let networkAttempt = 0;

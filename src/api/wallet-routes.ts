@@ -1,5 +1,6 @@
 import type http from "node:http";
 import { logger } from "@elizaos/core";
+import { isAddress as isEvmAddress } from "ethers";
 import type { MiladyConfig } from "../config/config";
 import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
@@ -27,13 +28,38 @@ interface WalletExportRejectionLike {
   reason: string;
 }
 
-function configuredAddressFromEnv(
+const SOLANA_ADDRESS_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const DEFAULT_SOLANA_PUBLIC_RPC_TIMEOUT_MS = 5_000;
+
+function isValidSolanaAddress(value: string): boolean {
+  return SOLANA_ADDRESS_BASE58_RE.test(value);
+}
+
+function validatedConfiguredAddressFromEnv(
   key: "EVM_ADDRESS" | "SOLANA_ADDRESS",
 ): string | null {
   const value = process.env[key];
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  if (!trimmed) return null;
+  if (key === "EVM_ADDRESS") {
+    if (!isEvmAddress(trimmed)) {
+      logger.warn(`[wallet] Ignoring invalid EVM_ADDRESS from env`);
+      return null;
+    }
+    return trimmed;
+  }
+  if (!isValidSolanaAddress(trimmed)) {
+    logger.warn(`[wallet] Ignoring invalid SOLANA_ADDRESS from env`);
+    return null;
+  }
+  return trimmed;
+}
+
+function configuredAddressFromEnv(
+  key: "EVM_ADDRESS" | "SOLANA_ADDRESS",
+): string | null {
+  return validatedConfiguredAddressFromEnv(key);
 }
 
 function isEvmDisabled(): boolean {
@@ -71,10 +97,26 @@ async function fetchSolanaBalancePublic(address: string): Promise<{
     logoUrl: string;
   }>;
 }> {
+  const rpcUrl = process.env.SOLANA_RPC_URL?.trim();
+  if (!rpcUrl) {
+    throw new Error("SOLANA_RPC_URL is not configured");
+  }
+  const timeoutController = new AbortController();
+  const timeoutMs = Number(
+    process.env.SOLANA_PUBLIC_RPC_TIMEOUT_MS ??
+      DEFAULT_SOLANA_PUBLIC_RPC_TIMEOUT_MS,
+  );
+  const timeoutId = setTimeout(
+    () => {
+      timeoutController.abort();
+    },
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5_000,
+  );
   try {
-    const res = await fetch("https://api.mainnet-beta.solana.com", {
+    const res = await fetch(rpcUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      signal: timeoutController.signal,
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
@@ -95,13 +137,8 @@ async function fetchSolanaBalancePublic(address: string): Promise<{
       solValueUsd: "0",
       tokens: [],
     };
-  } catch (err) {
-    logger.warn(`[wallet] Public Solana balance fallback failed: ${err}`);
-    return {
-      solBalance: "0.000000000",
-      solValueUsd: "0",
-      tokens: [],
-    };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -574,13 +611,19 @@ export async function handleWalletRoutes(
         logger.warn(`[wallet] connected-data Solana fetch failed: ${err}`);
       }
     } else if (effectiveAddresses.solanaAddress) {
-      const solanaData = await fetchSolanaBalancePublic(
-        effectiveAddresses.solanaAddress,
-      );
-      balances.solana = {
-        address: effectiveAddresses.solanaAddress,
-        ...solanaData,
-      };
+      try {
+        const solanaData = await fetchSolanaBalancePublic(
+          effectiveAddresses.solanaAddress,
+        );
+        balances.solana = {
+          address: effectiveAddresses.solanaAddress,
+          ...solanaData,
+        };
+      } catch (err) {
+        logger.warn(
+          `[wallet] connected-data Solana RPC fallback unavailable: ${err instanceof Error ? err.message : err}`,
+        );
+      }
     }
 
     json(res, {

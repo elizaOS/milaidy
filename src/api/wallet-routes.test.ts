@@ -14,6 +14,7 @@ const ENV_KEYS = [
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
   "SOLANA_RPC_URL",
+  "SOLANA_PUBLIC_RPC_TIMEOUT_MS",
   "WALLET_DISCONNECT",
 ] as const;
 
@@ -30,8 +31,14 @@ afterEach(() => {
       process.env[key] = value;
     }
   }
+  if (originalFetchRef !== null) {
+    globalThis.fetch = originalFetchRef;
+  }
   vi.restoreAllMocks();
 });
+
+const originalFetchRef: typeof globalThis.fetch | null =
+  typeof globalThis.fetch === "function" ? globalThis.fetch : null;
 
 type InvokeResult = {
   handled: boolean;
@@ -148,6 +155,23 @@ describe("wallet routes", () => {
       solanaAddress: "So111",
     });
     expect(deps.getWalletAddresses).toHaveBeenCalled();
+  });
+
+  test("ignores invalid configured env addresses and uses derived addresses", async () => {
+    process.env.EVM_ADDRESS = "not-an-evm-address";
+    process.env.SOLANA_ADDRESS = "invalid solana value";
+    const deps = createDeps();
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/addresses",
+      deps,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual({
+      evmAddress: "0xabc",
+      solanaAddress: "So111",
+    });
   });
 
   test("returns wallet balances when provider keys exist", async () => {
@@ -290,6 +314,70 @@ describe("wallet routes", () => {
     expect(
       (result.config.env as Record<string, string>).WALLET_DISCONNECT,
     ).toBe(undefined);
+  });
+
+  test("connected-data uses configured SOLANA_RPC_URL when HELIUS key is absent", async () => {
+    process.env.SOLANA_RPC_URL = "https://rpc.example.test";
+    delete process.env.HELIUS_API_KEY;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ result: { value: 1_500_000_000 } }),
+    }));
+    (globalThis as { fetch: typeof fetch }).fetch = fetchMock as typeof fetch;
+
+    const deps = createDeps();
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/connected-data",
+      deps,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://rpc.example.test",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(result.payload).toEqual(
+      expect.objectContaining({
+        balances: expect.objectContaining({
+          solana: expect.objectContaining({
+            address: "So111",
+            solBalance: "1.500000000",
+            solValueUsd: "0",
+          }),
+        }),
+      }),
+    );
+  });
+
+  test("connected-data leaves Solana balances unset when fallback RPC fails", async () => {
+    process.env.SOLANA_RPC_URL = "https://rpc.example.test";
+    delete process.env.HELIUS_API_KEY;
+    const fetchMock = vi.fn(async () => {
+      throw new Error("rpc timeout");
+    });
+    (globalThis as { fetch: typeof fetch }).fetch = fetchMock as typeof fetch;
+
+    const deps = createDeps();
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/wallet/connected-data",
+      deps,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.payload).toEqual(
+      expect.objectContaining({
+        balances: expect.objectContaining({
+          solana: null,
+        }),
+      }),
+    );
   });
 
   test("PUT /api/wallet/config disconnect clears persisted WALLET_DISCONNECT", async () => {
