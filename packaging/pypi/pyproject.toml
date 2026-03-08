@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "milady"
 version = "2.0.0a7"
-description = "Dynamic loader for Milady — personal AI assistant built on ElizaOS"
+description = "Dynamic loader for Milady — personal AI assistant built on elizaOS"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"

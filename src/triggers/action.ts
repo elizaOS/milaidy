@@ -250,6 +250,8 @@ export const createTriggerTaskAction: Action = {
           normalizeText(existingTrigger.instructions).toLowerCase() ===
             normalizeText(triggerConfig.instructions).toLowerCase() &&
           existingTrigger.triggerType === triggerConfig.triggerType &&
+          (existingTrigger.wakeMode ?? "inject_now") ===
+            (triggerConfig.wakeMode ?? "inject_now") &&
           (existingTrigger.intervalMs ?? 0) ===
             (triggerConfig.intervalMs ?? 0) &&
           (existingTrigger.scheduledAtIso ?? "") ===

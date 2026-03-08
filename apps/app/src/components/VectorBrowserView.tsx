@@ -15,7 +15,7 @@ const PAGE_SIZE = 25;
 
 type ViewMode = "list" | "graph" | "3d";
 
-/** The dimension columns in the ElizaOS `embeddings` table. */
+/** The dimension columns in the elizaOS `embeddings` table. */
 const DIM_COLUMNS = [
   "dim_384",
   "dim_512",
@@ -90,7 +90,7 @@ function parseEmbedding(val: unknown): number[] | null {
 }
 
 function rowToMemory(row: Record<string, unknown>): MemoryRecord {
-  // Try explicit embedding/vector column first, then check ElizaOS dim_* columns
+  // Try explicit embedding/vector column first, then check elizaOS dim_* columns
   let embeddingVal = row.embedding ?? row.vector ?? row.embeddings;
   if (!embeddingVal) {
     for (const dim of DIM_COLUMNS) {
@@ -997,7 +997,7 @@ export function VectorBrowserView() {
       const available = vectorTables.length > 0 ? vectorTables : allTables;
       setTables(available);
 
-      // Check for separate embeddings table (ElizaOS stores vectors there)
+      // Check for separate embeddings table (elizaOS stores vectors there)
       const embTbl = allTables.find((t) => t.name === "embeddings");
       setHasEmbeddingsTable(!!embTbl);
 

@@ -134,6 +134,13 @@ export function getTriggerLimit(runtime?: IAgentRuntime): number {
   return DEFAULT_MAX_ACTIVE_TRIGGERS;
 }
 
+function isAutonomyServiceAvailable(runtime: IAgentRuntime): boolean {
+  const svc =
+    (runtime.getService("autonomy") as Record<string, unknown> | null) ??
+    (runtime.getService("AUTONOMY") as Record<string, unknown> | null);
+  return typeof svc?.injectAutonomousInstruction === "function";
+}
+
 async function dispatchInstruction(
   runtime: IAgentRuntime,
   taskId: UUID,
@@ -206,6 +213,22 @@ export async function executeTriggerTask(
     await runtime.deleteTask(task.id);
     recordExecutionMetric(runtime.agentId, "skipped", Date.now());
     return { status: "skipped", taskDeleted: true };
+  }
+
+  // Guard: skip non-manual triggers when autonomy service is unavailable
+  // (e.g. during agent restart). This avoids consuming once/maxRuns triggers
+  // with error runs that never actually execute.
+  if (!isAutonomyServiceAvailable(runtime) && options.source !== "manual") {
+    runtime.logger.warn?.(
+      {
+        src: "trigger-runtime",
+        taskId: task.id,
+        triggerId: trigger.triggerId,
+      },
+      "Autonomy service unavailable — skipping trigger (will retry next cycle)",
+    );
+    recordExecutionMetric(runtime.agentId, "skipped", Date.now());
+    return { status: "skipped", taskDeleted: false };
   }
 
   const startedAt = Date.now();

@@ -100,9 +100,14 @@ export function retargetMixamoGltfToVrm(
     );
   }
 
-  if (tracks.length < 10) {
+  const hasHipsTrack = tracks.some((track) =>
+    track.name.startsWith(
+      `${vrm.humanoid?.getNormalizedBoneNode("hips" as VRMHumanBoneName)?.name ?? "__missing__"}.`,
+    ),
+  );
+  if (!hasHipsTrack) {
     throw new Error(
-      `Retargeting mapped too few tracks (${tracks.length}). ` +
+      `Retargeting failed: no hips bone track found (mapped ${tracks.length} tracks). ` +
         "Expected Mixamo bone names like mixamorigHips/mixamorigSpine...",
     );
   }

@@ -51,3 +51,25 @@ declare module "@elizaos/plugin-together" {
   export default plugin;
   export { plugin };
 }
+
+declare module "@opinion-labs/opinion-clob-sdk" {
+  export class Client {
+    constructor(opts: Record<string, unknown>);
+    getMarkets(opts: Record<string, unknown>): Promise<unknown>;
+    getMarket(id: number): Promise<unknown>;
+    getCategoricalMarket(id: number): Promise<unknown>;
+    getOrderbook(tokenId: string): Promise<unknown>;
+    getLatestPrice(tokenId: string): Promise<unknown>;
+    getMyPositions(): Promise<unknown>;
+    getMyOrders(opts: Record<string, unknown>): Promise<unknown>;
+    placeOrder(opts: Record<string, unknown>): Promise<unknown>;
+    cancelOrder(id: string): Promise<unknown>;
+    cancelAllOrders(): Promise<unknown>;
+    enableTrading(): Promise<unknown>;
+    redeem(id: number): Promise<unknown[]>;
+  }
+  export const OrderSide: { BUY: number; SELL: number };
+  export const OrderType: { MARKET_ORDER: number; LIMIT_ORDER: number };
+  export const CHAIN_ID_BNB_MAINNET: number;
+  export const DEFAULT_API_HOST: string;
+}

@@ -33,20 +33,7 @@ declare module "@elizaos/plugin-pi-ai" {
     [key: string]: any;
   }
 }
-declare module "@elizaos/plugin-agent-orchestrator" {
-  // biome-ignore lint/suspicious/noExplicitAny: shim for npm package without types
-  export const createCodingAgentRouteHandler: any;
-  // biome-ignore lint/suspicious/noExplicitAny: shim for npm package without types
-  export const getCoordinator: any;
-  export interface SwarmEvent {
-    // biome-ignore lint/suspicious/noExplicitAny: shim for npm package without types
-    [key: string]: any;
-  }
-  export interface PTYService {
-    // biome-ignore lint/suspicious/noExplicitAny: shim for npm package without types
-    [key: string]: any;
-  }
-}
+
 declare module "@elizaos/plugin-coding-agent" {
   import type { Plugin } from "@elizaos/core";
   // biome-ignore lint/suspicious/noExplicitAny: local workspace plugin

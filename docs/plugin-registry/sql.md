@@ -10,7 +10,7 @@ The SQL plugin is the database layer for Milady agents. It provides persistent s
 
 ## Overview
 
-The SQL plugin implements the `IDatabaseAdapter` interface from ElizaOS core, backed by SQLite via Drizzle ORM. It is the first core plugin loaded because all other plugins depend on persistent storage.
+The SQL plugin implements the `IDatabaseAdapter` interface from elizaOS core, backed by SQLite via Drizzle ORM. It is the first core plugin loaded because all other plugins depend on persistent storage.
 
 ## Database Location
 

@@ -1,6 +1,6 @@
 # milady
 
-**Dynamic Python loader for [Milady](https://github.com/milady-ai/milady)** — a personal AI assistant built on [ElizaOS](https://github.com/elizaos).
+**Dynamic Python loader for [Milady](https://github.com/milady-ai/milady)** — a personal AI assistant built on [elizaOS](https://github.com/elizaos).
 
 This package provides a `milady` command that automatically manages the Node.js-based Milady runtime. Install via pip, run like any CLI tool.
 
@@ -76,7 +76,7 @@ Milady is a personal AI assistant you run on your own devices. It provides:
 
 - [Documentation](https://docs.milady.ai)
 - [GitHub](https://github.com/milady-ai/milady)
-- [ElizaOS](https://github.com/elizaos)
+- [elizaOS](https://github.com/elizaos)
 
 ## License
 

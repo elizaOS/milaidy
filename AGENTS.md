@@ -26,7 +26,7 @@
 - **Source code:** `src/` — runtime in `src/runtime/`, CLI wiring in `src/cli/`, config in `src/config/`, providers in `src/providers/`, hooks in `src/hooks/`, utils in `src/utils/`, types in `src/types/`
 - **Tests:** colocated `*.test.ts` alongside source files
 - **Build output:** `dist/` (via `tsdown`)
-- **Entry points:** `src/entry.ts` (CLI), `src/index.ts` (library), `src/runtime/eliza.ts` (ElizaOS runtime)
+- **Entry points:** `src/entry.ts` (CLI), `src/index.ts` (library), `src/runtime/eliza.ts` (elizaOS runtime)
 - **Apps:** `apps/app/` (Capacitor mobile/desktop, includes React UI), `apps/chrome-extension/`
 - **Deployment:** `deploy/` (Docker configs)
 - **Scripts:** `scripts/` (build, dev, release tooling)

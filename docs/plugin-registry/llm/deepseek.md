@@ -55,7 +55,7 @@ DeepSeek-V3 is a mixture-of-experts model with 671B parameters (37B active). Dee
 
 ## Model Type Mapping
 
-| ElizaOS Model Type | DeepSeek Model |
+| elizaOS Model Type | DeepSeek Model |
 |-------------------|---------------|
 | `TEXT_SMALL` | `deepseek-chat` |
 | `TEXT_LARGE` | `deepseek-chat` |

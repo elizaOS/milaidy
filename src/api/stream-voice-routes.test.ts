@@ -68,6 +68,7 @@ function mockState(
       mute: vi.fn(async () => {}),
       unmute: vi.fn(async () => {}),
     },
+    destinations: new Map(),
     port: 2138,
     config: {
       messages: {

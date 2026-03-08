@@ -855,6 +855,22 @@ export const CustomRtmpConfigSchema = z
   })
   .strict();
 
+export const PumpfunStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().optional(),
+  })
+  .strict();
+
+export const XStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().optional(),
+  })
+  .strict();
+
 export const MSTeamsChannelSchema = z
   .object({
     requireMention: z.boolean().optional(),

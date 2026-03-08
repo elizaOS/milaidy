@@ -21,7 +21,7 @@
 
 ---
 
-A personal AI assistant you run on your own devices, built on [ElizaOS](https://github.com/elizaos). Cross-platform — macOS, Windows, Linux, iOS, and Android.
+A personal AI assistant you run on your own devices, built on [elizaOS](https://github.com/elizaos). Cross-platform — macOS, Windows, Linux, iOS, and Android.
 
 ## Install
 

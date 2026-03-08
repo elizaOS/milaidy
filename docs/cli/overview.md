@@ -35,7 +35,7 @@ bunx milaidy
 <CardGroup cols={2}>
 
 <Card title="start" icon="play" href="/cli/start">
-  Start the ElizaOS agent runtime in headless server-only mode.
+  Start the elizaOS agent runtime in headless server-only mode.
 </Card>
 
 <Card title="tui" icon="terminal" href="/cli/tui">
@@ -63,7 +63,7 @@ bunx milaidy
 </Card>
 
 <Card title="plugins" icon="plug" href="/cli/plugins">
-  Browse, search, install, and manage ElizaOS plugins from the registry.
+  Browse, search, install, and manage elizaOS plugins from the registry.
 </Card>
 
 <Card title="update" icon="arrow-up" href="/cli/update">

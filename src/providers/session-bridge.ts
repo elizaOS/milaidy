@@ -1,8 +1,8 @@
 /**
- * Bridges Milady session keys with ElizaOS rooms.
+ * Bridges Milady session keys with elizaOS rooms.
  *
  * Milady keys: agent:{agentId}:main (DMs), agent:{agentId}:{channel}:group:{id} (groups)
- * ElizaOS rooms: per-agent UUIDs via createUniqueUuid(runtime, channelId)
+ * elizaOS rooms: per-agent UUIDs via createUniqueUuid(runtime, channelId)
  */
 
 import type {
@@ -62,7 +62,7 @@ function parseAgentSessionKey(key: string):
 }
 
 /**
- * Resolve an Milady session key from an ElizaOS room.
+ * Resolve an Milady session key from an elizaOS room.
  *
  * DMs -> agent:{agentId}:main
  * Groups -> agent:{agentId}:{channel}:group:{groupId}

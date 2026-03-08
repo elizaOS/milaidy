@@ -1,5 +1,11 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { type AgentMode, IS_POPOUT, toggleAlwaysOnTop } from "./helpers";
+import {
+  type AgentMode,
+  IS_POPOUT,
+  STREAM_SOURCE_LABELS,
+  type StreamSourceType,
+  toggleAlwaysOnTop,
+} from "./helpers";
 
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -27,6 +33,9 @@ export function StatusBar({
   uptime,
   frameCount,
   audioSource,
+  streamSource,
+  activeGameViewerUrl,
+  onSourceChange,
 }: {
   agentName: string;
   mode: AgentMode;
@@ -46,9 +55,30 @@ export function StatusBar({
   uptime: number;
   frameCount: number;
   audioSource: string;
+  streamSource: { type: StreamSourceType; url?: string };
+  activeGameViewerUrl: string;
+  onSourceChange: (sourceType: StreamSourceType, customUrl?: string) => void;
 }) {
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const sourceDropdownRef = useRef<HTMLSpanElement>(null);
+  const [customUrlInput, setCustomUrlInput] = useState("");
+
+  // Close source picker on click outside
+  useEffect(() => {
+    if (!sourceOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        sourceDropdownRef.current &&
+        !sourceDropdownRef.current.contains(e.target as Node)
+      ) {
+        setSourceOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sourceOpen]);
   const popoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Cleanup popout polling interval on unmount to prevent memory leaks
@@ -111,6 +141,101 @@ export function StatusBar({
         )}
         {!isPip && (
           <span className="px-2 py-0.5 rounded bg-bg-muted">{modeLabel}</span>
+        )}
+
+        {/* Stream source picker — live only */}
+        {!isPip && isLive && (
+          <span ref={sourceDropdownRef} className="relative flex items-center">
+            <button
+              type="button"
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer text-[11px]"
+              onClick={() => setSourceOpen((o) => !o)}
+            >
+              <span className="text-muted">Src:</span>
+              <span className="text-txt font-medium">
+                {STREAM_SOURCE_LABELS[streamSource.type]}
+              </span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <title>Toggle source picker</title>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {sourceOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-bg border border-border rounded shadow-lg min-w-[180px]">
+                {(
+                  ["stream-tab", "game", "custom-url"] as StreamSourceType[]
+                ).map((st) => {
+                  const isGame = st === "game";
+                  const disabled = isGame && !activeGameViewerUrl.trim();
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      disabled={disabled}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                        streamSource.type === st
+                          ? "bg-accent/20 text-accent"
+                          : disabled
+                            ? "text-muted/40 cursor-not-allowed"
+                            : "text-txt hover:bg-bg-muted cursor-pointer"
+                      }`}
+                      onClick={() => {
+                        if (st === "custom-url") return; // handled by input below
+                        onSourceChange(
+                          st,
+                          isGame ? activeGameViewerUrl : undefined,
+                        );
+                        setSourceOpen(false);
+                      }}
+                    >
+                      {STREAM_SOURCE_LABELS[st]}
+                      {isGame && activeGameViewerUrl.trim() && (
+                        <span className="ml-1 text-muted text-[10px]">
+                          (active)
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                {/* Custom URL input */}
+                <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border">
+                  <input
+                    type="text"
+                    placeholder="https://..."
+                    value={customUrlInput}
+                    onChange={(e) => setCustomUrlInput(e.target.value)}
+                    className="flex-1 bg-bg-muted text-txt text-[11px] rounded px-2 py-1 border border-border outline-none focus:border-accent"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customUrlInput.trim()) {
+                        onSourceChange("custom-url", customUrlInput.trim());
+                        setSourceOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!customUrlInput.trim()}
+                    className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => {
+                      if (customUrlInput.trim()) {
+                        onSourceChange("custom-url", customUrlInput.trim());
+                        setSourceOpen(false);
+                      }
+                    }}
+                  >
+                    Go
+                  </button>
+                </div>
+              </div>
+            )}
+          </span>
         )}
 
         {/* Health stats — live only */}

@@ -34,12 +34,12 @@ const HYPERSCAPE_SCRIPTED_ROLE_OPTIONS: Array<{
   value: HyperscapeScriptedRole;
   label: string;
 }> = [
-    { value: "balanced", label: "Balanced" },
-    { value: "combat", label: "Combat" },
-    { value: "woodcutting", label: "Woodcutting" },
-    { value: "fishing", label: "Fishing" },
-    { value: "mining", label: "Mining" },
-  ];
+  { value: "balanced", label: "Balanced" },
+  { value: "combat", label: "Combat" },
+  { value: "woodcutting", label: "Woodcutting" },
+  { value: "fishing", label: "Fishing" },
+  { value: "mining", label: "Mining" },
+];
 
 const CATEGORY_LABELS: Record<string, string> = {
   game: "Game",
@@ -751,13 +751,13 @@ export function AppsView() {
                 <>
                   Goal: {hyperscapeGoalResponse.goal.description ?? "unknown"}
                   {typeof hyperscapeGoalResponse.goal.progressPercent ===
-                    "number"
+                  "number"
                     ? ` (${hyperscapeGoalResponse.goal.progressPercent}%)`
                     : ""}
                 </>
               ) : (
                 (hyperscapeGoalResponse?.message ??
-                  "No active goal loaded for the selected agent.")
+                "No active goal loaded for the selected agent.")
               )}
             </div>
 

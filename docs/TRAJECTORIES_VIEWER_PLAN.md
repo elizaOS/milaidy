@@ -14,9 +14,9 @@ Build a comprehensive **Trajectories Viewer** in the Milady app that shows all L
 
 **My original plan was WRONG about patching `messageService.handleMessage`.**
 
-After thoroughly reviewing the official `plugin-trajectory-logger` and ElizaOS core runtime, the **correct approach** is:
+After thoroughly reviewing the official `plugin-trajectory-logger` and elizaOS core runtime, the **correct approach** is:
 
-### ElizaOS Already Has Built-in Trajectory Logging
+### elizaOS Already Has Built-in Trajectory Logging
 
 The runtime at `/eliza/packages/typescript/src/runtime.ts` **already calls** `trajLogger.logLlmCall()` and `trajLogger.logProviderAccess()` when:
 1. A `TrajectoryLoggerService` is registered (service type: `"trajectory_logger"`)
@@ -130,7 +130,7 @@ Current tab structure:
 - @elizaos/plugin-phetta-companion pattern is for message interception, not logging
 
 **Option B: Use TrajectoryLoggerService from @elizaos/core** - ✅ CORRECT APPROACH
-- Built into ElizaOS runtime
+- Built into elizaOS runtime
 - Runtime ALREADY calls `logLlmCall()` when service is registered
 - Just need to: 1) register service, 2) set trajectory context, 3) persist logs
 

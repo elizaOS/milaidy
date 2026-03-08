@@ -4,11 +4,11 @@
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <name>Milady</name>
-  <summary>Personal AI assistant built on ElizaOS</summary>
+  <summary>Personal AI assistant built on elizaOS</summary>
   <description>
     <p>
       Milady is a personal AI assistant you run on your own devices, built on
-      ElizaOS. It provides zero-config onboarding, multi-provider AI support,
+      elizaOS. It provides zero-config onboarding, multi-provider AI support,
       a web dashboard, and a plugin system for extensibility.
     </p>
     <p>Features:</p>

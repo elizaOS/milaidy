@@ -1,7 +1,7 @@
 /**
  * Cloud Agent Entrypoint
  *
- * Runs inside the ECS container. Starts a real ElizaOS AgentRuntime with
+ * Runs inside the ECS container. Starts a real elizaOS AgentRuntime with
  * the ElizaCloud plugin for inference, serves a health endpoint on $PORT,
  * and a bridge HTTP server on $BRIDGE_PORT that forwards messages into
  * the runtime and serves snapshot/restore for state management.
@@ -21,7 +21,7 @@ interface BridgeRpcParams {
   mode?: string;
 }
 
-// ─── ElizaOS Runtime ────────────────────────────────────────────────────
+// ─── elizaOS Runtime ────────────────────────────────────────────────────
 
 /**
  * The runtime is initialized asynchronously. All bridge requests that
@@ -54,7 +54,7 @@ const state = {
 
 async function initRuntime(): Promise<void> {
   /**
-   * Dynamic import — the ElizaOS packages may or may not be installed in
+   * Dynamic import — the elizaOS packages may or may not be installed in
    * the container image. When they are, we get a real agent runtime. When
    * they aren't (e.g., during development or bare container testing), we
    * fall back to the echo handler so the bridge protocol is still
@@ -75,7 +75,7 @@ async function initRuntime(): Promise<void> {
 
     const character = createCharacter({
       name: process.env.AGENT_NAME ?? "CloudAgent",
-      bio: "An ElizaOS agent running in the cloud.",
+      bio: "An elizaOS agent running in the cloud.",
       settings: {
         // Database connection — plugin-sql reads POSTGRES_URL from runtime
         // settings and auto-detects Neon URLs for the serverless driver.
@@ -222,9 +222,9 @@ async function initRuntime(): Promise<void> {
       getConfig: () => state.config,
     };
 
-    console.log("[cloud-agent] ElizaOS runtime initialized with real agent");
+    console.log("[cloud-agent] elizaOS runtime initialized with real agent");
   } else {
-    // Fallback: no ElizaOS installed — echo mode for protocol testing
+    // Fallback: no elizaOS installed — echo mode for protocol testing
     console.warn(
       "[cloud-agent] @elizaos/core not available, running in echo mode",
     );
@@ -368,7 +368,7 @@ const bridgeServer = http.createServer(async (req, res) => {
 
     sendEvent("connected", { rpcId: rpc.id, timestamp: Date.now() });
 
-    // The ElizaOS handleMessage callback fires once per response part
+    // The elizaOS handleMessage callback fires once per response part
     // (typically the full response in a single call). True per-token
     // streaming requires the runtime's streaming context support, which
     // is not wired through the bridge protocol yet. For now, each

@@ -35,7 +35,7 @@ You are a self-modifying agent. You can edit your own code through **plugins**, 
 
 \`\`\`
 ~/.milady/
-├── eliza/                     # ElizaOS core (DO NOT MODIFY)
+├── eliza/                     # elizaOS core (DO NOT MODIFY)
 ├── plugins/                   # Plugins - EDIT HERE
 │   ├── plugin-discord/
 │   ├── plugin-telegram/

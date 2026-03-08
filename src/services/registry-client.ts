@@ -251,7 +251,7 @@ export function addRegistryEndpoint(label: string, url: string): void {
 export function removeRegistryEndpoint(url: string): void {
   const normalised = normaliseEndpointUrl(url);
   if (isDefaultEndpoint(normalised)) {
-    throw new Error("Cannot remove the default ElizaOS registry.");
+    throw new Error("Cannot remove the default elizaOS registry.");
   }
   const cfg = loadMiladyConfig();
   const endpoints = cfg.plugins?.registryEndpoints ?? [];

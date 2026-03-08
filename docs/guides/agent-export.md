@@ -17,7 +17,7 @@ Milady provides an encrypted export/import system for migrating agents between m
 7. [Export Payload Schema](#export-payload-schema)
 8. [Version Compatibility](#version-compatibility)
 9. [Sharing Agents](#sharing-agents)
-10. [ElizaOS Compatibility](#elizaos-compatibility)
+10. [elizaOS Compatibility](#elizaos-compatibility)
 11. [API Reference](#api-reference)
 12. [Troubleshooting](#troubleshooting)
 
@@ -122,7 +122,7 @@ During export, the service follows a specific order to collect all related data:
 
 ## Character Config in Exports
 
-The export includes a `characterConfig` field separate from the main `agent` record. This exists because the ElizaOS runtime character (built by `buildCharacterFromConfig`) may contain fields that are not persisted in the database agent record, such as:
+The export includes a `characterConfig` field separate from the main `agent` record. This exists because the elizaOS runtime character (built by `buildCharacterFromConfig`) may contain fields that are not persisted in the database agent record, such as:
 
 - `style` (communication style rules for all, chat, and post contexts)
 - `topics` (knowledge areas)
@@ -470,16 +470,16 @@ Important considerations when sharing:
 
 ---
 
-## ElizaOS Compatibility
+## elizaOS Compatibility
 
-The `.eliza-agent` format uses the magic header `ELIZA_AGENT_V1`, reflecting its origin in the ElizaOS ecosystem. The format is compatible with ElizaOS instances that support the same export version.
+The `.eliza-agent` format uses the magic header `ELIZA_AGENT_V1`, reflecting its origin in the elizaOS ecosystem. The format is compatible with elizaOS instances that support the same export version.
 
 Key compatibility details:
 
 - The database schema types (`Agent`, `Memory`, `Entity`, `Component`, `Room`, `Task`, `World`, `Relationship`, `Log`) are imported from `@elizaos/core`.
-- Memory table names (`messages`, `facts`, `documents`, `fragments`, `descriptions`, `character_modifications`, `custom`) follow the ElizaOS convention.
+- Memory table names (`messages`, `facts`, `documents`, `fragments`, `descriptions`, `character_modifications`, `custom`) follow the elizaOS convention.
 - The `Task` type uses `agent_id` in the database schema but `agentId` in the TypeScript proto type. The export service handles both naming conventions when filtering tasks.
-- The `characterConfig` field is Milady-specific — ElizaOS exports may not include it, but imports handle its absence gracefully.
+- The `characterConfig` field is Milady-specific — elizaOS exports may not include it, but imports handle its absence gracefully.
 
 ---
 

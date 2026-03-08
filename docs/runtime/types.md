@@ -124,7 +124,7 @@ export type AgentsConfig = {
 };
 ```
 
-## Character (ElizaOS Core)
+## Character (elizaOS Core)
 
 The Character object passed to `AgentRuntime`. Built by `buildCharacterFromConfig()`:
 
@@ -148,7 +148,7 @@ interface Character {
 }
 ```
 
-## Plugin (ElizaOS Core)
+## Plugin (elizaOS Core)
 
 ```typescript
 // @elizaos/core
@@ -164,7 +164,7 @@ interface Plugin {
 }
 ```
 
-## Provider (ElizaOS Core)
+## Provider (elizaOS Core)
 
 ```typescript
 // @elizaos/core
@@ -180,7 +180,7 @@ interface ProviderResult {
 }
 ```
 
-## Service (ElizaOS Core)
+## Service (elizaOS Core)
 
 ```typescript
 // @elizaos/core
