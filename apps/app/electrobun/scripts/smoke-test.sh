@@ -62,6 +62,36 @@ cleanup() {
   fi
 }
 
+attach_dmg_with_retry() {
+  local dmg_path="$1"
+  local attempts="${2:-5}"
+  local sleep_seconds="${3:-2}"
+  local attempt=1
+  local attach_output=""
+  local mount_point=""
+
+  while [[ "$attempt" -le "$attempts" ]]; do
+    if attach_output="$(hdiutil attach -nobrowse -readonly "$dmg_path" 2>&1)"; then
+      mount_point="$(printf "%s\n" "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
+      if [[ -n "$mount_point" && -d "$mount_point" ]]; then
+        printf "%s\n" "$mount_point"
+        return 0
+      fi
+      echo "WARNING: DMG attach succeeded but no mount point was detected (attempt $attempt/$attempts)." >&2
+    else
+      echo "WARNING: DMG attach failed (attempt $attempt/$attempts):" >&2
+      printf "%s\n" "$attach_output" >&2
+    fi
+
+    if [[ "$attempt" -lt "$attempts" ]]; then
+      sleep "$sleep_seconds"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  return 1
+}
+
 ensure_diagnostics_dir() {
   if [[ -z "$SMOKE_DIAGNOSTICS_DIR" ]]; then
     SMOKE_DIAGNOSTICS_DIR="$(mktemp -d /tmp/milady-smoke-diagnostics.XXXXXX)"
@@ -281,7 +311,7 @@ if [[ -z "$APP_BUNDLE" ]]; then
   DMG_PATH="$(find "$OUTPUT_DIR" -maxdepth 1 -name "*.dmg" -type f -print -quit 2>/dev/null || true)"
   if [[ -n "$DMG_PATH" && "$(uname)" == "Darwin" ]]; then
     echo "No .app bundle found in artifacts; mounting DMG: $DMG_PATH"
-    MOUNT_POINT="$(hdiutil attach -nobrowse -readonly "$DMG_PATH" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
+    MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"
     if [[ -n "$MOUNT_POINT" && -d "$MOUNT_POINT" ]]; then
       APP_BUNDLE="$(find "$MOUNT_POINT" -maxdepth 2 -name "*.app" -type d -print -quit 2>/dev/null || true)"
     fi

@@ -26,6 +26,7 @@ const requiredWorkflowSnippets = [
   "wrapper-diagnostics.json",
   "Stage Windows setup executables",
   "apps/app/electrobun/artifacts/*.exe",
+  "DMG attach attempt $attempt/5 failed",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
@@ -150,6 +151,8 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     "dump_failure_diagnostics()",
     "write_bundle_diagnostics()",
     "collect_recent_crash_reports()",
+    "attach_dmg_with_retry()",
+    'MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"',
     'dump_failure_diagnostics "launcher exited before backend startup"',
     'dump_failure_diagnostics "backend never reported a started port"',
   ];

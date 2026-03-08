@@ -376,7 +376,18 @@ jobs:
             fi
             dmg="${dmgs[0]}"
             echo "No .app bundle found in artifacts; mounting DMG: $dmg"
-            mount_line="$(hdiutil attach -nobrowse -readonly "$dmg" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
+            mount_line=""
+            for attempt in 1 2 3 4 5; do
+              attach_output="$(hdiutil attach -nobrowse -readonly "$dmg" 2>&1)" && \
+                mount_line="$(printf '%s\n' "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')" && \
+                [ -n "$mount_line" ] && [ -d "$mount_line" ] && break
+              echo "::warning::DMG attach attempt $attempt/5 failed"
+              if [ -n "${attach_output:-}" ]; then
+                printf '%s\n' "$attach_output"
+              fi
+              mount_line=""
+              sleep 2
+            done
             if [ -z "$mount_line" ]; then
               echo "::error::Failed to determine mounted DMG volume"
               exit 1
