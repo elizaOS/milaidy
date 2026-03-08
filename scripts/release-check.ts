@@ -38,13 +38,18 @@ function runPackDry(): PackResult[] {
 }
 
 function assertReleaseWorkflowHasNotaryWrapper() {
-  const workflow = readFileSync(".github/workflows/release-electrobun.yml", "utf8");
-  const missing = requiredWorkflowSnippets.filter((snippet) =>
-    !workflow.includes(snippet),
+  const workflow = readFileSync(
+    ".github/workflows/release-electrobun.yml",
+    "utf8",
+  );
+  const missing = requiredWorkflowSnippets.filter(
+    (snippet) => !workflow.includes(snippet),
   );
 
   if (missing.length > 0) {
-    console.error("release-check: release workflow is missing notary wrapper wiring:");
+    console.error(
+      "release-check: release workflow is missing notary wrapper wiring:",
+    );
     for (const snippet of missing) {
       console.error(`  - ${snippet}`);
     }
@@ -57,8 +62,8 @@ function assertElectrobunConfigHasPostWrapSigner() {
     "apps/app/electrobun/electrobun.config.ts",
     "utf8",
   );
-  const missing = requiredElectrobunConfigSnippets.filter((snippet) =>
-    !config.includes(snippet),
+  const missing = requiredElectrobunConfigSnippets.filter(
+    (snippet) => !config.includes(snippet),
   );
 
   if (missing.length > 0) {
@@ -89,6 +94,26 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     console.error(`  - first relevant line: ${firstRelevantLine ?? "<none>"}`);
     process.exit(1);
   }
+
+  const requiredSnippets = [
+    "Find-Launcher $selfExtractionRoot",
+    "Started extracted launcher:",
+    "Runtime started -- agent: .* port:",
+    "Waiting for health endpoint at http://localhost:",
+  ];
+  const missingSnippets = requiredSnippets.filter(
+    (snippet) => !script.includes(snippet),
+  );
+
+  if (missingSnippets.length > 0) {
+    console.error(
+      "release-check: smoke-test-windows.ps1 is missing the packaged-launcher/dynamic-port smoke logic.",
+    );
+    for (const snippet of missingSnippets) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
 }
 
 function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
@@ -97,7 +122,11 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     "utf8",
   );
 
-  if (!script.includes('LAUNCHER_PATH="$LAUNCH_APP_BUNDLE/Contents/MacOS/launcher"')) {
+  if (
+    !script.includes(
+      'LAUNCHER_PATH="$LAUNCH_APP_BUNDLE/Contents/MacOS/launcher"',
+    )
+  ) {
     console.error(
       "release-check: smoke-test.sh must launch the packaged Contents/MacOS/launcher directly.",
     );

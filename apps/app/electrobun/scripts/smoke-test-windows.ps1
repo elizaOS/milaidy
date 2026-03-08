@@ -1,7 +1,7 @@
 param(
   [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\\artifacts"),
   [int]$BackendPort = 2138,
-  [int]$TimeoutSeconds = 120
+  [int]$TimeoutSeconds = 240
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,9 +24,35 @@ function Stop-MiladyProcesses() {
   Get-Process -ErrorAction SilentlyContinue |
     Where-Object {
       $_.ProcessName -in @("launcher", "bun") -or
+      $_.ProcessName -like "Milady*" -or
       $_.ProcessName -like "Milady-Setup*"
     } |
     Stop-Process -Force
+}
+
+function Get-ObservedBackendPorts([int]$DefaultPort) {
+  $ports = [System.Collections.Generic.List[int]]::new()
+  $ports.Add($DefaultPort)
+
+  if (-not (Test-Path $startupLog)) {
+    return $ports.ToArray()
+  }
+
+  $logLines = Get-Content $startupLog -Tail 200 -ErrorAction SilentlyContinue
+  foreach ($line in $logLines) {
+    if (
+      $line -match 'Runtime started -- agent: .* port: ([0-9]+), pid:' -or
+      $line -match 'Server bound to dynamic port ([0-9]+)' -or
+      $line -match 'Waiting for health endpoint at http://localhost:([0-9]+)/api/health'
+    ) {
+      $observedPort = [int]$Matches[1]
+      if (-not $ports.Contains($observedPort)) {
+        $ports.Add($observedPort)
+      }
+    }
+  }
+
+  return $ports.ToArray()
 }
 
 Write-Host "Artifacts dir: $resolvedArtifactsDir"
@@ -42,6 +68,7 @@ $launcher = Find-Launcher $resolvedArtifactsDir
 $installer = $null
 $installerProcess = $null
 $launcherProcess = $null
+$launcherStarted = $false
 
 if (-not $launcher) {
   $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
@@ -87,24 +114,44 @@ try {
     if (
       $launcher -and
       -not (Get-Process -Name "launcher" -ErrorAction SilentlyContinue) -and
-      $installerProcess -and
-      $installerProcess.HasExited
+      (
+        -not $launcherStarted -or
+        ($launcherProcess -and $launcherProcess.HasExited)
+      )
     ) {
       $launcherDir = Split-Path -Parent $launcher.FullName
       $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
+      $launcherStarted = $true
       Write-Host "Started extracted launcher: $($launcher.FullName)"
     }
 
-    try {
-      $response = Invoke-WebRequest -Uri "http://127.0.0.1:$BackendPort/api/health" -UseBasicParsing -TimeoutSec 2
-      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-        $healthy = $true
-        Write-Host "Backend health check passed on port $BackendPort."
-        break
+    if (Test-Path $startupLog) {
+      $recentLog = Get-Content $startupLog -Tail 200 -ErrorAction SilentlyContinue
+      if ($recentLog -match 'Cannot find module|Child process exited with code|Failed to start:') {
+        Write-Host "Recent startup log:"
+        $recentLog
+        throw "Windows packaged app reported a startup failure."
       }
-    } catch {
-      Start-Sleep -Seconds 2
     }
+
+    foreach ($port in Get-ObservedBackendPorts $BackendPort) {
+      try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/health" -UseBasicParsing -TimeoutSec 2
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+          $healthy = $true
+          Write-Host "Backend health check passed on port $port."
+          break
+        }
+      } catch {
+        # ignore and continue checking other observed ports
+      }
+    }
+
+    if ($healthy) {
+      break
+    }
+
+    Start-Sleep -Seconds 2
   }
 
   if (-not $healthy) {
