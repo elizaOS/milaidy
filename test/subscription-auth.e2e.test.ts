@@ -260,6 +260,49 @@ describe("subscription auth routes (e2e contract)", () => {
       expect(submitCode).toHaveBeenCalledWith("valid-looking-code");
       expect(saveCredentials).not.toHaveBeenCalled();
     });
+
+    it("cleans up Anthropic flow after failed exchange so /start works again", async () => {
+      const submitCode = vi.fn();
+      const failingCreds = Promise.reject(new Error("exchange error"));
+      void failingCreds.catch(() => {});
+
+      startAnthropicLogin.mockResolvedValueOnce({
+        authUrl: "https://auth.example/anthropic",
+        submitCode,
+        credentials: failingCreds,
+      });
+
+      await req(port, "POST", "/api/subscription/anthropic/start");
+
+      // Exchange fails
+      const exchangeRes = await req(
+        port,
+        "POST",
+        "/api/subscription/anthropic/exchange",
+        { code: "bad-code" },
+      );
+      expect(exchangeRes.status).toBe(500);
+
+      // Flow should be cleaned up — next exchange should say "No active flow"
+      const afterFail = await req(
+        port,
+        "POST",
+        "/api/subscription/anthropic/exchange",
+        { code: "another-code" },
+      );
+      expect(afterFail.status).toBe(400);
+      expect(afterFail.data.error).toContain("No active flow");
+    });
+
+    it("returns 500 when startAnthropicLogin throws", async () => {
+      startAnthropicLogin.mockRejectedValueOnce(
+        new Error("network unreachable"),
+      );
+
+      const res = await req(port, "POST", "/api/subscription/anthropic/start");
+      expect(res.status).toBe(500);
+      expect(res.data.error).toContain("Failed to start Anthropic login");
+    });
   });
 
   // ── OpenAI OAuth flow ────────────────────────────────────────────────────
@@ -399,6 +442,16 @@ describe("subscription auth routes (e2e contract)", () => {
       );
       expect(firstFlowClose).toHaveBeenCalledTimes(1);
       expect(secondFlowClose).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when startCodexLogin throws", async () => {
+      startCodexLogin.mockRejectedValueOnce(
+        new Error("oauth provider unavailable"),
+      );
+
+      const res = await req(port, "POST", "/api/subscription/openai/start");
+      expect(res.status).toBe(500);
+      expect(res.data.error).toContain("Failed to start OpenAI login");
     });
 
     it("exchanges via waitForCallback path without calling submitCode", async () => {
