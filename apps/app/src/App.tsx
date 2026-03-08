@@ -43,6 +43,7 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
+import { useTabNavigation } from "./hooks/useTabNavigation";
 import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
 import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
@@ -118,7 +119,6 @@ export function App() {
     onboardingComplete,
     retryStartup,
     tab,
-    setTab,
     actionNotice,
     uiShellMode,
     agentStatus,
@@ -127,6 +127,8 @@ export function App() {
     gameOverlayEnabled,
     setActionNotice,
   } = useApp();
+  const { navigateToTab, persistShellPanels, restoreShellPanels } =
+    useTabNavigation();
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
   const effectiveTab: Tab =
@@ -144,15 +146,15 @@ export function App() {
       const detail = (e as CustomEvent).detail;
       if (detail === "opened") {
         setStreamPoppedOut(true);
-        setTab("chat");
+        navigateToTab("chat");
       } else if (detail === "closed") {
         setStreamPoppedOut(false);
-        setTab("stream");
+        navigateToTab("stream");
       }
     };
     window.addEventListener("stream-popout", handler);
     return () => window.removeEventListener("stream-popout", handler);
-  }, [setTab]);
+  }, [navigateToTab]);
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);
@@ -164,8 +166,12 @@ export function App() {
       ? window.innerWidth < CHAT_MOBILE_BREAKPOINT_PX
       : false,
   );
-  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
-  const [mobileAutonomousOpen, setMobileAutonomousOpen] = useState(false);
+  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(
+    () => restoreShellPanels(tab).mobileConversationsOpen,
+  );
+  const [mobileAutonomousOpen, setMobileAutonomousOpen] = useState(
+    () => restoreShellPanels(tab).mobileAutonomousOpen,
+  );
 
   const isChat = tab === "chat";
   const isAdvancedTab =
@@ -201,6 +207,7 @@ export function App() {
             ? "border-accent bg-accent-subtle text-accent"
             : "border-border bg-card text-txt hover:border-accent hover:text-accent"
         }`}
+        data-testid="shell-mobile-chats-toggle"
         onClick={() => {
           setMobileAutonomousOpen(false);
           setMobileConversationsOpen(true);
@@ -235,6 +242,7 @@ export function App() {
             ? "border-accent bg-accent-subtle text-accent"
             : "border-border bg-card text-txt hover:border-accent hover:text-accent"
         }`}
+        data-testid="shell-mobile-status-toggle"
         onClick={() => {
           setMobileConversationsOpen(false);
           setMobileAutonomousOpen(true);
@@ -302,6 +310,27 @@ export function App() {
       setMobileAutonomousOpen(false);
     }
   }, [isChat]);
+
+  useEffect(() => {
+    const restored = restoreShellPanels(tab);
+    setMobileConversationsOpen(restored.mobileConversationsOpen);
+    setMobileAutonomousOpen(restored.mobileAutonomousOpen);
+  }, [restoreShellPanels, tab]);
+
+  useEffect(() => {
+    const restored = restoreShellPanels(tab);
+    persistShellPanels(tab, {
+      ...restored,
+      mobileAutonomousOpen,
+      mobileConversationsOpen,
+    });
+  }, [
+    mobileAutonomousOpen,
+    mobileConversationsOpen,
+    persistShellPanels,
+    restoreShellPanels,
+    tab,
+  ]);
 
   const bugReport = useBugReportState();
   const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);

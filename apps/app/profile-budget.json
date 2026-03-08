@@ -1,0 +1,11 @@
+{
+  "gzipBytes": {
+    "entryCssMax": 60000,
+    "entryJsMax": 700000,
+    "totalJsMax": 1500000
+  },
+  "webVitalsMs": {
+    "lcpMax": 4000,
+    "ttiMax": 8000
+  }
+}

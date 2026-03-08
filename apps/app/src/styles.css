@@ -196,6 +196,37 @@
   cursor: not-allowed;
 }
 
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-accent {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.btn-accent:hover {
+  background: var(--accent-hover);
+}
+
+.chip-status {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .theme-btn {
   padding: 6px 14px;
   text-align: center;
@@ -430,6 +461,13 @@ kbd {
 .focus-ring:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent);
+}
+
+.focus-ring-strong:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
 }
 
 /* Hover lift effect */

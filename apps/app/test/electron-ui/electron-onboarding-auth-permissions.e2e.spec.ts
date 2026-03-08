@@ -9,7 +9,7 @@ import {
   expect,
   type Page,
   test,
-} from "@playwright/test";
+} from "playwright/test";
 
 import { type MockApiServer, startMockApiServer } from "./mock-api";
 

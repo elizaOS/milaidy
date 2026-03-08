@@ -188,8 +188,14 @@ const onboardingOptions = {
 
 function applyCors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Milady-Client-Id, X-Milady-UI-Language",
+  );
 }
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -214,6 +220,27 @@ async function readJson(req: http.IncomingMessage): Promise<JsonObject> {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildAssistantReply(text: string): string {
+  const normalized = text.trim() || "your message";
+  return `Mock assistant reply for: ${normalized}`;
+}
+
+function chunkText(text: string, size = 12): string[] {
+  const chunks: string[] = [];
+  for (let index = 0; index < text.length; index += size) {
+    chunks.push(text.slice(index, index + size));
+  }
+  return chunks.length > 0 ? chunks : [text];
+}
+
+function writeSse(res: http.ServerResponse, payload: unknown): void {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 function createDefaultPermissionsState(): PermissionsStateRecord {
@@ -656,6 +683,152 @@ export async function startMockApiServer(
     );
     if (method === "POST" && greetingMatch) {
       json(res, 200, { text: "hello from milady" });
+      return;
+    }
+
+    const streamConversationMatch = pathname.match(
+      /^\/api\/conversations\/([^/]+)\/messages\/stream$/,
+    );
+    if (method === "POST" && streamConversationMatch) {
+      const conversationId = decodeURIComponent(streamConversationMatch[1]);
+      const body = await readJson(req);
+      const userText =
+        typeof body.text === "string" ? body.text : "mock message";
+      const replyText = buildAssistantReply(userText);
+      const startedAt = Date.now();
+      const requestClosed = { current: false };
+
+      req.on("close", () => {
+        requestClosed.current = true;
+      });
+
+      applyCors(res);
+      res.writeHead(200, {
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "Content-Type": "text/event-stream",
+        "X-Accel-Buffering": "no",
+      });
+
+      const existingMessages = messagesByConversation.get(conversationId) ?? [];
+      existingMessages.push({
+        id: randomUUID(),
+        role: "user",
+        text: userText,
+        timestamp: startedAt,
+      });
+      messagesByConversation.set(conversationId, existingMessages);
+
+      for (const token of chunkText(replyText)) {
+        if (requestClosed.current || res.writableEnded) {
+          return;
+        }
+        writeSse(res, { type: "token", text: token });
+        await sleep(180);
+      }
+
+      if (requestClosed.current || res.writableEnded) {
+        return;
+      }
+
+      existingMessages.push({
+        id: randomUUID(),
+        role: "assistant",
+        text: replyText,
+        timestamp: Date.now(),
+      });
+      writeSse(res, {
+        type: "done",
+        agentName,
+        fullText: replyText,
+        usage: {
+          promptTokens: Math.max(1, Math.ceil(userText.length / 4)),
+          completionTokens: Math.max(1, Math.ceil(replyText.length / 4)),
+          totalTokens:
+            Math.max(1, Math.ceil(userText.length / 4)) +
+            Math.max(1, Math.ceil(replyText.length / 4)),
+          model: "mock-model",
+        },
+      });
+      res.end();
+      return;
+    }
+
+    if (method === "POST" && conversationMessagesMatch) {
+      const conversationId = decodeURIComponent(conversationMessagesMatch[1]);
+      const body = await readJson(req);
+      const userText =
+        typeof body.text === "string" ? body.text : "mock message";
+      const replyText = buildAssistantReply(userText);
+      const existingMessages = messagesByConversation.get(conversationId) ?? [];
+      existingMessages.push(
+        {
+          id: randomUUID(),
+          role: "user",
+          text: userText,
+          timestamp: Date.now(),
+        },
+        {
+          id: randomUUID(),
+          role: "assistant",
+          text: replyText,
+          timestamp: Date.now() + 1,
+        },
+      );
+      messagesByConversation.set(conversationId, existingMessages);
+      json(res, 200, { text: replyText, agentName, blocks: [] });
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/chat") {
+      const body = await readJson(req);
+      const userText =
+        typeof body.text === "string" ? body.text : "mock message";
+      json(res, 200, {
+        text: buildAssistantReply(userText),
+        agentName,
+        blocks: [],
+      });
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/chat/stream") {
+      const body = await readJson(req);
+      const userText =
+        typeof body.text === "string" ? body.text : "mock message";
+      const replyText = buildAssistantReply(userText);
+      const requestClosed = { current: false };
+
+      req.on("close", () => {
+        requestClosed.current = true;
+      });
+
+      applyCors(res);
+      res.writeHead(200, {
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "Content-Type": "text/event-stream",
+        "X-Accel-Buffering": "no",
+      });
+
+      for (const token of chunkText(replyText)) {
+        if (requestClosed.current || res.writableEnded) {
+          return;
+        }
+        writeSse(res, { type: "token", text: token });
+        await sleep(180);
+      }
+
+      if (requestClosed.current || res.writableEnded) {
+        return;
+      }
+
+      writeSse(res, {
+        type: "done",
+        agentName,
+        fullText: replyText,
+      });
+      res.end();
       return;
     }
 

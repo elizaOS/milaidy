@@ -13,6 +13,9 @@ import {
   type TrajectoryRecord,
   type TrajectoryStats,
 } from "../api-client";
+import { useTabNavigation } from "../hooks/useTabNavigation";
+import { FieldRow } from "./shared/FieldRow";
+import { PanelSection } from "./shared/PanelSection";
 import {
   formatTrajectoryDuration,
   formatTrajectoryTimestamp,
@@ -42,6 +45,7 @@ interface TrajectoriesViewProps {
 export function TrajectoriesView({
   onSelectTrajectory,
 }: TrajectoriesViewProps) {
+  const { runQuickAction } = useTabNavigation();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<TrajectoryListResult | null>(null);
   const [stats, setStats] = useState<TrajectoryStats | null>(null);
@@ -218,126 +222,150 @@ export function TrajectoriesView({
         </div>
       )}
 
-      {/* Filters row */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <input
-          type="text"
-          placeholder="Search..."
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt w-48"
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setPage(0);
-          }}
-        />
-
-        <select
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as StatusFilter);
-            setPage(0);
-          }}
-        >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-          <option value="error">Error</option>
-        </select>
-
-        {sources.length > 0 && (
-          <select
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
-              setPage(0);
-            }}
-          >
-            <option value="">All sources</option>
-            {sources.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {hasActiveFilters && (
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
-            onClick={handleClearFilters}
-          >
-            Clear filters
-          </button>
-        )}
-
-        <div className="ml-auto flex gap-1.5">
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
-            onClick={() => void loadTrajectories()}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
-
-          <div className="relative group">
+      <PanelSection
+        title="Trajectory filters"
+        description="Slice LLM call history by search term, status, or source."
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-1.5 text-xs"
+                onClick={handleClearFilters}
+              >
+                Clear filters
+              </button>
+            ) : null}
             <button
               type="button"
-              className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
-              disabled={exporting || trajectories.length === 0}
+              className="btn-ghost focus-ring rounded-md px-3 py-1.5 text-xs"
+              onClick={() => void loadTrajectories()}
+              disabled={loading}
             >
-              {exporting ? "Exporting..." : "Export"}
+              {loading ? "Loading..." : "Refresh"}
             </button>
-            <div className="absolute right-0 mt-1 hidden group-hover:block bg-card border border-border shadow-lg z-10">
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", true)}
-              >
-                JSON (with prompts)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", false)}
-              >
-                JSON (redacted)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("csv", false)}
-              >
-                CSV (summary only)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("zip", true)}
-              >
-                ZIP (folders)
-              </button>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-danger/50 bg-card text-danger cursor-pointer hover:border-danger hover:bg-danger/10"
-            onClick={handleClearAll}
-            disabled={clearing || stats?.totalTrajectories === 0}
-          >
-            {clearing ? "Clearing..." : "Clear All"}
-          </button>
+            <div className="relative group">
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-1.5 text-xs"
+                disabled={exporting || trajectories.length === 0}
+              >
+                {exporting ? "Exporting..." : "Export"}
+              </button>
+              <div className="absolute right-0 mt-1 hidden group-hover:block bg-card border border-border shadow-lg z-10 min-w-[180px]">
+                <button
+                  type="button"
+                  className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
+                  onClick={() => handleExport("json", true)}
+                >
+                  JSON (with prompts)
+                </button>
+                <button
+                  type="button"
+                  className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
+                  onClick={() => handleExport("json", false)}
+                >
+                  JSON (redacted)
+                </button>
+                <button
+                  type="button"
+                  className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
+                  onClick={() => handleExport("csv", false)}
+                >
+                  CSV (summary only)
+                </button>
+                <button
+                  type="button"
+                  className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
+                  onClick={() => handleExport("zip", true)}
+                >
+                  ZIP (folders)
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="focus-ring rounded-md border border-danger/50 bg-card px-3 py-1.5 text-xs text-danger hover:border-danger hover:bg-danger/10"
+              onClick={handleClearAll}
+              disabled={clearing || stats?.totalTrajectories === 0}
+            >
+              {clearing ? "Clearing..." : "Clear All"}
+            </button>
+          </div>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <FieldRow label="Search" hint="Search by prompt, model, or source.">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-xs text-txt focus-ring"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
+            />
+          </FieldRow>
+
+          <FieldRow label="Status" hint="Filter by run state.">
+            <select
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-xs text-txt focus-ring"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusFilter);
+                setPage(0);
+              }}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="error">Error</option>
+            </select>
+          </FieldRow>
+
+          <FieldRow label="Source" hint="Filter by request source.">
+            <select
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-xs text-txt focus-ring"
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">All sources</option>
+              {sources.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
         </div>
-      </div>
+      </PanelSection>
 
       {/* Error display */}
       {error && (
-        <div className="text-xs text-danger border border-danger/30 bg-danger/10 px-3 py-2">
-          {error}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-danger border border-danger/30 bg-danger/10 px-3 py-2">
+          <span>{error}</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-ghost focus-ring rounded-md px-3 py-1.5 text-xs"
+              onClick={() => void loadTrajectories()}
+            >
+              Retry load
+            </button>
+            <button
+              type="button"
+              className="btn-ghost focus-ring rounded-md px-3 py-1.5 text-xs"
+              onClick={() => void runQuickAction("restart-open-logs")}
+            >
+              Restart + open logs
+            </button>
+          </div>
         </div>
       )}
 
@@ -348,14 +376,32 @@ export function TrajectoriesView({
             Loading trajectories...
           </div>
         ) : trajectories.length === 0 ? (
-          <div className="text-center py-8 text-muted">
-            No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
-            {!config?.enabled && (
-              <div className="mt-2 text-warn text-[11px]">
-                Trajectory logging should auto-enable; click ENABLE if startup
-                is still settling.
-              </div>
-            )}
+          <div className="flex flex-col items-center justify-center gap-3 text-center py-8 text-muted px-4">
+            <div>
+              No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
+              {!config?.enabled && (
+                <div className="mt-2 text-warn text-[11px]">
+                  Trajectory logging should auto-enable; click ENABLE if startup
+                  is still settling.
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-2 text-xs"
+                onClick={() => void loadTrajectories()}
+              >
+                Refresh trajectories
+              </button>
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-2 text-xs"
+                onClick={() => void runQuickAction("restart-open-logs")}
+              >
+                Restart + open logs
+              </button>
+            </div>
           </div>
         ) : (
           <table className="w-full text-xs">

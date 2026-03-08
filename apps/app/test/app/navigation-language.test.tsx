@@ -6,9 +6,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
+const { mockUseTabNavigation } = vi.hoisted(() => ({
+  mockUseTabNavigation: vi.fn(),
+}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
+}));
+
+vi.mock("../../src/hooks/useTabNavigation", () => ({
+  useTabNavigation: () => mockUseTabNavigation(),
 }));
 
 import { Nav } from "../../src/components/Nav";
@@ -22,14 +29,31 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
 describe("Nav language switching", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
+    mockUseTabNavigation.mockReset();
   });
 
   it("renders english labels by default", async () => {
     mockUseApp.mockReturnValue({
-      tab: "chat",
-      setTab: vi.fn(),
       uiLanguage: "en",
-      plugins: [],
+    });
+    mockUseTabNavigation.mockReturnValue({
+      activeTab: "chat",
+      navGroups: [
+        { label: "Chat", tabs: ["chat"], icon: () => null },
+        { label: "Wallets", tabs: ["wallets"], icon: () => null },
+        { label: "Settings", tabs: ["settings"], icon: () => null },
+      ],
+      navigateToTab: vi.fn(),
+      persistShellPanels: vi.fn(),
+      quickActions: [],
+      restoreShellPanels: vi.fn(() => ({
+        mobileAutonomousOpen: false,
+        mobileConversationsOpen: false,
+        mobileNavOpen: false,
+      })),
+      runQuickAction: vi.fn(),
+      streamEnabled: false,
+      tabs: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -48,10 +72,26 @@ describe("Nav language switching", () => {
 
   it("renders chinese labels when uiLanguage is zh-CN", async () => {
     mockUseApp.mockReturnValue({
-      tab: "chat",
-      setTab: vi.fn(),
       uiLanguage: "zh-CN",
-      plugins: [],
+    });
+    mockUseTabNavigation.mockReturnValue({
+      activeTab: "chat",
+      navGroups: [
+        { label: "Chat", tabs: ["chat"], icon: () => null },
+        { label: "Wallets", tabs: ["wallets"], icon: () => null },
+        { label: "Settings", tabs: ["settings"], icon: () => null },
+      ],
+      navigateToTab: vi.fn(),
+      persistShellPanels: vi.fn(),
+      quickActions: [],
+      restoreShellPanels: vi.fn(() => ({
+        mobileAutonomousOpen: false,
+        mobileConversationsOpen: false,
+        mobileNavOpen: false,
+      })),
+      runQuickAction: vi.fn(),
+      streamEnabled: false,
+      tabs: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -70,11 +110,25 @@ describe("Nav language switching", () => {
 
   it("shows companion tab in native shell mode", async () => {
     mockUseApp.mockReturnValue({
-      tab: "chat",
-      setTab: vi.fn(),
       uiLanguage: "en",
-      uiShellMode: "native",
-      plugins: [],
+    });
+    mockUseTabNavigation.mockReturnValue({
+      activeTab: "chat",
+      navGroups: [
+        { label: "Companion", tabs: ["companion"], icon: () => null },
+        { label: "Chat", tabs: ["chat"], icon: () => null },
+      ],
+      navigateToTab: vi.fn(),
+      persistShellPanels: vi.fn(),
+      quickActions: [],
+      restoreShellPanels: vi.fn(() => ({
+        mobileAutonomousOpen: false,
+        mobileConversationsOpen: false,
+        mobileNavOpen: false,
+      })),
+      runQuickAction: vi.fn(),
+      streamEnabled: false,
+      tabs: [],
     });
 
     let tree: TestRenderer.ReactTestRenderer;

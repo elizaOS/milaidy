@@ -3,9 +3,10 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUseApp, mockUseBugReport } = vi.hoisted(() => ({
+const { mockUseApp, mockUseBugReport, mockUseTabNavigation } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   mockUseBugReport: vi.fn(() => ({ open: vi.fn() })),
+  mockUseTabNavigation: vi.fn(),
 }));
 
 vi.mock("../../src/AppContext", () => ({
@@ -17,52 +18,92 @@ vi.mock("../../src/hooks/useBugReport", () => ({
   BugReportProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock("../../src/hooks/useTabNavigation", () => ({
+  useTabNavigation: () => mockUseTabNavigation(),
+}));
+
 import { CommandPalette } from "../../src/components/CommandPalette";
 
-type PaletteContext = {
-  commandPaletteOpen: boolean;
-  commandQuery: string;
-  commandActiveIndex: number;
-  agentStatus: { state: string };
-  handleStart: () => void;
-  handlePauseResume: () => void;
-  handleRestart: () => void;
-  setTab: (tab: string) => void;
-  loadPlugins: () => void;
-  loadSkills: () => void;
-  loadLogs: () => void;
-  loadWorkbench: () => void;
-  handleChatClear: () => void;
-  activeGameViewerUrl: string;
-  setState: (key: string, value: unknown) => void;
-  closeCommandPalette: () => void;
-  currentTheme: string;
-  setTheme: (theme: string) => void;
-};
+function text(node: TestRenderer.ReactTestInstance): string {
+  return node.children
+    .map((child) =>
+      typeof child === "string"
+        ? child
+        : text(child as TestRenderer.ReactTestInstance),
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-function createContext(
-  overrides?: Partial<PaletteContext>,
-): PaletteContext & Record<string, unknown> {
+function createContext(overrides?: Record<string, unknown>) {
   return {
+    agentStatus: { state: "running" },
+    closeCommandPalette: vi.fn(),
+    commandActiveIndex: 0,
     commandPaletteOpen: true,
     commandQuery: "",
-    commandActiveIndex: 0,
-    agentStatus: { state: "running" },
-    handleStart: vi.fn(),
+    handleChatClear: vi.fn(),
     handlePauseResume: vi.fn(),
     handleRestart: vi.fn(),
-    setTab: vi.fn(),
+    handleStart: vi.fn(),
+    loadLogs: vi.fn(),
     loadPlugins: vi.fn(),
     loadSkills: vi.fn(),
-    loadLogs: vi.fn(),
     loadWorkbench: vi.fn(),
-    handleChatClear: vi.fn(),
-    activeGameViewerUrl: "",
     setState: vi.fn(),
-    closeCommandPalette: vi.fn(),
-    currentTheme: "dark",
-    setTheme: vi.fn(),
-    ...(overrides ?? {}),
+    ...overrides,
+  };
+}
+
+function createNavigationMock(overrides?: Record<string, unknown>) {
+  return {
+    activeTab: "chat",
+    navGroups: [],
+    navigateToTab: vi.fn(),
+    persistShellPanels: vi.fn(),
+    quickActions: [
+      {
+        aliases: ["quiet mode"],
+        available: true,
+        dataTestId: "quick-action-mute-voice-pause-agent",
+        hint: "Silence playback and pause the agent if it is running",
+        id: "mute-voice-pause-agent",
+        keywords: ["voice", "audio", "pause"],
+        label: "Mute voice + pause agent",
+        run: vi.fn(async () => {}),
+      },
+    ],
+    restoreShellPanels: vi.fn(() => ({
+      mobileAutonomousOpen: false,
+      mobileConversationsOpen: false,
+      mobileNavOpen: false,
+    })),
+    runQuickAction: vi.fn(async () => {}),
+    streamEnabled: false,
+    tabs: [
+      {
+        aliases: ["conversation"],
+        id: "chat",
+        keywords: ["messages"],
+        navGroup: "chat",
+        paletteLabel: "Open Chat",
+        path: "/chat",
+        restoreKey: "milady:shell-panels:chat",
+        title: "Chat",
+      },
+      {
+        aliases: ["console"],
+        id: "logs",
+        keywords: ["errors"],
+        navGroup: "advanced",
+        paletteLabel: "Open Logs",
+        path: "/logs",
+        restoreKey: "milady:shell-panels:logs",
+        title: "Logs",
+      },
+    ],
+    ...overrides,
   };
 }
 
@@ -72,59 +113,25 @@ function getWindowKeydownHandler(): (e: KeyboardEvent) => void {
   const keydownCall = addListenerSpy.mock.calls.find(
     (call: unknown[]) => call[0] === "keydown",
   );
-
   if (!keydownCall || typeof keydownCall[1] !== "function") {
     throw new Error("Expected keydown listener to be registered");
   }
-
   return keydownCall[1] as (e: KeyboardEvent) => void;
 }
 
-describe("CommandPalette keyboard behavior", () => {
+describe("CommandPalette", () => {
   beforeEach(() => {
+    localStorage.clear();
     mockUseApp.mockReset();
+    mockUseBugReport.mockClear();
+    mockUseTabNavigation.mockReset();
     vi.restoreAllMocks();
     addListenerSpy = vi.spyOn(window, "addEventListener");
   });
 
-  it("handles arrow navigation when no commands match", () => {
-    const ctx = createContext({
-      commandQuery: "this-will-not-match-any-command",
-      commandActiveIndex: 0,
-    });
-    mockUseApp.mockReturnValue(ctx);
-
-    act(() => {
-      TestRenderer.create(React.createElement(CommandPalette));
-    });
-
-    vi.mocked(ctx.setState).mockClear();
-    const keydown = getWindowKeydownHandler();
-
-    const preventDefaultUp = vi.fn();
-    const preventDefaultDown = vi.fn();
-
-    act(() => {
-      keydown({
-        key: "ArrowUp",
-        preventDefault: preventDefaultUp,
-      } as unknown as KeyboardEvent);
-      keydown({
-        key: "ArrowDown",
-        preventDefault: preventDefaultDown,
-      } as unknown as KeyboardEvent);
-    });
-
-    // When no commands match, arrow keys return early without preventDefault
-    expect(preventDefaultUp).not.toHaveBeenCalled();
-    expect(preventDefaultDown).not.toHaveBeenCalled();
-  });
-
-  it("renders command buttons for available commands", () => {
-    const ctx = createContext({
-      commandActiveIndex: 0,
-    });
-    mockUseApp.mockReturnValue(ctx);
+  it("renders registry-backed tab commands and quick actions", () => {
+    mockUseApp.mockReturnValue(createContext());
+    mockUseTabNavigation.mockReturnValue(createNavigationMock());
 
     let tree!: TestRenderer.ReactTestRenderer;
     act(() => {
@@ -132,38 +139,91 @@ describe("CommandPalette keyboard behavior", () => {
     });
 
     const commandButtons = tree.root.findAll(
-      (node: TestRenderer.ReactTestInstance) =>
+      (node) =>
         node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("w-full") &&
-        node.props.className.includes("flex"),
+        typeof node.props["data-testid"] === "string" &&
+        /^(palette-command|quick-action-)/.test(
+          String(node.props["data-testid"]),
+        ),
     );
 
-    // Component should render at least one command button
-    expect(commandButtons.length).toBeGreaterThan(0);
+    const labels = commandButtons.map((node) => text(node)).join(" ");
+
+    expect(labels).toContain("Open Chat");
+    expect(labels).toContain("Open Logs");
+    expect(labels).toContain("Mute voice + pause agent");
   });
 
-  it("handles Enter when no commands match", () => {
-    const ctx = createContext({
-      commandQuery: "this-will-not-match-any-command",
-      commandActiveIndex: 0,
-    });
-    mockUseApp.mockReturnValue(ctx);
+  it("fuzzy-matches aliases and keywords", () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        commandQuery: "quiet",
+      }),
+    );
+    mockUseTabNavigation.mockReturnValue(createNavigationMock());
 
+    let tree!: TestRenderer.ReactTestRenderer;
     act(() => {
+      tree = TestRenderer.create(React.createElement(CommandPalette));
+    });
+
+    const quietAction = tree.root.findByProps({
+      "data-testid": "quick-action-mute-voice-pause-agent",
+    });
+    expect(quietAction).toBeTruthy();
+  });
+
+  it("runs the highlighted command on Enter and closes the palette", async () => {
+    const ctx = createContext({
+      commandActiveIndex: 0,
+      commandQuery: "quiet",
+    });
+    const quickActionRun = vi.fn(async () => {});
+    mockUseApp.mockReturnValue(ctx);
+    mockUseTabNavigation.mockReturnValue(
+      createNavigationMock({
+        quickActions: [
+          {
+            aliases: ["quiet mode"],
+            available: true,
+            dataTestId: "quick-action-mute-voice-pause-agent",
+            hint: "Silence playback and pause the agent if it is running",
+            id: "mute-voice-pause-agent",
+            keywords: ["voice", "audio", "pause"],
+            label: "Mute voice + pause agent",
+            run: quickActionRun,
+          },
+        ],
+      }),
+    );
+
+    await act(async () => {
       TestRenderer.create(React.createElement(CommandPalette));
     });
 
     const keydown = getWindowKeydownHandler();
-    const preventDefault = vi.fn();
-
-    act(() => {
-      keydown({ key: "Enter", preventDefault } as unknown as KeyboardEvent);
+    await act(async () => {
+      keydown({ key: "Enter", preventDefault: vi.fn() } as KeyboardEvent);
     });
 
-    // When no commands match, Enter returns early without preventDefault
-    expect(preventDefault).not.toHaveBeenCalled();
-    // closeCommandPalette should not be called since no command was executed
-    expect(ctx.closeCommandPalette).not.toHaveBeenCalled();
+    expect(quickActionRun).toHaveBeenCalledTimes(1);
+    expect(ctx.closeCommandPalette).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an empty state when nothing matches", () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        commandQuery: "this-will-never-match",
+      }),
+    );
+    mockUseTabNavigation.mockReturnValue(createNavigationMock());
+
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(React.createElement(CommandPalette));
+    });
+
+    const emptyState = tree.root.findByProps({ "data-testid": "palette-list" });
+    expect(text(emptyState)).toContain("No commands found");
   });
 });

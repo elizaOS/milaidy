@@ -12,9 +12,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import type { ConversationMessage, PluginInfo } from "../api-client";
+import type { ConversationMessage, PluginInfo, VoiceConfig } from "../api-client";
 import { client } from "../api-client";
+import { useTabNavigation } from "../hooks/useTabNavigation";
 import type { ConfigUiHint } from "../types";
+import {
+  createVoiceSettingsUiSpec,
+  loadVoiceConfig,
+  saveVoiceConfig,
+} from "../voice-config";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { paramsToSchema } from "./PluginsView";
@@ -633,15 +639,73 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
 // ── UiSpec block ────────────────────────────────────────────────────
 
 function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
+  const [renderedSpec, setRenderedSpec] = useState(spec);
+  const [rawSpec, setRawSpec] = useState(raw);
   const [showRaw, setShowRaw] = useState(false);
-  const { sendActionMessage } = useApp();
+  const { sendActionMessage, setActionNotice } = useApp();
+  const { runQuickAction } = useTabNavigation();
+
+  useEffect(() => {
+    setRenderedSpec(spec);
+    setRawSpec(raw);
+  }, [raw, spec]);
 
   const handleAction = useCallback(
-    (action: string, params?: Record<string, unknown>) => {
+    async (action: string, params?: Record<string, unknown>) => {
+      if (action === "client.voice.refresh") {
+        const nextConfig = await loadVoiceConfig();
+        const nextSpec = createVoiceSettingsUiSpec(nextConfig);
+        setRenderedSpec(nextSpec);
+        setRawSpec(JSON.stringify(nextSpec, null, 2));
+        setActionNotice("Voice settings refreshed.", "success", 2200);
+        return;
+      }
+
+      if (action === "client.voice.save") {
+        try {
+          const savedConfig = await saveVoiceConfig({
+            provider:
+              typeof params?.provider === "string" ? params.provider : undefined,
+            mode: typeof params?.mode === "string" ? params.mode : undefined,
+            elevenlabs:
+              params?.elevenlabs &&
+              typeof params.elevenlabs === "object" &&
+              !Array.isArray(params.elevenlabs)
+                ? (params.elevenlabs as VoiceConfig["elevenlabs"])
+                : undefined,
+            edge:
+              params?.edge &&
+              typeof params.edge === "object" &&
+              !Array.isArray(params.edge)
+                ? (params.edge as VoiceConfig["edge"])
+                : undefined,
+          });
+          const nextSpec = createVoiceSettingsUiSpec(savedConfig);
+          setRenderedSpec(nextSpec);
+          setRawSpec(JSON.stringify(nextSpec, null, 2));
+          setActionNotice("Voice settings saved.", "success", 2400);
+        } catch (error) {
+          setActionNotice(
+            error instanceof Error ? error.message : "Failed to save voice settings.",
+            "error",
+            2800,
+          );
+        }
+        return;
+      }
+
+      if (action === "client.quickAction.run") {
+        const actionId = typeof params?.id === "string" ? params.id : "";
+        if (!actionId) return;
+        await runQuickAction(actionId as Parameters<typeof runQuickAction>[0]);
+        setActionNotice("Quick action executed.", "success", 2200);
+        return;
+      }
+
       const paramsStr = params ? ` ${JSON.stringify(params)}` : "";
       void sendActionMessage(`[action:${action}]${paramsStr}`);
     },
-    [sendActionMessage],
+    [runQuickAction, sendActionMessage, setActionNotice],
   );
 
   return (
@@ -661,12 +725,12 @@ function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
       {showRaw && (
         <div className="px-3 py-2 bg-card border-b border-border overflow-x-auto">
           <pre className="text-[10px] text-muted font-mono whitespace-pre-wrap break-words m-0">
-            {raw}
+            {rawSpec}
           </pre>
         </div>
       )}
       <div className="p-3">
-        <UiRenderer spec={spec} onAction={handleAction} />
+        <UiRenderer spec={renderedSpec} onAction={handleAction} />
       </div>
     </div>
   );

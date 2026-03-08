@@ -228,6 +228,136 @@ jobs:
           apps/app/test/app/startup-backend-missing.e2e.test.ts
           apps/app/test/app/startup-token-401.e2e.test.ts
 
+  app-shell-smoke:
+    name: App Shell Smoke
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Install Playwright Chromium
+        working-directory: apps/app
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build renderer assets
+        working-directory: apps/app
+        run: bun run build
+
+      - name: Run shell smoke test
+        run: >
+          bunx playwright test --config apps/app/playwright.electron.config.ts
+          apps/app/test/electron-ui/electron-shell-smoke.e2e.spec.ts
+
+      - name: Upload shell smoke Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shell-smoke-playwright
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  app-shell-profile:
+    name: App Shell Profile
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install canvas native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+
+      - name: Setup Node.js
+        uses: useblacksmith/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools for distutils (Python 3.12+)
+        run: pip install setuptools
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install
+        env:
+          npm_config_python: ${{ env.pythonLocation }}/bin/python3
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Install Playwright Chromium
+        working-directory: apps/app
+        run: bunx playwright install --with-deps chromium
+
+      - name: Profile app shell budgets
+        id: app-shell-profile
+        continue-on-error: true
+        run: node scripts/profile-app-shell.mjs --app apps/app
+
+      - name: Upload app shell profile artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shell-profile
+          path: artifacts/app-shell-profile/
+          if-no-files-found: warn
+          retention-days: 14
+
   electron-ui-e2e:
     name: Electron Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

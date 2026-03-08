@@ -33,18 +33,24 @@ interface ChatViewContextStub {
   chatAgentVoiceMuted: boolean;
 }
 
-const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
+const { mockClient, mockUseApp, mockUseTabNavigation, mockUseVoiceChat } =
+  vi.hoisted(() => ({
   mockClient: {
     getCodingAgentStatus: vi.fn(async () => null),
     getConfig: vi.fn(),
   },
   mockUseApp: vi.fn(),
+  mockUseTabNavigation: vi.fn(),
   mockUseVoiceChat: vi.fn(),
 }));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
   getVrmPreviewUrl: () => null,
+}));
+
+vi.mock("../../src/hooks/useTabNavigation", () => ({
+  useTabNavigation: () => mockUseTabNavigation(),
 }));
 
 vi.mock("../../src/hooks/useVoiceChat", () => ({
@@ -92,8 +98,13 @@ function createContext(
 
 function text(node: TestRenderer.ReactTestInstance): string {
   return node.children
-    .map((child) => (typeof child === "string" ? child : ""))
-    .join("")
+    .map((child) =>
+      typeof child === "string"
+        ? child
+        : text(child as TestRenderer.ReactTestInstance),
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -106,8 +117,24 @@ async function flush(): Promise<void> {
 describe("ChatView", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
+    mockUseTabNavigation.mockReset();
     mockUseVoiceChat.mockReset();
     mockClient.getConfig.mockReset();
+    mockUseTabNavigation.mockReturnValue({
+      activeTab: "chat",
+      navGroups: [],
+      navigateToTab: vi.fn(),
+      persistShellPanels: vi.fn(),
+      quickActions: [],
+      restoreShellPanels: vi.fn(() => ({
+        mobileAutonomousOpen: false,
+        mobileConversationsOpen: false,
+        mobileNavOpen: false,
+      })),
+      runQuickAction: vi.fn(async () => {}),
+      streamEnabled: false,
+      tabs: [],
+    });
 
     const queueAssistantSpeech = vi.fn();
     mockUseVoiceChat.mockReturnValue({
@@ -149,7 +176,9 @@ describe("ChatView", () => {
 
     const root = tree?.root;
     const headerCount = root.findAll(
-      (node) => node.type === "div" && text(node) === "Milady",
+      (node) =>
+        node.type === "div" &&
+        node.children.some((child) => child === "Milady"),
     ).length;
     expect(headerCount).toBe(1);
   });
@@ -271,6 +300,82 @@ describe("ChatView", () => {
     });
     expect(String(scroller.props.className)).toContain("pr-3");
     expect(scroller.props.style?.scrollbarGutter).toBe("stable both-edges");
+  });
+
+  it("shows slash command help when the composer starts with slash", async () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        chatInput: "/vo",
+      }),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView));
+    });
+    await flush();
+
+    const slashHelp = tree.root.findByProps({ "data-testid": "chat-slash-help" });
+    expect(text(slashHelp)).toContain("/voice");
+  });
+
+  it("virtualizes long default conversations after the threshold", async () => {
+    const messages = Array.from({ length: 130 }, (_, index) => ({
+      id: `m-${index}`,
+      role: index % 2 === 0 ? "user" : "assistant",
+      text: `message ${index}`,
+      timestamp: index + 1,
+    })) as ChatViewContextStub["conversationMessages"];
+
+    mockUseApp.mockReturnValue(
+      createContext({
+        conversationMessages: messages,
+      }),
+    );
+
+    const scrollTo = vi.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(ChatView), {
+        createNodeMock: (element) => {
+          const node = element as {
+            type: unknown;
+            props: Record<string, unknown>;
+          };
+          if (
+            node.type === "div" &&
+            node.props["data-testid"] === "chat-messages-scroll"
+          ) {
+            return {
+              clientHeight: 640,
+              scrollHeight: 2400,
+              scrollTop: 0,
+              scrollTo,
+            };
+          }
+          if (node.type === "textarea") {
+            return {
+              style: { height: "", overflowY: "" },
+              scrollHeight: 38,
+              focus: vi.fn(),
+            };
+          }
+          if (node.type === "input" && node.props.type === "file") {
+            return { click: vi.fn() };
+          }
+          return {};
+        },
+      });
+    });
+    await flush();
+
+    const renderedMessages = tree.root.findAllByProps({
+      "data-testid": "chat-message",
+    });
+    expect(renderedMessages.length).toBeLessThan(messages.length);
+    expect(
+      tree.root.findByProps({ "data-testid": "chat-virtual-spacer-bottom" }),
+    ).toBeTruthy();
   });
 
   it("auto-scrolls again when conversation messages update", async () => {

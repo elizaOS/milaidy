@@ -98,6 +98,10 @@ import { isLifoPopoutMode } from "./lifo-popout";
 import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 import { mapServerTasksToSessions } from "./pty-session-hydrate";
+import {
+  buildVoiceSettingsMessage,
+  loadVoiceConfig,
+} from "./voice-config";
 
 // ── VRM helpers ─────────────────────────────────────────────────────────
 
@@ -2822,6 +2826,91 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ): Promise<{ handled: boolean; rewrittenText?: string }> => {
       const slash = parseSlashCommandInput(rawText);
       if (slash) {
+        if (slash.name === "clear") {
+          const conversationId = activeConversationIdRef.current ?? activeConversationId;
+          if (!conversationId) {
+            appendLocalCommandTurn(rawText, "No active conversation to clear.");
+            return { handled: true };
+          }
+
+          try {
+            await client.deleteConversation(conversationId);
+            setActiveConversationId(null);
+            activeConversationIdRef.current = null;
+            setConversationMessages([]);
+            setUnreadConversations((prev) => {
+              const next = new Set(prev);
+              next.delete(conversationId);
+              return next;
+            });
+            await loadConversations();
+          } catch (err) {
+            const status = (err as { status?: number }).status;
+            if (status === 404) {
+              setActiveConversationId(null);
+              activeConversationIdRef.current = null;
+              setConversationMessages([]);
+              setUnreadConversations((prev) => {
+                const next = new Set(prev);
+                next.delete(conversationId);
+                return next;
+              });
+              await loadConversations();
+            } else {
+              appendLocalCommandTurn(
+                rawText,
+                err instanceof Error ? err.message : "Failed to clear conversation.",
+              );
+            }
+          }
+          return { handled: true };
+        }
+
+        if (slash.name === "retry") {
+          const assistantMessage = [...conversationMessages]
+            .reverse()
+            .find((message) => message.role === "assistant");
+          if (!assistantMessage) {
+            appendLocalCommandTurn(rawText, "No assistant turn available to retry.");
+            return { handled: true };
+          }
+
+          const assistantIndex = conversationMessages.findIndex(
+            (message) => message.id === assistantMessage.id,
+          );
+          if (assistantIndex < 0) {
+            appendLocalCommandTurn(rawText, "Retry target could not be located.");
+            return { handled: true };
+          }
+
+          let precedingUserMessage: ConversationMessage | null = null;
+          for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+            if (conversationMessages[index]?.role === "user") {
+              precedingUserMessage = conversationMessages[index];
+              break;
+            }
+          }
+
+          if (!precedingUserMessage?.text.trim()) {
+            appendLocalCommandTurn(rawText, "No user turn available to retry.");
+            return { handled: true };
+          }
+
+          setConversationMessages((prev) =>
+            prev.filter((message) => message.id !== assistantMessage.id),
+          );
+          return { handled: false, rewrittenText: precedingUserMessage.text };
+        }
+
+        if (slash.name === "voice") {
+          const currentVoiceConfig = await loadVoiceConfig();
+          appendLocalCommandTurn(
+            rawText,
+            buildVoiceSettingsMessage(currentVoiceConfig),
+          );
+          return { handled: true };
+        }
+
         const savedCommand = loadSavedCustomCommands().find(
           (command) => normalizeSlashCommandName(command.name) === slash.name,
         );
@@ -2850,7 +2939,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const savedCommandNames = loadSavedCustomCommands()
             .map((command) => `/${normalizeSlashCommandName(command.name)}`)
             .sort();
+          const builtinCommandNames = ["/clear", "/commands", "/retry", "/voice"];
           const lines = [
+            formatSearchBullet("Built-in / commands", builtinCommandNames),
             formatSearchBullet("Saved / commands", savedCommandNames),
             formatSearchBullet("Custom action / commands", customCommandNames),
             "Use #remember ... to save memory notes. Use #memory or #knowledge to target retrieval.",
@@ -3029,7 +3120,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       return { handled: false };
     },
-    [appendLocalCommandTurn],
+    [
+      activeConversationId,
+      appendLocalCommandTurn,
+      conversationMessages,
+      loadConversations,
+      setUnreadConversations,
+    ],
   );
 
   const handleChatSend = useCallback(
@@ -4848,11 +4945,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Emote picker ────────────────────────────────────────────────────
 
+  const openCommandPalette = useCallback(() => {
+    _setCommandPaletteOpen(true);
+    setCommandQuery("");
+    setCommandActiveIndex(0);
+  }, []);
+
   const closeCommandPalette = useCallback(() => {
     _setCommandPaletteOpen(false);
     setCommandQuery("");
     setCommandActiveIndex(0);
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isPaletteShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === "k";
+
+      if (!isPaletteShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      openCommandPalette();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [openCommandPalette]);
 
   const openEmotePicker = useCallback(() => {
     setEmotePickerOpen(true);
@@ -4869,7 +4992,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const setterMap: Partial<{
         [S in keyof AppState]: (v: AppState[S]) => void;
       }> = {
-        tab: setTabRaw,
+        tab: setTab as (v: AppState["tab"]) => void,
         chatInput: setChatInput,
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
@@ -4939,6 +5062,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedVrmIndex: setSelectedVrmIndex,
         customVrmUrl: setCustomVrmUrl,
         customBackgroundUrl: setCustomBackgroundUrl,
+        commandPaletteOpen: _setCommandPaletteOpen,
         commandQuery: setCommandQuery,
         commandActiveIndex: setCommandActiveIndex,
         emotePickerOpen: setEmotePickerOpen,
@@ -4993,7 +5117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const setter = setterMap[key];
       if (setter) setter(value);
     },
-    [setSelectedVrmIndex],
+    [setSelectedVrmIndex, setTab],
   );
 
   // ── Initialization ─────────────────────────────────────────────────

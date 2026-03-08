@@ -18,15 +18,18 @@ import {
   useState,
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext";
-import { client, type ImageAttachment, type VoiceConfig } from "../api-client";
+import type { ImageAttachment, VoiceConfig } from "../api-client";
+import { useTabNavigation } from "../hooks/useTabNavigation";
 import {
   useVoiceChat,
   type VoicePlaybackStartEvent,
 } from "../hooks/useVoiceChat";
 import { createTranslator } from "../i18n";
+import { loadVoiceConfig as fetchVoiceConfig } from "../voice-config";
 import { AgentActivityBox } from "./AgentActivityBox";
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
+import { ShortcutHintRail } from "./shared/ShortcutHintRail";
 
 function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -38,6 +41,9 @@ function isMobileViewport(): boolean {
 
 const CHAT_INPUT_MIN_HEIGHT_PX = 38;
 const CHAT_INPUT_MAX_HEIGHT_PX = 200;
+const CHAT_VIRTUALIZATION_THRESHOLD = 120;
+const CHAT_VIRTUAL_ROW_ESTIMATE_PX = 112;
+const CHAT_VIRTUAL_OVERSCAN = 8;
 
 /**
  * Routine coding-agent status messages that belong in the activity box, not chat.
@@ -85,27 +91,24 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     openEmotePicker,
     ptySessions,
   } = useApp();
+  const { quickActions, runQuickAction } = useTabNavigation();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageDragOver, setImageDragOver] = useState(false);
+  const [scrollSnapshot, setScrollSnapshot] = useState({
+    clientHeight: 0,
+    scrollTop: 0,
+  });
 
   // ── Voice config (ElevenLabs / browser TTS) ────────────────────────
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig | null>(null);
 
   const loadVoiceConfig = useCallback(async () => {
-    try {
-      const cfg = await client.getConfig();
-      const messages = cfg.messages as
-        | Record<string, Record<string, string>>
-        | undefined;
-      const tts = messages?.tts as VoiceConfig | undefined;
-      setVoiceConfig(tts ?? null);
-    } catch {
-      /* ignore — will use browser TTS fallback */
-    }
+    const config = await fetchVoiceConfig();
+    setVoiceConfig(config);
   }, []);
 
   // Load saved voice config on mount so the correct TTS provider is used
@@ -204,6 +207,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
 
   const agentName = agentStatus?.agentName ?? "Agent";
   const msgs = conversationMessages;
+  const showSlashHelp = chatInput.trim().startsWith("/");
   const visibleMsgs = useMemo(
     () =>
       msgs.filter(
@@ -217,6 +221,37 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       ),
     [chatFirstTokenReceived, chatSending, msgs],
   );
+  const activeGameQuickAction = quickActions.find(
+    (action) => action.id === "open-active-game" && action.available,
+  );
+  const shouldVirtualize =
+    !isGameModal && visibleMsgs.length >= CHAT_VIRTUALIZATION_THRESHOLD;
+  const virtualWindowCount = shouldVirtualize
+    ? Math.max(
+        18,
+        Math.ceil(scrollSnapshot.clientHeight / CHAT_VIRTUAL_ROW_ESTIMATE_PX) +
+          CHAT_VIRTUAL_OVERSCAN * 2,
+      )
+    : visibleMsgs.length;
+  const virtualStartIndex = shouldVirtualize
+    ? Math.max(
+        0,
+        Math.floor(scrollSnapshot.scrollTop / CHAT_VIRTUAL_ROW_ESTIMATE_PX) -
+          CHAT_VIRTUAL_OVERSCAN,
+      )
+    : 0;
+  const virtualEndIndex = shouldVirtualize
+    ? Math.min(visibleMsgs.length, virtualStartIndex + virtualWindowCount)
+    : visibleMsgs.length;
+  const renderedMsgs = shouldVirtualize
+    ? visibleMsgs.slice(virtualStartIndex, virtualEndIndex)
+    : visibleMsgs;
+  const topSpacerHeight = shouldVirtualize
+    ? virtualStartIndex * CHAT_VIRTUAL_ROW_ESTIMATE_PX
+    : 0;
+  const bottomSpacerHeight = shouldVirtualize
+    ? (visibleMsgs.length - virtualEndIndex) * CHAT_VIRTUAL_ROW_ESTIMATE_PX
+    : 0;
   const agentAvatarSrc =
     selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
 
@@ -280,6 +315,21 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       pendingVoiceTurnRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    const scroller = messagesRef.current;
+    if (!scroller) return;
+    const syncScrollSnapshot = () => {
+      setScrollSnapshot({
+        clientHeight: scroller.clientHeight,
+        scrollTop: scroller.scrollTop,
+      });
+    };
+
+    syncScrollSnapshot();
+    window.addEventListener("resize", syncScrollSnapshot);
+    return () => window.removeEventListener("resize", syncScrollSnapshot);
+  }, [visibleMsgs.length]);
 
   // Auto-scroll on new messages. Use instant scroll when already near the
   // bottom (or when the user is actively sending) to prevent the visible
@@ -414,9 +464,46 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
         data-testid="chat-messages-scroll"
         className="flex-1 overflow-y-auto py-2 pr-3 sm:pr-4 relative"
         style={{ zIndex: 1, scrollbarGutter: "stable both-edges" }}
+        onScroll={(event) => {
+          const target = event.currentTarget;
+          setScrollSnapshot({
+            clientHeight: target.clientHeight,
+            scrollTop: target.scrollTop,
+          });
+        }}
       >
         {visibleMsgs.length === 0 && !chatSending ? (
-          <ChatEmptyState agentName={agentName} />
+          <div className="flex h-full flex-col">
+            <ChatEmptyState agentName={agentName} />
+            <div className="flex flex-wrap items-center justify-center gap-2 pb-6">
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-2 text-xs font-medium"
+                onClick={() => setState("chatInput", "/voice")}
+                data-testid="chat-empty-voice"
+              >
+                Open voice controls
+              </button>
+              {activeGameQuickAction ? (
+                <button
+                  type="button"
+                  className="btn-ghost focus-ring rounded-md px-3 py-2 text-xs font-medium"
+                  onClick={() => void runQuickAction("open-active-game")}
+                  data-testid="chat-empty-open-active-game"
+                >
+                  Open active game
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="btn-ghost focus-ring rounded-md px-3 py-2 text-xs font-medium"
+                onClick={() => void runQuickAction("restart-open-logs")}
+                data-testid="chat-empty-restart-open-logs"
+              >
+                Restart + open logs
+              </button>
+            </div>
+          </div>
         ) : isGameModal ? (
           <div className="chat-game-message-list">
             {visibleMsgs.map((msg) => {
@@ -443,8 +530,16 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           </div>
         ) : (
           <div className="w-full pr-2 sm:pr-3 space-y-1">
-            {visibleMsgs.map((msg, i) => {
-              const prev = i > 0 ? visibleMsgs[i - 1] : null;
+            {topSpacerHeight > 0 ? (
+              <div
+                aria-hidden
+                style={{ height: topSpacerHeight }}
+                data-testid="chat-virtual-spacer-top"
+              />
+            ) : null}
+            {renderedMsgs.map((msg, i) => {
+              const absoluteIndex = shouldVirtualize ? virtualStartIndex + i : i;
+              const prev = absoluteIndex > 0 ? visibleMsgs[absoluteIndex - 1] : null;
               const isGrouped = prev?.role === msg.role;
 
               return (
@@ -458,6 +553,13 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                 />
               );
             })}
+            {bottomSpacerHeight > 0 ? (
+              <div
+                aria-hidden
+                style={{ height: bottomSpacerHeight }}
+                data-testid="chat-virtual-spacer-bottom"
+              />
+            ) : null}
 
             {chatSending && !chatFirstTokenReceived && (
               <TypingIndicator
@@ -537,6 +639,29 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
         </div>
       )}
 
+      {showSlashHelp && (
+        <div
+          className="pb-2 text-[11px] text-muted relative"
+          style={{ zIndex: 1 }}
+          data-testid="chat-slash-help"
+        >
+          Slash commands: <code>/clear</code>, <code>/retry</code>,{" "}
+          <code>/voice</code>
+        </div>
+      )}
+
+      {!isGameModal && (
+        <ShortcutHintRail
+          hints={[
+            { keys: "Enter", label: "Send" },
+            { keys: "Shift Enter", label: "New line" },
+            { keys: "Cmd/Ctrl K", label: "Palette" },
+          ]}
+          className="pb-2 relative"
+          dataTestId="chat-shortcut-rail"
+        />
+      )}
+
       {/* ── Input row: mic + paperclip + textarea + send ───────────── */}
       <input
         ref={fileInputRef}
@@ -598,6 +723,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               onChange={(e) => setState("chatInput", e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isComposerLocked}
+              data-testid="chat-composer-input"
             />
           )}
 
@@ -607,6 +733,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               type="button"
               className="chat-game-send-btn chat-game-send-btn-danger"
               onClick={handleChatStop}
+              data-testid="chat-stop-button"
             >
               {t("chat.stop")}
             </button>
@@ -616,6 +743,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               className="chat-game-send-btn chat-game-send-btn-primary"
               onClick={() => void handleChatSend(chatMode)}
               disabled={isComposerLocked || !chatInput.trim()}
+              data-testid="chat-send-button"
             >
               {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
             </button>
@@ -714,6 +842,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               onChange={(e) => setState("chatInput", e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isComposerLocked}
+              data-testid="chat-composer-input"
             />
           )}
 
@@ -724,6 +853,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
               onClick={handleChatStop}
               title={t("chat.stopGeneration")}
+              data-testid="chat-stop-button"
             >
               <Square className="w-3 h-3 fill-current" />
               <span>{t("chat.stop")}</span>
@@ -734,6 +864,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               className="h-[38px] shrink-0 px-3 sm:px-4 py-2 border border-danger bg-danger/10 text-danger text-sm cursor-pointer hover:bg-danger/20 transition-all duration-200 hover:shadow-sm self-end flex items-center gap-1.5"
               onClick={stopSpeaking}
               title={t("chat.stopSpeaking")}
+              data-testid="chat-stop-button"
             >
               <Square className="w-3 h-3 fill-current" />
               <span>{t("chat.stopVoice")}</span>
@@ -746,6 +877,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               disabled={isComposerLocked || !chatInput.trim()}
               aria-label={t("chat.send")}
               title={isAgentStarting ? t("chat.agentStarting") : t("chat.send")}
+              data-testid="chat-send-button"
             >
               <Send className="w-4 h-4" />
               <span>

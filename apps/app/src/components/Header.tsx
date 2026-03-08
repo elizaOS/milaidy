@@ -11,8 +11,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import { useTabNavigation } from "../hooks/useTabNavigation";
 import { useBugReport } from "../hooks/useBugReport";
 import { createTranslator } from "../i18n";
+import { IconButton } from "./shared/IconButton";
+import { StatusPill } from "./shared/StatusPill";
 
 // Tooltip component for icon buttons
 function IconButtonTooltip({
@@ -36,60 +39,6 @@ function IconButtonTooltip({
   );
 }
 
-// Status indicator with icon
-function StatusIndicator({ state }: { state: string }) {
-  const getStatusConfig = () => {
-    switch (state) {
-      case "running":
-        return {
-          icon: Check,
-          colorClass: "text-ok border-ok bg-ok/10",
-          dotColor: "bg-ok",
-          label: "Running",
-        };
-      case "paused":
-        return {
-          icon: Pause,
-          colorClass: "text-warn border-warn bg-warn/10",
-          dotColor: "bg-warn",
-          label: "Paused",
-        };
-      case "error":
-        return {
-          icon: AlertTriangle,
-          colorClass: "text-danger border-danger bg-danger/10",
-          dotColor: "bg-danger",
-          label: "Error",
-        };
-      default:
-        return {
-          icon: Loader2,
-          colorClass: "text-muted border-muted bg-muted/10",
-          dotColor: "bg-muted",
-          label: state.replace(/_/g, " "),
-        };
-    }
-  };
-
-  const config = getStatusConfig();
-  const Icon = config.icon;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 border rounded-md font-medium text-[11px] sm:text-xs ${config.colorClass}`}
-      data-testid="status-pill"
-    >
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${config.dotColor} ${state === "running" ? "" : "animate-pulse"}`}
-      />
-      <span className="hidden sm:inline capitalize">{config.label}</span>
-      <span className="sm:hidden">
-        <Icon className="w-3.5 h-3.5" />
-      </span>
-    </span>
-  );
-}
-
 export function Header() {
   const {
     agentStatus,
@@ -105,7 +54,6 @@ export function Header() {
     handlePauseResume,
     handleRestart,
     copyToClipboard,
-    setTab,
     dropStatus,
     loadDropStatus,
     registryStatus,
@@ -113,6 +61,7 @@ export function Header() {
     setUiShellMode,
     uiLanguage,
   } = useApp();
+  const { navigateToTab } = useTabNavigation();
 
   const [copied, setCopied] = useState<string | null>(null);
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
@@ -152,10 +101,6 @@ export function Header() {
 
   const { open: openBugReport } = useBugReport();
 
-  // Minimum 44px touch targets for mobile
-  const iconBtnBase =
-    "inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95 rounded-md";
-
   const handleCopy = (type: "evm" | "sol", address: string) => {
     copyToClipboard(address);
     setCopied(type);
@@ -177,11 +122,33 @@ export function Header() {
   const handleShellToggle = () => {
     const nextMode = shellMode === "companion" ? "native" : "companion";
     setUiShellMode(nextMode);
-    setTab(nextMode === "companion" ? "companion" : "chat");
+    navigateToTab(nextMode === "companion" ? "companion" : "chat");
   };
 
+  const statusTone =
+    state === "running"
+      ? "ok"
+      : state === "paused"
+        ? "warn"
+        : state === "error"
+          ? "danger"
+          : "muted";
+  const statusLabel =
+    state === "not_started" ? "Not started" : state.replace(/_/g, " ");
+  const statusIcon =
+    state === "running"
+      ? Check
+      : state === "paused"
+        ? Pause
+        : state === "error"
+          ? AlertTriangle
+          : Loader2;
+
   return (
-    <header className="border-b border-border bg-bg py-2 px-3 sm:py-3 sm:px-4">
+    <header
+      className="border-b border-border bg-bg py-2 px-3 sm:py-3 sm:px-4"
+      data-testid="shell-header"
+    >
       <div className="flex items-center gap-3 min-w-0">
         {/* Agent Name with Avatar */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
@@ -212,7 +179,7 @@ export function Header() {
               !registryStatus?.registered && (
                 <button
                   type="button"
-                  onClick={() => setTab("character")}
+                  onClick={() => navigateToTab("character")}
                   className="inline-flex shrink-0 items-center gap-1.5 px-3 py-2 h-9 border border-accent bg-accent-subtle text-[11px] sm:text-xs font-bold text-accent cursor-pointer hover:bg-accent/20 transition-colors animate-pulse rounded-md"
                 >
                   <span
@@ -274,7 +241,12 @@ export function Header() {
 
             {/* Status & Controls Group */}
             <div className="flex items-center gap-2 shrink-0 bg-bg-accent/50 rounded-lg p-1">
-              <StatusIndicator state={state} />
+              <StatusPill
+                icon={statusIcon}
+                label={statusLabel}
+                pulse={state !== "running"}
+                tone={statusTone}
+              />
 
               {/* Pause/Resume Button */}
               {state === "restarting" ||
@@ -293,16 +265,16 @@ export function Header() {
                   }
                   shortcut="Space"
                 >
-                  <button
-                    type="button"
+                  <IconButton
                     onClick={handlePauseResume}
-                    aria-label={
+                    label={
                       state === "paused"
                         ? t("header.resumeAutonomy")
                         : t("header.pauseAutonomy")
                     }
-                    className={`${iconBtnBase} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                    className="disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                     disabled={pauseResumeDisabled}
+                    data-testid="shell-pause-resume"
                   >
                     {pauseResumeBusy ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -311,7 +283,7 @@ export function Header() {
                     ) : (
                       <Pause className="w-5 h-5" />
                     )}
-                  </button>
+                  </IconButton>
                 </IconButtonTooltip>
               )}
 
@@ -325,7 +297,8 @@ export function Header() {
                   onClick={handleRestart}
                   aria-label={t("header.restartAgent")}
                   disabled={lifecycleBusy || state === "restarting"}
-                  className="inline-flex items-center justify-center h-9 px-3 border border-border bg-bg text-[11px] sm:text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                  className="btn-ghost focus-ring inline-flex items-center justify-center h-9 px-3 text-[11px] sm:text-xs font-mono cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                  data-testid="shell-restart"
                 >
                   {restartBusy || state === "restarting" ? (
                     <>
@@ -348,28 +321,26 @@ export function Header() {
 
             {/* Bug Report */}
             <IconButtonTooltip label={t("header.reportBug")} shortcut="Shift+?">
-              <button
-                type="button"
+              <IconButton
                 onClick={openBugReport}
-                aria-label={t("header.reportBug")}
-                className={iconBtnBase}
+                label={t("header.reportBug")}
+                data-testid="shell-report-bug"
               >
                 <Bug className="w-5 h-5" />
-              </button>
+              </IconButton>
             </IconButtonTooltip>
 
             {/* Wallet Dropdown */}
             {(evmShort || solShort) && (
               <div className="wallet-wrapper relative inline-flex shrink-0 group">
                 <IconButtonTooltip label={t("header.viewWallets")}>
-                  <button
-                    type="button"
-                    onClick={() => setTab("wallets")}
-                    aria-label={t("header.viewWallets")}
-                    className={iconBtnBase}
+                  <IconButton
+                    onClick={() => navigateToTab("wallets")}
+                    label={t("header.viewWallets")}
+                    data-testid="shell-wallets"
                   >
                     <Wallet className="w-5 h-5" />
-                  </button>
+                  </IconButton>
                 </IconButtonTooltip>
 
                 {/* Wallet Dropdown */}

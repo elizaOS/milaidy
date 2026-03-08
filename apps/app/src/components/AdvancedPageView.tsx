@@ -15,6 +15,7 @@
 
 import React, { type ReactNode, useState } from "react";
 import { useApp } from "../AppContext";
+import { useTabNavigation } from "../hooks/useTabNavigation";
 import type { Tab } from "../navigation";
 import { CustomActionsView } from "./CustomActionsView";
 import { DatabasePageView } from "./DatabasePageView";
@@ -276,7 +277,8 @@ function mapTabToSubTab(tab: Tab, inModal?: boolean): SubTab {
 }
 
 export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
-  const { tab, setTab } = useApp();
+  const { tab } = useApp();
+  const { navigateToTab } = useTabNavigation();
   const [selectedTrajectoryId, setSelectedTrajectoryId] = useState<
     string | null
   >(null);
@@ -286,7 +288,7 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
 
   const handleSubTabChange = (subTab: SubTab) => {
     setSelectedTrajectoryId(null);
-    setTab(subTab as Tab);
+    navigateToTab(subTab as Tab);
   };
 
   const renderContent = () => {
