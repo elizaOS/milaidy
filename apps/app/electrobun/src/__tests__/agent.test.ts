@@ -221,17 +221,16 @@ describe("AgentManager", () => {
       expect(states[0]).toBe("starting");
     });
 
-    it("transitions to error when server.js not found", async () => {
+    it("transitions to error when no runnable eliza entry exists", async () => {
       const existsSync = await getExistsSyncMock();
       existsSync.mockImplementation((p: string) => {
-        if (typeof p === "string" && p.endsWith("server.js")) return false;
-        if (p === MOCK_DIST_PATH) return true;
+        if (typeof p === "string" && p === MOCK_DIST_PATH) return true;
         return false;
       });
 
       const status = await manager.start();
       expect(status.state).toBe("error");
-      expect(status.error).toContain("eliza.js not found");
+      expect(status.error).toContain("No runnable eliza entry found");
     });
 
     it("is idempotent when already running", async () => {
@@ -255,7 +254,7 @@ describe("AgentManager", () => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
-    it("spawns bun process with correct args when server.js exists", async () => {
+    it("spawns bun process with the root eliza entry when present", async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
@@ -278,6 +277,34 @@ describe("AgentManager", () => {
       expect(spawnArgs[0][2]).toBe("/mock/milady-dist/eliza.js");
       // cwd should be the dist path
       expect(spawnArgs[1].cwd).toBe(MOCK_DIST_PATH);
+    });
+
+    it("falls back to runtime/eliza.js for packaged layouts without a root entry", async () => {
+      const existsSync = await getExistsSyncMock();
+      existsSync.mockImplementation((p: string) => {
+        if (p === MOCK_DIST_PATH) return true;
+        if (typeof p === "string" && p.endsWith("/runtime/eliza.js")) return true;
+        if (typeof p === "string" && p.endsWith("/eliza.js")) return false;
+        return false;
+      });
+
+      const mockProc = createMockProcess();
+      mockSpawn.mockReturnValue(mockProc);
+
+      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ agents: [{ name: "Milady" }] }),
+      });
+
+      await manager.start();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        [expect.any(String), "run", "/mock/milady-dist/runtime/eliza.js"],
+        expect.objectContaining({
+          cwd: MOCK_DIST_PATH,
+        }),
+      );
     });
 
     it("uses the bundled Bun executable for installed app launches", async () => {

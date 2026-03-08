@@ -182,6 +182,21 @@ function resolveMiladyDistPath(): string {
   return fallback;
 }
 
+function resolveElizaEntryPath(miladyDistPath: string): string | null {
+  const candidates = [
+    path.join(miladyDistPath, "eliza.js"),
+    path.join(miladyDistPath, "runtime", "eliza.js"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Health check polling
 // ---------------------------------------------------------------------------
@@ -368,12 +383,10 @@ export class AgentManager {
       const miladyDistPath = resolveMiladyDistPath();
       diagnosticLog(`[Agent] Resolved milady dist: ${miladyDistPath}`);
 
-      // eliza.js is the executable entry: when run as main it calls startEliza()
-      // which internally calls startApiServer(). server.js is a library module
-      // that exports startApiServer but doesn't call it when spawned.
-      const elizaPath = path.join(miladyDistPath, "eliza.js");
-      const serverEntryPath = elizaPath;
-      if (!fs.existsSync(serverEntryPath)) {
+      // Packaged builds can expose the runnable entry either at the dist root
+      // or under runtime/. Prefer the root file but accept both layouts.
+      const serverEntryPath = resolveElizaEntryPath(miladyDistPath);
+      if (!serverEntryPath) {
         const distExists = fs.existsSync(miladyDistPath);
         let contents = "<directory missing>";
         if (distExists) {
@@ -383,7 +396,7 @@ export class AgentManager {
             contents = "<unreadable>";
           }
         }
-        const errMsg = `eliza.js not found at ${serverEntryPath} (dist exists: ${distExists}, contents: ${contents})`;
+        const errMsg = `No runnable eliza entry found in ${miladyDistPath} (checked eliza.js and runtime/eliza.js; dist exists: ${distExists}, contents: ${contents})`;
         diagnosticLog(`[Agent] ${errMsg}`);
         this.status = {
           state: "error",
@@ -396,7 +409,7 @@ export class AgentManager {
         return this.status;
       }
 
-      diagnosticLog(`[Agent] eliza.js: exists (${serverEntryPath})`);
+      diagnosticLog(`[Agent] eliza entry: exists (${serverEntryPath})`);
 
       // Resolve port
       let apiPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
