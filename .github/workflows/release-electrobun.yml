@@ -577,20 +577,27 @@ jobs:
       - name: List artifacts
         run: find release-artifacts -type f | sort 2>/dev/null || echo "No artifacts"
 
-      - name: Collect release files
+      - name: Collect public release files
         run: |
           mkdir -p release-files
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
-            -name "*.tar.zst" -o \
             -name "*.exe" -o \
-            -name "*.zip" -o \
-            -name "*.tar.gz" -o \
-            -name "*-update.json" -o \
-            -name "*.patch" \
+            -name "*Setup*.tar.gz" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
-          echo "=== Release files ==="
+          echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
+
+      - name: Collect update channel files
+        run: |
+          mkdir -p update-channel
+          find release-artifacts -type f \( \
+            -name "*.tar.zst" -o \
+            -name "*.patch" -o \
+            -name "*-update.json" \
+          \) -exec cp {} update-channel/ \; 2>/dev/null || true
+          echo "=== Update channel files ==="
+          ls -lh update-channel/ 2>/dev/null || echo "None"
 
       - name: Generate checksums
         run: |
@@ -634,14 +641,6 @@ jobs:
           # To rotate: run `ssh-keyscan -H milady.ai` and update the secret.
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           echo "$RELEASE_HOST_FINGERPRINT" >> ~/.ssh/known_hosts
-          mkdir -p update-channel
-          find release-files -maxdepth 1 -type f \( \
-            -name "*.tar.zst" -o \
-            -name "*.patch" -o \
-            -name "*-update.json" \
-          \) -exec cp {} update-channel/ \;
-          echo "=== Update channel files ==="
-          ls -lh update-channel/
           # Electrobun resolves update metadata and tarballs at the flat
           # release root, keyed by platform prefix, not inside version folders.
           rsync -av --delete-after \

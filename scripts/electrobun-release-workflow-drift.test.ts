@@ -38,6 +38,21 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain('"identifier":"com.miladyai.milady"');
   });
 
+  it("keeps updater transport files off the public GitHub release asset list", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Collect public release files");
+    expect(workflow).toContain(' -name "*.dmg" -o \\');
+    expect(workflow).toContain(' -name "*.exe" -o \\');
+    expect(workflow).toContain(' -name "*Setup*.tar.gz" \\');
+
+    expect(workflow).toContain("name: Collect update channel files");
+    expect(workflow).toContain(' -name "*.tar.zst" -o \\');
+    expect(workflow).toContain(' -name "*-update.json" \\');
+    expect(workflow).toContain("files: release-files/*");
+    expect(workflow).toContain("update-channel/");
+  });
+
   it("reads the Windows packaged startup log from %APPDATA%", () => {
     const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
 
