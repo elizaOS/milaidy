@@ -26,6 +26,7 @@ import {
   findPatchRegions,
   looksLikePatch,
   MessageContent,
+  normalizePluginId,
   tryParsePatch,
 } from "../../src/components/MessageContent";
 
@@ -142,6 +143,28 @@ describe("compilePatches", () => {
     ];
     expect(compilePatches(patches)).toBeNull();
   });
+
+  it("ignores prototype-pollution path segments", () => {
+    const patches = [
+      { op: "add" as const, path: "/root", value: "card-1" },
+      {
+        op: "add" as const,
+        path: "/elements/card-1",
+        value: { type: "Card", props: { title: "Safe" }, children: [] },
+      },
+      {
+        op: "add" as const,
+        path: "/state/__proto__/polluted",
+        value: true,
+      },
+      { op: "add" as const, path: "/state/amount", value: 42 },
+    ];
+
+    const spec = compilePatches(patches);
+    expect(spec).not.toBeNull();
+    expect(spec?.state.amount).toBe(42);
+    expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false);
+  });
 });
 
 describe("findPatchRegions", () => {
@@ -193,6 +216,37 @@ describe("findPatchRegions", () => {
     const text =
       '{"op":"add","path":"/elements/card-1","value":{"type":"Card","props":{},"children":[]}}';
     expect(findPatchRegions(text)).toHaveLength(0);
+  });
+
+  it("flushes before malformed patch-like text after an empty line", () => {
+    const text = [
+      '{"op":"add","path":"/root","value":"card-1"}',
+      "",
+      '{"op":"add","path":"/elements/card-1"',
+      "hello",
+    ].join("\n");
+
+    const regions = findPatchRegions(text);
+    expect(regions).toHaveLength(1);
+    expect(regions[0]?.raw).toBe(
+      '{"op":"add","path":"/root","value":"card-1"}',
+    );
+  });
+});
+
+describe("normalizePluginId", () => {
+  it("strips the plugin package prefix", () => {
+    expect(normalizePluginId("@elizaos/plugin-discord")).toBe("discord");
+  });
+
+  it("leaves plain plugin ids unchanged", () => {
+    expect(normalizePluginId("discord")).toBe("discord");
+  });
+
+  it("leaves non-plugin scoped packages unchanged", () => {
+    expect(normalizePluginId("@scope/not-plugin-name")).toBe(
+      "@scope/not-plugin-name",
+    );
   });
 });
 

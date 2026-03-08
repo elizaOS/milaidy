@@ -281,9 +281,6 @@ where to get the credentials, minimum required fields, and tips for optional fie
 - `TWITCH_ALLOWED_ROLES` — `broadcaster`, `moderator`, `vip`, `subscriber`, `viewer`
 **Tips:** Create a separate Twitch account for the bot. Use https://twitchapps.com/tmi/ to get an access token for chat bots quickly.
 
-### Telegram
-*(See above)*
-
 ### Twilio (SMS + Voice)
 **Get credentials:** https://console.twilio.com
 **Minimum required:** `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER`
@@ -301,9 +298,6 @@ where to get the credentials, minimum required fields, and tips for optional fie
 - `VOICE_CALL_INBOUND_POLICY` — `allow-all`, `allow-from`, or `deny-all`
 - `VOICE_CALL_INBOUND_GREETING` — Text spoken when call is answered
 **Tips:** For webhooks to work, Twilio needs a public URL. Use ngrok during development. Get a phone number in Console → Phone Numbers → Buy a Number. Free trial gives ~$15 credit.
-
-### Slack
-*(See above)*
 
 ### Matrix
 **Get credentials:** Your Matrix homeserver account

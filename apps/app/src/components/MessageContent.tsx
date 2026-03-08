@@ -21,8 +21,35 @@ import { paramsToSchema } from "./PluginsView";
 import { UiRenderer } from "./ui-renderer";
 import type { PatchOp, UiSpec } from "./ui-spec";
 
-/** Reject prototype-pollution plugin IDs that could slip through the regex. */
+/** Reject prototype-pollution keys that should never be traversed or rendered. */
 const BLOCKED_IDS = new Set(["__proto__", "constructor", "prototype"]);
+const SAFE_PLUGIN_ID_RE = /^[\w-]+$/;
+
+function createSafeRecord(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>;
+}
+
+function sanitizePatchValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePatchValue(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const safe = createSafeRecord();
+  for (const [key, nestedValue] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (BLOCKED_IDS.has(key)) continue;
+    safe[key] = sanitizePatchValue(nestedValue);
+  }
+  return safe;
+}
+
+function isSafeNormalizedPluginId(id: string): boolean {
+  return !BLOCKED_IDS.has(id) && SAFE_PLUGIN_ID_RE.test(id);
+}
 
 export interface MessageContentProps {
   message: ConversationMessage;
@@ -84,7 +111,7 @@ export function tryParsePatch(line: string): PatchOp | null {
   try {
     const obj = JSON.parse(t) as Record<string, unknown>;
     if (typeof obj.op === "string" && typeof obj.path === "string")
-      return obj as unknown as PatchOp;
+      return obj as PatchOp;
     return null;
   } catch {
     return null;
@@ -105,7 +132,7 @@ export function compilePatches(patches: PatchOp[]): UiSpec | null {
     root?: string;
     elements: Record<string, unknown>;
     state: Record<string, unknown>;
-  } = { elements: {}, state: {} };
+  } = { elements: {}, state: createSafeRecord() };
 
   for (const patch of patches) {
     if (patch.op !== "add" && patch.op !== "replace") continue;
@@ -122,16 +149,34 @@ export function compilePatches(patches: PatchOp[]): UiSpec | null {
     } else if (parts[0] === "elements" && parts.length === 2) {
       spec.elements[parts[1]] = value;
     } else if (parts[0] === "state" && parts.length === 1) {
-      spec.state = (value as Record<string, unknown>) ?? {};
+      const nextState = sanitizePatchValue(value);
+      spec.state =
+        nextState && typeof nextState === "object" && !Array.isArray(nextState)
+          ? (nextState as Record<string, unknown>)
+          : createSafeRecord();
     } else if (parts[0] === "state" && parts.length >= 2) {
       // Nested state path: /state/key or /state/key/subkey
       let cursor = spec.state;
+      let blockedPath = false;
       for (let i = 1; i < parts.length - 1; i++) {
         const k = parts[i];
-        if (!cursor[k] || typeof cursor[k] !== "object") cursor[k] = {};
+        if (BLOCKED_IDS.has(k)) {
+          blockedPath = true;
+          break;
+        }
+        if (
+          !cursor[k] ||
+          typeof cursor[k] !== "object" ||
+          Array.isArray(cursor[k])
+        ) {
+          cursor[k] = createSafeRecord();
+        }
         cursor = cursor[k] as Record<string, unknown>;
       }
-      cursor[parts[parts.length - 1]] = value;
+      if (blockedPath) continue;
+      const leaf = parts[parts.length - 1];
+      if (BLOCKED_IDS.has(leaf)) continue;
+      cursor[leaf] = sanitizePatchValue(value);
     }
   }
 
@@ -200,7 +245,7 @@ export function findPatchRegions(
     // Empty line: peek ahead to see if the next non-empty line is a patch
     if (trimmed.length === 0 && blockStart !== -1) {
       const nextPatch = lines.slice(i + 1).find((l) => l.trim().length > 0);
-      if (nextPatch && looksLikePatch(nextPatch.trim())) {
+      if (nextPatch && tryParsePatch(nextPatch) !== null) {
         // Allow the gap and keep going
         pos += lineLen;
         continue;
@@ -307,7 +352,7 @@ function parseSegments(text: string): Segment[] {
 // ── InlinePluginConfig ──────────────────────────────────────────────
 
 /** Normalize plugin ID: strip @scope/plugin- prefix so both "discord" and "@elizaos/plugin-discord" resolve. */
-function normalizePluginId(id: string): string {
+export function normalizePluginId(id: string): string {
   return id.replace(/^@[^/]+\/plugin-/, "");
 }
 
@@ -672,7 +717,9 @@ export function MessageContent({ message }: MessageContentProps) {
                 </div>
               );
             case "config":
-              if (BLOCKED_IDS.has(seg.pluginId)) return null;
+              if (!isSafeNormalizedPluginId(normalizePluginId(seg.pluginId))) {
+                return null;
+              }
               return (
                 <InlinePluginConfig key={segmentKey} pluginId={seg.pluginId} />
               );
