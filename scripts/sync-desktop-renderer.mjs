@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
-import { cpSync, existsSync, mkdirSync, rmSync, statSync, watch } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  statSync,
+  watch,
+} from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -62,7 +69,10 @@ function resolveRunner() {
 
 function resolveAppPath(input) {
   const expanded = input.startsWith("~")
-    ? path.join(process.env.HOME ?? process.env.USERPROFILE ?? "", input.slice(1))
+    ? path.join(
+        process.env.HOME ?? process.env.USERPROFILE ?? "",
+        input.slice(1),
+      )
     : input;
   return path.resolve(expanded);
 }
@@ -92,13 +102,9 @@ function startRendererWatcher() {
     return;
   }
 
-  rendererWatcher = watch(
-    DIST_DIR,
-    { recursive: true },
-    () => {
-      scheduleSync();
-    },
-  );
+  rendererWatcher = watch(DIST_DIR, { recursive: true }, () => {
+    scheduleSync();
+  });
 }
 
 function waitForDistAndWatch() {
@@ -139,7 +145,7 @@ function hasArg(name) {
 
 function getArgValue(name) {
   const eqPrefix = `--${name}=`;
-  const exactIndex = ARGS.findIndex((item) => item === `--${name}`);
+  const exactIndex = ARGS.indexOf(`--${name}`);
   if (exactIndex >= 0) {
     const value = ARGS[exactIndex + 1];
     if (!value || value.startsWith("--")) {
@@ -175,16 +181,12 @@ function runCommand(args) {
   const runner = resolveRunner();
   if (!runner) fail("Could not find bunx or npx in PATH.");
 
-  const result = spawnSync(
-    runner,
-    args,
-    {
-      cwd: APP_DIR,
-      stdio: "inherit",
-      env: VARIANT_ENV,
-      encoding: "utf8",
-    },
-  );
+  const result = spawnSync(runner, args, {
+    cwd: APP_DIR,
+    stdio: "inherit",
+    env: VARIANT_ENV,
+    encoding: "utf8",
+  });
 
   if (result.status !== 0) {
     fail(
@@ -258,8 +260,12 @@ function printUsage() {
     "Usage: node scripts/sync-desktop-renderer.mjs [--variant <base|full|companion>] [--app-path <path>] [--renderer-path <path>] [--skip-build] [--watch]",
   );
   console.log("Environment:");
-  console.log("  MILADY_DESKTOP_APP_PATH      Override /Applications/Milady-canary.app");
-  console.log("  MILADY_DESKTOP_RENDERER_PATH  Override renderer folder directly");
+  console.log(
+    "  MILADY_DESKTOP_APP_PATH      Override /Applications/Milady-canary.app",
+  );
+  console.log(
+    "  MILADY_DESKTOP_RENDERER_PATH  Override renderer folder directly",
+  );
   console.log("  VITE_APP_VARIANT             Defaults to base");
   console.log("\nExamples:");
   console.log("  node scripts/sync-desktop-renderer.mjs");
@@ -272,7 +278,9 @@ function printUsage() {
 
 function main() {
   if (process.platform !== "darwin") {
-    console.log("[milady-ui-sync] Warning: this script targets macOS app bundles by default.");
+    console.log(
+      "[milady-ui-sync] Warning: this script targets macOS app bundles by default.",
+    );
   }
 
   if (hasArg("help") || hasArg("h")) {

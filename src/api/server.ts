@@ -1214,7 +1214,9 @@ export function discoverInstalledPlugins(
               }));
             } else if (pkg.agentConfig?.pluginParameters) {
               pluginConfigKeys = Object.keys(pkg.agentConfig.pluginParameters);
-              pluginParameters = buildParamDefs(pkg.agentConfig.pluginParameters);
+              pluginParameters = buildParamDefs(
+                pkg.agentConfig.pluginParameters,
+              );
             }
             // Map logoUrl or icon from package.json if available
             pluginIcon =
@@ -1346,8 +1348,7 @@ export function discoverPluginsFromManifest(): PluginEntry[] {
               p.repository ??
               bundledMeta.repository ??
               deriveMiladyRepositoryUrl(p.npmName, p.dirName),
-            setupGuideUrl:
-              p.setupGuideUrl ?? resolvePluginSetupGuideUrl(p.id),
+            setupGuideUrl: p.setupGuideUrl ?? resolvePluginSetupGuideUrl(p.id),
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
@@ -1495,11 +1496,7 @@ export function resolvePluginSetupGuideUrl(id: string): string | undefined {
 }
 
 export function normalizeRepositoryUrl(
-  repository:
-    | string
-    | { type?: string; url?: string }
-    | null
-    | undefined,
+  repository: string | { type?: string; url?: string } | null | undefined,
 ): string | undefined {
   const raw =
     typeof repository === "string"

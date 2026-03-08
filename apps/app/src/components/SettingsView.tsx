@@ -405,80 +405,80 @@ function AdvancedSection() {
   return (
     <>
       <div className="space-y-6">
-      {/* Export/Import */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <button
-          type="button"
-          onClick={openExportModal}
-          className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
-          aria-haspopup="dialog"
-        >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-            <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
-          </div>
-          <div>
-            <div className="font-medium text-sm">
-              {t("settings.exportAgent")}
+        {/* Export/Import */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={openExportModal}
+            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            aria-haspopup="dialog"
+          >
+            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
+              <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
             </div>
-            <div className="text-xs text-muted">
-              {t("settings.exportAgentShort")}
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={openImportModal}
-          className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
-          aria-haspopup="dialog"
-        >
-          <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-            <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
-          </div>
-          <div>
-            <div className="font-medium text-sm">
-              {t("settings.importAgent")}
-            </div>
-            <div className="text-xs text-muted">
-              {t("settings.importAgentShort")}
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="border border-danger/30 rounded-lg overflow-hidden">
-        <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-danger" />
-          <span className="font-medium text-sm text-danger">
-            {t("settings.dangerZone")}
-          </span>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
             <div>
               <div className="font-medium text-sm">
-                {t("settings.resetAgent")}
+                {t("settings.exportAgent")}
               </div>
               <div className="text-xs text-muted">
-                {t("settings.resetAgentHint")}
+                {t("settings.exportAgentShort")}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const confirmed = window.confirm(
-                  t("settings.resetConfirmMessage"),
-                );
-                if (confirmed) void handleReset();
-              }}
-              className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
-            >
-              {t("settings.resetEverything")}
-            </button>
+          </button>
+
+          <button
+            type="button"
+            onClick={openImportModal}
+            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            aria-haspopup="dialog"
+          >
+            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
+              <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+            </div>
+            <div>
+              <div className="font-medium text-sm">
+                {t("settings.importAgent")}
+              </div>
+              <div className="text-xs text-muted">
+                {t("settings.importAgentShort")}
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="border border-danger/30 rounded-lg overflow-hidden">
+          <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-danger" />
+            <span className="font-medium text-sm text-danger">
+              {t("settings.dangerZone")}
+            </span>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium text-sm">
+                  {t("settings.resetAgent")}
+                </div>
+                <div className="text-xs text-muted">
+                  {t("settings.resetAgentHint")}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    t("settings.resetConfirmMessage"),
+                  );
+                  if (confirmed) void handleReset();
+                }}
+                className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
+              >
+                {t("settings.resetEverything")}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       <Modal
@@ -557,11 +557,15 @@ function AdvancedSection() {
             type="file"
             className="hidden"
             accept=".eliza-agent,.agent,application/octet-stream"
-            onChange={(e) => setState("importFile", e.target.files?.[0] ?? null)}
+            onChange={(e) =>
+              setState("importFile", e.target.files?.[0] ?? null)
+            }
           />
 
           <div className="space-y-2">
-            <div className="text-sm font-medium text-txt-strong">Backup file</div>
+            <div className="text-sm font-medium text-txt-strong">
+              Backup file
+            </div>
             <button
               type="button"
               className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
@@ -718,10 +722,12 @@ export function SettingsView({
     if (!root) return;
 
     const handleScroll = () => {
-      const sections = visibleSections.map((s) => {
-        const el = root.querySelector(`#${s.id}`) as HTMLElement;
-        return { id: s.id, el };
-      }).filter((s) => s.el !== null);
+      const sections = visibleSections
+        .map((s) => {
+          const el = root.querySelector(`#${s.id}`) as HTMLElement;
+          return { id: s.id, el };
+        })
+        .filter((s) => s.el !== null);
 
       if (sections.length === 0) return;
 

@@ -4,11 +4,7 @@ import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { useStreamPopoutNavigation } from "../../src/hooks/useStreamPopoutNavigation";
 
-function Harness({
-  setTab,
-}: {
-  setTab: (tab: string) => void;
-}) {
+function Harness({ setTab }: { setTab: (tab: string) => void }) {
   useStreamPopoutNavigation(setTab as (tab: never) => void);
   return null;
 }
@@ -16,7 +12,7 @@ function Harness({
 describe("useStreamPopoutNavigation", () => {
   it("does not switch tabs when the stream popout opens or closes", () => {
     const setTab = vi.fn();
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
 
     act(() => {
       tree = TestRenderer.create(React.createElement(Harness, { setTab }));
@@ -33,8 +29,12 @@ describe("useStreamPopoutNavigation", () => {
 
     expect(setTab).not.toHaveBeenCalled();
 
+    if (!tree) {
+      throw new Error("Expected stream popout harness to be created.");
+    }
+
     act(() => {
-      tree!.unmount();
+      tree.unmount();
     });
   });
 });

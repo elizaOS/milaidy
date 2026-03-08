@@ -10,9 +10,7 @@ function findByTestId(
   root: TestRenderer.ReactTestInstance,
   testId: string,
 ): TestRenderer.ReactTestInstance {
-  return root.find(
-    (node) => node.props["data-testid"] === testId,
-  );
+  return root.find((node) => node.props["data-testid"] === testId);
 }
 
 describe("BscTradePanel", () => {
@@ -23,7 +21,7 @@ describe("BscTradePanel", () => {
       reasons: ["RPC missing"],
     });
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(BscTradePanel, {
@@ -39,12 +37,17 @@ describe("BscTradePanel", () => {
       );
     });
 
-    const tokenInput = findByTestId(tree!.root, "wallet-quick-token-input");
+    if (!tree) {
+      throw new Error("Expected BscTradePanel renderer to be created.");
+    }
+
+    const root = tree.root;
+    const tokenInput = findByTestId(root, "wallet-quick-token-input");
     await act(async () => {
       tokenInput.props.onChange({ target: { value: VALID_TOKEN } });
     });
 
-    const preflightButton = findByTestId(tree!.root, "wallet-token-preflight");
+    const preflightButton = findByTestId(root, "wallet-token-preflight");
     await act(async () => {
       await preflightButton.props.onClick();
     });
@@ -68,7 +71,7 @@ describe("BscTradePanel", () => {
       route: [],
     });
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(BscTradePanel, {
@@ -84,17 +87,22 @@ describe("BscTradePanel", () => {
       );
     });
 
-    const tokenInput = findByTestId(tree!.root, "wallet-quick-token-input");
+    if (!tree) {
+      throw new Error("Expected BscTradePanel renderer to be created.");
+    }
+
+    const root = tree.root;
+    const tokenInput = findByTestId(root, "wallet-quick-token-input");
     await act(async () => {
       tokenInput.props.onChange({ target: { value: VALID_TOKEN } });
     });
 
-    const amountPreset = findByTestId(tree!.root, "wallet-quick-amount-0.1");
+    const amountPreset = findByTestId(root, "wallet-quick-amount-0.1");
     await act(async () => {
       amountPreset.props.onClick();
     });
 
-    const quoteButton = findByTestId(tree!.root, "wallet-token-quote");
+    const quoteButton = findByTestId(root, "wallet-token-quote");
     await act(async () => {
       await quoteButton.props.onClick();
     });
@@ -106,7 +114,7 @@ describe("BscTradePanel", () => {
       amount: "0.1",
     });
 
-    const latestQuoteBlocks = tree!.root.findAll(
+    const latestQuoteBlocks = root.findAll(
       (node) =>
         node.type === "div" &&
         node.children.some(

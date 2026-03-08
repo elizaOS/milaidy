@@ -165,11 +165,7 @@ export function BscTradePanel({
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        setActionNotice(
-          message,
-          "error",
-          4600,
-        );
+        setActionNotice(message, "error", 4600);
         setTradeFeedback({
           tone: "error",
           text: message,
@@ -217,22 +213,14 @@ export function BscTradePanel({
       const message = tokenAddress
         ? "Preflight checks passed."
         : "Wallet is ready for BSC trading checks.";
-      setActionNotice(
-        message,
-        "success",
-        2600,
-      );
+      setActionNotice(message, "success", 2600);
       setTradeFeedback({
         tone: "success",
         text: message,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setActionNotice(
-        message,
-        "error",
-        4600,
-      );
+      setActionNotice(message, "error", 4600);
       setTradeFeedback({
         tone: "error",
         text: message,

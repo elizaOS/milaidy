@@ -386,8 +386,7 @@ describe("PluginsView game modal", () => {
     mockUseApp.mockReturnValue(
       baseContext([
         createPlugin("retake", "Retake.tv", "streaming", {
-          setupGuideUrl:
-            "https://docs.milady.ai/plugin-setup-guide#retaketv",
+          setupGuideUrl: "https://docs.milady.ai/plugin-setup-guide#retaketv",
           repository:
             "https://github.com/milady-ai/milady/tree/main/packages/plugin-retake",
         }),

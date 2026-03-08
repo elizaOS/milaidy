@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React, { StrictMode } from "react";
+import { StrictMode } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,6 +64,20 @@ type MockVrmEngineInstance = {
   resolveReady: () => void;
 };
 
+function getMockInstances(): MockVrmEngineInstance[] {
+  const store = (
+    globalThis as {
+      __miladyVrmViewerMock?: { instances: MockVrmEngineInstance[] };
+    }
+  ).__miladyVrmViewerMock;
+
+  if (!store) {
+    throw new Error("Expected VRM viewer mock store to be initialized.");
+  }
+
+  return store.instances;
+}
+
 describe("VrmViewer", () => {
   beforeEach(() => {
     (globalThis as { ResizeObserver?: unknown }).ResizeObserver = undefined;
@@ -78,17 +92,15 @@ describe("VrmViewer", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     };
-    (globalThis as { requestAnimationFrame?: typeof requestAnimationFrame })
-      .requestAnimationFrame = ((cb: FrameRequestCallback) =>
-      setTimeout(() => cb(0), 0)) as unknown as typeof requestAnimationFrame;
-    (globalThis as { cancelAnimationFrame?: typeof cancelAnimationFrame })
-      .cancelAnimationFrame = ((id: number) =>
-      clearTimeout(id)) as unknown as typeof cancelAnimationFrame;
     (
-      globalThis as {
-        __miladyVrmViewerMock?: { instances: MockVrmEngineInstance[] };
-      }
-    ).__miladyVrmViewerMock!.instances.length = 0;
+      globalThis as { requestAnimationFrame?: typeof requestAnimationFrame }
+    ).requestAnimationFrame = ((cb: FrameRequestCallback) =>
+      setTimeout(() => cb(0), 0)) as unknown as typeof requestAnimationFrame;
+    (
+      globalThis as { cancelAnimationFrame?: typeof cancelAnimationFrame }
+    ).cancelAnimationFrame = ((id: number) =>
+      clearTimeout(id)) as unknown as typeof cancelAnimationFrame;
+    getMockInstances().length = 0;
   });
 
   afterEach(() => {
@@ -126,11 +138,7 @@ describe("VrmViewer", () => {
       );
     });
 
-    const instances = (
-      globalThis as {
-        __miladyVrmViewerMock?: { instances: MockVrmEngineInstance[] };
-      }
-    ).__miladyVrmViewerMock!.instances;
+    const instances = getMockInstances();
 
     expect(instances.length).toBeGreaterThanOrEqual(2);
 

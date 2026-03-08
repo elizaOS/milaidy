@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  STREAMING_DESTINATIONS,
   categorize,
   resolveSetupGuideUrl,
+  STREAMING_DESTINATIONS,
 } from "./generate-plugin-index.js";
 
 describe("generate-plugin-index", () => {

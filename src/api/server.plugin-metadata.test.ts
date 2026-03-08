@@ -83,9 +83,7 @@ describe("plugin metadata discovery", () => {
     expect(plugins).toHaveLength(1);
     expect(plugins[0]?.category).toBe("streaming");
     expect(plugins[0]?.homepage).toBe("https://retake.tv");
-    expect(plugins[0]?.repository).toBe(
-      "https://github.com/milady-ai/milady",
-    );
+    expect(plugins[0]?.repository).toBe("https://github.com/milady-ai/milady");
     expect(plugins[0]?.setupGuideUrl).toBe(
       "https://docs.milady.ai/plugin-setup-guide#retaketv",
     );
