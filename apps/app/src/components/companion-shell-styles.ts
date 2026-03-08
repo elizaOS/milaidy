@@ -77,8 +77,7 @@ export function tabFlags(tab: Tab) {
     tab === "database" ||
     tab === "logs" ||
     tab === "security" ||
-    isLifo ||
-    isStream;
+    isLifo;
   const isPluginsLike = isPlugins || isConnectors;
   const isCentered =
     isSkills ||
