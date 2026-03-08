@@ -12,6 +12,13 @@ function makeMessage(channelType?: ChannelType): Memory {
 }
 
 describe("uiCatalogProvider", () => {
+  function expectRichUiCatalog(text: string) {
+    expect(text).toContain("## Rich UI Output");
+    expect(text).toContain("### Method 1");
+    expect(text).toContain("### Method 2");
+    expect(text).toContain("### Available components");
+  }
+
   it("has name 'uiCatalog'", () => {
     expect(uiCatalogProvider.name).toBe("uiCatalog");
   });
@@ -22,7 +29,7 @@ describe("uiCatalogProvider", () => {
       makeMessage(CT.DM),
       state,
     );
-    expect(result.text).toContain("Available UI Components:");
+    expectRichUiCatalog(result.text);
   });
 
   it("API channel returns catalog text", async () => {
@@ -31,7 +38,7 @@ describe("uiCatalogProvider", () => {
       makeMessage(CT.API),
       state,
     );
-    expect(result.text).toContain("Available UI Components:");
+    expectRichUiCatalog(result.text);
   });
 
   it("missing channelType returns catalog text", async () => {
@@ -40,7 +47,7 @@ describe("uiCatalogProvider", () => {
       makeMessage(undefined),
       state,
     );
-    expect(result.text).toContain("Available UI Components:");
+    expectRichUiCatalog(result.text);
   });
 
   it("GROUP channel returns empty text", async () => {
