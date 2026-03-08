@@ -52,9 +52,7 @@ if [[ "$(uname)" == "Darwin" && "$BUILD_SKIP_CODESIGN" != "1" && -z "$BUILD_DEVE
 fi
 
 cleanup() {
-  if [[ -n "${APP_PID:-}" ]]; then
-    kill "$APP_PID" >/dev/null 2>&1 || true
-  fi
+  kill_stale_processes
   if [[ -n "$LAUNCH_APP_BUNDLE" && "$LAUNCH_APP_BUNDLE" == /tmp/* && -d "$LAUNCH_APP_BUNDLE" ]]; then
     rm -rf "$LAUNCH_APP_BUNDLE"
   fi
@@ -92,6 +90,20 @@ kill_stale_processes() {
   if [[ $found -eq 1 ]]; then
     sleep 2
   fi
+}
+
+escape_regex() {
+  printf '%s' "$1" | sed -e 's/[][(){}.^$+*?|\\]/\\&/g'
+}
+
+find_live_packaged_pid() {
+  if [[ -z "$LAUNCH_APP_BUNDLE" ]]; then
+    return 0
+  fi
+
+  local bundle_regex=""
+  bundle_regex="$(escape_regex "$LAUNCH_APP_BUNDLE")"
+  pgrep -f "${bundle_regex}/Contents/MacOS/launcher|${bundle_regex}/Contents/MacOS/bun|${bundle_regex}/Contents/Resources/app/milady-dist/(eliza|runtime/eliza)\\.js" | head -1 || true
 }
 
 trap cleanup EXIT
@@ -241,7 +253,6 @@ LAUNCHER_STDOUT="$(mktemp /tmp/milady-smoke-launcher.stdout.XXXXXX)"
 LAUNCHER_STDERR="$(mktemp /tmp/milady-smoke-launcher.stderr.XXXXXX)"
 "$LAUNCHER_PATH" >"$LAUNCHER_STDOUT" 2>"$LAUNCHER_STDERR" &
 PID="$!"
-APP_PID="$PID"
 sleep 2
 
 if [[ -z "$PID" ]]; then
@@ -320,9 +331,10 @@ else
 
   echo "Waiting ${LIVENESS_TIMEOUT}s for liveness..."
   sleep "$LIVENESS_TIMEOUT"
-  if kill -0 "$PID" 2>/dev/null; then
+  LIVE_PID="$(find_live_packaged_pid)"
+  if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" 2>/dev/null; then
     if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
-      echo "App and backend still healthy after ${LIVENESS_TIMEOUT}s — liveness check PASSED."
+      echo "App process ($LIVE_PID) and backend still healthy after ${LIVENESS_TIMEOUT}s — liveness check PASSED."
     else
       echo "ERROR: App stayed open but backend health check failed after ${LIVENESS_TIMEOUT}s."
       [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
@@ -332,7 +344,7 @@ else
       exit 1
     fi
   else
-    echo "ERROR: App exited within ${LIVENESS_TIMEOUT}s. Check crash logs."
+    echo "ERROR: No packaged app process remained alive within ${LIVENESS_TIMEOUT}s."
     echo ""
     echo "Launcher stderr:"
     cat "$LAUNCHER_STDERR" 2>/dev/null || true

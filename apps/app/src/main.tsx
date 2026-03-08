@@ -20,6 +20,7 @@ import { App } from "./App";
 import { AppProvider } from "./AppContext";
 // Import Capacitor bridge utilities
 import { initializeCapacitorBridge } from "./bridge/capacitor-bridge";
+import { isElectrobunRuntime } from "./bridge/electrobun-runtime";
 import { initializeStorageBridge } from "./bridge/storage-bridge";
 
 /**
@@ -29,12 +30,14 @@ const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-// Electrobun sets window.__ELECTROBUN__ = true; Capacitor sees it as "web"
-const isElectrobun =
-  typeof window !== "undefined" &&
-  !!(window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__;
-const isElectron = platform === "electron" || isElectrobun;
-const isWeb = platform === "web" && !isElectrobun;
+
+function isElectronPlatform(): boolean {
+  return platform === "electron" || isElectrobunRuntime();
+}
+
+function isWebPlatform(): boolean {
+  return platform === "web" && !isElectrobunRuntime();
+}
 
 interface ShareTargetFile {
   name: string;
@@ -113,7 +116,7 @@ async function initializePlatform(): Promise<void> {
     initializeAppLifecycle();
   }
 
-  if (isElectron) {
+  if (isElectronPlatform()) {
     // Electron-specific initialization
     await initializeElectron();
   } else {
@@ -465,4 +468,11 @@ if (document.readyState === "loading") {
 }
 
 // Export platform utilities for use by other modules
-export { platform, isNative, isIOS, isAndroid, isElectron, isWeb };
+export {
+  platform,
+  isNative,
+  isIOS,
+  isAndroid,
+  isElectronPlatform as isElectron,
+  isWebPlatform as isWeb,
+};

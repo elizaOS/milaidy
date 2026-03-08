@@ -21,6 +21,8 @@ const requiredWorkflowSnippets = [
   "Smoke test packaged macOS app",
   "SKIP_BUILD=1",
   "bash apps/app/electrobun/scripts/smoke-test.sh",
+  "Stage Windows setup executables",
+  "apps/app/electrobun/artifacts/*.exe",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',

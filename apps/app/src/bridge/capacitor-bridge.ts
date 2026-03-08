@@ -11,6 +11,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { isElectrobunRuntime } from "./electrobun-runtime";
 
 // Import the plugin bridge
 import {
@@ -26,11 +27,14 @@ const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-// Electrobun sets window.__ELECTROBUN__ = true; Capacitor sees it as "web"
-const isElectrobun =
-  typeof window !== "undefined" &&
-  !!(window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__;
-const isElectron = platform === "electron" || isElectrobun;
+
+function isElectronPlatform(): boolean {
+  return platform === "electron" || isElectrobunRuntime();
+}
+
+function isWebPlatform(): boolean {
+  return platform === "web" && !isElectrobunRuntime();
+}
 
 /**
  * Capability flags indicating what features are available
@@ -64,6 +68,7 @@ export interface CapacitorCapabilities {
  * Get the current platform capabilities
  */
 export function getCapabilities(): CapacitorCapabilities {
+  const isElectron = isElectronPlatform();
   return {
     native: isNative,
     platform: platform as CapacitorCapabilities["platform"],
@@ -226,6 +231,7 @@ export interface MiladyBridge {
  * Create the global bridge object
  */
 function createBridge(): MiladyBridge {
+  const isElectron = isElectronPlatform();
   return {
     capabilities: getCapabilities(),
     pluginCapabilities: getPluginCapabilities(),
@@ -241,7 +247,7 @@ function createBridge(): MiladyBridge {
       isIOS,
       isAndroid,
       isElectron,
-      isWeb: platform === "web",
+      isWeb: isWebPlatform(),
       isMacOS: isElectron, // Electron is used for macOS/desktop
     },
   };

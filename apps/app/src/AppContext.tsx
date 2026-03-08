@@ -73,6 +73,7 @@ import {
   type WorkbenchOverview,
 } from "./api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
+import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   type AutonomyEventStore,
   type AutonomyRunHealthMap,
@@ -774,11 +775,6 @@ export interface StartupErrorState {
   path?: string;
 }
 
-const isElectrobunShell =
-  typeof window !== "undefined" &&
-  (window as { __ELECTROBUN__?: boolean }).__ELECTROBUN__ === true;
-
-const BACKEND_STARTUP_TIMEOUT_MS = isElectrobunShell ? 180_000 : 30_000;
 const AGENT_READY_TIMEOUT_MS = 90_000;
 
 interface ApiLikeError {
@@ -5033,7 +5029,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           reason: "backend-timeout",
           phase: "starting-backend",
           message: `Backend did not become reachable within ${Math.round(
-            BACKEND_STARTUP_TIMEOUT_MS / 1000,
+            getBackendStartupTimeoutMs() / 1000,
           )}s.`,
           detail: formatStartupErrorDetail(err),
           status: apiErr?.status,
@@ -5170,13 +5166,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupPhase("starting-backend");
       setAuthRequired(false);
       setConnected(false);
-      const backendDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+      const backendStartedAt = Date.now();
       let lastBackendError: unknown = null;
 
       // Keep the splash screen up until the backend is reachable.
       let backendAttempts = 0;
       while (!cancelled) {
-        if (Date.now() >= backendDeadlineAt) {
+        if (Date.now() - backendStartedAt >= getBackendStartupTimeoutMs()) {
           setStartupError(describeBackendFailure(lastBackendError, true));
           setOnboardingLoading(false);
           return;
@@ -5230,10 +5226,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // On fresh installs, unblock to onboarding as soon as options are available.
       if (onboardingNeedsOptions) {
-        const optionsDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+        const optionsStartedAt = Date.now();
         let optionsError: unknown = null;
         while (!cancelled) {
-          if (Date.now() >= optionsDeadlineAt) {
+          if (Date.now() - optionsStartedAt >= getBackendStartupTimeoutMs()) {
             setStartupError(describeBackendFailure(optionsError, true));
             setOnboardingLoading(false);
             return;

@@ -344,6 +344,22 @@ jobs:
         if: matrix.platform.os == 'windows'
         run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
 
+      - name: Stage Windows setup executables
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
+          $setupExecutables = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
+          if (-not $setupExecutables) {
+            Write-Error "No Windows setup executable found under apps/app/electrobun/build"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          foreach ($setupExecutable in $setupExecutables) {
+            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
+            Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
+          }
+
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
         run: |
@@ -404,6 +420,7 @@ jobs:
           path: |
             apps/app/electrobun/artifacts/*.dmg
             apps/app/electrobun/artifacts/*.tar.zst
+            apps/app/electrobun/artifacts/*.exe
             apps/app/electrobun/artifacts/*.zip
             apps/app/electrobun/artifacts/*.tar.gz
             apps/app/electrobun/artifacts/*-update.json
@@ -438,6 +455,7 @@ jobs:
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
             -name "*.tar.zst" -o \
+            -name "*.exe" -o \
             -name "*.zip" -o \
             -name "*.tar.gz" -o \
             -name "*-update.json" -o \

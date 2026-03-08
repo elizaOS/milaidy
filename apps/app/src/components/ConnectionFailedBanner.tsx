@@ -1,15 +1,12 @@
 import { useApp } from "../AppContext";
+import { isElectrobunRuntime } from "../bridge/electrobun-runtime";
 
 /**
  * Banner shown during WebSocket reconnection attempts (amber) and
  * after all attempts are exhausted (red). Offers Retry when failed.
  */
-const isElectrobun =
-  typeof window !== "undefined" &&
-  (window as unknown as Record<string, unknown>).__ELECTROBUN__ === true;
-const bannerTop = isElectrobun ? 40 : 0;
-
 export function ConnectionFailedBanner() {
+  const bannerTop = isElectrobunRuntime() ? 40 : 0;
   const {
     backendConnection,
     backendDisconnectedBannerDismissed,
