@@ -3,6 +3,14 @@ import { useEffect, useRef } from "react";
 import { client } from "../api-client";
 
 /**
+ * Regex to strip the "clear scrollback" ANSI escape (`\e[3J`) from terminal
+ * output. Agents emit this to clear history, but we want to preserve it in
+ * the UI so users can scroll back.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence stripping requires control chars
+export const CLEAR_SCROLLBACK_RE = /\x1b\[3J/g;
+
+/**
  * Embedded xterm.js terminal pane for a PTY session.
  *
  * Lifecycle:
@@ -35,8 +43,6 @@ export function XTerminal({
     let disposed = false;
     let wsUnsub: (() => void) | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence stripping requires control chars
-    const CLEAR_SCROLLBACK_RE = /\x1b\[3J/g;
 
     (async () => {
       // Dynamic import to keep xterm.js out of the main bundle when unused
