@@ -14,6 +14,8 @@ export default {
     // Sign native code inside milady-dist/node_modules on the inner app bundle
     // before Electrobun runs the platform signing/notarization flow.
     postBuild: "scripts/postwrap-sign-runtime-macos.ts",
+    // Capture wrapper-bundle binary metadata after the self-extractor is created.
+    postWrap: "scripts/postwrap-diagnostics.ts",
   },
   build: {
     bun: {

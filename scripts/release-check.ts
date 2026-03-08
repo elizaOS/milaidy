@@ -19,13 +19,17 @@ const requiredWorkflowSnippets = [
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
   "Smoke test packaged macOS app",
+  "SMOKE_DIAGNOSTICS_DIR:",
   "SKIP_BUILD=1",
   "bash apps/app/electrobun/scripts/smoke-test.sh",
+  "Upload macOS smoke diagnostics",
+  "wrapper-diagnostics.json",
   "Stage Windows setup executables",
   "apps/app/electrobun/artifacts/*.exe",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
+  'postWrap: "scripts/postwrap-diagnostics.ts"',
 ];
 
 function runPackDry(): PackResult[] {
@@ -139,6 +143,26 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     console.error(
       "release-check: smoke-test.sh must not use open(1); it can reactivate a stale installed bundle.",
     );
+    process.exit(1);
+  }
+
+  const requiredSnippets = [
+    "dump_failure_diagnostics()",
+    "write_bundle_diagnostics()",
+    "collect_recent_crash_reports()",
+    'dump_failure_diagnostics "launcher exited before backend startup"',
+    'dump_failure_diagnostics "backend never reported a started port"',
+  ];
+  const missing = requiredSnippets.filter(
+    (snippet) => !script.includes(snippet),
+  );
+  if (missing.length > 0) {
+    console.error(
+      "release-check: smoke-test.sh is missing failure-time diagnostics hooks.",
+    );
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
     process.exit(1);
   }
 }

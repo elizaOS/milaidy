@@ -406,12 +406,36 @@ jobs:
 
       - name: Smoke test packaged macOS app
         if: matrix.platform.os == 'macos'
+        env:
+          SMOKE_DIAGNOSTICS_DIR: ${{ runner.temp }}/milady-smoke-diagnostics
         run: |
           STARTUP_TIMEOUT=420 \
           LIVENESS_TIMEOUT=10 \
           SKIP_BUILD=1 \
           SKIP_SIGNATURE_CHECK=1 \
           bash apps/app/electrobun/scripts/smoke-test.sh
+
+      - name: Upload Windows smoke diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
+          path: |
+            ${{ env.USERPROFILE }}\.config\Milady\milady-startup.log
+            ${{ env.LOCALAPPDATA }}\com.miladyai.milady\**\wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload macOS smoke diagnostics
+        if: failure() && matrix.platform.os == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-smoke-diagnostics
+          path: |
+            ${{ runner.temp }}/milady-smoke-diagnostics/**
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

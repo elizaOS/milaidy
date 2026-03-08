@@ -34,6 +34,7 @@ LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
+SMOKE_DIAGNOSTICS_DIR="${SMOKE_DIAGNOSTICS_DIR:-}"
 MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
 STARTUP_LOG="$HOME/.config/Milady/milady-startup.log"
@@ -59,6 +60,111 @@ cleanup() {
   if [[ -n "$MOUNT_POINT" && -d "$MOUNT_POINT" ]]; then
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
   fi
+}
+
+ensure_diagnostics_dir() {
+  if [[ -z "$SMOKE_DIAGNOSTICS_DIR" ]]; then
+    SMOKE_DIAGNOSTICS_DIR="$(mktemp -d /tmp/milady-smoke-diagnostics.XXXXXX)"
+  fi
+  mkdir -p "$SMOKE_DIAGNOSTICS_DIR"
+}
+
+collect_recent_crash_reports() {
+  if [[ "$(uname)" != "Darwin" ]]; then
+    return 0
+  fi
+
+  ensure_diagnostics_dir
+  local crash_dir="$HOME/Library/Logs/DiagnosticReports"
+  [[ -d "$crash_dir" ]] || return 0
+
+  while IFS= read -r crash_file; do
+    cp "$crash_file" "$SMOKE_DIAGNOSTICS_DIR/" 2>/dev/null || true
+  done < <(
+    find "$crash_dir" -maxdepth 1 -type f \( -name "*.crash" -o -name "*.ips" \) 2>/dev/null | sort | tail -n 10
+  )
+}
+
+write_bundle_diagnostics() {
+  ensure_diagnostics_dir
+  local diagnostics_file="$SMOKE_DIAGNOSTICS_DIR/bundle-diagnostics.txt"
+  : >"$diagnostics_file"
+
+  {
+    echo "Bundle: $LAUNCH_APP_BUNDLE"
+    echo "Launcher: $LAUNCHER_PATH"
+    echo ""
+
+    if [[ -d "$LAUNCH_APP_BUNDLE/Contents/MacOS" ]]; then
+      echo "Contents/MacOS:"
+      find "$LAUNCH_APP_BUNDLE/Contents/MacOS" -maxdepth 2 -type f | sort
+      echo ""
+    fi
+
+    if [[ -d "$LAUNCH_APP_BUNDLE/Contents/Resources" ]]; then
+      echo "Contents/Resources:"
+      find "$LAUNCH_APP_BUNDLE/Contents/Resources" -maxdepth 2 | sort
+      echo ""
+    fi
+  } >>"$diagnostics_file"
+
+  for candidate in \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/launcher" \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/bun" \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib" \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/libNativeWrapper.dylib" \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/zig-zstd" \
+    "$LAUNCH_APP_BUNDLE/Contents/MacOS/bspatch"
+  do
+    if [[ ! -e "$candidate" ]]; then
+      continue
+    fi
+
+    {
+      echo "=== $candidate ==="
+      file "$candidate" 2>&1 || true
+      lipo -info "$candidate" 2>&1 || true
+      otool -L "$candidate" 2>&1 || true
+      codesign -dv --verbose=4 "$candidate" 2>&1 || true
+      echo ""
+    } >>"$diagnostics_file"
+  done
+
+  if [[ -n "${RUNTIME_ARCHIVE:-}" && -f "$RUNTIME_ARCHIVE" ]]; then
+    {
+      echo "=== $RUNTIME_ARCHIVE ==="
+      tar --zstd -tf "$RUNTIME_ARCHIVE" 2>&1 | sed -n '1,120p'
+      echo ""
+    } >>"$diagnostics_file"
+  fi
+}
+
+dump_failure_diagnostics() {
+  local reason="$1"
+  ensure_diagnostics_dir
+  write_bundle_diagnostics
+  collect_recent_crash_reports
+
+  {
+    echo "Reason: $reason"
+    echo "Build env: $BUILD_ENV"
+    echo "Startup timeout: $STARTUP_TIMEOUT"
+    echo "Liveness timeout: $LIVENESS_TIMEOUT"
+    echo "Mounted volume: ${MOUNT_POINT:-<none>}"
+    echo "Launch bundle: ${LAUNCH_APP_BUNDLE:-<none>}"
+    echo "Launcher path: ${LAUNCHER_PATH:-<none>}"
+    echo ""
+    echo "Launcher stdout:"
+    cat "$LAUNCHER_STDOUT" 2>/dev/null || true
+    echo ""
+    echo "Launcher stderr:"
+    cat "$LAUNCHER_STDERR" 2>/dev/null || true
+    echo ""
+    echo "Startup log tail:"
+    tail -n 200 "$STARTUP_LOG" 2>/dev/null || true
+  } >"$SMOKE_DIAGNOSTICS_DIR/failure-summary.txt"
+
+  echo "Diagnostics written to: $SMOKE_DIAGNOSTICS_DIR"
 }
 
 kill_stale_processes() {
@@ -258,6 +364,11 @@ sleep 2
 if [[ -z "$PID" ]]; then
   echo "WARNING: Could not start packaged launcher. App may have exited immediately."
   echo "         Check Console.app or crash logs in ~/Library/Logs/DiagnosticReports/"
+elif ! kill -0 "$PID" >/dev/null 2>&1; then
+  wait "$PID" || true
+  echo "ERROR: Packaged launcher exited before backend startup."
+  dump_failure_diagnostics "launcher exited before backend startup"
+  exit 1
 else
   echo "Launcher is running (PID $PID). Waiting for backend health..."
 
@@ -275,8 +386,15 @@ else
         echo ""
         echo "Launcher stderr:"
         cat "$LAUNCHER_STDERR" 2>/dev/null || true
+        dump_failure_diagnostics "backend startup log reported a failure"
         exit 1
       fi
+    fi
+    if ! kill -0 "$PID" >/dev/null 2>&1 && [[ -z "$BACKEND_PORT" ]]; then
+      wait "$PID" || true
+      echo "ERROR: Packaged launcher exited before backend announced a port."
+      dump_failure_diagnostics "launcher exited before runtime started"
+      exit 1
     fi
     if [[ -n "$BACKEND_PORT" ]]; then
       if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
@@ -293,6 +411,7 @@ else
     echo ""
     echo "Launcher stderr:"
     cat "$LAUNCHER_STDERR" 2>/dev/null || true
+    dump_failure_diagnostics "backend never reported a started port"
     exit 1
   fi
 
@@ -302,6 +421,7 @@ else
     echo ""
     echo "Launcher stderr:"
     cat "$LAUNCHER_STDERR" 2>/dev/null || true
+    dump_failure_diagnostics "backend health endpoint never became reachable"
     exit 1
   fi
 
@@ -310,21 +430,25 @@ else
   if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
     echo "ERROR: Streaming plugin resolution failed during packaged startup."
     printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
+    dump_failure_diagnostics "streaming plugin resolution failed"
     exit 1
   fi
   if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
     echo "ERROR: Packaged startup reported failed streaming plugins."
     printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
+    dump_failure_diagnostics "streaming plugins reported failed"
     exit 1
   fi
   if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
     echo "ERROR: Streaming helper package was treated as a real plugin."
     printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
+    dump_failure_diagnostics "streaming helper package treated as a plugin"
     exit 1
   fi
   if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runtime"; then
     echo "ERROR: AGENT_EVENT runtime service was not registered."
     printf '%s\n' "$LOG_SLICE" | grep -E "AGENT_EVENT service not found on runtime|Plugin resolution complete|Failed plugins:" | tail -n 20
+    dump_failure_diagnostics "AGENT_EVENT runtime service missing"
     exit 1
   fi
   echo "Streaming plugin resolution check PASSED."
@@ -341,6 +465,7 @@ else
       echo ""
       echo "Launcher stderr:"
       cat "$LAUNCHER_STDERR" 2>/dev/null || true
+      dump_failure_diagnostics "backend liveness check failed after startup"
       exit 1
     fi
   else
@@ -348,6 +473,7 @@ else
     echo ""
     echo "Launcher stderr:"
     cat "$LAUNCHER_STDERR" 2>/dev/null || true
+    dump_failure_diagnostics "packaged app process did not stay alive"
     exit 1
   fi
 fi
