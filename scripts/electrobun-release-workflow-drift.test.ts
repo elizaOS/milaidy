@@ -11,6 +11,10 @@ const WINDOWS_SMOKE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/smoke-test-windows.ps1",
 );
+const MACOS_STAGE_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("stages the built renderer before packaging", () => {
@@ -51,6 +55,23 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(' -name "*-update.json" \\');
     expect(workflow).toContain("files: release-files/*");
     expect(workflow).toContain("update-channel/");
+  });
+
+  it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
+    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+
+    expect(stageScript).toContain("notarization happens on the final");
+    expect(stageScript).toContain(
+      "Gatekeeper validation on the app itself would fail here.",
+    );
+    expect(stageScript).toContain(
+      'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).not.toContain(
+      'spctl -a -vv --type exec "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).toContain("xcrun notarytool submit \\");
+    expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
   });
 
   it("reads the Windows packaged startup log from %APPDATA%", () => {

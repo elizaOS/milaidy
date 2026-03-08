@@ -100,10 +100,13 @@ install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"
 
 echo "Staged app bundle: $STAGED_APP_PATH"
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
+  # Replacing the launcher invalidates the extracted app signature, so we need
+  # to re-sign the staged bundle before wrapping it into a DMG. This staged
+  # copy is only an intermediate artifact; notarization happens on the final
+  # DMG below, so Gatekeeper validation on the app itself would fail here.
   codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$LAUNCHER_PATH"
   codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"
   codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
-  spctl -a -vv --type exec "$STAGED_APP_PATH"
 else
   echo "Skipping staged app signature verification (unsigned/local build)."
 fi
