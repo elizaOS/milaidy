@@ -51,3 +51,9 @@ declare module "@elizaos/plugin-together" {
   export default plugin;
   export { plugin };
 }
+
+declare module "@elizaos/plugin-experience" {
+  const plugin: import("@elizaos/core").Plugin;
+  export default plugin;
+  export { plugin };
+}

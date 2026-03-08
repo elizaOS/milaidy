@@ -17,6 +17,34 @@ describe("isSafeResetStateDir", () => {
     ).toBe(true);
   });
 
+  it("accepts workspace-local .milady-state under home", () => {
+    expect(
+      isSafeResetStateDir(
+        "/Users/alice/dev/milaidy-main/.milady-state",
+        "/Users/alice",
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts nested paths under workspace-local .milady-state", () => {
+    expect(
+      isSafeResetStateDir(
+        "/Users/alice/dev/milaidy-main/.milady-state/workspace",
+        "/Users/alice",
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts workspace-local .milady-state outside home when under cwd", () => {
+    expect(
+      isSafeResetStateDir(
+        "/Volumes/dev/milaidy-main/.milady-state",
+        "/Users/alice",
+        "/Volumes/dev/milaidy-main",
+      ),
+    ).toBe(true);
+  });
+
   it("rejects root path", () => {
     expect(isSafeResetStateDir("/", "/Users/alice")).toBe(false);
   });

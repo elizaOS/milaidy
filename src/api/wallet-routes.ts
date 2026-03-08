@@ -1,5 +1,6 @@
 import type http from "node:http";
 import { logger } from "@elizaos/core";
+import { isAddress as isEvmAddress } from "ethers";
 import type { MiladyConfig } from "../config/config";
 import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
@@ -14,7 +15,6 @@ import {
   validatePrivateKey,
   type WalletBalancesResponse,
   type WalletChain,
-  type WalletConfigStatus,
   type WalletNftsResponse,
 } from "./wallet";
 
@@ -26,6 +26,151 @@ interface WalletExportRequestBody {
 interface WalletExportRejectionLike {
   status: 401 | 403;
   reason: string;
+}
+
+const SOLANA_ADDRESS_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const DEFAULT_SOLANA_PUBLIC_RPC_TIMEOUT_MS = 5_000;
+
+function isValidSolanaAddress(value: string): boolean {
+  return SOLANA_ADDRESS_BASE58_RE.test(value);
+}
+
+function validatedConfiguredAddressFromEnv(
+  key: "EVM_ADDRESS" | "SOLANA_ADDRESS",
+): string | null {
+  const value = process.env[key];
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (key === "EVM_ADDRESS") {
+    if (!isEvmAddress(trimmed)) {
+      logger.warn(`[wallet] Ignoring invalid EVM_ADDRESS from env`);
+      return null;
+    }
+    return trimmed;
+  }
+  if (!isValidSolanaAddress(trimmed)) {
+    logger.warn(`[wallet] Ignoring invalid SOLANA_ADDRESS from env`);
+    return null;
+  }
+  return trimmed;
+}
+
+function configuredAddressFromEnv(
+  key: "EVM_ADDRESS" | "SOLANA_ADDRESS",
+): string | null {
+  return validatedConfiguredAddressFromEnv(key);
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
+function resolveValidatedSolanaPublicRpcUrl(rawUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("SOLANA_RPC_URL is not a valid URL");
+  }
+
+  const isHttps = parsed.protocol === "https:";
+  const isLoopbackHttp =
+    parsed.protocol === "http:" && isLoopbackHostname(parsed.hostname);
+  if (!isHttps && !isLoopbackHttp) {
+    throw new Error(
+      "SOLANA_RPC_URL must use https:// or point to a loopback http:// endpoint",
+    );
+  }
+
+  return parsed.toString();
+}
+
+function isEvmDisabled(): boolean {
+  return (
+    process.env.WALLET_DISABLE_EVM === "1" ||
+    process.env.MILADY_WALLET_DISABLE_EVM === "1"
+  );
+}
+
+function resolveEffectiveAddresses(
+  derived: { evmAddress: string | null; solanaAddress: string | null },
+  opts?: { evmDisabled?: boolean },
+): { evmAddress: string | null; solanaAddress: string | null } {
+  const evmDisabled = opts?.evmDisabled ?? false;
+  const configuredEvm = configuredAddressFromEnv("EVM_ADDRESS");
+  const configuredSolana = configuredAddressFromEnv("SOLANA_ADDRESS");
+  return {
+    // Prefer explicitly configured addresses (wallet-connect/read-only mode)
+    // before derived signing addresses.
+    evmAddress: evmDisabled ? null : (configuredEvm ?? derived.evmAddress),
+    solanaAddress: configuredSolana ?? derived.solanaAddress,
+  };
+}
+
+async function fetchSolanaBalancePublic(address: string): Promise<{
+  solBalance: string;
+  solValueUsd: string;
+  tokens: Array<{
+    symbol: string;
+    name: string;
+    mint: string;
+    balance: string;
+    decimals: number;
+    valueUsd: string;
+    logoUrl: string;
+  }>;
+}> {
+  const rpcUrl = process.env.SOLANA_RPC_URL?.trim();
+  if (!rpcUrl) {
+    throw new Error("SOLANA_RPC_URL is not configured");
+  }
+  const validatedRpcUrl = resolveValidatedSolanaPublicRpcUrl(rpcUrl);
+  const timeoutController = new AbortController();
+  const timeoutMs = Number(
+    process.env.SOLANA_PUBLIC_RPC_TIMEOUT_MS ??
+      DEFAULT_SOLANA_PUBLIC_RPC_TIMEOUT_MS,
+  );
+  const timeoutId = setTimeout(
+    () => {
+      timeoutController.abort();
+    },
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5_000,
+  );
+  try {
+    const res = await fetch(validatedRpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: timeoutController.signal,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getBalance",
+        params: [address],
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = (await res.json()) as {
+      result?: { value?: number };
+      error?: { message?: string };
+    };
+    if (payload.error?.message) throw new Error(payload.error.message);
+    const lamports = Number(payload.result?.value ?? 0);
+    const sol = Number.isFinite(lamports) ? lamports / 1_000_000_000 : 0;
+    return {
+      solBalance: sol.toFixed(9),
+      solValueUsd: "0",
+      tokens: [],
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export interface WalletRouteDependencies {
@@ -84,19 +229,29 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/addresses
   if (method === "GET" && pathname === "/api/wallet/addresses") {
-    json(res, deps.getWalletAddresses());
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled: isEvmDisabled(),
+    });
+    const evmDisabled = isEvmDisabled();
+    json(res, {
+      evmAddress: evmDisabled ? null : addresses.evmAddress,
+      solanaAddress: addresses.solanaAddress,
+    });
     return true;
   }
 
   // GET /api/wallet/balances
   if (method === "GET" && pathname === "/api/wallet/balances") {
-    const addresses = deps.getWalletAddresses();
+    const evmDisabled = isEvmDisabled();
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
-    if (addresses.evmAddress && alchemyKey) {
+    if (!evmDisabled && addresses.evmAddress && alchemyKey) {
       const evmBalancesSpan = createIntegrationTelemetrySpan({
         boundary: "wallet",
         operation: "fetch_evm_balances",
@@ -138,13 +293,16 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/nfts
   if (method === "GET" && pathname === "/api/wallet/nfts") {
-    const addresses = deps.getWalletAddresses();
+    const evmDisabled = isEvmDisabled();
+    const addresses = resolveEffectiveAddresses(deps.getWalletAddresses(), {
+      evmDisabled,
+    });
     const alchemyKey = process.env.ALCHEMY_API_KEY;
     const heliusKey = process.env.HELIUS_API_KEY;
 
     const result: WalletNftsResponse = { evm: [], solana: null };
 
-    if (addresses.evmAddress && alchemyKey) {
+    if (!evmDisabled && addresses.evmAddress && alchemyKey) {
       const evmNftsSpan = createIntegrationTelemetrySpan({
         boundary: "wallet",
         operation: "fetch_evm_nfts",
@@ -288,16 +446,43 @@ export async function handleWalletRoutes(
 
   // GET /api/wallet/config
   if (method === "GET" && pathname === "/api/wallet/config") {
-    const addresses = deps.getWalletAddresses();
-    const configStatus: WalletConfigStatus = {
+    const evmDisabled = isEvmDisabled();
+    const evmConfiguredAddress = configuredAddressFromEnv("EVM_ADDRESS");
+    const solanaConfiguredAddress = configuredAddressFromEnv("SOLANA_ADDRESS");
+    const effectiveAddresses = resolveEffectiveAddresses(
+      deps.getWalletAddresses(),
+      {
+        evmDisabled,
+      },
+    );
+    const effectiveEvmAddress = effectiveAddresses.evmAddress;
+    const effectiveSolanaAddress = effectiveAddresses.solanaAddress;
+    const walletConnectionLocked =
+      process.env.MILADY_WALLET_CONNECTION_LOCKED === "1";
+
+    const configStatus = {
       alchemyKeySet: Boolean(process.env.ALCHEMY_API_KEY),
       infuraKeySet: Boolean(process.env.INFURA_API_KEY),
       ankrKeySet: Boolean(process.env.ANKR_API_KEY),
       heliusKeySet: Boolean(process.env.HELIUS_API_KEY),
       birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY),
+      evmPublicSource: true,
+      solanaPublicSource: true,
+      pricePublicSource: true,
+      walletExportEnabled: Boolean(
+        process.env.MILADY_ALLOW_WALLET_EXPORT === "1" ||
+          process.env.MILADY_WALLET_EXPORT_TOKEN?.trim(),
+      ),
+      solanaWalletConnected: Boolean(effectiveSolanaAddress),
+      walletConnectionLocked,
+      evmDisabled,
+      evmConfiguredAddress,
+      solanaConfiguredAddress,
+      evmSigningEnabled: Boolean(process.env.EVM_PRIVATE_KEY?.trim()),
+      solanaSigningEnabled: Boolean(process.env.SOLANA_PRIVATE_KEY?.trim()),
       evmChains: ["Ethereum", "Base", "Arbitrum", "Optimism", "Polygon"],
-      evmAddress: addresses.evmAddress,
-      solanaAddress: addresses.solanaAddress,
+      evmAddress: effectiveEvmAddress,
+      solanaAddress: effectiveSolanaAddress,
     };
     json(res, configStatus);
     return true;
@@ -314,15 +499,25 @@ export async function handleWalletRoutes(
       "ANKR_API_KEY",
       "HELIUS_API_KEY",
       "BIRDEYE_API_KEY",
+      "EVM_ADDRESS",
+      "SOLANA_ADDRESS",
+      "WALLET_DISABLE_EVM",
     ];
 
     if (!config.env) config.env = {};
 
     for (const key of allowedKeys) {
+      if (!Object.hasOwn(body, key)) continue;
       const value = body[key];
-      if (typeof value === "string" && value.trim()) {
-        process.env[key] = value.trim();
-        (config.env as Record<string, string>)[key] = value.trim();
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed) {
+          process.env[key] = trimmed;
+          (config.env as Record<string, string>)[key] = trimmed;
+        } else {
+          delete process.env[key];
+          (config.env as Record<string, string>)[key] = "";
+        }
       }
     }
 
@@ -333,7 +528,20 @@ export async function handleWalletRoutes(
       (config.env as Record<string, string>).SOLANA_RPC_URL = rpcUrl;
     }
 
-    ensureWalletKeysInEnvAndConfig(config);
+    if (body.WALLET_DISCONNECT === "1") {
+      delete process.env.EVM_PRIVATE_KEY;
+      delete process.env.SOLANA_PRIVATE_KEY;
+      (config.env as Record<string, string>).EVM_PRIVATE_KEY = "";
+      (config.env as Record<string, string>).SOLANA_PRIVATE_KEY = "";
+      // WALLET_DISCONNECT is an ephemeral runtime toggle; persisting it causes
+      // repeated restart reasons and startup loops across subsequent boots.
+      process.env.WALLET_DISCONNECT = "1";
+      delete (config.env as Record<string, string>).WALLET_DISCONNECT;
+    } else {
+      delete process.env.WALLET_DISCONNECT;
+      delete (config.env as Record<string, string>).WALLET_DISCONNECT;
+      ensureWalletKeysInEnvAndConfig(config);
+    }
 
     try {
       saveConfig(config);
@@ -345,6 +553,125 @@ export async function handleWalletRoutes(
 
     json(res, { ok: true });
     ctx.scheduleRuntimeRestart?.("Wallet configuration updated");
+    return true;
+  }
+
+  // POST /api/wallet/disconnect (and v2 alias)
+  if (
+    method === "POST" &&
+    (pathname === "/api/wallet/disconnect" ||
+      pathname === "/api/v2/wallet/disconnect")
+  ) {
+    if (!config.env) config.env = {};
+
+    delete process.env.EVM_PRIVATE_KEY;
+    delete process.env.SOLANA_PRIVATE_KEY;
+    delete process.env.EVM_ADDRESS;
+    delete process.env.SOLANA_ADDRESS;
+    process.env.WALLET_DISCONNECT = "1";
+
+    const env = config.env as Record<string, string>;
+    env.EVM_PRIVATE_KEY = "";
+    env.SOLANA_PRIVATE_KEY = "";
+    env.EVM_ADDRESS = "";
+    env.SOLANA_ADDRESS = "";
+    // Keep WALLET_DISCONNECT process-local only to avoid boot loops.
+    delete env.WALLET_DISCONNECT;
+
+    try {
+      saveConfig(config);
+    } catch (err) {
+      logger.warn(
+        `[api] Config save failed: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+
+    json(res, { ok: true });
+    ctx.scheduleRuntimeRestart?.("Wallet disconnected");
+    return true;
+  }
+
+  // GET /api/wallet/connected-data
+  if (method === "GET" && pathname === "/api/wallet/connected-data") {
+    const evmDisabled = isEvmDisabled();
+    const effectiveAddresses = resolveEffectiveAddresses(
+      deps.getWalletAddresses(),
+      {
+        evmDisabled,
+      },
+    );
+
+    const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const heliusKey = process.env.HELIUS_API_KEY;
+
+    const balances: WalletBalancesResponse = { evm: null, solana: null };
+    const nfts: WalletNftsResponse = { evm: [], solana: null };
+
+    if (!evmDisabled && effectiveAddresses.evmAddress && alchemyKey) {
+      try {
+        const chains = await deps.fetchEvmBalances(
+          effectiveAddresses.evmAddress,
+          alchemyKey,
+        );
+        balances.evm = { address: effectiveAddresses.evmAddress, chains };
+        nfts.evm = await deps.fetchEvmNfts(
+          effectiveAddresses.evmAddress,
+          alchemyKey,
+        );
+      } catch (err) {
+        logger.warn(`[wallet] connected-data EVM fetch failed: ${err}`);
+      }
+    }
+
+    if (effectiveAddresses.solanaAddress && heliusKey) {
+      try {
+        const solanaData = await deps.fetchSolanaBalances(
+          effectiveAddresses.solanaAddress,
+          heliusKey,
+        );
+        balances.solana = {
+          address: effectiveAddresses.solanaAddress,
+          ...solanaData,
+        };
+        const solanaNfts = await deps.fetchSolanaNfts(
+          effectiveAddresses.solanaAddress,
+          heliusKey,
+        );
+        nfts.solana = { nfts: solanaNfts };
+      } catch (err) {
+        logger.warn(`[wallet] connected-data Solana fetch failed: ${err}`);
+      }
+    } else if (effectiveAddresses.solanaAddress) {
+      try {
+        const solanaData = await fetchSolanaBalancePublic(
+          effectiveAddresses.solanaAddress,
+        );
+        balances.solana = {
+          address: effectiveAddresses.solanaAddress,
+          ...solanaData,
+        };
+      } catch (err) {
+        logger.warn(
+          `[wallet] connected-data Solana RPC fallback unavailable: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    json(res, {
+      account: { mode: "server", username: null },
+      addresses: effectiveAddresses,
+      balances,
+      nfts,
+      polymarket: {
+        wallet: effectiveAddresses.evmAddress ?? null,
+        connected: false,
+        availableBalanceUsd: null,
+        openExposureUsd: null,
+        unsettledPnlUsd: null,
+        openPositionsCount: 0,
+        positions: [],
+      },
+    });
     return true;
   }
 

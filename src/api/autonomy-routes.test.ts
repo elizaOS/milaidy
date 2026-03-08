@@ -1,7 +1,8 @@
-import type { AgentRuntime } from "@elizaos/core";
-import { describe, expect, test, vi } from "vitest";
+import { type AgentRuntime, AutonomyService } from "@elizaos/core";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
+  ensureAutonomySvc,
   getAutonomyState,
   getAutonomySvc,
   handleAutonomyRoutes,
@@ -19,6 +20,10 @@ function createRuntimeWithAutonomyService(service: {
     getService: vi.fn((name: string) => (name === "AUTONOMY" ? service : null)),
   } as unknown as AgentRuntime;
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("autonomy routes", () => {
   const invoke = createRouteInvoker<
@@ -126,6 +131,21 @@ describe("autonomy state helpers", () => {
     expect(getAutonomySvc(null)).toBeNull();
   });
 
+  test("resolves lowercase autonomy service names", () => {
+    const service = {
+      enableAutonomy: vi.fn(async () => undefined),
+      disableAutonomy: vi.fn(async () => undefined),
+      isLoopRunning: vi.fn(() => false),
+    };
+    const runtime = {
+      getService: vi.fn((name: string) =>
+        name === "autonomy" ? service : null,
+      ),
+    } as unknown as AgentRuntime;
+
+    expect(getAutonomySvc(runtime)).toBe(service);
+  });
+
   test("getAutonomyState falls back to runtime flag when no explicit status", () => {
     const service = {
       enableAutonomy: vi.fn(async () => undefined),
@@ -143,5 +163,32 @@ describe("autonomy state helpers", () => {
       enabled: true,
       thinking: false,
     });
+  });
+
+  test("ensureAutonomySvc falls back to runtime registration", async () => {
+    const service = {
+      enableAutonomy: vi.fn(async () => undefined),
+      disableAutonomy: vi.fn(async () => undefined),
+      isLoopRunning: vi.fn(() => false),
+    };
+    let registered = false;
+    const runtime = {
+      getService: vi.fn((name: string) => {
+        if (!registered) return null;
+        return name === "AUTONOMY" || name === "autonomy" ? service : null;
+      }),
+      hasService: vi.fn(() => false),
+      getServiceLoadPromise: vi.fn(async () => undefined),
+      registerService: vi.fn(async () => {
+        registered = true;
+      }),
+    } as unknown as AgentRuntime;
+
+    vi.spyOn(AutonomyService, "start").mockRejectedValue(
+      new Error("start unavailable"),
+    );
+
+    await expect(ensureAutonomySvc(runtime)).resolves.toBe(service);
+    expect(runtime.registerService).toHaveBeenCalledWith(AutonomyService);
   });
 });

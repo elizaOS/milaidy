@@ -35,6 +35,7 @@ import {
   ChannelType,
   type Character,
   createMessageMemory,
+  type IDatabaseAdapter,
   type LogEntry,
   logger,
   // loggerScope, // removed
@@ -76,7 +77,6 @@ import * as pluginShell from "@elizaos/plugin-shell";
 // statically to enable TypeScript type checking. Plugins without types or not
 // installed will fall back to dynamic import at runtime.
 import * as pluginSql from "@elizaos/plugin-sql";
-import * as pluginTelegram from "@elizaos/plugin-telegram";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
@@ -155,7 +155,6 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-twitch": pluginTwitch,
   "@elizaos/plugin-computeruse": pluginComputeruse,
   "@elizaos/plugin-cli": pluginCli,
-  "@elizaos/plugin-telegram": pluginTelegram,
   "@elizaos/plugin-elevenlabs": pluginElevenlabs,
   "@elizaos/plugin-edge-tts": pluginEdgeTts,
   "@elizaos/plugin-todo": pluginTodo,
@@ -765,6 +764,18 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
         : pluginPackageName;
     }),
   );
+  const providerPluginIdToPackageName = new Map<string, string>();
+  for (const pluginPackageName of Object.values(PROVIDER_PLUGIN_MAP)) {
+    const marker = "/plugin-";
+    const markerIndex = pluginPackageName.lastIndexOf(marker);
+    const pluginId =
+      markerIndex >= 0
+        ? pluginPackageName.slice(markerIndex + marker.length)
+        : pluginPackageName;
+    if (!providerPluginIdToPackageName.has(pluginId)) {
+      providerPluginIdToPackageName.set(pluginId, pluginPackageName);
+    }
+  }
   const explicitProviderEntries = Object.entries(pluginEntries ?? {}).filter(
     ([pluginId]) => providerPluginIdSet.has(pluginId),
   );
@@ -831,6 +842,23 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   const shouldEnablePiAi =
     piAiEnabled && pluginEntries?.["pi-ai"]?.enabled !== false;
+  const shouldEnforceExplicitProviderSelection =
+    hasExplicitEnabledProvider && !cloudEffectivelyEnabled && !shouldEnablePiAi;
+  const explicitEnabledProviderPackages = new Set(
+    explicitProviderEntries
+      .filter(([, entry]) => entry?.enabled === true)
+      .map(([pluginId]) => providerPluginIdToPackageName.get(pluginId))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  const applyExplicitProviderSelection = (): void => {
+    if (!shouldEnforceExplicitProviderSelection) return;
+    for (const providerPackageName of Object.values(PROVIDER_PLUGIN_MAP)) {
+      if (!explicitEnabledProviderPackages.has(providerPackageName)) {
+        pluginsToLoad.delete(providerPackageName);
+      }
+    }
+  };
 
   const applyProviderPrecedence = (): void => {
     // Provider precedence:
@@ -873,6 +901,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
 
   // Apply once before additive plugin-entry/feature paths.
   applyProviderPrecedence();
+  applyExplicitProviderSelection();
 
   // Optional feature plugins from config.plugins.entries
   const pluginsConfig = config.plugins as
@@ -934,6 +963,7 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   // Re-apply provider precedence so later additive paths (entries, features,
   // installs) cannot accidentally re-introduce suppressed providers.
   applyProviderPrecedence();
+  applyExplicitProviderSelection();
 
   // Enforce feature gating last so allow-list entries cannot bypass it.
   if (shellPluginDisabled) {
@@ -1822,17 +1852,86 @@ export function applyX402ConfigToEnv(config: MiladyConfig): void {
 }
 
 function resolveDefaultPgliteDataDir(config: MiladyConfig): string {
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
-  return path.join(resolveUserPath(workspaceDir), ".eliza", ".elizadb");
+  return path.join(
+    resolveEffectiveAgentWorkspaceDir(config),
+    ".eliza",
+    ".elizadb",
+  );
+}
+
+function resolveEffectiveAgentWorkspaceDir(config: MiladyConfig): string {
+  const configuredWorkspace = config.agents?.defaults?.workspace?.trim();
+  if (!configuredWorkspace) {
+    return resolveDefaultAgentWorkspaceDir();
+  }
+
+  const resolvedConfiguredWorkspace = resolveUserPath(configuredWorkspace);
+  const stateOverride = process.env.MILADY_STATE_DIR?.trim();
+  if (!stateOverride) {
+    return resolvedConfiguredWorkspace;
+  }
+
+  // Back-compat: when config persisted the legacy default workspace under
+  // ~/.milady, map it to the active MILADY_STATE_DIR workspace root.
+  const legacyStateDir = path.join(os.homedir(), ".milady");
+  const legacyWorkspace = path.join(legacyStateDir, "workspace");
+  const parentDir = path.dirname(resolvedConfiguredWorkspace);
+  const baseName = path.basename(resolvedConfiguredWorkspace);
+  const isLegacyDefault =
+    resolvedConfiguredWorkspace === legacyWorkspace ||
+    (parentDir === legacyStateDir && baseName.startsWith("workspace-"));
+
+  if (isLegacyDefault) {
+    return path.join(resolveStateDir(), baseName);
+  }
+
+  return resolvedConfiguredWorkspace;
+}
+
+function resolveEffectivePgliteDataDir(
+  config: MiladyConfig,
+  configuredDataDir: string,
+): string {
+  const resolvedConfiguredDataDir = resolveUserPath(configuredDataDir);
+  const stateOverride = process.env.MILADY_STATE_DIR?.trim();
+  if (!stateOverride) {
+    return resolvedConfiguredDataDir;
+  }
+
+  // Back-compat: if config persisted the legacy default PGLite path under
+  // ~/.milady/workspace/.eliza/.elizadb, map it to the active state dir.
+  const legacyDefaultPgliteDataDir = path.join(
+    os.homedir(),
+    ".milady",
+    "workspace",
+    ".eliza",
+    ".elizadb",
+  );
+  if (resolvedConfiguredDataDir === legacyDefaultPgliteDataDir) {
+    return resolveDefaultPgliteDataDir(config);
+  }
+
+  return resolvedConfiguredDataDir;
 }
 
 /** @internal Exported for testing. */
 export function applyDatabaseConfigToEnv(config: MiladyConfig): void {
   const db = config.database;
   const provider = db?.provider ?? "pglite";
+  const requirePostgres = process.env.MILADY_REQUIRE_POSTGRES === "1";
 
-  if (provider === "postgres" && db?.postgres) {
+  if (requirePostgres && provider !== "postgres") {
+    throw new Error(
+      'MILADY_REQUIRE_POSTGRES=1 requires config.database.provider="postgres"',
+    );
+  }
+
+  if (provider === "postgres") {
+    if (!db?.postgres) {
+      throw new Error(
+        'database.provider is "postgres" but database.postgres is missing',
+      );
+    }
     const pg = db.postgres;
     let url = pg.connectionString;
     if (!url) {
@@ -1845,23 +1944,37 @@ export function applyDatabaseConfigToEnv(config: MiladyConfig): void {
       const sslParam = pg.ssl ? "?sslmode=require" : "";
       url = `postgresql://${auth}@${host}:${port}/${database}${sslParam}`;
     }
+    // Keep both env names aligned because plugin-sql may read either key.
     process.env.POSTGRES_URL = url;
+    process.env.DATABASE_URL = url;
     // Clear PGLite dir so plugin-sql does not fall back to PGLite
     delete process.env.PGLITE_DATA_DIR;
   } else {
     // PGLite mode (default): ensure no leftover POSTGRES_URL and pin
     // PGLite to the workspace path unless overridden by config/env.
     delete process.env.POSTGRES_URL;
+    delete process.env.DATABASE_URL;
 
     const configuredDataDir = db?.pglite?.dataDir?.trim();
     if (configuredDataDir) {
-      process.env.PGLITE_DATA_DIR = resolveUserPath(configuredDataDir);
+      process.env.PGLITE_DATA_DIR = resolveEffectivePgliteDataDir(
+        config,
+        configuredDataDir,
+      );
       // Fall through to directory creation below instead of returning early
     }
 
-    const envDataDir = process.env.PGLITE_DATA_DIR?.trim();
-    if (!envDataDir) {
+    const stateOverride = process.env.MILADY_STATE_DIR?.trim();
+    if (!configuredDataDir && stateOverride) {
+      // When using a custom state dir, force PGLite to live under that state
+      // root so resets/restarts are deterministic and don't pick up stale
+      // global PGLite dirs from the parent shell environment.
       process.env.PGLITE_DATA_DIR = resolveDefaultPgliteDataDir(config);
+    } else {
+      const envDataDir = process.env.PGLITE_DATA_DIR?.trim();
+      if (!envDataDir) {
+        process.env.PGLITE_DATA_DIR = resolveDefaultPgliteDataDir(config);
+      }
     }
 
     // Ensure the PGlite data directory exists before init so PGlite does
@@ -1914,10 +2027,33 @@ function collectErrorMessages(err: unknown): string[] {
   return messages;
 }
 
+function extractSqlErrorCode(err: unknown): string | null {
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const maybeCode = (current as { code?: unknown }).code;
+    if (typeof maybeCode === "string" && maybeCode.length > 0) {
+      return maybeCode.toUpperCase();
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+
+  return null;
+}
+
 /** @internal Exported for testing. */
 export function isRecoverablePgliteInitError(err: unknown): boolean {
   const haystack = collectErrorMessages(err).join("\n").toLowerCase();
   if (!haystack) return false;
+  const sqlCode = extractSqlErrorCode(err);
+  if (sqlCode) {
+    // invalid_schema_name / undefined_table
+    if (sqlCode === "3F000" || sqlCode === "42P01") return true;
+    // undefined_column / datatype_mismatch
+    if (sqlCode === "42703" || sqlCode === "42804") return true;
+  }
 
   const hasAbort = haystack.includes("aborted(). build with -sassertions");
   const hasPglite = haystack.includes("pglite");
@@ -1925,6 +2061,32 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   const hasMigrationsSchema =
     haystack.includes("create schema if not exists migrations") ||
     haystack.includes("failed query: create schema if not exists migrations");
+  const hasMigrationsMetadataLookupFailure =
+    haystack.includes("from migrations._migrations") ||
+    haystack.includes('relation "migrations._migrations" does not exist') ||
+    haystack.includes("no such table: migrations._migrations");
+  const hasMigrationFailureSummary =
+    haystack.includes("migration(s) failed") ||
+    haystack.includes("some migrations failed");
+  const hasAgentsBootstrapLookupFailure =
+    (haystack.includes("failed query: select") &&
+      haystack.includes('from "agents"') &&
+      haystack.includes('"agents"."id" = $1')) ||
+    haystack.includes('relation "agents" does not exist') ||
+    haystack.includes("no such table: agents");
+  const hasAgentWriteFailure =
+    haystack.includes('update "agents" set') ||
+    haystack.includes("failed to update agent") ||
+    haystack.includes('column "username" of relation "agents" does not exist');
+  const hasMemoryReadFailure =
+    haystack.includes('from "memories" inner join "embeddings"') ||
+    haystack.includes('relation "memories" does not exist') ||
+    haystack.includes('relation "embeddings" does not exist') ||
+    haystack.includes("no such table: memories") ||
+    haystack.includes("no such table: embeddings");
+  const hasExitStatusCrash =
+    haystack.includes("program terminated with exit(1)") ||
+    haystack.includes("exitstatus");
   const hasRecoverableStorageSignal = [
     "database disk image is malformed",
     "file is not a database",
@@ -1938,6 +2100,16 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   ].some((needle) => haystack.includes(needle));
 
   if (hasMigrationsSchema) return true;
+  // Newer plugin-sql builds may fail while reading migration metadata
+  // (migrations._migrations) before CREATE SCHEMA appears in the error chain.
+  if (hasMigrationsMetadataLookupFailure) return true;
+  // Some plugin-sql failures collapse to a generic migration summary where
+  // each plugin error is "Program terminated with exit(1)" from PGlite.
+  if (hasMigrationFailureSummary && hasExitStatusCrash) return true;
+  // Some corrupted/partial bootstraps fail at the first agents lookup query.
+  if (hasAgentsBootstrapLookupFailure) return true;
+  if (hasAgentWriteFailure) return true;
+  if (hasMemoryReadFailure) return true;
   if (hasAbort && hasPglite) return true;
   if (hasRecoverableStorageSignal && (hasPglite || hasSqlite)) return true;
   return false;
@@ -2161,7 +2333,16 @@ async function registerSqlPluginWithRecovery(
   runtime: AgentRuntime,
   sqlPlugin: ResolvedPlugin,
   config: MiladyConfig,
-): Promise<void> {
+  options?: {
+    /**
+     * When true, tolerate recoverable SQL plugin registration/init failures
+     * so runtime can continue in allowNoDatabase compatibility mode.
+     */
+    allowMigrationCompatibilityFallback?: boolean;
+  },
+): Promise<boolean> {
+  const allowCompatFallback =
+    options?.allowMigrationCompatibilityFallback === true;
   let registerError: unknown = null;
 
   try {
@@ -2186,12 +2367,30 @@ async function registerSqlPluginWithRecovery(
       await runtime.registerPlugin(sqlPlugin.plugin);
     } catch (retryErr) {
       if (!isPluginAlreadyRegisteredError(retryErr)) {
+        if (allowCompatFallback && isRecoverablePgliteInitError(retryErr)) {
+          logger.warn(
+            `[milady] SQL plugin registration still failing in compatibility mode (${formatError(retryErr)}). Continuing without SQL plugin.`,
+          );
+          return false;
+        }
         throw retryErr;
       }
     }
   }
 
-  await initializeDatabaseAdapter(runtime, config);
+  try {
+    await initializeDatabaseAdapter(runtime, config);
+  } catch (initErr) {
+    if (allowCompatFallback && isRecoverablePgliteInitError(initErr)) {
+      logger.warn(
+        `[milady] SQL adapter init still failing in compatibility mode (${formatError(initErr)}). Continuing with allowNoDatabase fallback.`,
+      );
+      return false;
+    }
+    throw initErr;
+  }
+
+  return true;
 }
 
 /**
@@ -2814,10 +3013,20 @@ export interface StartElizaOptions {
    */
   serverOnly?: boolean;
   /**
-   * Internal guard to prevent infinite retry loops when recovering from
-   * corrupt PGLite state.
+   * Internal guard retained for compatibility with older callers.
+   * Prefer {@link pgliteRecoveryAttempts} for bounded multi-attempt recovery.
    */
   pgliteRecoveryAttempted?: boolean;
+  /**
+   * Internal counter to prevent infinite retry loops while still allowing
+   * multiple bounded recovery attempts for chained PGLite bootstrap failures.
+   */
+  pgliteRecoveryAttempts?: number;
+  /**
+   * Internal compatibility fallback for flaky local migration metadata.
+   * When true, runtime startup skips plugin migrations once.
+   */
+  skipMigrationsForRecovery?: boolean;
 }
 
 export interface BootElizaRuntimeOptions {
@@ -3054,8 +3263,7 @@ export async function startEliza(
   const primaryModel = resolvePrimaryModel(config);
 
   // 4. Ensure workspace exists with bootstrap files
-  const workspaceDir =
-    config.agents?.defaults?.workspace ?? resolveDefaultAgentWorkspaceDir();
+  const workspaceDir = resolveEffectiveAgentWorkspaceDir(config);
   await ensureAgentWorkspace({ dir: workspaceDir, ensureBootstrapFiles: true });
 
   // 4b. Ensure custom plugins directory exists for drop-in plugins
@@ -3359,11 +3567,20 @@ export async function startEliza(
   //     This is OPTIONAL — without it, some features (memory, todos) won't work.
   //     runtime.db is a getter that returns this.adapter.db and throws when
   //     this.adapter is undefined, so plugins that use runtime.db will fail.
+  let sqlPluginReady = false;
   if (sqlPlugin) {
     // 7c. Eagerly initialize the database adapter so it's fully ready
     //     BEFORE other plugins run their init(). When legacy/corrupt PGLite
     //     state causes startup aborts, reset the local DB dir and retry once.
-    await registerSqlPluginWithRecovery(runtime, sqlPlugin, config);
+    sqlPluginReady = await registerSqlPluginWithRecovery(
+      runtime,
+      sqlPlugin,
+      config,
+      {
+        allowMigrationCompatibilityFallback:
+          opts?.skipMigrationsForRecovery === true,
+      },
+    );
   } else {
     const loadedNames = resolvedPlugins.map((p) => p.name).join(", ");
     logger.error(
@@ -3467,8 +3684,40 @@ export async function startEliza(
   };
 
   const initializeRuntimeServices = async (): Promise<void> => {
+    // In migration-compatibility recovery mode, force-disable plugin migration
+    // execution even if core runtime ignores skipMigrations on this build.
+    if (opts?.skipMigrationsForRecovery === true) {
+      const adapter = runtime.adapter as IDatabaseAdapter & {
+        __miladyMigrationCompatPatched?: boolean;
+      };
+      if (
+        adapter?.runPluginMigrations &&
+        !adapter.__miladyMigrationCompatPatched
+      ) {
+        const originalRunPluginMigrations =
+          adapter.runPluginMigrations.bind(adapter);
+        adapter.runPluginMigrations = async (...args) => {
+          try {
+            await originalRunPluginMigrations(...args);
+          } catch (migrationErr) {
+            if (!isRecoverablePgliteInitError(migrationErr)) {
+              throw migrationErr;
+            }
+            logger.warn(
+              `[milady] Suppressing recoverable plugin migration failure in compatibility mode (${formatError(migrationErr)})`,
+            );
+          }
+        };
+        adapter.__miladyMigrationCompatPatched = true;
+      }
+    }
+
     // 8. Initialize the runtime (registers remaining plugins, starts services)
-    await runtime.initialize();
+    await runtime.initialize({
+      skipMigrations: opts?.skipMigrationsForRecovery === true,
+      allowNoDatabase:
+        opts?.skipMigrationsForRecovery === true || !sqlPluginReady,
+    });
     await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
     ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
     installDatabaseTrajectoryLogger(runtime);
@@ -3494,32 +3743,59 @@ export async function startEliza(
   try {
     await initializeRuntimeServices();
   } catch (err) {
+    const isRecoverable = isRecoverablePgliteInitError(err);
+    const canRetryWithSkipMigrations =
+      isRecoverable && !opts?.skipMigrationsForRecovery;
+    const pgliteRecoveryAttempts =
+      opts?.pgliteRecoveryAttempts ?? (opts?.pgliteRecoveryAttempted ? 1 : 0);
+    const MAX_PGLITE_RECOVERY_ATTEMPTS = 2;
     const pgliteDataDir = resolveActivePgliteDataDir(config);
     const canRecover =
-      !opts?.pgliteRecoveryAttempted &&
+      pgliteRecoveryAttempts < MAX_PGLITE_RECOVERY_ATTEMPTS &&
       pgliteDataDir &&
-      isRecoverablePgliteInitError(err);
+      isRecoverable;
 
-    if (!canRecover || !pgliteDataDir) {
-      throw err;
+    if (canRecover && pgliteDataDir) {
+      logger.warn(
+        `[milady] Runtime startup DB initialization failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup (${pgliteRecoveryAttempts + 1}/${MAX_PGLITE_RECOVERY_ATTEMPTS}).`,
+      );
+      await resetPgliteDataDir(pgliteDataDir);
+      process.env.PGLITE_DATA_DIR = pgliteDataDir;
+
+      try {
+        await runtime.stop();
+      } catch {
+        // Ignore cleanup errors — retry creates a fresh runtime anyway.
+      }
+
+      return await startEliza({
+        ...opts,
+        // After wiping DB, retry with full migrations on the clean store.
+        skipMigrationsForRecovery: false,
+        pgliteRecoveryAttempted: true,
+        pgliteRecoveryAttempts: pgliteRecoveryAttempts + 1,
+      });
     }
 
-    logger.warn(
-      `[milady] Runtime migrations failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup once.`,
-    );
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
-
-    try {
-      await runtime.stop();
-    } catch {
-      // Ignore cleanup errors — retry creates a fresh runtime anyway.
+    // Last-resort fallback: retry startup once in compatibility mode by
+    // skipping plugin migrations. Use this only when clean DB recovery
+    // is unavailable.
+    if (canRetryWithSkipMigrations) {
+      logger.warn(
+        `[milady] Runtime migrations failed (${formatError(err)}). Retrying once with skipMigrations compatibility mode.`,
+      );
+      try {
+        await runtime.stop();
+      } catch {
+        // Best-effort cleanup before compatibility retry.
+      }
+      return await startEliza({
+        ...opts,
+        skipMigrationsForRecovery: true,
+      });
     }
 
-    return await startEliza({
-      ...opts,
-      pgliteRecoveryAttempted: true,
-    });
+    throw err;
   }
 
   installActionAliases(runtime);
@@ -3658,8 +3934,7 @@ export async function startEliza(
 
           // Recreate Milady plugin with fresh workspace
           const freshMiladyPlugin = createMiladyPlugin({
-            workspaceDir:
-              freshConfig.agents?.defaults?.workspace ?? workspaceDir,
+            workspaceDir: resolveEffectiveAgentWorkspaceDir(freshConfig),
             bootstrapMaxChars: freshConfig.agents?.defaults?.bootstrapMaxChars,
 
             agentId:

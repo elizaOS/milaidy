@@ -72,6 +72,12 @@ function shortError(err: unknown, maxLen = 280): string {
   return `${oneLine.slice(0, maxLen)}…`;
 }
 
+const RUNTIME_START_TIMEOUT_MS = (() => {
+  const parsed = Number(process.env.MILADY_RUNTIME_CREATE_TIMEOUT_MS);
+  if (!Number.isFinite(parsed)) return 45_000;
+  return Math.max(10_000, Math.min(5 * 60_000, Math.floor(parsed)));
+})();
+
 /**
  * Dynamic import that survives TypeScript's CommonJS transformation.
  * tsc converts `import()` to `require()` when targeting CommonJS, but the
@@ -332,6 +338,23 @@ export class AgentManager {
       // status updates and restores conversation state after a hot restart.
       // Keep it around so our onRestart hook can call it.
       let apiUpdateRuntime: ((rt: unknown) => void) | null = null;
+      let apiUpdateStartup:
+        | ((update: {
+            phase?: string;
+            attempt?: number;
+            lastError?: string;
+            lastErrorAt?: number;
+            nextRetryAt?: number;
+            state?:
+              | "not_started"
+              | "starting"
+              | "running"
+              | "paused"
+              | "stopped"
+              | "restarting"
+              | "error";
+          }) => void)
+        | null = null;
 
       if (serverModule?.startApiServer) {
         diagnosticLog(`[Agent] Starting API server on port ${apiPort}...`);
@@ -339,6 +362,7 @@ export class AgentManager {
           port: resolvedPort,
           close,
           updateRuntime,
+          updateStartup,
         } = await serverModule.startApiServer({
           port: apiPort,
           initialAgentState: "starting",
@@ -349,6 +373,11 @@ export class AgentManager {
             console.log(
               "[Agent] HTTP restart requested — restarting embedded runtime…",
             );
+            apiUpdateStartup?.({
+              phase: "runtime-restart",
+              attempt: 0,
+              state: "starting",
+            });
 
             // 1) Stop old runtime (do NOT stop the API server)
             const prevRuntime = this.runtime;
@@ -371,15 +400,38 @@ export class AgentManager {
               console.error(
                 "[Agent] HTTP restart failed: runtime bootstrap not initialized",
               );
+              apiUpdateStartup?.({
+                phase: "runtime-error",
+                attempt: 1,
+                lastError:
+                  "Runtime bootstrap not initialized for restart handler",
+                lastErrorAt: Date.now(),
+                state: "error",
+              });
               return null;
             }
 
             // 2) Start new runtime (picks up latest config/env from disk)
-            const nextRuntime = await startEliza({ headless: true });
+            const nextRuntime = await Promise.race<Record<
+              string,
+              unknown
+            > | null>([
+              startEliza({ headless: true }),
+              new Promise<null>((resolve) =>
+                setTimeout(() => resolve(null), RUNTIME_START_TIMEOUT_MS),
+              ),
+            ]);
             if (!nextRuntime) {
               console.error(
                 "[Agent] HTTP restart failed: startEliza returned null",
               );
+              apiUpdateStartup?.({
+                phase: "runtime-error",
+                attempt: 1,
+                lastError: `Runtime initialization timed out after ${Math.round(RUNTIME_START_TIMEOUT_MS / 1000)}s during restart`,
+                lastErrorAt: Date.now(),
+                state: "error",
+              });
               return null;
             }
 
@@ -388,6 +440,14 @@ export class AgentManager {
             // Tell the API server about the new runtime so status is broadcast
             // and conversations are restored.
             apiUpdateRuntime?.(nextRuntime as unknown);
+            apiUpdateStartup?.({
+              phase: "running",
+              attempt: 0,
+              state: "running",
+              lastError: undefined,
+              lastErrorAt: undefined,
+              nextRetryAt: undefined,
+            });
 
             // 3) Update the Electron-side status (renderer may be listening via IPC)
             const nextName =
@@ -406,10 +466,55 @@ export class AgentManager {
             console.log(`[Agent] HTTP restart complete — agent: ${nextName}`);
             return nextRuntime as Record<string, unknown>;
           },
+          onReset: async () => {
+            console.log(
+              "[Agent] HTTP reset requested — quiescing embedded runtime…",
+            );
+            const prevRuntime = this.runtime;
+            if (
+              prevRuntime &&
+              typeof (prevRuntime as { stop?: () => Promise<void> }).stop ===
+                "function"
+            ) {
+              try {
+                await (prevRuntime as { stop: () => Promise<void> }).stop();
+              } catch (stopErr) {
+                console.warn(
+                  "[Agent] Error stopping runtime during HTTP reset:",
+                  stopErr instanceof Error ? stopErr.message : stopErr,
+                );
+              }
+            }
+            this.runtime = null;
+            this.status = {
+              ...this.status,
+              state: "not_started",
+              startedAt: null,
+              error: null,
+            };
+            this.sendToRenderer("agent:status", this.status);
+            apiUpdateStartup?.({
+              phase: "idle",
+              attempt: 0,
+              state: "not_started",
+              lastError: undefined,
+              lastErrorAt: undefined,
+              nextRetryAt: undefined,
+            });
+          },
         });
         actualPort = resolvedPort;
         this.apiClose = close;
         apiUpdateRuntime = updateRuntime;
+        apiUpdateStartup = updateStartup;
+        apiUpdateStartup?.({
+          phase: "runtime-bootstrap",
+          attempt: 0,
+          state: "starting",
+          lastError: undefined,
+          lastErrorAt: undefined,
+          nextRetryAt: undefined,
+        });
         diagnosticLog(`[Agent] API server started on port ${actualPort}`);
       } else {
         diagnosticLog(
@@ -465,6 +570,13 @@ export class AgentManager {
           ? "eliza.js does not export startEliza"
           : (elizaLoadError ?? "eliza.js failed to load (see log above)");
         diagnosticLog(`[Agent] Cannot start runtime: ${reason}`);
+        apiUpdateStartup?.({
+          phase: "runtime-error",
+          attempt: 1,
+          lastError: reason,
+          lastErrorAt: Date.now(),
+          state: "error",
+        });
 
         this.status = {
           state: "error",
@@ -487,7 +599,12 @@ export class AgentManager {
       let runtimeResult: Record<string, unknown> | null = null;
       let runtimeInitError: string | null = null;
       try {
-        runtimeResult = await startEliza({ headless: true });
+        runtimeResult = await Promise.race<Record<string, unknown> | null>([
+          startEliza({ headless: true }),
+          new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), RUNTIME_START_TIMEOUT_MS),
+          ),
+        ]);
       } catch (runtimeErr) {
         const errMsg =
           runtimeErr instanceof Error
@@ -498,8 +615,17 @@ export class AgentManager {
       }
 
       if (!runtimeResult) {
-        const reason = runtimeInitError ?? "Runtime failed to initialize";
+        const reason =
+          runtimeInitError ??
+          `Runtime initialization timed out after ${Math.round(RUNTIME_START_TIMEOUT_MS / 1000)}s`;
         diagnosticLog(`[Agent] ${reason}`);
+        apiUpdateStartup?.({
+          phase: "runtime-error",
+          attempt: 1,
+          lastError: reason,
+          lastErrorAt: Date.now(),
+          state: "error",
+        });
         this.status = {
           state: "error",
           agentName: null,
@@ -518,6 +644,14 @@ export class AgentManager {
 
       // Attach runtime to the already-running API server.
       apiUpdateRuntime?.(runtimeResult as unknown);
+      apiUpdateStartup?.({
+        phase: "running",
+        attempt: 0,
+        state: "running",
+        lastError: undefined,
+        lastErrorAt: undefined,
+        nextRetryAt: undefined,
+      });
 
       this.status = {
         state: "running",
@@ -571,6 +705,13 @@ export class AgentManager {
         startedAt: null,
         error: msg,
       };
+      apiUpdateStartup?.({
+        phase: "runtime-error",
+        attempt: 1,
+        lastError: shortError(err),
+        lastErrorAt: Date.now(),
+        state: "error",
+      });
       this.sendToRenderer("agent:status", this.status);
       diagnosticLog(`[Agent] Failed to start: ${msg}`);
       return this.status;

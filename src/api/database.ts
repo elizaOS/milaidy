@@ -48,6 +48,15 @@ interface DatabaseStatus {
   postgresHost: string | null;
 }
 
+export interface RuntimeDatabaseHealth {
+  ok: boolean;
+  provider: DatabaseProviderType;
+  connected: boolean;
+  migrationsSchemaReady: boolean;
+  migrationsMetadataReady: boolean;
+  message: string;
+}
+
 interface TableInfo {
   name: string;
   schema: string;
@@ -510,6 +519,72 @@ async function handleGetStatus(
   };
 
   sendJson(res, status);
+}
+
+export async function getRuntimeDatabaseHealth(
+  runtime: AgentRuntime | null,
+): Promise<RuntimeDatabaseHealth> {
+  const provider = detectCurrentProvider();
+  if (!runtime?.adapter) {
+    return {
+      ok: false,
+      provider,
+      connected: false,
+      migrationsSchemaReady: provider !== "postgres",
+      migrationsMetadataReady: provider !== "postgres",
+      message: "Runtime database adapter is unavailable.",
+    };
+  }
+
+  try {
+    await executeRawSql(runtime, "SELECT 1 AS ok");
+  } catch (err) {
+    return {
+      ok: false,
+      provider,
+      connected: false,
+      migrationsSchemaReady: provider !== "postgres",
+      migrationsMetadataReady: provider !== "postgres",
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  if (provider !== "postgres") {
+    return {
+      ok: true,
+      provider,
+      connected: true,
+      migrationsSchemaReady: true,
+      migrationsMetadataReady: true,
+      message: "Database connection healthy.",
+    };
+  }
+
+  const schemaResult = await executeRawSql(
+    runtime,
+    "SELECT 1 AS ok FROM information_schema.schemata WHERE schema_name = 'migrations' LIMIT 1",
+  );
+  const metadataResult = await executeRawSql(
+    runtime,
+    "SELECT to_regclass('migrations._migrations') AS reg",
+  );
+
+  const migrationsSchemaReady = schemaResult.rows.length > 0;
+  const migrationsMetadataReady = Boolean(
+    (metadataResult.rows[0] as Record<string, unknown> | undefined)?.reg,
+  );
+  const ok = migrationsSchemaReady && migrationsMetadataReady;
+
+  return {
+    ok,
+    provider,
+    connected: true,
+    migrationsSchemaReady,
+    migrationsMetadataReady,
+    message: ok
+      ? "Database connection and migration metadata are healthy."
+      : "Database connected but migration metadata is not ready.",
+  };
 }
 
 /**
@@ -1287,6 +1362,13 @@ export async function handleDatabaseRoute(
   // ── GET /api/database/status ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/database/status") {
     await handleGetStatus(req, res, runtime);
+    return true;
+  }
+
+  // ── GET /api/database/health ──────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/database/health") {
+    const health = await getRuntimeDatabaseHealth(runtime);
+    sendJson(res, health, health.ok ? 200 : 503);
     return true;
   }
 
