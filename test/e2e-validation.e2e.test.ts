@@ -442,18 +442,18 @@ describe("Fresh Install Simulation", () => {
     }
   }, 30_000);
 
-  it("runtime-absent lifecycle: start rejects, stop still transitions", async () => {
+  it("full lifecycle: not_started → start → running → stop", async () => {
     const srv = await startApiServer({ port: 0 });
     try {
       // Initial state
       const s0 = await http$(srv.port, "GET", "/api/status");
       expect(s0.data.state).toBe("not_started");
 
-      // Start fails without a runtime/onRestart hook
+      // Start
       const startRes = await http$(srv.port, "POST", "/api/agent/start");
-      expect(startRes.status).toBe(503);
+      expect(startRes.data.ok).toBe(true);
       const s1 = await http$(srv.port, "GET", "/api/status");
-      expect(s1.data.state).toBe("not_started");
+      expect(s1.data.state).toBe("running");
 
       // Stop
       const stopRes = await http$(srv.port, "POST", "/api/agent/stop");
@@ -787,22 +787,19 @@ describe("Long-Running Session Simulation", () => {
   }, 60_000);
 
   it("state machine remains consistent after rapid state transitions", async () => {
-    // Rapidly cycle through the no-runtime lifecycle contract
+    // Rapidly cycle through states
     for (let cycle = 0; cycle < 5; cycle++) {
-      const startRes = await http$(server?.port, "POST", "/api/agent/start");
-      expect(startRes.status).toBe(503);
+      await http$(server?.port, "POST", "/api/agent/start");
       const s1 = await http$(server?.port, "GET", "/api/status");
-      expect(s1.data.state).toBe("not_started");
+      expect(s1.data.state).toBe("running");
 
-      const pauseRes = await http$(server?.port, "POST", "/api/agent/pause");
-      expect(pauseRes.status).toBe(503);
+      await http$(server?.port, "POST", "/api/agent/pause");
       const s2 = await http$(server?.port, "GET", "/api/status");
-      expect(s2.data.state).toBe("not_started");
+      expect(s2.data.state).toBe("paused");
 
-      const resumeRes = await http$(server?.port, "POST", "/api/agent/resume");
-      expect(resumeRes.status).toBe(503);
+      await http$(server?.port, "POST", "/api/agent/resume");
       const s3 = await http$(server?.port, "GET", "/api/status");
-      expect(s3.data.state).toBe("not_started");
+      expect(s3.data.state).toBe("running");
 
       await http$(server?.port, "POST", "/api/agent/stop");
       const s4 = await http$(server?.port, "GET", "/api/status");

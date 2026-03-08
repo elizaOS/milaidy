@@ -40,11 +40,7 @@ import {
   type MiladyConfig,
   saveMiladyConfig,
 } from "../config/config";
-import {
-  resolveConfigPath,
-  resolveModelsCacheDir,
-  resolveStateDir,
-} from "../config/paths";
+import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
 import { isConnectorConfigured } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
@@ -92,11 +88,7 @@ import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsHyperscapeRoutes } from "./apps-hyperscape-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
-import {
-  ensureAutonomySvc,
-  getAutonomyState,
-  handleAutonomyRoutes,
-} from "./autonomy-routes";
+import { getAutonomyState, handleAutonomyRoutes } from "./autonomy-routes";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
@@ -107,7 +99,7 @@ import {
   extractOpenAiSystemAndLastUser,
   resolveCompatRoomKey,
 } from "./compat-utils";
-import { getRuntimeDatabaseHealth, handleDatabaseRoute } from "./database";
+import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
 import { DropService } from "./drop-service";
 import {
@@ -309,10 +301,6 @@ interface ServerState {
   shellEnabled?: boolean;
   /** Reasons a restart is pending. Empty array = no restart needed. */
   pendingRestartReasons: string[];
-  /** Number of in-flight chat generation requests across chat endpoints. */
-  inflightChatRequests: number;
-  /** Per-client rolling buckets for chat abuse/rate limiting. */
-  chatRateBuckets: Map<string, { count: number; resetAt: number }>;
   /** Route handlers registered by connector plugins (loaded dynamically). */
   connectorRouteHandlers: ConnectorRouteHandler[];
   /** Active WhatsApp pairing sessions (QR code flow). */
@@ -1183,12 +1171,8 @@ function discoverPluginsFromManifest(): PluginEntry[] {
       const HIDDEN_KEYS = new Set(["VERCEL_OIDC_TOKEN"]);
       const entries = index.plugins
         .map((p) => {
-          // Use manifest category if available, otherwise fall back to hardcoded categorization.
-          // Eliza Cloud should be grouped with AI providers in Runtime UI.
-          const category =
-            p.id === "elizacloud"
-              ? "ai-provider"
-              : (p.category ?? categorizePlugin(p.id));
+          // Use manifest category if available, otherwise fall back to hardcoded categorization
+          const category = p.category ?? categorizePlugin(p.id);
           const envKey = p.envKey;
           const filteredConfigKeys = p.configKeys.filter(
             (k) => !HIDDEN_KEYS.has(k),
@@ -2176,305 +2160,19 @@ interface ChatGenerateOptions {
   resolveNoResponseText?: () => string;
 }
 
-const CHAT_MAX_CONCURRENT_REQUESTS = parseClampedInteger(
-  process.env.MILADY_CHAT_MAX_CONCURRENT_REQUESTS,
-  { fallback: 24, min: 1, max: 1024 },
-);
-const CHAT_RATE_LIMIT_WINDOW_MS = parseClampedInteger(
-  process.env.MILADY_CHAT_RATE_WINDOW_MS,
-  { fallback: 10_000, min: 1_000, max: 120_000 },
-);
-const CHAT_RATE_LIMIT_MAX_REQUESTS = parseClampedInteger(
-  process.env.MILADY_CHAT_RATE_MAX_REQUESTS,
-  { fallback: 20, min: 1, max: 500 },
-);
-const CHAT_RATE_BUCKET_CAP = parseClampedInteger(
-  process.env.MILADY_CHAT_RATE_BUCKET_CAP,
-  { fallback: 5_000, min: 100, max: 100_000 },
-);
-const CHAT_CONTROL_BUDGETS = {
-  maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
-  rateWindowMs: CHAT_RATE_LIMIT_WINDOW_MS,
-  rateMaxRequests: CHAT_RATE_LIMIT_MAX_REQUESTS,
-  rateBucketCap: CHAT_RATE_BUCKET_CAP,
-};
-
-export function resolveChatRateKey(req: http.IncomingMessage): string {
-  const auth = req.headers.authorization;
-  if (typeof auth === "string" && auth.startsWith("Bearer ")) {
-    const token = auth.slice("Bearer ".length).trim();
-    if (token.length > 0) {
-      const bucket = crypto
-        .createHash("sha256")
-        .update(token)
-        .digest("hex")
-        .slice(0, 24);
-      return `token:${bucket}`;
-    }
-  }
-
-  const remote = req.socket.remoteAddress?.trim();
-  const forwardedIp = resolveTrustedForwardedIp(req, remote);
-  return `ip:${forwardedIp || remote || "unknown"}`;
-}
-
-function isLoopbackAddress(ip: string): boolean {
-  const normalized = ip.replace(/^\[|\]$/g, "");
-  return (
-    normalized === "127.0.0.1" ||
-    normalized === "::1" ||
-    normalized === "::ffff:127.0.0.1"
-  );
-}
-
-function resolveTrustedForwardedIp(
-  req: http.IncomingMessage,
-  remoteAddress?: string,
-): string {
-  // Forwarded headers are only trusted when explicitly enabled, or for local
-  // proxy development where remoteAddress is loopback.
-  const trustForwarded =
-    process.env.MILADY_TRUST_X_FORWARDED_FOR === "1" ||
-    (remoteAddress ? isLoopbackAddress(remoteAddress) : false);
-  if (!trustForwarded) return "";
-
-  const forwarded = req.headers["x-forwarded-for"];
-  const forwardedStr = Array.isArray(forwarded)
-    ? forwarded[0]
-    : typeof forwarded === "string"
-      ? forwarded
-      : "";
-  return forwardedStr.split(",")[0]?.trim() ?? "";
-}
-
-function consumeChatRateLimit(
-  state: ServerState,
-  key: string,
-  now = Date.now(),
-): string | null {
-  if (state.chatRateBuckets.size > CHAT_RATE_BUCKET_CAP) {
-    for (const [bucketKey, bucket] of state.chatRateBuckets) {
-      if (bucket.resetAt <= now) {
-        state.chatRateBuckets.delete(bucketKey);
-      }
-    }
-  }
-
-  const existing = state.chatRateBuckets.get(key);
-  if (!existing || existing.resetAt <= now) {
-    state.chatRateBuckets.set(key, {
-      count: 1,
-      resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS,
-    });
-    return null;
-  }
-
-  if (existing.count >= CHAT_RATE_LIMIT_MAX_REQUESTS) {
-    return "Too many chat requests right now. Wait a moment and retry.";
-  }
-
-  existing.count += 1;
-  return null;
-}
-
-function acquireChatSlot(state: ServerState): (() => void) | null {
-  if (state.inflightChatRequests >= CHAT_MAX_CONCURRENT_REQUESTS) {
-    return null;
-  }
-  state.inflightChatRequests += 1;
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    state.inflightChatRequests = Math.max(0, state.inflightChatRequests - 1);
-  };
-}
-
-function summarizeStartupIssue(message: string, maxLen = 320): string {
-  const normalized = message.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLen) return normalized;
-  return `${normalized.slice(0, Math.max(0, maxLen - 3)).trimEnd()}...`;
-}
-
-export function shouldDeferAutoRestart(
-  state: Pick<ServerState, "runtime" | "agentState" | "startup">,
-): boolean {
-  if (state.runtime) return false;
-
-  const agentStateBootingOrUnhealthy =
-    state.agentState === "starting" ||
-    state.agentState === "restarting" ||
-    state.agentState === "error";
-
-  const startupPhase = state.startup.phase;
-  const startupBootingOrUnhealthy =
-    startupPhase === "runtime-bootstrap" ||
-    startupPhase === "runtime-retry" ||
-    startupPhase === "runtime-restart" ||
-    startupPhase === "runtime-error";
-
-  return agentStateBootingOrUnhealthy || startupBootingOrUnhealthy;
-}
-
-type RuntimeReadinessCode =
-  | "ready"
-  | "runtime_starting"
-  | "runtime_not_running"
-  | "runtime_error"
-  | "pending_restart"
-  | "database_unhealthy"
-  | "not_ready";
-
-interface RuntimeReadinessResult {
-  ready: boolean;
-  code: RuntimeReadinessCode;
-  message: string;
-}
-
-export function evaluateRuntimeReadiness(
-  state: Pick<
-    ServerState,
-    "runtime" | "agentState" | "startup" | "pendingRestartReasons"
-  >,
-): RuntimeReadinessResult {
-  if (
-    state.runtime &&
-    state.agentState === "running" &&
-    state.startup.phase === "running" &&
-    state.pendingRestartReasons.length === 0
-  ) {
-    return {
-      ready: true,
-      code: "ready",
-      message: "Runtime is ready.",
-    };
-  }
-
-  if (state.pendingRestartReasons.length > 0) {
-    return {
-      ready: false,
-      code: "pending_restart",
-      message: `Runtime restart pending: ${state.pendingRestartReasons[0] ?? "unknown reason"}`,
-    };
-  }
-
-  if (state.agentState === "error" || state.startup.phase === "runtime-error") {
-    const details =
-      typeof state.startup.lastError === "string" && state.startup.lastError
-        ? ` ${summarizeStartupIssue(state.startup.lastError)}`
-        : "";
-    return {
-      ready: false,
-      code: "runtime_error",
-      message: `Runtime is in error state.${details}`.trim(),
-    };
-  }
-
-  if (
-    state.agentState === "starting" ||
-    state.agentState === "restarting" ||
-    state.startup.phase === "starting" ||
-    state.startup.phase === "runtime-bootstrap" ||
-    state.startup.phase === "runtime-retry" ||
-    state.startup.phase === "runtime-restart"
-  ) {
-    return {
-      ready: false,
-      code: "runtime_starting",
-      message: "Runtime is still starting.",
-    };
-  }
-
-  if (!state.runtime) {
-    return {
-      ready: false,
-      code: "runtime_not_running",
-      message: "Runtime is not running.",
-    };
-  }
-
-  return {
-    ready: false,
-    code: "not_ready",
-    message: "Runtime is not ready.",
-  };
-}
-
-const STARTING_STATE_MAX_AGE_MS = (() => {
-  const parsed = Number(process.env.MILADY_STARTING_WATCHDOG_MS);
-  if (!Number.isFinite(parsed)) return 12_000;
-  return Math.max(2_000, Math.min(10 * 60_000, Math.floor(parsed)));
-})();
-
-function promoteRuntimeBackToRunning(state: ServerState): boolean {
-  if (!state.runtime) return false;
-  if (state.agentState === "running" && state.startup.phase === "running") {
-    return false;
-  }
-  if (state.agentState === "paused") return false;
-
-  state.agentState = "running";
-  if (!state.startedAt) {
-    state.startedAt = Date.now();
-  }
-  state.startup = {
-    phase: "running",
-    attempt: 0,
-  };
-  return true;
-}
-
-function enforceStartingStateWatchdog(state: ServerState): string | null {
-  if (state.runtime) return null;
-  if (state.agentState !== "starting" && state.agentState !== "restarting") {
-    return null;
-  }
-  if (!state.startedAt) {
-    state.startedAt = Date.now();
-    return null;
-  }
-
-  const elapsedMs = Date.now() - state.startedAt;
-  if (elapsedMs < STARTING_STATE_MAX_AGE_MS) return null;
-
-  const now = Date.now();
-  const lastError =
-    typeof state.startup.lastError === "string" && state.startup.lastError
-      ? summarizeStartupIssue(state.startup.lastError)
-      : `Runtime startup exceeded ${Math.round(
-          STARTING_STATE_MAX_AGE_MS / 1000,
-        )}s without becoming ready`;
-
-  state.startup = {
-    ...state.startup,
-    phase: "runtime-error",
-    attempt: Math.max(1, state.startup.attempt || 0),
-    lastError,
-    lastErrorAt: now,
-    nextRetryAt: undefined,
-  };
-  state.agentState = "error";
-  state.startedAt = undefined;
-  state.pendingRestartReasons = [];
-  return lastError;
-}
-
 const INSUFFICIENT_CREDITS_RE =
   /\b(?:insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|max usage reached|quota(?:\s+exceeded)?)\b/i;
-const PROVIDER_AUTH_RE =
-  /\b(?:incorrect api key(?: provided)?|invalid(?: or expired)? api key|unauthorized|forbidden|status\s*[:=]?\s*40[13]|http\s*40[13])\b/i;
-const PROVIDER_TIMEOUT_RE =
-  /\b(?:timed?\s*out|timeout|request timed out|provider timed out)\b/i;
 
-const INSUFFICIENT_CREDITS_CHAT_REPLY =
-  "No model credits available for this provider. Add credits or switch provider in AI Settings.";
-const PROVIDER_AUTH_CHAT_REPLY =
-  "Provider authentication failed. Your API key looks invalid or expired. Update it in AI Settings, save, then retry.";
-const PROVIDER_TIMEOUT_CHAT_REPLY =
-  "Provider timed out. Retry with a shorter prompt or switch provider.";
+const INSUFFICIENT_CREDITS_CHAT_REPLIES = [
+  "Sorry, we're out of credits right now. Please top up your credits and try again.",
+  "No model credits left in the tank. Time to top up your credits.",
+  "I can't answer on zero credits. Top up your credits and ping me again.",
+  "Credit meter is empty. Please top up your credits so I can keep going.",
+  "Out of credits, boss. Top up your credits and I am back online.",
+] as const;
 
 const GENERIC_NO_RESPONSE_CHAT_REPLY =
-  "No response from the model. Check provider status in AI Settings and retry.";
+  "Sorry, I couldn't generate a response right now. Please try again.";
 
 function getErrorMessage(err: unknown, fallback = "generation failed"): string {
   if (err instanceof Error) return err.message;
@@ -2486,12 +2184,11 @@ function isInsufficientCreditsMessage(message: string): boolean {
   return INSUFFICIENT_CREDITS_RE.test(message);
 }
 
-function isProviderAuthMessage(message: string): boolean {
-  return PROVIDER_AUTH_RE.test(message);
-}
-
-function isProviderTimeoutMessage(message: string): boolean {
-  return PROVIDER_TIMEOUT_RE.test(message);
+function pickInsufficientCreditsChatReply(): string {
+  const idx = Math.floor(
+    Math.random() * INSUFFICIENT_CREDITS_CHAT_REPLIES.length,
+  );
+  return INSUFFICIENT_CREDITS_CHAT_REPLIES[idx];
 }
 
 function findRecentInsufficientCreditsLog(
@@ -2509,45 +2206,9 @@ function findRecentInsufficientCreditsLog(
   return null;
 }
 
-function findRecentProviderAuthLog(
-  logBuffer: LogEntry[],
-  lookbackMs = 30 * 60_000,
-): LogEntry | null {
-  const now = Date.now();
-  for (let i = logBuffer.length - 1; i >= 0; i--) {
-    const entry = logBuffer[i];
-    if (now - entry.timestamp > lookbackMs) break;
-    if (isProviderAuthMessage(entry.message)) {
-      return entry;
-    }
-  }
-  return null;
-}
-
-function findRecentProviderTimeoutLog(
-  logBuffer: LogEntry[],
-  lookbackMs = 5 * 60_000,
-): LogEntry | null {
-  const now = Date.now();
-  for (let i = logBuffer.length - 1; i >= 0; i--) {
-    const entry = logBuffer[i];
-    if (now - entry.timestamp > lookbackMs) break;
-    if (isProviderTimeoutMessage(entry.message)) {
-      return entry;
-    }
-  }
-  return null;
-}
-
 function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
   if (findRecentInsufficientCreditsLog(logBuffer)) {
-    return INSUFFICIENT_CREDITS_CHAT_REPLY;
-  }
-  if (findRecentProviderAuthLog(logBuffer)) {
-    return PROVIDER_AUTH_CHAT_REPLY;
-  }
-  if (findRecentProviderTimeoutLog(logBuffer)) {
-    return PROVIDER_TIMEOUT_CHAT_REPLY;
+    return pickInsufficientCreditsChatReply();
   }
   return GENERIC_NO_RESPONSE_CHAT_REPLY;
 }
@@ -2555,225 +2216,13 @@ function resolveNoResponseFallback(logBuffer: LogEntry[]): string {
 function getInsufficientCreditsReplyFromError(err: unknown): string | null {
   const msg = getErrorMessage(err, "");
   return isInsufficientCreditsMessage(msg)
-    ? INSUFFICIENT_CREDITS_CHAT_REPLY
+    ? pickInsufficientCreditsChatReply()
     : null;
-}
-
-interface ClassifiedChatError {
-  code:
-    | "PROVIDER_CREDITS_EXHAUSTED"
-    | "PROVIDER_QUOTA"
-    | "PROVIDER_AUTH"
-    | "PROVIDER_TIMEOUT"
-    | "AI_PROVIDER_REQUIRED"
-    | "RUNTIME_NOT_RUNNING"
-    | "RUNTIME_BACKEND_STARTING"
-    | "RUNTIME_DB_STARTUP"
-    | "RUNTIME_PORT_CONFLICT"
-    | "CHAT_REQUEST_FAILED";
-  message: string;
-  status: number;
-}
-
-export function classifyChatError(err: unknown): ClassifiedChatError {
-  const raw = getErrorMessage(err, "");
-  const msg = raw.trim();
-  const lower = msg.toLowerCase();
-
-  if (
-    lower.includes("insufficient credits") ||
-    lower.includes("required: $") ||
-    lower.includes("ai_apicallerror: insufficient credits")
-  ) {
-    return {
-      code: "PROVIDER_CREDITS_EXHAUSTED",
-      message: INSUFFICIENT_CREDITS_CHAT_REPLY,
-      status: 402,
-    };
-  }
-
-  if (
-    lower.includes("insufficient_quota") ||
-    lower.includes("quota") ||
-    lower.includes("rate limit") ||
-    lower.includes("http 429") ||
-    lower.includes("you exceeded your current quota")
-  ) {
-    return {
-      code: "PROVIDER_QUOTA",
-      message:
-        "Provider quota or rate limit reached. Check billing/usage limits and retry.",
-      status: 429,
-    };
-  }
-
-  if (isProviderAuthMessage(msg)) {
-    return {
-      code: "PROVIDER_AUTH",
-      message: PROVIDER_AUTH_CHAT_REPLY,
-      status: 401,
-    };
-  }
-
-  if (
-    lower.includes("timed out") ||
-    lower.includes("timeout") ||
-    lower.includes("exceeded timeout")
-  ) {
-    return {
-      code: "PROVIDER_TIMEOUT",
-      message: PROVIDER_TIMEOUT_CHAT_REPLY,
-      status: 504,
-    };
-  }
-
-  if (
-    lower.includes("required but not set") ||
-    lower.includes("is required but not set") ||
-    lower.includes("missing keys") ||
-    /\b(?:openai|anthropic|elizacloud|elizaos_cloud|openrouter|google|groq|xai|mistral|together|zai)_api_key\b/i.test(
-      msg,
-    )
-  ) {
-    return {
-      code: "AI_PROVIDER_REQUIRED",
-      message:
-        "Provider key is missing. Add the API key for your selected provider in AI Settings and retry.",
-      status: 409,
-    };
-  }
-
-  if (
-    lower.includes("ai provider not connected") ||
-    lower.includes("provider not connected") ||
-    lower.includes("ai_provider_required") ||
-    lower.includes("no handler found for delegate type") ||
-    lower.includes("active provider")
-  ) {
-    return {
-      code: "AI_PROVIDER_REQUIRED",
-      message:
-        "No usable model provider is configured. Connect one in AI Settings.",
-      status: 409,
-    };
-  }
-
-  if (
-    lower.includes("agent is not running") ||
-    lower.startsWith("runtime is not running")
-  ) {
-    return {
-      code: "RUNTIME_NOT_RUNNING",
-      message: "Runtime is not running. Start the agent in Config and retry.",
-      status: 503,
-    };
-  }
-
-  if (
-    lower.includes("backend not ready") ||
-    lower.includes("econnrefused") ||
-    lower.includes("connection refused")
-  ) {
-    return {
-      code: "RUNTIME_BACKEND_STARTING",
-      message: "Runtime backend is starting. Wait a few seconds and retry.",
-      status: 503,
-    };
-  }
-
-  if (
-    lower.includes("startup phase: runtime-bootstrap") ||
-    lower.includes("startup phase: runtime-retry") ||
-    lower.includes("startup phase: runtime-restart") ||
-    lower.includes("runtime is still initializing")
-  ) {
-    return {
-      code: "RUNTIME_BACKEND_STARTING",
-      message:
-        "Runtime is starting or applying settings. Wait a few seconds and retry.",
-      status: 503,
-    };
-  }
-
-  if (
-    lower.includes("migration(s) failed") ||
-    lower.includes("create schema if not exists migrations") ||
-    lower.includes('from "agents" where "agents"."id" = $1') ||
-    lower.includes("from migrations._migrations")
-  ) {
-    return {
-      code: "RUNTIME_DB_STARTUP",
-      message:
-        "Runtime database write/startup failed. Use Reset Everything in Config, then start the agent again.",
-      status: 503,
-    };
-  }
-
-  if (
-    lower.includes('insert into "relationships"') ||
-    lower.includes("error creating relationship") ||
-    lower.includes('from "relationships"') ||
-    (lower.includes("failed query:") && lower.includes("relationships"))
-  ) {
-    return {
-      code: "CHAT_REQUEST_FAILED",
-      message:
-        "Runtime memory write failed while handling this message. Retry once. If it repeats, restart agent in Config.",
-      status: 500,
-    };
-  }
-
-  if (
-    lower.includes("eaddrinuse") ||
-    lower.includes("failed to start server. is port")
-  ) {
-    return {
-      code: "RUNTIME_PORT_CONFLICT",
-      message:
-        "Runtime failed to start because its API port is already in use. Stop stale processes and retry.",
-      status: 503,
-    };
-  }
-
-  return {
-    code: "CHAT_REQUEST_FAILED",
-    message:
-      "Provider request failed. Check Runtime status in Config and retry.",
-    status: 500,
-  };
-}
-
-function sendClassifiedChatError(
-  res: http.ServerResponse,
-  err: unknown,
-  fallbackStatus = 500,
-): void {
-  const classified = classifyChatError(err);
-  json(
-    res,
-    {
-      error: classified.message,
-      code: classified.code,
-    },
-    classified.status || fallbackStatus,
-  );
 }
 
 function isNoResponsePlaceholder(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed);
-}
-
-function normalizePluginRuntimeName(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/^@[^/]+\//, "")
-    .replace(/^plugin-/, "")
-    .replace(/[^a-z0-9-]/g, "");
-  // Runtime/export naming aliases.
-  if (normalized === "elizaoscloud") return "elizacloud";
-  return normalized;
 }
 
 function normalizeChatResponseText(
@@ -3959,7 +3408,7 @@ function getProviderOptions(): Array<{
       description: "Access multiple models via one API key.",
     },
     {
-      id: "google-genai",
+      id: "gemini",
       name: "Gemini",
       envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
       pluginName: "@elizaos/plugin-google-genai",
@@ -3967,7 +3416,7 @@ function getProviderOptions(): Array<{
       description: "Google's Gemini models.",
     },
     {
-      id: "xai",
+      id: "grok",
       name: "Grok",
       envKey: "XAI_API_KEY",
       pluginName: "@elizaos/plugin-xai",
@@ -3981,22 +3430,6 @@ function getProviderOptions(): Array<{
       pluginName: "@elizaos/plugin-groq",
       keyPrefix: "gsk_",
       description: "Fast inference.",
-    },
-    {
-      id: "vercel-ai-gateway",
-      name: "Vercel AI Gateway",
-      envKey: "AI_GATEWAY_API_KEY",
-      pluginName: "@elizaos/plugin-vercel-ai-gateway",
-      keyPrefix: null,
-      description: "Unified model routing via Vercel AI Gateway.",
-    },
-    {
-      id: "local-ai",
-      name: "Local AI",
-      envKey: null,
-      pluginName: "@elizaos/plugin-local-ai",
-      keyPrefix: null,
-      description: "Run local models without external API keys.",
     },
     {
       id: "deepseek",
@@ -4039,143 +3472,6 @@ function getProviderOptions(): Array<{
       description: "GLM models via z.ai Coding Plan.",
     },
   ];
-}
-
-function providerPluginIdFromPackageName(pluginName: string): string {
-  const withoutScope = pluginName.split("/").at(-1) ?? pluginName;
-  return withoutScope.startsWith("plugin-")
-    ? withoutScope.slice("plugin-".length)
-    : withoutScope;
-}
-
-function enablePluginInConfig(config: MiladyConfig, pluginName: string): void {
-  const pluginId = providerPluginIdFromPackageName(pluginName);
-  if (!pluginId) return;
-  if (!config.plugins) config.plugins = {};
-  if (!config.plugins.entries) config.plugins.entries = {};
-  const existing =
-    (config.plugins.entries as Record<string, Record<string, unknown>>)[
-      pluginId
-    ] ?? {};
-  (config.plugins.entries as Record<string, Record<string, unknown>>)[
-    pluginId
-  ] = { ...existing, enabled: true };
-}
-
-function setPrimaryProviderModel(
-  config: MiladyConfig,
-  providerPluginName: string,
-): void {
-  if (!config.agents) config.agents = {};
-  if (!config.agents.defaults) config.agents.defaults = {};
-  const defaults = config.agents.defaults as Record<string, unknown>;
-  const model =
-    defaults.model && typeof defaults.model === "object"
-      ? ({ ...(defaults.model as Record<string, unknown>) } as Record<
-          string,
-          unknown
-        >)
-      : {};
-  model.primary = providerPluginName;
-  defaults.model = model;
-}
-
-function setExclusiveProviderPluginEntries(
-  config: MiladyConfig,
-  selectedProviderId: string,
-): void {
-  if (!selectedProviderId) return;
-  if (!config.plugins) config.plugins = {};
-  if (!config.plugins.entries) config.plugins.entries = {};
-
-  const entries = config.plugins.entries as Record<
-    string,
-    Record<string, unknown>
-  >;
-  const selected = selectedProviderId.trim().toLowerCase();
-
-  for (const provider of getProviderOptions()) {
-    const providerEntryId = providerPluginIdFromPackageName(
-      provider.pluginName,
-    );
-    if (!providerEntryId) continue;
-    const existing = entries[providerEntryId] ?? {};
-    entries[providerEntryId] = {
-      ...existing,
-      enabled: provider.id === selected,
-    };
-  }
-}
-
-function applySelectedProviderModelDefaults(
-  config: MiladyConfig,
-  providerId: string,
-  requestedSmallModel?: string,
-  requestedLargeModel?: string,
-): void {
-  if (!config.env) config.env = {};
-  const envCfg = config.env as Record<string, string>;
-  const selected = providerId.trim().toLowerCase();
-  const requestedSmall = requestedSmallModel?.trim() ?? "";
-  const requestedLarge = requestedLargeModel?.trim() ?? "";
-
-  const providerDefaults: Record<string, { small: string; large: string }> = {
-    openai: { small: "gpt-5-mini", large: "gpt-5-mini" },
-    elizacloud: { small: "gpt-5-mini", large: "gpt-5-mini" },
-    anthropic: { small: "claude-sonnet-4.5", large: "claude-sonnet-4.5" },
-    "anthropic-subscription": {
-      small: "claude-sonnet-4.5",
-      large: "claude-sonnet-4.5",
-    },
-    "openai-subscription": { small: "gpt-5-mini", large: "gpt-5-mini" },
-  };
-
-  const selectedDefaults = providerDefaults[selected];
-  if (!selectedDefaults) return;
-
-  const smallModel = requestedSmall || selectedDefaults.small;
-  const largeModel = requestedLarge || selectedDefaults.large;
-
-  if (selected === "openai" || selected === "openai-subscription") {
-    envCfg.OPENAI_SMALL_MODEL = smallModel;
-    envCfg.OPENAI_LARGE_MODEL = largeModel;
-    process.env.OPENAI_SMALL_MODEL = smallModel;
-    process.env.OPENAI_LARGE_MODEL = largeModel;
-  } else if (selected === "elizacloud") {
-    envCfg.ELIZAOS_CLOUD_SMALL_MODEL = smallModel;
-    envCfg.ELIZAOS_CLOUD_LARGE_MODEL = largeModel;
-    process.env.ELIZAOS_CLOUD_SMALL_MODEL = smallModel;
-    process.env.ELIZAOS_CLOUD_LARGE_MODEL = largeModel;
-  } else if (
-    selected === "anthropic" ||
-    selected === "anthropic-subscription"
-  ) {
-    envCfg.ANTHROPIC_SMALL_MODEL = smallModel;
-    envCfg.ANTHROPIC_LARGE_MODEL = largeModel;
-    process.env.ANTHROPIC_SMALL_MODEL = smallModel;
-    process.env.ANTHROPIC_LARGE_MODEL = largeModel;
-  }
-
-  // Remove potentially conflicting generic model aliases so selected provider
-  // defaults are authoritative after onboarding/provider switch.
-  delete envCfg.SMALL_MODEL;
-  delete envCfg.LARGE_MODEL;
-  delete process.env.SMALL_MODEL;
-  delete process.env.LARGE_MODEL;
-}
-
-function clearNonSelectedProviderApiKeys(
-  config: MiladyConfig,
-  keepEnvKey: string | null,
-): void {
-  if (!config.env) config.env = {};
-  const envCfg = config.env as Record<string, string>;
-  for (const provider of getProviderOptions()) {
-    const envKey = provider.envKey;
-    if (!envKey || envKey === keepEnvKey) continue;
-    delete envCfg[envKey];
-    delete process.env[envKey];
-  }
 }
 
 function getCloudProviderOptions(): Array<{
@@ -4877,8 +4173,6 @@ function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
 
 interface RequestContext {
   onRestart: (() => Promise<AgentRuntime | null>) | null;
-  onReset: (() => Promise<void> | void) | null;
-  onStop: (() => Promise<void> | void) | null;
 }
 
 type TrainingServiceLike = TrainingServiceWithRuntime;
@@ -5440,12 +4734,7 @@ export function resolveWebSocketUpgradeRejection(
   return null;
 }
 
-const RESET_STATE_ALLOWED_SEGMENTS = new Set([
-  ".milady",
-  "milady",
-  ".milady-state",
-  "milady-state",
-]);
+const RESET_STATE_ALLOWED_SEGMENTS = new Set([".milady", "milady"]);
 
 function hasAllowedResetSegment(resolvedState: string): boolean {
   return resolvedState
@@ -5458,28 +4747,20 @@ function hasAllowedResetSegment(resolvedState: string): boolean {
 export function isSafeResetStateDir(
   resolvedState: string,
   homeDir: string,
-  cwd: string = process.cwd(),
 ): boolean {
   const normalizedState = path.resolve(resolvedState);
   const normalizedHome = path.resolve(homeDir);
-  const normalizedCwd = path.resolve(cwd);
   const parsedRoot = path.parse(normalizedState).root;
 
   if (normalizedState === parsedRoot) return false;
   if (normalizedState === normalizedHome) return false;
 
-  const isUnderBase = (base: string): boolean => {
-    const relative = path.relative(base, normalizedState);
-    return (
-      relative.length > 0 &&
-      !relative.startsWith("..") &&
-      !path.isAbsolute(relative)
-    );
-  };
-
-  const isUnderHome = isUnderBase(normalizedHome);
-  const isUnderCwd = normalizedCwd !== parsedRoot && isUnderBase(normalizedCwd);
-  if (!isUnderHome && !isUnderCwd) return false;
+  const relativeToHome = path.relative(normalizedHome, normalizedState);
+  const isUnderHome =
+    relativeToHome.length > 0 &&
+    !relativeToHome.startsWith("..") &&
+    !path.isAbsolute(relativeToHome);
+  if (!isUnderHome) return false;
 
   return hasAllowedResetSegment(normalizedState);
 }
@@ -5567,17 +4848,6 @@ interface WorkbenchTodoView {
   type: string;
 }
 
-interface CodingCoordinatorTaskLike {
-  id?: string;
-  metadata?: {
-    status?: string;
-  };
-}
-
-interface CodingCoordinatorServiceLike {
-  getTasks?: () => Promise<CodingCoordinatorTaskLike[]>;
-}
-
 interface TodoDataServiceLike {
   createTodo: (input: Record<string, unknown>) => Promise<string>;
   getTodos: (
@@ -5589,13 +4859,6 @@ interface TodoDataServiceLike {
     updates: Record<string, unknown>,
   ) => Promise<boolean>;
   deleteTodo: (todoId: string) => Promise<boolean>;
-}
-
-function isCodingTaskActive(task: CodingCoordinatorTaskLike): boolean {
-  const status = String(task.metadata?.status ?? "").toLowerCase();
-  return !["completed", "failed", "error", "cancelled", "stopped"].includes(
-    status,
-  );
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -6397,16 +5660,6 @@ async function handleRequest(
   const registryService = state.registryService;
   const dropService = state.dropService;
 
-  // Keep externally visible status coherent. A live runtime should not remain
-  // in "starting", and a missing runtime should not stay there indefinitely.
-  promoteRuntimeBackToRunning(state);
-  const startupWatchdogReason = enforceStartingStateWatchdog(state);
-  if (startupWatchdogReason) {
-    logger.error(
-      `[milady-api] Startup watchdog triggered: ${startupWatchdogReason}`,
-    );
-  }
-
   const scheduleRuntimeRestart = (reason: string): void => {
     if (state.pendingRestartReasons.length >= 50) {
       // Prevent unbounded growth — keep only first entry + latest
@@ -6425,135 +5678,6 @@ async function handleRequest(
       type: "restart-required",
       reasons: [...state.pendingRestartReasons],
     });
-
-    // Explicit stop is authoritative: keep restart reasons queued, but do not
-    // auto-apply while the agent is in stopped state.
-    if (state.agentState === "stopped") {
-      state.broadcastStatus?.();
-      return;
-    }
-
-    // In hosts with an in-process restart handler (dev-server / desktop),
-    // apply the restart automatically so provider/plugin changes take effect
-    // without requiring a manual /api/agent/restart call.
-    if (ctx?.onRestart && state.agentState !== "restarting") {
-      if (shouldDeferAutoRestart(state)) {
-        logger.info(
-          `[milady-api] Deferring auto-restart while runtime is booting or unhealthy (${reason})`,
-        );
-        state.broadcastStatus?.();
-        return;
-      }
-
-      const previousState = state.agentState;
-      state.agentState = "restarting";
-      state.broadcastStatus?.();
-
-      void (async () => {
-        try {
-          const newRuntime = await ctx.onRestart?.();
-          if (newRuntime) {
-            state.runtime = newRuntime;
-            state.chatConnectionReady = null;
-            state.chatConnectionPromise = null;
-            state.agentState = "running";
-            state.agentName = newRuntime.character.name ?? "Milady";
-            state.model = detectRuntimeModel(newRuntime);
-            state.startedAt = Date.now();
-            state.pendingRestartReasons = [];
-            state.broadcastWs?.({
-              type: "restart-applied",
-              reason,
-            });
-          } else {
-            const restartError =
-              "Restart handler returned null — runtime failed to initialize";
-            if (!state.runtime && previousState === "starting") {
-              state.startup = {
-                ...state.startup,
-                phase: "runtime-error",
-                attempt: Math.max(1, state.startup.attempt || 0),
-                lastError: summarizeStartupIssue(restartError),
-                lastErrorAt: Date.now(),
-                nextRetryAt: undefined,
-              };
-              state.agentState = "error";
-              state.startedAt = undefined;
-            } else {
-              state.agentState = previousState;
-            }
-            state.pendingRestartReasons = [];
-            logger.warn(
-              "[milady-api] Restart handler returned null while applying pending restart",
-            );
-          }
-        } catch (err) {
-          const restartError =
-            err instanceof Error
-              ? err.message
-              : String(err ?? "Restart failed");
-          if (!state.runtime && previousState === "starting") {
-            state.startup = {
-              ...state.startup,
-              phase: "runtime-error",
-              attempt: Math.max(1, state.startup.attempt || 0),
-              lastError: summarizeStartupIssue(restartError),
-              lastErrorAt: Date.now(),
-              nextRetryAt: undefined,
-            };
-            state.agentState = "error";
-            state.startedAt = undefined;
-          } else {
-            state.agentState = previousState;
-          }
-          // Avoid stale chat lock banners when restart application errors.
-          state.pendingRestartReasons = [];
-          logger.warn(
-            `[milady-api] Failed to auto-apply pending restart: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        } finally {
-          state.broadcastStatus?.();
-        }
-      })();
-    }
-  };
-
-  // If restart reasons accumulated while runtime was booting, apply them once a
-  // concrete runtime is attached so provider/plugin changes are not lost.
-  if (
-    ctx?.onRestart &&
-    state.runtime &&
-    (state.agentState === "running" || state.agentState === "paused") &&
-    state.pendingRestartReasons.length > 0
-  ) {
-    const deferredReason =
-      state.pendingRestartReasons[0] ?? "deferred pending restart";
-    state.pendingRestartReasons = [];
-    scheduleRuntimeRestart(deferredReason);
-  }
-
-  const runtimeUnavailableMessage = (): string | null => {
-    if (
-      state.runtime &&
-      (state.agentState === "running" || state.agentState === "paused")
-    ) {
-      return null;
-    }
-    const parts: string[] = ["Agent is not running"];
-    if (state.startup.phase && state.startup.phase !== "running") {
-      parts.push(`Startup phase: ${state.startup.phase}`);
-    }
-    const pendingReason = state.pendingRestartReasons[0];
-    if (pendingReason) {
-      parts.push(`Pending restart reason: ${pendingReason}`);
-    }
-    if (state.startup.lastError) {
-      parts.push(
-        `Last runtime issue: ${summarizeStartupIssue(state.startup.lastError)}`,
-      );
-    }
-    if (parts.length === 1) return parts[0];
-    return `${parts[0]}. ${parts.slice(1).join(". ")}.`;
   };
 
   const resolveHyperscapeApiBaseUrl = async (): Promise<string> => {
@@ -6687,30 +5811,27 @@ async function handleRequest(
       res,
     );
     if (!body) return;
-    const requestedProvider = body.provider;
-    if (!requestedProvider || typeof requestedProvider !== "string") {
+    const provider = body.provider;
+    if (!provider || typeof provider !== "string") {
       error(res, "Missing provider", 400);
       return;
     }
 
-    const normalizeProviderId = (raw: string): string => {
-      const trimmed = raw.trim().toLowerCase();
-      const aliases: Record<string, string> = {
-        google: "google-genai",
-        "google-genai": "google-genai",
-        "openai-codex": "openai-subscription",
-        "openai-subscription": "openai-subscription",
-        "anthropic-subscription": "anthropic-subscription",
-        "together-ai": "together",
-        "z.ai": "zai",
-        "z-ai": "zai",
-      };
-      return aliases[trimmed] ?? trimmed;
-    };
-    const provider = normalizeProviderId(requestedProvider);
-
     // P1 §7 — explicit provider allowlist
-    const VALID_PROVIDERS = new Set(getProviderOptions().map((p) => p.id));
+    const VALID_PROVIDERS = new Set([
+      "elizacloud",
+      "pi-ai",
+      "openai-codex",
+      "openai-subscription",
+      "anthropic-subscription",
+      "openai",
+      "anthropic",
+      "deepseek",
+      "google",
+      "groq",
+      "xai",
+      "openrouter",
+    ]);
     if (!VALID_PROVIDERS.has(provider)) {
       error(res, "Invalid provider", 400);
       return;
@@ -6787,25 +5908,10 @@ async function handleRequest(
       openai: "OPENAI_API_KEY",
       anthropic: "ANTHROPIC_API_KEY",
       deepseek: "DEEPSEEK_API_KEY",
-      "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+      google: "GOOGLE_API_KEY",
       groq: "GROQ_API_KEY",
       xai: "XAI_API_KEY",
       openrouter: "OPENROUTER_API_KEY",
-      mistral: "MISTRAL_API_KEY",
-      together: "TOGETHER_API_KEY",
-      zai: "ZAI_API_KEY",
-      "vercel-ai-gateway": "AI_GATEWAY_API_KEY",
-    };
-
-    const setPrimaryModelForProvider = (providerId: string): void => {
-      const providerOption = getProviderOptions().find(
-        (p) => p.id === providerId,
-      );
-      if (!providerOption?.pluginName) return;
-      enablePluginInConfig(config, providerOption.pluginName);
-      setExclusiveProviderPluginEntries(config, providerId);
-      setPrimaryProviderModel(config, providerOption.pluginName);
-      applySelectedProviderModelDefaults(config, providerId);
     };
 
     // Helper: clear all direct API keys from env (except the one we're switching to)
@@ -6823,60 +5929,6 @@ async function handleRequest(
           delete secrets[envKey];
         }
       }
-    };
-
-    const hasApiKeyValue = (envKey: string): boolean => {
-      const value = (envCfg[envKey] ?? process.env[envKey] ?? "").trim();
-      return value.length > 0;
-    };
-
-    const clearPendingProviderRestartReasons = (providerId: string): number => {
-      const expected = new Set([
-        `provider switch to ${providerId}`,
-        `Onboarding provider selected: ${providerId}`,
-      ]);
-      const before = state.pendingRestartReasons.length;
-      state.pendingRestartReasons = state.pendingRestartReasons.filter(
-        (reason) => !expected.has(reason),
-      );
-      return before - state.pendingRestartReasons.length;
-    };
-
-    const isDirectProviderNoop = (
-      providerId: string,
-      apiKey: string,
-    ): boolean => {
-      const envKey = PROVIDER_ENV_KEYS[providerId];
-      if (!envKey) return false;
-      const trimmedApiKey = apiKey.trim();
-      if (!trimmedApiKey) return false;
-
-      const currentKey = (envCfg[envKey] ?? process.env[envKey] ?? "").trim();
-      if (currentKey !== trimmedApiKey) return false;
-
-      if ((config.cloud as Record<string, unknown>).enabled === true)
-        return false;
-      if ((envCfg.MILAIDY_USE_PI_AI ?? process.env.MILAIDY_USE_PI_AI) === "1") {
-        return false;
-      }
-
-      const defaults = config.agents?.defaults as
-        | Record<string, unknown>
-        | undefined;
-      const subscriptionProvider =
-        typeof defaults?.subscriptionProvider === "string"
-          ? defaults.subscriptionProvider.trim()
-          : "";
-      if (subscriptionProvider.length > 0) return false;
-
-      for (const [candidateProviderId, candidateEnvKey] of Object.entries(
-        PROVIDER_ENV_KEYS,
-      )) {
-        if (candidateProviderId === providerId) continue;
-        if (hasApiKeyValue(candidateEnvKey)) return false;
-      }
-
-      return true;
     };
 
     try {
@@ -6898,62 +5950,20 @@ async function handleRequest(
         body.apiKey = trimmedKey;
       }
 
-      if (
-        PROVIDER_ENV_KEYS[provider] &&
-        isDirectProviderNoop(provider, body.apiKey ?? "")
-      ) {
-        setPrimaryModelForProvider(provider);
-        saveMiladyConfig(config);
-        const clearedPendingReasons =
-          clearPendingProviderRestartReasons(provider);
-        providerSwitchInProgress = false;
-        json(res, {
-          success: true,
-          provider,
-          restarting: false,
-          noOp: true,
-          clearedPendingReasons,
-        });
-        return;
-      }
-
       if (provider === "elizacloud") {
         // Switching TO elizacloud
         clearPiAi();
         await clearSubscriptions();
         clearOtherApiKeys();
         clearSubscriptionProviderConfig(config);
-        setPrimaryModelForProvider("elizacloud");
-        // Resolve key from request first, then persisted config/env fallback.
-        const requestedCloudApiKey =
-          typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-        const persistedCloudApiKey =
-          typeof config.cloud.apiKey === "string"
-            ? config.cloud.apiKey.trim()
-            : "";
-        const persistedEnvCloudApiKey = (
-          envCfg.ELIZAOS_CLOUD_API_KEY ??
-          process.env.ELIZAOS_CLOUD_API_KEY ??
-          ""
-        ).trim();
-        const resolvedCloudApiKey =
-          requestedCloudApiKey ||
-          persistedCloudApiKey ||
-          persistedEnvCloudApiKey;
-        if (!resolvedCloudApiKey) {
-          providerSwitchInProgress = false;
-          error(
-            res,
-            "ElizaCloud API key is required. Add ELIZAOS_CLOUD_API_KEY first.",
-            400,
-          );
-          return;
-        }
+        // Restore cloud config — the actual API key should already be in
+        // config.cloud.apiKey from the original cloud login.  If it was
+        // wiped, the user will need to re-login via cloud.
         (config.cloud as Record<string, unknown>).enabled = true;
-        config.cloud.apiKey = resolvedCloudApiKey;
-        envCfg.ELIZAOS_CLOUD_API_KEY = resolvedCloudApiKey;
-        process.env.ELIZAOS_CLOUD_API_KEY = resolvedCloudApiKey;
-        process.env.ELIZAOS_CLOUD_ENABLED = "true";
+        if (config.cloud.apiKey) {
+          process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
+          process.env.ELIZAOS_CLOUD_ENABLED = "true";
+        }
       } else if (provider === "pi-ai") {
         // Switching TO pi-ai credentials mode
         clearCloud();
@@ -6961,7 +5971,6 @@ async function handleRequest(
         clearOtherApiKeys();
         process.env.MILAIDY_USE_PI_AI = "1";
         envCfg.MILAIDY_USE_PI_AI = "1";
-        setPrimaryModelForProvider("pi-ai");
 
         const envRoot = config.env as Record<string, unknown>;
         const vars =
@@ -6972,7 +5981,10 @@ async function handleRequest(
             : {};
         vars.MILAIDY_USE_PI_AI = "1";
         envRoot.vars = vars;
-      } else if (provider === "openai-subscription") {
+      } else if (
+        provider === "openai-codex" ||
+        provider === "openai-subscription"
+      ) {
         // Switching TO OpenAI subscription
         clearPiAi();
         clearCloud();
@@ -7030,7 +6042,6 @@ async function handleRequest(
         clearCloud();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
-        setPrimaryModelForProvider(provider);
         const envKey = PROVIDER_ENV_KEYS[provider];
         clearOtherApiKeys(envKey);
         const apiKey = body.apiKey;
@@ -7041,38 +6052,12 @@ async function handleRequest(
         }
         process.env[envKey] = apiKey;
         envCfg[envKey] = apiKey;
-      } else {
-        // Switching to a provider that does not require an external API key.
-        clearPiAi();
-        clearCloud();
-        await clearSubscriptions();
-        clearSubscriptionProviderConfig(config);
-        clearOtherApiKeys();
-        setPrimaryModelForProvider(provider);
       }
 
       saveMiladyConfig(config);
 
-      // Restart only when a runtime is attached or currently booting; otherwise
-      // the next explicit start will pick up fresh provider config directly.
-      const runtimeBootingWithoutRuntime =
-        !state.runtime &&
-        (state.agentState === "starting" ||
-          state.agentState === "restarting" ||
-          state.startup.phase === "runtime-bootstrap" ||
-          state.startup.phase === "runtime-retry" ||
-          state.startup.phase === "runtime-restart");
-      const runtimeLive =
-        Boolean(state.runtime) &&
-        (state.agentState === "running" ||
-          state.agentState === "paused" ||
-          state.agentState === "restarting");
-      const shouldScheduleRestart = runtimeLive || runtimeBootingWithoutRuntime;
-      if (shouldScheduleRestart) {
-        scheduleRuntimeRestart(`provider switch to ${provider}`);
-      } else {
-        clearPendingProviderRestartReasons(provider);
-      }
+      // Schedule runtime restart so the new provider takes effect.
+      scheduleRuntimeRestart(`provider switch to ${provider}`);
       // Keep the lock briefly in restart-capable environments to prevent
       // double-submits from racing with restart-required propagation.
       if (ctx?.onRestart) {
@@ -7086,7 +6071,7 @@ async function handleRequest(
       json(res, {
         success: true,
         provider,
-        restarting: shouldScheduleRestart,
+        restarting: true,
       });
     } catch (err) {
       providerSwitchInProgress = false;
@@ -7145,7 +6130,6 @@ async function handleRequest(
       connectionStatus: "disconnected",
       activeAgentId: null,
     };
-    const readiness = evaluateRuntimeReadiness(state);
 
     json(res, {
       state: state.agentState,
@@ -7156,64 +6140,7 @@ async function handleRequest(
       cloud: cloudStatus,
       pendingRestart: state.pendingRestartReasons.length > 0,
       pendingRestartReasons: state.pendingRestartReasons,
-      readiness,
-      chatLoad: {
-        inflight: state.inflightChatRequests,
-        maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
-      },
-      chatControls: CHAT_CONTROL_BUDGETS,
     });
-    return;
-  }
-
-  // ── GET /api/healthz ────────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/healthz") {
-    json(res, {
-      ok: true,
-      service: "milady-api",
-      now: Date.now(),
-      state: state.agentState,
-      startupPhase: state.startup.phase,
-      chatControls: CHAT_CONTROL_BUDGETS,
-    });
-    return;
-  }
-
-  // ── GET /api/readyz ─────────────────────────────────────────────────────
-  if (method === "GET" && pathname === "/api/readyz") {
-    let readiness = evaluateRuntimeReadiness(state);
-    let dbHealth: Awaited<ReturnType<typeof getRuntimeDatabaseHealth>> | null =
-      null;
-    const requireDbHealth = process.env.MILADY_REQUIRE_DB_HEALTH === "1";
-    if (requireDbHealth && state.runtime && readiness.ready) {
-      dbHealth = await getRuntimeDatabaseHealth(state.runtime);
-      if (!dbHealth.ok) {
-        readiness = {
-          ready: false,
-          code: "database_unhealthy",
-          message: dbHealth.message,
-        };
-      }
-    }
-    const statusCode = readiness.ready ? 200 : 503;
-    json(
-      res,
-      {
-        ok: readiness.ready,
-        readiness,
-        dbHealth,
-        state: state.agentState,
-        startup: state.startup,
-        pendingRestart: state.pendingRestartReasons.length > 0,
-        pendingRestartReasons: state.pendingRestartReasons,
-        chatControls: CHAT_CONTROL_BUDGETS,
-        chatLoad: {
-          inflight: state.inflightChatRequests,
-          maxConcurrent: CHAT_MAX_CONCURRENT_REQUESTS,
-        },
-      },
-      statusCode,
-    );
     return;
   }
 
@@ -7532,20 +6459,6 @@ async function handleRequest(
       const envCfg = config.env as Record<string, unknown>;
       const vars = (envCfg.vars ?? {}) as Record<string, string>;
       const providerId = typeof body.provider === "string" ? body.provider : "";
-      const providerOpt =
-        runMode === "local" && providerId
-          ? getProviderOptions().find((p) => p.id === providerId)
-          : undefined;
-      const providerApiKey =
-        typeof body.providerApiKey === "string"
-          ? body.providerApiKey.trim()
-          : typeof body.apiKey === "string"
-            ? body.apiKey.trim()
-            : typeof body.cloudApiKey === "string"
-              ? body.cloudApiKey.trim()
-              : typeof body.ELIZAOS_CLOUD_API_KEY === "string"
-                ? body.ELIZAOS_CLOUD_API_KEY.trim()
-                : "";
 
       // Persist vars back onto config.env
       (envCfg as Record<string, unknown>).vars = vars;
@@ -7555,29 +6468,6 @@ async function handleRequest(
         delete (config.env as Record<string, string>).MILAIDY_USE_PI_AI;
         delete process.env.MILAIDY_USE_PI_AI;
       };
-
-      if (providerOpt) {
-        // Selecting a provider during onboarding should make it immediately
-        // active after restart, without requiring a manual plugin toggle.
-        enablePluginInConfig(config, providerOpt.pluginName);
-        setExclusiveProviderPluginEntries(config, providerId);
-        setPrimaryProviderModel(config, providerOpt.pluginName);
-        applySelectedProviderModelDefaults(
-          config,
-          providerId,
-          typeof body.smallModel === "string" ? body.smallModel : undefined,
-          typeof body.largeModel === "string" ? body.largeModel : undefined,
-        );
-      }
-
-      if (runMode === "local" && providerId) {
-        const keepEnvKey =
-          providerId === "anthropic-subscription" &&
-          providerApiKey.startsWith("sk-ant-")
-            ? "ANTHROPIC_API_KEY"
-            : (providerOpt?.envKey ?? null);
-        clearNonSelectedProviderApiKeys(config, keepEnvKey);
-      }
 
       if (runMode === "local" && providerId === "pi-ai") {
         vars.MILAIDY_USE_PI_AI = "1";
@@ -7603,44 +6493,14 @@ async function handleRequest(
       }
 
       // API-key providers (envKey backed)
-      if (runMode === "local" && providerId && providerApiKey) {
+      if (runMode === "local" && providerId && body.providerApiKey) {
+        const providerOpt = getProviderOptions().find(
+          (p) => p.id === providerId,
+        );
         if (providerOpt?.envKey) {
           (config.env as Record<string, string>)[providerOpt.envKey] =
-            providerApiKey;
-          process.env[providerOpt.envKey] = providerApiKey;
-        }
-      }
-
-      // ElizaCloud selected during onboarding should apply immediately as
-      // the active provider (same UX expectation as direct API-key providers).
-      if (runMode === "local" && providerId === "elizacloud") {
-        if (!config.cloud) config.cloud = {};
-        config.cloud.enabled = true;
-        (config.env as Record<string, string>).ELIZAOS_CLOUD_ENABLED = "true";
-        process.env.ELIZAOS_CLOUD_ENABLED = "true";
-        const existingCloudKey =
-          typeof config.cloud.apiKey === "string"
-            ? config.cloud.apiKey.trim()
-            : "";
-        const existingEnvKey = (
-          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY ?? ""
-        ).trim();
-        const runtimeEnvKey = (process.env.ELIZAOS_CLOUD_API_KEY ?? "").trim();
-        const resolvedCloudKey =
-          providerApiKey || existingCloudKey || existingEnvKey || runtimeEnvKey;
-        if (!resolvedCloudKey) {
-          error(
-            res,
-            "ElizaCloud API key is required. Enter your ELIZAOS_CLOUD_API_KEY to continue.",
-            400,
-          );
-          return;
-        }
-        if (resolvedCloudKey) {
-          config.cloud.apiKey = resolvedCloudKey;
-          (config.env as Record<string, string>).ELIZAOS_CLOUD_API_KEY =
-            resolvedCloudKey;
-          process.env.ELIZAOS_CLOUD_API_KEY = resolvedCloudKey;
+            body.providerApiKey as string;
+          process.env[providerOpt.envKey] = body.providerApiKey as string;
         }
       }
     }
@@ -7654,7 +6514,10 @@ async function handleRequest(
       (body.provider === "anthropic-subscription" ||
         body.provider === "openai-subscription")
     ) {
-      applySubscriptionProviderConfig(config, body.provider);
+      if (!config.agents) config.agents = {};
+      if (!config.agents.defaults) config.agents.defaults = {};
+      (config.agents.defaults as Record<string, unknown>).subscriptionProvider =
+        body.provider;
       logger.info(
         `[milady-api] Subscription provider selected: ${body.provider} — complete OAuth via /api/subscription/ endpoints`,
       );
@@ -7807,45 +6670,10 @@ async function handleRequest(
       error(res, "Failed to save configuration", 500);
       return;
     }
-    const selectedProviderId =
-      typeof body.provider === "string" ? body.provider.trim() : "";
-    const providerSelectedInLocalMode =
-      runMode === "local" && selectedProviderId.length > 0;
-    const runtimeBootingWithoutRuntime =
-      !state.runtime &&
-      (state.agentState === "starting" ||
-        state.agentState === "restarting" ||
-        state.startup.phase === "runtime-bootstrap" ||
-        state.startup.phase === "runtime-retry" ||
-        state.startup.phase === "runtime-restart");
-    const runtimeLive =
-      Boolean(state.runtime) &&
-      (state.agentState === "running" ||
-        state.agentState === "paused" ||
-        state.agentState === "restarting");
-    const providerRestartRequired =
-      providerSelectedInLocalMode &&
-      (runtimeLive || runtimeBootingWithoutRuntime);
-    if (providerRestartRequired && selectedProviderId) {
-      scheduleRuntimeRestart(
-        `Onboarding provider selected: ${selectedProviderId}`,
-      );
-    } else if (providerSelectedInLocalMode && selectedProviderId) {
-      // Runtime isn't active yet; next explicit start should use this provider.
-      state.pendingRestartReasons = state.pendingRestartReasons.filter(
-        (reason) =>
-          reason !== `Onboarding provider selected: ${selectedProviderId}` &&
-          reason !== `provider switch to ${selectedProviderId}`,
-      );
-    }
     logger.info(
       `[milady-api] Onboarding complete for agent "${body.name}" (mode: ${(body.runMode as string) || "local"})`,
     );
-    json(res, {
-      ok: true,
-      restarting: providerRestartRequired,
-      pendingRestartReasons: [...state.pendingRestartReasons],
-    });
+    json(res, { ok: true });
     return;
   }
 
@@ -7856,10 +6684,7 @@ async function handleRequest(
       method,
       pathname,
       state,
-      onRestart: ctx?.onRestart ?? undefined,
-      onStop: ctx?.onStop ?? undefined,
       json,
-      error,
     })
   ) {
     return;
@@ -7938,21 +6763,15 @@ async function handleRequest(
       pathname,
       state,
       onRestart: ctx?.onRestart ?? undefined,
-      onReset: ctx?.onReset ?? undefined,
       json,
       error,
       resolveStateDir,
       resolvePath: path.resolve,
-      resolveConfigPath,
       getHomeDir: os.homedir,
       isSafeResetStateDir,
       stateDirExists: fs.existsSync,
       removeStateDir: (resolvedState) => {
         fs.rmSync(resolvedState, { recursive: true, force: true });
-      },
-      configFileExists: fs.existsSync,
-      removeConfigFile: (resolvedConfigPath) => {
-        fs.rmSync(resolvedConfigPath, { force: true });
       },
       logWarn: (message) => logger.warn(message),
     })
@@ -8055,46 +6874,6 @@ async function handleRequest(
       freshConfig = state.config;
     }
 
-    // Keep provider env vars hydrated from persisted config so Settings can
-    // reflect real key state even when runtime has not started yet.
-    const persistedEnv =
-      freshConfig.env && typeof freshConfig.env === "object"
-        ? (freshConfig.env as Record<string, unknown>)
-        : {};
-    const persistedVars =
-      persistedEnv.vars &&
-      typeof persistedEnv.vars === "object" &&
-      !Array.isArray(persistedEnv.vars)
-        ? (persistedEnv.vars as Record<string, unknown>)
-        : {};
-    const hydrateProviderEnvKey = (key: string): void => {
-      if (process.env[key]?.trim()) return;
-      const directVal = persistedEnv[key];
-      if (typeof directVal === "string" && directVal.trim()) {
-        process.env[key] = directVal.trim();
-        return;
-      }
-      const varsVal = persistedVars[key];
-      if (typeof varsVal === "string" && varsVal.trim()) {
-        process.env[key] = varsVal.trim();
-      }
-    };
-    for (const provider of getProviderOptions()) {
-      if (provider.envKey) {
-        hydrateProviderEnvKey(provider.envKey);
-      }
-    }
-    const cloudApiKey =
-      typeof freshConfig.cloud?.apiKey === "string"
-        ? freshConfig.cloud.apiKey.trim()
-        : "";
-    if (cloudApiKey && !process.env.ELIZAOS_CLOUD_API_KEY?.trim()) {
-      process.env.ELIZAOS_CLOUD_API_KEY = cloudApiKey;
-    }
-    if (freshConfig.cloud?.enabled) {
-      process.env.ELIZAOS_CLOUD_ENABLED = "true";
-    }
-
     // Merge user-installed plugins into the list (they don't exist in plugins.json)
     const bundledIds = new Set(state.plugins.map((p) => p.id));
     const installedEntries = discoverInstalledPlugins(freshConfig, bundledIds);
@@ -8108,29 +6887,18 @@ async function handleRequest(
     const loadedNames = state.runtime
       ? state.runtime.plugins.map((p) => p.name)
       : [];
-    const normalizedLoadedNames = loadedNames.map((name) =>
-      normalizePluginRuntimeName(name),
-    );
     for (const plugin of allPlugins) {
       const suffix = `plugin-${plugin.id}`;
       const packageName = `@elizaos/plugin-${plugin.id}`;
-      const normalizedId = normalizePluginRuntimeName(plugin.id);
-      const normalizedSuffix = normalizePluginRuntimeName(suffix);
-      const normalizedPackage = normalizePluginRuntimeName(packageName);
       const isLoaded =
         loadedNames.length > 0 &&
-        loadedNames.some((name, idx) => {
-          const normalizedName = normalizedLoadedNames[idx];
+        loadedNames.some((name) => {
           return (
             name === plugin.id ||
             name === suffix ||
             name === packageName ||
             name.endsWith(`/${suffix}`) ||
-            name.includes(plugin.id) ||
-            normalizedName === normalizedId ||
-            normalizedName === normalizedSuffix ||
-            normalizedName === normalizedPackage ||
-            normalizedName.includes(normalizedId)
+            name.includes(plugin.id)
           );
         });
       plugin.isActive = isLoaded;
@@ -8241,29 +7009,9 @@ async function handleRequest(
       plugin.enabled = body.enabled;
     }
     if (body.config) {
-      const sensitiveByKey = new Map(
-        plugin.parameters.map((p) => [p.key, Boolean(p.sensitive)]),
-      );
-      const effectiveConfig: Record<string, string> = {};
-      for (const [key, value] of Object.entries(body.config)) {
-        if (typeof value !== "string") continue;
-        // UI sends [REDACTED] placeholders for unchanged secrets. Treat as
-        // omitted so we don't clobber persisted keys or fail validation.
-        if (sensitiveByKey.get(key) && isRedactedSecretValue(value)) {
-          continue;
-        }
-        effectiveConfig[key] = value;
-      }
-
-      // Nothing actionable in config payload (all masked placeholders).
-      if (Object.keys(effectiveConfig).length === 0) {
-        json(res, { ok: true, plugin });
-        return;
-      }
-
       const configRejections = resolvePluginConfigMutationRejections(
         plugin.parameters,
-        effectiveConfig,
+        body.config,
       );
       if (configRejections.length > 0) {
         json(
@@ -8278,7 +7026,7 @@ async function handleRequest(
       // fields. Users may save partial config (e.g. just the API key) from
       // the Settings page; blocking the save because OTHER required fields
       // aren't set yet is counterproductive.
-      const configObj = effectiveConfig;
+      const configObj = body.config;
       const submittedParamInfos: PluginParamInfo[] = plugin.parameters
         .filter((p) => p.key in configObj)
         .map((p) => ({
@@ -8294,7 +7042,7 @@ async function handleRequest(
         plugin.category,
         plugin.envKey,
         plugin.configKeys,
-        effectiveConfig,
+        body.config,
         submittedParamInfos,
       );
 
@@ -8313,8 +7061,7 @@ async function handleRequest(
       if (!state.config.env) {
         state.config.env = {};
       }
-      let appliedConfigCount = 0;
-      for (const [key, value] of Object.entries(effectiveConfig)) {
+      for (const [key, value] of Object.entries(body.config)) {
         if (
           allowedParamKeys.has(key) &&
           !BLOCKED_ENV_KEYS.has(key.toUpperCase()) &&
@@ -8323,26 +7070,6 @@ async function handleRequest(
         ) {
           process.env[key] = value;
           (state.config.env as Record<string, unknown>)[key] = value;
-          appliedConfigCount += 1;
-        }
-      }
-
-      // Keep ElizaCloud plugin saves aligned with runtime cloud source-of-truth.
-      // Runtime provider precedence reads config.cloud, not just config.env.
-      if (pluginId === "elizacloud") {
-        if (!state.config.cloud) {
-          state.config.cloud = {} as NonNullable<typeof state.config.cloud>;
-        }
-
-        const cloudApiKey = body.config.ELIZAOS_CLOUD_API_KEY;
-        if (typeof cloudApiKey === "string" && cloudApiKey.trim()) {
-          state.config.cloud.apiKey = cloudApiKey.trim();
-          state.config.cloud.enabled = true;
-        }
-
-        const cloudBaseUrl = body.config.ELIZAOS_CLOUD_BASE_URL;
-        if (typeof cloudBaseUrl === "string" && cloudBaseUrl.trim()) {
-          state.config.cloud.baseUrl = cloudBaseUrl.trim();
         }
       }
       plugin.configured = true;
@@ -8355,11 +7082,6 @@ async function handleRequest(
           logger.warn(
             `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
-        }
-
-        // Apply cloud model/provider updates cleanly after settings saves.
-        if (pluginId === "elizacloud" && appliedConfigCount > 0) {
-          scheduleRuntimeRestart("Eliza Cloud configuration updated");
         }
       }
     }
@@ -8519,7 +7241,7 @@ async function handleRequest(
       // Find the plugin in the runtime
       const allPlugins = state.runtime?.plugins ?? [];
       const normalizePluginId = (value: string): string =>
-        normalizePluginRuntimeName(value);
+        value.replace(/^@[^/]+\//, "").replace(/^plugin-/, "");
 
       const normalizedPluginId = normalizePluginId(pluginId);
 
@@ -11481,13 +10203,12 @@ async function handleRequest(
       };
 
       try {
-        const unavailable = runtimeUnavailableMessage();
-        if (unavailable) {
+        if (!state.runtime) {
           writeSseData(
             res,
             JSON.stringify({
               error: {
-                message: unavailable,
+                message: "Agent is not running",
                 type: "service_unavailable",
               },
             }),
@@ -11502,11 +10223,7 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) {
-            throw new Error(
-              runtimeUnavailableMessage() ?? "Agent is not running",
-            );
-          }
+          if (!runtime) throw new Error("Agent is not running");
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -11573,13 +10290,12 @@ async function handleRequest(
       let responseText: string;
 
       {
-        const unavailable = runtimeUnavailableMessage();
-        if (unavailable) {
+        if (!state.runtime) {
           json(
             res,
             {
               error: {
-                message: unavailable,
+                message: "Agent is not running",
                 type: "service_unavailable",
               },
             },
@@ -11588,11 +10304,6 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        if (!runtime) {
-          throw new Error(
-            runtimeUnavailableMessage() ?? "Agent is not running",
-          );
-        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -11711,15 +10422,14 @@ async function handleRequest(
       });
 
       try {
-        const unavailable = runtimeUnavailableMessage();
-        if (unavailable) {
+        if (!state.runtime) {
           writeSseJson(
             res,
             {
               type: "error",
               error: {
                 type: "service_unavailable",
-                message: unavailable,
+                message: "Agent is not running",
               },
             },
             "error",
@@ -11772,11 +10482,7 @@ async function handleRequest(
 
         {
           const runtime = state.runtime;
-          if (!runtime) {
-            throw new Error(
-              runtimeUnavailableMessage() ?? "Agent is not running",
-            );
-          }
+          if (!runtime) throw new Error("Agent is not running");
           const agentName = runtime.character.name ?? "Milady";
           const { userId, roomId } = await ensureCompatChatConnection(
             runtime,
@@ -11849,14 +10555,13 @@ async function handleRequest(
       let responseText: string;
 
       {
-        const unavailable = runtimeUnavailableMessage();
-        if (unavailable) {
+        if (!state.runtime) {
           json(
             res,
             {
               error: {
                 type: "service_unavailable",
-                message: unavailable,
+                message: "Agent is not running",
               },
             },
             503,
@@ -11864,11 +10569,6 @@ async function handleRequest(
           return;
         }
         const runtime = state.runtime;
-        if (!runtime) {
-          throw new Error(
-            runtimeUnavailableMessage() ?? "Agent is not running",
-          );
-        }
         const agentName = runtime.character.name ?? "Milady";
         const { userId, roomId } = await ensureCompatChatConnection(
           runtime,
@@ -12032,31 +10732,9 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
 
-    const unavailableConversationStream = runtimeUnavailableMessage();
-    if (unavailableConversationStream) {
-      error(res, unavailableConversationStream, 503);
-      return;
-    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
-      return;
-    }
-    const rateLimitMessage = consumeChatRateLimit(
-      state,
-      resolveChatRateKey(req),
-    );
-    if (rateLimitMessage) {
-      error(res, rateLimitMessage, 429);
-      return;
-    }
-    const releaseChatSlot = acquireChatSlot(state);
-    if (!releaseChatSlot) {
-      error(
-        res,
-        "Runtime is busy handling other chat requests. Please retry in a few seconds.",
-        503,
-      );
       return;
     }
 
@@ -12071,7 +10749,6 @@ async function handleRequest(
         `Failed to initialize conversation room: ${getErrorMessage(err)}`,
         500,
       );
-      releaseChatSlot();
       return;
     }
 
@@ -12087,7 +10764,6 @@ async function handleRequest(
       await persistConversationMemory(runtime, messageToStore);
     } catch (err) {
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
-      releaseChatSlot();
       return;
     }
 
@@ -12181,18 +10857,15 @@ async function handleRequest(
             });
           }
         } else {
-          const classified = classifyChatError(err);
           writeSse(res, {
             type: "error",
-            message: classified.message,
-            code: classified.code,
+            message: getErrorMessage(err),
           });
         }
       }
     } finally {
       clearInterval(heartbeatInterval);
       res.end();
-      releaseChatSlot();
     }
     return;
   }
@@ -12214,31 +10887,9 @@ async function handleRequest(
     });
     if (!chatPayload) return;
     const { prompt, channelType, images } = chatPayload;
-    const unavailableConversationPost = runtimeUnavailableMessage();
-    if (unavailableConversationPost) {
-      error(res, unavailableConversationPost, 503);
-      return;
-    }
     const runtime = state.runtime;
     if (!runtime) {
       error(res, "Agent is not running", 503);
-      return;
-    }
-    const rateLimitMessage = consumeChatRateLimit(
-      state,
-      resolveChatRateKey(req),
-    );
-    if (rateLimitMessage) {
-      error(res, rateLimitMessage, 429);
-      return;
-    }
-    const releaseChatSlot = acquireChatSlot(state);
-    if (!releaseChatSlot) {
-      error(
-        res,
-        "Runtime is busy handling other chat requests. Please retry in a few seconds.",
-        503,
-      );
       return;
     }
     const userId = ensureAdminEntityId();
@@ -12252,7 +10903,6 @@ async function handleRequest(
         `Failed to initialize conversation room: ${getErrorMessage(err)}`,
         500,
       );
-      releaseChatSlot();
       return;
     }
 
@@ -12268,7 +10918,6 @@ async function handleRequest(
       await persistConversationMemory(runtime, messageToStore);
     } catch (err) {
       error(res, `Failed to store user message: ${getErrorMessage(err)}`, 500);
-      releaseChatSlot();
       return;
     }
 
@@ -12314,13 +10963,11 @@ async function handleRequest(
             agentName: state.agentName,
           });
         } catch (persistErr) {
-          sendClassifiedChatError(res, persistErr, 500);
+          error(res, getErrorMessage(persistErr), 500);
         }
       } else {
-        sendClassifiedChatError(res, err, 500);
+        error(res, getErrorMessage(err), 500);
       }
-    } finally {
-      releaseChatSlot();
     }
     return;
   }
@@ -12454,26 +11101,8 @@ async function handleRequest(
 
     // Cloud proxy path
 
-    const unavailableChatStream = runtimeUnavailableMessage();
-    if (unavailableChatStream) {
-      sendClassifiedChatError(res, unavailableChatStream, 503);
-      return;
-    }
-    const rateLimitMessage = consumeChatRateLimit(
-      state,
-      resolveChatRateKey(req),
-    );
-    if (rateLimitMessage) {
-      error(res, rateLimitMessage, 429);
-      return;
-    }
-    const releaseChatSlot = acquireChatSlot(state);
-    if (!releaseChatSlot) {
-      error(
-        res,
-        "Runtime is busy handling other chat requests. Please retry in a few seconds.",
-        503,
-      );
+    if (!state.runtime) {
+      error(res, "Agent is not running", 503);
       return;
     }
 
@@ -12485,9 +11114,6 @@ async function handleRequest(
 
     try {
       const runtime = state.runtime;
-      if (!runtime) {
-        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
-      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
@@ -12539,17 +11165,14 @@ async function handleRequest(
             agentName: state.agentName,
           });
         } else {
-          const classified = classifyChatError(err);
           writeSse(res, {
             type: "error",
-            message: classified.message,
-            code: classified.code,
+            message: getErrorMessage(err),
           });
         }
       }
     } finally {
       res.end();
-      releaseChatSlot();
     }
     return;
   }
@@ -12574,34 +11197,13 @@ async function handleRequest(
     if (!chatPayload) return;
     const { prompt, channelType } = chatPayload;
 
-    const unavailableChat = runtimeUnavailableMessage();
-    if (unavailableChat) {
-      sendClassifiedChatError(res, unavailableChat, 503);
-      return;
-    }
-    const rateLimitMessage = consumeChatRateLimit(
-      state,
-      resolveChatRateKey(req),
-    );
-    if (rateLimitMessage) {
-      error(res, rateLimitMessage, 429);
-      return;
-    }
-    const releaseChatSlot = acquireChatSlot(state);
-    if (!releaseChatSlot) {
-      error(
-        res,
-        "Runtime is busy handling other chat requests. Please retry in a few seconds.",
-        503,
-      );
+    if (!state.runtime) {
+      error(res, "Agent is not running", 503);
       return;
     }
 
     try {
       const runtime = state.runtime;
-      if (!runtime) {
-        throw new Error(runtimeUnavailableMessage() ?? "Agent is not running");
-      }
       const agentName = runtime.character.name ?? "Milady";
       await ensureLegacyChatConnection(runtime, agentName);
       const chatUserId = state.chatUserId;
@@ -12644,18 +11246,8 @@ async function handleRequest(
           agentName: state.agentName,
         });
       } else {
-        const classified = classifyChatError(err);
-        json(
-          res,
-          {
-            error: classified.message,
-            code: classified.code,
-          },
-          classified.status || 500,
-        );
+        error(res, getErrorMessage(err), 500);
       }
-    } finally {
-      releaseChatSlot();
     }
     return;
   }
@@ -12828,12 +11420,6 @@ async function handleRequest(
       thinking: autonomyState.thinking,
       lastEventAt: latestAutonomyEvent?.ts ?? null,
     };
-    let coding = {
-      available: false,
-      taskCount: 0,
-      activeTaskCount: 0,
-      supervisionLevel: "autonomous" as const,
-    };
     let tasksAvailable = false;
     let triggersAvailable = false;
     let todosAvailable = false;
@@ -12841,23 +11427,6 @@ async function handleRequest(
     let todoData: TodoDataServiceLike | null = null;
 
     if (state.runtime) {
-      try {
-        const codingCoordinator = state.runtime.getService(
-          "CODE_TASK",
-        ) as CodingCoordinatorServiceLike | null;
-        if (codingCoordinator?.getTasks) {
-          const codingTasks = await codingCoordinator.getTasks();
-          coding = {
-            available: true,
-            taskCount: codingTasks.length,
-            activeTaskCount: codingTasks.filter(isCodingTaskActive).length,
-            supervisionLevel: "autonomous",
-          };
-        }
-      } catch {
-        // coding orchestrator unavailable; leave defaults
-      }
-
       try {
         runtimeTasks = await state.runtime.getTasks({});
         tasksAvailable = true;
@@ -12946,7 +11515,6 @@ async function handleRequest(
       todos,
       summary,
       autonomy,
-      coding,
       tasksAvailable,
       triggersAvailable,
       todosAvailable,
@@ -14404,17 +12972,6 @@ export async function startApiServer(opts?: {
    * If omitted the endpoint returns 501 (not supported in this mode).
    */
   onRestart?: () => Promise<AgentRuntime | null>;
-  /**
-   * Called when the UI requests a full reset via `POST /api/agent/reset`.
-   * Hosts can use this to quiesce in-flight bootstrap/retry loops before
-   * state directory deletion.
-   */
-  onReset?: () => Promise<void> | void;
-  /**
-   * Called when the UI requests an explicit stop via `POST /api/agent/stop`.
-   * Hosts can use this to suspend background bootstrap/retry loops.
-   */
-  onStop?: () => Promise<void> | void;
 }): Promise<{
   port: number;
   close: () => Promise<void>;
@@ -14431,7 +12988,6 @@ export async function startApiServer(opts?: {
   console.log(`[milady-api] startApiServer called`);
 
   const port = opts?.port ?? 2138;
-  const strictPort = process.env.MILADY_STRICT_PORT === "1";
   const host =
     (process.env.MILADY_API_BIND ?? "127.0.0.1").trim() || "127.0.0.1";
   ensureApiTokenForBindHost(host);
@@ -14451,21 +13007,6 @@ export async function startApiServer(opts?: {
   // Wallet/inventory routes read from process.env at request-time.
   // Hydrate persisted config.env values so addresses remain visible after restarts.
   const persistedEnv = config.env as Record<string, string> | undefined;
-  if (persistedEnv?.WALLET_DISCONNECT) {
-    // WALLET_DISCONNECT is runtime-ephemeral. If it persists to disk, each
-    // boot can re-enter restart/error loops with stale "wallet disconnected"
-    // reasons. Clear it during startup self-heal.
-    delete persistedEnv.WALLET_DISCONNECT;
-    try {
-      saveMiladyConfig(config);
-    } catch (err) {
-      logger.warn(
-        `[milady-api] Failed to clear persisted WALLET_DISCONNECT: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-  }
-  delete process.env.WALLET_DISCONNECT;
-
   const envKeysToHydrate = [
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
@@ -14553,8 +13094,6 @@ export async function startApiServer(opts?: {
     permissionStates: {},
     shellEnabled: config.features?.shellEnabled !== false,
     pendingRestartReasons: [],
-    inflightChatRequests: 0,
-    chatRateBuckets: new Map(),
     connectorRouteHandlers: [],
   };
 
@@ -14765,15 +13304,13 @@ export async function startApiServer(opts?: {
 
   // Store the restart callback on the state so the route handler can access it.
   const onRestart = opts?.onRestart ?? null;
-  const onReset = opts?.onReset ?? null;
-  const onStop = opts?.onStop ?? null;
 
   console.log(
     `[milady-api] Creating http server (${Date.now() - apiStartTime}ms)`,
   );
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, state, { onRestart, onReset, onStop });
+      await handleRequest(req, res, state, { onRestart });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "internal error";
       addLog("error", msg, "api", ["server", "api"]);
@@ -15437,19 +13974,7 @@ export async function startApiServer(opts?: {
   };
 
   // Broadcast status every 5 seconds
-  const statusInterval = setInterval(() => {
-    promoteRuntimeBackToRunning(state);
-    const startupWatchdogReason = enforceStartingStateWatchdog(state);
-    if (startupWatchdogReason) {
-      addLog(
-        "error",
-        `[milady-api] Startup watchdog triggered: ${startupWatchdogReason}`,
-        "milady-api",
-        ["server", "agent"],
-      );
-    }
-    broadcastStatus();
-  }, 5000);
+  const statusInterval = setInterval(broadcastStatus, 5000);
 
   /**
    * Restore the in-memory conversation list from the database.
@@ -15518,16 +14043,10 @@ export async function startApiServer(opts?: {
   // Restore conversations from DB at initial boot (if runtime was passed in)
   if (opts?.runtime) {
     void restoreConversationsFromDb(opts.runtime);
-    void ensureAutonomySvc(opts.runtime).catch((err) => {
-      logger.warn(
-        `[milady-api] Failed to ensure AUTONOMY service at API boot: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    });
   }
 
   /** Hot-swap the runtime reference (used after an in-process restart). */
   const updateRuntime = (rt: AgentRuntime): void => {
-    const pendingReasonsOnAttach = [...state.pendingRestartReasons];
     state.runtime = rt;
     state.chatConnectionReady = null;
     state.chatConnectionPromise = null;
@@ -15541,22 +14060,6 @@ export async function startApiServer(opts?: {
       phase: "running",
       attempt: 0,
     };
-    // Preserve pending restart reasons captured while runtime was still
-    // bootstrapping; they are auto-applied on the next request cycle.
-    state.pendingRestartReasons = pendingReasonsOnAttach;
-    void ensureAutonomySvc(rt)
-      .then((svc) => {
-        if (!svc) {
-          logger.warn(
-            "[milady-api] AUTONOMY service unavailable after runtime update",
-          );
-        }
-      })
-      .catch((err) => {
-        logger.warn(
-          `[milady-api] Failed to ensure AUTONOMY service after runtime update: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
     addLog("info", `Runtime restarted — agent: ${state.agentName}`, "system", [
       "system",
       "agent",
@@ -15593,11 +14096,7 @@ export async function startApiServer(opts?: {
       state?: ServerState["agentState"];
     },
   ): void => {
-    const previousState = state.agentState;
     const { state: nextState, ...startupUpdate } = update;
-    if (typeof startupUpdate.lastError === "string") {
-      startupUpdate.lastError = summarizeStartupIssue(startupUpdate.lastError);
-    }
     state.startup = {
       ...state.startup,
       ...startupUpdate,
@@ -15605,24 +14104,13 @@ export async function startApiServer(opts?: {
     if (nextState) {
       state.agentState = nextState;
       if (nextState === "error") {
-        state.pendingRestartReasons = [];
         state.startedAt = undefined;
       } else if (
-        (nextState === "starting" || nextState === "restarting") &&
-        (!state.startedAt ||
-          (previousState !== "starting" && previousState !== "restarting"))
+        (nextState === "starting" || nextState === "running") &&
+        !state.startedAt
       ) {
         state.startedAt = Date.now();
-      } else if (nextState === "running" && !state.startedAt) {
-        state.startedAt = Date.now();
       }
-    }
-    if (
-      !state.runtime &&
-      (state.startup.phase === "runtime-error" ||
-        state.startup.phase === "runtime-retry")
-    ) {
-      state.pendingRestartReasons = [];
     }
     broadcastStatus();
   };
@@ -15631,167 +14119,112 @@ export async function startApiServer(opts?: {
     `[milady-api] Calling server.listen (${Date.now() - apiStartTime}ms)`,
   );
   return new Promise((resolve, reject) => {
-    const isPortAvailable = async (candidatePort: number): Promise<boolean> => {
-      return await new Promise<boolean>((resolveProbe) => {
-        const probe = net.createServer();
-        const cleanup = () => {
-          probe.removeAllListeners("error");
-          probe.removeAllListeners("listening");
-        };
-        probe.once("error", (err: NodeJS.ErrnoException) => {
-          cleanup();
-          if (err.code === "EADDRINUSE") {
-            resolveProbe(false);
-            return;
-          }
-          resolveProbe(false);
-        });
-        probe.once("listening", () => {
-          cleanup();
-          probe.close(() => resolveProbe(true));
-        });
-        probe.listen(candidatePort, host);
-      });
-    };
+    let currentPort = port;
 
-    const choosePort = async (): Promise<number> => {
-      if (port === 0) return 0;
-      if (await isPortAvailable(port)) return port;
-      if (strictPort) {
-        // Reset/restart flows can briefly leave the strict port in a
-        // transitional state. Give it a short grace window before failing.
-        const strictDeadline = Date.now() + 8_000;
-        while (Date.now() < strictDeadline) {
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => setTimeout(resolve, 250));
-          // eslint-disable-next-line no-await-in-loop
-          if (await isPortAvailable(port)) {
-            return port;
-          }
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.warn(
+          `[milady-api] Port ${currentPort} is already in use. Checking fallback...`,
+        );
+        if (currentPort !== 0) {
+          console.warn(`[milady-api] Retrying with dynamic port (0)...`);
+          currentPort = 0;
+          server.listen(0, host);
+          return;
         }
-        throw new Error(
-          `Port ${port} is already in use and MILADY_STRICT_PORT=1 is set`,
-        );
-      }
-      console.warn(
-        `[milady-api] Port ${port} is already in use. Checking fallback...`,
-      );
-      for (let candidate = port + 1; candidate <= port + 20; candidate += 1) {
-        if (await isPortAvailable(candidate)) {
-          console.warn(`[milady-api] Using fallback port ${candidate}.`);
-          return candidate;
-        }
-      }
-      throw new Error(
-        `No available fallback port found in range ${port + 1}-${port + 20}`,
-      );
-    };
-
-    void (async () => {
-      let bindPort: number;
-      try {
-        bindPort = await choosePort();
-      } catch (err) {
+      } else {
         console.error(
-          `[milady-api] ${err instanceof Error ? err.message : String(err)}`,
+          `[milady-api] Server error: ${err.message} (code: ${err.code})`,
         );
-        reject(err);
-        return;
       }
+      reject(err);
+    });
 
-      server.once("error", (err: NodeJS.ErrnoException) => {
-        console.error(
-          `[milady-api] Server error while binding ${bindPort}: ${err.message} (code: ${err.code})`,
-        );
-        reject(err);
-      });
+    server.listen(port, host, () => {
+      console.log(
+        `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
+      );
+      const addr = server.address();
+      const actualPort =
+        typeof addr === "object" && addr ? addr.port : currentPort;
+      const displayHost =
+        typeof addr === "object" && addr ? addr.address : host;
+      addLog(
+        "info",
+        `API server listening on http://${displayHost}:${actualPort}`,
+        "system",
+        ["server", "system"],
+      );
+      logger.info(
+        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
+      );
+      startDeferredStartupWork();
+      resolve({
+        port: actualPort,
+        close: () =>
+          new Promise<void>((r) => {
+            const closeAllConnections = (
+              server as { closeAllConnections?: () => void }
+            ).closeAllConnections;
+            const closeIdleConnections = (
+              server as { closeIdleConnections?: () => void }
+            ).closeIdleConnections;
 
-      server.listen(bindPort, host, () => {
-        console.log(
-          `[milady-api] server.listen callback fired (${Date.now() - apiStartTime}ms)`,
-        );
-        const addr = server.address();
-        const actualPort =
-          typeof addr === "object" && addr ? addr.port : bindPort;
-        const displayHost =
-          typeof addr === "object" && addr ? addr.address : host;
-        addLog(
-          "info",
-          `API server listening on http://${displayHost}:${actualPort}`,
-          "system",
-          ["server", "system"],
-        );
-        logger.info(
-          `[milady-api] Listening on http://${displayHost}:${actualPort}`,
-        );
-        startDeferredStartupWork();
-        resolve({
-          port: actualPort,
-          close: () =>
-            new Promise<void>((r) => {
-              const closeAllConnections = (
-                server as { closeAllConnections?: () => void }
-              ).closeAllConnections;
-              const closeIdleConnections = (
-                server as { closeIdleConnections?: () => void }
-              ).closeIdleConnections;
-
-              clearInterval(statusInterval);
-              if (detachRuntimeStreams) {
-                detachRuntimeStreams();
-                detachRuntimeStreams = null;
+            clearInterval(statusInterval);
+            if (detachRuntimeStreams) {
+              detachRuntimeStreams();
+              detachRuntimeStreams = null;
+            }
+            if (detachTrainingStream) {
+              detachTrainingStream();
+              detachTrainingStream = null;
+            }
+            for (const ws of wsClients) {
+              if (ws.readyState === 1 || ws.readyState === 0) {
+                ws.terminate();
               }
-              if (detachTrainingStream) {
-                detachTrainingStream();
-                detachTrainingStream = null;
-              }
-              for (const ws of wsClients) {
-                if (ws.readyState === 1 || ws.readyState === 0) {
-                  ws.terminate();
-                }
-              }
-              wsClients.clear();
-              // Clean up WhatsApp pairing sessions
-              if (state.whatsappPairingSessions) {
-                for (const s of state.whatsappPairingSessions.values()) {
-                  try {
-                    s.stop();
-                  } catch {
-                    /* non-fatal */
-                  }
-                }
-                state.whatsappPairingSessions.clear();
-              }
-              wss.close();
-              const closeTimeout = setTimeout(() => r(), 5_000);
-              const resolved = { done: false };
-              const finalize = () => {
-                if (!resolved.done) {
-                  resolved.done = true;
-                  clearTimeout(closeTimeout);
-                  r();
-                }
-              };
-              if (typeof closeAllConnections === "function") {
+            }
+            wsClients.clear();
+            // Clean up WhatsApp pairing sessions
+            if (state.whatsappPairingSessions) {
+              for (const s of state.whatsappPairingSessions.values()) {
                 try {
-                  closeAllConnections();
+                  s.stop();
                 } catch {
-                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+                  /* non-fatal */
                 }
               }
-              if (typeof closeIdleConnections === "function") {
-                try {
-                  closeIdleConnections();
-                } catch {
-                  // Bun/Node server internals vary by runtime; non-fatal on shutdown.
-                }
+              state.whatsappPairingSessions.clear();
+            }
+            wss.close();
+            const closeTimeout = setTimeout(() => r(), 5_000);
+            const resolved = { done: false };
+            const finalize = () => {
+              if (!resolved.done) {
+                resolved.done = true;
+                clearTimeout(closeTimeout);
+                r();
               }
-              server.close(finalize);
-            }),
-          updateRuntime,
-          updateStartup,
-        });
+            };
+            if (typeof closeAllConnections === "function") {
+              try {
+                closeAllConnections();
+              } catch {
+                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              }
+            }
+            if (typeof closeIdleConnections === "function") {
+              try {
+                closeIdleConnections();
+              } catch {
+                // Bun/Node server internals vary by runtime; non-fatal on shutdown.
+              }
+            }
+            server.close(finalize);
+          }),
+        updateRuntime,
+        updateStartup,
       });
-    })();
+    });
   });
 }

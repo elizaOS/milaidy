@@ -305,7 +305,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   it("rejects WebSocket upgrade without token", async () => {
     const result = await connectWs(`ws://127.0.0.1:${port}/ws`);
     expect(result.kind).toBe("rejected");
-    if (result.kind === "rejected" && result.status !== undefined) {
+    if (result.kind === "rejected") {
       expect(result.status).toBe(401);
     }
   });
@@ -315,7 +315,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
     );
     expect(result.kind).toBe("rejected");
-    if (result.kind === "rejected" && result.status !== undefined) {
+    if (result.kind === "rejected") {
       expect(result.status).toBe(401);
     }
   });
@@ -591,7 +591,7 @@ describe("CORS origin restrictions", () => {
       Origin: "https://evil.example.com",
     });
     expect(result.kind).toBe("rejected");
-    if (result.kind === "rejected" && result.status !== undefined) {
+    if (result.kind === "rejected") {
       expect(result.status).toBe(403);
     }
   });
@@ -891,7 +891,7 @@ describe("Auth + agent lifecycle", () => {
       undefined,
       auth,
     );
-    expect(s1).toBe(503);
+    expect(s1).toBe(200);
 
     const { status: s2 } = await req(
       port,

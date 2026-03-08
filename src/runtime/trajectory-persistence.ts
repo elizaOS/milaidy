@@ -323,15 +323,6 @@ function warnRuntime(
   }
 }
 
-function isPromiseLike(value: unknown): value is Promise<unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "then" in (value as Record<string, unknown>) &&
-    typeof (value as { then?: unknown }).then === "function"
-  );
-}
-
 async function ensureTrajectoriesTable(
   runtime: IAgentRuntime,
 ): Promise<boolean> {
@@ -366,39 +357,6 @@ async function ensureTrajectoriesTable(
         archetype TEXT
       )`,
     );
-
-    // Backfill legacy installations where the table already existed with an
-    // older column set. CREATE TABLE IF NOT EXISTS does not add missing columns.
-    const requiredColumns: Array<[name: string, definition: string]> = [
-      ["trajectory_id", "TEXT"],
-      ["agent_id", "TEXT NOT NULL DEFAULT ''"],
-      ["source", "TEXT NOT NULL DEFAULT 'runtime'"],
-      ["status", "TEXT NOT NULL DEFAULT 'completed'"],
-      ["start_time", "BIGINT NOT NULL DEFAULT 0"],
-      ["end_time", "BIGINT"],
-      ["duration_ms", "BIGINT"],
-      ["step_count", "INTEGER NOT NULL DEFAULT 0"],
-      ["llm_call_count", "INTEGER NOT NULL DEFAULT 0"],
-      ["provider_access_count", "INTEGER NOT NULL DEFAULT 0"],
-      ["total_prompt_tokens", "INTEGER NOT NULL DEFAULT 0"],
-      ["total_completion_tokens", "INTEGER NOT NULL DEFAULT 0"],
-      ["total_reward", "REAL NOT NULL DEFAULT 0"],
-      ["steps_json", "TEXT NOT NULL DEFAULT '[]'"],
-      ["metadata", "TEXT NOT NULL DEFAULT '{}'"],
-      ["created_at", "TEXT NOT NULL DEFAULT ''"],
-      ["updated_at", "TEXT NOT NULL DEFAULT ''"],
-      ["episode_length", "INTEGER"],
-      ["ai_judge_reward", "REAL"],
-      ["ai_judge_reasoning", "TEXT"],
-      ["archetype", "TEXT"],
-    ];
-    for (const [columnName, columnDef] of requiredColumns) {
-      await executeRawSql(
-        runtime,
-        `ALTER TABLE trajectories ADD COLUMN IF NOT EXISTS ${columnName} ${columnDef}`,
-      );
-    }
-
     initializedRuntimes.add(key);
     return true;
   } catch (err) {
@@ -818,6 +776,7 @@ async function saveTrajectory(
 
   const sql = `INSERT INTO trajectories (
       id,
+      trajectory_id,
       agent_id,
       source,
       status,
@@ -836,6 +795,7 @@ async function saveTrajectory(
       updated_at,
       episode_length
     ) VALUES (
+      ${sqlQuote(trajectory.id)},
       ${sqlQuote(trajectory.id)},
       ${sqlQuote(runtime.agentId)},
       ${sqlQuote(trajectory.source)},
@@ -856,6 +816,7 @@ async function saveTrajectory(
       ${sqlNumber(trajectory.steps.length)}
     )
     ON CONFLICT (id) DO UPDATE SET
+      trajectory_id = EXCLUDED.trajectory_id,
       agent_id = EXCLUDED.agent_id,
       source = EXCLUDED.source,
       status = EXCLUDED.status,
@@ -878,35 +839,6 @@ async function saveTrajectory(
     await executeRawSql(runtime, sql);
     return true;
   } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : typeof err === "string"
-          ? err
-          : String(err);
-    const missingTrajectoryIdColumn =
-      message.includes('column "trajectory_id"') &&
-      message.includes("does not exist");
-
-    // Legacy DB recovery: some installs have an older trajectories schema.
-    // If trajectory_id is missing, add it and retry once.
-    if (missingTrajectoryIdColumn) {
-      try {
-        await executeRawSql(
-          runtime,
-          "ALTER TABLE trajectories ADD COLUMN IF NOT EXISTS trajectory_id TEXT",
-        );
-        await executeRawSql(runtime, sql);
-        return true;
-      } catch (retryErr) {
-        console.error(
-          "[trajectory-persistence] saveTrajectory retry after column migration failed:",
-          retryErr,
-        );
-        return false;
-      }
-    }
-
     console.error("[trajectory-persistence] saveTrajectory error:", err);
     return false;
   }
@@ -1006,6 +938,10 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
     );
     return;
   }
+  console.warn(
+    "[trajectory-persistence] installDatabaseTrajectoryLogger: patched logger!",
+  );
+
   const loggerObject = logger as unknown as object;
   if (patchedLoggers.has(loggerObject)) return;
 
@@ -1041,12 +977,7 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   logger.logLlmCall = ((...args: unknown[]) => {
     if (originalLogLlmCall) {
       try {
-        const originalResult = originalLogLlmCall(...args);
-        if (isPromiseLike(originalResult)) {
-          void originalResult.catch((err: unknown) => {
-            warnRuntime(runtime, "Trajectory logger logLlmCall rejected", err);
-          });
-        }
+        originalLogLlmCall(...args);
       } catch (err) {
         warnRuntime(runtime, "Trajectory logger logLlmCall threw", err);
       }
@@ -1071,16 +1002,7 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
   logger.logProviderAccess = ((...args: unknown[]) => {
     if (originalLogProviderAccess) {
       try {
-        const originalResult = originalLogProviderAccess(...args);
-        if (isPromiseLike(originalResult)) {
-          void originalResult.catch((err: unknown) => {
-            warnRuntime(
-              runtime,
-              "Trajectory logger logProviderAccess rejected",
-              err,
-            );
-          });
-        }
+        originalLogProviderAccess(...args);
       } catch (err) {
         warnRuntime(runtime, "Trajectory logger logProviderAccess threw", err);
       }

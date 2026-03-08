@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import * as elizaCore from "@elizaos/core";
-import { resolveStateDir, resolveUserPath } from "../config/paths";
+import { resolveUserPath } from "../config/paths";
 
 export interface RunCommandResult {
   code: number;
@@ -84,12 +84,11 @@ export function resolveDefaultAgentWorkspaceDir(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
 ): string {
-  const stateDir = resolveStateDir(env, homedir);
   const profile = env.MILADY_PROFILE?.trim();
   if (profile && profile.toLowerCase() !== "default") {
-    return path.join(stateDir, `workspace-${profile}`);
+    return path.join(homedir(), ".milady", `workspace-${profile}`);
   }
-  return path.join(stateDir, "workspace");
+  return path.join(homedir(), ".milady", "workspace");
 }
 
 export const DEFAULT_AGENT_WORKSPACE_DIR = resolveDefaultAgentWorkspaceDir();

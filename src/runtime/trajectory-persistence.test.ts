@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
@@ -153,19 +151,5 @@ describe("installDatabaseTrajectoryLogger", () => {
     );
 
     await waitForCallCount(dbExecute, callsAfterInstall + 2);
-  });
-
-  it("keeps trajectory upsert insert columns free of legacy trajectory_id", () => {
-    const sourcePath = path.resolve(
-      process.cwd(),
-      "src/runtime/trajectory-persistence.ts",
-    );
-    const source = fs.readFileSync(sourcePath, "utf8");
-    const insertMatch = source.match(
-      /INSERT INTO trajectories \(([\s\S]*?)\)\s*VALUES \(/,
-    );
-
-    expect(insertMatch).toBeTruthy();
-    expect(insertMatch?.[1] ?? "").not.toContain("trajectory_id");
   });
 });

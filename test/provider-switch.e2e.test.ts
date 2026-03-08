@@ -170,22 +170,14 @@ describe("POST /api/provider/switch", () => {
   describe("successful provider switches", () => {
     // These providers don't require an apiKey
     const nonKeyProviders = [
-      { provider: "pi-ai", expectedProvider: "pi-ai" },
-      {
-        provider: "openai-codex",
-        expectedProvider: "openai-subscription",
-      },
-      {
-        provider: "openai-subscription",
-        expectedProvider: "openai-subscription",
-      },
-      {
-        provider: "anthropic-subscription",
-        expectedProvider: "anthropic-subscription",
-      },
+      "elizacloud",
+      "pi-ai",
+      "openai-codex",
+      "openai-subscription",
+      "anthropic-subscription",
     ];
 
-    for (const { provider, expectedProvider } of nonKeyProviders) {
+    for (const provider of nonKeyProviders) {
       it(`switches to ${provider} successfully`, async () => {
         const { status, data } = await req(
           port,
@@ -195,62 +187,22 @@ describe("POST /api/provider/switch", () => {
         );
         expect(status).toBe(200);
         expect(data.success).toBe(true);
-        expect(data.provider).toBe(expectedProvider);
+        expect(data.provider).toBe(provider);
       });
     }
 
-    it("switches to elizacloud and persists API key when provided", async () => {
-      const cloudKey = "eliza_test_provider_switch_key";
-      const { status, data } = await req(port, "POST", "/api/provider/switch", {
-        provider: "elizacloud",
-        apiKey: cloudKey,
-      });
-      expect(status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.provider).toBe("elizacloud");
-      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe(cloudKey);
-    });
-
     // Direct key providers need apiKey
     const directProviders = [
-      {
-        provider: "openai",
-        key: "sk-test-openai-key-1234",
-        expectedProvider: "openai",
-      },
-      {
-        provider: "anthropic",
-        key: "sk-ant-test-key-1234",
-        expectedProvider: "anthropic",
-      },
-      {
-        provider: "deepseek",
-        key: "sk-test-deepseek-key-1234",
-        expectedProvider: "deepseek",
-      },
-      {
-        provider: "google",
-        key: "AIza-test-google-key",
-        expectedProvider: "google-genai",
-      },
-      {
-        provider: "groq",
-        key: "gsk_test-groq-key",
-        expectedProvider: "groq",
-      },
-      {
-        provider: "xai",
-        key: "xai-test-key-1234",
-        expectedProvider: "xai",
-      },
-      {
-        provider: "openrouter",
-        key: "sk-or-test-key-1234",
-        expectedProvider: "openrouter",
-      },
+      { provider: "openai", key: "sk-test-openai-key-1234" },
+      { provider: "anthropic", key: "sk-ant-test-key-1234" },
+      { provider: "deepseek", key: "sk-test-deepseek-key-1234" },
+      { provider: "google", key: "AIza-test-google-key" },
+      { provider: "groq", key: "gsk_test-groq-key" },
+      { provider: "xai", key: "xai-test-key-1234" },
+      { provider: "openrouter", key: "sk-or-test-key-1234" },
     ];
 
-    for (const { provider, key, expectedProvider } of directProviders) {
+    for (const { provider, key } of directProviders) {
       it(`switches to ${provider} with valid API key`, async () => {
         const { status, data } = await req(
           port,
@@ -260,7 +212,7 @@ describe("POST /api/provider/switch", () => {
         );
         expect(status).toBe(200);
         expect(data.success).toBe(true);
-        expect(data.provider).toBe(expectedProvider);
+        expect(data.provider).toBe(provider);
       });
     }
   });
@@ -291,14 +243,13 @@ describe("POST /api/provider/switch", () => {
         provider: "google",
         apiKey: "AIza-test-key",
       });
-      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("AIza-test-key");
+      expect(process.env.GOOGLE_API_KEY).toBe("AIza-test-key");
 
       // Switch to cloud
       await req(port, "POST", "/api/provider/switch", {
         provider: "elizacloud",
-        apiKey: "eliza_test_cloud_clear_key",
       });
-      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBeUndefined();
+      expect(process.env.GOOGLE_API_KEY).toBeUndefined();
     });
 
     it("switching to pi-ai clears direct API keys and sets flag", async () => {
@@ -341,7 +292,7 @@ describe("POST /api/provider/switch", () => {
       try {
         // Fire first request (will succeed and hold the lock)
         const first = req(slowServer.port, "POST", "/api/provider/switch", {
-          provider: "pi-ai",
+          provider: "elizacloud",
         });
 
         // Wait a tick for the first request to be processed
@@ -352,7 +303,7 @@ describe("POST /api/provider/switch", () => {
           slowServer.port,
           "POST",
           "/api/provider/switch",
-          { provider: "pi-ai" },
+          { provider: "elizacloud" },
         );
 
         const firstResult = await first;

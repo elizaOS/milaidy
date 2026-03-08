@@ -220,13 +220,8 @@ describe("subscription auth routes (e2e contract)", () => {
 
       const configPath = path.join(stateDir, "milady.json");
       const rawConfig = await fs.readFile(configPath, "utf-8");
-      const parsed = JSON.parse(rawConfig) as {
-        __envSecretsV1?: { alg?: string; v?: number };
-        env?: Record<string, string>;
-      };
-      expect(parsed.env?.ANTHROPIC_API_KEY).toBeUndefined();
-      expect(parsed.__envSecretsV1?.v).toBe(1);
-      expect(parsed.__envSecretsV1?.alg).toBe("aes-256-gcm");
+      const parsed = JSON.parse(rawConfig) as { env?: Record<string, string> };
+      expect(parsed.env?.ANTHROPIC_API_KEY).toBe(token);
     });
 
     it("returns 400 for setup-token with invalid format", async () => {
