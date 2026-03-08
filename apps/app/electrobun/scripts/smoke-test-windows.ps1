@@ -22,7 +22,8 @@ Write-Host "Using launcher: $($launcher.FullName)"
 
 Get-Process -Name "launcher","bun" -ErrorAction SilentlyContinue | Stop-Process -Force
 
-$proc = Start-Process -FilePath $launcher.FullName -PassThru
+$launcherDir = Split-Path -Parent $launcher.FullName
+$proc = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $healthy = $false
 
