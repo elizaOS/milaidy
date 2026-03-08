@@ -12,14 +12,6 @@ jobs:
     steps:
       - name: Explain workflow migration
         run: |
-          if [[ -n "${{ inputs.tag }}" ]]; then
-            TAG="${{ inputs.tag }}"
-          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
-            TAG="${{ github.ref_name }}"
-          else
-            TAG="v$(node -p "require('./package.json').version")"
-          fi
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Release version: $VERSION (tag: $TAG)"
+          echo "Electron desktop releases have been retired."
+          echo "Use .github/workflows/release-electrobun.yml instead."
+          echo "This compatibility workflow intentionally does not reference apps/app/electron."
