@@ -706,11 +706,15 @@ function initializeBundledWebGPU(): void {
 
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
+  const normalizedModuleDir = import.meta.dir.replaceAll("\\", "/");
+  // Structured startup environment block — visible in CI logs and milady-startup.log
+  console.log(
+    `[Env] platform=${process.platform} arch=${process.arch} bun=${Bun.version} ` +
+      `execPath=${process.execPath} cwd=${process.cwd()} moduleDir=${import.meta.dir} ` +
+      `packaged=${!normalizedModuleDir.includes("/src/")} argv=${process.argv.slice(1).join(" ")}`,
+  );
   initializeBundledWebGPU();
   const cleanupFns: Array<() => void> = [];
-
-  // Set up app menu
-  setupApplicationMenu();
 
   cleanupFns.push(
     getAgentManager().onStatusChange((status) => {
@@ -720,8 +724,13 @@ async function main(): Promise<void> {
     }),
   );
 
-  // Create and attach the primary window.
+  // Create window first — on Windows (CEF) the UI message loop must be
+  // running before any synchronous FFI calls like setApplicationMenu().
+  // Calling setupApplicationMenu() before createMainWindow() deadlocks.
   const mainWin = attachMainWindow(await createMainWindow());
+
+  // Set up app menu after the window (and its message loop) exists.
+  setupApplicationMenu();
 
   // If launched with --hidden (e.g. auto-launch with openAsHidden), minimize immediately.
   if (process.argv.includes("--hidden")) {

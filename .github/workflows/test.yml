@@ -306,10 +306,54 @@ jobs:
       - name: Bundle backend node_modules into dist/
         run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
 
+      - name: Build webview bridge preload
+        run: bun run build:preload
+        working-directory: apps/app/electrobun
+
       - name: Build Electrobun app
         run: |
           cd apps/app/electrobun
           ELECTROBUN_SKIP_CODESIGN=1 bun run build -- --env=canary
+
+      - name: Stage Electrobun build diagnostic logs
+        if: failure()
+        shell: pwsh
+        run: |
+          $diagnosticsDir = Join-Path $env:RUNNER_TEMP "electrobun-ui-e2e-logs"
+          New-Item -ItemType Directory -Force -Path $diagnosticsDir | Out-Null
+
+          $windowsLogPath = $null
+          $candidates = @(
+            (Join-Path $env:HOME ".config/Milady/milady-startup.log")
+          )
+
+          if ($env:USERPROFILE) {
+            $windowsLogPath = Join-Path $env:USERPROFILE ".config/Milady/milady-startup.log"
+            $candidates += $windowsLogPath
+          }
+
+          foreach ($candidate in ($candidates | Select-Object -Unique)) {
+            if (-not (Test-Path $candidate)) {
+              continue
+            }
+
+            $destinationName = if ($windowsLogPath -and $candidate -eq $windowsLogPath) {
+              "milady-startup-windows.log"
+            } else {
+              "milady-startup-unix.log"
+            }
+
+            Copy-Item $candidate (Join-Path $diagnosticsDir $destinationName) -Force
+          }
+
+      - name: Upload Electrobun build diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-ui-e2e-${{ matrix.os }}-logs
+          path: ${{ runner.temp }}/electrobun-ui-e2e-logs
+          if-no-files-found: warn
+          retention-days: 14
 
   electron-packaged-dmg-e2e:
     name: Electron Packaged DMG E2E (macOS)

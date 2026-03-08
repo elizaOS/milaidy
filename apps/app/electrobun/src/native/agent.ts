@@ -38,7 +38,8 @@ type BunSubprocess = ReturnType<typeof Bun.spawn>;
 
 const DEFAULT_PORT = 2138;
 const HEALTH_POLL_INTERVAL_MS = 500;
-const HEALTH_POLL_TIMEOUT_MS = 60_000;
+// 120s: Windows first-run can be slow (PGLite WASM init + 100+ plugins)
+const HEALTH_POLL_TIMEOUT_MS = 120_000;
 const SIGTERM_GRACE_MS = 5_000;
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,11 @@ export function getMiladyDistFallbackCandidates(
   const execDir = execPath ? path.dirname(execPath) : moduleDir;
 
   return [
+    // macOS: inside .app bundle (Contents/Resources/app/milady-dist)
     path.resolve(execDir, "../Resources/app/milady-dist"),
+    // Windows NSIS/portable: resources/app/milady-dist next to exe
+    path.resolve(execDir, "resources/app/milady-dist"),
+    path.resolve(execDir, "../resources/app/milady-dist"),
     path.resolve(moduleDir, "app/milady-dist"),
     path.resolve(moduleDir, "../app/milady-dist"),
     path.resolve(moduleDir, "../milady-dist"),
@@ -132,7 +137,24 @@ function resolveBunExecutablePath(execPath: string = process.execPath): string {
   const bunGlobal = Bun as { which?: (binary: string) => string | null };
   const whichCandidate =
     typeof bunGlobal.which === "function" ? bunGlobal.which("bun") : null;
-  return whichCandidate ?? "bun";
+  if (whichCandidate) return whichCandidate;
+
+  // Windows: bun is not always on PATH; check well-known install locations.
+  if (process.platform === "win32") {
+    const localAppData =
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
+    const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
+    const winCandidates = [
+      path.join(localAppData, "bun", "bun.exe"),
+      path.join(programFiles, "bun", "bun.exe"),
+      path.join(os.homedir(), ".bun", "bin", "bun.exe"),
+    ];
+    for (const candidate of winCandidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+
+  return "bun";
 }
 
 function resolveMiladyDistPath(): string {
@@ -467,8 +489,12 @@ export class AgentManager {
 
       const bunExecutable = resolveBunExecutablePath();
       diagnosticLog(`[Agent] Using Bun executable: ${bunExecutable}`);
+      diagnosticLog(
+        `[Agent] Bun exists on disk: ${fs.existsSync(bunExecutable)}`,
+      );
 
       // Spawn the child process
+      const spawnTime = Date.now();
       const proc = Bun.spawn([bunExecutable, "run", serverEntryPath], {
         cwd: miladyDistPath,
         env: childEnv,
@@ -477,6 +503,9 @@ export class AgentManager {
       });
 
       this.childProcess = proc;
+      diagnosticLog(
+        `[Agent] Child spawned pid=${proc.pid} elapsed=${Date.now() - spawnTime}ms`,
+      );
 
       // Set up abort controller for stdio watchers
       this.stdioAbortController = new AbortController();
@@ -597,7 +626,7 @@ export class AgentManager {
       };
       this.emitStatus();
       diagnosticLog(
-        `[Agent] Runtime started -- agent: ${agentName}, port: ${apiPort}, pid: ${proc.pid}`,
+        `[Agent] Runtime started -- agent: ${agentName}, port: ${apiPort}, pid: ${proc.pid}, startup_ms: ${Date.now() - spawnTime}`,
       );
       return this.status;
     } catch (err) {

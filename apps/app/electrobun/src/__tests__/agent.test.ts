@@ -17,6 +17,7 @@ import {
 const MOCK_DIST_PATH = "/mock/milady-dist";
 process.env.MILADY_DIST_PATH = MOCK_DIST_PATH;
 const ORIGINAL_EXEC_PATH = process.execPath;
+const ORIGINAL_PLATFORM = process.platform;
 
 vi.mock("node:fs", () => {
   const existsSyncFn = vi.fn(() => true);
@@ -137,6 +138,10 @@ describe("AgentManager", () => {
       configurable: true,
       value: ORIGINAL_EXEC_PATH,
     });
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: ORIGINAL_PLATFORM,
+    });
     // Default: all filesystem checks return true (dist exists, server.js exists, etc.)
     const existsSync = await getExistsSyncMock();
     existsSync.mockReturnValue(true);
@@ -181,6 +186,20 @@ describe("AgentManager", () => {
       );
       expect(new Set(candidates).size).toBe(candidates.length);
     });
+
+    it("includes Windows resources/app runtime candidates beside launcher.exe", () => {
+      const candidates = getMiladyDistFallbackCandidates(
+        "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/bin",
+        "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/bin/launcher.exe",
+      );
+
+      expect(candidates).toContain(
+        "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/bin/resources/app/milady-dist",
+      );
+      expect(candidates).toContain(
+        "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/resources/app/milady-dist",
+      );
+    });
   });
 
   afterEach(() => {
@@ -188,6 +207,10 @@ describe("AgentManager", () => {
     Object.defineProperty(process, "execPath", {
       configurable: true,
       value: ORIGINAL_EXEC_PATH,
+    });
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: ORIGINAL_PLATFORM,
     });
     manager.dispose();
   });
@@ -343,6 +366,65 @@ describe("AgentManager", () => {
           cwd: MOCK_DIST_PATH,
         }),
       );
+    });
+
+    it("uses bun.exe from LOCALAPPDATA when Windows launcher.exe is packaged without PATH", async () => {
+      Object.defineProperty(process, "platform", {
+        configurable: true,
+        value: "win32",
+      });
+      Object.defineProperty(process, "execPath", {
+        configurable: true,
+        value:
+          "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/bin/launcher.exe",
+      });
+
+      const originalLocalAppData = process.env.LOCALAPPDATA;
+      process.env.LOCALAPPDATA = "/Users/test/AppData/Local";
+
+      try {
+        const existsSync = await getExistsSyncMock();
+        existsSync.mockImplementation((candidate: string) => {
+          if (candidate === MOCK_DIST_PATH) return true;
+          if (candidate === "/Users/test/AppData/Local/bun/bun.exe")
+            return true;
+          if (
+            typeof candidate === "string" &&
+            candidate.endsWith("/eliza.js")
+          ) {
+            return true;
+          }
+          return false;
+        });
+
+        const mockProc = createMockProcess();
+        mockSpawn.mockReturnValue(mockProc);
+
+        mockFetch.mockResolvedValueOnce({ ok: true });
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ agents: [{ name: "Milady" }] }),
+        });
+
+        await manager.start();
+
+        expect(mockSpawn).toHaveBeenCalledWith(
+          [
+            "/Users/test/AppData/Local/bun/bun.exe",
+            "run",
+            "/mock/milady-dist/eliza.js",
+          ],
+          expect.objectContaining({
+            cwd: MOCK_DIST_PATH,
+          }),
+        );
+      } finally {
+        if (originalLocalAppData === undefined) {
+          delete process.env.LOCALAPPDATA;
+        } else {
+          process.env.LOCALAPPDATA = originalLocalAppData;
+        }
+      }
     });
 
     it("uses MILADY_PORT env var when set", async () => {
