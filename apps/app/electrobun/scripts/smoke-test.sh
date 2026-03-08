@@ -115,6 +115,28 @@ collect_recent_crash_reports() {
   )
 }
 
+copy_supporting_diagnostics() {
+  ensure_diagnostics_dir
+
+  if [[ -f "$STARTUP_LOG" ]]; then
+    cp "$STARTUP_LOG" "$SMOKE_DIAGNOSTICS_DIR/milady-startup.log" 2>/dev/null || true
+  fi
+
+  while IFS= read -r wrapper_file; do
+    [[ -z "$wrapper_file" ]] && continue
+    local relative_path
+    relative_path="${wrapper_file#"$ELECTROBUN_DIR"/}"
+    relative_path="${relative_path#"$APP_DIR"/}"
+    relative_path="${relative_path#"$REPO_ROOT"/}"
+    relative_path="${relative_path#/}"
+    local destination_dir="$SMOKE_DIAGNOSTICS_DIR/$(dirname "$relative_path")"
+    mkdir -p "$destination_dir"
+    cp "$wrapper_file" "$destination_dir/" 2>/dev/null || true
+  done < <(
+    find "$ELECTROBUN_DIR/build" -type f -name "wrapper-diagnostics.json" 2>/dev/null | sort
+  )
+}
+
 write_bundle_diagnostics() {
   ensure_diagnostics_dir
   local diagnostics_file="$SMOKE_DIAGNOSTICS_DIR/bundle-diagnostics.txt"
@@ -174,6 +196,7 @@ dump_failure_diagnostics() {
   ensure_diagnostics_dir
   write_bundle_diagnostics
   collect_recent_crash_reports
+  copy_supporting_diagnostics
 
   {
     echo "Reason: $reason"

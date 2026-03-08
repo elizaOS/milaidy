@@ -399,11 +399,24 @@ jobs:
         run: bun run postinstall
 
       - name: Build and smoke test packaged macOS app
+        env:
+          SMOKE_DIAGNOSTICS_DIR: ${{ runner.temp }}/milady-packaged-dmg-smoke
         run: |
           STARTUP_TIMEOUT=240 \
           LIVENESS_TIMEOUT=10 \
           SKIP_SIGNATURE_CHECK=1 \
           bash apps/app/electrobun/scripts/smoke-test.sh
+
+      - name: Upload packaged macOS smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-packaged-dmg-macos-smoke-diagnostics
+          path: |
+            ${{ runner.temp }}/milady-packaged-dmg-smoke/**
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
 
   cloud-live-e2e:
     name: Cloud Live E2E (Eliza Cloud)
