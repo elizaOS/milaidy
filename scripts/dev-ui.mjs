@@ -26,6 +26,10 @@ import path from "node:path";
 import process from "node:process";
 import { ethers } from "ethers";
 import JSON5 from "json5";
+import {
+  coerceBoolean,
+  resolveOnchainPreference,
+} from "./lib/dev-ui-onchain.mjs";
 
 const API_PORT = 31337;
 const UI_PORT = 2138;
@@ -37,10 +41,9 @@ const devLogLevel =
     .toLowerCase() || "info";
 const quietApiLogs = process.env.MILADY_DEV_QUIET_LOGS === "1";
 const verboseApiLogs = process.env.MILADY_DEV_VERBOSE_LOGS === "1";
-const onchainEnabled =
-  !uiOnly && coerceBoolean(process.env.MILADY_DEV_ONCHAIN) !== false;
-const anchorRequested =
-  !uiOnly && coerceBoolean(process.env.MILADY_DEV_ANCHOR) !== false;
+// These are determined interactively at startup (or from env if already set).
+let onchainEnabled = false;
+let anchorRequested = false;
 const anchorRequired = process.env.MILADY_DEV_REQUIRE_ANCHOR === "1";
 const verboseChainLogs = process.env.MILADY_DEV_CHAIN_VERBOSE === "1";
 const ANVIL_PORT = Number(process.env.MILADY_DEV_ANVIL_PORT ?? 8545);
@@ -77,6 +80,67 @@ function orange(text) {
 }
 function dim(text) {
   return `${DIM}${text}${RESET}`;
+}
+
+// ---------------------------------------------------------------------------
+// Interactive prompts — only used when stdin is a TTY (skipped in CI/pipes).
+// ---------------------------------------------------------------------------
+
+async function promptYesNo(question, defaultYes = false) {
+  if (!process.stdin.isTTY) return defaultYes;
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      const normalized = answer.trim().toLowerCase();
+      if (normalized === "") return resolve(defaultYes);
+      resolve(["y", "yes"].includes(normalized));
+    });
+  });
+}
+
+async function installFoundry() {
+  if (process.platform === "win32") {
+    console.log(
+      `  ${green("[milady]")} ${dim("Windows: install Foundry manually → https://book.getfoundry.sh/getting-started/installation")}`,
+    );
+    return false;
+  }
+
+  console.log(`  ${green("[milady]")} Installing Foundry...`);
+  const ok = await new Promise((resolve) => {
+    const installer = spawn(
+      "sh",
+      ["-c", "curl -L https://foundry.paradigm.xyz | bash"],
+      { stdio: "inherit" },
+    );
+    installer.on("exit", (code) => resolve(code === 0));
+    installer.on("error", () => resolve(false));
+  });
+
+  if (!ok) {
+    console.error(
+      `  ${green("[milady]")} Foundry installer failed. Install manually: https://book.getfoundry.sh`,
+    );
+    return false;
+  }
+
+  // foundryup installs the actual binaries (forge, cast, anvil, …)
+  const foundryupPath = path.join(os.homedir(), ".foundry", "bin", "foundryup");
+  const ready = await new Promise((resolve) => {
+    const foundryup = spawn(foundryupPath, [], { stdio: "inherit" });
+    foundryup.on("exit", (code) => resolve(code === 0));
+    foundryup.on("error", () => resolve(false));
+  });
+
+  if (ready) {
+    // Make the new binaries visible to the current process.
+    const foundryBin = path.join(os.homedir(), ".foundry", "bin");
+    process.env.PATH = `${foundryBin}${path.delimiter}${process.env.PATH}`;
+  }
+
+  return ready;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,14 +227,7 @@ if (!hasBun && !which("npx")) {
 // Stealth import config
 // ---------------------------------------------------------------------------
 
-function coerceBoolean(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) return true;
-  if (["0", "false", "no", "off"].includes(normalized)) return false;
-  return null;
-}
+// coerceBoolean — imported from ./lib/dev-ui-onchain.mjs
 
 function resolveMiladyConfigPath() {
   const explicitConfigPath = process.env.MILADY_CONFIG_PATH?.trim();
@@ -914,9 +971,7 @@ killOrphanedWorkspaceProcesses();
 killPort(UI_PORT);
 if (!uiOnly) {
   killPort(API_PORT);
-  if (onchainEnabled) {
-    killPort(ANVIL_PORT);
-  }
+  // ANVIL_PORT is killed after on-chain preference is determined (in main block).
 }
 
 let apiProcess = null;
@@ -1012,6 +1067,23 @@ if (uiOnly) {
       }`,
     )}`,
   );
+
+  // Determine on-chain preference — env var wins (CI/scripts), otherwise ask.
+  if (!uiOnly) {
+    const resolved = await resolveOnchainPreference({
+      env: process.env,
+      isTTY: !!process.stdin.isTTY,
+      whichFn: (cmd) => which(cmd),
+      promptFn: (question, defaultYes) => promptYesNo(question, defaultYes),
+      installFn: () => installFoundry(),
+    });
+    onchainEnabled = resolved.onchainEnabled;
+    anchorRequested = resolved.anchorRequested;
+
+    if (onchainEnabled) {
+      killPort(ANVIL_PORT);
+    }
+  }
 
   let chainEnv = {};
   if (onchainEnabled) {
