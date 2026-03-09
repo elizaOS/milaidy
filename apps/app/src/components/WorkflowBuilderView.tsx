@@ -23,6 +23,7 @@ import {
   type WorkflowDef,
   type WorkflowRunSummary,
 } from "../api-client";
+import { getDefaultWorkflowNodeConfig } from "./workflow/default-node-config";
 import { NodeConfigPanel } from "./workflow/NodeConfigPanel";
 import { NodePalette } from "./workflow/NodePalette";
 import { WorkflowCanvas } from "./workflow/WorkflowCanvas";
@@ -377,7 +378,7 @@ export function WorkflowBuilderView() {
                   x: 250,
                   y: 100 + editingWorkflow.nodes.length * 80,
                 },
-                config: getDefaultConfig(type),
+                config: getDefaultWorkflowNodeConfig(type),
               };
               handleUpdateWorkflow({
                 nodes: [...editingWorkflow.nodes, newNode],
