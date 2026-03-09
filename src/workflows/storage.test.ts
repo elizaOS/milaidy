@@ -174,6 +174,29 @@ describe("createWorkflow", () => {
     expect(result.nodes).toHaveLength(1);
     expect(result.enabled).toBe(true);
   });
+
+  it("appends to existing workflows list", () => {
+    const existing: WorkflowDef = {
+      id: "existing-1",
+      name: "Existing",
+      description: "",
+      nodes: [],
+      edges: [],
+      enabled: true,
+      version: 1,
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+    };
+    vi.mocked(loadMiladyConfig).mockReturnValue({
+      workflows: [existing],
+    } as never);
+
+    const result = createWorkflow({ name: "Second" });
+    expect(result.id).not.toBe("existing-1");
+    // saveMiladyConfig should have been called with both workflows
+    const savedConfig = vi.mocked(saveMiladyConfig).mock.calls[0][0] as Record<string, unknown>;
+    expect((savedConfig.workflows as WorkflowDef[]).length).toBe(2);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -249,6 +272,45 @@ describe("updateWorkflow", () => {
     expect(result!.description).toBe("updated");
     expect(result!.nodes).toHaveLength(1);
     expect(result!.enabled).toBe(true);
+  });
+
+  it("updates nodes and edges", () => {
+    const existing: WorkflowDef = {
+      id: "wf1",
+      name: "Test",
+      description: "",
+      nodes: [],
+      edges: [],
+      enabled: true,
+      version: 1,
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+    };
+    vi.mocked(loadMiladyConfig).mockReturnValue({
+      workflows: [existing],
+    } as never);
+
+    const newNodes = [
+      {
+        id: "t1",
+        type: "trigger" as const,
+        label: "Start",
+        position: { x: 0, y: 0 },
+        config: { triggerType: "manual" },
+      },
+      {
+        id: "a1",
+        type: "action" as const,
+        label: "Action",
+        position: { x: 0, y: 100 },
+        config: { actionName: "TEST" },
+      },
+    ];
+    const newEdges = [{ id: "e1", source: "t1", target: "a1" }];
+
+    const result = updateWorkflow("wf1", { nodes: newNodes, edges: newEdges });
+    expect(result!.nodes).toHaveLength(2);
+    expect(result!.edges).toHaveLength(1);
   });
 });
 

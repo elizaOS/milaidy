@@ -801,4 +801,371 @@ describe("compileWorkflow", () => {
     expect(err.message).toBe("test error");
     expect(err).toBeInstanceOf(Error);
   });
+
+  it("compiled llm step calls useModel and returns text", async () => {
+    const llmRuntime = {
+      actions: [],
+      useModel: async (_model: string, opts: Record<string, unknown>) => {
+        return `Response to: ${opts.prompt}`;
+      },
+    } as never;
+
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "l1",
+          type: "llm",
+          label: "Ask LLM",
+          position: { x: 0, y: 100 },
+          config: { prompt: "Hello {{trigger.name}}", temperature: 0.5, maxTokens: 100 },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "l1" }],
+    });
+
+    const compiled = compileWorkflow(def, llmRuntime);
+    const ctx = makeCtx({ trigger: { name: "World" } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.text).toBe("Response to: Hello World");
+  });
+
+  it("compiled condition step evaluates true branch", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "c1",
+          type: "condition",
+          label: "Check",
+          position: { x: 0, y: 100 },
+          config: { expression: "{{_last}} === 200" },
+        },
+        {
+          id: "o-true",
+          type: "output",
+          label: "True Path",
+          position: { x: -100, y: 200 },
+          config: { outputExpression: "true-path" },
+        },
+        {
+          id: "o-false",
+          type: "output",
+          label: "False Path",
+          position: { x: 100, y: 200 },
+          config: { outputExpression: "false-path" },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "t1", target: "c1" },
+        { id: "e-true", source: "c1", target: "o-true", sourceHandle: "true" },
+        { id: "e-false", source: "c1", target: "o-false", sourceHandle: "false" },
+      ],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    // Condition is the only entry step (walk stops at condition node)
+    const condStep = compiled.entrySteps[0];
+    expect(condStep.nodeType).toBe("condition");
+
+    // Execute with _last = 200 (truthy path)
+    const ctxTrue = makeCtx({ _last: 200 });
+    const resultTrue = (await condStep.execute(ctxTrue)) as Record<string, unknown>;
+    expect(resultTrue.branch).toBe("true");
+
+    // Execute with _last = 404 (false path)
+    const ctxFalse = makeCtx({ _last: 404 });
+    const resultFalse = (await condStep.execute(ctxFalse)) as Record<string, unknown>;
+    expect(resultFalse.branch).toBe("false");
+  });
+
+  it("compiled condition step executes branch steps and returns result", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "c1",
+          type: "condition",
+          label: "Check",
+          position: { x: 0, y: 100 },
+          config: { expression: "{{_last}} === 200" },
+        },
+        {
+          id: "o-true",
+          type: "output",
+          label: "True Path",
+          position: { x: -100, y: 200 },
+          config: { outputExpression: "success" },
+        },
+        {
+          id: "o-false",
+          type: "output",
+          label: "False Path",
+          position: { x: 100, y: 200 },
+          config: { outputExpression: "failure" },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "t1", target: "c1" },
+        { id: "e-true", source: "c1", target: "o-true", sourceHandle: "true" },
+        { id: "e-false", source: "c1", target: "o-false", sourceHandle: "false" },
+      ],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+
+    // True branch should execute and return branch result
+    const ctxTrue = makeCtx({ _last: 200 });
+    const resultTrue = (await compiled.entrySteps[0].execute(ctxTrue)) as Record<string, unknown>;
+    expect(resultTrue.branch).toBe("true");
+    expect(resultTrue.result).toBe("success");
+
+    // False branch
+    const ctxFalse = makeCtx({ _last: 404 });
+    const resultFalse = (await compiled.entrySteps[0].execute(ctxFalse)) as Record<string, unknown>;
+    expect(resultFalse.branch).toBe("false");
+    expect(resultFalse.result).toBe("failure");
+  });
+
+  it("compiled loop step iterates over items", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "loop1",
+          type: "loop",
+          label: "Loop",
+          position: { x: 0, y: 100 },
+          config: { itemsExpression: "{{trigger.items}}", variableName: "item" },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "loop1" }],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const ctx = makeCtx({ trigger: { items: [10, 20, 30] } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.count).toBe(3);
+  });
+
+  it("compiled loop step handles empty items", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "loop1",
+          type: "loop",
+          label: "Loop",
+          position: { x: 0, y: 100 },
+          config: { itemsExpression: "{{trigger.items}}", variableName: "item" },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "loop1" }],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const ctx = makeCtx({ trigger: { items: [] } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.count).toBe(0);
+    expect(result.items).toEqual([]);
+  });
+
+  it("compiled loop step handles non-array items", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "loop1",
+          type: "loop",
+          label: "Loop",
+          position: { x: 0, y: 100 },
+          config: { itemsExpression: "{{trigger.notAnArray}}", variableName: "item" },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "loop1" }],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const ctx = makeCtx({ trigger: { notAnArray: "string" } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.count).toBe(0);
+    expect(result.items).toEqual([]);
+  });
+
+  it("compiled action step interpolates parameters", async () => {
+    const paramRuntime = {
+      actions: [
+        {
+          name: "GREET",
+          handler: async (
+            _rt: unknown,
+            _msg: unknown,
+            _state: unknown,
+            opts: Record<string, unknown>,
+          ) => {
+            return opts.parameters;
+          },
+        },
+      ],
+    } as never;
+
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "a1",
+          type: "action",
+          label: "Greet",
+          position: { x: 0, y: 100 },
+          config: {
+            actionName: "GREET",
+            parameters: { greeting: "Hello {{trigger.name}}" },
+          },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "a1" }],
+    });
+
+    const compiled = compileWorkflow(def, paramRuntime);
+    const ctx = makeCtx({ trigger: { name: "Alice" } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, string>;
+    expect(result.greeting).toBe("Hello Alice");
+  });
+
+  it("compiled delay step handles date-based delay", async () => {
+    const futureDate = new Date(Date.now() + 3_600_000).toISOString(); // 1h in future
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "d1",
+          type: "delay",
+          label: "Wait Until",
+          position: { x: 0, y: 100 },
+          config: { date: futureDate },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "d1" }],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const ctx = makeCtx();
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.delayed).toBe(true);
+    expect(typeof result.durationMs).toBe("number");
+    expect((result.durationMs as number)).toBeGreaterThan(0);
+  });
+
+  it("compiled hook step uses hookId from config", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "h1",
+          type: "hook",
+          label: "My Hook",
+          position: { x: 0, y: 100 },
+          config: { hookId: "custom-hook-id", webhookEnabled: true },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "h1" }],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const ctx = makeCtx();
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<string, unknown>;
+    expect(result.hookId).toBe("custom-hook-id");
+    expect(result.webhookEnabled).toBe(true);
+  });
+
+  it("stops walking at output node (no further steps)", () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "o1",
+          type: "output",
+          label: "End",
+          position: { x: 0, y: 100 },
+          config: {},
+        },
+        {
+          id: "a1",
+          type: "action",
+          label: "After Output",
+          position: { x: 0, y: 200 },
+          config: { actionName: "TEST_ACTION" },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "t1", target: "o1" },
+        { id: "e2", source: "o1", target: "a1" }, // should not be followed
+      ],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    // Only the output step should be compiled; action after output should be skipped
+    expect(compiled.entrySteps).toHaveLength(1);
+    expect(compiled.entrySteps[0].nodeType).toBe("output");
+  });
 });
