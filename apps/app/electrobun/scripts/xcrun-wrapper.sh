@@ -21,11 +21,14 @@ if [[ "${1:-}" == "notarytool" && "${2:-}" == "submit" ]]; then
   temp_output="$(mktemp)"
   status=0
 
-  if ! "$REAL_XCRUN" "${args[@]}" >"$temp_output" 2>&1; then
+  if "$REAL_XCRUN" "${args[@]}" >"$temp_output" 2>&1; then
+    status=0
+  else
     status=$?
   fi
 
-  /usr/bin/python3 - "$temp_output" "$status" <<'PY'
+  python_status=0
+  if /usr/bin/python3 - "$temp_output" "$status" <<'PY'
 import json
 import pathlib
 import sys
@@ -72,9 +75,14 @@ if status != 0:
 
 sys.exit(status)
 PY
+  then
+    python_status=0
+  else
+    python_status=$?
+  fi
 
   rm -f "$temp_output"
-  exit "$status"
+  exit "$python_status"
 fi
 
 exec "$REAL_XCRUN" "$@"

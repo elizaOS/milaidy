@@ -595,20 +595,22 @@ jobs:
             return 1
           }
 
-          apps=()
-          while IFS= read -r app; do
-            apps+=("$app")
-          done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app" | sort)
-          mounted_volume=""
-          if [ "${#apps[@]}" -eq 0 ]; then
-            dmgs=(apps/app/electrobun/artifacts/*.dmg)
-            if [ "${#dmgs[@]}" -eq 0 ]; then
-              echo "::warning::No .app bundle or .dmg found — skipping codesign check"
-              exit 0
-            fi
-            dmg="${dmgs[0]}"
-            echo "No .app bundle found in artifacts; mounting DMG: $dmg"
-            mount_line=""
+          verify_dmg_payload() {
+            local dmg="$1"
+            local mounted_volume=""
+            local attach_output=""
+            local mount_line=""
+            local app_count=0
+
+            cleanup_mounted_volume() {
+              if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then
+                hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true
+              fi
+            }
+
+            trap cleanup_mounted_volume RETURN
+
+            echo "Mounting notarized installer payload: $dmg"
             for attempt in 1 2 3 4 5; do
               attach_output="$(hdiutil attach -nobrowse -readonly "$dmg" 2>&1)" && \
                 mount_line="$(printf '%s\n' "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')" && \
@@ -620,32 +622,35 @@ jobs:
               mount_line=""
               sleep 2
             done
+
             if [ -z "$mount_line" ]; then
               echo "::error::Failed to determine mounted DMG volume"
               exit 1
             fi
+
             mounted_volume="$mount_line"
-            trap 'if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true; fi' EXIT
-            apps=()
+            echo "Mounted DMG at: $mounted_volume"
+
             while IFS= read -r app; do
-              apps+=("$app")
+              [[ -z "$app" ]] && continue
+              app_count=$((app_count + 1))
+              echo "Verifying bundled app: $app"
+              codesign --verify --deep --strict --verbose=2 "$app"
+              info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
+              echo "$info" | grep -q "Authority=Developer ID Application" || {
+                echo "::error::Missing Developer ID Application signature on $app"
+                exit 1
+              }
+              spctl -a -vv --type exec "$app"
+              retry_stapler_validate "$app" 3 10 || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
             done < <(find "$mounted_volume" -maxdepth 1 -type d -name "*.app" | sort)
-            if [ "${#apps[@]}" -eq 0 ]; then
+
+            if [ "$app_count" -eq 0 ]; then
               echo "::error::No .app bundle found inside mounted DMG"
               exit 1
             fi
-          fi
-          for app in "${apps[@]}"; do
-            echo "Verifying: $app"
-            codesign --verify --deep --strict --verbose=2 "$app"
-            info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
-            echo "$info" | grep -q "Authority=Developer ID Application" || {
-              echo "::error::Missing Developer ID Application signature on $app"
-              exit 1
-            }
-            spctl -a -vv --type exec "$app"
-            retry_stapler_validate "$app" 3 10 || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
-          done
+          }
+
           found_dmg=0
           while IFS= read -r dmg; do
             [[ -z "$dmg" ]] && continue
@@ -658,6 +663,7 @@ jobs:
               exit 1
             }
             retry_stapler_validate "$dmg"
+            verify_dmg_payload "$dmg"
           done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.dmg" | sort)
           if [ "$found_dmg" -eq 0 ]; then
             echo "::error::No DMG found in apps/app/electrobun/artifacts"

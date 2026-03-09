@@ -40,8 +40,9 @@ retry_command() {
   for ((attempt = 1; attempt <= attempts; attempt += 1)); do
     if "$@"; then
       return 0
+    else
+      exit_code=$?
     fi
-    exit_code=$?
     echo "Command failed (attempt $attempt/$attempts, exit=$exit_code): $*" >&2
     if [[ "$attempt" -lt "$attempts" ]]; then
       sleep "$((delay_seconds * attempt))"

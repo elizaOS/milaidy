@@ -131,6 +131,86 @@ function assertMacArtifactStagerLooksCorrect() {
     }
     process.exit(1);
   }
+
+  if (!/if "\$@"; then\s+return 0\s+else\s+exit_code=\$\?\s+fi/s.test(script)) {
+    console.error(
+      "release-check: macOS artifact stager must preserve failing notarization/stapler exit codes.",
+    );
+    process.exit(1);
+  }
+}
+
+function assertXcrunWrapperPreservesFailureStatus() {
+  const wrapper = readFileSync(
+    "apps/app/electrobun/scripts/xcrun-wrapper.sh",
+    "utf8",
+  );
+
+  if (
+    !/if "\$REAL_XCRUN" "\$\{args\[@\]\}" >"\$temp_output" 2>&1; then\s+status=0\s+else\s+status=\$\?\s+fi/s.test(
+      wrapper,
+    )
+  ) {
+    console.error(
+      "release-check: xcrun-wrapper.sh must preserve failing notarytool submit exit codes.",
+    );
+    process.exit(1);
+  }
+
+  const requiredSnippets = [
+    "Current status:",
+    'print("issues:", file=sys.stderr)',
+  ];
+  const missing = requiredSnippets.filter(
+    (snippet) => !wrapper.includes(snippet),
+  );
+  if (missing.length > 0) {
+    console.error(
+      "release-check: xcrun-wrapper.sh is missing expected notarization diagnostics:",
+    );
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertMacWorkflowVerifiesMountedDmgPayload() {
+  const workflow = readFileSync(
+    ".github/workflows/release-electrobun.yml",
+    "utf8",
+  );
+  const requiredSnippets = [
+    "verify_dmg_payload() {",
+    'echo "Mounting notarized installer payload: $dmg"',
+    'echo "Mounted DMG at: $mounted_volume"',
+    'echo "Verifying bundled app: $app"',
+    'find "$mounted_volume" -maxdepth 1 -type d -name "*.app"',
+  ];
+  const missing = requiredSnippets.filter(
+    (snippet) => !workflow.includes(snippet),
+  );
+
+  if (missing.length > 0) {
+    console.error(
+      "release-check: macOS verification must inspect the notarized app from the mounted DMG:",
+    );
+    for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+
+  if (
+    workflow.includes(
+      'find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app"',
+    )
+  ) {
+    console.error(
+      "release-check: macOS verification must not run Gatekeeper against the intermediate artifacts .app bundle.",
+    );
+    process.exit(1);
+  }
 }
 
 function assertWindowsSmokeScriptHasLeadingParamBlock() {
@@ -231,6 +311,8 @@ function main() {
   assertReleaseWorkflowHasNotaryWrapper();
   assertElectrobunConfigHasPostWrapSigner();
   assertMacArtifactStagerLooksCorrect();
+  assertXcrunWrapperPreservesFailureStatus();
+  assertMacWorkflowVerifiesMountedDmgPayload();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
   const results = runPackDry();

@@ -15,6 +15,10 @@ const MACOS_STAGE_SCRIPT_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
 );
+const XCRUN_WRAPPER_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/xcrun-wrapper.sh",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("stages the built renderer before packaging", () => {
@@ -128,6 +132,37 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(stageScript).toContain("xcrun notarytool submit \\");
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
+  });
+
+  it("propagates macOS notarization command failures instead of masking them as success", () => {
+    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+    const xcrunWrapper = fs.readFileSync(XCRUN_WRAPPER_PATH, "utf8");
+
+    expect(stageScript).toMatch(
+      /if "\$@"; then\s+return 0\s+else\s+exit_code=\$\?\s+fi/s,
+    );
+    expect(xcrunWrapper).toMatch(
+      /if "\$REAL_XCRUN" "\$\{args\[@\]\}" >"\$temp_output" 2>&1; then\s+status=0\s+else\s+status=\$\?\s+fi/s,
+    );
+    expect(xcrunWrapper).toContain("Current status:");
+    expect(xcrunWrapper).toContain('print("issues:", file=sys.stderr)');
+  });
+
+  it("verifies the notarized macOS app from the mounted DMG instead of the intermediate artifacts app", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("verify_dmg_payload() {");
+    expect(workflow).toContain(
+      'echo "Mounting notarized installer payload: $dmg"',
+    );
+    expect(workflow).toContain('echo "Mounted DMG at: $mounted_volume"');
+    expect(workflow).toContain('echo "Verifying bundled app: $app"');
+    expect(workflow).toContain(
+      'find "$mounted_volume" -maxdepth 1 -type d -name "*.app"',
+    );
+    expect(workflow).not.toContain(
+      'find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app"',
+    );
   });
 
   it("reads the Windows packaged startup log from %APPDATA%", () => {
