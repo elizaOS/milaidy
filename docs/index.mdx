@@ -1,81 +1,131 @@
 ---
-title: Milady
-sidebarTitle: Introduction
-summary: Local-first AI assistant docs for users, operators, and extension developers.
-description: Milady documentation for setup, day-to-day use, integrations, plugin development, runtime internals, and operations.
+title: "Milady"
+sidebarTitle: "Introduction"
+description: "Your personal AI assistant that runs on YOUR machine. Local-first, multi-provider, extensible."
 ---
 
-**Milady** is a local-first AI assistant built on elizaOS. This documentation is organized for three audiences:
+**Milady** is a local-first AI assistant built on [elizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
 
-- **Users** who want to install and run Milady reliably.
-- **Operators** who need to run, secure, and debug production-like setups.
-- **Developers/agents** who want to extend Milady safely with plugins, actions, and integrations.
-
-## Start Here
+It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by elizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
-    Install Milady on desktop or CLI and verify your environment.
+    Download the desktop app or install via CLI
   </Card>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    First-run onboarding, initial provider setup, and first message flow.
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in under a minute
   </Card>
-  <Card title="Beginner User Guide" icon="book-open" href="/guides/beginners-user-guide">
-    Complete walkthrough from first install to confident daily use.
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize providers, ports, and agent personality
   </Card>
-  <Card title="Beginner Dev Guide" icon="code" href="/guides/beginners-development-guide">
-    Contributor onboarding, repo map, and safe first-change workflow.
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    All terminal commands and options
   </Card>
-  <Card title="Learning Paths" icon="route" href="/guides/learning-paths">
-    Role-based progression for users, contributors, and extension builders.
+  <Card title="Plugin Development" icon="puzzle-piece" href="/plugins/overview">
+    Extend Milady with custom plugins
   </Card>
   <Card title="Architecture" icon="sitemap" href="/architecture">
-    Runtime model, plugin system, and platform surfaces.
+    How the runtime, gateway, and plugins fit together
   </Card>
 </CardGroup>
 
-## What Milady Includes
+## Why Milady
 
-- **Interfaces**: CLI/TUI, web dashboard, desktop app, mobile app, Chrome extension.
-- **Runtime**: elizaOS-based agent runtime with plugin orchestration.
-- **Integrations**: model providers, connectors (Discord/Telegram/etc.), and plugin ecosystem.
-- **Local state**: configuration/workspace/logs under `~/.milady/`.
+### Local-First Privacy
 
-## Recommended Reading Order
+Milady runs on your hardware. Your conversations, memory, and wallet keys stay in `~/.milady/` on your local filesystem. Nothing leaves your machine unless you explicitly connect an external service. Even embedding generation can run locally via the `plugin-local-embedding` package.
 
-### If you are a new user
+### Multi-Model, Multi-Provider
 
-1. `/installation`
-2. `/quickstart`
-3. `/chat-commands`
-4. `/apps/dashboard`
-5. `/guides/beginners-user-guide`
+Connect to any of 11 supported AI providers -- or run fully offline with Ollama:
 
-### If you are contributing code
+| Provider | What You Get |
+|----------|-------------|
+| **Anthropic** | Claude (recommended) |
+| **OpenAI** | GPT-4o, o1, and friends |
+| **OpenRouter** | 100+ models through one API |
+| **Google Gemini** | Gemini Pro and Ultra |
+| **xAI** | Grok |
+| **Groq** | Ultra-fast inference |
+| **DeepSeek** | Reasoning models |
+| **Mistral** | Open-weight European models |
+| **Together AI** | Open-source model hosting |
+| **Vercel AI Gateway** | Unified gateway access |
+| **Ollama** | Fully local, free, no API key |
 
-1. `/guides/beginners-development-guide`
-2. `/guides/developer-playbook`
-3. `/guides/first-extension-walkthrough`
-4. `/plugins/architecture`
-5. `/agents/runtime-and-lifecycle`
+Switch providers mid-conversation with `/model <id>`. No lock-in.
 
-### If you are operating Milady in a persistent environment
+### Plugin Ecosystem
 
-1. `/configuration`
-2. `/guides/sandbox`
-3. `/advanced/logs`
-4. `/advanced/database`
-5. `/deployment`
+Milady ships with 25+ first-party elizaOS plugins covering knowledge management, browser automation, computer use, Discord, Telegram, TTS (Edge TTS and ElevenLabs), PDF processing, shell access, cron scheduling, trust scoring, and more. Third-party plugins install with a single command through the plugin manager.
 
-## Docs Principles
+### Skills Marketplace
 
-This docs set is being actively upgraded for agent-first development and production operations.
+Skills are markdown-based extensions that teach your agent new capabilities without writing code. Browse and install skills from [ClawHub](https://clawhub.ai), the default skills registry, or point to your own registry.
 
-Current priorities:
+### Autonomous Mode
 
-- accuracy over marketing,
-- copy-paste-safe examples,
-- explicit security guidance,
-- clear beginner → advanced progression.
+Milady can operate autonomously -- executing scheduled tasks, running multi-step workflows, and maintaining its own loop of thoughts and actions. Configure triggers (interval, cron, or one-shot) and let the agent work on your behalf.
 
-Use the guides below as the current entry points for onboarding, development, and extension work.
+### Built-In Crypto Wallet
+
+The onboarding flow can generate or import EVM and Solana wallets. Keys are stored locally in your config and available to plugins at runtime for on-chain interactions, trading, and DeFi.
+
+## Platform Support
+
+Milady is a single codebase that targets every surface you need:
+
+<CardGroup cols={3}>
+  <Card title="Desktop" icon="desktop">
+    Electron app for macOS, Windows, and Linux. Native system tray, auto-updates, and offline support.
+  </Card>
+  <Card title="Mobile" icon="mobile">
+    Capacitor builds for Android and iOS. Same web dashboard, native container.
+  </Card>
+  <Card title="Web Dashboard" icon="browser">
+    Real-time chat UI at `localhost:2138`. Manage sessions, view activity, configure your agent.
+  </Card>
+  <Card title="CLI / TUI" icon="terminal">
+    Full-featured terminal interface with hotkeys, live activity feed, and token tracking.
+  </Card>
+  <Card title="Chrome Extension" icon="chrome">
+    Browser integration for web-context actions and quick access.
+  </Card>
+  <Card title="Headless" icon="server">
+    Server mode for deployment. No UI, just the gateway and API.
+  </Card>
+</CardGroup>
+
+## Architecture at a Glance
+
+Milady is structured as a layered system:
+
+```
+ User Interfaces (Desktop / Mobile / Web / CLI / TUI)
+                         |
+                    API Server (HTTP + WebSocket on :2138)
+                         |
+                   Gateway (:18789)
+                         |
+                  elizaOS Runtime
+                    |         |
+            Milady Plugin    Other Plugins
+            (personality,     (knowledge, browser,
+             wallet, skills,   TTS, Discord, Telegram,
+             autonomous state) shell, cron, ...)
+                    |
+              Connector Layer
+         (Telegram, Discord, WebChat, ...)
+```
+
+- **elizaOS Runtime** -- the core agent framework that handles memory, message processing, action dispatch, and provider abstraction.
+- **Milady Plugin** -- a first-party elizaOS plugin that provides workspace context, session keys, personality presets, autonomous state, and wallet integration.
+- **Gateway** -- a WebSocket + HTTP multiplexed server that bridges the runtime to all connected clients and connectors.
+- **Plugin System** -- standard elizaOS plugins that add capabilities (knowledge, browser, TTS, etc.).
+- **Connector Layer** -- platform-specific adapters for Telegram, Discord, and the web chat UI.
+
+All configuration lives in `~/.milady/milady.json`. Secrets can go in `~/.milady/.env`.
+
+<Info>
+Milady is currently in alpha (`v2.0.0-alpha.26`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
+</Info>
