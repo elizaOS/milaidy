@@ -43,9 +43,13 @@ const pendingHooks = new Map<
   {
     hookId: string;
     runId: string;
-    resolve: (payload: Record<string, unknown>) => void;
+    resolve: (resolution: PendingHookResolution) => void;
   }
 >();
+
+type PendingHookResolution =
+  | { cancelled: true }
+  | { cancelled: false; payload: Record<string, unknown> };
 
 // ---------------------------------------------------------------------------
 // Initialization
@@ -232,11 +236,12 @@ async function executeWorkflow(
         persistRun(run.runId);
 
         // Wait for hook resolution
-        const hookPayload = await waitForHook(hookId, run.runId);
-        if (isRunCancelled(run.runId) || hookPayload.__cancelled === true) {
+        const hookResolution = await waitForHook(hookId, run.runId);
+        if (isRunCancelled(run.runId) || hookResolution.cancelled) {
           break;
         }
 
+        const hookPayload = hookResolution.payload;
         ctx.results[step.nodeId] = hookPayload;
         ctx._last = hookPayload;
         if (!isRunCancelled(run.runId)) {
@@ -321,7 +326,7 @@ async function executeStep(
 function waitForHook(
   hookId: string,
   runId: string,
-): Promise<Record<string, unknown>> {
+): Promise<PendingHookResolution> {
   return new Promise((resolve) => {
     pendingHooks.set(getPendingHookKey(hookId, runId), {
       hookId,
@@ -340,14 +345,27 @@ function waitForHook(
 export function resolveHook(
   hookId: string,
   payload: Record<string, unknown> = {},
+  runId?: string,
 ): boolean {
+  if (runId) {
+    const targetedKey = getPendingHookKey(hookId, runId);
+    const targetedHook = pendingHooks.get(targetedKey);
+    if (!targetedHook) {
+      return false;
+    }
+
+    pendingHooks.delete(targetedKey);
+    targetedHook.resolve({ cancelled: false, payload });
+    return true;
+  }
+
   for (const [key, hook] of pendingHooks.entries()) {
     if (hook.hookId !== hookId) {
       continue;
     }
 
     pendingHooks.delete(key);
-    hook.resolve(payload);
+    hook.resolve({ cancelled: false, payload });
     return true;
   }
 
@@ -405,7 +423,7 @@ export function cancelWorkflowRun(runId: string): boolean {
   for (const [hookId, hook] of pendingHooks.entries()) {
     if (hook.runId === runId) {
       pendingHooks.delete(hookId);
-      hook.resolve({ __cancelled: true });
+      hook.resolve({ cancelled: true });
     }
   }
 

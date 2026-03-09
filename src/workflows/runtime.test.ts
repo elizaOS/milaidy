@@ -317,6 +317,40 @@ describe("cancelWorkflowRun", () => {
     const cancelled = getWorkflowRun(run.runId);
     expect(expectRun(cancelled).status).toBe("cancelled");
   });
+
+  it("cancels paused runs waiting on hooks", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-hook-cancel", "Hook Cancel"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-hook-cancel",
+      workflowName: "Hook Cancel",
+      entrySteps: [
+        {
+          nodeId: "wait",
+          nodeType: "hook",
+          label: "Wait",
+          execute: async () => ({ __hook: true, hookId: "cancel-me" }),
+        },
+      ],
+      stepCount: 1,
+      hasDelays: false,
+      hasHooks: true,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-hook-cancel");
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(cancelWorkflowRun(run.runId)).toBe(true);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const cancelled = getWorkflowRun(run.runId);
+    expect(expectRun(cancelled).status).toBe("cancelled");
+    expect(listPendingHooks().some((hook) => hook.runId === run.runId)).toBe(
+      false,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -326,6 +360,84 @@ describe("cancelWorkflowRun", () => {
 describe("resolveHook", () => {
   it("returns false for unknown hook", () => {
     expect(resolveHook("unknown-hook-id")).toBe(false);
+  });
+
+  it("targets a specific run when resolving shared hook ids", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-targeted-hook", "Targeted Hook"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-targeted-hook",
+      workflowName: "Targeted Hook",
+      entrySteps: [
+        {
+          nodeId: "wait",
+          nodeType: "hook",
+          label: "Wait",
+          execute: async () => ({ __hook: true, hookId: "targeted" }),
+        },
+      ],
+      stepCount: 1,
+      hasDelays: false,
+      hasHooks: true,
+      hasLoops: false,
+    });
+
+    const runA = await startWorkflow("wf-targeted-hook");
+    const runB = await startWorkflow("wf-targeted-hook");
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(resolveHook("targeted", { value: "second" }, runB.runId)).toBe(true);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const pausedRun = expectRun(getWorkflowRun(runA.runId));
+    const resumedRun = expectRun(getWorkflowRun(runB.runId));
+    expect(pausedRun.status).toBe("paused");
+    expect(resumedRun.status).toBe("completed");
+    expect(resumedRun.output).toEqual({ value: "second" });
+    expect(
+      listPendingHooks().filter((hook) => hook.hookId === "targeted"),
+    ).toEqual([{ hookId: "targeted", runId: runA.runId }]);
+
+    expect(resolveHook("targeted", { value: "first" }, runA.runId)).toBe(true);
+  });
+
+  it("does not treat client-supplied __cancelled payloads as cancellation", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-hook-payload", "Hook Payload"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-hook-payload",
+      workflowName: "Hook Payload",
+      entrySteps: [
+        {
+          nodeId: "wait",
+          nodeType: "hook",
+          label: "Wait",
+          execute: async () => ({ __hook: true, hookId: "payload-hook" }),
+        },
+      ],
+      stepCount: 1,
+      hasDelays: false,
+      hasHooks: true,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-hook-payload");
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(
+      resolveHook(
+        "payload-hook",
+        { __cancelled: true, value: "resume" },
+        run.runId,
+      ),
+    ).toBe(true);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const finished = expectRun(getWorkflowRun(run.runId));
+    expect(finished.status).toBe("completed");
+    expect(finished.output).toEqual({ __cancelled: true, value: "resume" });
   });
 });
 

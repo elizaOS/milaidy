@@ -15055,8 +15055,18 @@ async function handleRequest(
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
 
+    const {
+      runId: requestedRunIdValue,
+      terminalToken: _terminalToken,
+      ...hookPayloadBody
+    } = body;
+    const requestedRunId =
+      typeof requestedRunIdValue === "string" ? requestedRunIdValue : undefined;
+
     const pendingHook = listPendingHooks().find(
-      (hook) => hook.hookId === hookId,
+      (hook) =>
+        hook.hookId === hookId &&
+        (requestedRunId === undefined || hook.runId === requestedRunId),
     );
     const pendingRun = pendingHook ? getWorkflowRun(pendingHook.runId) : null;
     const pendingWorkflow = pendingRun
@@ -15078,12 +15088,12 @@ async function handleRequest(
 
     // Sanitize: only allow plain JSON-serializable values in the payload
     // to prevent prototype pollution or injected objects.
-    const sanitized = JSON.parse(JSON.stringify(body)) as Record<
+    const sanitized = JSON.parse(JSON.stringify(hookPayloadBody)) as Record<
       string,
       unknown
     >;
 
-    if (!resolveHook(hookId, sanitized)) {
+    if (!resolveHook(hookId, sanitized, requestedRunId)) {
       error(res, "No pending hook with that ID", 404);
       return;
     }
