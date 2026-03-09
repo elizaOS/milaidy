@@ -14,16 +14,33 @@ const defaultRuntime = { error: console.error, exit: process.exit };
 // ---------------------------------------------------------------------------
 
 const PROVIDERS = [
-  { label: "Anthropic (Claude)", key: "ANTHROPIC_API_KEY", keyHint: "sk-ant-..." },
+  {
+    label: "Anthropic (Claude)",
+    key: "ANTHROPIC_API_KEY",
+    keyHint: "sk-ant-...",
+  },
   { label: "OpenAI (GPT)", key: "OPENAI_API_KEY", keyHint: "sk-..." },
   { label: "Google (Gemini)", key: "GOOGLE_API_KEY", keyHint: "AIza..." },
   { label: "Groq", key: "GROQ_API_KEY", keyHint: "gsk_..." },
   { label: "xAI (Grok)", key: "XAI_API_KEY", keyHint: "xai-..." },
   { label: "OpenRouter", key: "OPENROUTER_API_KEY", keyHint: "sk-or-..." },
   { label: "Mistral", key: "MISTRAL_API_KEY", keyHint: "" },
-  { label: "Ollama (local, no key)", key: "OLLAMA_BASE_URL", keyHint: "http://localhost:11434" },
+  {
+    label: "Ollama (local, no key)",
+    key: "OLLAMA_BASE_URL",
+    keyHint: "http://localhost:11434",
+  },
   { label: "Skip for now", key: null, keyHint: "" },
 ] as const;
+
+type PromptFn = (prompt: string) => Promise<string>;
+
+type ProviderWizardOptions = {
+  ask?: PromptFn;
+  askSecret?: PromptFn;
+  env?: Record<string, string | undefined>;
+  log?: (message: string) => void;
+};
 
 // ---------------------------------------------------------------------------
 // readline helpers
@@ -46,45 +63,86 @@ async function askSecret(prompt: string): Promise<string> {
   // readline doesn't natively hide input; we suppress echo via raw mode
   const { createInterface } = await import("node:readline");
   process.stdout.write(prompt);
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-  return new Promise((resolve) => {
-    let value = "";
-    process.stdin.setRawMode?.(true);
-    process.stdin.on("data", function handler(chunk) {
-      const char = chunk.toString();
-      if (char === "\r" || char === "\n") {
-        process.stdin.setRawMode?.(false);
-        process.stdin.removeListener("data", handler);
-        process.stdout.write("\n");
-        rl.close();
-        resolve(value);
-      } else if (char === "\u0003") {
-        // Ctrl-C
-        process.stdin.setRawMode?.(false);
-        rl.close();
-        process.exit(0);
-      } else if (char === "\u007f") {
-        // Backspace
-        if (value.length > 0) value = value.slice(0, -1);
-      } else {
-        value += char;
-      }
-    });
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false,
   });
+  return new Promise((resolve, reject) => {
+    let value = "";
+    let closed = false;
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      process.stdin.setRawMode?.(false);
+      process.stdin.removeListener("data", handler);
+      rl.close();
+    };
+
+    const finish = () => {
+      cleanup();
+      process.stdout.write("\n");
+      resolve(value);
+    };
+
+    const handler = (chunk: Buffer | string) => {
+      try {
+        const char = chunk.toString();
+        if (char === "\r" || char === "\n") {
+          finish();
+        } else if (char === "\u0003") {
+          // Ctrl-C
+          cleanup();
+          process.exit(0);
+        } else if (char === "\u007f") {
+          // Backspace
+          if (value.length > 0) value = value.slice(0, -1);
+        } else {
+          value += char;
+        }
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    };
+
+    try {
+      process.stdin.setRawMode?.(true);
+      process.stdin.on("data", handler);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+async function readStdinValue(): Promise<string> {
+  if (process.stdin.isTTY) return "";
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+
+  return Buffer.concat(chunks).toString("utf-8").trim();
 }
 
 // ---------------------------------------------------------------------------
 // Config read/write
 // ---------------------------------------------------------------------------
 
-function resolveConfigPath(env = process.env): string {
-  return (
-    env.MILADY_CONFIG_PATH ??
-    path.join(env.MILADY_STATE_DIR ?? os.homedir(), ".milady", "milady.json")
-  );
+export function resolveConfigPath(env = process.env): string {
+  if (env.MILADY_CONFIG_PATH?.trim()) {
+    return env.MILADY_CONFIG_PATH;
+  }
+
+  const stateDir =
+    env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  return path.join(stateDir, "milady.json");
 }
 
-function loadConfig(configPath: string): Record<string, unknown> {
+export function loadConfig(configPath: string): Record<string, unknown> {
   if (!fs.existsSync(configPath)) return {};
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
@@ -95,13 +153,18 @@ function loadConfig(configPath: string): Record<string, unknown> {
   }
 }
 
-function saveConfig(configPath: string, config: Record<string, unknown>): void {
+export function saveConfig(
+  configPath: string,
+  config: Record<string, unknown>,
+): void {
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 }
 
-function getEnvSection(config: Record<string, unknown>): Record<string, string> {
+function getEnvSection(
+  config: Record<string, unknown>,
+): Record<string, string> {
   const env = config.env;
   if (env && typeof env === "object" && !Array.isArray(env)) {
     return { ...(env as Record<string, string>) };
@@ -109,15 +172,29 @@ function getEnvSection(config: Record<string, unknown>): Record<string, string> 
   return {};
 }
 
-function hasModelKey(env: Record<string, string | undefined>): string | null {
+export function hasModelKey(
+  env: Record<string, string | undefined>,
+): string | null {
   const keys = [
-    "ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "OPENAI_API_KEY",
-    "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY",
-    "GROQ_API_KEY", "XAI_API_KEY", "GROK_API_KEY",
-    "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "TOGETHER_API_KEY",
-    "MISTRAL_API_KEY", "COHERE_API_KEY", "PERPLEXITY_API_KEY",
-    "ZAI_API_KEY", "Z_AI_API_KEY", "AI_GATEWAY_API_KEY",
-    "ELIZAOS_CLOUD_API_KEY", "OLLAMA_BASE_URL",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_API_KEY",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "GROQ_API_KEY",
+    "XAI_API_KEY",
+    "GROK_API_KEY",
+    "OPENROUTER_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "TOGETHER_API_KEY",
+    "MISTRAL_API_KEY",
+    "COHERE_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "ZAI_API_KEY",
+    "Z_AI_API_KEY",
+    "AI_GATEWAY_API_KEY",
+    "ELIZAOS_CLOUD_API_KEY",
+    "OLLAMA_BASE_URL",
   ];
   return keys.find((k) => env[k]?.trim()) ?? null;
 }
@@ -126,45 +203,51 @@ function hasModelKey(env: Record<string, string | undefined>): string | null {
 // Interactive provider wizard
 // ---------------------------------------------------------------------------
 
-async function runProviderWizard(configPath: string): Promise<void> {
+export async function runProviderWizard(
+  configPath: string,
+  options: ProviderWizardOptions = {},
+): Promise<void> {
+  const prompt = options.ask ?? ask;
+  const promptSecret = options.askSecret ?? askSecret;
+  const env = options.env ?? process.env;
+  const log = options.log ?? console.log;
   const config = loadConfig(configPath);
   const envSection = getEnvSection(config);
-  const combinedEnv = { ...process.env, ...envSection } as Record<string, string | undefined>;
+  const combinedEnv = { ...env, ...envSection } as Record<
+    string,
+    string | undefined
+  >;
   const existingKey = hasModelKey(combinedEnv);
 
   if (existingKey) {
-    console.log(
+    log(
       `\n${theme.success("✓")} Model API key already set: ${theme.command(existingKey)}`,
     );
-    const reconfigure = await ask(
-      `  Reconfigure? ${theme.muted("(y/N) ")}`,
-    );
+    const reconfigure = await prompt(`  Reconfigure? ${theme.muted("(y/N) ")}`);
     if (reconfigure.toLowerCase() !== "y") return;
   }
 
-  console.log(`\n${theme.heading("Model Provider Setup")}\n`);
-  console.log("  Choose your AI model provider:\n");
+  log(`\n${theme.heading("Model Provider Setup")}\n`);
+  log("  Choose your AI model provider:\n");
 
   PROVIDERS.forEach((p, i) => {
     const num = theme.muted(`${i + 1}.`);
-    console.log(`  ${num} ${p.label}`);
+    log(`  ${num} ${p.label}`);
   });
 
-  const choice = await ask(`\n  Provider ${theme.muted("[1]")} `);
+  const choice = await prompt(`\n  Provider ${theme.muted("[1]")} `);
   const index = choice === "" ? 0 : Number(choice) - 1;
 
-  if (
-    isNaN(index) ||
-    index < 0 ||
-    index >= PROVIDERS.length
-  ) {
-    console.log(`${theme.warn("⚠")}  Invalid choice. Skipping model setup.`);
+  if (Number.isNaN(index) || index < 0 || index >= PROVIDERS.length) {
+    log(`${theme.warn("⚠")}  Invalid choice. Skipping model setup.`);
     return;
   }
 
   const provider = PROVIDERS[index];
   if (provider.key === null) {
-    console.log(`${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`);
+    log(
+      `${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`,
+    );
     return;
   }
 
@@ -176,16 +259,16 @@ async function runProviderWizard(configPath: string): Promise<void> {
 
   let value: string;
   if (isUrl) {
-    value = await ask(
+    value = await prompt(
       `  ${valueLabel}${hint} ${theme.muted(`[http://localhost:11434]`)} `,
     );
     if (value === "") value = "http://localhost:11434";
   } else {
-    value = await askSecret(`  ${valueLabel}${hint}: `);
+    value = await promptSecret(`  ${valueLabel}${hint}: `);
   }
 
   if (!value) {
-    console.log(`${theme.warn("⚠")}  No value entered. Skipping.`);
+    log(`${theme.warn("⚠")}  No value entered. Skipping.`);
     return;
   }
 
@@ -194,7 +277,7 @@ async function runProviderWizard(configPath: string): Promise<void> {
   config.env = envSection;
   saveConfig(configPath, config);
 
-  console.log(
+  log(
     `${theme.success("✓")} Saved ${theme.command(provider.key)} to ${configPath}`,
   );
 }
@@ -214,38 +297,60 @@ export function registerSetupCommand(program: Command) {
     )
     .option("--workspace <dir>", "Agent workspace directory")
     .option("--provider <name>", "Model provider (non-interactive)")
-    .option("--key <value>", "API key or URL (non-interactive, use with --provider)")
+    .option(
+      "--key <value>",
+      "Unsafe: API key or URL via argv (prefer --key-stdin)",
+    )
+    .option("--key-stdin", "Read the API key or URL from stdin")
     .option("--no-wizard", "Skip the model provider wizard")
     .action(
       async (opts: {
         workspace?: string;
         provider?: string;
         key?: string;
+        keyStdin?: boolean;
         wizard: boolean;
       }) => {
         await runCommandWithRuntime(defaultRuntime, async () => {
           const { loadMiladyConfig } = await import("../../config/config");
-          const {
-            ensureAgentWorkspace,
-            resolveDefaultAgentWorkspaceDir,
-          } = await import("../../providers/workspace");
+          const { ensureAgentWorkspace, resolveDefaultAgentWorkspaceDir } =
+            await import("../../providers/workspace");
 
           const configPath = resolveConfigPath();
+          const keyFromStdin = opts.keyStdin ? await readStdinValue() : "";
+          const keyValue = opts.key ?? keyFromStdin;
+
+          if (opts.key && opts.keyStdin) {
+            throw new Error("Use either --key or --key-stdin, not both.");
+          }
+
+          if (opts.keyStdin && !keyFromStdin) {
+            throw new Error("No API key or URL received on stdin.");
+          }
 
           // ── Non-interactive provider set via flags ───────────────────────
-          if (opts.provider && opts.key) {
+          if (opts.provider && keyValue) {
+            const providerQuery = opts.provider.toLowerCase();
             const providerEntry = PROVIDERS.find(
               (p) =>
-                p.label.toLowerCase().includes(opts.provider!.toLowerCase()) ||
-                (p.key ?? "").toLowerCase().includes(opts.provider!.toLowerCase()),
+                p.label.toLowerCase().includes(providerQuery) ||
+                (p.key ?? "").toLowerCase().includes(providerQuery),
             );
-            const envKey = providerEntry?.key ?? opts.provider.toUpperCase().replace(/[^A-Z0-9]/g, "_") + "_API_KEY";
+            const envKey =
+              providerEntry?.key ??
+              opts.provider.toUpperCase().replace(/[^A-Z0-9]/g, "_") +
+                "_API_KEY";
             const config = loadConfig(configPath);
             const envSection = getEnvSection(config);
-            envSection[envKey] = opts.key;
+            envSection[envKey] = keyValue;
             config.env = envSection;
             saveConfig(configPath, config);
             console.log(`${theme.success("✓")} Saved ${theme.command(envKey)}`);
+            if (opts.key) {
+              console.log(
+                `${theme.warn("⚠")} ${theme.muted("Passing secrets via --key exposes them in shell history and process lists. Prefer --key-stdin.")}`,
+              );
+            }
           }
 
           // ── Interactive wizard (TTY only, skipped with --no-wizard) ──────
@@ -260,7 +365,9 @@ export function registerSetupCommand(program: Command) {
             console.log(`${theme.success("✓")} Config loaded`);
           } catch (err) {
             if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-              console.log(`${theme.muted("→")} No config found, using defaults`);
+              console.log(
+                `${theme.muted("→")} No config found, using defaults`,
+              );
             } else {
               throw err;
             }
@@ -297,7 +404,9 @@ export function registerSetupCommand(program: Command) {
                   : result.status === "fail"
                     ? theme.error("✗")
                     : theme.warn("⚠");
-              const detail = result.detail ? theme.muted(` ${result.detail}`) : "";
+              const detail = result.detail
+                ? theme.muted(` ${result.detail}`)
+                : "";
               console.log(`  ${icon} ${result.label}${detail}`);
             }
             console.log(

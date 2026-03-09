@@ -3,12 +3,7 @@
  * All checks are pure / injectable — no real filesystem or network I/O.
  */
 
-import {
-  accessSync,
-  existsSync,
-  readFileSync,
-  statfsSync,
-} from "node:fs";
+import { accessSync, existsSync, readFileSync, statfsSync } from "node:fs";
 import { createConnection } from "node:net";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -129,6 +124,15 @@ describe("checkConfigFile", () => {
     expect(result.status).toBe("fail");
     expect(result.fix).toContain("/fake/milady.json");
   });
+
+  it("resolves config path from MILADY_STATE_DIR when configPath is omitted", () => {
+    mockExistsSync.mockReturnValue(false);
+    const result = checkConfigFile(undefined, {
+      MILADY_STATE_DIR: "/tmp/milady-profile",
+    });
+    expect(result.status).toBe("warn");
+    expect(result.detail).toContain("/tmp/milady-profile/milady.json");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -161,7 +165,10 @@ describe("checkModelKey", () => {
   });
 
   it("fails when keys are whitespace-only", () => {
-    const result = checkModelKey({ ANTHROPIC_API_KEY: "   ", OPENAI_API_KEY: "" });
+    const result = checkModelKey({
+      ANTHROPIC_API_KEY: "   ",
+      OPENAI_API_KEY: "",
+    });
     expect(result.status).toBe("fail");
   });
 });
@@ -188,7 +195,9 @@ describe("checkStateDir", () => {
 
   it("fails when state dir is not writable", () => {
     mockExistsSync.mockReturnValue(true);
-    mockAccessSync.mockImplementation(() => { throw new Error("EACCES"); });
+    mockAccessSync.mockImplementation(() => {
+      throw new Error("EACCES");
+    });
     const result = checkStateDir({ MILADY_STATE_DIR: "/readonly/milady" });
     expect(result.status).toBe("fail");
     expect(result.fix).toContain("chmod");
@@ -254,7 +263,9 @@ describe("checkDiskSpace", () => {
   });
 
   it("skips when statfsSync throws", () => {
-    mockStatfsSync.mockImplementation(() => { throw new Error("ENOTSUP"); });
+    mockStatfsSync.mockImplementation(() => {
+      throw new Error("ENOTSUP");
+    });
     const result = checkDiskSpace({});
     expect(result.status).toBe("skip");
   });
@@ -304,8 +315,11 @@ describe("checkPort", () => {
     mockPortInUse();
     // getPortOwner calls lsof — mock child_process to return null owner
     vi.doMock("node:child_process", () => ({
-      execFile: (_bin: string, _args: string[], cb: (err: Error | null) => void) =>
-        cb(new Error("not found")),
+      execFile: (
+        _bin: string,
+        _args: string[],
+        cb: (err: Error | null) => void,
+      ) => cb(new Error("not found")),
     }));
     const result = await checkPort(31337);
     expect(result.status).toBe("warn");
@@ -323,8 +337,14 @@ describe("runAllChecks", () => {
     mockAccessSync.mockImplementation(() => undefined);
     mockReadFileSync.mockReturnValue("{}" as never);
     mockStatfsSync.mockReturnValue({
-      bsize: 4096, blocks: 1000000, bfree: 500000, bavail: 500000,
-      files: 0, ffree: 0, type: 0, flags: 0,
+      bsize: 4096,
+      blocks: 1000000,
+      bfree: 500000,
+      bavail: 500000,
+      files: 0,
+      ffree: 0,
+      type: 0,
+      flags: 0,
     } as never);
     mockPortAvailable();
 
@@ -340,7 +360,9 @@ describe("runAllChecks", () => {
 
   it("skips port checks when checkPorts=false", async () => {
     mockExistsSync.mockReturnValue(false);
-    mockStatfsSync.mockImplementation(() => { throw new Error(); });
+    mockStatfsSync.mockImplementation(() => {
+      throw new Error();
+    });
 
     const results = await runAllChecks({
       env: {},
@@ -354,7 +376,9 @@ describe("runAllChecks", () => {
 
   it("all results have a category field", async () => {
     mockExistsSync.mockReturnValue(false);
-    mockStatfsSync.mockImplementation(() => { throw new Error(); });
+    mockStatfsSync.mockImplementation(() => {
+      throw new Error();
+    });
     mockPortAvailable();
 
     const results = await runAllChecks({ env: {}, projectRoot: "/fake" });
