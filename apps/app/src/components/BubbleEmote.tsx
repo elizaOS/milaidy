@@ -19,7 +19,7 @@ const svgProps = {
 /* ── Mood: Excited — 大眼笑脸 + 双闪光 ────────────────────────────── */
 function IconExcited() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       {/* face */}
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* big sparkly eyes — arcs with lash */}
@@ -65,7 +65,7 @@ function IconExcited() {
 /* ── Mood: Calm — 闭眼弯月微笑 ──────────────────────────────────── */
 function IconCalm() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* closed happy eyes — smooth crescents */}
       <path d="M10 15c0.9-1.6 3.1-1.6 4 0" strokeWidth={1.7} />
@@ -96,7 +96,7 @@ function IconCalm() {
 /* ── Mood: Neutral — 圆眼 + 直线嘴 ──────────────────────────────── */
 function IconNeutral() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* dot eyes */}
       <circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none" />
@@ -110,7 +110,7 @@ function IconNeutral() {
 /* ── Mood: Low — 下垂眉 + 弧形皱眉嘴 ────────────────────────────── */
 function IconLow() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* worried brows */}
       <path d="M9.5 12.5c0.8-0.6 2.5-0.4 3.5 0.2" strokeWidth={1.4} />
@@ -134,7 +134,7 @@ function IconLow() {
 /* ── Mood: Burnout — 螺旋X眼 + 锯齿嘴 + 裂纹 ────────────────────── */
 function IconBurnout() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* X eyes */}
       <path d="M10 13.5l3.2 3.2" strokeWidth={2} />
@@ -155,7 +155,7 @@ function IconBurnout() {
 /* ── Action: Feed — 饱满苹果 + 叶子 + 高光 ───────────────────────── */
 function IconFeed() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       {/* apple body — plump heart-like shape */}
       <path
         d="M16 28c-5.5-1-9-5.5-9-10.5 0-3.8 2.8-6 5.2-6.2a4.2 4.2 0 0 1 3.8 1.8 4.2 4.2 0 0 1 3.8-1.8c2.4 0.2 5.2 2.4 5.2 6.2 0 5-3.5 9.5-9 10.5z"
@@ -178,7 +178,7 @@ function IconFeed() {
 /* ── Action: Rest — 渐变 ZZZ 字母 ────────────────────────────────── */
 function IconRest() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       {/* big Z */}
       <path d="M8 22h6l-6 7h6" strokeWidth={2.2} />
       {/* medium Z */}
@@ -209,7 +209,7 @@ function IconRest() {
 /* ── Action: Share — 四角星 + 光芒 ───────────────────────────────── */
 function IconManualShare() {
   return (
-    <svg aria-hidden="true" {...svgProps}>
+    <svg {...svgProps}>
       {/* four-pointed star — smooth cubic curves */}
       <path
         d="M16 3c0.8 4.2 3.8 7.8 8.5 9-4.7 1.2-7.7 4.8-8.5 9-0.8-4.2-3.8-7.8-8.5-9 4.7-1.2 7.7-4.8 8.5-9z"

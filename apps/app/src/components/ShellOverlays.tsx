@@ -15,7 +15,7 @@ import { ShortcutsOverlay } from "./ShortcutsOverlay";
 
 export interface ActionNotice {
   text: string;
-  tone?: "error" | "success" | "info";
+  tone: string;
 }
 
 export function ShellOverlays({

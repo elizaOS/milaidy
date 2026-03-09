@@ -558,7 +558,7 @@ function VectorGraph3D({
       let renderer: THREE.WebGLRenderer;
       if (navigator.gpu) {
         try {
-          const webgpuModule = (await import("three/webgpu")) as {
+          const webgpuModule = (await import("three/webgpu")) as unknown as {
             WebGPURenderer?: new (options?: {
               antialias?: boolean;
             }) => THREE.WebGLRenderer & { init?: () => Promise<void> };

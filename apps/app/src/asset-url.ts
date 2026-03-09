@@ -102,7 +102,7 @@ export function resolveAppAssetUrl(
  */
 export function resolveApiUrl(apiPath: string): string {
   if (typeof window !== "undefined") {
-    const base = (window as Record<string, unknown>).__MILADY_API_BASE__ as
+    const base = (window as unknown as Record<string, unknown>).__MILADY_API_BASE__ as
       | string
       | undefined;
     if (base) return `${base}${apiPath}`;

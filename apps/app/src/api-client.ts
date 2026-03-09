@@ -94,9 +94,6 @@ export type {
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
-  BscTradeExecuteRequest,
-  BscTransferExecuteRequest,
-  BscTransferExecuteResponse,
 };
 export type { DropStatus, MintResult };
 export type { VerificationResult };

@@ -228,7 +228,7 @@ function WakeWordSection({
     let handle: { remove: () => Promise<void> } | null = null;
     void (async () => {
       try {
-        handle = await Swabble.addListener("audioLevel", (evt) => {
+        handle = await Swabble.addListener("audioLevel", (evt: { level: number }) => {
           setAudioLevel(evt.level);
         });
       } catch {

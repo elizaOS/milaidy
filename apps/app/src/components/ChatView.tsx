@@ -26,6 +26,7 @@ import {
 } from "../hooks/useVoiceChat";
 import { createTranslator } from "../i18n";
 import { AgentActivityBox } from "./AgentActivityBox";
+import { ChatAgentBar } from "./ChatAgentBar";
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
 
@@ -78,7 +79,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     droppedFiles,
     shareIngestNotice,
     chatAgentVoiceMuted: agentVoiceMuted,
-    chatMode,
     selectedVrmIndex,
     chatPendingImages,
     setChatPendingImages,
@@ -409,6 +409,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       onDragLeave={() => setImageDragOver(false)}
       onDrop={handleImageDrop}
     >
+      {/* ── Agent heartbeat bar ─────────────────────────────────────── */}
+      {!isGameModal && <ChatAgentBar />}
+
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div
         ref={messagesRef}
@@ -615,7 +618,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             <button
               type="button"
               className="chat-game-send-btn chat-game-send-btn-primary"
-              onClick={() => void handleChatSend(chatMode)}
+              onClick={() => void handleChatSend()}
               disabled={isComposerLocked || !chatInput.trim()}
             >
               {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}

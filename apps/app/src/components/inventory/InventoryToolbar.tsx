@@ -11,7 +11,8 @@ export interface InventoryToolbarProps {
   inventoryChainFocus: string;
   walletBalances: unknown;
   walletNfts: unknown;
-  setState: (key: string, value: string) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setState: (key: any, value: any) => void;
   loadBalances: () => Promise<void> | void;
   loadNfts: () => Promise<void> | void;
 }
