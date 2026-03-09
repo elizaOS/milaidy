@@ -8,9 +8,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ALL_TAB_GROUPS,
-  type Tab,
   getTabGroups,
   pathForTab,
+  type Tab,
   tabFromPath,
   titleForTab,
 } from "./navigation";
@@ -220,8 +220,12 @@ describe("getTabGroups", () => {
   });
 
   it("Advanced group always included (workflows lives here)", () => {
-    expect(getTabGroups(false).find((g) => g.label === "Advanced")).toBeDefined();
-    expect(getTabGroups(true).find((g) => g.label === "Advanced")).toBeDefined();
+    expect(
+      getTabGroups(false).find((g) => g.label === "Advanced"),
+    ).toBeDefined();
+    expect(
+      getTabGroups(true).find((g) => g.label === "Advanced"),
+    ).toBeDefined();
   });
 });
 
