@@ -152,7 +152,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#agent-orchestrator"
     },
     {
       "id": "agent-skills",
@@ -201,7 +202,8 @@
           "required": false,
           "example": "./milady/skills"
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#agent-skills"
     },
     {
       "id": "anthropic",
@@ -411,7 +413,8 @@
           "required": true,
           "sensitive": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#auto-trader"
     },
     {
       "id": "babylon",
@@ -612,7 +615,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#babylon"
     },
     {
       "id": "blooio",
@@ -947,14 +951,15 @@
           "description": "CapSolver API key for automated CAPTCHA solving",
           "required": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#browser"
     },
     {
       "id": "clawbal",
       "dirName": "app-clawbal",
       "name": "Clawbal Chat",
       "npmName": "@iqlabs-official/plugin-clawbal",
-      "description": "On-chain AI chatrooms on Solana — agents chat, trade, launch tokens, and compete on PnL leaderboards",
+      "description": "On-chain AI chatrooms on Solana \u2014 agents chat, trade, launch tokens, and compete on PnL leaderboards",
       "category": "app",
       "envKey": "SOLANA_PRIVATE_KEY",
       "configKeys": [
@@ -1008,7 +1013,8 @@
           "description": "Path to milady-image-generator assets for unique PFP generation",
           "required": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#clawbal-chat"
     },
     {
       "id": "cli",
@@ -1036,7 +1042,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#cli"
     },
     {
       "id": "code",
@@ -1081,7 +1088,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#code"
     },
     {
       "id": "coding-agent",
@@ -1093,7 +1101,8 @@
       "envKey": null,
       "configKeys": [],
       "version": "1.0.0",
-      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg"
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#coding-agent-swarms"
     },
     {
       "id": "commands",
@@ -1147,7 +1156,8 @@
           "default": "true",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#commands"
     },
     {
       "id": "computeruse",
@@ -1179,7 +1189,8 @@
           "description": "MCP server name to use for remote control (default: computeruse)",
           "required": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#computer-use"
     },
     {
       "id": "copilot-proxy",
@@ -1249,7 +1260,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#copilot-proxy"
     },
     {
       "id": "cron",
@@ -1263,7 +1275,8 @@
       "version": "2.0.0-alpha.4",
       "pluginDeps": [
         "cli"
-      ]
+      ],
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#cron"
     },
     {
       "id": "custom-rtmp",
@@ -1349,7 +1362,8 @@
           "default": "false",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#directives"
     },
     {
       "id": "discord",
@@ -1501,7 +1515,8 @@
           "default": "30000",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#edge-tts"
     },
     {
       "id": "elevenlabs",
@@ -1639,7 +1654,8 @@
           "default": "false",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#elevenlabs"
     },
     {
       "id": "eliza-classic",
@@ -1650,7 +1666,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#eliza-classic"
     },
     {
       "id": "elizacloud",
@@ -1816,7 +1833,8 @@
           "default": "2.0.0-alpha",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#elizacloud"
     },
     {
       "id": "evm",
@@ -1924,7 +1942,8 @@
           "default": "https://sepolia.base.org",
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#evm"
     },
     {
       "id": "experience",
@@ -1945,7 +1964,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#experience"
     },
     {
       "id": "farcaster",
@@ -2138,7 +2158,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#form"
     },
     {
       "id": "github",
@@ -2278,7 +2299,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#goals"
     },
     {
       "id": "google-chat",
@@ -2508,7 +2530,8 @@
       "description": "",
       "category": "feature",
       "envKey": null,
-      "configKeys": []
+      "configKeys": [],
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#hedera"
     },
     {
       "id": "imessage",
@@ -2583,7 +2606,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#inmemorydb"
     },
     {
       "id": "instagram",
@@ -2926,7 +2950,8 @@
           "default": true,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#knowledge-rag"
     },
     {
       "id": "line",
@@ -3025,7 +3050,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#linear"
     },
     {
       "id": "local-ai",
@@ -3160,7 +3186,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#local-embedding"
     },
     {
       "id": "localdb",
@@ -3171,7 +3198,8 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#localdb"
     },
     {
       "id": "lp-manager",
@@ -3296,7 +3324,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#lp-manager"
     },
     {
       "id": "matrix",
@@ -3492,7 +3521,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.1"
+      "version": "2.0.1",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#memory"
     },
     {
       "id": "minecraft",
@@ -3548,7 +3578,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#minecraft"
     },
     {
       "id": "moltbook",
@@ -3611,7 +3642,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#moltbook"
     },
     {
       "id": "msteams",
@@ -3696,7 +3728,7 @@
       "dirName": "plugin-mysticism",
       "name": "Mysticism",
       "npmName": "@elizaos/plugin-mysticism",
-      "description": "Mystical divination engines for ElizaOS — Tarot, I Ching, and Astrology readings",
+      "description": "Mystical divination engines for ElizaOS \u2014 Tarot, I Ching, and Astrology readings",
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -3727,7 +3759,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#mysticism"
     },
     {
       "id": "n8n",
@@ -3775,7 +3808,8 @@
           "description": "n8n instance URL (e.g., https://your.n8n.cloud) (required for workflow features)",
           "required": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#n8n"
     },
     {
       "id": "nextcloud-talk",
@@ -4276,7 +4310,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#pdf"
     },
     {
       "id": "personality",
@@ -4297,7 +4332,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#personality"
     },
     {
       "id": "plugin-manager",
@@ -4308,7 +4344,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#plugin-manager"
     },
     {
       "id": "polymarket",
@@ -4369,7 +4406,8 @@
           "required": false,
           "sensitive": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#polymarket"
     },
     {
       "id": "prose",
@@ -4398,7 +4436,8 @@
           "type": "string",
           "description": "Directory containing prose skill files (prose.md, help.md, etc.)"
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#prose"
     },
     {
       "id": "retake",
@@ -4463,7 +4502,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#rlm-reinforcement-learning-manager"
     },
     {
       "id": "roblox",
@@ -4529,7 +4569,8 @@
           "default": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#roblox"
     },
     {
       "id": "robot-voice",
@@ -4540,7 +4581,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#robot-voice"
     },
     {
       "id": "rolodex",
@@ -4551,7 +4593,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#rolodex"
     },
     {
       "id": "rss",
@@ -4596,7 +4639,8 @@
           "default": 15,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#rss"
     },
     {
       "id": "s3-storage",
@@ -4666,7 +4710,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#s3-storage"
     },
     {
       "id": "scheduling",
@@ -4687,7 +4732,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#scheduling"
     },
     {
       "id": "scratchpad",
@@ -4716,7 +4762,8 @@
           "default": 1048576,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#scratchpad"
     },
     {
       "id": "secrets-manager",
@@ -4750,7 +4797,8 @@
           "required": false,
           "example": "true"
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#secrets-manager"
     },
     {
       "id": "shell",
@@ -4818,7 +4866,8 @@
           "default": 1800000,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#shell"
     },
     {
       "id": "signal",
@@ -4872,7 +4921,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#simple-voice"
     },
     {
       "id": "slack",
@@ -4992,7 +5042,8 @@
           "required": true,
           "sensitive": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#social-alpha"
     },
     {
       "id": "solana",
@@ -5084,7 +5135,8 @@
           "required": false,
           "sensitive": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#solana"
     },
     {
       "id": "sql",
@@ -5095,14 +5147,15 @@
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#sql"
     },
     {
       "id": "streaming-base",
       "dirName": "plugin-streaming-base",
       "name": "Streaming",
       "npmName": "@milady/plugin-streaming-base",
-      "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
+      "description": "Enable live streaming controls \u2014 adds the Stream tab for managing RTMP destinations",
       "category": "streaming",
       "envKey": null,
       "configKeys": [],
@@ -5145,7 +5198,8 @@
           "default": "secret_salt",
           "sensitive": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#tee-trusted-execution-environment"
     },
     {
       "id": "telegram",
@@ -5282,7 +5336,8 @@
           "default": 30000,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#todo"
     },
     {
       "id": "trajectory-logger",
@@ -5293,7 +5348,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#trajectory-logger"
     },
     {
       "id": "trust",
@@ -5324,7 +5380,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#trust"
     },
     {
       "id": "tts",
@@ -5377,7 +5434,8 @@
           "required": false,
           "sensitive": false
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#tts-text-to-speech-hub"
     },
     {
       "id": "twilio",
@@ -5925,7 +5983,8 @@
           "type": "number",
           "description": "Percentage of pixels that must change to trigger VLM update (default: 50)"
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#vision"
     },
     {
       "id": "webhooks",
@@ -5936,7 +5995,8 @@
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#webhooks"
     },
     {
       "id": "whatsapp",
@@ -6135,7 +6195,8 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#x402"
     },
     {
       "id": "xai",
