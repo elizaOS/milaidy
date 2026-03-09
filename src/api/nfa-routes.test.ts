@@ -1,5 +1,5 @@
 /**
- * Tests for NFA POST route handlers.
+ * Tests for NFA route handlers.
  *
  * We mock BnbIdentityService methods, store helpers, and fs to isolate
  * the route logic from on-chain calls.
@@ -61,8 +61,9 @@ vi.mock("../../packages/plugin-bnb-identity/src/merkle-learning", () => ({
 }));
 
 // Mock fs
+const mockReadFile = vi.fn().mockResolvedValue("");
 vi.mock("node:fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue(""),
+  readFile: (...args: unknown[]) => mockReadFile(...args),
 }));
 
 // Mock logger
@@ -103,6 +104,90 @@ beforeEach(() => {
   delete process.env.BNB_PRIVATE_KEY;
   delete process.env.BSC_RPC_URL;
   delete process.env.BNB_RPC_URL;
+  mockReadFile.mockResolvedValue("");
+});
+
+describe("GET /api/nfa/status", () => {
+  it("returns identity, cached NFA, and on-chain details", async () => {
+    const identity = { agentId: "agent-42" };
+    const nfa = {
+      tokenId: "42",
+      network: "bsc" as const,
+      learningRoot: "0xroot",
+    };
+    const onChain = {
+      tokenId: "42",
+      owner: "0x123",
+      balance: "1",
+      active: true,
+      logicContract: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      metadata: null,
+      metadataURI: "",
+      freeMint: false,
+    };
+    mockReadIdentity.mockResolvedValue(identity);
+    mockReadNfa.mockResolvedValue(nfa);
+    mockServiceInstance.getNfaInfo.mockResolvedValue(onChain);
+    const ctx = makeCtx("GET", "/api/nfa/status");
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(mockServiceInstance.getNfaInfo).toHaveBeenCalledWith("42");
+    expect(ctx.json).toHaveBeenCalledWith(
+      ctx.res,
+      expect.objectContaining({
+        identity,
+        nfa,
+        onChain,
+        contractAddress: ctx.nfaContractAddress,
+      }),
+    );
+  });
+});
+
+describe("GET /api/nfa/learnings", () => {
+  it("returns parsed learnings with the stored root", async () => {
+    mockReadFile.mockResolvedValue(
+      [
+        "id: learn-1",
+        "timestamp: 2026-01-01T00:00:00.000Z",
+        "category: insight",
+        "summary: First learning",
+        "detail: First learning",
+        "---",
+        "id: learn-2",
+        "timestamp: 2026-01-02T00:00:00.000Z",
+        "category: pattern",
+        "summary: Second learning",
+        "detail: Second learning",
+      ].join("\n"),
+    );
+    mockReadNfa.mockResolvedValue({
+      learningRoot: "0xlearn",
+    });
+    const ctx = makeCtx("GET", "/api/nfa/learnings");
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(mockReadFile).toHaveBeenCalledWith(
+      "/tmp/test-workspace/LEARNINGS.md",
+      "utf8",
+    );
+    expect(ctx.json).toHaveBeenCalledWith(
+      ctx.res,
+      expect.objectContaining({
+        root: "0xlearn",
+        count: 2,
+        entries: expect.arrayContaining([
+          expect.objectContaining({ summary: "First learning" }),
+          expect.objectContaining({ summary: "Second learning" }),
+        ]),
+      }),
+    );
+  });
 });
 
 describe("POST /api/nfa/mint", () => {
@@ -287,8 +372,7 @@ describe("POST /api/nfa/anchor", () => {
       mintTxHash: "0x",
     });
 
-    const { readFile } = await import("node:fs/promises");
-    (readFile as ReturnType<typeof vi.fn>).mockResolvedValue(
+    mockReadFile.mockResolvedValue(
       [
         "id: learn-1",
         "timestamp: 2026-01-01T00:00:00.000Z",
