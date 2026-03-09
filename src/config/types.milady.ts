@@ -4,6 +4,7 @@ import type {
   DatabaseProviderType,
   MediaConfig,
   ReleaseChannel,
+  WorkflowDef,
 } from "../contracts/config";
 import type { AgentBinding, AgentsConfig } from "./types.agents";
 import type {
@@ -49,6 +50,11 @@ export type {
   VisionOpenaiConfig,
   VisionProvider,
   VisionXaiConfig,
+  WorkflowDef,
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodePosition,
+  WorkflowNodeType,
 } from "../contracts/config";
 
 // --- Auth types (merged from types.auth.ts) ---
@@ -765,6 +771,8 @@ export type MiladyConfig = {
   >;
   /** User-defined custom actions for the agent. */
   customActions?: CustomActionDef[];
+  /** Visual workflow definitions (node graph builder). */
+  workflows?: WorkflowDef[];
 };
 
 export type ConfigValidationIssue = {

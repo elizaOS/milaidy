@@ -39,6 +39,8 @@ import { createWorkspaceProvider } from "../providers/workspace-provider";
 import { createTriggerTaskAction } from "../triggers/action";
 import { registerTriggerTaskWorker } from "../triggers/runtime";
 import { loadCustomActions, setCustomActionsRuntime } from "./custom-actions";
+import { setWorkflowRuntime, hydrateRuns } from "../workflows/runtime";
+import { loadWorkflows } from "../workflows/storage";
 
 export type MiladyPluginConfig = {
   workspaceDir?: string;
@@ -134,6 +136,35 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
     },
   };
 
+  // Workflows provider — tells the LLM about available workflows.
+  const workflowsProvider: Provider = {
+    name: "workflows",
+    description: "Visual workflow automations",
+
+    async get(): Promise<ProviderResult> {
+      const workflows = loadWorkflows().filter((w) => w.enabled);
+      if (workflows.length === 0) {
+        return { text: "" };
+      }
+
+      const lines = workflows.map((w) => {
+        const nodeCount = w.nodes.length;
+        const trigger = w.nodes.find((n) => n.type === "trigger");
+        const triggerType = trigger?.config?.triggerType ?? "manual";
+        return `- **${w.name}**: ${w.description} [${nodeCount} nodes, trigger: ${triggerType}]`;
+      });
+
+      return {
+        text: [
+          "## Workflows",
+          "",
+          "The following visual workflows are available. You can run them via the RUN_WORKFLOW action.",
+          ...lines,
+        ].join("\n"),
+      };
+    },
+  };
+
   return {
     name: "milady",
     description:
@@ -145,6 +176,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       registerTriggerTaskWorker(runtime);
       ensureAutonomousStateTracking(runtime);
       setCustomActionsRuntime(runtime);
+      setWorkflowRuntime(runtime);
+      hydrateRuns();
     },
 
     providers: [
@@ -153,6 +186,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       uiCatalogProvider,
       emoteProvider,
       customActionsProvider,
+      workflowsProvider,
     ],
 
     actions: [

@@ -63,6 +63,22 @@ import {
   registerCustomActionLive,
 } from "../runtime/custom-actions";
 import {
+  startWorkflow,
+  getWorkflowRun,
+  listWorkflowRuns,
+  cancelWorkflowRun,
+  resolveHook,
+  listPendingHooks,
+} from "../workflows/runtime";
+import {
+  loadWorkflows,
+  getWorkflow,
+  createWorkflow as createWorkflowDef,
+  updateWorkflow as updateWorkflowDef,
+  deleteWorkflow as deleteWorkflowDef,
+} from "../workflows/storage";
+import { validateWorkflow } from "../workflows/validation";
+import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
 } from "../security/network-policy";
@@ -14725,6 +14741,171 @@ async function handleRequest(
     saveMiladyConfig(config);
 
     json(res, { ok: true });
+    return;
+  }
+
+  // ── Workflow Builder CRUD + Execution ──────────────────────────────────
+
+  if (method === "GET" && pathname === "/api/workflows") {
+    json(res, { workflows: loadWorkflows() });
+    return;
+  }
+
+  if (method === "POST" && pathname === "/api/workflows") {
+    const body = await readJsonBody<Record<string, unknown>>(req, res);
+    if (!body) return;
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      error(res, "name is required", 400);
+      return;
+    }
+
+    const workflow = createWorkflowDef({
+      name,
+      description:
+        typeof body.description === "string" ? body.description : undefined,
+      nodes: Array.isArray(body.nodes) ? body.nodes : undefined,
+      edges: Array.isArray(body.edges) ? body.edges : undefined,
+      enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
+    });
+    json(res, { ok: true, workflow }, 201);
+    return;
+  }
+
+  const workflowIdMatch = pathname.match(/^\/api\/workflows\/([^/]+)$/);
+  const workflowRunsMatch = pathname.match(
+    /^\/api\/workflows\/([^/]+)\/runs$/,
+  );
+  const workflowStartMatch = pathname.match(
+    /^\/api\/workflows\/([^/]+)\/start$/,
+  );
+  const workflowValidateMatch = pathname.match(
+    /^\/api\/workflows\/([^/]+)\/validate$/,
+  );
+  const workflowRunMatch = pathname.match(
+    /^\/api\/workflow-runs\/([^/]+)$/,
+  );
+  const workflowRunCancelMatch = pathname.match(
+    /^\/api\/workflow-runs\/([^/]+)\/cancel$/,
+  );
+  const workflowHookMatch = pathname.match(
+    /^\/api\/workflow-hooks\/([^/]+)\/resolve$/,
+  );
+
+  if (method === "GET" && workflowIdMatch) {
+    const wfId = decodeURIComponent(workflowIdMatch[1]);
+    const workflow = getWorkflow(wfId);
+    if (!workflow) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+    json(res, { workflow });
+    return;
+  }
+
+  if (method === "PUT" && workflowIdMatch) {
+    const wfId = decodeURIComponent(workflowIdMatch[1]);
+    const body = await readJsonBody<Record<string, unknown>>(req, res);
+    if (!body) return;
+
+    const updated = updateWorkflowDef(wfId, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      description:
+        typeof body.description === "string" ? body.description : undefined,
+      nodes: Array.isArray(body.nodes) ? body.nodes : undefined,
+      edges: Array.isArray(body.edges) ? body.edges : undefined,
+      enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
+    });
+    if (!updated) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+    json(res, { ok: true, workflow: updated });
+    return;
+  }
+
+  if (method === "DELETE" && workflowIdMatch) {
+    const wfId = decodeURIComponent(workflowIdMatch[1]);
+    if (!deleteWorkflowDef(wfId)) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+    json(res, { ok: true });
+    return;
+  }
+
+  if (method === "POST" && workflowValidateMatch) {
+    const wfId = decodeURIComponent(workflowValidateMatch[1]);
+    const workflow = getWorkflow(wfId);
+    if (!workflow) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+    const result = validateWorkflow(workflow);
+    json(res, result);
+    return;
+  }
+
+  if (method === "POST" && workflowStartMatch) {
+    const wfId = decodeURIComponent(workflowStartMatch[1]);
+    const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
+    try {
+      const run = await startWorkflow(
+        wfId,
+        (body.input as Record<string, unknown>) ?? {},
+      );
+      json(res, { ok: true, run }, 201);
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : String(err),
+        400,
+      );
+    }
+    return;
+  }
+
+  if (method === "GET" && workflowRunsMatch) {
+    const wfId = decodeURIComponent(workflowRunsMatch[1]);
+    json(res, { runs: listWorkflowRuns(wfId) });
+    return;
+  }
+
+  if (method === "GET" && workflowRunMatch) {
+    const runId = decodeURIComponent(workflowRunMatch[1]);
+    const run = getWorkflowRun(runId);
+    if (!run) {
+      error(res, "Run not found", 404);
+      return;
+    }
+    json(res, { run });
+    return;
+  }
+
+  if (method === "POST" && workflowRunCancelMatch) {
+    const runId = decodeURIComponent(workflowRunCancelMatch[1]);
+    if (!cancelWorkflowRun(runId)) {
+      error(res, "Run not found or already finished", 404);
+      return;
+    }
+    json(res, { ok: true });
+    return;
+  }
+
+  if (method === "POST" && workflowHookMatch) {
+    const hookId = decodeURIComponent(workflowHookMatch[1]);
+    const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
+    if (!resolveHook(hookId, body)) {
+      error(res, "No pending hook with that ID", 404);
+      return;
+    }
+    json(res, { ok: true });
+    return;
+  }
+
+  if (method === "GET" && pathname === "/api/workflow-hooks") {
+    json(res, { hooks: listPendingHooks() });
     return;
   }
 

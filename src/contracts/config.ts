@@ -174,3 +174,49 @@ export type CustomActionDef = {
   createdAt: string;
   updatedAt: string;
 };
+
+// ---------------------------------------------------------------------------
+// Workflow Builder types
+// ---------------------------------------------------------------------------
+
+export type WorkflowNodeType =
+  | "trigger"
+  | "action"
+  | "llm"
+  | "condition"
+  | "transform"
+  | "delay"
+  | "hook"
+  | "loop"
+  | "subworkflow"
+  | "output";
+
+export type WorkflowNodePosition = { x: number; y: number };
+
+export type WorkflowNode = {
+  id: string;
+  type: WorkflowNodeType;
+  label: string;
+  position: WorkflowNodePosition;
+  config: Record<string, unknown>;
+};
+
+export type WorkflowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  label?: string;
+};
+
+export type WorkflowDef = {
+  id: string;
+  name: string;
+  description: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  enabled: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
