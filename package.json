@@ -111,7 +111,10 @@
     "test:watch": "bunx vitest",
     "typecheck": "tsc --noEmit",
     "tui": "scripts/rt.sh scripts/run-node.mjs tui",
-    "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui"
+    "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui",
+    "db:reset": "scripts/rt.sh scripts/run-node.mjs db reset",
+    "doctor": "scripts/rt.sh scripts/run-node.mjs doctor",
+    "repair": "node scripts/init-submodules.mjs && node scripts/ensure-avatars.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/patch-deps.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.13",
