@@ -10,12 +10,12 @@ import { describe, expect, it } from "vitest";
 import type { Tab } from "@milady/app-core/navigation";
 import {
   ACCENT_COLORS,
-  COMPANION_OVERLAY_TABS,
-  TOP_BAR_COLORS,
   accentSubtleVar,
   accentVar,
+  COMPANION_OVERLAY_TABS,
   cardSizeClass,
   overlayBackdropClass,
+  TOP_BAR_COLORS,
   tabFlags,
 } from "./companion-shell-styles";
 
