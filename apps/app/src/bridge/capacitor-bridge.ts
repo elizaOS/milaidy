@@ -11,6 +11,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { BRIDGE_READY_EVENT, dispatchMiladyEvent } from "../events";
 import { isElectrobunRuntime } from "./electrobun-runtime";
 
 // Import the plugin bridge
@@ -269,11 +270,7 @@ export function initializeCapacitorBridge(): void {
   window.Milady = createBridge();
 
   // Dispatch an event to notify that the bridge is ready
-  document.dispatchEvent(
-    new CustomEvent("milady:bridge-ready", {
-      detail: window.Milady,
-    }),
-  );
+  dispatchMiladyEvent(BRIDGE_READY_EVENT, window.Milady);
 }
 
 /**
@@ -288,7 +285,7 @@ export function waitForBridge(): Promise<MiladyBridge> {
 
   return new Promise((resolve) => {
     document.addEventListener(
-      "milady:bridge-ready",
+      BRIDGE_READY_EVENT,
       (event) => {
         resolve((event as CustomEvent<MiladyBridge>).detail);
       },

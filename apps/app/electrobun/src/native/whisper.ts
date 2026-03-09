@@ -216,8 +216,16 @@ export async function transcribeBunSpawn(
 
 let whisperAvailable = false;
 let whisperModule: Record<string, unknown> | null = null;
+let whisperLoadPromise: Promise<boolean> | null = null;
 
 async function tryLoadWhisper(): Promise<boolean> {
+  if (whisperAvailable && whisperModule) {
+    return true;
+  }
+  if (whisperLoadPromise) {
+    return whisperLoadPromise;
+  }
+
   const packages = [
     "whisper-node",
     "@nicksellen/whisper-node",
@@ -225,24 +233,31 @@ async function tryLoadWhisper(): Promise<boolean> {
     "@nicksellen/whispercpp",
   ];
 
-  for (const pkg of packages) {
-    try {
-      whisperModule = await import(pkg);
-      console.log(`[Whisper] Loaded ${pkg}`);
-      whisperAvailable = true;
-      return true;
-    } catch {}
+  whisperLoadPromise = (async () => {
+    for (const pkg of packages) {
+      try {
+        whisperModule = await import(pkg);
+        console.log(`[Whisper] Loaded ${pkg}`);
+        whisperAvailable = true;
+        return true;
+      } catch {}
+    }
+
+    console.warn(
+      "[Whisper] No whisper module available in Bun runtime. " +
+        "STT will fall back to Web Speech API in renderer.",
+    );
+    return false;
+  })();
+
+  try {
+    return await whisperLoadPromise;
+  } finally {
+    if (!whisperAvailable) {
+      whisperLoadPromise = null;
+    }
   }
-
-  console.warn(
-    "[Whisper] No whisper module available in Bun runtime. " +
-      "STT will fall back to Web Speech API in renderer.",
-  );
-  return false;
 }
-
-// Attempt load on module init
-tryLoadWhisper();
 
 export function isWhisperAvailable(): boolean {
   return whisperAvailable || isWhisperBinaryAvailable();
@@ -262,7 +277,10 @@ export async function transcribe(
 
   // Fallback to dynamic import path
   if (!whisperAvailable || !whisperModule) {
-    return null;
+    const loaded = await tryLoadWhisper();
+    if (!loaded || !whisperModule) {
+      return null;
+    }
   }
 
   try {

@@ -45,6 +45,7 @@ interface CharCell {
 const PHASE_LABELS: Record<StartupPhase, string> = {
   "starting-backend": "starting backend",
   "initializing-agent": "initializing agent",
+  ready: "ready",
 };
 
 interface LoadingScreenProps {

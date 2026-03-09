@@ -1,4 +1,14 @@
-import type { CoordinationLLMResponse } from "@elizaos/plugin-agent-orchestrator";
+/**
+ * Local stub for CoordinationLLMResponse — removed from
+ * @elizaos/plugin-agent-orchestrator 2.x.  Matches the shape this file needs.
+ */
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
 
 /** Console bridge exposed by PTYService for terminal I/O. */
 export interface ConsoleBridge {

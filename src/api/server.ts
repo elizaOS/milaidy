@@ -27,12 +27,34 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import type {
-  CoordinationLLMResponse,
-  SwarmEvent,
-  TaskCompletionSummary,
-  TaskContext,
-} from "@elizaos/plugin-agent-orchestrator";
+
+/**
+ * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
+ * These are only used as structural types for the SwarmCoordinator callbacks;
+ * no runtime import is needed.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
+type SwarmEvent = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
+type TaskContext = Record<string, any>;
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
+interface TaskCompletionSummary {
+  sessionId: string;
+  label: string;
+  agentType: string;
+  originalTask: string;
+  status: string;
+  completionSummary: string;
+  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
+  [key: string]: any;
+}
+
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -112,7 +134,11 @@ import {
   loadWorkflows,
   updateWorkflow as updateWorkflowDef,
 } from "../workflows/storage";
-import { validateWorkflow } from "../workflows/validation";
+import type { WorkflowDef } from "../workflows/types";
+import {
+  validateTransformWorkflowSecurity,
+  validateWorkflow,
+} from "../workflows/validation";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
 import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
@@ -5072,6 +5098,33 @@ export function resolveTerminalRunRejection(
   }
 
   return null;
+}
+
+function workflowHasTransformNode(
+  workflow: Pick<WorkflowDef, "nodes"> | null | undefined,
+): boolean {
+  return workflow?.nodes.some((node) => node.type === "transform") ?? false;
+}
+
+export function resolveWorkflowTransformRejection(
+  req: http.IncomingMessage,
+  body: TerminalRunRequestBody,
+  workflow: Pick<WorkflowDef, "nodes"> | null | undefined,
+): TerminalRunRejection | null {
+  if (!workflowHasTransformNode(workflow)) {
+    return null;
+  }
+  return resolveTerminalRunRejection(req, body);
+}
+
+function getTransformWorkflowSecurityError(
+  workflow: WorkflowDef,
+): string | null {
+  return (
+    validateTransformWorkflowSecurity(workflow).find(
+      (issue) => issue.severity === "error",
+    )?.message ?? null
+  );
 }
 
 function extractWsQueryToken(url: URL): string | null {
@@ -11468,10 +11521,11 @@ async function handleRequest(
     }
 
     const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const isAgentRequest = isAgentAutomationRequest(req);
     const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const canExecuteLocally = canUseLocalTradeExecution(
       tradePermissionMode,
-      false,
+      isAgentRequest,
     );
     const addrs = getWalletAddresses();
 
@@ -13167,7 +13221,8 @@ async function handleRequest(
     // Fallback to @elizaos/plugin-agent-orchestrator (npm)
     if (!handled) {
       try {
-        const orchestratorPlugin = await import(
+        // biome-ignore lint/suspicious/noExplicitAny: legacy route handler may not exist in 2.x
+        const orchestratorPlugin: any = await import(
           "@elizaos/plugin-agent-orchestrator"
         );
         if (orchestratorPlugin.createCodingAgentRouteHandler) {
@@ -14761,6 +14816,42 @@ async function handleRequest(
       return;
     }
 
+    const draftWorkflow: WorkflowDef = {
+      id: "draft-workflow",
+      name,
+      description: typeof body.description === "string" ? body.description : "",
+      nodes: Array.isArray(body.nodes)
+        ? (body.nodes as WorkflowDef["nodes"])
+        : [],
+      edges: Array.isArray(body.edges)
+        ? (body.edges as WorkflowDef["edges"])
+        : [],
+      enabled: typeof body.enabled === "boolean" ? body.enabled : false,
+      version: 1,
+      createdAt: "",
+      updatedAt: "",
+    };
+    const transformSecurityError =
+      getTransformWorkflowSecurityError(draftWorkflow);
+    if (transformSecurityError) {
+      error(res, transformSecurityError, 400);
+      return;
+    }
+
+    const terminalRejection = resolveWorkflowTransformRejection(
+      req,
+      body as TerminalRunRequestBody,
+      draftWorkflow,
+    );
+    if (terminalRejection) {
+      error(
+        res,
+        `Creating workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
+        terminalRejection.status,
+      );
+      return;
+    }
+
     const workflow = createWorkflowDef({
       name,
       description:
@@ -14804,6 +14895,50 @@ async function handleRequest(
     const wfId = decodeURIComponent(workflowIdMatch[1]);
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
+
+    const existing = getWorkflow(wfId);
+    if (!existing) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+
+    const updatedDraft: WorkflowDef = {
+      ...existing,
+      name: typeof body.name === "string" ? body.name : existing.name,
+      description:
+        typeof body.description === "string"
+          ? body.description
+          : existing.description,
+      nodes: Array.isArray(body.nodes)
+        ? (body.nodes as WorkflowDef["nodes"])
+        : existing.nodes,
+      edges: Array.isArray(body.edges)
+        ? (body.edges as WorkflowDef["edges"])
+        : existing.edges,
+      enabled:
+        typeof body.enabled === "boolean" ? body.enabled : existing.enabled,
+      updatedAt: existing.updatedAt,
+    };
+    const transformSecurityError =
+      getTransformWorkflowSecurityError(updatedDraft);
+    if (transformSecurityError) {
+      error(res, transformSecurityError, 400);
+      return;
+    }
+
+    const terminalRejection = resolveWorkflowTransformRejection(
+      req,
+      body as TerminalRunRequestBody,
+      updatedDraft,
+    );
+    if (terminalRejection) {
+      error(
+        res,
+        `Updating workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
+        terminalRejection.status,
+      );
+      return;
+    }
 
     const updated = updateWorkflowDef(wfId, {
       name: typeof body.name === "string" ? body.name : undefined,
@@ -14850,22 +14985,30 @@ async function handleRequest(
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
 
-    // Security gate: workflows containing transform nodes execute arbitrary
-    // code via the sandbox. Require terminal authorization for these.
     const wfDef = getWorkflow(wfId);
-    if (wfDef?.nodes.some((n) => n.type === "transform")) {
-      const terminalRejection = resolveTerminalRunRejection(
-        req,
-        body as TerminalRunRequestBody,
+    if (!wfDef) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+
+    const transformSecurityError = getTransformWorkflowSecurityError(wfDef);
+    if (transformSecurityError) {
+      error(res, transformSecurityError, 400);
+      return;
+    }
+
+    const terminalRejection = resolveWorkflowTransformRejection(
+      req,
+      body as TerminalRunRequestBody,
+      wfDef,
+    );
+    if (terminalRejection) {
+      error(
+        res,
+        `Starting workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
+        terminalRejection.status,
       );
-      if (terminalRejection) {
-        error(
-          res,
-          `Starting workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
-          terminalRejection.status,
-        );
-        return;
-      }
+      return;
     }
 
     try {
@@ -14911,6 +15054,27 @@ async function handleRequest(
     const hookId = decodeURIComponent(workflowHookMatch[1]);
     const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return;
+
+    const pendingHook = listPendingHooks().find(
+      (hook) => hook.hookId === hookId,
+    );
+    const pendingRun = pendingHook ? getWorkflowRun(pendingHook.runId) : null;
+    const pendingWorkflow = pendingRun
+      ? getWorkflow(pendingRun.workflowId)
+      : null;
+    const terminalRejection = resolveWorkflowTransformRejection(
+      req,
+      body as TerminalRunRequestBody,
+      pendingWorkflow,
+    );
+    if (terminalRejection) {
+      error(
+        res,
+        `Resolving hooks for workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
+        terminalRejection.status,
+      );
+      return;
+    }
 
     // Sanitize: only allow plain JSON-serializable values in the payload
     // to prevent prototype pollution or injected objects.

@@ -912,9 +912,9 @@ describe("Version Skew Detection (issue #10)", () => {
     expect(coreVersion).toBeDefined();
     // Core can use "next" dist-tag if overrides pin the actual version.
     const coreOverride = getDependencyOverride(pkg);
-    if (coreVersion === "next") {
+    if (coreVersion === "next" || coreVersion === "alpha") {
       expect(coreOverride).toBeDefined();
-      if (coreOverride !== "next") {
+      if (coreOverride !== "next" && coreOverride !== "alpha") {
         expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
       }
     } else if (isWorkspaceDependency(coreVersion)) {
@@ -941,7 +941,7 @@ describe("Version Skew Detection (issue #10)", () => {
       // or they can be pinned to a specific alpha version.
       // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
-      if (ver !== "next" && !isWorkspaceDependency(ver)) {
+      if (ver !== "next" && ver !== "alpha" && !isWorkspaceDependency(ver)) {
         expect(ver).toMatch(/^\d+\.\d+\.\d+/);
       }
     }

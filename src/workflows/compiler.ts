@@ -14,7 +14,12 @@
  * @module workflows/compiler
  */
 
-import type { IAgentRuntime } from "@elizaos/core";
+import {
+  type HandlerOptions,
+  type IAgentRuntime,
+  type Memory,
+  ModelType,
+} from "@elizaos/core";
 import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
   CompiledStep,
@@ -162,6 +167,33 @@ function stripQuotes(s: string): string {
     return s.slice(1, -1);
   }
   return s;
+}
+
+function toWorkflowMessageText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined || value === null) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function createWorkflowActionMessage(ctx: WorkflowContext): Memory {
+  return {
+    id: ctx.runId,
+    agentId: ctx.workflowId,
+    entityId: ctx.workflowId,
+    roomId: ctx.runId,
+    createdAt: Date.now(),
+    content: {
+      text: toWorkflowMessageText(ctx._last),
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -349,11 +381,15 @@ function compileNode(
             throw new Error(`Action "${actionName}" not found in runtime`);
           }
 
+          const message = createWorkflowActionMessage(ctx);
+          const options: HandlerOptions = {
+            parameters: resolvedParams,
+          };
           const result = await action.handler(
             runtime,
-            {} as never, // message placeholder
+            message,
             undefined,
-            { parameters: resolvedParams } as never,
+            options,
           );
           return result;
         },
@@ -371,7 +407,7 @@ function compileNode(
           const maxTokens =
             typeof config.maxTokens === "number" ? config.maxTokens : 2000;
 
-          const result = await runtime.useModel("text_large" as never, {
+          const result = await runtime.useModel(ModelType.TEXT_LARGE, {
             prompt,
             temperature,
             maxTokens,

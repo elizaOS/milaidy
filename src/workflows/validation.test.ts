@@ -17,13 +17,16 @@ function makeDef(overrides: Partial<WorkflowDef> = {}): WorkflowDef {
   };
 }
 
-function triggerNode(id = "t1"): WorkflowNode {
+function triggerNode(
+  id = "t1",
+  config: Record<string, unknown> = { triggerType: "manual" },
+): WorkflowNode {
   return {
     id,
     type: "trigger",
     label: "Trigger",
     position: { x: 0, y: 0 },
-    config: { triggerType: "manual" },
+    config,
   };
 }
 
@@ -376,6 +379,66 @@ describe("validateWorkflow", () => {
     );
     expect(result.valid).toBe(false);
     expect(result.issues.some((i) => i.message.includes("code"))).toBe(true);
+  });
+
+  it("rejects transform workflows with non-manual triggers", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode("t1", {
+            triggerType: "cron",
+            cronExpression: "0 * * * *",
+          }),
+          {
+            id: "tr1",
+            type: "transform",
+            label: "Transform",
+            position: { x: 0, y: 100 },
+            config: { code: "return params._last" },
+          },
+        ],
+        edges: [edge("t1", "tr1")],
+      }),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.issues.some((i) =>
+        i.message.includes('Transform workflows must use a "manual" trigger'),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects webhook-enabled hooks in transform workflows", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "h1",
+            type: "hook",
+            label: "Hook",
+            position: { x: 0, y: 100 },
+            config: { hookId: "resume", webhookEnabled: true },
+          },
+          {
+            id: "tr1",
+            type: "transform",
+            label: "Transform",
+            position: { x: 0, y: 200 },
+            config: { code: "return params._last" },
+          },
+        ],
+        edges: [edge("t1", "h1"), edge("h1", "tr1")],
+      }),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.issues.some((i) =>
+        i.message.includes("cannot expose webhook-enabled hooks"),
+      ),
+    ).toBe(true);
   });
 
   it("rejects hook node missing hookId", () => {

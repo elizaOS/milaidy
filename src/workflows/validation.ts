@@ -46,6 +46,45 @@ type ValidateWorkflowOptions = {
   now?: Date;
 };
 
+export function validateTransformWorkflowSecurity(
+  def: WorkflowDef,
+): WorkflowValidationIssue[] {
+  const issues: WorkflowValidationIssue[] = [];
+  const hasTransform = def.nodes.some((node) => node.type === "transform");
+  if (!hasTransform) {
+    return issues;
+  }
+
+  const trigger = def.nodes.find((node) => node.type === "trigger");
+  const triggerType =
+    typeof trigger?.config?.triggerType === "string"
+      ? trigger.config.triggerType
+      : "manual";
+  if (triggerType !== "manual") {
+    issues.push({
+      severity: "error",
+      nodeId: trigger?.id,
+      message:
+        'Transform workflows must use a "manual" trigger because transform nodes execute user-authored code.',
+    });
+  }
+
+  for (const node of def.nodes) {
+    if (node.type !== "hook" || node.config?.webhookEnabled !== true) {
+      continue;
+    }
+
+    issues.push({
+      severity: "error",
+      nodeId: node.id,
+      message:
+        "Transform workflows cannot expose webhook-enabled hooks because hook resumes would bypass terminal authorization.",
+    });
+  }
+
+  return issues;
+}
+
 export function validateWorkflow(
   def: WorkflowDef,
   options: ValidateWorkflowOptions = {},
@@ -254,6 +293,8 @@ export function validateWorkflow(
       message: `Subworkflow cycle detected: ${cycle.join(" -> ")}`,
     });
   }
+
+  issues.push(...validateTransformWorkflowSecurity(def));
 
   // --- Output nodes should be terminal ---
   for (const node of def.nodes) {

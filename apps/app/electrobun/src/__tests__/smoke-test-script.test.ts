@@ -14,7 +14,10 @@ describe("smoke-test.sh", () => {
 
     expect(script).toContain(
       'PACKAGED_HANDOFF_GRACE_SECONDS="$' +
-        '{PACKAGED_HANDOFF_GRACE_SECONDS:-15}"',
+        '{PACKAGED_HANDOFF_GRACE_SECONDS:-90}"',
+    );
+    expect(script).toContain(
+      "Launcher exited before the first health probe; continuing to wait for packaged app handoff...",
     );
     expect(script).toContain(
       "Launcher exited; waiting for packaged app handoff...",
@@ -22,7 +25,6 @@ describe("smoke-test.sh", () => {
     expect(script).toContain(
       "Launcher handoff detected; following packaged app process",
     );
-    expect(script).toContain("launcher exited before packaged app handoff");
     expect(script).toContain('if [[ "$f" == *"/.dmg-staging/"* ]]; then');
   });
 
@@ -41,6 +43,8 @@ describe("smoke-test.sh", () => {
     expect(script).toContain(
       'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
     );
+    expect(script).toContain("Contents/Resources/app/bun/index\\\\.js");
+    expect(script).toContain("Contents/Resources/main\\\\.js");
   });
 
   it("uses a minimal launcher environment on macOS GitHub Actions", () => {
@@ -48,12 +52,16 @@ describe("smoke-test.sh", () => {
 
     expect(script).toContain("build_launcher_command() {");
     expect(script).toContain(
-      'if [[ "$(uname)" == "Darwin" && -n "$' + '{GITHUB_ACTIONS:-}" ]]; then',
+      'if [[ "$(uname)" == "Darwin" && -n "$' +
+        "{GITHUB_ACTIONS:-}" +
+        '" ]]; then',
     );
     expect(script).toContain("/usr/bin/env");
     expect(script).toContain("-i");
     expect(script).toContain('HOME="$HOME"');
-    expect(script).toContain('TERM="$' + '{TERM:-dumb}"');
-    expect(script).toContain('"$' + '{LAUNCH_COMMAND[@]}" >"$LAUNCHER_STDOUT"');
+    expect(script).toContain('TERM="$' + "{TERM:-dumb}" + '"');
+    expect(script).toContain(
+      '"$' + "{LAUNCH_COMMAND[@]}" + '" >"$LAUNCHER_STDOUT"',
+    );
   });
 });

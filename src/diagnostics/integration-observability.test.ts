@@ -149,10 +149,7 @@ describe("createIntegrationTelemetrySpan", () => {
         /export type IntegrationBoundary\s*=\s*([^;]+)/,
       );
       expect(match).not.toBeNull();
-      if (!match) {
-        throw new Error("Expected IntegrationBoundary type declaration");
-      }
-      const declared = [...match[1].matchAll(/"([^"]+)"/g)]
+      const declared = [...(match?.[1] ?? "").matchAll(/"([^"]+)"/g)]
         .map((m) => m[1])
         .sort();
       expect([...BOUNDARIES].sort()).toEqual(declared);

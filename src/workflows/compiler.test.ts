@@ -1138,6 +1138,53 @@ describe("compileWorkflow", () => {
     expect(result.greeting).toBe("Hello Alice");
   });
 
+  it("compiled action step provides a readable message payload", async () => {
+    const paramRuntime = {
+      actions: [
+        {
+          name: "INSPECT",
+          handler: async (
+            _rt: unknown,
+            message: { content?: { text?: string } },
+          ) => {
+            return { text: message.content?.text };
+          },
+        },
+      ],
+    } as never;
+
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "a1",
+          type: "action",
+          label: "Inspect",
+          position: { x: 0, y: 100 },
+          config: {
+            actionName: "INSPECT",
+          },
+        },
+      ],
+      edges: [{ id: "e1", source: "t1", target: "a1" }],
+    });
+
+    const compiled = compileWorkflow(def, paramRuntime);
+    const ctx = makeCtx({ _last: { status: "ok" } });
+    const result = (await compiled.entrySteps[0].execute(ctx)) as Record<
+      string,
+      string
+    >;
+
+    expect(result.text).toBe('{"status":"ok"}');
+  });
+
   it("compiled delay step handles date-based delay", async () => {
     const futureDate = new Date(Date.now() + 10).toISOString();
     const def = makeDef({
