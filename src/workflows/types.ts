@@ -19,6 +19,7 @@ import type {
 } from "../contracts/config";
 
 export type {
+  WorkflowConditionOperator,
   WorkflowDef,
   WorkflowEdge,
   WorkflowNode,

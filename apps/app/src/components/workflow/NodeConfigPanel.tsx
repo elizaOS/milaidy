@@ -5,7 +5,7 @@
  */
 
 import { Trash2, X } from "lucide-react";
-import type { WorkflowNode } from "../../api-client";
+import type { WorkflowConditionOperator, WorkflowNode } from "../../api-client";
 
 interface NodeConfigPanelProps {
   node: WorkflowNode;
@@ -77,7 +77,12 @@ export function NodeConfigPanel({
           <LlmConfig config={node.config} onChange={updateConfig} />
         )}
         {node.type === "condition" && (
-          <ConditionConfig config={node.config} onChange={updateConfig} />
+          <ConditionConfig
+            config={node.config}
+            onChange={(updates) =>
+              onUpdate({ config: { ...node.config, ...updates } })
+            }
+          />
         )}
         {node.type === "transform" && (
           <TransformConfig config={node.config} onChange={updateConfig} />
@@ -133,6 +138,11 @@ function Field({
 type ConfigProps = {
   config: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
+};
+
+type ConditionConfigProps = {
+  config: Record<string, unknown>;
+  onChange: (updates: Record<string, unknown>) => void;
 };
 
 function TriggerConfig({ config, onChange }: ConfigProps) {
@@ -277,17 +287,97 @@ function LlmConfig({ config, onChange }: ConfigProps) {
   );
 }
 
-function ConditionConfig({ config, onChange }: ConfigProps) {
+const CONDITION_OPERATORS: Array<{
+  value: WorkflowConditionOperator;
+  label: string;
+}> = [
+  { value: "truthy", label: "Is truthy" },
+  { value: "===", label: "Equals" },
+  { value: "!==", label: "Does not equal" },
+  { value: ">", label: "Greater than" },
+  { value: "<", label: "Less than" },
+  { value: ">=", label: "Greater than or equal" },
+  { value: "<=", label: "Less than or equal" },
+  { value: "contains", label: "Contains" },
+];
+
+function ConditionConfig({ config, onChange }: ConditionConfigProps) {
+  const normalized = normalizeConditionConfig(config);
+  const updateCondition = (
+    updates: Partial<{
+      leftOperand: string;
+      operator: WorkflowConditionOperator;
+      rightOperand: string;
+    }>,
+  ) => {
+    const next = {
+      ...normalized,
+      ...updates,
+    };
+    const rightOperand =
+      next.operator === "truthy" ? "" : (next.rightOperand ?? "");
+    onChange({
+      leftOperand: next.leftOperand,
+      operator: next.operator,
+      rightOperand,
+      expression: serializeConditionExpression(
+        next.leftOperand,
+        next.operator,
+        rightOperand,
+      ),
+    });
+  };
+
   return (
-    <Field label="Expression" hint='Supports: ===, !==, >, <, contains "text"'>
-      <textarea
-        value={String(config.expression ?? "")}
-        onChange={(e) => onChange("expression", e.target.value)}
-        rows={3}
-        placeholder="{{_last.status}} === 200"
-        className="w-full px-2 py-1 text-xs rounded bg-surface border border-border outline-none focus:border-accent font-mono resize-y"
-      />
-    </Field>
+    <>
+      <Field
+        label="Value To Check"
+        hint="Use {{_last}} or {{nodeId.field}} to reference workflow data"
+      >
+        <input
+          type="text"
+          value={normalized.leftOperand}
+          onChange={(e) => updateCondition({ leftOperand: e.target.value })}
+          placeholder="{{_last.status}}"
+          className="w-full px-2 py-1 text-xs rounded bg-surface border border-border outline-none focus:border-accent font-mono"
+        />
+      </Field>
+
+      <Field label="Operator">
+        <select
+          value={normalized.operator}
+          onChange={(e) =>
+            updateCondition({
+              operator: e.target.value as WorkflowConditionOperator,
+            })
+          }
+          className="w-full px-2 py-1 text-xs rounded bg-surface border border-border outline-none"
+        >
+          {CONDITION_OPERATORS.map((operator) => (
+            <option key={operator.value} value={operator.value}>
+              {operator.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {normalized.operator !== "truthy" && (
+        <Field
+          label="Compare Against"
+          hint='Literal values like 200 or "done" are supported'
+        >
+          <input
+            type="text"
+            value={normalized.rightOperand}
+            onChange={(e) => updateCondition({ rightOperand: e.target.value })}
+            placeholder={
+              normalized.operator === "contains" ? '"success"' : "200"
+            }
+            className="w-full px-2 py-1 text-xs rounded bg-surface border border-border outline-none focus:border-accent font-mono"
+          />
+        </Field>
+      )}
+    </>
   );
 }
 
@@ -428,4 +518,114 @@ function OutputConfig({ config, onChange }: ConfigProps) {
       />
     </Field>
   );
+}
+
+function normalizeConditionConfig(config: Record<string, unknown>): {
+  leftOperand: string;
+  operator: WorkflowConditionOperator;
+  rightOperand: string;
+} {
+  const leftOperand =
+    typeof config.leftOperand === "string" ? config.leftOperand : "";
+  const operator =
+    typeof config.operator === "string" &&
+    CONDITION_OPERATORS.some(({ value }) => value === config.operator)
+      ? (config.operator as WorkflowConditionOperator)
+      : "truthy";
+  const rightOperand =
+    typeof config.rightOperand === "string" ? config.rightOperand : "";
+
+  if (leftOperand) {
+    return { leftOperand, operator, rightOperand };
+  }
+
+  return parseLegacyConditionExpression(String(config.expression ?? ""));
+}
+
+function parseLegacyConditionExpression(expression: string): {
+  leftOperand: string;
+  operator: WorkflowConditionOperator;
+  rightOperand: string;
+} {
+  const trimmed = expression.trim();
+  if (!trimmed) {
+    return {
+      leftOperand: "{{_last}}",
+      operator: "truthy",
+      rightOperand: "",
+    };
+  }
+
+  const containsMatch = trimmed.match(/^(.+?)\s+contains\s+(.+)$/i);
+  if (containsMatch) {
+    return {
+      leftOperand: containsMatch[1].trim(),
+      operator: "contains",
+      rightOperand: containsMatch[2].trim(),
+    };
+  }
+
+  for (const operator of ["===", "!==", ">=", "<=", ">", "<"] as const) {
+    const idx = findTopLevelOperatorIndex(trimmed, operator);
+    if (idx < 0) {
+      continue;
+    }
+
+    return {
+      leftOperand: trimmed.slice(0, idx).trim(),
+      operator,
+      rightOperand: trimmed.slice(idx + operator.length).trim(),
+    };
+  }
+
+  return {
+    leftOperand: trimmed,
+    operator: "truthy",
+    rightOperand: "",
+  };
+}
+
+function findTopLevelOperatorIndex(
+  expression: string,
+  operator: Exclude<WorkflowConditionOperator, "truthy" | "contains">,
+): number {
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i <= expression.length - operator.length; i += 1) {
+    const ch = expression[i];
+    if (quote) {
+      if (ch === quote && expression[i - 1] !== "\\") {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (expression.slice(i, i + operator.length) === operator) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function serializeConditionExpression(
+  leftOperand: string,
+  operator: WorkflowConditionOperator,
+  rightOperand: string,
+): string {
+  const left = leftOperand.trim();
+  const right = rightOperand.trim();
+  if (!left) {
+    return "";
+  }
+  if (operator === "truthy") {
+    return left;
+  }
+  if (!right) {
+    return left;
+  }
+  return `${left} ${operator} ${right}`;
 }

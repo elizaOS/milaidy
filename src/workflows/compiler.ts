@@ -24,6 +24,7 @@ import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
   CompiledStep,
   CompiledWorkflow,
+  WorkflowConditionOperator,
   WorkflowContext,
   WorkflowDef,
   WorkflowEdge,
@@ -89,74 +90,272 @@ function resolvePath(ctx: WorkflowContext, path: string): unknown {
 }
 
 /**
- * Evaluate a simple expression string against the workflow context.
- * Returns a boolean.  Supports:
- * - Template interpolation: `{{_last.status}} === 200`
- * - Truthy check of a single interpolated value: `{{_last.ok}}`
- * - String contains: `{{_last.text}} contains "error"`
+ * Evaluate a condition expression against the workflow context.
+ * Parses the author-defined operands before interpolation so operator-like
+ * content inside workflow data cannot change the comparison being performed.
  */
 export function evaluateExpression(
   expression: string,
   ctx: WorkflowContext,
 ): boolean {
-  const interpolated = interpolate(expression, ctx);
+  return evaluateConditionConfig({ expression }, ctx);
+}
 
-  // Check for comparison operators
-  for (const op of ["===", "!==", ">=", "<=", ">", "<"] as const) {
-    const idx = interpolated.indexOf(op);
-    if (idx > -1) {
-      const left = interpolated.slice(0, idx).trim();
-      const right = interpolated.slice(idx + op.length).trim();
-      return compareValues(left, right, op);
+type WorkflowConditionConfig = {
+  expression?: string;
+  leftOperand?: string;
+  operator?: WorkflowConditionOperator;
+  rightOperand?: string;
+};
+
+type NormalizedConditionConfig = {
+  leftOperand: string;
+  operator: WorkflowConditionOperator;
+  rightOperand?: string;
+};
+
+const COMPARISON_OPERATORS = ["===", "!==", ">=", "<=", ">", "<"] as const;
+const EXACT_PLACEHOLDER_PATTERN = /^\{\{([^}]+)\}\}$/;
+
+export function evaluateConditionConfig(
+  config: WorkflowConditionConfig,
+  ctx: WorkflowContext,
+): boolean {
+  const normalized = normalizeConditionConfig(config);
+  const left = resolveConditionOperand(normalized.leftOperand, ctx);
+
+  if (normalized.operator === "truthy") {
+    return isTruthyConditionValue(left);
+  }
+
+  const right = resolveConditionOperand(normalized.rightOperand ?? "", ctx);
+  if (normalized.operator === "contains") {
+    return String(left ?? "").includes(String(right ?? ""));
+  }
+
+  return compareConditionValues(left, right, normalized.operator);
+}
+
+function normalizeConditionConfig(
+  config: WorkflowConditionConfig,
+): NormalizedConditionConfig {
+  const leftOperand =
+    typeof config.leftOperand === "string" ? config.leftOperand.trim() : "";
+  const operator = isConditionOperator(config.operator)
+    ? config.operator
+    : "truthy";
+  const rightOperand =
+    typeof config.rightOperand === "string" ? config.rightOperand.trim() : "";
+
+  if (leftOperand) {
+    return {
+      leftOperand,
+      operator,
+      rightOperand: operator === "truthy" ? undefined : rightOperand,
+    };
+  }
+
+  return parseConditionExpression(String(config.expression ?? ""));
+}
+
+function parseConditionExpression(
+  expression: string,
+): NormalizedConditionConfig {
+  const trimmed = expression.trim();
+  if (!trimmed) {
+    return {
+      leftOperand: "",
+      operator: "truthy",
+    };
+  }
+
+  const containsMatch = trimmed.match(/^(.+?)\s+contains\s+(.+)$/i);
+  if (containsMatch) {
+    return {
+      leftOperand: containsMatch[1].trim(),
+      operator: "contains",
+      rightOperand: containsMatch[2].trim(),
+    };
+  }
+
+  for (const operator of COMPARISON_OPERATORS) {
+    const idx = findTopLevelOperatorIndex(trimmed, operator);
+    if (idx < 0) {
+      continue;
+    }
+
+    return {
+      leftOperand: trimmed.slice(0, idx).trim(),
+      operator,
+      rightOperand: trimmed.slice(idx + operator.length).trim(),
+    };
+  }
+
+  return {
+    leftOperand: trimmed,
+    operator: "truthy",
+  };
+}
+
+function findTopLevelOperatorIndex(
+  expression: string,
+  operator: (typeof COMPARISON_OPERATORS)[number],
+): number {
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i <= expression.length - operator.length; i += 1) {
+    const ch = expression[i];
+    if (quote) {
+      if (ch === quote && expression[i - 1] !== "\\") {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (expression.slice(i, i + operator.length) === operator) {
+      return i;
     }
   }
 
-  // Check for "contains"
-  const containsMatch = interpolated.match(
-    /^(.+?)\s+contains\s+["'](.+?)["']$/i,
-  );
-  if (containsMatch) {
-    return containsMatch[1].includes(containsMatch[2]);
-  }
-
-  // Truthy check
-  const trimmed = interpolated.trim();
-  return (
-    trimmed !== "" &&
-    trimmed !== "false" &&
-    trimmed !== "0" &&
-    trimmed !== "null" &&
-    trimmed !== "undefined"
-  );
+  return -1;
 }
 
-function compareValues(
-  left: string,
-  right: string,
+function resolveConditionOperand(
+  operand: string,
+  ctx: WorkflowContext,
+): unknown {
+  const trimmed = operand.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const exactPlaceholder = trimmed.match(EXACT_PLACEHOLDER_PATTERN);
+  if (exactPlaceholder) {
+    return resolvePath(ctx, exactPlaceholder[1].trim());
+  }
+  if (trimmed.includes("{{")) {
+    return interpolate(trimmed, ctx);
+  }
+
+  return parseConditionLiteral(trimmed);
+}
+
+function parseConditionLiteral(value: string): unknown {
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "true") return true;
+  if (lowered === "false") return false;
+  if (lowered === "null") return null;
+  if (lowered === "undefined") return undefined;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return stripQuotes(trimmed);
+  }
+
+  const numeric = Number(trimmed);
+  if (trimmed !== "" && !Number.isNaN(numeric)) {
+    return numeric;
+  }
+
+  return trimmed;
+}
+
+function compareConditionValues(
+  left: unknown,
+  right: unknown,
   op: "===" | "!==" | ">=" | "<=" | ">" | "<",
 ): boolean {
-  // Remove surrounding quotes if present
-  const cleanLeft = stripQuotes(left);
-  const cleanRight = stripQuotes(right);
+  const numLeft = typeof left === "number" ? left : Number(left);
+  const numRight = typeof right === "number" ? right : Number(right);
+  const isNumeric =
+    left !== null &&
+    left !== "" &&
+    right !== null &&
+    right !== "" &&
+    !Number.isNaN(numLeft) &&
+    !Number.isNaN(numRight);
 
-  const numLeft = Number(cleanLeft);
-  const numRight = Number(cleanRight);
-  const isNumeric = !Number.isNaN(numLeft) && !Number.isNaN(numRight);
+  const normalizedLeft = normalizeConditionComparable(left);
+  const normalizedRight = normalizeConditionComparable(right);
 
   switch (op) {
     case "===":
-      return isNumeric ? numLeft === numRight : cleanLeft === cleanRight;
+      return isNumeric
+        ? numLeft === numRight
+        : normalizedLeft === normalizedRight;
     case "!==":
-      return isNumeric ? numLeft !== numRight : cleanLeft !== cleanRight;
+      return isNumeric
+        ? numLeft !== numRight
+        : normalizedLeft !== normalizedRight;
     case ">=":
-      return isNumeric ? numLeft >= numRight : cleanLeft >= cleanRight;
+      return isNumeric
+        ? numLeft >= numRight
+        : normalizedLeft >= normalizedRight;
     case "<=":
-      return isNumeric ? numLeft <= numRight : cleanLeft <= cleanRight;
+      return isNumeric
+        ? numLeft <= numRight
+        : normalizedLeft <= normalizedRight;
     case ">":
-      return isNumeric ? numLeft > numRight : cleanLeft > cleanRight;
+      return isNumeric ? numLeft > numRight : normalizedLeft > normalizedRight;
     case "<":
-      return isNumeric ? numLeft < numRight : cleanLeft < cleanRight;
+      return isNumeric ? numLeft < numRight : normalizedLeft < normalizedRight;
   }
+}
+
+function normalizeConditionComparable(
+  value: unknown,
+): string | number | boolean {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function isTruthyConditionValue(value: unknown): boolean {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    return (
+      trimmed !== "" &&
+      trimmed !== "false" &&
+      trimmed !== "0" &&
+      trimmed !== "null" &&
+      trimmed !== "undefined"
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return Boolean(value);
+}
+
+function isConditionOperator(
+  value: unknown,
+): value is WorkflowConditionOperator {
+  return (
+    value === "truthy" ||
+    value === "===" ||
+    value === "!==" ||
+    value === ">=" ||
+    value === "<=" ||
+    value === ">" ||
+    value === "<" ||
+    value === "contains"
+  );
 }
 
 function stripQuotes(s: string): string {
@@ -422,8 +621,7 @@ function compileNode(
         nodeType,
         label,
         execute: async (ctx) => {
-          const expression = String(config.expression ?? "true");
-          const result = evaluateExpression(expression, ctx);
+          const result = evaluateConditionConfig(config, ctx);
           const branch = result ? "true" : "false";
 
           // Find the edges for each branch and execute the matching one

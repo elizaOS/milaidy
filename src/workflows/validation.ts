@@ -14,6 +14,7 @@
 
 import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
+  WorkflowConditionOperator,
   WorkflowDef,
   WorkflowEdge,
   WorkflowNode,
@@ -27,7 +28,7 @@ const REQUIRED_CONFIG: Partial<Record<WorkflowNodeType, string[]>> = {
   trigger: ["triggerType"],
   action: ["actionName"],
   llm: ["prompt"],
-  condition: ["expression"],
+  condition: [],
   transform: ["code"],
   delay: [], // at least one of duration|date, checked separately
   hook: ["hookId"],
@@ -45,6 +46,21 @@ type ValidateWorkflowOptions = {
   workflows?: WorkflowDef[];
   now?: Date;
 };
+
+function isConditionOperator(
+  value: unknown,
+): value is WorkflowConditionOperator {
+  return (
+    value === "truthy" ||
+    value === "===" ||
+    value === "!==" ||
+    value === ">=" ||
+    value === "<=" ||
+    value === ">" ||
+    value === "<" ||
+    value === "contains"
+  );
+}
 
 export function validateTransformWorkflowSecurity(
   def: WorkflowDef,
@@ -281,6 +297,49 @@ export function validateWorkflow(
           severity: "error",
           nodeId: node.id,
           message: `Subworkflow node "${node.label || node.id}" references unknown workflow "${workflowId}"`,
+        });
+      }
+    }
+
+    if (node.type === "condition") {
+      const leftOperand =
+        typeof node.config.leftOperand === "string"
+          ? node.config.leftOperand.trim()
+          : "";
+      const expression =
+        typeof node.config.expression === "string"
+          ? node.config.expression.trim()
+          : "";
+      const rawOperator = node.config.operator;
+      const operator = isConditionOperator(rawOperator)
+        ? rawOperator
+        : "truthy";
+      const rightOperand =
+        typeof node.config.rightOperand === "string"
+          ? node.config.rightOperand.trim()
+          : "";
+
+      if (!leftOperand && !expression) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" is missing a condition`,
+        });
+      }
+
+      if (rawOperator !== undefined && !isConditionOperator(rawOperator)) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" uses an invalid operator`,
+        });
+      }
+
+      if (leftOperand && operator !== "truthy" && !rightOperand) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" is missing a right-hand operand`,
         });
       }
     }

@@ -339,7 +339,7 @@ describe("validateWorkflow", () => {
     expect(result.issues.some((i) => i.message.includes("prompt"))).toBe(true);
   });
 
-  it("rejects condition node missing expression", () => {
+  it("rejects condition node missing a condition definition", () => {
     const result = validateWorkflow(
       makeDef({
         nodes: [
@@ -356,9 +356,73 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(result.issues.some((i) => i.message.includes("expression"))).toBe(
-      true,
+    expect(
+      result.issues.some((i) => i.message.includes("missing a condition")),
+    ).toBe(true);
+  });
+
+  it("accepts condition node with structured operands", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "c1",
+            type: "condition",
+            label: "Condition",
+            position: { x: 0, y: 100 },
+            config: {
+              leftOperand: "{{_last.status}}",
+              operator: "===",
+              rightOperand: '"ok"',
+            },
+          },
+          outputNode("o-true"),
+          outputNode("o-false"),
+        ],
+        edges: [
+          edge("t1", "c1"),
+          edge("c1", "o-true", "true-edge", "true"),
+          edge("c1", "o-false", "false-edge", "false"),
+        ],
+      }),
     );
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects structured conditions missing the right operand", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "c1",
+            type: "condition",
+            label: "Condition",
+            position: { x: 0, y: 100 },
+            config: {
+              leftOperand: "{{_last.status}}",
+              operator: "===",
+            },
+          },
+          outputNode("o-true"),
+          outputNode("o-false"),
+        ],
+        edges: [
+          edge("t1", "c1"),
+          edge("c1", "o-true", "true-edge", "true"),
+          edge("c1", "o-false", "false-edge", "false"),
+        ],
+      }),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.issues.some((i) =>
+        i.message.includes("missing a right-hand operand"),
+      ),
+    ).toBe(true);
   });
 
   it("rejects transform node missing code", () => {

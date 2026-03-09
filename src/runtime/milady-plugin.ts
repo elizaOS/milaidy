@@ -49,6 +49,10 @@ export type MiladyPluginConfig = {
   agentId?: string;
 };
 
+function sanitizePromptField(value: string): string {
+  return JSON.stringify(value.replace(/\s+/g, " ").trim());
+}
+
 export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
   const workspaceDir = config?.workspaceDir ?? DEFAULT_AGENT_WORKSPACE_DIR;
   const agentId = config?.agentId ?? "main";
@@ -151,7 +155,13 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         const nodeCount = w.nodes.length;
         const trigger = w.nodes.find((n) => n.type === "trigger");
         const triggerType = trigger?.config?.triggerType ?? "manual";
-        return `- **${w.name}**: ${w.description} [${nodeCount} nodes, trigger: ${triggerType}]`;
+        return [
+          "-",
+          `name=${sanitizePromptField(w.name)}`,
+          `description=${sanitizePromptField(w.description || "No description")}`,
+          `nodes=${nodeCount}`,
+          `trigger=${sanitizePromptField(String(triggerType))}`,
+        ].join(" ");
       });
 
       return {

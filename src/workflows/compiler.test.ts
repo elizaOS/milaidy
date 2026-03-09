@@ -228,6 +228,12 @@ describe("evaluateExpression", () => {
     });
     expect(evaluateExpression("{{a.count}} < {{b.count}}", ctx)).toBe(true);
   });
+
+  it("ignores operator-like content inside interpolated values", () => {
+    const ctx = makeCtx({ _last: "x === x" });
+
+    expect(evaluateExpression('{{_last}} === "x === x"', ctx)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -923,6 +929,63 @@ describe("compileWorkflow", () => {
       unknown
     >;
     expect(resultFalse.branch).toBe("false");
+  });
+
+  it("compiled condition step supports structured operands", async () => {
+    const def = makeDef({
+      nodes: [
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Start",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "c1",
+          type: "condition",
+          label: "Check",
+          position: { x: 0, y: 100 },
+          config: {
+            leftOperand: "{{_last.status}}",
+            operator: "===",
+            rightOperand: '"ok"',
+          },
+        },
+        {
+          id: "o-true",
+          type: "output",
+          label: "True Path",
+          position: { x: -100, y: 200 },
+          config: { outputExpression: "true-path" },
+        },
+        {
+          id: "o-false",
+          type: "output",
+          label: "False Path",
+          position: { x: 100, y: 200 },
+          config: { outputExpression: "false-path" },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "t1", target: "c1" },
+        { id: "e-true", source: "c1", target: "o-true", sourceHandle: "true" },
+        {
+          id: "e-false",
+          source: "c1",
+          target: "o-false",
+          sourceHandle: "false",
+        },
+      ],
+    });
+
+    const compiled = compileWorkflow(def, mockRuntime);
+    const condStep = compiled.entrySteps[0];
+    const result = (await condStep.execute(
+      makeCtx({ _last: { status: "ok" } }),
+    )) as Record<string, unknown>;
+
+    expect(result.branch).toBe("true");
   });
 
   it("compiled condition step executes branch steps and returns result", async () => {
