@@ -33,7 +33,12 @@ import type {
 
 const UiContext = createContext<UiRenderContext | null>(null);
 
-const BLOCKED_LINK_PROTOCOLS = new Set(["javascript", "data", "vbscript"]);
+const BLOCKED_LINK_PROTOCOLS = new Set([
+  "javascript",
+  "data",
+  "vbscript",
+  "file",
+]);
 
 function useUiCtx(): UiRenderContext {
   const ctx = useContext(UiContext);
@@ -184,7 +189,11 @@ export function evaluateUiVisibility(
 }
 
 export function sanitizeLinkHref(href: unknown): string {
-  const raw = String(href ?? "#").trim();
+  // Strip ASCII control chars (tab, LF, CR) that browsers silently remove
+  // during URL parsing, preventing bypass attacks like "java\nscript:alert(1)".
+  const raw = String(href ?? "#")
+    .trim()
+    .replace(/[\t\n\r]/g, "");
   if (!raw) return "#";
 
   // Keep relative/hash links unchanged.
