@@ -19,8 +19,8 @@ import {
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
-/** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
-export const STREAM_ENABLED = import.meta.env.DEV;
+/** Stream routes stay addressable; the nav hides the tab unless streaming is enabled. */
+export const STREAM_ENABLED = true;
 /**
  * Companion tab — enabled by default since the VRM companion UI launch.
  * Previously opt-in; now opt-out via VITE_ENABLE_COMPANION_MODE=false.
@@ -43,6 +43,7 @@ export type Tab =
   | "plugins"
   | "skills"
   | "actions"
+  | "workflows"
   | "advanced"
   | "fine-tuning"
   | "trajectories"
@@ -123,6 +124,7 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
       "plugins",
       "skills",
       "actions",
+      "workflows",
       "triggers",
       "fine-tuning",
       "trajectories",
@@ -161,6 +163,7 @@ const TAB_PATHS: Record<Tab, string> = {
   plugins: "/plugins",
   skills: "/skills",
   actions: "/actions",
+  workflows: "/workflows",
   advanced: "/advanced",
   "fine-tuning": "/fine-tuning",
   trajectories: "/trajectories",
@@ -213,10 +216,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   if (!APPS_ENABLED && (normalized === "/apps" || normalized === "/game")) {
     return "chat";
   }
-  // Stream tab hidden — redirect to chat
-  if (!STREAM_ENABLED && normalized === "/stream") {
-    return "chat";
-  }
+  // Stream tab (always enabled)
   // Check current paths first, then legacy redirects
   return PATH_TO_TAB.get(normalized) ?? LEGACY_PATHS[normalized] ?? null;
 }
@@ -265,6 +265,8 @@ export function titleForTab(tab: Tab): string {
       return "Skills";
     case "actions":
       return "Actions";
+    case "workflows":
+      return "Workflows";
     case "advanced":
       return "Advanced";
     case "fine-tuning":

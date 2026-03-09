@@ -43,6 +43,7 @@ permissions:
 
 env:
   CI: "true"
+  BUN_VERSION: "1.3.9"
 
 jobs:
   prepare:
@@ -78,9 +79,75 @@ jobs:
           echo "env=$BUILD_ENV" >> "$GITHUB_OUTPUT"
           echo "Release: $VERSION (tag: $TAG, env: $BUILD_ENV)"
 
+  validate-release:
+    name: Validate Release Inputs
+    needs: prepare
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-electrobun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-${{ runner.os }}-
+
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Align version with release tag
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.RELEASE_VERSION;
+            for (const file of [
+              'package.json',
+              'apps/app/package.json',
+              'apps/app/electrobun/package.json',
+            ]) {
+              try {
+                const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+                pkg.version = version;
+                fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+              } catch (e) {
+                console.warn('Could not update ' + file + ':', e.message);
+              }
+            }
+            const cfgPath = 'apps/app/electrobun/electrobun.config.ts';
+            let cfg = fs.readFileSync(cfgPath, 'utf8');
+            cfg = cfg.replace(/version:\s*\"[^\"]+\"/, 'version: \"' + version + '\"');
+            fs.writeFileSync(cfgPath, cfg);
+          "
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+
+      - name: Build core dist (server bundle)
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
+
+      - name: Release readiness checks
+        run: bun run release:check
+
   build:
     name: Build ${{ matrix.platform.name }}
-    needs: prepare
+    needs: [prepare, validate-release]
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 75
     defaults:
@@ -121,7 +188,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
 
       - name: Cache Bun install
@@ -363,13 +430,42 @@ jobs:
             exit 0
           }
 
-          $version   = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
-          $tarUrl    = "https://github.com/blackboardsh/electrobun/releases/download/v$version/electrobun-cli-win-x64.tar.gz"
-          $tarPath   = Join-Path $cacheDir "electrobun-win-x64.tar.gz"
+          $version      = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $assetName    = "electrobun-cli-win-x64.tar.gz"
+          $releaseApiUrl = "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version"
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "milady-release-electrobun"
+          }
+          if ($env:GITHUB_TOKEN) {
+            $headers.Authorization = "Bearer $env:GITHUB_TOKEN"
+          }
+
+          Write-Host "Fetching electrobun release metadata from $releaseApiUrl"
+          $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers $headers
+          $asset = @($release.assets) | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+          if (-not $asset) {
+            Write-Error "Could not find $assetName in electrobun release v$version"
+            exit 1
+          }
+          if (-not $asset.digest -or -not $asset.digest.StartsWith("sha256:")) {
+            Write-Error "GitHub release metadata for $assetName is missing a sha256 digest"
+            exit 1
+          }
+
+          $tarUrl       = $asset.browser_download_url
+          $expectedHash = $asset.digest.Substring(7).ToLowerInvariant()
+          $tarPath      = Join-Path $cacheDir "electrobun-win-x64.tar.gz"
 
           New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
           Write-Host "Downloading electrobun CLI from $tarUrl"
           Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath -UseBasicParsing
+          $actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) {
+            Write-Error "electrobun CLI checksum mismatch: expected $expectedHash but got $actualHash"
+            exit 1
+          }
+          Write-Host "Verified electrobun CLI SHA256: $actualHash"
 
           Write-Host "Extracting with Windows BSD tar..."
           & "C:\Windows\System32\tar.exe" -xzf $tarPath -C $cacheDir
@@ -383,6 +479,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $binDir | Out-Null
           Copy-Item $cliBinary $binBinary
           Write-Host "electrobun CLI ready at $binBinary"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Electrobun app
         # macOS Intel: keep the packaged app build on an explicit x64 path.
@@ -666,9 +764,11 @@ jobs:
       - name: Collect public release files
         run: |
           mkdir -p release-files
+          # Public GitHub releases should expose end-user installables, not the
+          # updater transport files or the bare Windows bootstrap wrapper.
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
-            -name "*.exe" -o \
+            -name "*Setup*.zip" -o \
             -name "*Setup*.tar.gz" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
           echo "=== Public release files ==="

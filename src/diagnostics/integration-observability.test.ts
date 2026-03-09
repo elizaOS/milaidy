@@ -11,10 +11,7 @@ vi.mock("@elizaos/core", () => ({
   logger: loggerMock,
 }));
 
-import type {
-  IntegrationBoundary,
-  IntegrationObservabilityEvent,
-} from "./integration-observability";
+import type { IntegrationBoundary } from "./integration-observability";
 import { createIntegrationTelemetrySpan } from "./integration-observability";
 
 const EVENT_PREFIX = "[integration] ";
@@ -152,7 +149,7 @@ describe("createIntegrationTelemetrySpan", () => {
         /export type IntegrationBoundary\s*=\s*([^;]+)/,
       );
       expect(match).not.toBeNull();
-      const declared = [...match![1].matchAll(/"([^"]+)"/g)]
+      const declared = [...(match?.[1] ?? "").matchAll(/"([^"]+)"/g)]
         .map((m) => m[1])
         .sort();
       expect([...BOUNDARIES].sort()).toEqual(declared);

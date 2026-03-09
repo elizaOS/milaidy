@@ -38,6 +38,7 @@ import { IdleContent } from "./stream/IdleContent";
 import { OverlayLayer } from "./stream/overlays/OverlayLayer";
 import { useOverlayLayout } from "./stream/overlays/useOverlayLayout";
 import { StatusBar } from "./stream/StatusBar";
+import { StreamSettings } from "./stream/StreamSettings";
 import { StreamTerminal } from "./stream/StreamTerminal";
 import { StreamVoiceConfig } from "./stream/StreamVoiceConfig";
 
@@ -244,6 +245,9 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     [],
   );
 
+  // Settings panel
+  const [showSettings, setShowSettings] = useState(false);
+
   // PIP mode state — small overlay window
   const [isPip, setIsPip] = useState(false);
 
@@ -309,7 +313,8 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     return "idle";
   }, [activeGameViewerUrl, terminalActive, autonomousEvents]);
 
-  const { layout } = useOverlayLayout(activeDestination?.id);
+  const overlayLayout = useOverlayLayout(activeDestination?.id);
+  const { layout } = overlayLayout;
 
   const feedEvents = useMemo(
     () =>
@@ -360,6 +365,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         viewerCount={viewerCount}
         isPip={isPip}
         onTogglePip={togglePip}
+        streamAvailable={streamAvailable}
         streamLive={streamLive}
         streamLoading={streamLoading}
         onToggleStream={toggleStream}
@@ -376,10 +382,11 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         streamSource={streamSource}
         activeGameViewerUrl={activeGameViewerUrl}
         onSourceChange={handleSourceChange}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Stream voice config — TTS toggle and status */}
-      {!isPip && (
+      {!isPip && streamAvailable && (
         <div
           className={`flex items-center px-4 py-1 border-b ${
             inModal
@@ -394,7 +401,27 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
       <div className="flex flex-1 min-h-0">
         {/* Main content area — shows what the agent is doing */}
         <div className="flex-1 min-w-0 relative">
-          {mode === "gaming" ? (
+          {!streamAvailable ? (
+            <div className="h-full flex items-center justify-center p-6">
+              <div className="max-w-md rounded-2xl border border-border bg-bg-muted/50 p-6 text-center shadow-lg">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Streaming unavailable
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-txt">
+                  Enable the streaming plugin to go live
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-muted">
+                  Milady could not reach the local streaming routes for this
+                  view. Install and enable the <code>streaming-base</code>{" "}
+                  plugin, then reload the Stream tab.
+                </p>
+                <p className="mt-4 text-xs text-muted">
+                  If the plugin is already installed, restart the desktop app or
+                  API server and try again.
+                </p>
+              </div>
+            </div>
+          ) : mode === "gaming" ? (
             <iframe
               src={activeGameViewerUrl}
               title="Game"
@@ -425,6 +452,21 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
 
           {/* VRM avatar — picture-in-picture overlay */}
           <AvatarPip isSpeaking={chatAvatarSpeaking} />
+
+          {/* Stream settings panel */}
+          {showSettings && streamAvailable && (
+            <StreamSettings
+              destinations={destinations}
+              activeDestination={activeDestination}
+              onDestinationChange={handleDestinationChange}
+              streamLive={streamLive}
+              streamSource={streamSource}
+              activeGameViewerUrl={activeGameViewerUrl}
+              onSourceChange={handleSourceChange}
+              overlayLayout={overlayLayout}
+              onClose={() => setShowSettings(false)}
+            />
+          )}
         </div>
 
         {/* Activity sidebar */}

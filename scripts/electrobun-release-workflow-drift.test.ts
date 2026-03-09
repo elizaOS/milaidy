@@ -15,6 +15,14 @@ const MACOS_STAGE_SCRIPT_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
 );
+const MACOS_EFFECTS_BUILD_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/build-macos-effects.sh",
+);
+const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/macos-direct-launcher.c",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("stages the built renderer before packaging", () => {
@@ -65,13 +73,46 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).not.toContain("bun-darwin-x64.zip");
   });
 
+  it("pins Bun and runs release-check before the desktop matrix", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const validateJobIndex = workflow.indexOf("name: Validate Release Inputs");
+    const buildJobIndex = workflow.indexOf(
+      "name: Build $" + "{{ matrix.platform.name }}",
+    );
+    const releaseCheckIndex = workflow.indexOf("run: bun run release:check");
+
+    expect(workflow).toContain('BUN_VERSION: "1.3.9"');
+    expect(workflow).toContain("bun-version: $" + "{{ env.BUN_VERSION }}");
+    expect(workflow).not.toContain("bun-version: latest");
+    expect(validateJobIndex).toBeGreaterThan(-1);
+    expect(buildJobIndex).toBeGreaterThan(validateJobIndex);
+    expect(releaseCheckIndex).toBeGreaterThan(validateJobIndex);
+    expect(workflow).toContain("needs: [prepare, validate-release]");
+  });
+
+  it("verifies the Windows electrobun tarball digest before extraction", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version",
+    );
+    expect(workflow).toContain(
+      "$asset = @($release.assets) | Where-Object { $_.name -eq $assetName } | Select-Object -First 1",
+    );
+    expect(workflow).toContain(
+      "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
+    );
+    expect(workflow).toContain("electrobun CLI checksum mismatch");
+    expect(workflow).toContain("Verified electrobun CLI SHA256:");
+  });
   it("keeps updater transport files off the public GitHub release asset list", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(workflow).toContain("name: Collect public release files");
     expect(workflow).toContain(' -name "*.dmg" -o \\');
-    expect(workflow).toContain(' -name "*.exe" -o \\');
+    expect(workflow).toContain(' -name "*Setup*.zip" -o \\');
     expect(workflow).toContain(' -name "*Setup*.tar.gz" \\');
+    expect(workflow).not.toContain(' -name "*.exe" -o \\');
 
     expect(workflow).toContain("name: Collect update channel files");
     expect(workflow).toContain(' -name "*.tar.zst" -o \\');
@@ -83,18 +124,52 @@ describe("Electrobun release workflow drift", () => {
   it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
     const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
 
-    expect(stageScript).toContain("notarization happens on the final");
     expect(stageScript).toContain(
-      "Gatekeeper validation on the app itself would fail here.",
+      "electrobun. Re-sign only what changed and keep the original entitlements",
+    );
+    expect(stageScript).toContain(
+      'codesign -d --entitlements :- "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).toContain(
+      `--options runtime "\${entitlement_args[@]}" "$LAUNCHER_PATH"`,
+    );
+    expect(stageScript).toContain(
+      `--options runtime "\${entitlement_args[@]}" "$STAGED_APP_PATH"`,
     );
     expect(stageScript).toContain(
       'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).toContain("command_status=$?");
+    expect(stageScript).not.toContain(
+      'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
     );
     expect(stageScript).not.toContain(
       'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     );
     expect(stageScript).toContain("xcrun notarytool submit \\");
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
+  });
+
+  it("pins the native macOS effects build to C++17", () => {
+    const buildScript = fs.readFileSync(
+      MACOS_EFFECTS_BUILD_SCRIPT_PATH,
+      "utf8",
+    );
+
+    expect(buildScript).toContain("-std=c++17");
+  });
+
+  it("launches the staged macOS app via absolute bun and main.js paths", () => {
+    const launcherSource = fs.readFileSync(
+      MACOS_DIRECT_LAUNCHER_SOURCE_PATH,
+      "utf8",
+    );
+
+    expect(launcherSource).toContain('"%s/bun"');
+    expect(launcherSource).toContain('"%s/../Resources/main.js"');
+    expect(launcherSource).not.toContain(
+      '{"./bun", "../Resources/main.js", NULL}',
+    );
   });
 
   it("reads the Windows packaged startup log from %APPDATA%", () => {

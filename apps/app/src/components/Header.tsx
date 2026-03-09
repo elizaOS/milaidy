@@ -7,34 +7,15 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Search,
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import { COMMAND_PALETTE_EVENT, dispatchMiladyEvent } from "../events";
 import { useBugReport } from "../hooks/useBugReport";
 import { createTranslator } from "../i18n";
-
-// Tooltip component for icon buttons
-function IconButtonTooltip({
-  children,
-  label,
-  shortcut,
-}: {
-  children: React.ReactNode;
-  label: string;
-  shortcut?: string;
-}) {
-  return (
-    <div className="relative group">
-      {children}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-bg-elevated border border-border text-[11px] text-txt-strong rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
-        <div className="font-medium">{label}</div>
-        {shortcut && <div className="text-muted mt-0.5">{shortcut}</div>}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-bg-elevated" />
-      </div>
-    </div>
-  );
-}
+import { IconTooltip as IconButtonTooltip } from "./shared/tooltips";
 
 // Status indicator with icon
 function StatusIndicator({ state }: { state: string }) {
@@ -104,6 +85,7 @@ export function Header() {
     lifecycleAction,
     handlePauseResume,
     handleRestart,
+    handleStart,
     copyToClipboard,
     setTab,
     dropStatus,
@@ -277,13 +259,22 @@ export function Header() {
               <StatusIndicator state={state} />
 
               {/* Pause/Resume Button */}
-              {state === "restarting" ||
-              state === "starting" ||
-              state === "not_started" ||
-              state === "stopped" ? (
+              {state === "restarting" || state === "starting" ? (
                 <span className="inline-flex items-center justify-center w-11 h-11 text-sm leading-none opacity-60">
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </span>
+              ) : state === "not_started" || state === "stopped" ? (
+                <IconButtonTooltip label={t("header.startAgent")}>
+                  <button
+                    type="button"
+                    onClick={() => void handleStart()}
+                    aria-label={t("header.startAgent")}
+                    className={`${iconBtnBase} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                    disabled={lifecycleBusy}
+                  >
+                    <Play className="w-5 h-5" />
+                  </button>
+                </IconButtonTooltip>
               ) : (
                 <IconButtonTooltip
                   label={
@@ -345,6 +336,23 @@ export function Header() {
                 </button>
               </IconButtonTooltip>
             </div>
+
+            {/* Command Palette */}
+            <IconButtonTooltip
+              label="Command Palette"
+              shortcut={
+                navigator.platform?.includes("Mac") ? "\u2318K" : "Ctrl+K"
+              }
+            >
+              <button
+                type="button"
+                onClick={() => dispatchMiladyEvent(COMMAND_PALETTE_EVENT)}
+                aria-label="Open command palette"
+                className={iconBtnBase}
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </IconButtonTooltip>
 
             {/* Bug Report */}
             <IconButtonTooltip label={t("header.reportBug")} shortcut="Shift+?">

@@ -19,7 +19,11 @@ export interface PortfolioHeaderProps {
   bscChainError: string | null;
   hasManagedBscRpc: boolean;
   copyToClipboard: (text: string) => Promise<void>;
-  setActionNotice: (msg: string, type: string, duration: number) => void;
+  setActionNotice: (
+    text: string,
+    tone?: "info" | "success" | "error",
+    ttlMs?: number,
+  ) => void;
   loadBalances: () => Promise<void> | void;
   goToRpcSettings: () => void;
 }

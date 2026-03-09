@@ -5,12 +5,10 @@ import {
   client,
   type TradePermissionMode,
 } from "../api-client.js";
+import { dispatchWindowEvent, SELF_STATUS_SYNC_EVENT } from "../events";
 import { createTranslator } from "../i18n";
 import { ChatView } from "./ChatView.js";
-import {
-  ConversationsSidebar,
-  SELF_STATUS_SYNC_EVENT,
-} from "./ConversationsSidebar.js";
+import { ConversationsSidebar } from "./ConversationsSidebar.js";
 
 const CHAT_MODAL_NARROW_BREAKPOINT = 768;
 
@@ -84,7 +82,7 @@ export function ChatModalView({
   const isCompanionDock = variant === "companion-dock";
 
   const notifySelfStatusRefresh = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(SELF_STATUS_SYNC_EVENT));
+    dispatchWindowEvent(SELF_STATUS_SYNC_EVENT);
   }, []);
 
   const activeConversation = useMemo(

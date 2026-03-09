@@ -123,13 +123,12 @@ If these work, your base install is healthy.
 
 ```bash
 milady                    # start interactive mode (default)
-milady start --headless   # run server-only, no TUI
+milady start              # run server-only, no TUI
 milady dashboard          # open dashboard in browser
 milady configure          # configuration guidance
 milady config get <key>   # read config value
 milady models             # show model provider status
 milady plugins list       # list installed plugins
-milady doctor             # diagnostics
 ```
 
 Tip: Use `milady <command> --help` any time you feel stuck.
@@ -143,7 +142,7 @@ Tip: Use `milady <command> --help` any time you feel stuck.
 - Good for active local usage
 - Includes terminal UI (status, activity, quick controls)
 
-### Headless mode (`milady start --headless`)
+### Service mode (`milady start`)
 
 - Good for background services
 - Useful with process managers (systemd/pm2/docker)
@@ -217,8 +216,8 @@ Useful commands:
 
 ```bash
 milady plugins list
-milady plugins add <name>
-milady plugins remove <name>
+milady plugins install <name>
+milady plugins uninstall <name>
 ```
 
 ---
@@ -235,7 +234,7 @@ milady plugins remove <name>
 
 - Ensure Milady is running
 - Check for port conflicts
-- Run `milady doctor`
+- Check logs in `~/.milady/logs/`
 
 ### C) "No responses"
 
@@ -363,6 +362,5 @@ If all of these are true, you're in great shape:
 - [ ] Dashboard opens locally
 - [ ] A provider is configured and returns responses
 - [ ] You know where `~/.milady/` files live
-- [ ] You can run `milady doctor` and understand basic output
 
 You are now ready to move from complete beginner to regular user.

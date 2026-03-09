@@ -13,6 +13,11 @@ const requiredPaths = [
 ];
 const forbiddenPrefixes = ["dist/Milady.app/"];
 const requiredWorkflowSnippets = [
+  'BUN_VERSION: "1.3.9"',
+  "name: Validate Release Inputs",
+  "bun-version: $" + "{{ env.BUN_VERSION }}",
+  "name: Release readiness checks",
+  "run: bun run release:check",
   "Install quiet macOS packaging wrappers",
   "apps/app/electrobun/scripts/xcrun-wrapper.sh",
   "apps/app/electrobun/scripts/zip-wrapper.sh",
@@ -34,8 +39,20 @@ const requiredWorkflowSnippets = [
   "wrapper-diagnostics.json",
   "Stage Windows setup executables",
   "apps/app/electrobun/artifacts/*.exe",
+  "name: Collect public release files",
+  '-name "*Setup*.zip" -o \\',
+  '-name "*Setup*.tar.gz" \\',
+  "name: Collect update channel files",
+  '-name "*.tar.zst" -o \\',
+  '-name "*-update.json" \\',
   "DMG attach attempt $attempt/5 failed",
+  "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version",
+  "$asset = @($release.assets) | Where-Object { $_.name -eq $assetName } | Select-Object -First 1",
+  "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
+  "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
+  "electrobun CLI checksum mismatch",
 ];
+const forbiddenWorkflowSnippets = [' -name "*.exe" -o \\'];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
@@ -64,6 +81,20 @@ function assertReleaseWorkflowHasNotaryWrapper() {
       "release-check: release workflow is missing notary wrapper wiring:",
     );
     for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+
+  const forbidden = forbiddenWorkflowSnippets.filter((snippet) =>
+    workflow.includes(snippet),
+  );
+
+  if (forbidden.length > 0) {
+    console.error(
+      "release-check: release workflow still exposes raw bootstrap artifacts on the public GitHub release:",
+    );
+    for (const snippet of forbidden) {
       console.error(`  - ${snippet}`);
     }
     process.exit(1);
@@ -99,11 +130,12 @@ function assertMacArtifactStagerLooksCorrect() {
     'find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst"',
     "no macOS updater tarball found",
     'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
+    'codesign -d --entitlements :- "$STAGED_APP_PATH"',
     "/usr/bin/clang \\",
     'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
-    'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
+    `--options runtime "\${entitlement_args[@]}" "$LAUNCHER_PATH"`,
+    `--options runtime "\${entitlement_args[@]}" "$STAGED_APP_PATH"`,
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
-    'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     "hdiutil create \\",
     "retry_command 3 20 xcrun notarytool submit \\",
     'retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"',
@@ -118,6 +150,24 @@ function assertMacArtifactStagerLooksCorrect() {
       "release-check: macOS artifact stager is missing required release wiring:",
     );
     for (const snippet of missing) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+
+  const forbiddenSnippets = [
+    'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
+    "exit_code=$?",
+  ];
+  const forbidden = forbiddenSnippets.filter((snippet) =>
+    script.includes(snippet),
+  );
+
+  if (forbidden.length > 0) {
+    console.error(
+      "release-check: macOS artifact stager still contains known-bad signing/retry logic:",
+    );
+    for (const snippet of forbidden) {
       console.error(`  - ${snippet}`);
     }
     process.exit(1);
@@ -195,13 +245,14 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     "write_bundle_diagnostics()",
     "collect_recent_crash_reports()",
     "build_launcher_command()",
-    'if [[ "$(uname)" == "Darwin" && -n "${GITHUB_ACTIONS:-}" ]]',
-    'TERM="${TERM:-dumb}"',
+    'if [[ "$(uname)" == "Darwin" && -n "$' + "{GITHUB_ACTIONS:-}" + '" ]]',
+    'TERM="$' + "{TERM:-dumb}" + '"',
     "attach_dmg_with_retry()",
     'MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"',
     'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',
     'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
-    'dump_failure_diagnostics "launcher exited before backend startup"',
+    "Launcher exited before the first health probe; continuing to wait for packaged app handoff...",
+    'dump_failure_diagnostics "backend startup log reported a failure"',
     'dump_failure_diagnostics "backend never reported a started port"',
   ];
   const missing = requiredSnippets.filter(

@@ -5,12 +5,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { type AgentSelfStatusSnapshot, client } from "../api-client";
+import { SELF_STATUS_SYNC_EVENT } from "../events";
 import { createTranslator } from "../i18n";
 import { ConversationListItem } from "./conversations/ConversationListItem";
 import { GameModalFooter } from "./conversations/GameModalFooter";
 
 export type ConversationsSidebarVariant = "default" | "game-modal";
-export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh";
 
 interface ConversationsSidebarProps {
   mobile?: boolean;

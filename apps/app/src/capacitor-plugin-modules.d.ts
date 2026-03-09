@@ -51,6 +51,7 @@ declare module "@milady/capacitor-swabble" {
   export * from "../plugins/swabble/src/definitions";
   import type { SwabblePlugin as SwabblePluginType } from "../plugins/swabble/src/definitions";
   export type { SwabblePlugin } from "../plugins/swabble/src/definitions";
+  export type { SwabbleConfig } from "../plugins/swabble/src/definitions";
   export const Swabble: SwabblePluginType;
 }
 

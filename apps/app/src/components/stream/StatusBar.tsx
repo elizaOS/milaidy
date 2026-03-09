@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import {
   type AgentMode,
   IS_POPOUT,
+  isSupportedStreamUrl,
   STREAM_SOURCE_LABELS,
   type StreamSourceType,
   toggleAlwaysOnTop,
@@ -20,6 +21,7 @@ export function StatusBar({
   viewerCount,
   isPip,
   onTogglePip,
+  streamAvailable,
   streamLive,
   streamLoading,
   onToggleStream,
@@ -36,12 +38,14 @@ export function StatusBar({
   streamSource,
   activeGameViewerUrl,
   onSourceChange,
+  onOpenSettings,
 }: {
   agentName: string;
   mode: AgentMode;
   viewerCount: number | null;
   isPip: boolean;
   onTogglePip: () => void;
+  streamAvailable: boolean;
   streamLive: boolean;
   streamLoading: boolean;
   onToggleStream: () => void;
@@ -58,12 +62,15 @@ export function StatusBar({
   streamSource: { type: StreamSourceType; url?: string };
   activeGameViewerUrl: string;
   onSourceChange: (sourceType: StreamSourceType, customUrl?: string) => void;
+  onOpenSettings?: () => void;
 }) {
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
   const [sourceOpen, setSourceOpen] = useState(false);
   const sourceDropdownRef = useRef<HTMLSpanElement>(null);
   const [customUrlInput, setCustomUrlInput] = useState("");
+  const trimmedCustomUrl = customUrlInput.trim();
+  const customUrlValid = isSupportedStreamUrl(trimmedCustomUrl);
 
   // Close source picker on click outside
   useEffect(() => {
@@ -143,13 +150,19 @@ export function StatusBar({
           <span className="px-2 py-0.5 rounded bg-bg-muted">{modeLabel}</span>
         )}
 
-        {/* Stream source picker — live only */}
-        {!isPip && isLive && (
+        {/* Stream source picker — always visible */}
+        {!isPip && (
           <span ref={sourceDropdownRef} className="relative flex items-center">
             <button
               type="button"
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer text-[11px]"
+              disabled={!streamAvailable}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer text-[11px] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setSourceOpen((o) => !o)}
+              title={
+                streamAvailable
+                  ? "Select a stream source"
+                  : "Install and enable the streaming plugin to change sources"
+              }
             >
               <span className="text-muted">Src:</span>
               <span className="text-txt font-medium">
@@ -173,7 +186,8 @@ export function StatusBar({
                   ["stream-tab", "game", "custom-url"] as StreamSourceType[]
                 ).map((st) => {
                   const isGame = st === "game";
-                  const disabled = isGame && !activeGameViewerUrl.trim();
+                  const disabled =
+                    !streamAvailable || (isGame && !activeGameViewerUrl.trim());
                   return (
                     <button
                       key={st}
@@ -211,24 +225,34 @@ export function StatusBar({
                     placeholder="https://..."
                     value={customUrlInput}
                     onChange={(e) => setCustomUrlInput(e.target.value)}
-                    className="flex-1 bg-bg-muted text-txt text-[11px] rounded px-2 py-1 border border-border outline-none focus:border-accent"
+                    disabled={!streamAvailable}
+                    className={`flex-1 bg-bg-muted text-txt text-[11px] rounded px-2 py-1 border outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                      trimmedCustomUrl && !customUrlValid
+                        ? "border-danger"
+                        : "border-border"
+                    }`}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && customUrlInput.trim()) {
-                        onSourceChange("custom-url", customUrlInput.trim());
+                      if (e.key === "Enter" && customUrlValid) {
+                        onSourceChange("custom-url", trimmedCustomUrl);
                         setSourceOpen(false);
                       }
                     }}
                   />
                   <button
                     type="button"
-                    disabled={!customUrlInput.trim()}
+                    disabled={!streamAvailable || !customUrlValid}
                     className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     onClick={() => {
-                      if (customUrlInput.trim()) {
-                        onSourceChange("custom-url", customUrlInput.trim());
+                      if (customUrlValid) {
+                        onSourceChange("custom-url", trimmedCustomUrl);
                         setSourceOpen(false);
                       }
                     }}
+                    title={
+                      streamAvailable
+                        ? "Custom URLs must start with http:// or https://"
+                        : "Install and enable the streaming plugin to use custom URLs"
+                    }
                   >
                     Go
                   </button>
@@ -258,7 +282,8 @@ export function StatusBar({
           <span className="flex items-center gap-1">
             <button
               type="button"
-              className="p-1 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer"
+              disabled={!streamAvailable}
+              className="p-1 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title={muted ? "Unmute" : "Mute"}
               onClick={onToggleMute}
             >
@@ -293,6 +318,7 @@ export function StatusBar({
               min={0}
               max={100}
               value={muted ? 0 : volume}
+              disabled={!streamAvailable}
               onChange={(e) => onVolumeChange(Number(e.target.value))}
               className="w-16 accent-[var(--accent)]"
               title={`Volume: ${muted ? 0 : volume}%`}
@@ -300,11 +326,19 @@ export function StatusBar({
           </span>
         )}
 
-        {/* Destination selector — offline only, 2+ destinations */}
-        {!isPip && !isLive && destinations.length > 1 && (
+        {/* Destination selector — always visible when destinations exist */}
+        {!isPip && destinations.length > 0 && (
           <select
-            className="bg-bg-muted text-txt border border-border text-[11px] rounded px-1.5 py-0.5 cursor-pointer"
+            className="bg-bg-muted text-txt border border-border text-[11px] rounded px-1.5 py-0.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             value={activeDestination?.id ?? ""}
+            disabled={isLive || !streamAvailable}
+            title={
+              !streamAvailable
+                ? "Install and enable the streaming plugin to change destinations"
+                : isLive
+                  ? "Stop stream to change destination"
+                  : "Select destination"
+            }
             onChange={(e) => onDestinationChange(e.target.value)}
           >
             {destinations.map((d) => (
@@ -315,16 +349,51 @@ export function StatusBar({
           </select>
         )}
 
+        {/* Settings gear */}
+        {!isPip && onOpenSettings && (
+          <button
+            type="button"
+            disabled={!streamAvailable}
+            className="px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 hover:text-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              streamAvailable
+                ? "Stream settings"
+                : "Install and enable the streaming plugin to configure streaming"
+            }
+            onClick={onOpenSettings}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <title>Settings</title>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        )}
+
         {!isPip && (
           <button
             type="button"
-            disabled={streamLoading}
+            disabled={!streamAvailable || streamLoading}
             className={`px-3 py-0.5 rounded font-semibold text-[11px] uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
               isLive
                 ? "bg-danger/20 text-danger hover:bg-danger/30"
                 : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
             }`}
             onClick={onToggleStream}
+            title={
+              streamAvailable
+                ? undefined
+                : "Install and enable the streaming plugin to go live"
+            }
           >
             {streamLoading ? "..." : isLive ? "Stop Stream" : "Go Live"}
           </button>
