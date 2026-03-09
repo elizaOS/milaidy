@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how to integrate a visual workflow/node builder into the Milady platform using [Workflow DevKit](https://useworkflow.dev/) as the durable execution runtime. The builder allows users to visually compose multi-step agent workflows by connecting nodes (actions, conditions, triggers, LLM calls) on a canvas, then compiles those graphs into Workflow DevKit functions that execute durably within the existing elizaOS agent runtime.
+This document describes the current visual workflow/node builder implementation in Milady. The builder allows users to visually compose multi-step agent workflows by connecting nodes (actions, conditions, triggers, LLM calls) on a canvas, then compiles those graphs into executable steps that run inside the existing elizaOS agent runtime.
 
 ---
 
@@ -31,28 +31,23 @@ This document describes how to integrate a visual workflow/node builder into the
 
 ---
 
-## What Workflow DevKit Brings
+## Current Execution Model
 
-Workflow DevKit transforms async TypeScript functions into **durable, resumable workflows** using an event-sourcing execution model:
+The current implementation executes compiled workflow steps in-process and persists run state/events for monitoring and recovery:
 
-- **`"use workflow"` directive** — marks a function as durable with suspension/resumption
-- **`"use step"` directive** — marks functions as independently-retryable atomic units
-- **`sleep(duration)`** — suspends workflow without consuming resources
-- **`createHook(token)` / `createWebhook(token)`** — pauses for external events (human-in-the-loop, webhooks)
-- **`start(workflowFn, input)`** — launches a workflow run, returns a Run object for tracking
-- **`FatalError` / `RetryableError`** — fine-grained error control per step
-- **Event sourcing** — every step execution is logged as an immutable event, enabling time-travel debugging and automatic replay
-- **Streaming** — `getWritable()` for real-time progress updates to clients
+- Sequential step execution from compiled node graph
+- Delay node support in runtime execution
+- Hook pause/resume via `/api/workflow-hooks/:hookId/resolve`
+- Per-step event recording in run history
 
 ### Why It Fits Milady
 
-| Milady Need | Workflow DevKit Solution |
+| Milady Need | Current Workflow Runtime Solution |
 |---|---|
-| Multi-step agent tasks (post to X → wait for reply → respond) | Durable workflows that survive crashes/restarts |
-| Scheduled + delayed operations (triggers with waits) | `sleep("7 days")` with zero resource consumption |
-| Human-in-the-loop approvals | `createHook()` / `createWebhook()` for pause/resume |
-| Retry failed API calls | Per-step retry with `RetryableError` + configurable backoff |
-| Observability of agent actions | Built-in event log, time-travel debugging |
+| Multi-step agent tasks (post to X → wait for reply → respond) | Compiled step execution with persisted run history |
+| Scheduled + delayed operations (triggers with waits) | Delay node support in runtime |
+| Human-in-the-loop approvals | Hook pause/resume endpoints |
+| Observability of agent actions | Per-step run event log |
 | Custom action chaining | Steps that call existing `CustomActionDef` handlers |
 
 ---
@@ -86,14 +81,14 @@ Workflow DevKit transforms async TypeScript functions into **durable, resumable 
 │                              │                              │
 │  ┌───────────────────────────▼──────────────────────────┐   │
 │  │  Workflow Compiler (src/workflows/compiler.ts)        │   │
-│  │    - Graph JSON → Workflow DevKit function             │   │
+│  │    - Graph JSON → workflow runtime function             │   │
 │  │    - Node type → step function mapping                 │   │
 │  │    - Edge routing → control flow                       │   │
 │  └───────────────────────────┬──────────────────────────┘   │
 │                              │                              │
 │  ┌───────────────────────────▼──────────────────────────┐   │
 │  │  Workflow Runtime (src/workflows/runtime.ts)          │   │
-│  │    - Workflow DevKit integration                       │   │
+│  │    - workflow runtime integration                       │   │
 │  │    - start() / sleep() / hooks                         │   │
 │  │    - Bridges to elizaOS runtime for action execution   │   │
 │  └───────────────────────────┬──────────────────────────┘   │
@@ -123,7 +118,7 @@ export type WorkflowNodeType =
   | "llm"            // LLM generation call
   | "condition"      // Branch based on expression
   | "transform"      // JavaScript data transformation (sandboxed)
-  | "delay"          // Sleep / wait (maps to Workflow DevKit sleep())
+  | "delay"          // Sleep / wait (maps to workflow runtime sleep())
   | "hook"           // Pause for external event (maps to createHook/createWebhook)
   | "loop"           // Iterate over array data
   | "subworkflow"    // Call another workflow
@@ -235,9 +230,9 @@ The trigger node defines how a workflow starts. It maps to the existing trigger 
 Executes an existing registered action (custom action or built-in):
 
 ```typescript
-// Compiles to a Workflow DevKit step:
+// Compiles to a workflow runtime step:
 async function executeAction_nodeId(input: StepInput) {
-  "use step";
+  "compiled step";
   const action = runtime.getAction(config.actionName);
   const result = await action.handler(runtime, message, state, {
     parameters: resolveParameters(config.parameters, input)
@@ -251,7 +246,7 @@ Makes an LLM generation call through the runtime's model provider:
 
 ```typescript
 async function llmGenerate_nodeId(input: StepInput) {
-  "use step";
+  "compiled step";
   const prompt = interpolateTemplate(config.prompt, input);
   const result = await runtime.useModel(ModelType.TEXT_LARGE, {
     prompt,
@@ -277,14 +272,14 @@ Sandboxed JavaScript data transformation (reuses the existing `runCodeHandler` s
 
 ```typescript
 async function transform_nodeId(input: StepInput) {
-  "use step";
+  "compiled step";
   const result = await runCodeHandler(config.code, input);
   return result;
 }
 ```
 
 ### 6. Delay Node
-Maps directly to Workflow DevKit's `sleep()`:
+Maps directly to workflow runtime's `sleep()`:
 
 ```typescript
 // Compiles to inline workflow code:
@@ -294,7 +289,7 @@ await sleep(new Date(config.date));
 ```
 
 ### 7. Hook Node
-Maps to Workflow DevKit's `createHook()` / `createWebhook()`:
+Maps to workflow runtime's `createHook()` / `createWebhook()`:
 
 ```typescript
 // Compiles to:
@@ -321,7 +316,7 @@ Calls another workflow definition:
 
 ```typescript
 async function subworkflow_nodeId(input: StepInput) {
-  "use step";
+  "compiled step";
   const subWorkflow = loadWorkflow(config.workflowId);
   const run = await start(subWorkflow.compiled, input);
   return run.output;
@@ -332,7 +327,7 @@ async function subworkflow_nodeId(input: StepInput) {
 
 ## Graph Compiler
 
-The compiler converts the visual graph (nodes + edges) into a Workflow DevKit function. The key algorithm:
+The compiler converts the visual graph (nodes + edges) into a workflow runtime function. The key algorithm:
 
 ```typescript
 // src/workflows/compiler.ts
@@ -351,7 +346,7 @@ export function compileWorkflow(def: WorkflowDef): CompiledWorkflow {
   //    - Handle loop nodes (back-edges)
 
   // 3. Generate the workflow function
-  //    The output is an async function with "use workflow" directive that:
+  //    The output is an async function with "compiled workflow" directive that:
   //    a. Calls each node's step function in topological order
   //    b. Passes output from one step as input to the next (via edge connections)
   //    c. At condition nodes, evaluates the expression and follows the matching edge
@@ -396,19 +391,15 @@ GET    /api/workflows/:id                → get workflow definition
 PUT    /api/workflows/:id                → update workflow definition
 DELETE /api/workflows/:id                → delete workflow definition
 POST   /api/workflows/:id/validate       → validate graph (check for errors)
-POST   /api/workflows/:id/compile        → compile and cache the workflow
-
 # Workflow runs (execution)
 POST   /api/workflows/:id/start          → start a new run (manual trigger)
 GET    /api/workflows/:id/runs            → list runs for a workflow
 GET    /api/workflow-runs/:runId          → get run status + events
-POST   /api/workflow-runs/:runId/pause    → pause a running workflow
-POST   /api/workflow-runs/:runId/resume   → resume a paused workflow (hook)
 POST   /api/workflow-runs/:runId/cancel   → cancel a running workflow
-GET    /api/workflow-runs/:runId/events   → get event log (time-travel debug)
 
 # Hook resolution
 POST   /api/workflow-hooks/:hookId/resolve → resume workflow waiting on hook
+GET    /api/workflow-hooks                → list pending hooks
 ```
 
 ---
@@ -417,17 +408,17 @@ POST   /api/workflow-hooks/:hookId/resolve → resume workflow waiting on hook
 
 ### 1. WorkflowBuilderView (`apps/app/src/components/WorkflowBuilderView.tsx`)
 
-Full-page workflow editor using **React Flow** (`@xyflow/react`) as the canvas library:
+Full-page workflow editor using the in-repo custom workflow canvas:
 
 - **Left sidebar**: Node palette (draggable node types)
-- **Center**: React Flow canvas with custom node components
+- **Center**: Custom SVG canvas with node and edge interactions
 - **Right sidebar**: Node configuration panel (appears when a node is selected)
 - **Top bar**: Workflow name, save/validate/run buttons, run history dropdown
 - **Bottom bar**: Validation messages, compile status
 
 ### 2. Custom Node Components
 
-Each node type gets a custom React Flow node component with appropriate ports:
+Each node type gets a custom node component with appropriate ports:
 
 ```
 ┌─────────────────┐
@@ -477,7 +468,7 @@ Run monitoring dashboard:
 src/workflows/
   types.ts              — WorkflowDef, WorkflowRun, WorkflowStepEvent types
   compiler.ts           — Graph → executable function compiler
-  runtime.ts            — Workflow DevKit integration + elizaOS bridge
+  runtime.ts            — workflow runtime integration + elizaOS bridge
   storage.ts            — Config persistence (milady.json) + run state (DB)
   validation.ts         — Graph validation rules
 ```
@@ -496,7 +487,7 @@ package.json            — Add workflow dependency
 2. Define TypeScript types for workflow graph model
 3. Implement graph validation (cycle detection, handle matching, reachability)
 4. Implement the compiler that traverses the graph and generates step functions
-5. Bridge Workflow DevKit's `start()` / `sleep()` / `createHook()` with elizaOS runtime
+5. Bridge workflow runtime's `start()` / `sleep()` / `createHook()` with elizaOS runtime
 6. Wire steps to call existing `buildHandler()` from custom-actions for action nodes
 7. Store workflow definitions in milady.json under `workflows[]`
 8. Store workflow runs in the elizaOS task system (like triggers do)
@@ -529,11 +520,11 @@ apps/app/src/components/
 apps/app/src/navigation.ts          — Add "workflows" tab
 apps/app/src/components/AdvancedPageView.tsx — Add workflows sub-tab
 apps/app/src/api-client.ts          — Add workflow API methods
-apps/app/package.json               — Add @xyflow/react dependency
+apps/app/package.json               — No additional canvas dependency required
 ```
 
 **Key tasks:**
-1. Add `@xyflow/react` as a dependency for the visual canvas
+1. Use the existing in-repo workflow canvas implementation
 2. Build custom node components with appropriate input/output handles
 3. Build node configuration panel (reuse patterns from CustomActionEditor)
 4. Build the node palette with drag-and-drop onto canvas
@@ -547,7 +538,7 @@ apps/app/package.json               — Add @xyflow/react dependency
 1. **Action node auto-discovery**: Populate action node dropdown from `runtime.getActions()` including custom actions
 2. **Trigger unification**: Allow existing triggers to start workflows instead of raw instruction injection
 3. **Workflow as Action**: Register workflows as elizaOS Actions so the agent can trigger them from conversation (e.g., "run the price check workflow")
-4. **Streaming results**: Use Workflow DevKit's `getWritable()` to stream step results to the UI in real-time via SSE/WebSocket
+4. **Streaming results**: Use workflow runtime's `getWritable()` to stream step results to the UI in real-time via SSE/WebSocket
 5. **AI workflow generation**: Extend the existing `/api/custom-actions/generate` pattern — user describes a workflow in natural language, AI generates the graph JSON
 
 ### Phase 4: Advanced Features
@@ -582,27 +573,20 @@ Workflows can be triggered from the autonomy loop. The autonomy service's `injec
 
 ## Key Design Decisions
 
-### Why React Flow (@xyflow/react) for the canvas?
-- Most mature React node editor library (20k+ GitHub stars)
-- Built-in support for custom nodes, handles, edges, minimap, controls
-- Performant with hundreds of nodes
-- Good TypeScript support
-- Matches the React + Vite stack already used
+### Why a custom canvas implementation?
+- Keeps the workflow editor implementation self-contained
+- Avoids introducing an additional graph UI dependency
+- Matches existing Milady UI interaction patterns
 
-### Why Workflow DevKit for execution?
-- Durability guarantees (survive crashes, restarts)
-- Per-step retries (don't re-run entire workflow on failure)
-- Sleep without resource consumption (critical for multi-day workflows)
-- Hook/webhook support (human-in-the-loop approvals)
-- Event sourcing provides automatic observability
-- Clean TypeScript API that maps well to a visual builder
+### Why compile graphs before execution?
+- Compilation validates workflow structure before runtime execution
+- Compiled steps are easier to test and reason about
+- Runtime execution stays deterministic and debuggable
 
 ### Why compile graphs instead of interpreting them?
-- Workflow DevKit requires actual async functions with directives
 - Compiled functions are inspectable and debuggable
 - Compilation step catches errors before execution
 - Generated code can be audited for security
-- Event sourcing replay requires deterministic execution
 
 ### Why store definitions in milady.json?
 - Consistent with custom actions storage pattern
@@ -628,11 +612,9 @@ Workflows can be triggered from the autonomy loop. The autonomy service's `injec
     └── false ─→ [Output: "Price normal, no alert"]
 ```
 
-**Compiled workflow (what Workflow DevKit executes):**
+**Compiled workflow (what Milady runtime executes):**
 ```typescript
 async function dailyPriceAlert(input: { triggeredAt: string }) {
-  "use workflow";
-
   // Step 1: Fetch price
   const priceResult = await fetchCryptoPrice({ coin: "BTC" });
 
@@ -647,14 +629,12 @@ async function dailyPriceAlert(input: { triggeredAt: string }) {
 }
 
 async function fetchCryptoPrice(params: { coin: string }) {
-  "use step";
   // Calls the registered FETCH_CRYPTO_PRICE custom action
   const handler = runtime.getAction("FETCH_CRYPTO_PRICE");
   return handler.handler(runtime, message, state, { parameters: params });
 }
 
 async function sendMessage(params: { text: string }) {
-  "use step";
   const handler = runtime.getAction("SEND_MESSAGE");
   return handler.handler(runtime, message, state, { parameters: params });
 }
@@ -662,21 +642,17 @@ async function sendMessage(params: { text: string }) {
 
 ---
 
-## Dependencies to Add
+## Dependencies
 
 ```json
 {
-  "dependencies": {
-    "workflow": "latest"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }
 
 // apps/app/package.json
 {
-  "dependencies": {
-    "@xyflow/react": "^12.0.0"
-  }
+  "dependencies": {}
 }
 ```
 
@@ -687,7 +663,7 @@ async function sendMessage(params: { text: string }) {
 ```
 src/workflows/
   types.ts              — Core type definitions
-  compiler.ts           — Graph → Workflow DevKit function compiler
+  compiler.ts           — Graph → executable step compiler
   compiler.test.ts      — Compiler unit tests
   runtime.ts            — Workflow execution engine + elizaOS bridge
   runtime.test.ts       — Runtime unit tests

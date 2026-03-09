@@ -84,17 +84,11 @@ export type CompiledStep = {
   ) => Promise<unknown>;
 };
 
-export type CompiledBranch = {
-  nodeId: string;
-  evaluate: (context: WorkflowContext) => string;
-  branches: Record<string, CompiledStep[]>;
-};
-
 export type CompiledWorkflow = {
   workflowId: string;
   workflowName: string;
-  /** Ordered steps (linear segments) or branch points. */
-  entrySteps: Array<CompiledStep | CompiledBranch>;
+  /** Ordered executable steps. */
+  entrySteps: CompiledStep[];
   stepCount: number;
   hasDelays: boolean;
   hasHooks: boolean;

@@ -236,6 +236,18 @@ describe("evaluateExpression", () => {
     });
     expect(evaluateExpression("{{a.count}} < {{b.count}}", ctx)).toBe(true);
   });
+
+  it("does not allow injected operators from interpolated values", () => {
+    const ctx = makeCtx({ _last: "x === x" });
+    expect(evaluateExpression("{{_last}} === true", ctx)).toBe(false);
+    expect(evaluateExpression("{{_last}}", ctx)).toBe(true);
+  });
+
+  it("rejects malformed expression grammar", () => {
+    const ctx = makeCtx({ _last: "safe" });
+    expect(evaluateExpression("{{_last}} ===", ctx)).toBe(false);
+    expect(evaluateExpression("{{_last}} && true", ctx)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
