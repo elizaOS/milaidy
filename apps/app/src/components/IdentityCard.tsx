@@ -161,10 +161,7 @@ export function IdentityCard() {
   const nfaStatus = app.nfaStatus;
   const nfaStatusLoading = app.nfaStatusLoading;
   const nfaStatusError = app.nfaStatusError;
-  const loadNfaStatus =
-    typeof app.loadNfaStatus === "function"
-      ? app.loadNfaStatus
-      : async () => {};
+  const loadNfaStatus = app.loadNfaStatus;
   const initialStatusRequestedRef = useRef(false);
   const [useWalletKey, setUseWalletKey] = useState(true);
   const [pendingOp, setPendingOp] = useState<PendingOp | null>(null);

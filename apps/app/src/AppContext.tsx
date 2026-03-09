@@ -1906,7 +1906,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppsSubTab(activeGameViewerUrl.trim() ? "games" : "browse");
       }
       const path = pathForTab(newTab);
-      // In Electron packaged builds (file:// URLs), use hash routing to avoid
+      // In desktop packaged builds (file:// URLs), use hash routing to avoid
       // "Not allowed to load local resource: file:///..." errors.
       if (window.location.protocol === "file:") {
         window.location.hash = path;
@@ -2659,7 +2659,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     ).electron;
     if (electron?.ipcRenderer) {
-      // Electron: Use IPC to restart embedded agent
+      // Desktop runtime: use IPC to restart the embedded agent.
       await electron.ipcRenderer.invoke("agent:restart");
     } else {
       // Fallback for web: call API restart endpoint
@@ -5696,7 +5696,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         60_000,
       );
 
-      // Load tab from URL — use hash in file:// mode (Electron packaged builds)
+      // Load tab from URL — use hash in file:// mode for packaged desktop builds.
       const navPath =
         window.location.protocol === "file:"
           ? window.location.hash.replace(/^#/, "") || "/"
@@ -5728,7 +5728,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void initApp();
 
-    // Navigation listener — use hashchange in file:// mode (Electron packaged builds)
+    // Navigation listener — use hashchange in file:// mode for packaged desktop builds.
     const isFileProtocol = window.location.protocol === "file:";
     const handleNavChange = () => {
       const navPath = isFileProtocol

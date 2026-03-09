@@ -812,7 +812,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "Open Settings works in Milady Desktop only. In browser/cloud mode, open OS settings manually.",
     "permissions.loadingPermissions": "Loading permissions...",
     "permissions.unableLoadPermissions":
-      "Unable to load permissions. This feature requires Electron.",
+      "Unable to load permissions. This feature requires the desktop runtime.",
     "permissions.refresh": "Refresh",
     "permissions.refreshing": "Refreshing...",
     "permissions.desktopOnlyHint":
@@ -1969,8 +1969,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "permissions.openSettingsDesktopOnly":
       "“打开设置”仅在 Milady Desktop 可用。浏览器/云端模式请手动前往系统设置。",
     "permissions.loadingPermissions": "正在加载权限...",
-    "permissions.unableLoadPermissions":
-      "无法加载权限。该功能需要 Electron 桌面环境。",
+    "permissions.unableLoadPermissions": "无法加载权限。该功能需要桌面运行时。",
     "permissions.refresh": "刷新",
     "permissions.refreshing": "刷新中...",
     "permissions.desktopOnlyHint":

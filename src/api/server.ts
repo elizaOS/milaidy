@@ -150,12 +150,7 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
-import {
-  PUBLIC_BASE_RPC_PRIMARY,
-  PUBLIC_BSC_RPC_PRIMARY,
-  PUBLIC_ETHEREUM_RPC_PRIMARY,
-  PUBLIC_SOLANA_RPC_PRIMARY,
-} from "./public-rpc";
+import { applyPublicRpcDefaults } from "./public-rpc";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
@@ -14657,18 +14652,13 @@ export async function startApiServer(opts?: {
     }
   }
 
-  // Set public RPC defaults when custom endpoints are not configured.
-  if (!process.env.BSC_RPC_URL?.trim()) {
-    process.env.BSC_RPC_URL = PUBLIC_BSC_RPC_PRIMARY;
-  }
-  if (!process.env.ETHEREUM_RPC_URL?.trim()) {
-    process.env.ETHEREUM_RPC_URL = PUBLIC_ETHEREUM_RPC_PRIMARY;
-  }
-  if (!process.env.BASE_RPC_URL?.trim()) {
-    process.env.BASE_RPC_URL = PUBLIC_BASE_RPC_PRIMARY;
-  }
-  if (!process.env.SOLANA_RPC_URL?.trim()) {
-    process.env.SOLANA_RPC_URL = PUBLIC_SOLANA_RPC_PRIMARY;
+  const appliedPublicRpcDefaults = applyPublicRpcDefaults(process.env);
+  if (appliedPublicRpcDefaults.length > 0) {
+    logger.info(
+      `[milady-api] Using public RPC defaults for unset endpoints: ${appliedPublicRpcDefaults
+        .map(({ key, url }) => `${key}=${url}`)
+        .join(", ")}`,
+    );
   }
   // Self-heal older configs where wallet keys were never provisioned
   // (e.g. RPC/cloud configured outside onboarding).

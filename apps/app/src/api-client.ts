@@ -1912,11 +1912,11 @@ export class MiladyClient {
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
-    // In capacitor-electron mode the main process injects the live API base
+    // In capacitor-electron mode the desktop host injects the live API base.
     // once the embedded agent has bound a port. Avoid eager localhost probes
     // to prevent noisy ERR_CONNECTION_REFUSED logs during startup.
     if (proto === "capacitor-electron:") return "";
-    // Legacy Electron file:// mode fallback.
+    // Legacy packaged desktop file:// mode fallback.
     if (proto === "file:" && /\bElectron\b/i.test(window.navigator.userAgent)) {
       return "http://localhost:2138";
     }
@@ -1939,7 +1939,7 @@ export class MiladyClient {
         ? window.sessionStorage.getItem("milady_api_token")
         : null;
     this._token = token?.trim() || stored || null;
-    // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
+    // Priority: explicit arg > desktop-injected global > same origin (Vite proxy)
     const injectedBase =
       typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
@@ -1950,14 +1950,14 @@ export class MiladyClient {
 
   /**
    * Resolve the API base URL lazily.
-   * In Electron the main process injects window.__MILADY_API_BASE__ after the
+   * In desktop mode the host injects window.__MILADY_API_BASE__ after the
    * page loads (once the agent runtime starts). Re-checking on every call
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
     if (!this._explicitBase && typeof window !== "undefined") {
       const injected = window.__MILADY_API_BASE__;
-      // In Electron the API base can be injected after initial render. Always
+      // In desktop mode the API base can be injected after initial render. Always
       // prefer the injected value when present so the client can switch away
       // from the localhost fallback once the main process publishes the real
       // endpoint.
@@ -3826,7 +3826,7 @@ export class MiladyClient {
     if (this.baseUrl) {
       host = new URL(this.baseUrl).host;
     } else {
-      // In non-HTTP environments (Electron capacitor-electron://, file://, etc.)
+      // In non-HTTP environments (desktop capacitor-electron://, file://, etc.)
       // window.location.host may be empty or a non-routable placeholder like "-".
       const loc = window.location;
       if (loc.protocol !== "http:" && loc.protocol !== "https:") return;
