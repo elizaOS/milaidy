@@ -158,7 +158,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         text: [
           "## Workflows",
           "",
-          "The following visual workflows are available. You can run them via the RUN_WORKFLOW action.",
+          "The following visual workflows are configured. Workflows with manual triggers can be started from the Workflows page in the dashboard.",
           ...lines,
         ].join("\n"),
       };

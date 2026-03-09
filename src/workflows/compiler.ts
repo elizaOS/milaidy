@@ -278,7 +278,7 @@ function walkGraph(
     }
 
     // Find the next node(s)
-    const outEdges = adjacency.get(currentId) ?? [];
+    const outEdges: WorkflowEdge[] = adjacency.get(currentId) ?? [];
 
     if (node.type === "condition") {
       // Condition nodes are handled inside compileNode — stop linear walk

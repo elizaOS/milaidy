@@ -21,6 +21,7 @@ import { compileWorkflow } from "./compiler";
 import { loadWorkflows, loadWorkflowRuns, saveWorkflowRuns } from "./storage";
 import type {
   CompiledStep,
+  CompiledWorkflow,
   WorkflowContext,
   WorkflowDef,
   WorkflowRun,
@@ -212,7 +213,10 @@ async function executeWorkflow(
         break;
       }
 
-      const result = await executeStep(step, ctx, run);
+      // Skip branch entries — only execute compiled steps
+      if (!("execute" in step)) continue;
+
+      const result = await executeStep(step as CompiledStep, ctx, run);
 
       if (isRunCancelled(run.runId)) {
         break;
@@ -221,7 +225,7 @@ async function executeWorkflow(
       // Check for hook pause
       if (isHookResult(result)) {
         const hookId = (result as Record<string, unknown>).hookId as string;
-        updateRunStatus(run.runId, "paused", { currentNodeId: step.nodeId });
+        updateRunStatus(run.runId, "paused", { currentNodeId: (step as CompiledStep).nodeId });
         persistRun(run.runId);
 
         // Wait for hook resolution
@@ -322,6 +326,9 @@ function waitForHook(
 
 /**
  * Resolve a pending hook, resuming the paused workflow.
+ *
+ * Looks up the hook by hookId alone (matching any run) or by the
+ * composite `hookId:runId` key for precise targeting.
  */
 export function resolveHook(
   hookId: string,

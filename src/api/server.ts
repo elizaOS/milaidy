@@ -14849,7 +14849,27 @@ async function handleRequest(
 
   if (method === "POST" && workflowStartMatch) {
     const wfId = decodeURIComponent(workflowStartMatch[1]);
-    const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
+    const body = await readJsonBody<Record<string, unknown>>(req, res);
+    if (!body) return;
+
+    // Security gate: workflows containing transform nodes execute arbitrary
+    // code via the sandbox. Require terminal authorization for these.
+    const wfDef = getWorkflow(wfId);
+    if (wfDef?.nodes.some((n) => n.type === "transform")) {
+      const terminalRejection = resolveTerminalRunRejection(
+        req,
+        body as TerminalRunRequestBody,
+      );
+      if (terminalRejection) {
+        error(
+          res,
+          `Starting workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
+          terminalRejection.status,
+        );
+        return;
+      }
+    }
+
     try {
       const run = await startWorkflow(
         wfId,
@@ -14895,8 +14915,14 @@ async function handleRequest(
 
   if (method === "POST" && workflowHookMatch) {
     const hookId = decodeURIComponent(workflowHookMatch[1]);
-    const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
-    if (!resolveHook(hookId, body)) {
+    const body = await readJsonBody<Record<string, unknown>>(req, res);
+    if (!body) return;
+
+    // Sanitize: only allow plain JSON-serializable values in the payload
+    // to prevent prototype pollution or injected objects.
+    const sanitized = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
+
+    if (!resolveHook(hookId, sanitized)) {
       error(res, "No pending hook with that ID", 404);
       return;
     }

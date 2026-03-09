@@ -605,4 +605,92 @@ describe("workflow execution", () => {
     expect(finished!.events[1].nodeId).toBe("s2");
     expect(finished!.events[1].nodeLabel).toBe("Second");
   });
+
+  it("respects cancellation during step execution", async () => {
+    let stepCount = 0;
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-cancel-exec", "Cancel Exec"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-cancel-exec",
+      workflowName: "Cancel Exec",
+      entrySteps: [
+        {
+          nodeId: "s1",
+          nodeType: "action",
+          label: "Step 1",
+          execute: async () => {
+            stepCount++;
+            // Simulate slow step
+            await new Promise((r) => setTimeout(r, 200));
+            return "done";
+          },
+        },
+        {
+          nodeId: "s2",
+          nodeType: "action",
+          label: "Step 2",
+          execute: async () => {
+            stepCount++;
+            return "should not run";
+          },
+        },
+      ],
+      stepCount: 2,
+      hasDelays: false,
+      hasHooks: false,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-cancel-exec");
+    // Cancel while step 1 is executing
+    await new Promise((r) => setTimeout(r, 50));
+    cancelWorkflowRun(run.runId);
+
+    // Wait for async to settle
+    await new Promise((r) => setTimeout(r, 300));
+
+    const finished = getWorkflowRun(run.runId);
+    expect(finished!.status).toBe("cancelled");
+    // Step 2 should not have executed (cancel checked between steps)
+    // Note: step 1 may have already started, but step 2 should be skipped
+    expect(stepCount).toBeLessThanOrEqual(1);
+  });
+
+  it("does not overwrite cancelled status with completed", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-no-overwrite", "No Overwrite"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-no-overwrite",
+      workflowName: "No Overwrite",
+      entrySteps: [
+        {
+          nodeId: "slow",
+          nodeType: "delay",
+          label: "Slow",
+          execute: async () => {
+            await new Promise((r) => setTimeout(r, 100));
+            return { delayed: true };
+          },
+        },
+      ],
+      stepCount: 1,
+      hasDelays: true,
+      hasHooks: false,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-no-overwrite");
+    // Cancel immediately
+    await new Promise((r) => setTimeout(r, 10));
+    cancelWorkflowRun(run.runId);
+
+    // Wait for async to settle
+    await new Promise((r) => setTimeout(r, 200));
+
+    const finished = getWorkflowRun(run.runId);
+    // Status should remain cancelled, not get overwritten to completed
+    expect(finished!.status).toBe("cancelled");
+  });
 });

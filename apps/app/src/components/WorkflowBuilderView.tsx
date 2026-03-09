@@ -73,6 +73,7 @@ export function WorkflowBuilderView() {
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // ── Data loading ──────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ export function WorkflowBuilderView() {
       const result = await client.listWorkflows();
       setWorkflows(result);
     } catch (error) {
-      console.error("Failed to load workflows:", error);
+      setErrorMessage("Failed to load workflows. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export function WorkflowBuilderView() {
       const result = await client.listWorkflowRuns(workflowId);
       setRuns(result);
     } catch (error) {
-      console.error("Failed to load runs:", error);
+      setErrorMessage("Failed to load workflow runs.");
     }
   }, []);
 
@@ -123,7 +124,7 @@ export function WorkflowBuilderView() {
       setEditingWorkflow(workflow);
       setViewMode("editor");
     } catch (error) {
-      console.error("Failed to create workflow:", error);
+      setErrorMessage("Failed to create workflow.");
     }
   }, []);
 
@@ -145,14 +146,19 @@ export function WorkflowBuilderView() {
 
   const handleDelete = useCallback(
     async (id: string) => {
+      const workflow = workflows.find((w) => w.id === id);
+      const name = workflow?.name ?? "this workflow";
+      if (!window.confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
+        return;
+      }
       try {
         await client.deleteWorkflow(id);
         await loadWorkflows();
       } catch (error) {
-        console.error("Failed to delete workflow:", error);
+        setErrorMessage("Failed to delete workflow.");
       }
     },
-    [loadWorkflows],
+    [loadWorkflows, workflows],
   );
 
   const handleToggleEnabled = useCallback(
@@ -163,7 +169,7 @@ export function WorkflowBuilderView() {
           prev.map((w) => (w.id === id ? { ...w, enabled } : w)),
         );
       } catch (error) {
-        console.error("Failed to toggle workflow:", error);
+        setErrorMessage("Failed to toggle workflow.");
       }
     },
     [],
@@ -181,7 +187,7 @@ export function WorkflowBuilderView() {
         });
         await loadWorkflows();
       } catch (error) {
-        console.error("Failed to duplicate workflow:", error);
+        setErrorMessage("Failed to duplicate workflow.");
       }
     },
     [loadWorkflows],
@@ -205,7 +211,7 @@ export function WorkflowBuilderView() {
         prev.map((w) => (w.id === updated.id ? updated : w)),
       );
     } catch (error) {
-      console.error("Failed to save workflow:", error);
+      setErrorMessage("Failed to save workflow.");
     } finally {
       setSaving(false);
     }
@@ -219,7 +225,7 @@ export function WorkflowBuilderView() {
       const result = await client.validateWorkflow(editingWorkflow.id);
       setValidationResult(result);
     } catch (error) {
-      console.error("Failed to validate:", error);
+      setErrorMessage("Failed to validate workflow.");
     }
   }, [editingWorkflow, handleSave]);
 
@@ -230,7 +236,7 @@ export function WorkflowBuilderView() {
       const run = await client.startWorkflow(editingWorkflow.id, {});
       setRuns((prev) => [run, ...prev]);
     } catch (error) {
-      console.error("Failed to start workflow:", error);
+      setErrorMessage("Failed to start workflow.");
     }
   }, [editingWorkflow, handleSave]);
 
@@ -267,11 +273,28 @@ export function WorkflowBuilderView() {
     );
   }, [workflows, search]);
 
+  // ── Error banner helper ──────────────────────────────────────────────
+
+  const errorBanner = errorMessage ? (
+    <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded mx-4 mt-2">
+      <AlertCircle size={14} />
+      <span className="flex-1">{errorMessage}</span>
+      <button
+        type="button"
+        onClick={() => setErrorMessage(null)}
+        className="text-red-400 hover:text-red-300"
+      >
+        <XCircle size={14} />
+      </button>
+    </div>
+  ) : null;
+
   // ── Render ────────────────────────────────────────────────────────────
 
   if (viewMode === "editor" && editingWorkflow) {
     return (
       <div className="flex flex-col h-full min-h-0">
+        {errorBanner}
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-2 border-b border-border shrink-0">
           <button
@@ -439,6 +462,7 @@ export function WorkflowBuilderView() {
   if (viewMode === "runs" && editingWorkflow) {
     return (
       <div className="p-4">
+        {errorBanner}
         <div className="flex items-center gap-3 mb-4">
           <button
             type="button"
@@ -476,6 +500,7 @@ export function WorkflowBuilderView() {
 
   return (
     <div className="p-4">
+      {errorBanner}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-medium">Workflows</h2>
