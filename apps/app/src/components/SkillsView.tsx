@@ -932,7 +932,7 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
           className={btnPrimary}
           onClick={() => setInstallModalOpen(true)}
         >
-          Install
+          Browse Marketplace
         </button>
         <button
           type="button"

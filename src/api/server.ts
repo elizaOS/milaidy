@@ -1923,6 +1923,12 @@ async function discoverSkills(
     skillsDirs.add(workspaceSkills);
   }
 
+  // Marketplace-installed skills (stored under .marketplace, skipped by dot-prefix filter)
+  const marketplaceSkills = path.join(workspaceDir, "skills", ".marketplace");
+  if (fs.existsSync(marketplaceSkills)) {
+    skillsDirs.add(marketplaceSkills);
+  }
+
   // Extra dirs from config
   const extraDirs = config.skills?.load?.extraDirs;
   if (extraDirs) {
@@ -2433,16 +2439,32 @@ function serveStaticUi(
   if (reqExt && reqExt !== ".html") return false;
 
   if (!uiIndexHtml) return false;
+
+  // When served behind a reverse proxy (e.g. Railway /proxy/PORT/), inject the
+  // API base so the UI client sends requests to the correct path prefix.
+  let html = uiIndexHtml;
+  const externalBase = process.env.MILADY_EXTERNAL_BASE_URL;
+  if (externalBase) {
+    const injection = Buffer.from(
+      `<script>window.__MILADY_API_BASE__=${JSON.stringify(externalBase)};</script>`,
+    );
+    html = Buffer.concat([
+      Buffer.from(uiIndexHtml.subarray(0, uiIndexHtml.indexOf("</head>"))),
+      injection,
+      Buffer.from(uiIndexHtml.subarray(uiIndexHtml.indexOf("</head>"))),
+    ]);
+  }
+
   sendStaticResponse(
     req,
     res,
     200,
     {
       "Cache-Control": "public, max-age=0, must-revalidate",
-      "Content-Length": uiIndexHtml.length,
+      "Content-Length": html.length,
       "Content-Type": "text/html; charset=utf-8",
     },
-    uiIndexHtml,
+    html,
   );
   return true;
 }
@@ -4726,6 +4748,10 @@ function resolveCorsOrigin(origin?: string): string | null {
   const trimmed = origin.trim();
   if (!trimmed) return null;
 
+  // When bound to a wildcard address, allow any origin (token gate protects the API)
+  const bindHost = (process.env.MILADY_API_BIND ?? "").trim().toLowerCase();
+  if (WILDCARD_BIND_RE.test(stripPort(bindHost))) return trimmed;
+
   // Explicit allowlist via env (comma-separated)
   const extra = process.env.MILADY_ALLOWED_ORIGINS;
   if (extra) {
@@ -4959,6 +4985,8 @@ export function ensureApiTokenForBindHost(host: string): void {
   const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
+  // Allow explicitly disabling auto-generated token (e.g. behind an auth proxy)
+  if (process.env.MILADY_API_TOKEN_REQUIRED === "0") return;
 
   const generated = crypto.randomBytes(32).toString("hex");
   process.env.MILADY_API_TOKEN = generated;

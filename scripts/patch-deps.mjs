@@ -608,7 +608,8 @@ if (pdfTargets.length === 0) {
   // Pattern: import <var> from "pdfjs-dist" or import <var> from"pdfjs-dist"
   const pdfBuggyImportRegex = /import\s+(\w+)\s+from\s*"pdfjs-dist"/g;
   const pdfNodeImportRegex = /from\s*"pdfjs-dist"/g;
-  const pdfLegacySpecifier = 'from "pdfjs-dist/legacy/build/pdf.mjs"';
+  // Use .js instead of .mjs — bun's cache extraction consistently skips .mjs files
+  const pdfLegacySpecifier = 'from "pdfjs-dist/legacy/build/pdf.js"';
 
   for (const target of pdfTargets) {
     console.log(`[patch-deps] Patching plugin-pdf: ${target}`);
