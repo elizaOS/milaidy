@@ -1709,12 +1709,22 @@
 
 .anime-wallet-identity-tx {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
   padding: 5px 8px;
   font-size: 10px;
   border-radius: 6px;
+}
+
+.anime-wallet-identity-tx-message {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 .anime-wallet-identity-tx.is-ok {
@@ -1734,6 +1744,7 @@
   border: none;
   color: inherit;
   cursor: pointer;
+  flex: none;
   opacity: 0.6;
   font-size: 12px;
 }

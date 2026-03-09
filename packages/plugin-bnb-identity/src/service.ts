@@ -36,6 +36,21 @@ export type McpToolResponse = {
 };
 
 const MCP_TOOL_GENERIC_ERROR_MESSAGE = "Unknown MCP tool failure.";
+export const DEFAULT_BNB_MAINNET_RPC_URL = "https://bsc-rpc.publicnode.com";
+export const DEFAULT_BNB_TESTNET_RPC_URL =
+  "https://data-seed-prebsc-1-s1.binance.org:8545/";
+
+export function resolveBnbRpcUrl(
+  config: Pick<BnbIdentityConfig, "network" | "rpcUrl">,
+): string {
+  const configuredRpcUrl = config.rpcUrl?.trim();
+  if (configuredRpcUrl) {
+    return configuredRpcUrl;
+  }
+  return config.network === "bsc"
+    ? DEFAULT_BNB_MAINNET_RPC_URL
+    : DEFAULT_BNB_TESTNET_RPC_URL;
+}
 
 export function extractMcpPayload(result: McpToolResponse): unknown {
   if (result.result !== undefined) {

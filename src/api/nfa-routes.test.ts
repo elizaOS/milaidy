@@ -5,8 +5,8 @@
  * the route logic from on-chain calls.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type http from "node:http";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NfaRouteContext } from "./nfa-routes";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -16,11 +16,11 @@ const mockReadNfa = vi.fn();
 const mockWriteNfa = vi.fn();
 const mockPatchNfa = vi.fn();
 const mockReadIdentity = vi.fn();
+const MockBnbIdentityService = vi.fn(function () {
+  return mockServiceInstance;
+});
 
 vi.mock("../../packages/plugin-bnb-identity/src/index", () => {
-  const MockBnbIdentityService = vi.fn(function () {
-    return mockServiceInstance;
-  });
   return {
     readIdentity: (...args: unknown[]) => mockReadIdentity(...args),
     readNfa: (...args: unknown[]) => mockReadNfa(...args),
@@ -88,9 +88,27 @@ beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.EVM_PRIVATE_KEY;
   delete process.env.BNB_PRIVATE_KEY;
+  delete process.env.BSC_RPC_URL;
+  delete process.env.BNB_RPC_URL;
 });
 
 describe("POST /api/nfa/mint", () => {
+  it("returns 400 when BAP578 contract address is missing", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc123";
+    const ctx = makeCtx("POST", "/api/nfa/mint", {});
+    ctx.nfaContractAddress = undefined;
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      expect.stringContaining("BAP578_CONTRACT_ADDRESS"),
+      400,
+    );
+    expect(mockServiceInstance.mintNfa).not.toHaveBeenCalled();
+  });
+
   it("builds a fallback data URI if agentURI is missing", async () => {
     const ctx = makeCtx("POST", "/api/nfa/mint", {});
     process.env.BNB_PRIVATE_KEY = "0xabc123";
@@ -108,7 +126,7 @@ describe("POST /api/nfa/mint", () => {
     expect(mockServiceInstance.mintNfa).toHaveBeenCalledWith(
       expect.stringMatching(/^data:application\/json;base64,/),
       expect.objectContaining({
-        vaultHash: "0x" + "0".repeat(64),
+        vaultHash: `0x${"0".repeat(64)}`,
       }),
     );
     expect(ctx.error).not.toHaveBeenCalled();
@@ -162,6 +180,31 @@ describe("POST /api/nfa/mint", () => {
     // The service should have been constructed — we verify the key indirectly
     // by checking it didn't error about missing key
     expect(ctx.json).toHaveBeenCalled();
+  });
+
+  it("passes BSC_RPC_URL into the NFA service", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc123";
+    process.env.BSC_RPC_URL = "https://bsc-rpc.publicnode.com";
+    const ctx = makeCtx("POST", "/api/nfa/mint", {
+      agentURI: "https://example.com/meta.json",
+    });
+
+    mockServiceInstance.mintNfa.mockResolvedValue({
+      tokenId: "1",
+      txHash: "0xtx",
+      owner: "0xowner",
+      network: "bsc",
+      freeMint: false,
+    });
+
+    await handleNfaRoutes(ctx);
+
+    expect(MockBnbIdentityService).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({
+        rpcUrl: "https://bsc-rpc.publicnode.com",
+      }),
+    );
   });
 });
 

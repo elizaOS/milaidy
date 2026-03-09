@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import {
   assertMcpToolSuccess,
+  DEFAULT_BNB_MAINNET_RPC_URL,
+  DEFAULT_BNB_TESTNET_RPC_URL,
   extractMcpPayload,
   extractMcpTextPayload,
   type McpToolResponse,
   parseMcpResult,
+  resolveBnbRpcUrl,
 } from "../src/service.js";
 
 const toolName = "some_mcp_tool";
@@ -142,6 +145,29 @@ describe("assertMcpToolSuccess", () => {
     };
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
       "MCP tool some_mcp_tool error: Unknown MCP tool failure.",
+    );
+  });
+});
+
+describe("resolveBnbRpcUrl", () => {
+  it("prefers explicit rpcUrl when provided", () => {
+    expect(
+      resolveBnbRpcUrl({
+        network: "bsc",
+        rpcUrl: "https://custom-rpc.example",
+      }),
+    ).toBe("https://custom-rpc.example");
+  });
+
+  it("defaults bsc mainnet to Public Node", () => {
+    expect(resolveBnbRpcUrl({ network: "bsc" })).toBe(
+      DEFAULT_BNB_MAINNET_RPC_URL,
+    );
+  });
+
+  it("keeps the existing testnet fallback when no rpcUrl is configured", () => {
+    expect(resolveBnbRpcUrl({ network: "bsc-testnet" })).toBe(
+      DEFAULT_BNB_TESTNET_RPC_URL,
     );
   });
 });

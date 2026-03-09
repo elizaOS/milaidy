@@ -9,18 +9,18 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { logger } from "@elizaos/core";
 import {
+  BnbIdentityService,
+  patchNfa,
   readIdentity,
   readNfa,
   writeNfa,
-  patchNfa,
-  BnbIdentityService,
 } from "../../packages/plugin-bnb-identity/src/index";
 import { getLearningRoot } from "../../packages/plugin-bnb-identity/src/merkle-learning";
 import type {
   IdentityRecord,
-  NfaRecord,
-  NfaInfo,
   LearningLeaf,
+  NfaInfo,
+  NfaRecord,
 } from "../../packages/plugin-bnb-identity/src/types";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
@@ -47,19 +47,14 @@ export interface NfaLearningsResponse {
   count: number;
 }
 
-export async function handleNfaRoutes(
-  ctx: NfaRouteContext,
-): Promise<boolean> {
+export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
   const { method, pathname, json, error, nfaContractAddress, workspaceDir } =
     ctx;
 
   // ── GET /api/nfa/status ─────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/nfa/status") {
     try {
-      const [identity, nfa] = await Promise.all([
-        readIdentity(),
-        readNfa(),
-      ]);
+      const [identity, nfa] = await Promise.all([readIdentity(), readNfa()]);
 
       let onChain: NfaInfo | null = null;
       if (nfa && nfaContractAddress) {
@@ -68,6 +63,7 @@ export async function handleNfaRoutes(
             network: nfa.network || "bsc",
             gatewayPort: 0,
             nfaContractAddress,
+            rpcUrl: resolveNfaRpcUrl(),
           });
           onChain = await svc.getNfaInfo(nfa.tokenId);
         } catch (err) {
@@ -124,11 +120,21 @@ export async function handleNfaRoutes(
   // ── POST /api/nfa/mint ───────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/nfa/mint") {
     try {
+      const contractAddressError =
+        getNfaContractAddressError(nfaContractAddress);
+      if (contractAddressError) {
+        error(ctx.res, contractAddressError, 400);
+        return true;
+      }
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
       const agentURI = await resolveAgentUri(body);
 
-      const svc = buildService(privateKey, nfaContractAddress, body.network as string | undefined);
+      const svc = buildService(
+        privateKey,
+        nfaContractAddress,
+        body.network as string | undefined,
+      );
 
       const result = await svc.mintNfa(agentURI, {
         persona: (body.persona as string) ?? "",
@@ -136,7 +142,7 @@ export async function handleNfaRoutes(
         voiceHash: (body.voiceHash as string) ?? "",
         animationURI: (body.animationURI as string) ?? "",
         vaultURI: (body.vaultURI as string) ?? "",
-        vaultHash: (body.vaultHash as string) ?? "0x" + "0".repeat(64),
+        vaultHash: (body.vaultHash as string) ?? `0x${"0".repeat(64)}`,
       });
 
       await writeNfa({
@@ -152,7 +158,12 @@ export async function handleNfaRoutes(
         mintTxHash: result.txHash,
       });
 
-      json(ctx.res, { success: true, txHash: result.txHash, tokenId: result.tokenId, freeMint: result.freeMint });
+      json(ctx.res, {
+        success: true,
+        txHash: result.txHash,
+        tokenId: result.tokenId,
+        freeMint: result.freeMint,
+      });
     } catch (err) {
       error(
         ctx.res,
@@ -166,6 +177,12 @@ export async function handleNfaRoutes(
   // ── POST /api/nfa/anchor ──────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/nfa/anchor") {
     try {
+      const contractAddressError =
+        getNfaContractAddressError(nfaContractAddress);
+      if (contractAddressError) {
+        error(ctx.res, contractAddressError, 400);
+        return true;
+      }
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
       const nfa = await readNfa();
@@ -216,6 +233,12 @@ export async function handleNfaRoutes(
   // ── POST /api/nfa/transfer ────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/nfa/transfer") {
     try {
+      const contractAddressError =
+        getNfaContractAddressError(nfaContractAddress);
+      if (contractAddressError) {
+        error(ctx.res, contractAddressError, 400);
+        return true;
+      }
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
       const to = body.to as string | undefined;
@@ -255,6 +278,12 @@ export async function handleNfaRoutes(
   // ── POST /api/nfa/upgrade-logic ───────────────────────────────────────
   if (method === "POST" && pathname === "/api/nfa/upgrade-logic") {
     try {
+      const contractAddressError =
+        getNfaContractAddressError(nfaContractAddress);
+      if (contractAddressError) {
+        error(ctx.res, contractAddressError, 400);
+        return true;
+      }
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
       const newLogicAddress = body.newLogicAddress as string | undefined;
@@ -294,6 +323,12 @@ export async function handleNfaRoutes(
   // ── POST /api/nfa/pause ───────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/nfa/pause") {
     try {
+      const contractAddressError =
+        getNfaContractAddressError(nfaContractAddress);
+      if (contractAddressError) {
+        error(ctx.res, contractAddressError, 400);
+        return true;
+      }
       const body = await ctx.readJsonBody();
       const privateKey = resolvePrivateKey(body);
       const nfa = await readNfa();
@@ -312,7 +347,11 @@ export async function handleNfaRoutes(
 
       await patchNfa({ paused: result.paused });
 
-      json(ctx.res, { success: true, txHash: result.txHash, paused: result.paused });
+      json(ctx.res, {
+        success: true,
+        txHash: result.txHash,
+        paused: result.paused,
+      });
     } catch (err) {
       error(
         ctx.res,
@@ -351,12 +390,32 @@ function buildService(
     network: network || "bsc",
     gatewayPort: 0,
     nfaContractAddress,
+    rpcUrl: resolveNfaRpcUrl(),
   });
+}
+
+function resolveNfaRpcUrl(): string | undefined {
+  const rpcUrl =
+    process.env.BSC_RPC_URL?.trim() || process.env.BNB_RPC_URL?.trim();
+  return rpcUrl || undefined;
+}
+
+function getNfaContractAddressError(
+  nfaContractAddress: string | undefined,
+): string | null {
+  if (typeof nfaContractAddress === "string" && nfaContractAddress.trim()) {
+    return null;
+  }
+  return (
+    "BAP578_CONTRACT_ADDRESS is not configured. " +
+    "Set env.BAP578_CONTRACT_ADDRESS in ~/.milady/milady.json and restart Milady."
+  );
 }
 
 /** Resolve agentURI from request, identity store, or safe data: URI fallback. */
 async function resolveAgentUri(body: Record<string, unknown>): Promise<string> {
-  const requestUri = typeof body.agentURI === "string" ? body.agentURI.trim() : "";
+  const requestUri =
+    typeof body.agentURI === "string" ? body.agentURI.trim() : "";
   if (requestUri) return requestUri;
 
   const identity = await readIdentity();
@@ -373,9 +432,10 @@ async function resolveAgentUri(body: Record<string, unknown>): Promise<string> {
     capabilities: ["local-execution", "privacy-preserving"],
     platforms: ["webchat"],
   };
-  const encoded = Buffer.from(JSON.stringify(fallbackMetadata), "utf8").toString(
-    "base64",
-  );
+  const encoded = Buffer.from(
+    JSON.stringify(fallbackMetadata),
+    "utf8",
+  ).toString("base64");
   return `data:application/json;base64,${encoded}`;
 }
 
@@ -387,9 +447,7 @@ function parseLearningsMd(raw: string): LearningLeaf[] {
 
   for (const line of lines) {
     // Entry header: ## [category] — summary
-    const headerMatch = line.match(
-      /^##\s+\[(\w+)]\s*[—–-]\s*(.+)$/,
-    );
+    const headerMatch = line.match(/^##\s+\[(\w+)]\s*[—–-]\s*(.+)$/);
     if (headerMatch) {
       if (current?.id) entries.push(current as LearningLeaf);
       current = {
@@ -418,7 +476,6 @@ function parseLearningsMd(raw: string): LearningLeaf[] {
     const hashMatch = line.match(/^hash:\s*(.+)$/i);
     if (hashMatch) {
       current.contentHash = hashMatch[1].trim();
-      continue;
     }
   }
   if (current?.id) entries.push(current as LearningLeaf);

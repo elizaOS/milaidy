@@ -124,7 +124,6 @@ import {
   sendJsonError,
 } from "./http-helpers";
 import { handleKnowledgeRoutes } from "./knowledge-routes";
-import { handleNfaRoutes } from "./nfa-routes";
 import {
   evictOldestConversation,
   getOrReadCachedFile,
@@ -134,6 +133,7 @@ import {
 import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
+import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import type {
   CoordinationLLMResponse,
@@ -150,6 +150,13 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
+import {
+  DEFAULT_BAP578_CONTRACT_ADDRESS,
+  PUBLIC_BASE_RPC_PRIMARY,
+  PUBLIC_BSC_RPC_PRIMARY,
+  PUBLIC_ETHEREUM_RPC_PRIMARY,
+  PUBLIC_SOLANA_RPC_PRIMARY,
+} from "./public-rpc";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
@@ -14623,6 +14630,7 @@ export async function startApiServer(opts?: {
   const envKeysToHydrate = [
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
+    "BAP578_CONTRACT_ADDRESS",
     "ALCHEMY_API_KEY",
     "INFURA_API_KEY",
     "ANKR_API_KEY",
@@ -14637,6 +14645,35 @@ export async function startApiServer(opts?: {
     }
   }
 
+  // Migrate older wallet configs that still stored BSC RPC under legacy keys.
+  if (!process.env.BSC_RPC_URL?.trim()) {
+    const legacyBscRpc =
+      persistedEnv?.NODEREAL_BSC_RPC_URL?.trim() ||
+      persistedEnv?.QUICKNODE_BSC_RPC_URL?.trim() ||
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+      process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+      null;
+    if (legacyBscRpc) {
+      process.env.BSC_RPC_URL = legacyBscRpc;
+    }
+  }
+
+  // Set public RPC defaults when custom endpoints are not configured.
+  if (!process.env.BSC_RPC_URL?.trim()) {
+    process.env.BSC_RPC_URL = PUBLIC_BSC_RPC_PRIMARY;
+  }
+  if (!process.env.ETHEREUM_RPC_URL?.trim()) {
+    process.env.ETHEREUM_RPC_URL = PUBLIC_ETHEREUM_RPC_PRIMARY;
+  }
+  if (!process.env.BASE_RPC_URL?.trim()) {
+    process.env.BASE_RPC_URL = PUBLIC_BASE_RPC_PRIMARY;
+  }
+  if (!process.env.SOLANA_RPC_URL?.trim()) {
+    process.env.SOLANA_RPC_URL = PUBLIC_SOLANA_RPC_PRIMARY;
+  }
+  if (!process.env.BAP578_CONTRACT_ADDRESS?.trim()) {
+    process.env.BAP578_CONTRACT_ADDRESS = DEFAULT_BAP578_CONTRACT_ADDRESS;
+  }
   // Self-heal older configs where wallet keys were never provisioned
   // (e.g. RPC/cloud configured outside onboarding).
   if (ensureWalletKeysInEnvAndConfig(config)) {

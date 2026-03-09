@@ -3,7 +3,7 @@
  * Uses the same visual language as wallet trade confirmation.
  */
 
-import { useState } from "react";
+import { createPortal } from "react-dom";
 
 export type NfaOperation =
   | "mint"
@@ -17,6 +17,10 @@ interface NfaConfirmDialogProps {
   operation: NfaOperation;
   /** Extra detail lines shown in the dialog body. */
   details?: string[];
+  /** Controlled loading state from parent operation handler. */
+  busy?: boolean;
+  /** Optional inline error message shown in dialog body. */
+  errorMessage?: string | null;
   /** Called with true on confirm, false on cancel. */
   onResult: (confirmed: boolean) => void;
 }
@@ -39,24 +43,28 @@ const OP_LABELS: Record<NfaOperation, { title: string; warning?: string }> = {
 export function NfaConfirmDialog({
   operation,
   details,
+  busy = false,
+  errorMessage,
   onResult,
 }: NfaConfirmDialogProps) {
-  const [busy, setBusy] = useState(false);
   const label = OP_LABELS[operation];
-  const hasDetails = Array.isArray(details) && details.length > 0;
-
-  return (
+  const detailLines = Array.isArray(details) ? details : [];
+  const hasDetails = detailLines.length > 0;
+  const dialog = (
     <div className="wt__confirm-backdrop">
       <div className="wt__confirm-modal nfa__confirm-modal">
         <div className="wt__confirm-title">{label.title}</div>
         {label.warning && (
-          <div className="nfa__confirm-warning">
-            {label.warning}
-          </div>
+          <div className="nfa__confirm-warning">{label.warning}</div>
         )}
+        {errorMessage ? (
+          <div className="nfa__confirm-error" role="alert">
+            {errorMessage}
+          </div>
+        ) : null}
         {hasDetails && (
           <div className="wt__confirm-message">
-            {details!.map((d) => (
+            {detailLines.map((d) => (
               <div key={d} className="nfa__confirm-detail">
                 {d}
               </div>
@@ -76,10 +84,7 @@ export function NfaConfirmDialog({
             type="button"
             className="wt__btn wt__confirm-btn is-buy"
             disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              onResult(true);
-            }}
+            onClick={() => onResult(true)}
           >
             {busy ? "Sending..." : "Confirm"}
           </button>
@@ -87,4 +92,10 @@ export function NfaConfirmDialog({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return dialog;
+  }
+
+  return createPortal(dialog, document.body);
 }

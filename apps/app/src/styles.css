@@ -857,13 +857,17 @@ kbd {
   display: grid;
   place-items: center;
   padding: 20px;
+  overflow: auto;
   background: rgba(5, 9, 16, 0.58);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .wt__confirm-modal {
-  width: min(560px, 92vw);
+  width: min(560px, calc(100vw - 32px));
+  max-width: 100%;
+  max-height: min(560px, calc(100vh - 32px));
+  overflow: auto;
   border: 1px solid rgba(188, 202, 226, 0.26);
   border-radius: 14px;
   background:
@@ -940,7 +944,43 @@ kbd {
 }
 
 .nfa__confirm-modal {
-  width: min(560px, 92vw);
+  width: min(420px, calc(100vw - 32px));
+}
+
+.nfa__confirm-modal .wt__confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nfa__confirm-modal .wt__confirm-btn {
+  flex: unset;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .nfa__confirm-modal .wt__confirm-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nfa__confirm-modal .wt__confirm-btn {
+    width: 100%;
+  }
+}
+
+.nfa__confirm-error {
+  border: 1px solid rgba(231, 76, 60, 0.45);
+  border-radius: 10px;
+  background: rgba(231, 76, 60, 0.12);
+  padding: 9px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 188, 178, 0.95);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 140px;
+  overflow-y: auto;
 }
 
 .nfa__confirm-warning {

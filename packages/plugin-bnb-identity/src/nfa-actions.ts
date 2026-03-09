@@ -59,6 +59,14 @@ function loadConfig(runtime: IAgentRuntime): ResolvedBnbIdentityConfig {
       String(runtime.getSetting("MILADY_GATEWAY_PORT") ?? "18789"),
       10,
     ),
+    nfaContractAddress:
+      String(runtime.getSetting("BAP578_CONTRACT_ADDRESS") ?? "") || undefined,
+    rpcUrl:
+      String(
+        runtime.getSetting("BSC_RPC_URL") ??
+          runtime.getSetting("BNB_RPC_URL") ??
+          "",
+      ) || undefined,
     ...(warning ? { networkWarning: warning } : {}),
   };
 }

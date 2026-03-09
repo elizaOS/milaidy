@@ -301,6 +301,134 @@ export class AgentManager {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("node:module").Module._initPaths();
 
+      // 0. Pre-load wallet env vars from milady config BEFORE server.js loads.
+      // server.js reads process.env during startup, while loadMiladyConfig blocks
+      // EVM/SOL private keys from generic env sync. Setting keys here keeps wallet
+      // addresses available even when eliza.js fails to load.
+      try {
+        const configPath = path.join(
+          app.getPath("home"),
+          ".milady",
+          "milady.json",
+        );
+        if (fs.existsSync(configPath)) {
+          const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+          const envSection = raw?.env;
+          if (
+            envSection &&
+            typeof envSection === "object" &&
+            !Array.isArray(envSection)
+          ) {
+            const preloadedKeys = [
+              "EVM_PRIVATE_KEY",
+              "SOLANA_PRIVATE_KEY",
+              "MILADY_TRADE_PERMISSION_MODE",
+              "MILADY_BSC_EXECUTION_ENABLED",
+              "BAP578_CONTRACT_ADDRESS",
+              "ALCHEMY_API_KEY",
+              "INFURA_API_KEY",
+              "ANKR_API_KEY",
+              "HELIUS_API_KEY",
+              "BIRDEYE_API_KEY",
+              "BSC_RPC_URL",
+              "SOLANA_RPC_URL",
+              "ETHEREUM_RPC_URL",
+              "BASE_RPC_URL",
+            ] as const;
+            const varsSection =
+              envSection.vars &&
+              typeof envSection.vars === "object" &&
+              !Array.isArray(envSection.vars)
+                ? (envSection.vars as Record<string, unknown>)
+                : null;
+            const envSources: Array<Record<string, unknown>> = [
+              envSection as Record<string, unknown>,
+            ];
+            if (varsSection) envSources.push(varsSection);
+
+            for (const key of preloadedKeys) {
+              if (process.env[key]) continue;
+              for (const source of envSources) {
+                const value = source[key];
+                if (typeof value === "string" && value.trim()) {
+                  process.env[key] = value.trim();
+                  diagnosticLog(`[Agent] Pre-set env ${key}`);
+                  break;
+                }
+              }
+            }
+            diagnosticLog(
+              `[Agent] Pre-loaded wallet env vars from ${configPath}`,
+            );
+          }
+        }
+      } catch (cfgErr) {
+        diagnosticLog(
+          `[Agent] Could not pre-load wallet config: ${cfgErr instanceof Error ? cfgErr.message : cfgErr}`,
+        );
+      }
+
+      // 0b. Sync Milady subscription credentials to ~/.pi/agent/auth.json so that
+      //     @elizaos/plugin-pi-ai can discover openai-codex OAuth tokens.
+      //     Milady stores credentials in ~/.milady/auth/openai-codex.json;
+      //     pi-ai reads ~/.pi/agent/auth.json. We bridge the two.
+      try {
+        const miladyHome =
+          process.env.MILADY_HOME ||
+          path.join(app.getPath("home"), ".milady");
+        const codexCredPath = path.join(
+          miladyHome,
+          "auth",
+          "openai-codex.json",
+        );
+        if (fs.existsSync(codexCredPath)) {
+          const stored = JSON.parse(
+            fs.readFileSync(codexCredPath, "utf-8"),
+          ) as {
+            credentials?: { access?: string; refresh?: string; expires?: number };
+          };
+          const token = stored.credentials?.access;
+          if (token) {
+            const piAgentDir =
+              process.env.PI_CODING_AGENT_DIR ??
+              path.join(app.getPath("home"), ".pi", "agent");
+            const piAuthPath = path.join(piAgentDir, "auth.json");
+            let piAuth: Record<string, unknown> = {};
+            try {
+              if (fs.existsSync(piAuthPath)) {
+                piAuth = JSON.parse(fs.readFileSync(piAuthPath, "utf-8"));
+              }
+            } catch {
+              /* start fresh */
+            }
+            const existing = piAuth["openai-codex"] as
+              | { access?: string }
+              | undefined;
+            if (!existing || existing.access !== token) {
+              piAuth["openai-codex"] = {
+                type: "oauth",
+                access: token,
+                refresh: stored.credentials?.refresh ?? "",
+                expires: stored.credentials?.expires ?? Date.now() + 86400000,
+              };
+              fs.mkdirSync(piAgentDir, { recursive: true });
+              fs.writeFileSync(piAuthPath, JSON.stringify(piAuth, null, 2));
+              diagnosticLog(
+                "[Agent] Synced openai-codex credentials to pi-ai auth.json",
+              );
+            }
+            // Also set OPENAI_API_KEY early so stealth module activates
+            if (!process.env.OPENAI_API_KEY) {
+              process.env.OPENAI_API_KEY = token;
+              diagnosticLog("[Agent] Pre-set OPENAI_API_KEY from subscription");
+            }
+          }
+        }
+      } catch (piAuthErr) {
+        diagnosticLog(
+          `[Agent] Could not sync pi-ai credentials: ${piAuthErr instanceof Error ? piAuthErr.message : piAuthErr}`,
+        );
+      }
       // 1. Start API server immediately so the UI can bootstrap while runtime starts.
       //    (or MILADY_PORT if set)
       const apiPort = Number(process.env.MILADY_PORT) || 2138;

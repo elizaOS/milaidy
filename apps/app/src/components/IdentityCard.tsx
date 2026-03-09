@@ -4,10 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  client,
-  type NfaStatusResponse,
-} from "../api-client";
+import { client, type NfaStatusResponse } from "../api-client";
 import { NfaConfirmDialog, type NfaOperation } from "./NfaConfirmDialog";
 
 // ---------------------------------------------------------------------------
@@ -30,10 +27,10 @@ function TxResultBanner({
 
   return (
     <div className={`anime-wallet-identity-tx ${ok ? "is-ok" : "is-error"}`}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {message}
-      </span>
-      <button type="button" onClick={onDismiss}>×</button>
+      <span className="anime-wallet-identity-tx-message">{message}</span>
+      <button type="button" onClick={onDismiss}>
+        ×
+      </button>
     </div>
   );
 }
@@ -81,7 +78,8 @@ function OverflowMenu({
             right: 0,
             bottom: "calc(100% + 4px)",
             minWidth: 120,
-            background: "linear-gradient(165deg, rgba(17, 23, 34, 0.98), rgba(7, 10, 18, 0.98))",
+            background:
+              "linear-gradient(165deg, rgba(17, 23, 34, 0.98), rgba(7, 10, 18, 0.98))",
             border: "1px solid rgba(255, 255, 255, 0.18)",
             borderRadius: 8,
             boxShadow: "0 12px 28px rgba(0,0,0,0.5)",
@@ -108,7 +106,8 @@ function OverflowMenu({
                 cursor: "pointer",
               }}
               onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.background = "rgba(255,255,255,0.06)";
+                (e.target as HTMLElement).style.background =
+                  "rgba(255,255,255,0.06)";
               }}
               onMouseLeave={(e) => {
                 (e.target as HTMLElement).style.background = "none";
@@ -133,9 +132,7 @@ function OverflowMenu({
 
 function explorerUrl(network: string, path: string): string {
   const base =
-    network === "bsc"
-      ? "https://bscscan.com"
-      : "https://testnet.bscscan.com";
+    network === "bsc" ? "https://bscscan.com" : "https://testnet.bscscan.com";
   return `${base}/${path}`;
 }
 
@@ -158,6 +155,8 @@ export function IdentityCard() {
   const [loading, setLoading] = useState(true);
   const [useWalletKey, setUseWalletKey] = useState(true);
   const [pendingOp, setPendingOp] = useState<PendingOp | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [txResult, setTxResult] = useState<{
     ok: boolean;
     message: string;
@@ -183,7 +182,7 @@ export function IdentityCard() {
   // ── Execute confirmed operation ─────────────────────────────────────
 
   const executeOp = useCallback(
-    async (op: PendingOp) => {
+    async (op: PendingOp): Promise<{ ok: boolean; message: string }> => {
       try {
         let msg = "";
         switch (op.op) {
@@ -224,12 +223,11 @@ export function IdentityCard() {
             break;
           }
         }
-        setTxResult({ ok: true, message: msg });
-        fetchStatus();
+        await fetchStatus();
+        return { ok: true, message: msg };
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Unknown error";
-        setTxResult({ ok: false, message });
+        const message = err instanceof Error ? err.message : "Unknown error";
+        return { ok: false, message };
       }
     },
     [useWalletKey, fetchStatus],
@@ -238,14 +236,30 @@ export function IdentityCard() {
   // ── Confirm handler ─────────────────────────────────────────────────
 
   const handleConfirmResult = useCallback(
-    (confirmed: boolean) => {
+    async (confirmed: boolean) => {
       const op = pendingOp;
-      setPendingOp(null);
-      if (confirmed && op) {
-        executeOp(op);
+      if (!confirmed) {
+        setPendingOp(null);
+        setConfirmError(null);
+        return;
       }
+      if (!op || confirmBusy) {
+        return;
+      }
+
+      setConfirmBusy(true);
+      setConfirmError(null);
+      const result = await executeOp(op);
+      setTxResult(result);
+      if (result.ok) {
+        setPendingOp(null);
+      } else {
+        // Keep dialog open so errors are visible without switching views.
+        setConfirmError(result.message);
+      }
+      setConfirmBusy(false);
     },
-    [pendingOp, executeOp],
+    [pendingOp, confirmBusy, executeOp],
   );
 
   // ── Prompt helpers (Transfer / Upgrade) ─────────────────────────────
@@ -259,6 +273,7 @@ export function IdentityCard() {
       setTxResult({ ok: false, message: "Invalid address format." });
       return;
     }
+    setConfirmError(null);
     setPendingOp({ op: "transfer", details: [`To: ${addr}`] });
   }, []);
 
@@ -269,6 +284,7 @@ export function IdentityCard() {
       setTxResult({ ok: false, message: "Invalid address format." });
       return;
     }
+    setConfirmError(null);
     setPendingOp({ op: "upgrade-logic", details: [`New logic: ${addr}`] });
   }, []);
 
@@ -277,7 +293,9 @@ export function IdentityCard() {
   if (loading) {
     return (
       <div className="anime-wallet-identity">
-        <div className="anime-wallet-identity-title">On-Chain Agent Identity</div>
+        <div className="anime-wallet-identity-title">
+          On-Chain Agent Identity
+        </div>
         <div className="anime-wallet-identity-desc">Loading...</div>
       </div>
     );
@@ -297,6 +315,8 @@ export function IdentityCard() {
         <NfaConfirmDialog
           operation={pendingOp.op}
           details={pendingOp.details}
+          busy={confirmBusy}
+          errorMessage={confirmError}
           onResult={handleConfirmResult}
         />
       )}
@@ -313,10 +333,12 @@ export function IdentityCard() {
       {!isRegistered ? (
         /* ── Unregistered state ────────────────────────────────── */
         <>
-          <div className="anime-wallet-identity-title">On-Chain Agent Identity</div>
+          <div className="anime-wallet-identity-title">
+            On-Chain Agent Identity
+          </div>
           <div className="anime-wallet-identity-desc">
-            No NFA minted yet. Mint a Non-Fungible Agent to anchor your
-            identity and learnings on-chain.
+            No NFA minted yet. Mint a Non-Fungible Agent to anchor your identity
+            and learnings on-chain.
           </div>
           <label className="anime-wallet-identity-toggle">
             <input
@@ -330,7 +352,10 @@ export function IdentityCard() {
             <button
               type="button"
               className="anime-wallet-identity-btn is-primary"
-              onClick={() => setPendingOp({ op: "mint" })}
+              onClick={() => {
+                setConfirmError(null);
+                setPendingOp({ op: "mint" });
+              }}
             >
               Mint NFA
             </button>
@@ -340,12 +365,20 @@ export function IdentityCard() {
         /* ── Registered state ──────────────────────────────────── */
         <>
           {/* Header row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <div className="anime-wallet-identity-title">
               NFA #{nfa.tokenId}
             </div>
             <div className="anime-wallet-identity-badges">
-              <span className={`anime-wallet-identity-badge ${paused ? "is-paused" : "is-active"}`}>
+              <span
+                className={`anime-wallet-identity-badge ${paused ? "is-paused" : "is-active"}`}
+              >
                 {paused ? "Paused" : "Active"}
               </span>
               {nfa.freeMint && (
@@ -374,15 +407,21 @@ export function IdentityCard() {
           {identity && (
             <div className="anime-wallet-identity-row">
               <span className="anime-wallet-identity-row-label">ERC-8004</span>
-              <span className="anime-wallet-identity-row-value">{identity.agentId}</span>
+              <span className="anime-wallet-identity-row-value">
+                {identity.agentId}
+              </span>
             </div>
           )}
 
           {/* Learnings summary */}
           <div className="anime-wallet-identity-learning">
-            {nfa.learningCount} learning{nfa.learningCount !== 1 ? "s" : ""} anchored
+            {nfa.learningCount} learning{nfa.learningCount !== 1 ? "s" : ""}{" "}
+            anchored
             {nfa.lastAnchoredAt && (
-              <span> · last: {new Date(nfa.lastAnchoredAt).toLocaleDateString()}</span>
+              <span>
+                {" "}
+                · last: {new Date(nfa.lastAnchoredAt).toLocaleDateString()}
+              </span>
             )}
           </div>
 
@@ -398,7 +437,10 @@ export function IdentityCard() {
             <button
               type="button"
               className="anime-wallet-identity-btn is-primary"
-              onClick={() => setPendingOp({ op: "anchor" })}
+              onClick={() => {
+                setConfirmError(null);
+                setPendingOp({ op: "anchor" });
+              }}
             >
               Anchor Learnings
             </button>
@@ -406,8 +448,10 @@ export function IdentityCard() {
               items={[
                 {
                   label: paused ? "Unpause" : "Pause",
-                  onClick: () =>
-                    setPendingOp({ op: paused ? "unpause" : "pause" }),
+                  onClick: () => {
+                    setConfirmError(null);
+                    setPendingOp({ op: paused ? "unpause" : "pause" });
+                  },
                 },
                 {
                   label: "Transfer",
