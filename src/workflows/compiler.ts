@@ -191,6 +191,13 @@ function parseConditionExpression(
     };
   }
 
+  if (hasTopLevelLogicalOperator(trimmed)) {
+    return {
+      leftOperand: "",
+      operator: "truthy",
+    };
+  }
+
   return {
     leftOperand: trimmed,
     operator: "truthy",
@@ -221,6 +228,30 @@ function findTopLevelOperatorIndex(
   }
 
   return -1;
+}
+
+function hasTopLevelLogicalOperator(expression: string): boolean {
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i < expression.length - 1; i += 1) {
+    const ch = expression[i];
+    if (quote) {
+      if (ch === quote && expression[i - 1] !== "\\") {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    const pair = expression.slice(i, i + 2);
+    if (pair === "&&" || pair === "||") {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function resolveConditionOperand(
