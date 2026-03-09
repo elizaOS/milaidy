@@ -13,7 +13,7 @@ const requiredPaths = [
 ];
 const forbiddenPrefixes = ["dist/Milady.app/"];
 const requiredWorkflowSnippets = [
-  'BUN_VERSION: "1.3.5"',
+  'BUN_VERSION: "1.3.9"',
   "name: Validate Release Inputs",
   "bun-version: ${{ env.BUN_VERSION }}",
   "name: Release readiness checks",
