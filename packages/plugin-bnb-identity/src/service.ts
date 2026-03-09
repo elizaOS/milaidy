@@ -13,18 +13,18 @@
 
 import type { IAgentRuntime } from "@elizaos/core";
 import type {
+  AddressResult,
   BnbIdentityConfig,
-  RegisterResult,
-  SetUriResult,
   GetAgentResult,
   GetAgentWalletResult,
-  AddressResult,
   NfaInfo,
   NfaMintResult,
-  NfaUpdateLearningResult,
-  NfaTransferResult,
-  NfaUpgradeResult,
   NfaPauseResult,
+  NfaTransferResult,
+  NfaUpdateLearningResult,
+  NfaUpgradeResult,
+  RegisterResult,
+  SetUriResult,
 } from "./types.js";
 
 export type McpToolResponse = {
@@ -39,6 +39,15 @@ const MCP_TOOL_GENERIC_ERROR_MESSAGE = "Unknown MCP tool failure.";
 export const DEFAULT_BNB_MAINNET_RPC_URL = "https://bsc-rpc.publicnode.com";
 export const DEFAULT_BNB_TESTNET_RPC_URL =
   "https://data-seed-prebsc-1-s1.binance.org:8545/";
+
+type NfaMintOptions = {
+  persona?: string;
+  experience?: string;
+  voiceHash?: string;
+  animationURI?: string;
+  vaultURI?: string;
+  vaultHash?: string;
+};
 
 export function resolveBnbRpcUrl(
   config: Pick<BnbIdentityConfig, "network" | "rpcUrl">,
@@ -252,12 +261,17 @@ export class BnbIdentityService {
   // ── BAP-578 NFA write tools ─────────────────────────────────────────────
 
   /** Mint a new NFA NFT for this agent. */
-  async mintNfa(agentURI: string): Promise<NfaMintResult> {
+  async mintNfa(
+    agentURI: string,
+    options: NfaMintOptions = {},
+  ): Promise<NfaMintResult> {
     this.assertPrivateKey();
     return this.callMcpTool<NfaMintResult>("mint_bap578_nfa", {
       privateKey: this.config.privateKey,
       agentURI,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
+      ...options,
     });
   }
 
@@ -272,20 +286,19 @@ export class BnbIdentityService {
       tokenId,
       newRoot,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
   /** Transfer NFA ownership to a new address. */
-  async transferNfa(
-    tokenId: string,
-    to: string,
-  ): Promise<NfaTransferResult> {
+  async transferNfa(tokenId: string, to: string): Promise<NfaTransferResult> {
     this.assertPrivateKey();
     return this.callMcpTool<NfaTransferResult>("transfer_bap578_nfa", {
       privateKey: this.config.privateKey,
       tokenId,
       to,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
@@ -300,6 +313,7 @@ export class BnbIdentityService {
       tokenId,
       newLogic,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
@@ -310,6 +324,7 @@ export class BnbIdentityService {
       privateKey: this.config.privateKey,
       tokenId,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
@@ -320,6 +335,7 @@ export class BnbIdentityService {
       privateKey: this.config.privateKey,
       tokenId,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
@@ -330,6 +346,7 @@ export class BnbIdentityService {
     return this.callMcpTool<NfaInfo>("get_bap578_nfa", {
       tokenId,
       network: this.config.network,
+      ...this.getNfaToolConfig(),
     });
   }
 
@@ -418,5 +435,16 @@ export class BnbIdentityService {
     }
     const normalized = value.trim();
     return /^0x[0-9a-fA-F]{40}$/.test(normalized) ? normalized : null;
+  }
+
+  private getNfaToolConfig(): Record<string, string> {
+    const config: Record<string, string> = {};
+    if (this.config.nfaContractAddress) {
+      config.contractAddress = this.config.nfaContractAddress;
+    }
+    if (this.config.rpcUrl) {
+      config.rpcUrl = resolveBnbRpcUrl(this.config);
+    }
+    return config;
   }
 }

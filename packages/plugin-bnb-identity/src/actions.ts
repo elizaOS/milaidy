@@ -14,19 +14,21 @@
 import type {
   Action,
   ActionExample,
+  ActionResult,
   HandlerCallback,
+  HandlerOptions,
   IAgentRuntime,
+  JsonValue,
   Memory,
   State,
 } from "@elizaos/core";
-
-import { BnbIdentityService } from "./service.js";
 import {
   buildAgentMetadata,
   metadataToDataUri,
   metadataToHostedUri,
 } from "./metadata.js";
-import { readIdentity, writeIdentity, patchIdentity } from "./store.js";
+import { BnbIdentityService } from "./service.js";
+import { patchIdentity, readIdentity, writeIdentity } from "./store.js";
 import type { BnbIdentityConfig } from "./types.js";
 
 type ResolvedBnbIdentityConfig = BnbIdentityConfig & {
@@ -37,27 +39,33 @@ type ResolvedBnbIdentityConfig = BnbIdentityConfig & {
 
 function loadConfig(runtime: IAgentRuntime): ResolvedBnbIdentityConfig {
   const { network, warning } = normalizeBnbNetwork(
-    runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet"
+    String(runtime.getSetting("BNB_NETWORK") ?? "bsc-testnet"),
   );
 
   return {
-    privateKey: runtime.getSetting("BNB_PRIVATE_KEY") ?? undefined,
+    privateKey:
+      String(runtime.getSetting("BNB_PRIVATE_KEY") ?? "") || undefined,
     network,
-    agentUriBase: runtime.getSetting("BNB_AGENT_URI_BASE") ?? undefined,
+    agentUriBase:
+      String(runtime.getSetting("BNB_AGENT_URI_BASE") ?? "") || undefined,
     gatewayPort: parseInt(
-      runtime.getSetting("MILADY_GATEWAY_PORT") ?? "18789",
-      10
+      String(runtime.getSetting("MILADY_GATEWAY_PORT") ?? "18789"),
+      10,
     ),
     ...(warning ? { networkWarning: warning } : {}),
   };
 }
 
 function resolveScanBase(network: string): string {
-  return network === "bsc" ? "https://www.8004scan.io" : "https://testnet.8004scan.io";
+  return network === "bsc"
+    ? "https://www.8004scan.io"
+    : "https://testnet.8004scan.io";
 }
 
 function networkLabelForDisplay(network: string): string {
-  return network === "bsc" ? "BSC Mainnet 🔴 REAL MONEY" : `${network} (testnet)`;
+  return network === "bsc"
+    ? "BSC Mainnet 🔴 REAL MONEY"
+    : `${network} (testnet)`;
 }
 
 function userConfirmed(message: Memory): boolean {
@@ -80,7 +88,10 @@ export const registerAction: Action = {
   description:
     "Registers Milady as an ERC-8004 agent on BNB Chain. Mints an on-chain identity NFT with a metadata URI describing her capabilities and MCP endpoint. Requires BNB_PRIVATE_KEY.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     // Valid if not already registered, or user explicitly wants to re-register.
     // We allow re-registration so the action is always callable — the handler
     // will warn if an identity already exists.
@@ -91,14 +102,14 @@ export const registerAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     let config: ResolvedBnbIdentityConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Network error: ${(err as Error).message}`,
       });
       return;
@@ -107,7 +118,7 @@ export const registerAction: Action = {
     const svc = new BnbIdentityService(runtime, config);
 
     if (config.networkWarning) {
-      await callback({
+      await callback?.({
         text: `⚠️ Network notice: ${config.networkWarning}`,
       });
     }
@@ -115,7 +126,7 @@ export const registerAction: Action = {
     // Check for existing identity
     const existing = await readIdentity();
     if (existing) {
-      await callback({
+      await callback?.({
         text:
           `⚠️ Milady already has an on-chain identity on ${existing.network}.\n` +
           `Agent ID: \`${existing.agentId}\`\n` +
@@ -127,7 +138,7 @@ export const registerAction: Action = {
     }
 
     if (!config.privateKey) {
-      await callback({
+      await callback?.({
         text:
           "🔑 BNB_PRIVATE_KEY is not set. Add it to `~/.milady/.env`:\n\n" +
           "```\nBNB_PRIVATE_KEY=0x...\n```\n\n" +
@@ -145,7 +156,7 @@ export const registerAction: Action = {
       ? metadataToHostedUri(metadata, config.agentUriBase)
       : metadataToDataUri(metadata);
 
-    await callback({
+    await callback?.({
       text:
         `Ready to register **${agentName}** on **${networkLabelForDisplay(config.network)}**.\n\n` +
         `**agentURI:** \`${agentURI.slice(0, 80)}${agentURI.length > 80 ? "…" : ""}\`\n\n` +
@@ -166,13 +177,13 @@ export const registerAction: Action = {
 
     // Second call after user confirmed: check message text
     if (!userConfirmed(message)) {
-      await callback({ text: "Registration cancelled." });
+      await callback?.({ text: "Registration cancelled." });
       if (state) delete state[pendingKey];
       return;
     }
 
     // Execute registration
-    await callback({ text: "⏳ Sending registration transaction…" });
+    await callback?.({ text: "⏳ Sending registration transaction…" });
 
     try {
       const result = await svc.registerAgent(agentURI);
@@ -195,7 +206,7 @@ export const registerAction: Action = {
       };
       await writeIdentity(record);
 
-      await callback({
+      await callback?.({
         text:
           `✅ **${agentName}** is now on-chain!\n\n` +
           `**Agent ID:** \`${result.agentId}\`\n` +
@@ -205,7 +216,7 @@ export const registerAction: Action = {
           `Other agents can now discover and interact with her via ERC-8004. she's real now fren.`,
       });
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Registration failed: ${(err as Error).message}`,
       });
     }
@@ -227,7 +238,7 @@ export const registerAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: BNB_IDENTITY_UPDATE ────────────────────────────────────────────
@@ -244,7 +255,10 @@ export const updateIdentityAction: Action = {
   description:
     "Updates Milady's ERC-8004 agentURI on-chain to reflect her current capabilities, plugins, and MCP endpoint. Use after installing new plugins or changing gateway config.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     const existing = await readIdentity();
     return existing !== null;
   },
@@ -253,14 +267,14 @@ export const updateIdentityAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     let config: ResolvedBnbIdentityConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Network error: ${(err as Error).message}`,
       });
       return;
@@ -269,21 +283,21 @@ export const updateIdentityAction: Action = {
     const svc = new BnbIdentityService(runtime, config);
 
     if (config.networkWarning) {
-      await callback({
+      await callback?.({
         text: `⚠️ Network notice: ${config.networkWarning}`,
       });
     }
 
     const existing = await readIdentity();
     if (!existing) {
-      await callback({
+      await callback?.({
         text: "No on-chain identity found. Register first with: **register milady on bnb chain**",
       });
       return;
     }
 
     if (!config.privateKey) {
-      await callback({
+      await callback?.({
         text: "BNB_PRIVATE_KEY is required to update the agentURI. Set it in `~/.milady/.env`.",
       });
       return;
@@ -300,7 +314,7 @@ export const updateIdentityAction: Action = {
       ? metadataToHostedUri(metadata, config.agentUriBase)
       : metadataToDataUri(metadata);
 
-    await callback({
+    await callback?.({
       text:
         `Ready to update Agent ID \`${existing.agentId}\` on **${existing.network}**.\n\n` +
         `**New capabilities:** ${metadata.capabilities.join(", ")}\n` +
@@ -315,12 +329,12 @@ export const updateIdentityAction: Action = {
     }
 
     if (!userConfirmed(message)) {
-      await callback({ text: "Update cancelled." });
+      await callback?.({ text: "Update cancelled." });
       if (state) delete state[pendingKey];
       return;
     }
 
-    await callback({ text: "⏳ Sending update transaction…" });
+    await callback?.({ text: "⏳ Sending update transaction…" });
 
     try {
       const result = await svc.updateAgentUri(existing.agentId, newURI);
@@ -332,7 +346,8 @@ export const updateIdentityAction: Action = {
       const onchainURI = verification ?? newURI;
       await patchIdentity({ agentURI: onchainURI });
 
-      let verificationText = "Her on-chain profile now reflects the latest capabilities.";
+      let verificationText =
+        "Her on-chain profile now reflects the latest capabilities.";
       if (verification === null) {
         verificationText =
           "⚠️ Could not verify the on-chain agentURI immediately after update. " +
@@ -344,7 +359,7 @@ export const updateIdentityAction: Action = {
           `Observed: \`${verification}\``;
       }
 
-      await callback({
+      await callback?.({
         text:
           `✅ agentURI updated!\n\n` +
           `**Agent ID:** \`${result.agentId}\`\n` +
@@ -352,7 +367,7 @@ export const updateIdentityAction: Action = {
           verificationText,
       });
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Update failed: ${(err as Error).message}`,
       });
     }
@@ -374,7 +389,7 @@ export const updateIdentityAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Action: BNB_IDENTITY_RESOLVE ───────────────────────────────────────────
@@ -393,7 +408,10 @@ export const resolveIdentityAction: Action = {
   description:
     "Resolves an ERC-8004 agent ID to its owner, metadata URI, and payment wallet. Works read-only — no private key needed. If no ID given, shows Milady's own identity.",
 
-  validate: async (_runtime: IAgentRuntime, _message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    _message: Memory,
+  ): Promise<boolean> => {
     return true;
   },
 
@@ -401,14 +419,14 @@ export const resolveIdentityAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state: State | undefined,
-    _options: Record<string, unknown>,
-    callback: HandlerCallback
-  ): Promise<void> => {
+    _options?: HandlerOptions | Record<string, JsonValue | undefined>,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult | undefined> => {
     let config: ResolvedBnbIdentityConfig;
     try {
       config = loadConfig(runtime);
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Network error: ${(err as Error).message}`,
       });
       return;
@@ -428,7 +446,7 @@ export const resolveIdentityAction: Action = {
       // Default to Milady's own identity
       const own = await readIdentity();
       if (!own) {
-        await callback({
+        await callback?.({
           text:
             "No local identity found. Register with: **register milady on bnb chain**\n\n" +
             "To look up another agent, provide their ID: e.g. **look up agent 42**",
@@ -438,7 +456,9 @@ export const resolveIdentityAction: Action = {
       agentId = own.agentId;
     }
 
-    await callback({ text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…` });
+    await callback?.({
+      text: `🔍 Resolving agent \`${agentId}\` on ${config.network}…`,
+    });
 
     try {
       const [agentInfo, walletInfo] = await Promise.all([
@@ -457,11 +477,13 @@ export const resolveIdentityAction: Action = {
         lines.push(`**Payment Wallet:** \`${walletInfo.agentWallet}\``);
       }
 
-      lines.push(`**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`);
+      lines.push(
+        `**Verify:** ${resolveScanBase(agentInfo.network)}/agent/${agentInfo.agentId}`,
+      );
 
-      await callback({ text: lines.join("\n") });
+      await callback?.({ text: lines.join("\n") });
     } catch (err) {
-      await callback({
+      await callback?.({
         text: `❌ Could not resolve agent \`${agentId}\`: ${(err as Error).message}`,
       });
     }
@@ -494,7 +516,7 @@ export const resolveIdentityAction: Action = {
         },
       },
     ],
-  ] as ActionExample[][],
+  ] as unknown as ActionExample[][],
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -506,15 +528,20 @@ const SUPPORTED_NETWORKS = new Set(["bsc", "bsc-testnet"]);
  * Normalizes requested BNB network values and rejects unsupported values.
  * Also accepts common aliases (mainnet/testnet) to reduce operator mistakes.
  */
-export function normalizeBnbNetwork(
-  value: string
-): { network: string; warning?: string } {
+export function normalizeBnbNetwork(value: string): {
+  network: string;
+  warning?: string;
+} {
   const normalized = value.trim().toLowerCase();
   if (SUPPORTED_NETWORKS.has(normalized)) {
     return { network: normalized };
   }
 
-  if (normalized === "mainnet" || normalized === "bnb" || normalized === "bnb-mainnet") {
+  if (
+    normalized === "mainnet" ||
+    normalized === "bnb" ||
+    normalized === "bnb-mainnet"
+  ) {
     return {
       network: "bsc",
       warning: `Normalized BNB_NETWORK "${value}" to "bsc" for compatibility.`,
@@ -535,7 +562,7 @@ export function normalizeBnbNetwork(
   }
 
   throw new Error(
-    `Unsupported BNB_NETWORK "${value}". Supported values: bsc, bsc-testnet.`
+    `Unsupported BNB_NETWORK "${value}". Supported values: bsc, bsc-testnet.`,
   );
 }
 
@@ -544,8 +571,8 @@ export function normalizeBnbNetwork(
  */
 async function getInstalledPlugins(runtime: IAgentRuntime): Promise<string[]> {
   // ElizaOS runtime exposes plugins on the character config
-  const characterPlugins: string[] =
-    (runtime.character as any)?.plugins ?? [];
+  const character = runtime.character as { plugins?: string[] } | undefined;
+  const characterPlugins = character?.plugins ?? [];
   if (characterPlugins.length > 0) return characterPlugins;
 
   // Fallback: read plugins.json from the Milady root

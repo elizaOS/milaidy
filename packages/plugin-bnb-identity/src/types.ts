@@ -45,6 +45,8 @@ export interface BnbIdentityConfig {
   network: string;
   agentUriBase?: string;
   gatewayPort: number;
+  rpcUrl?: string;
+  nfaContractAddress?: string;
 }
 
 /** MCP tool call result shapes — matches bnbchain-mcp response format. */
@@ -101,6 +103,7 @@ export interface NfaRecord {
   lastAnchoredAt: string;
   logicContract?: string;
   paused: boolean;
+  freeMint?: boolean;
   mintTxHash: string;
 }
 
@@ -127,6 +130,7 @@ export interface NfaMintResult {
   txHash: string;
   owner: string;
   network: string;
+  freeMint?: boolean;
 }
 
 export interface NfaUpdateLearningResult {

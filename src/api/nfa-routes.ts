@@ -32,7 +32,7 @@ export interface NfaRouteContext
   /** Workspace directory for reading LEARNINGS.md. */
   workspaceDir: string;
   /** Read the JSON request body. */
-  readJsonBody: () => Promise<Record<string, unknown>>;
+  readJsonBody: () => Promise<Record<string, unknown> | null>;
 }
 
 export interface NfaStatusResponse {
@@ -126,7 +126,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         error(ctx.res, contractAddressError, 400);
         return true;
       }
-      const body = await ctx.readJsonBody();
+      const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const agentURI = await resolveAgentUri(body);
 
@@ -183,7 +183,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         error(ctx.res, contractAddressError, 400);
         return true;
       }
-      const body = await ctx.readJsonBody();
+      const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const nfa = await readNfa();
 
@@ -239,7 +239,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         error(ctx.res, contractAddressError, 400);
         return true;
       }
-      const body = await ctx.readJsonBody();
+      const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const to = body.to as string | undefined;
 
@@ -284,7 +284,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         error(ctx.res, contractAddressError, 400);
         return true;
       }
-      const body = await ctx.readJsonBody();
+      const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const newLogicAddress = body.newLogicAddress as string | undefined;
 
@@ -329,7 +329,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         error(ctx.res, contractAddressError, 400);
         return true;
       }
-      const body = await ctx.readJsonBody();
+      const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const nfa = await readNfa();
 
