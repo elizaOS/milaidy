@@ -1080,10 +1080,6 @@ if (uiOnly) {
     onchainEnabled = resolved.onchainEnabled;
     anchorRequested = resolved.anchorRequested;
 
-    if (!onchainEnabled && coerceBoolean(process.env.MILADY_DEV_ONCHAIN) === null) {
-      // Only print this when we asked and the user said no (or anvil install failed).
-      // When env var is explicitly 0, bootstrapOnchainDev already handles messaging.
-    }
     if (onchainEnabled) {
       killPort(ANVIL_PORT);
     }
