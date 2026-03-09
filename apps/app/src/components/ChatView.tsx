@@ -26,7 +26,7 @@ import {
 } from "../hooks/useVoiceChat";
 import { createTranslator } from "../i18n";
 import { AgentActivityBox } from "./AgentActivityBox";
-import { ChatAgentBar } from "./ChatAgentBar";
+
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
 
@@ -409,9 +409,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       onDragLeave={() => setImageDragOver(false)}
       onDrop={handleImageDrop}
     >
-      {/* ── Agent heartbeat bar ─────────────────────────────────────── */}
-      {!isGameModal && <ChatAgentBar />}
-
       {/* ── Messages ───────────────────────────────────────────────── */}
       <div
         ref={messagesRef}

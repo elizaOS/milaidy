@@ -85,6 +85,7 @@ export function Header() {
     lifecycleAction,
     handlePauseResume,
     handleRestart,
+    handleStart,
     copyToClipboard,
     setTab,
     dropStatus,
@@ -258,13 +259,24 @@ export function Header() {
               <StatusIndicator state={state} />
 
               {/* Pause/Resume Button */}
-              {state === "restarting" ||
-              state === "starting" ||
-              state === "not_started" ||
-              state === "stopped" ? (
+              {state === "restarting" || state === "starting" ? (
                 <span className="inline-flex items-center justify-center w-11 h-11 text-sm leading-none opacity-60">
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </span>
+              ) : state === "not_started" || state === "stopped" ? (
+                <IconButtonTooltip
+                  label={t("header.startAgent")}
+                >
+                  <button
+                    type="button"
+                    onClick={() => void handleStart()}
+                    aria-label={t("header.startAgent")}
+                    className={`${iconBtnBase} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                    disabled={lifecycleBusy}
+                  >
+                    <Play className="w-5 h-5" />
+                  </button>
+                </IconButtonTooltip>
               ) : (
                 <IconButtonTooltip
                   label={
