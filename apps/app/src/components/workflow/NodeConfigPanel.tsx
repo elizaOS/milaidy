@@ -117,9 +117,9 @@ function Field({
 }) {
   return (
     <div className="mb-2.5">
-      <label className="block text-[10px] text-muted mb-1 font-medium">
+      <div className="block text-[10px] text-muted mb-1 font-medium">
         {label}
-      </label>
+      </div>
       {children}
       {hint && <p className="text-[9px] text-muted/60 mt-0.5">{hint}</p>}
     </div>
@@ -208,7 +208,7 @@ function ActionConfig({ config, onChange }: ConfigProps) {
 
       <Field
         label="Parameters (JSON)"
-        hint='Key-value pairs, use {{nodeId.field}} for interpolation'
+        hint="Key-value pairs, use {{nodeId.field}} for interpolation"
       >
         <textarea
           value={
@@ -234,7 +234,10 @@ function ActionConfig({ config, onChange }: ConfigProps) {
 function LlmConfig({ config, onChange }: ConfigProps) {
   return (
     <>
-      <Field label="Prompt" hint="Use {{_last}} or {{nodeId.field}} for context">
+      <Field
+        label="Prompt"
+        hint="Use {{_last}} or {{nodeId.field}} for context"
+      >
         <textarea
           value={String(config.prompt ?? "")}
           onChange={(e) => onChange("prompt", e.target.value)}
@@ -276,15 +279,12 @@ function LlmConfig({ config, onChange }: ConfigProps) {
 
 function ConditionConfig({ config, onChange }: ConfigProps) {
   return (
-    <Field
-      label="Expression"
-      hint='Supports: ===, !==, >, <, contains "text"'
-    >
+    <Field label="Expression" hint='Supports: ===, !==, >, <, contains "text"'>
       <textarea
         value={String(config.expression ?? "")}
         onChange={(e) => onChange("expression", e.target.value)}
         rows={3}
-        placeholder='{{_last.status}} === 200'
+        placeholder="{{_last.status}} === 200"
         className="w-full px-2 py-1 text-xs rounded bg-surface border border-border outline-none focus:border-accent font-mono resize-y"
       />
     </Field>

@@ -20,20 +20,19 @@ import {
   Play,
   Plus,
   Save,
-  Settings2,
   Trash2,
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  client,
   type WorkflowDef,
   type WorkflowRunSummary,
   type WorkflowStepEvent,
-  client,
 } from "../api-client";
-import { WorkflowCanvas } from "./workflow/WorkflowCanvas";
 import { NodeConfigPanel } from "./workflow/NodeConfigPanel";
 import { NodePalette } from "./workflow/NodePalette";
+import { WorkflowCanvas } from "./workflow/WorkflowCanvas";
 
 type ViewMode = "list" | "editor" | "runs";
 
@@ -82,7 +81,7 @@ export function WorkflowBuilderView() {
       setLoading(true);
       const result = await client.listWorkflows();
       setWorkflows(result);
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to load workflows. Please try again.");
     } finally {
       setLoading(false);
@@ -97,7 +96,7 @@ export function WorkflowBuilderView() {
     try {
       const result = await client.listWorkflowRuns(workflowId);
       setRuns(result);
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to load workflow runs.");
     }
   }, []);
@@ -123,7 +122,7 @@ export function WorkflowBuilderView() {
       });
       setEditingWorkflow(workflow);
       setViewMode("editor");
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to create workflow.");
     }
   }, []);
@@ -148,13 +147,17 @@ export function WorkflowBuilderView() {
     async (id: string) => {
       const workflow = workflows.find((w) => w.id === id);
       const name = workflow?.name ?? "this workflow";
-      if (!window.confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
+      if (
+        !window.confirm(
+          `Are you sure you want to delete "${name}"? This cannot be undone.`,
+        )
+      ) {
         return;
       }
       try {
         await client.deleteWorkflow(id);
         await loadWorkflows();
-      } catch (error) {
+      } catch {
         setErrorMessage("Failed to delete workflow.");
       }
     },
@@ -168,7 +171,7 @@ export function WorkflowBuilderView() {
         setWorkflows((prev) =>
           prev.map((w) => (w.id === id ? { ...w, enabled } : w)),
         );
-      } catch (error) {
+      } catch {
         setErrorMessage("Failed to toggle workflow.");
       }
     },
@@ -186,7 +189,7 @@ export function WorkflowBuilderView() {
           enabled: false,
         });
         await loadWorkflows();
-      } catch (error) {
+      } catch {
         setErrorMessage("Failed to duplicate workflow.");
       }
     },
@@ -210,7 +213,7 @@ export function WorkflowBuilderView() {
       setWorkflows((prev) =>
         prev.map((w) => (w.id === updated.id ? updated : w)),
       );
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to save workflow.");
     } finally {
       setSaving(false);
@@ -224,7 +227,7 @@ export function WorkflowBuilderView() {
     try {
       const result = await client.validateWorkflow(editingWorkflow.id);
       setValidationResult(result);
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to validate workflow.");
     }
   }, [editingWorkflow, handleSave]);
@@ -235,7 +238,7 @@ export function WorkflowBuilderView() {
     try {
       const run = await client.startWorkflow(editingWorkflow.id, {});
       setRuns((prev) => [run, ...prev]);
-    } catch (error) {
+    } catch {
       setErrorMessage("Failed to start workflow.");
     }
   }, [editingWorkflow, handleSave]);
@@ -309,9 +312,7 @@ export function WorkflowBuilderView() {
           <input
             type="text"
             value={editingWorkflow.name}
-            onChange={(e) =>
-              handleUpdateWorkflow({ name: e.target.value })
-            }
+            onChange={(e) => handleUpdateWorkflow({ name: e.target.value })}
             className="text-sm font-medium bg-transparent border-none outline-none flex-1 min-w-0"
             placeholder="Workflow name"
           />
@@ -320,9 +321,7 @@ export function WorkflowBuilderView() {
             {validationResult && (
               <span
                 className={`text-xs flex items-center gap-1 ${
-                  validationResult.valid
-                    ? "text-green-400"
-                    : "text-red-400"
+                  validationResult.valid ? "text-green-400" : "text-red-400"
                 }`}
               >
                 {validationResult.valid ? (
@@ -379,7 +378,10 @@ export function WorkflowBuilderView() {
                 id,
                 type: type as WorkflowDef["nodes"][0]["type"],
                 label,
-                position: { x: 250, y: 100 + editingWorkflow.nodes.length * 80 },
+                position: {
+                  x: 250,
+                  y: 100 + editingWorkflow.nodes.length * 80,
+                },
                 config: getDefaultConfig(type),
               };
               handleUpdateWorkflow({
@@ -432,9 +434,7 @@ export function WorkflowBuilderView() {
               onUpdate={(config) => {
                 handleUpdateWorkflow({
                   nodes: editingWorkflow.nodes.map((n) =>
-                    n.id === selectedNode.id
-                      ? { ...n, ...config }
-                      : n,
+                    n.id === selectedNode.id ? { ...n, ...config } : n,
                   ),
                 });
               }}
@@ -471,9 +471,7 @@ export function WorkflowBuilderView() {
           >
             <ChevronLeft size={18} />
           </button>
-          <h2 className="text-sm font-medium">
-            Runs: {editingWorkflow.name}
-          </h2>
+          <h2 className="text-sm font-medium">Runs: {editingWorkflow.name}</h2>
           <button
             type="button"
             onClick={() => loadRuns(editingWorkflow.id)}

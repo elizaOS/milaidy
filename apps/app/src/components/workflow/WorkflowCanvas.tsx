@@ -128,24 +128,18 @@ export function WorkflowCanvas({
 
   // ── Connection handling ───────────────────────────────────────────────
 
-  const handleOutputClick = useCallback(
-    (e: React.MouseEvent, nodeId: string, handle?: string) => {
-      e.stopPropagation();
-      setConnecting({ sourceId: nodeId, sourceHandle: handle });
-    },
-    [],
-  );
+  const startConnection = useCallback((nodeId: string, handle?: string) => {
+    setConnecting({ sourceId: nodeId, sourceHandle: handle });
+  }, []);
 
-  const handleInputClick = useCallback(
-    (e: React.MouseEvent, nodeId: string) => {
-      e.stopPropagation();
+  const connectToInput = useCallback(
+    (nodeId: string) => {
       if (!connecting) return;
       if (connecting.sourceId === nodeId) {
         setConnecting(null);
         return;
       }
 
-      // Create new edge
       const newEdge: WorkflowEdge = {
         id: `e-${connecting.sourceId}-${nodeId}-${Date.now()}`,
         source: connecting.sourceId,
@@ -153,12 +147,11 @@ export function WorkflowCanvas({
         sourceHandle: connecting.sourceHandle,
       };
 
-      // Avoid duplicate edges
       const exists = edges.some(
-        (e) =>
-          e.source === newEdge.source &&
-          e.target === newEdge.target &&
-          e.sourceHandle === newEdge.sourceHandle,
+        (edge) =>
+          edge.source === newEdge.source &&
+          edge.target === newEdge.target &&
+          edge.sourceHandle === newEdge.sourceHandle,
       );
 
       if (!exists) {
@@ -169,24 +162,40 @@ export function WorkflowCanvas({
     [connecting, edges, onUpdateEdges],
   );
 
+  const handleOutputClick = useCallback(
+    (e: React.MouseEvent, nodeId: string, handle?: string) => {
+      e.stopPropagation();
+      startConnection(nodeId, handle);
+    },
+    [startConnection],
+  );
+
+  const handleInputClick = useCallback(
+    (e: React.MouseEvent, nodeId: string) => {
+      e.stopPropagation();
+      connectToInput(nodeId);
+    },
+    [connectToInput],
+  );
+
   const handleCanvasClick = useCallback(() => {
     onSelectNode(null);
     setConnecting(null);
   }, [onSelectNode]);
 
-  // ── Edge path calculation ─────────────────────────────────────────────
-
-  const getNodeCenter = useCallback(
-    (nodeId: string) => {
-      const node = nodes.find((n) => n.id === nodeId);
-      if (!node) return { x: 0, y: 0 };
-      return {
-        x: node.position.x + NODE_WIDTH / 2,
-        y: node.position.y + NODE_HEIGHT / 2,
-      };
+  const handleActivateKeyDown = useCallback(
+    (event: React.KeyboardEvent<SVGElement>, action: () => void) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      action();
     },
-    [nodes],
+    [],
   );
+
+  // ── Edge path calculation ─────────────────────────────────────────────
 
   const getOutputPos = useCallback(
     (nodeId: string, handle?: string) => {
@@ -223,23 +232,45 @@ export function WorkflowCanvas({
 
   // ── Edge removal ──────────────────────────────────────────────────────
 
-  const handleEdgeClick = useCallback(
-    (e: React.MouseEvent, edgeId: string) => {
-      e.stopPropagation();
+  const removeEdge = useCallback(
+    (edgeId: string) => {
       onUpdateEdges(edges.filter((edge) => edge.id !== edgeId));
     },
     [edges, onUpdateEdges],
   );
 
+  const handleEdgeClick = useCallback(
+    (e: React.MouseEvent, edgeId: string) => {
+      e.stopPropagation();
+      removeEdge(edgeId);
+    },
+    [removeEdge],
+  );
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: The canvas wrapper needs keyboard-accessible button semantics for clearing SVG selection state.
     <div
       className="w-full h-full overflow-auto bg-[#0d1117] relative"
+      role="button"
+      tabIndex={0}
+      aria-label="Workflow builder canvas"
       style={{
         backgroundImage:
           "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)",
         backgroundSize: "20px 20px",
+      }}
+      onClick={handleCanvasClick}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Enter" ||
+          event.key === " " ||
+          event.key === "Escape"
+        ) {
+          event.preventDefault();
+          handleCanvasClick();
+        }
       }}
     >
       <svg
@@ -250,8 +281,8 @@ export function WorkflowCanvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onClick={handleCanvasClick}
       >
+        <title>Workflow builder canvas</title>
         <defs>
           <marker
             id="arrowhead"
@@ -261,10 +292,7 @@ export function WorkflowCanvas({
             refY="3.5"
             orient="auto"
           >
-            <polygon
-              points="0 0, 10 3.5, 0 7"
-              fill="rgba(255,255,255,0.3)"
-            />
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.3)" />
           </marker>
         </defs>
 
@@ -276,14 +304,21 @@ export function WorkflowCanvas({
 
           return (
             <g key={edge.id}>
+              {/* biome-ignore lint/a11y/useSemanticElements: SVG edges need button semantics for keyboard deletion. */}
               <path
                 d={`M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`}
                 fill="none"
                 stroke="rgba(255,255,255,0.15)"
                 strokeWidth={2}
                 markerEnd="url(#arrowhead)"
+                role="button"
+                tabIndex={0}
+                aria-label={`Delete edge from ${edge.source} to ${edge.target}`}
                 className="cursor-pointer hover:stroke-red-400 transition-colors"
                 onClick={(e) => handleEdgeClick(e, edge.id)}
+                onKeyDown={(event) =>
+                  handleActivateKeyDown(event, () => removeEdge(edge.id))
+                }
               />
               {edge.sourceHandle && (
                 <text
@@ -309,6 +344,7 @@ export function WorkflowCanvas({
           return (
             <g key={node.id}>
               {/* Node body */}
+              {/* biome-ignore lint/a11y/useSemanticElements: SVG node bodies need button semantics for selection. */}
               <rect
                 x={node.position.x}
                 y={node.position.y}
@@ -318,8 +354,15 @@ export function WorkflowCanvas({
                 fill="#1a1f2e"
                 stroke={isSelected ? color : "rgba(255,255,255,0.1)"}
                 strokeWidth={isSelected ? 2 : 1}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select ${node.label} node`}
                 className="cursor-move"
                 onMouseDown={(e) => handleMouseDown(e, node.id)}
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) =>
+                  handleActivateKeyDown(event, () => onSelectNode(node.id))
+                }
               />
 
               {/* Color accent bar */}
@@ -356,6 +399,7 @@ export function WorkflowCanvas({
 
               {/* Input handle (top) — skip for trigger */}
               {node.type !== "trigger" && (
+                /* biome-ignore lint/a11y/useSemanticElements: SVG handles need button semantics for keyboard wiring. */
                 <circle
                   cx={node.position.x + NODE_WIDTH / 2}
                   cy={node.position.y}
@@ -363,8 +407,14 @@ export function WorkflowCanvas({
                   fill={connecting ? "#4ade80" : "#374151"}
                   stroke="rgba(255,255,255,0.2)"
                   strokeWidth={1}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Connect into ${node.label}`}
                   className="cursor-crosshair"
                   onClick={(e) => handleInputClick(e, node.id)}
+                  onKeyDown={(event) =>
+                    handleActivateKeyDown(event, () => connectToInput(node.id))
+                  }
                 />
               )}
 
@@ -372,6 +422,7 @@ export function WorkflowCanvas({
               {node.type !== "output" && node.type === "condition" ? (
                 <>
                   {/* True handle */}
+                  {/* biome-ignore lint/a11y/useSemanticElements: SVG handles need button semantics for keyboard wiring. */}
                   <circle
                     cx={node.position.x + NODE_WIDTH * 0.33}
                     cy={node.position.y + NODE_HEIGHT}
@@ -384,8 +435,16 @@ export function WorkflowCanvas({
                     }
                     stroke="#22c55e"
                     strokeWidth={1}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Connect true branch from ${node.label}`}
                     className="cursor-crosshair"
                     onClick={(e) => handleOutputClick(e, node.id, "true")}
+                    onKeyDown={(event) =>
+                      handleActivateKeyDown(event, () =>
+                        startConnection(node.id, "true"),
+                      )
+                    }
                   />
                   <text
                     x={node.position.x + NODE_WIDTH * 0.33}
@@ -399,6 +458,7 @@ export function WorkflowCanvas({
                   </text>
 
                   {/* False handle */}
+                  {/* biome-ignore lint/a11y/useSemanticElements: SVG handles need button semantics for keyboard wiring. */}
                   <circle
                     cx={node.position.x + NODE_WIDTH * 0.67}
                     cy={node.position.y + NODE_HEIGHT}
@@ -411,8 +471,16 @@ export function WorkflowCanvas({
                     }
                     stroke="#ef4444"
                     strokeWidth={1}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Connect false branch from ${node.label}`}
                     className="cursor-crosshair"
                     onClick={(e) => handleOutputClick(e, node.id, "false")}
+                    onKeyDown={(event) =>
+                      handleActivateKeyDown(event, () =>
+                        startConnection(node.id, "false"),
+                      )
+                    }
                   />
                   <text
                     x={node.position.x + NODE_WIDTH * 0.67}
@@ -426,19 +494,24 @@ export function WorkflowCanvas({
                   </text>
                 </>
               ) : node.type !== "output" ? (
+                /* biome-ignore lint/a11y/useSemanticElements: SVG handles need button semantics for keyboard wiring. */
                 <circle
                   cx={node.position.x + NODE_WIDTH / 2}
                   cy={node.position.y + NODE_HEIGHT}
                   r={HANDLE_RADIUS}
                   fill={
-                    connecting?.sourceId === node.id
-                      ? "#60a5fa"
-                      : "#374151"
+                    connecting?.sourceId === node.id ? "#60a5fa" : "#374151"
                   }
                   stroke="rgba(255,255,255,0.2)"
                   strokeWidth={1}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Connect output from ${node.label}`}
                   className="cursor-crosshair"
                   onClick={(e) => handleOutputClick(e, node.id)}
+                  onKeyDown={(event) =>
+                    handleActivateKeyDown(event, () => startConnection(node.id))
+                  }
                 />
               ) : null}
             </g>

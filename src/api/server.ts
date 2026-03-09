@@ -63,22 +63,6 @@ import {
   registerCustomActionLive,
 } from "../runtime/custom-actions";
 import {
-  startWorkflow,
-  getWorkflowRun,
-  listWorkflowRuns,
-  cancelWorkflowRun,
-  resolveHook,
-  listPendingHooks,
-} from "../workflows/runtime";
-import {
-  loadWorkflows,
-  getWorkflow,
-  createWorkflow as createWorkflowDef,
-  updateWorkflow as updateWorkflowDef,
-  deleteWorkflow as deleteWorkflowDef,
-} from "../workflows/storage";
-import { validateWorkflow } from "../workflows/validation";
-import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
 } from "../security/network-policy";
@@ -113,6 +97,22 @@ import {
   taskToTriggerSummary,
 } from "../triggers/runtime";
 import { parseClampedInteger } from "../utils/number-parsing";
+import {
+  cancelWorkflowRun,
+  getWorkflowRun,
+  listPendingHooks,
+  listWorkflowRuns,
+  resolveHook,
+  startWorkflow,
+} from "../workflows/runtime";
+import {
+  createWorkflow as createWorkflowDef,
+  deleteWorkflow as deleteWorkflowDef,
+  getWorkflow,
+  loadWorkflows,
+  updateWorkflow as updateWorkflowDef,
+} from "../workflows/storage";
+import { validateWorkflow } from "../workflows/validation";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
 import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
@@ -14774,18 +14774,14 @@ async function handleRequest(
   }
 
   const workflowIdMatch = pathname.match(/^\/api\/workflows\/([^/]+)$/);
-  const workflowRunsMatch = pathname.match(
-    /^\/api\/workflows\/([^/]+)\/runs$/,
-  );
+  const workflowRunsMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/runs$/);
   const workflowStartMatch = pathname.match(
     /^\/api\/workflows\/([^/]+)\/start$/,
   );
   const workflowValidateMatch = pathname.match(
     /^\/api\/workflows\/([^/]+)\/validate$/,
   );
-  const workflowRunMatch = pathname.match(
-    /^\/api\/workflow-runs\/([^/]+)$/,
-  );
+  const workflowRunMatch = pathname.match(/^\/api\/workflow-runs\/([^/]+)$/);
   const workflowRunCancelMatch = pathname.match(
     /^\/api\/workflow-runs\/([^/]+)\/cancel$/,
   );
@@ -14842,7 +14838,9 @@ async function handleRequest(
       error(res, "Workflow not found", 404);
       return;
     }
-    const result = validateWorkflow(workflow);
+    const result = validateWorkflow(workflow, {
+      workflows: loadWorkflows(),
+    });
     json(res, result);
     return;
   }
@@ -14877,11 +14875,7 @@ async function handleRequest(
       );
       json(res, { ok: true, run }, 201);
     } catch (err) {
-      error(
-        res,
-        err instanceof Error ? err.message : String(err),
-        400,
-      );
+      error(res, err instanceof Error ? err.message : String(err), 400);
     }
     return;
   }
@@ -14920,7 +14914,10 @@ async function handleRequest(
 
     // Sanitize: only allow plain JSON-serializable values in the payload
     // to prevent prototype pollution or injected objects.
-    const sanitized = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
+    const sanitized = JSON.parse(JSON.stringify(body)) as Record<
+      string,
+      unknown
+    >;
 
     if (!resolveHook(hookId, sanitized)) {
       error(res, "No pending hook with that ID", 404);

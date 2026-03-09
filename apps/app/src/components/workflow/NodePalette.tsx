@@ -120,10 +120,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               className="w-full text-left px-2 py-1.5 rounded hover:bg-surface/60 transition-colors group"
             >
               <div className="flex items-center gap-2">
-                <span
-                  className="shrink-0"
-                  style={{ color: entry.color }}
-                >
+                <span className="shrink-0" style={{ color: entry.color }}>
                   {entry.icon}
                 </span>
                 <span className="text-xs font-medium">{entry.label}</span>

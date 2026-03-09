@@ -12,6 +12,7 @@
  * @module workflows/validation
  */
 
+import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
   WorkflowDef,
   WorkflowEdge,
@@ -40,8 +41,20 @@ const REQUIRED_HANDLES: Partial<Record<WorkflowNodeType, string[]>> = {
   condition: ["true", "false"],
 };
 
-export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
+type ValidateWorkflowOptions = {
+  workflows?: WorkflowDef[];
+  now?: Date;
+};
+
+export function validateWorkflow(
+  def: WorkflowDef,
+  options: ValidateWorkflowOptions = {},
+): WorkflowValidationResult {
   const issues: WorkflowValidationIssue[] = [];
+  const now = options.now ?? new Date();
+  const workflowRegistry = options.workflows
+    ? buildWorkflowRegistry(def, options.workflows)
+    : null;
 
   if (!def.nodes || def.nodes.length === 0) {
     issues.push({ severity: "error", message: "Workflow has no nodes" });
@@ -117,7 +130,10 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
     const adjacency = buildAdjacency(def.edges);
     const queue = [triggers[0].id];
     while (queue.length > 0) {
-      const current = queue.pop()!;
+      const current = queue.pop();
+      if (!current) {
+        continue;
+      }
       if (reachable.has(current)) continue;
       reachable.add(current);
       const neighbors = adjacency.get(current) ?? [];
@@ -189,7 +205,54 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
           message: `Delay node "${node.label || node.id}" needs either "duration" or "date" in config`,
         });
       }
+
+      if (hasDuration) {
+        const durationMs = parseDuration(String(node.config.duration));
+        if (durationMs > MAX_IN_PROCESS_DELAY_MS) {
+          issues.push({
+            severity: "error",
+            nodeId: node.id,
+            message: `Delay node "${node.label || node.id}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+          });
+        }
+      }
+
+      if (hasDate) {
+        const targetDate = new Date(String(node.config.date));
+        if (!Number.isNaN(targetDate.getTime())) {
+          const delayMs = Math.max(0, targetDate.getTime() - now.getTime());
+          if (delayMs > MAX_IN_PROCESS_DELAY_MS) {
+            issues.push({
+              severity: "error",
+              nodeId: node.id,
+              message: `Delay node "${node.label || node.id}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+            });
+          }
+        }
+      }
     }
+
+    if (node.type === "subworkflow" && workflowRegistry) {
+      const workflowId =
+        typeof node.config.workflowId === "string"
+          ? node.config.workflowId
+          : "";
+      if (workflowId && !workflowRegistry.has(workflowId)) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Subworkflow node "${node.label || node.id}" references unknown workflow "${workflowId}"`,
+        });
+      }
+    }
+  }
+
+  const cycle = detectSubworkflowCycle(def, options.workflows);
+  if (cycle) {
+    issues.push({
+      severity: "error",
+      message: `Subworkflow cycle detected: ${cycle.join(" -> ")}`,
+    });
   }
 
   // --- Output nodes should be terminal ---
@@ -213,7 +276,8 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
       issues.push({
         severity: "warning",
         nodeId: node.id,
-        message: "Trigger node has no outgoing edges — workflow will do nothing",
+        message:
+          "Trigger node has no outgoing edges — workflow will do nothing",
       });
     }
   }
@@ -234,4 +298,68 @@ function buildAdjacency(edges: WorkflowEdge[]): Map<string, string[]> {
     adj.set(edge.source, list);
   }
   return adj;
+}
+
+function buildWorkflowRegistry(
+  def: WorkflowDef,
+  workflows?: WorkflowDef[],
+): Map<string, WorkflowDef> {
+  const registry = new Map<string, WorkflowDef>();
+  for (const workflow of workflows ?? []) {
+    registry.set(workflow.id, workflow);
+  }
+  registry.set(def.id, def);
+  return registry;
+}
+
+function detectSubworkflowCycle(
+  def: WorkflowDef,
+  workflows?: WorkflowDef[],
+): string[] | null {
+  if (!workflows || workflows.length === 0) {
+    return null;
+  }
+
+  const registry = buildWorkflowRegistry(def, workflows);
+  const visited = new Set<string>();
+  const stack: string[] = [];
+
+  const visit = (workflowId: string): string[] | null => {
+    const stackIndex = stack.indexOf(workflowId);
+    if (stackIndex >= 0) {
+      return [...stack.slice(stackIndex), workflowId];
+    }
+    if (visited.has(workflowId)) {
+      return null;
+    }
+
+    const workflow = registry.get(workflowId);
+    if (!workflow) {
+      return null;
+    }
+
+    stack.push(workflowId);
+    for (const node of workflow.nodes) {
+      if (node.type !== "subworkflow") {
+        continue;
+      }
+      const childWorkflowId =
+        typeof node.config.workflowId === "string"
+          ? node.config.workflowId
+          : "";
+      if (!childWorkflowId) {
+        continue;
+      }
+
+      const cycle = visit(childWorkflowId);
+      if (cycle) {
+        return cycle;
+      }
+    }
+    stack.pop();
+    visited.add(workflowId);
+    return null;
+  };
+
+  return visit(def.id);
 }

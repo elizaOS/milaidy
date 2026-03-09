@@ -14,7 +14,6 @@ import {
   Share2,
   Sparkles,
   Wallet,
-  Workflow,
 } from "lucide-react";
 
 /** Apps are only enabled in dev mode; production builds hide this feature. */

@@ -15,6 +15,7 @@
  */
 
 import type { IAgentRuntime } from "@elizaos/core";
+import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
   CompiledStep,
   CompiledWorkflow,
@@ -22,7 +23,6 @@ import type {
   WorkflowDef,
   WorkflowEdge,
   WorkflowNode,
-  WorkflowNodeType,
 } from "./types";
 import { validateWorkflow } from "./validation";
 
@@ -35,10 +35,7 @@ import { validateWorkflow } from "./validation";
  * context.  Supports `{{_last}}`, `{{_last.field}}`, `{{nodeId.field}}`,
  * and `{{trigger.field}}`.
  */
-export function interpolate(
-  template: string,
-  ctx: WorkflowContext,
-): string {
+export function interpolate(template: string, ctx: WorkflowContext): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_match, path: string) => {
     const trimmed = path.trim();
     const value = resolvePath(ctx, trimmed);
@@ -192,9 +189,12 @@ export function compileWorkflow(
     code: string,
     params: Record<string, unknown>,
   ) => Promise<unknown>,
+  availableWorkflows?: WorkflowDef[],
 ): CompiledWorkflow {
   // 1. Validate
-  const validation = validateWorkflow(def);
+  const validation = validateWorkflow(def, {
+    workflows: availableWorkflows,
+  });
   if (!validation.valid) {
     const errors = validation.issues
       .filter((i) => i.severity === "error")
@@ -273,7 +273,14 @@ function walkGraph(
 
     // Skip the trigger node itself (it's the entry point, not a step)
     if (node.type !== "trigger") {
-      const step = compileNode(node, nodeMap, adjacency, visited, runtime, codeRunner);
+      const step = compileNode(
+        node,
+        nodeMap,
+        adjacency,
+        visited,
+        runtime,
+        codeRunner,
+      );
       steps.push(step);
     }
 
@@ -326,12 +333,8 @@ function compileNode(
         nodeType,
         label,
         execute: async (ctx) => {
-          const actionName = interpolate(
-            String(config.actionName ?? ""),
-            ctx,
-          );
-          const rawParams =
-            (config.parameters as Record<string, string>) ?? {};
+          const actionName = interpolate(String(config.actionName ?? ""), ctx);
+          const rawParams = (config.parameters as Record<string, string>) ?? {};
           const resolvedParams: Record<string, string> = {};
           for (const [key, val] of Object.entries(rawParams)) {
             resolvedParams[key] = interpolate(String(val), ctx);
@@ -340,9 +343,7 @@ function compileNode(
           // Find the action in the runtime
           const actions = runtime.actions ?? [];
           const action = actions.find(
-            (a) =>
-              a.name === actionName ||
-              a.similes?.includes(actionName),
+            (a) => a.name === actionName || a.similes?.includes(actionName),
           );
           if (!action) {
             throw new Error(`Action "${actionName}" not found in runtime`);
@@ -391,9 +392,7 @@ function compileNode(
 
           // Find the edges for each branch and execute the matching one
           const outEdges = adjacency.get(nodeId) ?? [];
-          const matchingEdge = outEdges.find(
-            (e) => e.sourceHandle === branch,
-          );
+          const matchingEdge = outEdges.find((e) => e.sourceHandle === branch);
           if (!matchingEdge) {
             return { branch, executed: false };
           }
@@ -428,9 +427,7 @@ function compileNode(
         execute: async (ctx) => {
           const code = String(config.code ?? "");
           if (!codeRunner) {
-            throw new Error(
-              "Transform nodes require a sandboxed code runner",
-            );
+            throw new Error("Transform nodes require a sandboxed code runner");
           }
           // Pass the full context as params to the sandbox
           const params: Record<string, unknown> = {
@@ -459,9 +456,13 @@ function compileNode(
             ? Math.max(0, date.getTime() - Date.now())
             : duration;
 
-          if (delayMs > 0 && delayMs <= 60_000) {
-            // Only actually sleep for short delays (< 1 min) in non-durable mode
-            // Longer delays should use Workflow DevKit's sleep() in production
+          if (delayMs > MAX_IN_PROCESS_DELAY_MS) {
+            throw new Error(
+              `Delay node "${label || nodeId}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+            );
+          }
+
+          if (delayMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
 
@@ -502,7 +503,10 @@ function compileNode(
           const variableName = String(config.variableName ?? "item");
 
           // Resolve the items array
-          const rawItems = resolvePath(ctx, itemsExpr.replace(/^\{\{|\}\}$/g, ""));
+          const rawItems = resolvePath(
+            ctx,
+            itemsExpr.replace(/^\{\{|\}\}$/g, ""),
+          );
           const items = Array.isArray(rawItems) ? rawItems : [];
 
           // Find the "body" branch edge
@@ -588,44 +592,4 @@ function compileNode(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Duration parser
-// ---------------------------------------------------------------------------
-
-const DURATION_REGEX =
-  /^(\d+)\s*(ms|milliseconds?|s|seconds?|m|min|minutes?|h|hours?|d|days?|w|weeks?)$/i;
-
-const UNIT_MS: Record<string, number> = {
-  ms: 1,
-  millisecond: 1,
-  milliseconds: 1,
-  s: 1000,
-  second: 1000,
-  seconds: 1000,
-  m: 60_000,
-  min: 60_000,
-  minute: 60_000,
-  minutes: 60_000,
-  h: 3_600_000,
-  hour: 3_600_000,
-  hours: 3_600_000,
-  d: 86_400_000,
-  day: 86_400_000,
-  days: 86_400_000,
-  w: 604_800_000,
-  week: 604_800_000,
-  weeks: 604_800_000,
-};
-
-/**
- * Parse a human-readable duration string into milliseconds.
- * Examples: "5m", "30 seconds", "2 hours", "1 day", "500ms"
- */
-export function parseDuration(duration: string): number {
-  const match = duration.trim().match(DURATION_REGEX);
-  if (!match) return 0;
-  const value = Number.parseInt(match[1], 10);
-  const unit = match[2].toLowerCase();
-  const multiplier = UNIT_MS[unit] ?? 0;
-  return value * multiplier;
-}
+export { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";

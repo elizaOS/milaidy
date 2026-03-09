@@ -18,12 +18,11 @@
 import crypto from "node:crypto";
 import type { IAgentRuntime } from "@elizaos/core";
 import { compileWorkflow } from "./compiler";
-import { loadWorkflows, loadWorkflowRuns, saveWorkflowRuns } from "./storage";
+import { loadWorkflowRuns, loadWorkflows, saveWorkflowRuns } from "./storage";
 import type {
   CompiledStep,
   CompiledWorkflow,
   WorkflowContext,
-  WorkflowDef,
   WorkflowRun,
   WorkflowRunStatus,
   WorkflowStepEvent,
@@ -128,7 +127,9 @@ function createRun(
 function updateRunStatus(
   runId: string,
   status: WorkflowRunStatus,
-  extra?: Partial<Pick<WorkflowRun, "output" | "error" | "currentNodeId" | "finishedAt">>,
+  extra?: Partial<
+    Pick<WorkflowRun, "output" | "error" | "currentNodeId" | "finishedAt">
+  >,
 ): void {
   const run = activeRuns.get(runId);
   if (!run) return;
@@ -172,7 +173,7 @@ export async function startWorkflow(
   }
 
   // Compile
-  const compiled = compileWorkflow(def, _runtime, sandboxCodeRunner);
+  const compiled = compileWorkflow(def, _runtime, sandboxCodeRunner, workflows);
 
   // Create run
   const run = createRun(def.id, def.name, input);
@@ -225,7 +226,9 @@ async function executeWorkflow(
       // Check for hook pause
       if (isHookResult(result)) {
         const hookId = (result as Record<string, unknown>).hookId as string;
-        updateRunStatus(run.runId, "paused", { currentNodeId: (step as CompiledStep).nodeId });
+        updateRunStatus(run.runId, "paused", {
+          currentNodeId: (step as CompiledStep).nodeId,
+        });
         persistRun(run.runId);
 
         // Wait for hook resolution
@@ -320,7 +323,11 @@ function waitForHook(
   runId: string,
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
-    pendingHooks.set(getPendingHookKey(hookId, runId), { hookId, runId, resolve });
+    pendingHooks.set(getPendingHookKey(hookId, runId), {
+      hookId,
+      runId,
+      resolve,
+    });
   });
 }
 

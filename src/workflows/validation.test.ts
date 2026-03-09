@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { WorkflowDef, WorkflowNode, WorkflowEdge } from "./types";
+import type { WorkflowDef, WorkflowEdge, WorkflowNode } from "./types";
 import { validateWorkflow } from "./validation";
 
-function makeDef(
-  overrides: Partial<WorkflowDef> = {},
-): WorkflowDef {
+function makeDef(overrides: Partial<WorkflowDef> = {}): WorkflowDef {
   return {
     id: "test-wf",
     name: "Test",
@@ -82,9 +80,7 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(result.issues.some((i) => i.message.includes("trigger"))).toBe(
-      true,
-    );
+    expect(result.issues.some((i) => i.message.includes("trigger"))).toBe(true);
   });
 
   it("rejects multiple trigger nodes", () => {
@@ -179,8 +175,7 @@ describe("validateWorkflow", () => {
     expect(
       result.issues.some(
         (i) =>
-          i.message.includes("non-existent") &&
-          i.message.includes("source"),
+          i.message.includes("non-existent") && i.message.includes("source"),
       ),
     ).toBe(true);
   });
@@ -196,8 +191,7 @@ describe("validateWorkflow", () => {
     expect(
       result.issues.some(
         (i) =>
-          i.message.includes("non-existent") &&
-          i.message.includes("target"),
+          i.message.includes("non-existent") && i.message.includes("target"),
       ),
     ).toBe(true);
   });
@@ -214,9 +208,7 @@ describe("validateWorkflow", () => {
     expect(result.valid).toBe(false);
     expect(
       result.issues.some(
-        (i) =>
-          i.message.includes("trigger") &&
-          i.message.includes("incoming"),
+        (i) => i.message.includes("trigger") && i.message.includes("incoming"),
       ),
     ).toBe(true);
   });
@@ -240,9 +232,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes('"true" branch')),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes('"true" branch'))).toBe(
+      true,
+    );
     expect(
       result.issues.some((i) => i.message.includes('"false" branch')),
     ).toBe(true);
@@ -295,9 +287,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes('"true" branch')),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes('"true" branch'))).toBe(
+      true,
+    );
   });
 
   // --- Required config fields ---
@@ -319,9 +311,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes("actionName")),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes("actionName"))).toBe(
+      true,
+    );
   });
 
   it("rejects llm node missing prompt", () => {
@@ -445,9 +437,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes("workflowId")),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes("workflowId"))).toBe(
+      true,
+    );
   });
 
   it("rejects trigger node missing triggerType", () => {
@@ -465,9 +457,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes("triggerType")),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes("triggerType"))).toBe(
+      true,
+    );
   });
 
   // --- Delay node ---
@@ -491,8 +483,7 @@ describe("validateWorkflow", () => {
     expect(result.valid).toBe(false);
     expect(
       result.issues.some(
-        (i) =>
-          i.message.includes("duration") || i.message.includes("date"),
+        (i) => i.message.includes("duration") || i.message.includes("date"),
       ),
     ).toBe(true);
   });
@@ -507,7 +498,7 @@ describe("validateWorkflow", () => {
             type: "delay",
             label: "Wait",
             position: { x: 0, y: 100 },
-            config: { duration: "5m" },
+            config: { duration: "5s" },
           },
           outputNode(),
         ],
@@ -527,14 +518,62 @@ describe("validateWorkflow", () => {
             type: "delay",
             label: "Wait",
             position: { x: 0, y: 100 },
-            config: { date: "2025-12-31T00:00:00Z" },
+            config: { date: "2026-01-01T00:00:30Z" },
+          },
+          outputNode(),
+        ],
+        edges: [edge("t1", "d1"), edge("d1", "o1")],
+      }),
+      { now: new Date("2026-01-01T00:00:00Z") },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects delay node durations longer than the in-process limit", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "d1",
+            type: "delay",
+            label: "Wait",
+            position: { x: 0, y: 100 },
+            config: { duration: "5m" },
           },
           outputNode(),
         ],
         edges: [edge("t1", "d1"), edge("d1", "o1")],
       }),
     );
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.message.includes("60 seconds"))).toBe(
+      true,
+    );
+  });
+
+  it("rejects delay dates longer than the in-process limit", () => {
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "d1",
+            type: "delay",
+            label: "Wait",
+            position: { x: 0, y: 100 },
+            config: { date: "2026-01-01T00:02:00Z" },
+          },
+          outputNode(),
+        ],
+        edges: [edge("t1", "d1"), edge("d1", "o1")],
+      }),
+      { now: new Date("2026-01-01T00:00:00Z") },
+    );
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.message.includes("60 seconds"))).toBe(
+      true,
+    );
   });
 
   // --- Output node ---
@@ -548,8 +587,7 @@ describe("validateWorkflow", () => {
     );
     expect(
       result.issues.some(
-        (i) =>
-          i.severity === "warning" && i.message.includes("outgoing edges"),
+        (i) => i.severity === "warning" && i.message.includes("outgoing edges"),
       ),
     ).toBe(true);
   });
@@ -628,7 +666,9 @@ describe("validateWorkflow", () => {
     );
     expect(result.valid).toBe(false);
     // Should have: no trigger, duplicate IDs, non-existent edge refs, missing config
-    expect(result.issues.filter((i) => i.severity === "error").length).toBeGreaterThanOrEqual(3);
+    expect(
+      result.issues.filter((i) => i.severity === "error").length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   // --- Config fields with empty string ---
@@ -650,9 +690,9 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((i) => i.message.includes("actionName")),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.message.includes("actionName"))).toBe(
+      true,
+    );
   });
 
   it("treats null config values as missing", () => {
@@ -786,5 +826,45 @@ describe("validateWorkflow", () => {
       }),
     );
     expect(result.valid).toBe(true);
+  });
+
+  it("rejects recursive subworkflow cycles across workflow definitions", () => {
+    const childWorkflow = makeDef({
+      id: "child-wf",
+      name: "Child",
+      nodes: [
+        triggerNode("t2"),
+        {
+          id: "sw2",
+          type: "subworkflow",
+          label: "Back To Parent",
+          position: { x: 0, y: 100 },
+          config: { workflowId: "test-wf" },
+        },
+      ],
+      edges: [edge("t2", "sw2", "child-edge")],
+    });
+
+    const result = validateWorkflow(
+      makeDef({
+        nodes: [
+          triggerNode(),
+          {
+            id: "sw1",
+            type: "subworkflow",
+            label: "Child",
+            position: { x: 0, y: 100 },
+            config: { workflowId: "child-wf" },
+          },
+        ],
+        edges: [edge("t1", "sw1")],
+      }),
+      { workflows: [childWorkflow] },
+    );
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.issues.some((i) => i.message.includes("Subworkflow cycle")),
+    ).toBe(true);
   });
 });

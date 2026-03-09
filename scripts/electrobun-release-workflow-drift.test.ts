@@ -69,12 +69,12 @@ describe("Electrobun release workflow drift", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateJobIndex = workflow.indexOf("name: Validate Release Inputs");
     const buildJobIndex = workflow.indexOf(
-      "name: Build ${{ matrix.platform.name }}",
+      "name: Build $" + "{{ matrix.platform.name }}",
     );
     const releaseCheckIndex = workflow.indexOf("run: bun run release:check");
 
     expect(workflow).toContain('BUN_VERSION: "1.3.5"');
-    expect(workflow).toContain("bun-version: ${{ env.BUN_VERSION }}");
+    expect(workflow).toContain("bun-version: $" + "{{ env.BUN_VERSION }}");
     expect(workflow).not.toContain("bun-version: latest");
     expect(validateJobIndex).toBeGreaterThan(-1);
     expect(buildJobIndex).toBeGreaterThan(validateJobIndex);

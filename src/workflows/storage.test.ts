@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CreateWorkflowRequest, UpdateWorkflowRequest, WorkflowDef, WorkflowRun } from "./types";
+import type {
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
+  WorkflowDef,
+  WorkflowRun,
+} from "./types";
 
 // Mock config module
 vi.mock("../config/config", () => ({
@@ -8,17 +13,15 @@ vi.mock("../config/config", () => ({
 }));
 
 // Mock fs module - use vi.hoisted to ensure variables are available in mock factory
-const {
-  mockExistsSync,
-  mockReadFileSync,
-  mockWriteFileSync,
-  mockMkdirSync,
-} = vi.hoisted(() => ({
-  mockExistsSync: vi.fn(() => false),
-  mockReadFileSync: vi.fn(() => { throw new Error("ENOENT"); }),
-  mockWriteFileSync: vi.fn(),
-  mockMkdirSync: vi.fn(),
-}));
+const { mockExistsSync, mockReadFileSync, mockWriteFileSync, mockMkdirSync } =
+  vi.hoisted(() => ({
+    mockExistsSync: vi.fn(() => false),
+    mockReadFileSync: vi.fn(() => {
+      throw new Error("ENOENT");
+    }),
+    mockWriteFileSync: vi.fn(),
+    mockMkdirSync: vi.fn(),
+  }));
 
 vi.mock("node:fs", async (importOriginal) => {
   const original = (await importOriginal()) as Record<string, unknown>;
@@ -31,20 +34,28 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
-import {
-  loadWorkflows,
-  getWorkflow,
-  createWorkflow,
-  updateWorkflow,
-  deleteWorkflow,
-  loadWorkflowRuns,
-  saveWorkflowRuns,
-} from "./storage";
 import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import {
+  createWorkflow,
+  deleteWorkflow,
+  getWorkflow,
+  loadWorkflowRuns,
+  loadWorkflows,
+  saveWorkflowRuns,
+  updateWorkflow,
+} from "./storage";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
+
+function expectWorkflow(def: WorkflowDef | null): WorkflowDef {
+  expect(def).not.toBeNull();
+  if (!def) {
+    throw new Error("Expected workflow to exist");
+  }
+  return def;
+}
 
 // ---------------------------------------------------------------------------
 // loadWorkflows
@@ -119,8 +130,7 @@ describe("getWorkflow", () => {
     } as never);
 
     const result = getWorkflow("wf2");
-    expect(result).not.toBeNull();
-    expect(result!.name).toBe("Second");
+    expect(expectWorkflow(result).name).toBe("Second");
   });
 });
 
@@ -194,7 +204,10 @@ describe("createWorkflow", () => {
     const result = createWorkflow({ name: "Second" });
     expect(result.id).not.toBe("existing-1");
     // saveMiladyConfig should have been called with both workflows
-    const savedConfig = vi.mocked(saveMiladyConfig).mock.calls[0][0] as Record<string, unknown>;
+    const savedConfig = vi.mocked(saveMiladyConfig).mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
     expect((savedConfig.workflows as WorkflowDef[]).length).toBe(2);
   });
 });
@@ -234,12 +247,12 @@ describe("updateWorkflow", () => {
     };
 
     const result = updateWorkflow("wf1", req);
-    expect(result).not.toBeNull();
-    expect(result!.name).toBe("Updated");
-    expect(result!.description).toBe("new desc");
-    expect(result!.enabled).toBe(true);
-    expect(result!.version).toBe(4);
-    expect(result!.updatedAt).not.toBe("2025-01-01");
+    const updated = expectWorkflow(result);
+    expect(updated.name).toBe("Updated");
+    expect(updated.description).toBe("new desc");
+    expect(updated.enabled).toBe(true);
+    expect(updated.version).toBe(4);
+    expect(updated.updatedAt).not.toBe("2025-01-01");
     expect(saveMiladyConfig).toHaveBeenCalled();
   });
 
@@ -268,10 +281,11 @@ describe("updateWorkflow", () => {
     } as never);
 
     const result = updateWorkflow("wf1", { description: "updated" });
-    expect(result!.name).toBe("Keep");
-    expect(result!.description).toBe("updated");
-    expect(result!.nodes).toHaveLength(1);
-    expect(result!.enabled).toBe(true);
+    const updated = expectWorkflow(result);
+    expect(updated.name).toBe("Keep");
+    expect(updated.description).toBe("updated");
+    expect(updated.nodes).toHaveLength(1);
+    expect(updated.enabled).toBe(true);
   });
 
   it("updates nodes and edges", () => {
@@ -309,8 +323,9 @@ describe("updateWorkflow", () => {
     const newEdges = [{ id: "e1", source: "t1", target: "a1" }];
 
     const result = updateWorkflow("wf1", { nodes: newNodes, edges: newEdges });
-    expect(result!.nodes).toHaveLength(2);
-    expect(result!.edges).toHaveLength(1);
+    const updated = expectWorkflow(result);
+    expect(updated.nodes).toHaveLength(2);
+    expect(updated.edges).toHaveLength(1);
   });
 });
 

@@ -4780,13 +4780,13 @@ export class MiladyClient {
     });
   }
 
-  async validateWorkflow(
-    id: string,
-  ): Promise<{ valid: boolean; issues: Array<{ severity: string; nodeId?: string; message: string }> }> {
-    return this.fetch(
-      `/api/workflows/${encodeURIComponent(id)}/validate`,
-      { method: "POST" },
-    );
+  async validateWorkflow(id: string): Promise<{
+    valid: boolean;
+    issues: Array<{ severity: string; nodeId?: string; message: string }>;
+  }> {
+    return this.fetch(`/api/workflows/${encodeURIComponent(id)}/validate`, {
+      method: "POST",
+    });
   }
 
   async startWorkflow(
@@ -4800,9 +4800,7 @@ export class MiladyClient {
     return data.run;
   }
 
-  async listWorkflowRuns(
-    workflowId: string,
-  ): Promise<WorkflowRunSummary[]> {
+  async listWorkflowRuns(workflowId: string): Promise<WorkflowRunSummary[]> {
     const data = await this.fetch<{ runs: WorkflowRunSummary[] }>(
       `/api/workflows/${encodeURIComponent(workflowId)}/runs`,
     );
@@ -4817,10 +4815,9 @@ export class MiladyClient {
   }
 
   async cancelWorkflowRun(runId: string): Promise<void> {
-    await this.fetch(
-      `/api/workflow-runs/${encodeURIComponent(runId)}/cancel`,
-      { method: "POST" },
-    );
+    await this.fetch(`/api/workflow-runs/${encodeURIComponent(runId)}/cancel`, {
+      method: "POST",
+    });
   }
 
   async resolveWorkflowHook(

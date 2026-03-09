@@ -38,9 +38,9 @@ import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
 import { createTriggerTaskAction } from "../triggers/action";
 import { registerTriggerTaskWorker } from "../triggers/runtime";
-import { loadCustomActions, setCustomActionsRuntime } from "./custom-actions";
-import { setWorkflowRuntime, hydrateRuns } from "../workflows/runtime";
+import { hydrateRuns, setWorkflowRuntime } from "../workflows/runtime";
 import { loadWorkflows } from "../workflows/storage";
+import { loadCustomActions, setCustomActionsRuntime } from "./custom-actions";
 
 export type MiladyPluginConfig = {
   workspaceDir?: string;
