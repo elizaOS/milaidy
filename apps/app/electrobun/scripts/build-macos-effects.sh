@@ -18,5 +18,14 @@ if [[ ! -f "$SRC_FILE" ]]; then
 fi
 
 mkdir -p "$(dirname "$OUT_FILE")"
-xcrun clang++ -dynamiclib -fobjc-arc -framework Cocoa -framework ApplicationServices -framework AVFoundation -framework CoreGraphics "$SRC_FILE" -o "$OUT_FILE"
+xcrun clang++ \
+  -dynamiclib \
+  -std=c++17 \
+  -fobjc-arc \
+  -framework Cocoa \
+  -framework ApplicationServices \
+  -framework AVFoundation \
+  -framework CoreGraphics \
+  "$SRC_FILE" \
+  -o "$OUT_FILE"
 echo "Built native macOS effects: $OUT_FILE"

@@ -11452,10 +11452,11 @@ async function handleRequest(
     }
 
     const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const isAgentRequest = isAgentAutomationRequest(req);
     const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const canExecuteLocally = canUseLocalTradeExecution(
       tradePermissionMode,
-      false,
+      isAgentRequest,
     );
     const addrs = getWalletAddresses();
 
