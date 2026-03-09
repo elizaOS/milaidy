@@ -33,6 +33,15 @@ const PROVIDERS = [
   { label: "Skip for now", key: null, keyHint: "" },
 ] as const;
 
+type PromptFn = (prompt: string) => Promise<string>;
+
+type ProviderWizardOptions = {
+  ask?: PromptFn;
+  askSecret?: PromptFn;
+  env?: Record<string, string | undefined>;
+  log?: (message: string) => void;
+};
+
 // ---------------------------------------------------------------------------
 // readline helpers
 // ---------------------------------------------------------------------------
@@ -59,29 +68,52 @@ async function askSecret(prompt: string): Promise<string> {
     output: process.stdout,
     terminal: false,
   });
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let value = "";
-    process.stdin.setRawMode?.(true);
-    process.stdin.on("data", function handler(chunk) {
-      const char = chunk.toString();
-      if (char === "\r" || char === "\n") {
-        process.stdin.setRawMode?.(false);
-        process.stdin.removeListener("data", handler);
-        process.stdout.write("\n");
-        rl.close();
-        resolve(value);
-      } else if (char === "\u0003") {
-        // Ctrl-C
-        process.stdin.setRawMode?.(false);
-        rl.close();
-        process.exit(0);
-      } else if (char === "\u007f") {
-        // Backspace
-        if (value.length > 0) value = value.slice(0, -1);
-      } else {
-        value += char;
+    let closed = false;
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      process.stdin.setRawMode?.(false);
+      process.stdin.removeListener("data", handler);
+      rl.close();
+    };
+
+    const finish = () => {
+      cleanup();
+      process.stdout.write("\n");
+      resolve(value);
+    };
+
+    const handler = (chunk: Buffer | string) => {
+      try {
+        const char = chunk.toString();
+        if (char === "\r" || char === "\n") {
+          finish();
+        } else if (char === "\u0003") {
+          // Ctrl-C
+          cleanup();
+          process.exit(0);
+        } else if (char === "\u007f") {
+          // Backspace
+          if (value.length > 0) value = value.slice(0, -1);
+        } else {
+          value += char;
+        }
+      } catch (error) {
+        cleanup();
+        reject(error);
       }
-    });
+    };
+
+    try {
+      process.stdin.setRawMode?.(true);
+      process.stdin.on("data", handler);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
   });
 }
 
@@ -100,7 +132,7 @@ async function readStdinValue(): Promise<string> {
 // Config read/write
 // ---------------------------------------------------------------------------
 
-function resolveConfigPath(env = process.env): string {
+export function resolveConfigPath(env = process.env): string {
   if (env.MILADY_CONFIG_PATH?.trim()) {
     return env.MILADY_CONFIG_PATH;
   }
@@ -110,7 +142,7 @@ function resolveConfigPath(env = process.env): string {
   return path.join(stateDir, "milady.json");
 }
 
-function loadConfig(configPath: string): Record<string, unknown> {
+export function loadConfig(configPath: string): Record<string, unknown> {
   if (!fs.existsSync(configPath)) return {};
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
@@ -121,7 +153,10 @@ function loadConfig(configPath: string): Record<string, unknown> {
   }
 }
 
-function saveConfig(configPath: string, config: Record<string, unknown>): void {
+export function saveConfig(
+  configPath: string,
+  config: Record<string, unknown>,
+): void {
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
@@ -137,7 +172,9 @@ function getEnvSection(
   return {};
 }
 
-function hasModelKey(env: Record<string, string | undefined>): string | null {
+export function hasModelKey(
+  env: Record<string, string | undefined>,
+): string | null {
   const keys = [
     "ANTHROPIC_API_KEY",
     "CLAUDE_API_KEY",
@@ -166,42 +203,49 @@ function hasModelKey(env: Record<string, string | undefined>): string | null {
 // Interactive provider wizard
 // ---------------------------------------------------------------------------
 
-async function runProviderWizard(configPath: string): Promise<void> {
+export async function runProviderWizard(
+  configPath: string,
+  options: ProviderWizardOptions = {},
+): Promise<void> {
+  const prompt = options.ask ?? ask;
+  const promptSecret = options.askSecret ?? askSecret;
+  const env = options.env ?? process.env;
+  const log = options.log ?? console.log;
   const config = loadConfig(configPath);
   const envSection = getEnvSection(config);
-  const combinedEnv = { ...process.env, ...envSection } as Record<
+  const combinedEnv = { ...env, ...envSection } as Record<
     string,
     string | undefined
   >;
   const existingKey = hasModelKey(combinedEnv);
 
   if (existingKey) {
-    console.log(
+    log(
       `\n${theme.success("✓")} Model API key already set: ${theme.command(existingKey)}`,
     );
-    const reconfigure = await ask(`  Reconfigure? ${theme.muted("(y/N) ")}`);
+    const reconfigure = await prompt(`  Reconfigure? ${theme.muted("(y/N) ")}`);
     if (reconfigure.toLowerCase() !== "y") return;
   }
 
-  console.log(`\n${theme.heading("Model Provider Setup")}\n`);
-  console.log("  Choose your AI model provider:\n");
+  log(`\n${theme.heading("Model Provider Setup")}\n`);
+  log("  Choose your AI model provider:\n");
 
   PROVIDERS.forEach((p, i) => {
     const num = theme.muted(`${i + 1}.`);
-    console.log(`  ${num} ${p.label}`);
+    log(`  ${num} ${p.label}`);
   });
 
-  const choice = await ask(`\n  Provider ${theme.muted("[1]")} `);
+  const choice = await prompt(`\n  Provider ${theme.muted("[1]")} `);
   const index = choice === "" ? 0 : Number(choice) - 1;
 
   if (Number.isNaN(index) || index < 0 || index >= PROVIDERS.length) {
-    console.log(`${theme.warn("⚠")}  Invalid choice. Skipping model setup.`);
+    log(`${theme.warn("⚠")}  Invalid choice. Skipping model setup.`);
     return;
   }
 
   const provider = PROVIDERS[index];
   if (provider.key === null) {
-    console.log(
+    log(
       `${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`,
     );
     return;
@@ -215,16 +259,16 @@ async function runProviderWizard(configPath: string): Promise<void> {
 
   let value: string;
   if (isUrl) {
-    value = await ask(
+    value = await prompt(
       `  ${valueLabel}${hint} ${theme.muted(`[http://localhost:11434]`)} `,
     );
     if (value === "") value = "http://localhost:11434";
   } else {
-    value = await askSecret(`  ${valueLabel}${hint}: `);
+    value = await promptSecret(`  ${valueLabel}${hint}: `);
   }
 
   if (!value) {
-    console.log(`${theme.warn("⚠")}  No value entered. Skipping.`);
+    log(`${theme.warn("⚠")}  No value entered. Skipping.`);
     return;
   }
 
@@ -233,7 +277,7 @@ async function runProviderWizard(configPath: string): Promise<void> {
   config.env = envSection;
   saveConfig(configPath, config);
 
-  console.log(
+  log(
     `${theme.success("✓")} Saved ${theme.command(provider.key)} to ${configPath}`,
   );
 }
