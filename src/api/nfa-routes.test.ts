@@ -172,6 +172,42 @@ describe("POST /api/nfa/mint", () => {
     expect(mockWriteNfa).toHaveBeenCalled();
   });
 
+  it("returns 400 when mint metadata fields are not strings", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc123";
+    const ctx = makeCtx("POST", "/api/nfa/mint", {
+      agentURI: "https://example.com/meta.json",
+      persona: { invalid: true },
+    });
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      "persona must be a string.",
+      400,
+    );
+    expect(mockServiceInstance.mintNfa).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when mint metadata fields exceed the allowed length", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc123";
+    const ctx = makeCtx("POST", "/api/nfa/mint", {
+      agentURI: "https://example.com/meta.json",
+      experience: "x".repeat(501),
+    });
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      "experience must be at most 500 characters.",
+      400,
+    );
+    expect(mockServiceInstance.mintNfa).not.toHaveBeenCalled();
+  });
+
   it("uses EVM_PRIVATE_KEY when useWalletKey is true", async () => {
     process.env.EVM_PRIVATE_KEY = "0xevm_key";
     process.env.BNB_PRIVATE_KEY = "0xbnb_key";
@@ -312,7 +348,7 @@ describe("POST /api/nfa/transfer", () => {
     });
 
     const ctx = makeCtx("POST", "/api/nfa/transfer", {
-      to: "0xrecipient",
+      to: "0x1111111111111111111111111111111111111112",
     });
 
     const handled = await handleNfaRoutes(ctx);
@@ -340,7 +376,7 @@ describe("POST /api/nfa/transfer", () => {
     });
 
     const ctx = makeCtx("POST", "/api/nfa/transfer", {
-      to: "0xnewowner",
+      to: "0x1111111111111111111111111111111111111113",
     });
 
     const handled = await handleNfaRoutes(ctx);
@@ -351,8 +387,27 @@ describe("POST /api/nfa/transfer", () => {
       expect.objectContaining({ success: true, txHash: "0xtx" }),
     );
     expect(mockPatchNfa).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: "0xnewowner" }),
+      expect.objectContaining({
+        owner: "0x1111111111111111111111111111111111111113",
+      }),
     );
+  });
+
+  it("returns 400 when to is not a valid address", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc";
+    const ctx = makeCtx("POST", "/api/nfa/transfer", {
+      to: "not-an-address",
+    });
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      "to must be a 0x-prefixed 40-byte hex address.",
+      400,
+    );
+    expect(mockServiceInstance.transferNfa).not.toHaveBeenCalled();
   });
 });
 
@@ -386,7 +441,7 @@ describe("POST /api/nfa/upgrade-logic", () => {
     });
 
     const ctx = makeCtx("POST", "/api/nfa/upgrade-logic", {
-      newLogicAddress: "0xnew",
+      newLogicAddress: "0x1111111111111111111111111111111111111114",
     });
 
     const handled = await handleNfaRoutes(ctx);
@@ -397,8 +452,27 @@ describe("POST /api/nfa/upgrade-logic", () => {
       expect.objectContaining({ success: true, txHash: "0xtx" }),
     );
     expect(mockPatchNfa).toHaveBeenCalledWith(
-      expect.objectContaining({ logicContract: "0xnew" }),
+      expect.objectContaining({
+        logicContract: "0x1111111111111111111111111111111111111114",
+      }),
     );
+  });
+
+  it("returns 400 when newLogicAddress is not a valid address", async () => {
+    process.env.BNB_PRIVATE_KEY = "0xabc";
+    const ctx = makeCtx("POST", "/api/nfa/upgrade-logic", {
+      newLogicAddress: "0xnew",
+    });
+
+    const handled = await handleNfaRoutes(ctx);
+
+    expect(handled).toBe(true);
+    expect(ctx.error).toHaveBeenCalledWith(
+      ctx.res,
+      "newLogicAddress must be a 0x-prefixed 40-byte hex address.",
+      400,
+    );
+    expect(mockServiceInstance.upgradeLogic).not.toHaveBeenCalled();
   });
 });
 

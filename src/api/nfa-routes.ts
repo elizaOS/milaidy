@@ -49,6 +49,9 @@ export interface NfaLearningsResponse {
   count: number;
 }
 
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const VAULT_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
+
 export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
   const { method, pathname, json, error, nfaContractAddress, workspaceDir } =
     ctx;
@@ -61,7 +64,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       let onChain: NfaInfo | null = null;
       if (nfa && nfaContractAddress) {
         try {
-          const svc = new BnbIdentityService(null as never, {
+          const svc = new BnbIdentityService(null, {
             network: nfa.network || "bsc",
             gatewayPort: 0,
             nfaContractAddress,
@@ -140,6 +143,11 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
       const agentURI = await resolveAgentUri(body);
+      const mintOptions = validateMintOptions(body);
+      if ("error" in mintOptions) {
+        error(ctx.res, mintOptions.error, 400);
+        return true;
+      }
 
       const svc = buildService(
         privateKey,
@@ -147,14 +155,7 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         body.network as string | undefined,
       );
 
-      const result = await svc.mintNfa(agentURI, {
-        persona: (body.persona as string) ?? "",
-        experience: (body.experience as string) ?? "",
-        voiceHash: (body.voiceHash as string) ?? "",
-        animationURI: (body.animationURI as string) ?? "",
-        vaultURI: (body.vaultURI as string) ?? "",
-        vaultHash: (body.vaultHash as string) ?? `0x${"0".repeat(64)}`,
-      });
+      const result = await svc.mintNfa(agentURI, mintOptions);
 
       await writeNfa({
         tokenId: result.tokenId,
@@ -252,10 +253,9 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       }
       const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
-      const to = body.to as string | undefined;
-
-      if (!to) {
-        error(ctx.res, "Missing required field: to", 400);
+      const to = readRequiredAddress(body, "to");
+      if ("error" in to) {
+        error(ctx.res, to.error, 400);
         return true;
       }
 
@@ -271,9 +271,9 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       }
 
       const svc = buildService(privateKey, nfaContractAddress, nfa.network);
-      const result = await svc.transferNfa(nfa.tokenId, to);
+      const result = await svc.transferNfa(nfa.tokenId, to.value);
 
-      await patchNfa({ owner: to });
+      await patchNfa({ owner: to.value });
 
       json(ctx.res, { success: true, txHash: result.txHash });
     } catch (err) {
@@ -297,10 +297,9 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       }
       const body = (await ctx.readJsonBody()) ?? {};
       const privateKey = resolvePrivateKey(body);
-      const newLogicAddress = body.newLogicAddress as string | undefined;
-
-      if (!newLogicAddress) {
-        error(ctx.res, "Missing required field: newLogicAddress", 400);
+      const newLogicAddress = readRequiredAddress(body, "newLogicAddress");
+      if ("error" in newLogicAddress) {
+        error(ctx.res, newLogicAddress.error, 400);
         return true;
       }
 
@@ -311,9 +310,9 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
       }
 
       const svc = buildService(privateKey, nfaContractAddress, nfa.network);
-      const result = await svc.upgradeLogic(nfa.tokenId, newLogicAddress);
+      const result = await svc.upgradeLogic(nfa.tokenId, newLogicAddress.value);
 
-      await patchNfa({ logicContract: newLogicAddress });
+      await patchNfa({ logicContract: newLogicAddress.value });
 
       json(ctx.res, {
         success: true,
@@ -396,7 +395,7 @@ function buildService(
   nfaContractAddress: string | undefined,
   network?: string,
 ): BnbIdentityService {
-  return new BnbIdentityService(null as never, {
+  return new BnbIdentityService(null, {
     privateKey,
     network: network || "bsc",
     gatewayPort: 0,
@@ -409,6 +408,86 @@ function resolveNfaRpcUrl(): string | undefined {
   const rpcUrl =
     process.env.BSC_RPC_URL?.trim() || process.env.BNB_RPC_URL?.trim();
   return rpcUrl || undefined;
+}
+
+function readRequiredAddress(
+  body: Record<string, unknown>,
+  key: string,
+): { value: string } | { error: string } {
+  const raw = body[key];
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { error: `Missing required field: ${key}` };
+  }
+
+  const value = raw.trim();
+  if (!ADDRESS_RE.test(value)) {
+    return { error: `${key} must be a 0x-prefixed 40-byte hex address.` };
+  }
+
+  return { value };
+}
+
+function readOptionalString(
+  body: Record<string, unknown>,
+  key: string,
+  maxLength: number,
+): { value: string } | { error: string } {
+  const raw = body[key];
+  if (raw === undefined || raw === null) {
+    return { value: "" };
+  }
+
+  if (typeof raw !== "string") {
+    return { error: `${key} must be a string.` };
+  }
+
+  const value = raw.trim();
+  if (value.length > maxLength) {
+    return { error: `${key} must be at most ${maxLength} characters.` };
+  }
+
+  return { value };
+}
+
+function validateMintOptions(body: Record<string, unknown>):
+  | {
+      persona: string;
+      experience: string;
+      voiceHash: string;
+      animationURI: string;
+      vaultURI: string;
+      vaultHash: string;
+    }
+  | { error: string } {
+  const persona = readOptionalString(body, "persona", 280);
+  if ("error" in persona) return persona;
+
+  const experience = readOptionalString(body, "experience", 500);
+  if ("error" in experience) return experience;
+
+  const voiceHash = readOptionalString(body, "voiceHash", 128);
+  if ("error" in voiceHash) return voiceHash;
+
+  const animationURI = readOptionalString(body, "animationURI", 2048);
+  if ("error" in animationURI) return animationURI;
+
+  const vaultURI = readOptionalString(body, "vaultURI", 2048);
+  if ("error" in vaultURI) return vaultURI;
+
+  const vaultHash = readOptionalString(body, "vaultHash", 66);
+  if ("error" in vaultHash) return vaultHash;
+  if (vaultHash.value && !VAULT_HASH_RE.test(vaultHash.value)) {
+    return { error: "vaultHash must be a 0x-prefixed 32-byte hex string." };
+  }
+
+  return {
+    persona: persona.value,
+    experience: experience.value,
+    voiceHash: voiceHash.value,
+    animationURI: animationURI.value,
+    vaultURI: vaultURI.value,
+    vaultHash: vaultHash.value || `0x${"0".repeat(64)}`,
+  };
 }
 
 function getNfaContractAddressError(

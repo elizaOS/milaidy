@@ -413,7 +413,6 @@ export function App() {
     const isConnectors = effectiveTab === "connectors";
     const isKnowledge = effectiveTab === "knowledge";
     const isPluginsLike = isPlugins || isConnectors;
-    const isContainerlessOverlay = isPluginsLike || isSkills;
     const isCentered =
       isSkills ||
       isSettings ||
@@ -458,6 +457,12 @@ export function App() {
                   : isKnowledge
                     ? "rgba(167, 139, 250, 0.7)"
                     : "#d4af37";
+    const cardColor = isSkills
+      ? "rgba(20, 24, 38, 0.85)"
+      : "rgba(10, 12, 16, 0.75)";
+    const shadowFx = isSkills
+      ? "shadow-[0_0_50px_rgba(0,225,255,0.15)]"
+      : "shadow-[0_4px_30px_rgba(0,0,0,0.5)]";
     const overlayBackdropClass =
       effectiveTab === "skills"
         ? "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto"
@@ -508,7 +513,7 @@ export function App() {
                 <div
                   className={`relative flex flex-col pointer-events-auto ${
                     isSkills
-                      ? "w-[90vw] h-[90vh] max-w-5xl overflow-visible"
+                      ? "w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl"
                       : isPluginsLike
                         ? "w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible"
                         : isAdvancedOverlay
@@ -518,39 +523,45 @@ export function App() {
                             : "w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl"
                   } transition-all duration-500`}
                   style={{
-                    background: isContainerlessOverlay
-                      ? "transparent"
-                      : isSettings ||
-                          isAdvancedOverlay ||
-                          isApps ||
-                          isKnowledge ||
-                          isWallets
-                        ? "rgba(18, 22, 32, 0.92)"
-                        : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
-                    borderColor: isContainerlessOverlay
-                      ? "transparent"
-                      : isSettings ||
-                          isAdvancedOverlay ||
-                          isApps ||
-                          isKnowledge ||
-                          isWallets
-                        ? "rgba(255, 255, 255, 0.08)"
-                        : "rgba(255,255,255,0.05)",
-                    boxShadow: isContainerlessOverlay
-                      ? "none"
-                      : isSettings ||
-                          isAdvancedOverlay ||
-                          isApps ||
-                          isKnowledge ||
-                          isWallets
-                        ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)"
-                        : "-60px 0 100px -20px rgba(0,0,0,0.8)",
-                    borderTopRightRadius: isContainerlessOverlay
+                    background: isSkills
+                      ? cardColor
+                      : isPluginsLike
+                        ? "transparent"
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
+                          ? "rgba(18, 22, 32, 0.92)"
+                          : "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)",
+                    borderColor: isSkills
+                      ? "rgba(0,225,255,0.2)"
+                      : isPluginsLike
+                        ? "transparent"
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
+                          ? "rgba(255, 255, 255, 0.08)"
+                          : "rgba(255,255,255,0.05)",
+                    boxShadow: isSkills
+                      ? shadowFx
+                      : isPluginsLike
+                        ? "none"
+                        : isSettings ||
+                            isAdvancedOverlay ||
+                            isApps ||
+                            isKnowledge ||
+                            isWallets
+                          ? "0 8px 60px rgba(0,0,0,0.6), 0 2px 24px rgba(0,0,0,0.4)"
+                          : "-60px 0 100px -20px rgba(0,0,0,0.8)",
+                    borderTopRightRadius: isPluginsLike
                       ? "0"
                       : isCentered
                         ? "1rem"
                         : "0",
-                    borderBottomLeftRadius: isContainerlessOverlay
+                    borderBottomLeftRadius: isPluginsLike
                       ? "0"
                       : isCentered
                         ? "1rem"
@@ -570,7 +581,7 @@ export function App() {
                       />
                     </div>
                   )}
-                  {isCentered && !isContainerlessOverlay && (
+                  {isCentered && !isPluginsLike && (
                     <div
                       className="absolute top-0 left-0 right-0 h-[2px] opacity-80"
                       style={{
@@ -581,9 +592,9 @@ export function App() {
 
                   {/* Decorative Elements */}
                   <div
-                    className={`pointer-events-none absolute inset-0 overflow-hidden ${isContainerlessOverlay ? "" : "rounded-[16px]"}`}
+                    className={`pointer-events-none absolute inset-0 overflow-hidden ${isPluginsLike ? "" : "rounded-[16px]"}`}
                   >
-                    {isSkills && !isContainerlessOverlay && (
+                    {isSkills && (
                       <>
                         <div
                           className={`absolute bottom-4 left-4 text-[${accentColor}]/30 text-[9px] font-mono tracking-widest transform -rotate-90 origin-bottom-left`}
@@ -722,7 +733,7 @@ export function App() {
                           : "overflow-y-auto"
                     } ${
                       isSkills
-                        ? "p-0"
+                        ? "px-10 pb-10 pt-4"
                         : isSettings ||
                             isAdvancedOverlay ||
                             isApps ||

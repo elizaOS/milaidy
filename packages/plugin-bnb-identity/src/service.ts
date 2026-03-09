@@ -180,10 +180,10 @@ export function assertMcpToolSuccess(
 }
 
 export class BnbIdentityService {
-  private runtime: IAgentRuntime;
+  private runtime: IAgentRuntime | null;
   private config: BnbIdentityConfig;
 
-  constructor(runtime: IAgentRuntime, config: BnbIdentityConfig) {
+  constructor(runtime: IAgentRuntime | null, config: BnbIdentityConfig) {
     this.runtime = runtime;
     this.config = config;
   }

@@ -194,7 +194,7 @@ describe("resolveBnbRpcUrl", () => {
     process.env.BNB_MCP_URL = "http://localhost:3001";
 
     try {
-      const service = new BnbIdentityService(null as never, {
+      const service = new BnbIdentityService(null, {
         network: "bsc",
         gatewayPort: 0,
       });
