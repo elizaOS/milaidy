@@ -86,7 +86,6 @@ function ViewRouter() {
       case "plugins":
       case "skills":
       case "actions":
-      case "workflows":
       case "triggers":
       case "fine-tuning":
       case "trajectories":
@@ -156,7 +155,6 @@ export function App() {
     tab === "plugins" ||
     tab === "skills" ||
     tab === "actions" ||
-    tab === "workflows" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
     tab === "trajectories" ||
