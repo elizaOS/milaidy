@@ -375,15 +375,18 @@ export class BnbIdentityService {
   ): Promise<T> {
     // Try runtime MCP client first
     const mcpClient = (
-      this.runtime as unknown as {
-        mcpClient?: {
-          callTool: (request: {
-            name: string;
-            arguments: Record<string, unknown>;
-          }) => Promise<unknown>;
-        };
-      }
-    ).mcpClient;
+      this.runtime as
+        | {
+            mcpClient?: {
+              callTool: (request: {
+                name: string;
+                arguments: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+          }
+        | null
+        | undefined
+    )?.mcpClient;
     if (mcpClient?.callTool) {
       const result = (await mcpClient.callTool({
         name: toolName,
@@ -442,9 +445,7 @@ export class BnbIdentityService {
     if (this.config.nfaContractAddress) {
       config.contractAddress = this.config.nfaContractAddress;
     }
-    if (this.config.rpcUrl) {
-      config.rpcUrl = resolveBnbRpcUrl(this.config);
-    }
+    config.rpcUrl = resolveBnbRpcUrl(this.config);
     return config;
   }
 }

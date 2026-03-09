@@ -45,6 +45,7 @@ export {
   getLearningProof,
   verifyLearningProof,
 } from "./merkle-learning.js";
+export { parseLearningsMd } from "./learnings.js";
 export type {
   AgentMetadata,
   AgentService,

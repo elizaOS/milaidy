@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { logger } from "@elizaos/core";
 import {
   BnbIdentityService,
+  parseLearningsMd,
   patchNfa,
   readIdentity,
   readNfa,
@@ -447,47 +448,4 @@ async function resolveAgentUri(body: Record<string, unknown>): Promise<string> {
     "utf8",
   ).toString("base64");
   return `data:application/json;base64,${encoded}`;
-}
-
-/** Parse LEARNINGS.md into structured entries. */
-function parseLearningsMd(raw: string): LearningLeaf[] {
-  const entries: LearningLeaf[] = [];
-  const lines = raw.split("\n");
-  let current: Partial<LearningLeaf> | null = null;
-
-  for (const line of lines) {
-    // Entry header: ## [category] — summary
-    const headerMatch = line.match(/^##\s+\[(\w+)]\s*[—–-]\s*(.+)$/);
-    if (headerMatch) {
-      if (current?.id) entries.push(current as LearningLeaf);
-      current = {
-        category: headerMatch[1] as LearningLeaf["category"],
-        summary: headerMatch[2].trim(),
-        id: "",
-        timestamp: "",
-        contentHash: "",
-      };
-      continue;
-    }
-
-    if (!current) continue;
-
-    // Metadata lines: `id: ...`, `timestamp: ...`, `hash: ...`
-    const idMatch = line.match(/^id:\s*(.+)$/i);
-    if (idMatch) {
-      current.id = idMatch[1].trim();
-      continue;
-    }
-    const tsMatch = line.match(/^timestamp:\s*(.+)$/i);
-    if (tsMatch) {
-      current.timestamp = tsMatch[1].trim();
-      continue;
-    }
-    const hashMatch = line.match(/^hash:\s*(.+)$/i);
-    if (hashMatch) {
-      current.contentHash = hashMatch[1].trim();
-    }
-  }
-  if (current?.id) entries.push(current as LearningLeaf);
-  return entries;
 }

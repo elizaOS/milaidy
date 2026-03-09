@@ -23,7 +23,6 @@ import type {
   State,
 } from "@elizaos/core";
 
-import { ethers } from "ethers";
 import { BnbIdentityService } from "./service.js";
 import {
   buildAgentMetadata,
@@ -38,6 +37,7 @@ import type {
   LearningLeaf,
   NfaRecord,
 } from "./types.js";
+import { parseLearningsMd } from "./learnings.js";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -90,18 +90,6 @@ function extractAddress(text: string): string | undefined {
   return match?.[1];
 }
 
-/**
- * Reads LEARNINGS.md from the workspace directory and parses learning entries.
- *
- * Expected format: blocks separated by "\n---\n", each block has fields:
- *   id: <string>
- *   timestamp: <ISO 8601>
- *   category: error|correction|insight|pattern
- *   summary: <string>
- *   detail: <multiline content>
- *
- * The detail content is hashed with ethers.id() to produce contentHash.
- */
 async function readLearningEntries(
   runtime: IAgentRuntime,
 ): Promise<LearningLeaf[]> {
@@ -128,79 +116,7 @@ async function readLearningEntries(
     return [];
   }
 
-  const blocks = content.split("\n---\n").filter((b) => b.trim().length > 0);
-  const entries: LearningLeaf[] = [];
-
-  for (const block of blocks) {
-    const lines = block.trim().split("\n");
-    let id = "";
-    let timestamp = "";
-    let category: LearningLeaf["category"] = "insight";
-    let summary = "";
-    const detailLines: string[] = [];
-    let inDetail = false;
-
-    for (const line of lines) {
-      if (inDetail) {
-        detailLines.push(line);
-        continue;
-      }
-
-      const idMatch = line.match(/^id:\s*(.+)$/i);
-      if (idMatch) {
-        id = idMatch[1].trim();
-        continue;
-      }
-
-      const tsMatch = line.match(/^timestamp:\s*(.+)$/i);
-      if (tsMatch) {
-        timestamp = tsMatch[1].trim();
-        continue;
-      }
-
-      const catMatch = line.match(/^category:\s*(.+)$/i);
-      if (catMatch) {
-        const raw = catMatch[1].trim().toLowerCase();
-        if (
-          raw === "error" ||
-          raw === "correction" ||
-          raw === "insight" ||
-          raw === "pattern"
-        ) {
-          category = raw;
-        }
-        continue;
-      }
-
-      const sumMatch = line.match(/^summary:\s*(.+)$/i);
-      if (sumMatch) {
-        summary = sumMatch[1].trim();
-        continue;
-      }
-
-      const detailMatch = line.match(/^detail:\s*(.*)$/i);
-      if (detailMatch) {
-        inDetail = true;
-        if (detailMatch[1].trim()) {
-          detailLines.push(detailMatch[1].trim());
-        }
-        continue;
-      }
-    }
-
-    if (id && timestamp) {
-      const detailContent = detailLines.join("\n").trim() || summary;
-      entries.push({
-        id,
-        timestamp,
-        category,
-        summary,
-        contentHash: ethers.id(detailContent),
-      });
-    }
-  }
-
-  return entries;
+  return parseLearningsMd(content);
 }
 
 // ── Action: BNB_NFA_MINT ────────────────────────────────────────────────────

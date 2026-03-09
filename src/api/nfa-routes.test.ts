@@ -16,12 +16,36 @@ const mockReadNfa = vi.fn();
 const mockWriteNfa = vi.fn();
 const mockPatchNfa = vi.fn();
 const mockReadIdentity = vi.fn();
-const MockBnbIdentityService = vi.fn(function () {
-  return mockServiceInstance;
-});
 
-vi.mock("../../packages/plugin-bnb-identity/src/index", () => {
+// Service instance mock
+const mockServiceInstance = {
+  mintNfa: vi.fn(),
+  updateLearningRoot: vi.fn(),
+  transferNfa: vi.fn(),
+  upgradeLogic: vi.fn(),
+  pauseNfa: vi.fn(),
+  unpauseNfa: vi.fn(),
+  getNfaInfo: vi.fn(),
+};
+
+const MockBnbIdentityService = vi.fn(
+  class MockBnbIdentityService {
+    mintNfa = mockServiceInstance.mintNfa;
+    updateLearningRoot = mockServiceInstance.updateLearningRoot;
+    transferNfa = mockServiceInstance.transferNfa;
+    upgradeLogic = mockServiceInstance.upgradeLogic;
+    pauseNfa = mockServiceInstance.pauseNfa;
+    unpauseNfa = mockServiceInstance.unpauseNfa;
+    getNfaInfo = mockServiceInstance.getNfaInfo;
+  },
+);
+
+vi.mock("../../packages/plugin-bnb-identity/src/index", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../packages/plugin-bnb-identity/src/index")
+  >("../../packages/plugin-bnb-identity/src/index");
   return {
+    ...actual,
     readIdentity: (...args: unknown[]) => mockReadIdentity(...args),
     readNfa: (...args: unknown[]) => mockReadNfa(...args),
     writeNfa: (...args: unknown[]) => mockWriteNfa(...args),
@@ -45,17 +69,6 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("@elizaos/core", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
-
-// Service instance mock
-const mockServiceInstance = {
-  mintNfa: vi.fn(),
-  updateLearningRoot: vi.fn(),
-  transferNfa: vi.fn(),
-  upgradeLogic: vi.fn(),
-  pauseNfa: vi.fn(),
-  unpauseNfa: vi.fn(),
-  getNfaInfo: vi.fn(),
-};
 
 // Import after mocks are set up
 const { handleNfaRoutes } = await import("./nfa-routes");
@@ -240,7 +253,13 @@ describe("POST /api/nfa/anchor", () => {
 
     const { readFile } = await import("node:fs/promises");
     (readFile as ReturnType<typeof vi.fn>).mockResolvedValue(
-      "## [insight] — test\nid: learn-1\ntimestamp: 2026-01-01\nhash: 0xabc\n",
+      [
+        "id: learn-1",
+        "timestamp: 2026-01-01T00:00:00.000Z",
+        "category: insight",
+        "summary: test",
+        "detail: anchored through the legacy chat workflow",
+      ].join("\n"),
     );
 
     mockGetLearningRoot.mockReturnValue("0xnewroot");
