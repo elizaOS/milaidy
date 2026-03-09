@@ -1,8 +1,8 @@
 /**
  * Branded confirmation modal to replace native window.confirm dialogs.
  *
- * Provides consistent styling, keyboard handling (Enter to confirm,
- * Escape to cancel), and focus management.
+ * Provides consistent styling, Escape-to-cancel keyboard handling,
+ * and focus management.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";

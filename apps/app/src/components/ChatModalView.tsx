@@ -6,7 +6,7 @@ import {
   type TradePermissionMode,
 } from "../api-client.js";
 import { createTranslator } from "../i18n";
-import { SELF_STATUS_SYNC_EVENT } from "../events";
+import { SELF_STATUS_SYNC_EVENT, dispatchWindowEvent } from "../events";
 import { ChatView } from "./ChatView.js";
 import { ConversationsSidebar } from "./ConversationsSidebar.js";
 
@@ -82,7 +82,7 @@ export function ChatModalView({
   const isCompanionDock = variant === "companion-dock";
 
   const notifySelfStatusRefresh = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(SELF_STATUS_SYNC_EVENT));
+    dispatchWindowEvent(SELF_STATUS_SYNC_EVENT);
   }, []);
 
   const activeConversation = useMemo(

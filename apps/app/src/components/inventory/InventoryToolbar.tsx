@@ -2,7 +2,13 @@
  * Toolbar: tokens/NFTs tabs, chain-focus chips, sort controls, refresh.
  */
 
+import type { AppState } from "../../AppContext";
 import type { createTranslator } from "../../i18n";
+
+type InventoryToolbarStateKey =
+  | "inventoryView"
+  | "inventorySort"
+  | "inventoryChainFocus";
 
 export interface InventoryToolbarProps {
   t: ReturnType<typeof createTranslator>;
@@ -11,8 +17,10 @@ export interface InventoryToolbarProps {
   inventoryChainFocus: string;
   walletBalances: unknown;
   walletNfts: unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setState: (key: any, value: any) => void;
+  setState: <K extends InventoryToolbarStateKey>(
+    key: K,
+    value: AppState[K],
+  ) => void;
   loadBalances: () => Promise<void> | void;
   loadNfts: () => Promise<void> | void;
 }

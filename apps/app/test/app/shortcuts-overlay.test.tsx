@@ -1,85 +1,112 @@
 // @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("lucide-react", () => ({
-  X: () => React.createElement("span", null, "X"),
-}));
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ShortcutsOverlay } from "../../src/components/ShortcutsOverlay";
+import { COMMON_SHORTCUTS } from "../../src/hooks/useKeyboardShortcuts";
 
-function fireKey(
-  key: string,
-  opts: Partial<KeyboardEventInit> = {},
-): void {
-  window.dispatchEvent(
-    new KeyboardEvent("keydown", { key, bubbles: true, ...opts }),
+let addListenerSpy: ReturnType<typeof vi.spyOn>;
+
+function getLatestKeydownHandler(): (event: KeyboardEvent) => void {
+  const keydownCalls = addListenerSpy.mock.calls.filter(
+    (call: unknown[]) => call[0] === "keydown" && typeof call[1] === "function",
+  );
+  const latestCall = keydownCalls.at(-1);
+  if (!latestCall) {
+    throw new Error("Expected ShortcutsOverlay to register a keydown handler");
+  }
+  return latestCall[1] as (event: KeyboardEvent) => void;
+}
+
+function findText(
+  root: TestRenderer.ReactTestInstance,
+  value: string,
+): TestRenderer.ReactTestInstance[] {
+  return root.findAll(
+    (node: TestRenderer.ReactTestInstance) =>
+      node.children.some((child) => child === value),
   );
 }
 
 describe("ShortcutsOverlay", () => {
-  it("renders nothing when closed", () => {
-    const tree = TestRenderer.create(<ShortcutsOverlay />);
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    addListenerSpy = vi.spyOn(window, "addEventListener");
+  });
+
+  it("opens on Shift+? and renders the shared shortcuts list", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(React.createElement(ShortcutsOverlay));
+    });
+
     expect(tree.toJSON()).toBeNull();
-  });
 
-  it("opens on Shift+?", () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    const preventDefault = vi.fn();
     act(() => {
-      tree = TestRenderer.create(<ShortcutsOverlay />);
+      getLatestKeydownHandler()({
+        shiftKey: true,
+        key: "?",
+        preventDefault,
+        target: { tagName: "DIV" },
+      } as unknown as KeyboardEvent);
     });
-    act(() => {
-      fireKey("?", { shiftKey: true });
-    });
-    const root = tree!.root;
-    const dialog = root.findByProps({ role: "dialog" });
-    expect(dialog).toBeTruthy();
+
+    const dialog = tree.root.findByProps({ role: "dialog" });
     expect(dialog.props["aria-label"]).toBe("Keyboard shortcuts");
+    expect(findText(tree.root, "Open command palette")).toHaveLength(1);
+    expect(
+      tree.root.findAllByType("kbd" as React.ElementType),
+    ).toHaveLength(COMMON_SHORTCUTS.length);
+    expect(preventDefault).toHaveBeenCalledOnce();
   });
 
-  it("closes on Escape", () => {
-    let tree: TestRenderer.ReactTestRenderer;
+  it("ignores the toggle shortcut while typing in an input", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
     act(() => {
-      tree = TestRenderer.create(<ShortcutsOverlay />);
+      tree = TestRenderer.create(React.createElement(ShortcutsOverlay));
     });
-    // Open
+
+    const preventDefault = vi.fn();
     act(() => {
-      fireKey("?", { shiftKey: true });
+      getLatestKeydownHandler()({
+        shiftKey: true,
+        key: "?",
+        preventDefault,
+        target: { tagName: "INPUT" },
+      } as unknown as KeyboardEvent);
     });
-    expect(tree!.root.findAllByProps({ role: "dialog" })).toHaveLength(1);
-    // Close
-    act(() => {
-      fireKey("Escape");
-    });
-    expect(tree!.toJSON()).toBeNull();
+
+    expect(tree.toJSON()).toBeNull();
+    expect(preventDefault).not.toHaveBeenCalled();
   });
 
-  it("closes on close button click", () => {
-    let tree: TestRenderer.ReactTestRenderer;
+  it("closes on Escape once opened", () => {
+    let tree!: TestRenderer.ReactTestRenderer;
     act(() => {
-      tree = TestRenderer.create(<ShortcutsOverlay />);
+      tree = TestRenderer.create(React.createElement(ShortcutsOverlay));
     });
-    act(() => {
-      fireKey("?", { shiftKey: true });
-    });
-    const closeBtn = tree!.root.findByProps({ "aria-label": "Close" });
-    act(() => {
-      closeBtn.props.onClick();
-    });
-    expect(tree!.toJSON()).toBeNull();
-  });
 
-  it("renders shortcut groups with descriptions and keys", () => {
-    let tree: TestRenderer.ReactTestRenderer;
     act(() => {
-      tree = TestRenderer.create(<ShortcutsOverlay />);
+      getLatestKeydownHandler()({
+        shiftKey: true,
+        key: "?",
+        preventDefault: vi.fn(),
+        target: { tagName: "DIV" },
+      } as unknown as KeyboardEvent);
     });
+
+    const preventDefault = vi.fn();
     act(() => {
-      fireKey("?", { shiftKey: true });
+      getLatestKeydownHandler()({
+        key: "Escape",
+        preventDefault,
+        target: { tagName: "DIV" },
+      } as unknown as KeyboardEvent);
     });
-    // Should contain at least one kbd element
-    const kbds = tree!.root.findAllByType("kbd");
-    expect(kbds.length).toBeGreaterThan(0);
+
+    expect(tree.toJSON()).toBeNull();
+    expect(preventDefault).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   COMMAND_PALETTE_EVENT,
@@ -14,6 +14,8 @@ import {
   CONNECT_EVENT,
   VOICE_CONFIG_UPDATED_EVENT,
   SELF_STATUS_SYNC_EVENT,
+  type MiladyDocumentEventName,
+  type MiladyWindowEventName,
   dispatchMiladyEvent,
   dispatchWindowEvent,
 } from "../../src/events";
@@ -36,6 +38,12 @@ describe("event constants", () => {
 });
 
 describe("dispatchMiladyEvent", () => {
+  it("accepts only known document event names", () => {
+    expectTypeOf(dispatchMiladyEvent)
+      .parameter(0)
+      .toEqualTypeOf<MiladyDocumentEventName>();
+  });
+
   it("dispatches a CustomEvent on document", () => {
     const handler = vi.fn();
     document.addEventListener(COMMAND_PALETTE_EVENT, handler);
@@ -55,6 +63,12 @@ describe("dispatchMiladyEvent", () => {
 });
 
 describe("dispatchWindowEvent", () => {
+  it("accepts only known window event names", () => {
+    expectTypeOf(dispatchWindowEvent)
+      .parameter(0)
+      .toEqualTypeOf<MiladyWindowEventName>();
+  });
+
   it("dispatches a CustomEvent on window", () => {
     const handler = vi.fn();
     window.addEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
@@ -62,5 +76,13 @@ describe("dispatchWindowEvent", () => {
     const event = handler.mock.calls[0][0] as CustomEvent;
     expect(event.detail).toEqual({ provider: "test" });
     window.removeEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
+  });
+
+  it("dispatches sidebar refresh events on window", () => {
+    const handler = vi.fn();
+    window.addEventListener(SELF_STATUS_SYNC_EVENT, handler);
+    dispatchWindowEvent(SELF_STATUS_SYNC_EVENT);
+    expect(handler).toHaveBeenCalledTimes(1);
+    window.removeEventListener(SELF_STATUS_SYNC_EVENT, handler);
   });
 });
