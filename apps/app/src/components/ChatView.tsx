@@ -19,6 +19,7 @@ import {
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext";
 import { client, type ImageAttachment, type VoiceConfig } from "../api-client";
+import { VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import {
   useVoiceChat,
   type VoicePlaybackStartEvent,
@@ -128,9 +129,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       void loadVoiceConfig();
     };
 
-    window.addEventListener("milady:voice-config-updated", handler);
+    window.addEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
     return () =>
-      window.removeEventListener("milady:voice-config-updated", handler);
+      window.removeEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
   }, [loadVoiceConfig]);
 
   // ── Derived composer state ──────────────────────────────────────

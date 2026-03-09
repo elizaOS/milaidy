@@ -6,11 +6,9 @@ import {
   type TradePermissionMode,
 } from "../api-client.js";
 import { createTranslator } from "../i18n";
+import { SELF_STATUS_SYNC_EVENT } from "../events";
 import { ChatView } from "./ChatView.js";
-import {
-  ConversationsSidebar,
-  SELF_STATUS_SYNC_EVENT,
-} from "./ConversationsSidebar.js";
+import { ConversationsSidebar } from "./ConversationsSidebar.js";
 
 const CHAT_MODAL_NARROW_BREAKPOINT = 768;
 

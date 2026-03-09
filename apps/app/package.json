@@ -7,6 +7,7 @@
     "dev": "vite",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
+    "test:ui": "vitest run --config vitest.config.ts test/app/command-palette test/app/chat-view test/app/conversations-sidebar test/app/events test/app/command-registry test/app/shell-overlays test/app/shortcuts-overlay test/app/confirm-modal",
     "test:watch": "vitest --config vitest.config.ts",
     "plugin:build": "for d in gateway swabble camera screencapture canvas desktop location talkmode agent; do echo \"[plugin:$d] building...\" && (cd plugins/$d && ../../../../scripts/rt.sh run build) || exit 1; done",
     "build": "(cd ../.. && scripts/rt.sh run install:build) && ../../scripts/rt.sh run plugin:build && ../../scripts/rt.sh install --ignore-scripts && vite build",

@@ -7,10 +7,8 @@ import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
 import { AutonomousPanel } from "./components/AutonomousPanel";
-import { BugReportModal } from "./components/BugReportModal";
 import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
-import { CommandPalette } from "./components/CommandPalette";
 import {
   COMPANION_OVERLAY_TABS,
   CompanionShell,
@@ -21,19 +19,17 @@ import { ConnectorsPageView } from "./components/ConnectorsPageView";
 import { ConversationsSidebar } from "./components/ConversationsSidebar";
 import { CustomActionEditor } from "./components/CustomActionEditor";
 import { CustomActionsPanel } from "./components/CustomActionsPanel";
-import { EmotePicker } from "./components/EmotePicker";
 import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { LifoSandboxView } from "./components/LifoSandboxView";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { MemoryDebugPanel } from "./components/MemoryDebugPanel";
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PairingView } from "./components/PairingView";
-import { RestartBanner } from "./components/RestartBanner";
 import { SaveCommandModal } from "./components/SaveCommandModal";
+import { ShellOverlays } from "./components/ShellOverlays";
 import { SettingsView } from "./components/SettingsView";
 import { StartupFailureView } from "./components/StartupFailureView";
 import { StreamView } from "./components/StreamView";
@@ -362,24 +358,7 @@ export function App() {
     return (
       <BugReportProvider value={bugReport}>
         <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
-        <CommandPalette />
-        <EmotePicker />
-        <RestartBanner />
-        <MemoryDebugPanel />
-        <BugReportModal />
-        {actionNotice && (
-          <div
-            className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
-              actionNotice.tone === "error"
-                ? "bg-danger"
-                : actionNotice.tone === "success"
-                  ? "bg-ok"
-                  : "bg-accent"
-            }`}
-          >
-            {actionNotice.text}
-          </div>
-        )}
+        <ShellOverlays actionNotice={actionNotice} />
       </BugReportProvider>
     );
   }
@@ -460,8 +439,7 @@ export function App() {
       {activeGameViewerUrl && gameOverlayEnabled && tab !== "apps" && (
         <GameViewOverlay />
       )}
-      <CommandPalette />
-      <EmotePicker />
+      <ShellOverlays actionNotice={actionNotice} />
       <SaveCommandModal
         open={contextMenu.saveCommandModalOpen}
         text={contextMenu.saveCommandText}
@@ -477,24 +455,8 @@ export function App() {
           setEditingAction(null);
         }}
       />
-      <RestartBanner />
       <ConnectionFailedBanner />
       <SystemWarningBanner />
-      <MemoryDebugPanel />
-      <BugReportModal />
-      {actionNotice && (
-        <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 rounded-lg text-[13px] font-medium z-[10000] text-white ${
-            actionNotice.tone === "error"
-              ? "bg-danger"
-              : actionNotice.tone === "success"
-                ? "bg-ok"
-                : "bg-accent"
-          }`}
-        >
-          {actionNotice.text}
-        </div>
-      )}
     </BugReportProvider>
   );
 }

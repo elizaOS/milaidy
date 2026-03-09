@@ -18,6 +18,7 @@ import {
   type VoiceMode,
   type VoiceProvider,
 } from "../api-client";
+import { VOICE_CONFIG_UPDATED_EVENT, dispatchWindowEvent } from "../events";
 import {
   CloudConnectionStatus,
   CloudSourceModeToggle,
@@ -586,11 +587,7 @@ export function VoiceConfigView() {
           ...(swabbleCfg ? { swabble: swabbleCfg } : {}),
         },
       });
-      window.dispatchEvent(
-        new CustomEvent("milady:voice-config-updated", {
-          detail: normalizedVoiceConfig,
-        }),
-      );
+      dispatchWindowEvent(VOICE_CONFIG_UPDATED_EVENT, normalizedVoiceConfig);
       setSaveSuccess(true);
       setDirty(false);
       setTimeout(() => setSaveSuccess(false), 2500);
