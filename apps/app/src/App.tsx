@@ -156,6 +156,7 @@ export function App() {
     tab === "plugins" ||
     tab === "skills" ||
     tab === "actions" ||
+    tab === "workflows" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
     tab === "trajectories" ||
