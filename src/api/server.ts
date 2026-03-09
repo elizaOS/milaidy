@@ -9586,6 +9586,13 @@ async function handleRequest(
               ? body.source
               : "clawhub",
         });
+
+        state.skills = await discoverSkills(
+          workspaceDir,
+          state.config,
+          state.runtime,
+        );
+
         json(res, { ok: true, skill: result });
       }
     } catch (err) {
@@ -9616,6 +9623,13 @@ async function handleRequest(
         state.config.agents?.defaults?.workspace ??
         resolveDefaultAgentWorkspaceDir();
       const result = await uninstallMarketplaceSkill(workspaceDir, uninstallId);
+
+      state.skills = await discoverSkills(
+        workspaceDir,
+        state.config,
+        state.runtime,
+      );
+
       json(res, { ok: true, skill: result });
     } catch (err) {
       error(
