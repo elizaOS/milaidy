@@ -6,6 +6,18 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const WORKFLOW_PATH = path.join(ROOT, ".github/workflows/test.yml");
 
 describe("Electrobun test workflow drift", () => {
+  it("labels the release-only desktop jobs as Electrobun", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const matrixOsJobName = "(${{ matrix.os }})";
+
+    expect(workflow).toContain("electrobun-ui-e2e:");
+    expect(workflow).toContain(`name: Electrobun Build ${matrixOsJobName}`);
+    expect(workflow).toContain("electrobun-packaged-dmg-e2e:");
+    expect(workflow).toContain("name: Electrobun Packaged DMG E2E (macOS)");
+    expect(workflow).not.toContain(`name: Electron Build ${matrixOsJobName}`);
+    expect(workflow).not.toContain("name: Electron Packaged DMG E2E (macOS)");
+  });
+
   it("builds the preload bridge before packaging the app", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const preloadIndex = workflow.indexOf("name: Build webview bridge preload");
