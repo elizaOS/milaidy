@@ -20,9 +20,9 @@ import type { IAgentRuntime } from "@elizaos/core";
 import { compileWorkflow } from "./compiler";
 import { loadWorkflows, loadWorkflowRuns, saveWorkflowRuns } from "./storage";
 import type {
+  CompiledWorkflow,
   CompiledStep,
   WorkflowContext,
-  WorkflowDef,
   WorkflowRun,
   WorkflowRunStatus,
   WorkflowStepEvent,

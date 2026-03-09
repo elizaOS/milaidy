@@ -60,7 +60,7 @@ The current implementation executes compiled workflow steps in-process and persi
 │                                                             │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐ │
 │  │ Custom       │  │ Triggers     │  │ Workflow Builder   │ │
-│  │ Actions View │  │ View         │  │ (React Flow +     │ │
+│  │ Actions View │  │ View         │  │ (Custom Canvas +  │ │
 │  │              │  │              │  │  Node Editor)      │ │
 │  └──────────────┘  └──────────────┘  └───────────────────┘ │
 │                                                             │
@@ -75,7 +75,7 @@ The current implementation executes compiled workflow steps in-process and persi
 │  ┌───────────────────────────▼──────────────────────────┐   │
 │  │  /api/workflows/*                                     │   │
 │  │    - CRUD workflow definitions                        │   │
-│  │    - Start/stop/pause/resume runs                     │   │
+│  │    - Start/cancel runs                                │   │
 │  │    - Run status + event log                           │   │
 │  └───────────────────────────┬──────────────────────────┘   │
 │                              │                              │
@@ -504,7 +504,7 @@ apps/app/src/components/
     NodePalette.tsx           — Draggable node type list
     NodeConfigPanel.tsx       — Right sidebar config editor
     nodes/
-      TriggerNode.tsx         — Custom React Flow node
+      TriggerNode.tsx         — Custom workflow node
       ActionNode.tsx
       LlmNode.tsx
       ConditionNode.tsx
