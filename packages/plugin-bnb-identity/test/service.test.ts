@@ -1,3 +1,4 @@
+import { describe, expect, it, mock } from "bun:test";
 import {
   assertMcpToolSuccess,
   BnbIdentityService,
@@ -173,7 +174,7 @@ describe("resolveBnbRpcUrl", () => {
 
   it("propagates the fallback RPC into NFA MCP calls when no custom RPC is configured", async () => {
     const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn(async (_input: unknown, _init?: RequestInit) => ({
+    const fetchMock = mock(async (_input: unknown, _init?: RequestInit) => ({
       ok: true,
       text: async () =>
         JSON.stringify({
