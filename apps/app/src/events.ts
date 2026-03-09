@@ -23,16 +23,32 @@ export const APP_PAUSE_EVENT = "milady:app-pause" as const;
 export const CONNECT_EVENT = "milady:connect" as const;
 
 // ── Voice / config ───────────────────────────────────────────────────────
-export const VOICE_CONFIG_UPDATED_EVENT = "milady:voice-config-updated" as const;
+export const VOICE_CONFIG_UPDATED_EVENT =
+  "milady:voice-config-updated" as const;
 
 // ── Sidebar sync ─────────────────────────────────────────────────────────
 export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh" as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+/** All known milady:* event names. */
+export type MiladyEventName =
+  | typeof COMMAND_PALETTE_EVENT
+  | typeof EMOTE_PICKER_EVENT
+  | typeof STOP_EMOTE_EVENT
+  | typeof AGENT_READY_EVENT
+  | typeof BRIDGE_READY_EVENT
+  | typeof SHARE_TARGET_EVENT
+  | typeof TRAY_ACTION_EVENT
+  | typeof APP_RESUME_EVENT
+  | typeof APP_PAUSE_EVENT
+  | typeof CONNECT_EVENT
+  | typeof VOICE_CONFIG_UPDATED_EVENT
+  | typeof SELF_STATUS_SYNC_EVENT;
+
 /** Dispatch a typed custom event on `document`. */
 export function dispatchMiladyEvent(
-  name: string,
+  name: MiladyEventName,
   detail?: unknown,
 ): void {
   document.dispatchEvent(new CustomEvent(name, { detail }));
@@ -40,7 +56,7 @@ export function dispatchMiladyEvent(
 
 /** Dispatch a typed custom event on `window`. */
 export function dispatchWindowEvent(
-  name: string,
+  name: MiladyEventName,
   detail?: unknown,
 ): void {
   window.dispatchEvent(new CustomEvent(name, { detail }));

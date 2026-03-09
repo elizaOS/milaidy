@@ -20,6 +20,7 @@ const svgProps = {
 function IconExcited() {
   return (
     <svg {...svgProps}>
+      <title>Excited mood</title>
       {/* face */}
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* big sparkly eyes — arcs with lash */}
@@ -66,6 +67,7 @@ function IconExcited() {
 function IconCalm() {
   return (
     <svg {...svgProps}>
+      <title>Calm mood</title>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* closed happy eyes — smooth crescents */}
       <path d="M10 15c0.9-1.6 3.1-1.6 4 0" strokeWidth={1.7} />
@@ -97,6 +99,7 @@ function IconCalm() {
 function IconNeutral() {
   return (
     <svg {...svgProps}>
+      <title>Neutral mood</title>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* dot eyes */}
       <circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none" />
@@ -111,6 +114,7 @@ function IconNeutral() {
 function IconLow() {
   return (
     <svg {...svgProps}>
+      <title>Low mood</title>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* worried brows */}
       <path d="M9.5 12.5c0.8-0.6 2.5-0.4 3.5 0.2" strokeWidth={1.4} />
@@ -135,6 +139,7 @@ function IconLow() {
 function IconBurnout() {
   return (
     <svg {...svgProps}>
+      <title>Burnout mood</title>
       <circle cx="16" cy="17" r="11" strokeWidth={1.5} />
       {/* X eyes */}
       <path d="M10 13.5l3.2 3.2" strokeWidth={2} />
@@ -156,6 +161,7 @@ function IconBurnout() {
 function IconFeed() {
   return (
     <svg {...svgProps}>
+      <title>Feed action</title>
       {/* apple body — plump heart-like shape */}
       <path
         d="M16 28c-5.5-1-9-5.5-9-10.5 0-3.8 2.8-6 5.2-6.2a4.2 4.2 0 0 1 3.8 1.8 4.2 4.2 0 0 1 3.8-1.8c2.4 0.2 5.2 2.4 5.2 6.2 0 5-3.5 9.5-9 10.5z"
@@ -179,6 +185,7 @@ function IconFeed() {
 function IconRest() {
   return (
     <svg {...svgProps}>
+      <title>Rest action</title>
       {/* big Z */}
       <path d="M8 22h6l-6 7h6" strokeWidth={2.2} />
       {/* medium Z */}
@@ -210,6 +217,7 @@ function IconRest() {
 function IconManualShare() {
   return (
     <svg {...svgProps}>
+      <title>Share action</title>
       {/* four-pointed star — smooth cubic curves */}
       <path
         d="M16 3c0.8 4.2 3.8 7.8 8.5 9-4.7 1.2-7.7 4.8-8.5 9-0.8-4.2-3.8-7.8-8.5-9 4.7-1.2 7.7-4.8 8.5-9z"

@@ -36,7 +36,11 @@ export interface BscTradePanelProps {
   trackedTokens: TrackedToken[];
   onAddToken: (token: TrackedToken) => void;
   copyToClipboard: (text: string) => Promise<void>;
-  setActionNotice: (text: string, tone?: "info" | "success" | "error", ttlMs?: number) => void;
+  setActionNotice: (
+    text: string,
+    tone?: "info" | "success" | "error",
+    ttlMs?: number,
+  ) => void;
   getBscTradePreflight?: (
     tokenAddress?: string,
   ) => Promise<BscTradePreflightResponse>;

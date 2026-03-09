@@ -264,9 +264,7 @@ export function Header() {
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </span>
               ) : state === "not_started" || state === "stopped" ? (
-                <IconButtonTooltip
-                  label={t("header.startAgent")}
-                >
+                <IconButtonTooltip label={t("header.startAgent")}>
                   <button
                     type="button"
                     onClick={() => void handleStart()}
@@ -340,7 +338,12 @@ export function Header() {
             </div>
 
             {/* Command Palette */}
-            <IconButtonTooltip label="Command Palette" shortcut={navigator.platform?.includes("Mac") ? "\u2318K" : "Ctrl+K"}>
+            <IconButtonTooltip
+              label="Command Palette"
+              shortcut={
+                navigator.platform?.includes("Mac") ? "\u2318K" : "Ctrl+K"
+              }
+            >
               <button
                 type="button"
                 onClick={() => dispatchMiladyEvent(COMMAND_PALETTE_EVENT)}

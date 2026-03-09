@@ -46,7 +46,8 @@ export function ShortcutsOverlay() {
   const grouped: Record<string, typeof COMMON_SHORTCUTS> = {};
   for (const s of COMMON_SHORTCUTS) {
     const scope = s.scope ?? "global";
-    (grouped[scope] ??= []).push(s);
+    if (!grouped[scope]) grouped[scope] = [];
+    grouped[scope].push(s);
   }
 
   return (
@@ -54,6 +55,9 @@ export function ShortcutsOverlay() {
       className="fixed inset-0 bg-black/40 z-[10000] flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) setOpen(false);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
       }}
       role="dialog"
       aria-modal="true"
@@ -86,9 +90,7 @@ export function ShortcutsOverlay() {
                     key={`${s.key}-${s.description}`}
                     className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-bg-hover"
                   >
-                    <span className="text-sm text-txt">
-                      {s.description}
-                    </span>
+                    <span className="text-sm text-txt">{s.description}</span>
                     <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-mono bg-bg-elevated border border-border rounded text-muted">
                       {formatKey(s)}
                     </kbd>
