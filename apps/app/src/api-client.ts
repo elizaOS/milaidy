@@ -6,6 +6,13 @@
  */
 
 import type {
+  IdentityRecord,
+  LearningLeaf,
+  NfaContractMetadata,
+  NfaInfo,
+  NfaRecord,
+} from "../../../packages/plugin-bnb-identity/src/types";
+import type {
   AudioGenConfig,
   AudioGenProvider,
   CustomActionDef,
@@ -98,6 +105,13 @@ export type {
 export type { DropStatus, MintResult };
 export type { VerificationResult };
 export type {
+  IdentityRecord,
+  LearningLeaf,
+  NfaContractMetadata,
+  NfaInfo,
+  NfaRecord,
+};
+export type {
   AllPermissionsState,
   PermissionState,
   PermissionStatus,
@@ -109,62 +123,11 @@ export type {
 // NFA / Identity types (BAP-578)
 // ---------------------------------------------------------------------------
 
-export interface NfaContractMetadata {
-  persona: string;
-  experience: string;
-  voiceHash: string;
-  animationURI: string;
-  vaultURI: string;
-  vaultHash: string;
-}
-
-export interface NfaInfo {
-  tokenId: string;
-  owner: string;
-  balance: string;
-  active: boolean;
-  logicContract: string;
-  createdAt: number;
-  metadata: NfaContractMetadata;
-  metadataURI: string;
-  freeMint: boolean;
-}
-
-export interface IdentityRecord {
-  agentId: string;
-  network: string;
-  txHash: string;
-  ownerAddress: string;
-  agentURI: string;
-  registeredAt: string;
-  lastUpdatedAt: string;
-}
-
-export interface NfaRecord {
-  tokenId: string;
-  network: string;
-  owner: string;
-  learningRoot: string;
-  learningCount: number;
-  lastAnchoredAt: string;
-  logicContract?: string;
-  paused: boolean;
-  freeMint: boolean;
-  mintTxHash: string;
-}
-
-export interface LearningLeaf {
-  id: string;
-  timestamp: string;
-  category: "error" | "correction" | "insight" | "pattern";
-  summary: string;
-  contentHash: string;
-}
-
 export interface NfaStatusResponse {
   identity: IdentityRecord | null;
   nfa: NfaRecord | null;
   onChain: NfaInfo | null;
+  contractAddress: string | null;
 }
 
 export interface NfaLearningsResponse {
@@ -3151,7 +3114,12 @@ export class MiladyClient {
     persona?: string;
     experience?: string;
     agentURI?: string;
-  }): Promise<{ success: boolean; txHash?: string; tokenId?: string; error?: string }> {
+  }): Promise<{
+    success: boolean;
+    txHash?: string;
+    tokenId?: string;
+    error?: string;
+  }> {
     return this.fetch("/api/nfa/mint", {
       method: "POST",
       body: JSON.stringify(opts),
@@ -3159,9 +3127,13 @@ export class MiladyClient {
   }
 
   /** Anchor learnings on-chain. */
-  async anchorLearnings(opts: {
-    useWalletKey?: boolean;
-  }): Promise<{ success: boolean; txHash?: string; root?: string; count?: number; error?: string }> {
+  async anchorLearnings(opts: { useWalletKey?: boolean }): Promise<{
+    success: boolean;
+    txHash?: string;
+    root?: string;
+    count?: number;
+    error?: string;
+  }> {
     return this.fetch("/api/nfa/anchor", {
       method: "POST",
       body: JSON.stringify(opts),
@@ -3181,7 +3153,7 @@ export class MiladyClient {
 
   /** Upgrade NFA logic contract. */
   async upgradeNfaLogic(opts: {
-    logicAddress: string;
+    newLogicAddress: string;
     useWalletKey?: boolean;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
     return this.fetch("/api/nfa/upgrade-logic", {
@@ -3191,9 +3163,12 @@ export class MiladyClient {
   }
 
   /** Toggle NFA pause state. */
-  async toggleNfaPause(opts: {
-    useWalletKey?: boolean;
-  }): Promise<{ success: boolean; txHash?: string; paused?: boolean; error?: string }> {
+  async toggleNfaPause(opts: { useWalletKey?: boolean }): Promise<{
+    success: boolean;
+    txHash?: string;
+    paused?: boolean;
+    error?: string;
+  }> {
     return this.fetch("/api/nfa/pause", {
       method: "POST",
       body: JSON.stringify(opts),

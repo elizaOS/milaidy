@@ -482,11 +482,30 @@
   padding-right: 12px;
 }
 
+.anime-header-identity-trigger {
+  border: none;
+  cursor: pointer;
+  min-width: 156px;
+  justify-content: flex-start;
+  padding-right: 12px;
+}
+
 .anime-header-wallet-trigger:hover {
   border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
 }
 
+.anime-header-identity-trigger:hover {
+  border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
+}
+
 .anime-header-wallet-trigger.is-open {
+  border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    inset 2px 0 12px rgba(240, 178, 50, 0.22);
+}
+
+.anime-header-identity-trigger.is-open {
   border-left-color: color-mix(in srgb, var(--ac-accent) 70%, white 30%);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.5),
@@ -6670,10 +6689,6 @@
   gap: 8px;
 }
 
-.chat-game-message-row-user {
-  justify-content: flex-end;
-}
-
 .chat-game-avatar {
   width: 32px;
   height: 32px;
@@ -6815,41 +6830,6 @@
 .chat-game-mic-btn:hover {
   color: #fff;
   border-color: color-mix(in srgb, var(--accent, #f0b232) 64%, white 36%);
-}
-
-.chat-game-mic-btn.is-listening {
-  color: #fff8e6;
-  border-color: color-mix(in srgb, var(--accent, #f0b232) 72%, white 28%);
-  background: color-mix(in srgb, var(--accent, #f0b232) 24%, rgba(8, 12, 22, 0.84));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #f0b232) 40%, transparent);
-}
-
-.chat-game-emote-btn {
-  height: 40px;
-  width: 40px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease,
-    background 0.2s ease;
-  background: rgba(8, 12, 22, 0.84);
-  color: rgba(222, 229, 246, 0.75);
-  flex-shrink: 0;
-}
-
-.chat-game-emote-btn:hover {
-  color: #fff;
-  border-color: color-mix(in srgb, var(--accent, #f0b232) 64%, white 36%);
-}
-
-.chat-game-emote-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .chat-game-live-transcript,

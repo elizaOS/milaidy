@@ -17,6 +17,16 @@ interface NfaConfirmDialogProps {
   operation: NfaOperation;
   /** Extra detail lines shown in the dialog body. */
   details?: string[];
+  /** Optional text input label for operations that require an address. */
+  inputLabel?: string;
+  /** Controlled input value from parent state. */
+  inputValue?: string;
+  /** Placeholder text for the optional input field. */
+  inputPlaceholder?: string;
+  /** Optional inline validation message tied to the input field. */
+  inputError?: string | null;
+  /** Called when the optional input field changes. */
+  onInputChange?: (value: string) => void;
   /** Controlled loading state from parent operation handler. */
   busy?: boolean;
   /** Optional inline error message shown in dialog body. */
@@ -43,6 +53,11 @@ const OP_LABELS: Record<NfaOperation, { title: string; warning?: string }> = {
 export function NfaConfirmDialog({
   operation,
   details,
+  inputLabel,
+  inputValue,
+  inputPlaceholder,
+  inputError,
+  onInputChange,
   busy = false,
   errorMessage,
   onResult,
@@ -50,6 +65,7 @@ export function NfaConfirmDialog({
   const label = OP_LABELS[operation];
   const detailLines = Array.isArray(details) ? details : [];
   const hasDetails = detailLines.length > 0;
+  const showInput = typeof onInputChange === "function";
   const dialog = (
     <div className="wt__confirm-backdrop">
       <div className="wt__confirm-modal nfa__confirm-modal">
@@ -71,6 +87,29 @@ export function NfaConfirmDialog({
             ))}
           </div>
         )}
+        {showInput ? (
+          <label className="nfa__confirm-input-shell">
+            <span className="nfa__confirm-input-label">
+              {inputLabel ?? "Address"}
+            </span>
+            <input
+              type="text"
+              className="nfa__confirm-input"
+              value={inputValue ?? ""}
+              placeholder={inputPlaceholder}
+              aria-label={inputLabel ?? "Address"}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(event) => onInputChange(event.target.value)}
+            />
+          </label>
+        ) : null}
+        {inputError ? (
+          <div className="nfa__confirm-error" role="alert">
+            {inputError}
+          </div>
+        ) : null}
         <div className="wt__confirm-actions">
           <button
             type="button"

@@ -227,18 +227,18 @@ export const registerAction: Action = {
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "register milady on bnb chain" },
-      },
+      } as ActionExample,
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: "Ready to register Milady on bsc-testnet. Reply confirm to proceed.",
           action: "BNB_IDENTITY_REGISTER",
         },
-      },
+      } as ActionExample,
     ],
-  ] as unknown as ActionExample[][],
+  ],
 };
 
 // ── Action: BNB_IDENTITY_UPDATE ────────────────────────────────────────────
@@ -378,18 +378,18 @@ export const updateIdentityAction: Action = {
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "update my agent profile on bnb" },
-      },
+      } as ActionExample,
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: "Ready to update agentURI for agent 42 on bsc-testnet. Reply confirm.",
           action: "BNB_IDENTITY_UPDATE",
         },
-      },
+      } as ActionExample,
     ],
-  ] as unknown as ActionExample[][],
+  ],
 };
 
 // ── Action: BNB_IDENTITY_RESOLVE ───────────────────────────────────────────
@@ -492,31 +492,31 @@ export const resolveIdentityAction: Action = {
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "what is my agent id" },
-      },
+      } as ActionExample,
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: "Agent ID: `42` on bsc-testnet. Owner: `0x...`",
           action: "BNB_IDENTITY_RESOLVE",
         },
-      },
+      } as ActionExample,
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: { text: "look up agent 7" },
-      },
+      } as ActionExample,
       {
-        user: "{{agentName}}",
+        name: "{{agentName}}",
         content: {
           text: "Resolving agent `7` on bsc-testnet…",
           action: "BNB_IDENTITY_RESOLVE",
         },
-      },
+      } as ActionExample,
     ],
-  ] as unknown as ActionExample[][],
+  ],
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -45,6 +45,7 @@ import {
   type McpServerConfig,
   type McpServerStatus,
   type MintResult,
+  type NfaStatusResponse,
   type OnboardingOptions,
   type PluginInfo,
   type RegistryPlugin,
@@ -71,7 +72,6 @@ import {
   type WalletTradingProfileWindow,
   type WhitelistStatus,
   type WorkbenchOverview,
-  type NfaStatusResponse,
 } from "./api-client";
 import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
 import {
@@ -4107,11 +4107,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const s = await client.getNfaStatus();
       setNfaStatus(s);
     } catch (err) {
-      setNfaStatusError(err instanceof Error ? err.message : "Failed to load NFA status");
+      setNfaStatusError(
+        err instanceof Error ? err.message : "Failed to load NFA status",
+      );
     } finally {
       setNfaStatusLoading(false);
     }
-  }, [client]);
+  }, []);
 
   // ── Character actions ──────────────────────────────────────────────
 

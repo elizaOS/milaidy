@@ -39,6 +39,7 @@ export interface NfaStatusResponse {
   identity: IdentityRecord | null;
   nfa: NfaRecord | null;
   onChain: NfaInfo | null;
+  contractAddress: string | null;
 }
 
 export interface NfaLearningsResponse {
@@ -73,7 +74,16 @@ export async function handleNfaRoutes(ctx: NfaRouteContext): Promise<boolean> {
         }
       }
 
-      json(ctx.res, { identity, nfa, onChain } satisfies NfaStatusResponse);
+      const contractAddress =
+        typeof nfaContractAddress === "string" && nfaContractAddress.trim()
+          ? nfaContractAddress.trim()
+          : null;
+      json(ctx.res, {
+        identity,
+        nfa,
+        onChain,
+        contractAddress,
+      } satisfies NfaStatusResponse);
     } catch (err) {
       error(
         ctx.res,

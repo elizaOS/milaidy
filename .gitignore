@@ -1,55 +1,50 @@
-node_modules/
-.DS_Store
-.claude/settings.local.json
-.gemini/settings.json
-/specstory
-.devin/
-.cursor/
-/.agent.md
-/.claude/
-/.codex/
-/.gemini/
-/.kiro/
-/.openhands/
-/.qoder/
-/.vscode/
-/.windsurf/
-.vscode/*
-!.vscode/extensions.json
-.cache/
-dist/
-dist-electron/
-/build/
-/.svelte-kit/
-/coverage/
-apps/app/dist/
-apps/app/build/
-apps/app/electron/out/
-apps/app/electron/build/
-apps/app/electron/dist/
-apps/app/electron/milady-dist/
-apps/app/electron/node_modules/
-apps/app/electron/plugins/
-apps/app/electron/.vite/
-apps/app/electron/Library/
-apps/app/electron/app.asar.unpacked/
-apps/app/electron/logic/
-apps/app/electron/logs/
-apps/app/electron/*.log
-apps/app/electron/core.*
+node_modules
+**/node_modules/
 .env
-.env.*
-!.env.example
-*.log
-*.pid
-*.tmp
-*.swp
-*.swo
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+dist
+coverage
+tmp/
+apps/app/electron/build/
+.bun
+.DS_Store
+**/.DS_Store
+.avatar-clone-tmp
+
+# Build artifacts
+*.bun-build
+**/*.bun-build
+*.tsbuildinfo
+apps/app/electron/tsc-out/
+
+# TypeScript declaration build outputs inside source dirs
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
+# Lock files (managed at repo root)
+package-lock.json
 bun.lockb
+!deploy/cloud-agent-template/package-lock.json
+
+# Docker overrides
+docker-compose.extra.yml
+
+# UI test artifacts
+apps/ui/src/ui/__screenshots__/
+apps/ui/playwright-report/
+apps/ui/test-results/
+
+# Vendored repos (clone separately if needed)
+vendor/
+plugins/plugin-blooio/
+
+# Local untracked files
+.local/
+.vscode/
+.claude/settings.local.json
+.claude/skills/
+.git-workspace/
+IDENTITY.md
+USER.md
 .tgz
 .eliza/
 .eliza.broken.*/
@@ -65,3 +60,51 @@ apps/app/electron/skills/
 # Local workspace clones / scratch dirs
 milady-workspace/
 assets/
+
+# Temporary capture files
+temp_capture_*.jpg
+knip_output*.txt
+src/benchmark/mock-plugin.ts
+biome-report.json
+
+# Test/build log files
+*.log
+!docs/**/*.log
+
+# Local audit outputs
+report/
+
+# Agent learning docs & knowledge base
+knowledge/
+scripts/knowledge-loop.mjs
+test/contracts/
+apps/app/test-results/
+# WhatsApp session files (Baileys auth state)
+/auth/
+:memory:/
+benchmarks/
+plugins/
+!docs/plugins/
+
+# Electron build directories
+apps/app/electron/app-build/
+apps/app/electron/milady-dist/
+dist-electron/
+
+# Build artifacts - installers and archives
+*.dmg
+*.AppImage
+*.exe
+*.msi
+*.deb
+*.rpm
+apps/app/electron/*.tar.gz
+
+# Test output directories
+test-output/
+
+# External plugin repos (not submodules)
+elizaos-plugins/
+.claude/worktrees/
+e2e-screenshots/
+data/

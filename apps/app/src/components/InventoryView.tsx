@@ -627,8 +627,12 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
     const knownBscContracts = new Set(
       rows
-        .filter((row) => isBscChainName(row.chain) && row.contractAddress)
-        .map((row) => toNormalizedAddress(row.contractAddress!)),
+        .filter(
+          (row): row is TokenRow & { contractAddress: string } =>
+            isBscChainName(row.chain) &&
+            typeof row.contractAddress === "string",
+        )
+        .map((row) => toNormalizedAddress(row.contractAddress)),
     );
     for (const tracked of trackedBscTokens) {
       const normalized = toNormalizedAddress(tracked.contractAddress);
@@ -889,8 +893,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     const normalized = toNormalizedAddress(tokenAddress);
     const matchedRow = tokenRows.find(
       (row) =>
-        Boolean(row.contractAddress) &&
-        toNormalizedAddress(row.contractAddress!) === normalized,
+        typeof row.contractAddress === "string" &&
+        toNormalizedAddress(row.contractAddress) === normalized,
     );
     const matchedQuote =
       latestQuote &&
@@ -1084,9 +1088,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         <div className="wt__confirm-backdrop">
           <div className="wt__confirm-modal">
             <div className="wt__confirm-title">{t("wallet.confirmTrade")}</div>
-            <div className="wt__confirm-message">
-              {pendingConfirm.message}
-            </div>
+            <div className="wt__confirm-message">{pendingConfirm.message}</div>
             <div className="wt__confirm-actions">
               <button
                 type="button"
@@ -1873,7 +1875,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                           className="wt__row-btn is-remove"
                           title={t("wallet.removeManualTitle")}
                           onClick={() =>
-                            handleUntrackToken(row.contractAddress!)
+                            handleUntrackToken(row.contractAddress)
                           }
                           disabled={tradeBusy}
                         >

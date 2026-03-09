@@ -83,14 +83,26 @@ export interface AddressResult {
 
 // ── BAP-578 Non-Fungible Agent types ────────────────────────────────────
 
+export interface NfaContractMetadata {
+  persona: string;
+  experience: string;
+  voiceHash: string;
+  animationURI: string;
+  vaultURI: string;
+  vaultHash: string;
+}
+
 /** On-chain NFA state returned by MCP query. */
 export interface NfaInfo {
   tokenId: string;
   owner: string;
-  learningRoot: string;
+  balance: string;
+  active: boolean;
   logicContract: string;
-  paused: boolean;
-  tokenURI: string;
+  createdAt: number;
+  metadata: NfaContractMetadata;
+  metadataURI: string;
+  freeMint: boolean;
 }
 
 /** Local persistence for NFA state. */

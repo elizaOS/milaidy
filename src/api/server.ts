@@ -151,7 +151,6 @@ import {
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
 import {
-  DEFAULT_BAP578_CONTRACT_ADDRESS,
   PUBLIC_BASE_RPC_PRIMARY,
   PUBLIC_BSC_RPC_PRIMARY,
   PUBLIC_ETHEREUM_RPC_PRIMARY,
@@ -14670,9 +14669,6 @@ export async function startApiServer(opts?: {
   }
   if (!process.env.SOLANA_RPC_URL?.trim()) {
     process.env.SOLANA_RPC_URL = PUBLIC_SOLANA_RPC_PRIMARY;
-  }
-  if (!process.env.BAP578_CONTRACT_ADDRESS?.trim()) {
-    process.env.BAP578_CONTRACT_ADDRESS = DEFAULT_BAP578_CONTRACT_ADDRESS;
   }
   // Self-heal older configs where wallet keys were never provisioned
   // (e.g. RPC/cloud configured outside onboarding).

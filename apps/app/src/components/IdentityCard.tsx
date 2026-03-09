@@ -4,12 +4,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { client, type NfaStatusResponse } from "../api-client";
+import { useApp } from "../AppContext";
+import { client } from "../api-client";
 import { NfaConfirmDialog, type NfaOperation } from "./NfaConfirmDialog";
 
-// ---------------------------------------------------------------------------
-// Helper: TxResultBanner
-// ---------------------------------------------------------------------------
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 function TxResultBanner({
   ok,
@@ -35,10 +34,6 @@ function TxResultBanner({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helper: OverflowMenu
-// ---------------------------------------------------------------------------
-
 function OverflowMenu({
   items,
 }: {
@@ -48,9 +43,9 @@ function OverflowMenu({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (!open || typeof document === "undefined") return;
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -58,7 +53,7 @@ function OverflowMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const visible = items.filter((i) => !i.hidden);
+  const visible = items.filter((item) => !item.hidden);
   if (visible.length === 0) return null;
 
   return (
@@ -67,7 +62,7 @@ function OverflowMenu({
         type="button"
         className="anime-wallet-identity-btn"
         style={{ padding: "7px 10px", flex: "none" }}
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((value) => !value)}
       >
         ···
       </button>
@@ -105,12 +100,12 @@ function OverflowMenu({
                 border: "none",
                 cursor: "pointer",
               }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.background =
+              onMouseEnter={(event) => {
+                (event.target as HTMLElement).style.background =
                   "rgba(255,255,255,0.06)";
               }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.background = "none";
+              onMouseLeave={(event) => {
+                (event.target as HTMLElement).style.background = "none";
               }}
               onClick={() => {
                 setOpen(false);
@@ -126,33 +121,51 @@ function OverflowMenu({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Explorer URL helper
-// ---------------------------------------------------------------------------
-
 function explorerUrl(network: string, path: string): string {
   const base =
     network === "bsc" ? "https://bscscan.com" : "https://testnet.bscscan.com";
   return `${base}/${path}`;
 }
 
-function shortAddr(addr: string): string {
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+function shortAddr(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
-
-// ---------------------------------------------------------------------------
-// IdentityCard
-// ---------------------------------------------------------------------------
 
 interface PendingOp {
   op: NfaOperation;
   details?: string[];
+  inputLabel?: string;
+  inputPlaceholder?: string;
+  inputValue?: string;
+}
+
+function getPendingOpInputValue(operation: PendingOp): string {
+  return operation.inputValue?.trim() ?? "";
+}
+
+function getPendingOpInputError(operation: PendingOp | null): string | null {
+  if (!operation?.inputLabel) return null;
+  const inputValue = getPendingOpInputValue(operation);
+  if (!inputValue) {
+    return `${operation.inputLabel} is required.`;
+  }
+  if (!ADDRESS_RE.test(inputValue)) {
+    return "Enter a valid 0x address.";
+  }
+  return null;
 }
 
 export function IdentityCard() {
-  const [status, setStatus] = useState<NfaStatusResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const app = useApp();
+  const nfaStatus = app.nfaStatus;
+  const nfaStatusLoading = app.nfaStatusLoading;
+  const nfaStatusError = app.nfaStatusError;
+  const loadNfaStatus =
+    typeof app.loadNfaStatus === "function"
+      ? app.loadNfaStatus
+      : async () => {};
+  const initialStatusRequestedRef = useRef(false);
   const [useWalletKey, setUseWalletKey] = useState(true);
   const [pendingOp, setPendingOp] = useState<PendingOp | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -162,133 +175,147 @@ export function IdentityCard() {
     message: string;
   } | null>(null);
 
-  // ── Fetch status ────────────────────────────────────────────────────
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await client.getNfaStatus();
-      setStatus(res);
-    } catch {
-      // silently ignore — card just stays in loading/empty state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
-
-  // ── Execute confirmed operation ─────────────────────────────────────
+    if (initialStatusRequestedRef.current || nfaStatus || nfaStatusLoading) {
+      return;
+    }
+    initialStatusRequestedRef.current = true;
+    void loadNfaStatus();
+  }, [loadNfaStatus, nfaStatus, nfaStatusLoading]);
 
   const executeOp = useCallback(
-    async (op: PendingOp): Promise<{ ok: boolean; message: string }> => {
+    async (operation: PendingOp): Promise<{ ok: boolean; message: string }> => {
       try {
-        let msg = "";
-        switch (op.op) {
+        let message = "";
+        switch (operation.op) {
           case "mint": {
-            const res = await client.mintNfa({ useWalletKey });
-            if (!res.success) throw new Error(res.error || "Mint failed");
-            msg = `NFA minted! tx: ${res.txHash ?? "pending"}`;
+            const response = await client.mintNfa({ useWalletKey });
+            if (!response.success) {
+              throw new Error(response.error || "Mint failed");
+            }
+            message = `NFA minted! tx: ${response.txHash ?? "pending"}`;
             break;
           }
           case "anchor": {
-            const res = await client.anchorLearnings({ useWalletKey });
-            if (!res.success) throw new Error(res.error || "Anchor failed");
-            msg = `Learnings anchored. tx: ${res.txHash ?? "pending"}`;
+            const response = await client.anchorLearnings({ useWalletKey });
+            if (!response.success) {
+              throw new Error(response.error || "Anchor failed");
+            }
+            message = `Learnings anchored. tx: ${response.txHash ?? "pending"}`;
             break;
           }
           case "transfer": {
-            const to = op.details?.[0]?.replace("To: ", "") ?? "";
-            const res = await client.transferNfa({ to, useWalletKey });
-            if (!res.success) throw new Error(res.error || "Transfer failed");
-            msg = `NFA transferred. tx: ${res.txHash ?? "pending"}`;
+            const response = await client.transferNfa({
+              to: getPendingOpInputValue(operation),
+              useWalletKey,
+            });
+            if (!response.success) {
+              throw new Error(response.error || "Transfer failed");
+            }
+            message = `NFA transferred. tx: ${response.txHash ?? "pending"}`;
             break;
           }
           case "upgrade-logic": {
-            const addr = op.details?.[0]?.replace("New logic: ", "") ?? "";
-            const res = await client.upgradeNfaLogic({
-              logicAddress: addr,
+            const response = await client.upgradeNfaLogic({
+              newLogicAddress: getPendingOpInputValue(operation),
               useWalletKey,
             });
-            if (!res.success) throw new Error(res.error || "Upgrade failed");
-            msg = `Logic upgraded. tx: ${res.txHash ?? "pending"}`;
+            if (!response.success) {
+              throw new Error(response.error || "Upgrade failed");
+            }
+            message = `Logic upgraded. tx: ${response.txHash ?? "pending"}`;
             break;
           }
           case "pause":
           case "unpause": {
-            const res = await client.toggleNfaPause({ useWalletKey });
-            if (!res.success) throw new Error(res.error || "Toggle failed");
-            msg = res.paused ? "NFA paused." : "NFA unpaused.";
+            const response = await client.toggleNfaPause({ useWalletKey });
+            if (!response.success) {
+              throw new Error(response.error || "Toggle failed");
+            }
+            message = response.paused ? "NFA paused." : "NFA unpaused.";
             break;
           }
         }
-        await fetchStatus();
-        return { ok: true, message: msg };
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Unknown error";
+        await loadNfaStatus();
+        return { ok: true, message };
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
         return { ok: false, message };
       }
     },
-    [useWalletKey, fetchStatus],
+    [loadNfaStatus, useWalletKey],
   );
-
-  // ── Confirm handler ─────────────────────────────────────────────────
 
   const handleConfirmResult = useCallback(
     async (confirmed: boolean) => {
-      const op = pendingOp;
+      const operation = pendingOp;
       if (!confirmed) {
         setPendingOp(null);
         setConfirmError(null);
         return;
       }
-      if (!op || confirmBusy) {
+      if (!operation || confirmBusy) {
+        return;
+      }
+
+      const inputError = getPendingOpInputError(operation);
+      if (inputError) {
+        setConfirmError(inputError);
         return;
       }
 
       setConfirmBusy(true);
       setConfirmError(null);
-      const result = await executeOp(op);
+      const result = await executeOp(operation);
       setTxResult(result);
       if (result.ok) {
         setPendingOp(null);
       } else {
-        // Keep dialog open so errors are visible without switching views.
         setConfirmError(result.message);
       }
       setConfirmBusy(false);
     },
-    [pendingOp, confirmBusy, executeOp],
+    [confirmBusy, executeOp, pendingOp],
   );
 
-  // ── Prompt helpers (Transfer / Upgrade) ─────────────────────────────
-
-  const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-
-  const promptTransfer = useCallback(() => {
-    const addr = window.prompt("Enter recipient address (0x...):");
-    if (!addr) return;
-    if (!ADDRESS_RE.test(addr)) {
-      setTxResult({ ok: false, message: "Invalid address format." });
-      return;
-    }
+  const handlePendingInputChange = useCallback((value: string) => {
     setConfirmError(null);
-    setPendingOp({ op: "transfer", details: [`To: ${addr}`] });
+    setPendingOp((current) =>
+      current
+        ? {
+            ...current,
+            inputValue: value,
+          }
+        : current,
+    );
   }, []);
 
-  const promptUpgrade = useCallback(() => {
-    const addr = window.prompt("Enter new logic contract address (0x...):");
-    if (!addr) return;
-    if (!ADDRESS_RE.test(addr)) {
-      setTxResult({ ok: false, message: "Invalid address format." });
-      return;
-    }
+  const openTransferDialog = useCallback(() => {
     setConfirmError(null);
-    setPendingOp({ op: "upgrade-logic", details: [`New logic: ${addr}`] });
+    setPendingOp({
+      op: "transfer",
+      details: ["Transfer ownership of this NFA to another wallet."],
+      inputLabel: "Recipient address",
+      inputPlaceholder: "0x...",
+      inputValue: "",
+    });
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────────
+  const openUpgradeDialog = useCallback(() => {
+    setConfirmError(null);
+    setPendingOp({
+      op: "upgrade-logic",
+      details: ["Point this NFA at a new logic contract."],
+      inputLabel: "New logic contract",
+      inputPlaceholder: "0x...",
+      inputValue: "",
+    });
+  }, []);
+
+  const status = nfaStatus;
+  const loading = nfaStatusLoading && !status;
+  const loadError = !status ? nfaStatusError : null;
 
   if (loading) {
     return (
@@ -310,28 +337,50 @@ export function IdentityCard() {
 
   return (
     <div className="anime-wallet-identity">
-      {/* Confirm dialog */}
       {pendingOp && (
         <NfaConfirmDialog
           operation={pendingOp.op}
           details={pendingOp.details}
+          inputLabel={pendingOp.inputLabel}
+          inputValue={pendingOp.inputValue}
+          inputPlaceholder={pendingOp.inputPlaceholder}
+          inputError={confirmError}
+          onInputChange={
+            pendingOp.inputLabel ? handlePendingInputChange : undefined
+          }
           busy={confirmBusy}
-          errorMessage={confirmError}
+          errorMessage={pendingOp.inputLabel ? null : confirmError}
           onResult={handleConfirmResult}
         />
       )}
 
-      {/* Tx result banner */}
-      {txResult && (
+      {txResult ? (
         <TxResultBanner
           ok={txResult.ok}
           message={txResult.message}
           onDismiss={() => setTxResult(null)}
         />
-      )}
+      ) : null}
 
-      {!isRegistered ? (
-        /* ── Unregistered state ────────────────────────────────── */
+      {loadError ? (
+        <>
+          <div className="anime-wallet-identity-title">
+            On-Chain Agent Identity
+          </div>
+          <div className="anime-wallet-identity-desc" role="alert">
+            {loadError}
+          </div>
+          <div className="anime-wallet-identity-actions">
+            <button
+              type="button"
+              className="anime-wallet-identity-btn"
+              onClick={() => void loadNfaStatus()}
+            >
+              Retry
+            </button>
+          </div>
+        </>
+      ) : !isRegistered ? (
         <>
           <div className="anime-wallet-identity-title">
             On-Chain Agent Identity
@@ -344,7 +393,7 @@ export function IdentityCard() {
             <input
               type="checkbox"
               checked={useWalletKey}
-              onChange={(e) => setUseWalletKey(e.target.checked)}
+              onChange={(event) => setUseWalletKey(event.target.checked)}
             />
             Use wallet key as NFA owner
           </label>
@@ -362,9 +411,7 @@ export function IdentityCard() {
           </div>
         </>
       ) : (
-        /* ── Registered state ──────────────────────────────────── */
         <>
-          {/* Header row */}
           <div
             style={{
               display: "flex",
@@ -381,15 +428,14 @@ export function IdentityCard() {
               >
                 {paused ? "Paused" : "Active"}
               </span>
-              {nfa.freeMint && (
+              {nfa.freeMint ? (
                 <span className="anime-wallet-identity-badge is-free">
                   Free Mint
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
 
-          {/* Owner */}
           <div className="anime-wallet-identity-row" style={{ marginTop: 6 }}>
             <span className="anime-wallet-identity-row-label">Owner</span>
             <span className="anime-wallet-identity-row-value">
@@ -403,36 +449,32 @@ export function IdentityCard() {
             </span>
           </div>
 
-          {/* ERC-8004 agent ID */}
-          {identity && (
+          {identity ? (
             <div className="anime-wallet-identity-row">
               <span className="anime-wallet-identity-row-label">ERC-8004</span>
               <span className="anime-wallet-identity-row-value">
                 {identity.agentId}
               </span>
             </div>
-          )}
+          ) : null}
 
-          {/* Learnings summary */}
           <div className="anime-wallet-identity-learning">
             {nfa.learningCount} learning{nfa.learningCount !== 1 ? "s" : ""}{" "}
             anchored
-            {nfa.lastAnchoredAt && (
+            {nfa.lastAnchoredAt ? (
               <span>
                 {" "}
                 · last: {new Date(nfa.lastAnchoredAt).toLocaleDateString()}
               </span>
-            )}
+            ) : null}
           </div>
 
-          {/* Merkle root */}
-          {nfa.learningRoot && (
+          {nfa.learningRoot ? (
             <div className="anime-wallet-identity-root">
               root: {nfa.learningRoot}
             </div>
-          )}
+          ) : null}
 
-          {/* Action buttons */}
           <div className="anime-wallet-identity-actions">
             <button
               type="button"
@@ -456,11 +498,11 @@ export function IdentityCard() {
                 {
                   label: "Transfer",
                   hidden: nfa.freeMint,
-                  onClick: promptTransfer,
+                  onClick: openTransferDialog,
                 },
                 {
                   label: "Upgrade Logic",
-                  onClick: promptUpgrade,
+                  onClick: openUpgradeDialog,
                 },
               ]}
             />

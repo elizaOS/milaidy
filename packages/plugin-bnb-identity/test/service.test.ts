@@ -1,4 +1,3 @@
-import { describe, expect, it } from "bun:test";
 import {
   assertMcpToolSuccess,
   DEFAULT_BNB_MAINNET_RPC_URL,

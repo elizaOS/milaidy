@@ -1001,6 +1001,39 @@ kbd {
   margin-top: 4px;
 }
 
+.nfa__confirm-input-shell {
+  display: grid;
+  gap: 6px;
+}
+
+.nfa__confirm-input-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 247, 224, 0.9);
+}
+
+.nfa__confirm-input {
+  width: 100%;
+  border: 1px solid rgba(250, 201, 96, 0.35);
+  border-radius: 10px;
+  background: rgba(15, 16, 22, 0.92);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.nfa__confirm-input::placeholder {
+  color: rgba(255, 247, 224, 0.4);
+}
+
+.nfa__confirm-input:focus {
+  outline: 2px solid rgba(250, 201, 96, 0.55);
+  outline-offset: 1px;
+  border-color: rgba(250, 201, 96, 0.65);
+}
+
 .wt__toolbar {
   display: flex;
   align-items: center;
@@ -1361,7 +1394,7 @@ kbd {
 }
 
 .wt__row--native:hover {
-  background: color-mix(in srgb, #f0b90b 8%, var(--bg) 92%) !important;
+  background: color-mix(in srgb, #f0b90b 8%, var(--bg) 92%);
 }
 
 /* ── Native badge label ──────────────────────────────────────────── */
