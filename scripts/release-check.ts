@@ -40,6 +40,11 @@ const requiredWorkflowSnippets = [
   "Stage Windows setup executables",
   "apps/app/electrobun/artifacts/*.exe",
   "DMG attach attempt $attempt/5 failed",
+  "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version",
+  "$asset = @($release.assets) | Where-Object { $_.name -eq $assetName } | Select-Object -First 1",
+  "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
+  "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
+  "electrobun CLI checksum mismatch",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
