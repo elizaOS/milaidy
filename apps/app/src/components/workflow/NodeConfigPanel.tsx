@@ -385,7 +385,7 @@ function TransformConfig({ config, onChange }: ConfigProps) {
   return (
     <Field
       label="JavaScript Code"
-      hint="Sandboxed. Access data via params object. Return a value."
+      hint="Runs with full local process access after terminal authorization. Access data via params object. Return a value."
     >
       <textarea
         value={String(config.code ?? "")}
