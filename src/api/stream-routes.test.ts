@@ -8,6 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as dnsPromises from "node:dns/promises";
 import {
   createMockHttpResponse,
   createMockIncomingMessage,
@@ -932,6 +933,10 @@ describe("handleStreamRoute", () => {
 // ---------------------------------------------------------------------------
 
 describe("createRetakeDestination()", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("returns a StreamingDestination with id and name", async () => {
     const { createRetakeDestination } = await import(
       "../../packages/plugin-retake/src/index.ts"
@@ -977,6 +982,34 @@ describe("createRetakeDestination()", () => {
         delete process.env.RETAKE_AGENT_TOKEN;
       }
     }
+  });
+
+  it("rejects localhost RETAKE_API_URL values", async () => {
+    const { createRetakeDestination } = await import(
+      "../../packages/plugin-retake/src/index.ts"
+    );
+    const dest = createRetakeDestination({
+      accessToken: "config-token",
+      apiUrl: "http://localhost:8080/api/v1",
+    });
+
+    await expect(dest.getCredentials()).rejects.toThrow("host \"localhost\" is blocked");
+  });
+
+  it("rejects RETAKE_API_URL values that resolve to private IPs", async () => {
+    vi.spyOn(dnsPromises, "lookup").mockResolvedValue([
+      { address: "127.0.0.1", family: 4 },
+    ] as never);
+
+    const { createRetakeDestination } = await import(
+      "../../packages/plugin-retake/src/index.ts"
+    );
+    const dest = createRetakeDestination({
+      accessToken: "config-token",
+      apiUrl: "https://example.com/api/v1",
+    });
+
+    await expect(dest.getCredentials()).rejects.toThrow("resolves to blocked address");
   });
 });
 
