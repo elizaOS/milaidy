@@ -160,6 +160,12 @@ describe("evaluateExpression", () => {
     expect(evaluateExpression("{{_last}} >= 200", ctx)).toBe(false);
   });
 
+  it("evaluates bigint comparisons without JSON serialization errors", () => {
+    const ctx = makeCtx({ _last: 100n });
+    expect(evaluateExpression("{{_last}} > 50", ctx)).toBe(true);
+    expect(evaluateExpression("{{_last}} === 100", ctx)).toBe(true);
+  });
+
   it("evaluates <= comparison", () => {
     const ctx = makeCtx({ _last: 100 });
     expect(evaluateExpression("{{_last}} <= 100", ctx)).toBe(true);

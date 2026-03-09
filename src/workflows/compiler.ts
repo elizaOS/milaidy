@@ -301,6 +301,25 @@ function compareConditionValues(
   right: unknown,
   op: "===" | "!==" | ">=" | "<=" | ">" | "<",
 ): boolean {
+  const bigintPair = coerceBigIntConditionPair(left, right);
+  if (bigintPair) {
+    const [bigLeft, bigRight] = bigintPair;
+    switch (op) {
+      case "===":
+        return bigLeft === bigRight;
+      case "!==":
+        return bigLeft !== bigRight;
+      case ">=":
+        return bigLeft >= bigRight;
+      case "<=":
+        return bigLeft <= bigRight;
+      case ">":
+        return bigLeft > bigRight;
+      case "<":
+        return bigLeft < bigRight;
+    }
+  }
+
   const numLeft = typeof left === "number" ? left : Number(left);
   const numRight = typeof right === "number" ? right : Number(right);
   const isNumeric =
@@ -340,11 +359,15 @@ function compareConditionValues(
 
 function normalizeConditionComparable(
   value: unknown,
-): string | number | boolean {
+): string | number | boolean | bigint {
   if (typeof value === "string") {
     return value;
   }
-  if (typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
     return value;
   }
   if (value === null || value === undefined) {
@@ -354,6 +377,49 @@ function normalizeConditionComparable(
     return JSON.stringify(value);
   } catch {
     return String(value);
+  }
+}
+
+function coerceBigIntConditionPair(
+  left: unknown,
+  right: unknown,
+): [bigint, bigint] | null {
+  const bigLeft = coerceConditionBigInt(left);
+  if (bigLeft === null) {
+    return null;
+  }
+
+  const bigRight = coerceConditionBigInt(right);
+  if (bigRight === null) {
+    return null;
+  }
+
+  return [bigLeft, bigRight];
+}
+
+function coerceConditionBigInt(value: unknown): bigint | null {
+  if (typeof value === "bigint") {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isInteger(value)) {
+      return null;
+    }
+    return BigInt(value);
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
+    return null;
+  }
+
+  try {
+    return BigInt(trimmed);
+  } catch {
+    return null;
   }
 }
 
