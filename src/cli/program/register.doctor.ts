@@ -2,11 +2,7 @@ import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { theme } from "../../terminal/theme";
 import { runCommandWithRuntime } from "../cli-utils";
-import type {
-  CheckCategory,
-  CheckResult,
-  CheckStatus,
-} from "../doctor/checks";
+import type { CheckCategory, CheckResult, CheckStatus } from "../doctor/checks";
 
 const defaultRuntime = { error: console.error, exit: process.exit };
 
@@ -123,7 +119,7 @@ export function registerDoctorCommand(program: Command) {
             skip: results.filter((r) => r.status === "skip").length,
           };
           process.stdout.write(
-            JSON.stringify({ summary, checks: results }, null, 2) + "\n",
+            `${JSON.stringify({ summary, checks: results }, null, 2)}\n`,
           );
           if (summary.fail > 0) process.exit(1);
           return;

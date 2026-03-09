@@ -19,7 +19,7 @@ import {
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
-/** Stream tab — always enabled; actual streaming requires streaming-base plugin config. */
+/** Stream routes stay addressable; the nav hides the tab unless streaming is enabled. */
 export const STREAM_ENABLED = true;
 /**
  * Companion tab — enabled by default since the VRM companion UI launch.

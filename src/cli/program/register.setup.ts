@@ -14,14 +14,22 @@ const defaultRuntime = { error: console.error, exit: process.exit };
 // ---------------------------------------------------------------------------
 
 const PROVIDERS = [
-  { label: "Anthropic (Claude)", key: "ANTHROPIC_API_KEY", keyHint: "sk-ant-..." },
+  {
+    label: "Anthropic (Claude)",
+    key: "ANTHROPIC_API_KEY",
+    keyHint: "sk-ant-...",
+  },
   { label: "OpenAI (GPT)", key: "OPENAI_API_KEY", keyHint: "sk-..." },
   { label: "Google (Gemini)", key: "GOOGLE_API_KEY", keyHint: "AIza..." },
   { label: "Groq", key: "GROQ_API_KEY", keyHint: "gsk_..." },
   { label: "xAI (Grok)", key: "XAI_API_KEY", keyHint: "xai-..." },
   { label: "OpenRouter", key: "OPENROUTER_API_KEY", keyHint: "sk-or-..." },
   { label: "Mistral", key: "MISTRAL_API_KEY", keyHint: "" },
-  { label: "Ollama (local, no key)", key: "OLLAMA_BASE_URL", keyHint: "http://localhost:11434" },
+  {
+    label: "Ollama (local, no key)",
+    key: "OLLAMA_BASE_URL",
+    keyHint: "http://localhost:11434",
+  },
   { label: "Skip for now", key: null, keyHint: "" },
 ] as const;
 
@@ -46,7 +54,11 @@ async function askSecret(prompt: string): Promise<string> {
   // readline doesn't natively hide input; we suppress echo via raw mode
   const { createInterface } = await import("node:readline");
   process.stdout.write(prompt);
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false,
+  });
   return new Promise((resolve) => {
     let value = "";
     process.stdin.setRawMode?.(true);
@@ -78,10 +90,13 @@ async function askSecret(prompt: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 function resolveConfigPath(env = process.env): string {
-  return (
-    env.MILADY_CONFIG_PATH ??
-    path.join(env.MILADY_STATE_DIR ?? os.homedir(), ".milady", "milady.json")
-  );
+  if (env.MILADY_CONFIG_PATH?.trim()) {
+    return env.MILADY_CONFIG_PATH;
+  }
+
+  const stateDir =
+    env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  return path.join(stateDir, "milady.json");
 }
 
 function loadConfig(configPath: string): Record<string, unknown> {
@@ -101,7 +116,9 @@ function saveConfig(configPath: string, config: Record<string, unknown>): void {
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 }
 
-function getEnvSection(config: Record<string, unknown>): Record<string, string> {
+function getEnvSection(
+  config: Record<string, unknown>,
+): Record<string, string> {
   const env = config.env;
   if (env && typeof env === "object" && !Array.isArray(env)) {
     return { ...(env as Record<string, string>) };
@@ -111,13 +128,25 @@ function getEnvSection(config: Record<string, unknown>): Record<string, string> 
 
 function hasModelKey(env: Record<string, string | undefined>): string | null {
   const keys = [
-    "ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "OPENAI_API_KEY",
-    "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY",
-    "GROQ_API_KEY", "XAI_API_KEY", "GROK_API_KEY",
-    "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "TOGETHER_API_KEY",
-    "MISTRAL_API_KEY", "COHERE_API_KEY", "PERPLEXITY_API_KEY",
-    "ZAI_API_KEY", "Z_AI_API_KEY", "AI_GATEWAY_API_KEY",
-    "ELIZAOS_CLOUD_API_KEY", "OLLAMA_BASE_URL",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_API_KEY",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "GROQ_API_KEY",
+    "XAI_API_KEY",
+    "GROK_API_KEY",
+    "OPENROUTER_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "TOGETHER_API_KEY",
+    "MISTRAL_API_KEY",
+    "COHERE_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "ZAI_API_KEY",
+    "Z_AI_API_KEY",
+    "AI_GATEWAY_API_KEY",
+    "ELIZAOS_CLOUD_API_KEY",
+    "OLLAMA_BASE_URL",
   ];
   return keys.find((k) => env[k]?.trim()) ?? null;
 }
@@ -129,16 +158,17 @@ function hasModelKey(env: Record<string, string | undefined>): string | null {
 async function runProviderWizard(configPath: string): Promise<void> {
   const config = loadConfig(configPath);
   const envSection = getEnvSection(config);
-  const combinedEnv = { ...process.env, ...envSection } as Record<string, string | undefined>;
+  const combinedEnv = { ...process.env, ...envSection } as Record<
+    string,
+    string | undefined
+  >;
   const existingKey = hasModelKey(combinedEnv);
 
   if (existingKey) {
     console.log(
       `\n${theme.success("✓")} Model API key already set: ${theme.command(existingKey)}`,
     );
-    const reconfigure = await ask(
-      `  Reconfigure? ${theme.muted("(y/N) ")}`,
-    );
+    const reconfigure = await ask(`  Reconfigure? ${theme.muted("(y/N) ")}`);
     if (reconfigure.toLowerCase() !== "y") return;
   }
 
@@ -153,18 +183,16 @@ async function runProviderWizard(configPath: string): Promise<void> {
   const choice = await ask(`\n  Provider ${theme.muted("[1]")} `);
   const index = choice === "" ? 0 : Number(choice) - 1;
 
-  if (
-    isNaN(index) ||
-    index < 0 ||
-    index >= PROVIDERS.length
-  ) {
+  if (Number.isNaN(index) || index < 0 || index >= PROVIDERS.length) {
     console.log(`${theme.warn("⚠")}  Invalid choice. Skipping model setup.`);
     return;
   }
 
   const provider = PROVIDERS[index];
   if (provider.key === null) {
-    console.log(`${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`);
+    console.log(
+      `${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`,
+    );
     return;
   }
 
@@ -214,7 +242,10 @@ export function registerSetupCommand(program: Command) {
     )
     .option("--workspace <dir>", "Agent workspace directory")
     .option("--provider <name>", "Model provider (non-interactive)")
-    .option("--key <value>", "API key or URL (non-interactive, use with --provider)")
+    .option(
+      "--key <value>",
+      "API key or URL (non-interactive, use with --provider)",
+    )
     .option("--no-wizard", "Skip the model provider wizard")
     .action(
       async (opts: {
@@ -225,21 +256,23 @@ export function registerSetupCommand(program: Command) {
       }) => {
         await runCommandWithRuntime(defaultRuntime, async () => {
           const { loadMiladyConfig } = await import("../../config/config");
-          const {
-            ensureAgentWorkspace,
-            resolveDefaultAgentWorkspaceDir,
-          } = await import("../../providers/workspace");
+          const { ensureAgentWorkspace, resolveDefaultAgentWorkspaceDir } =
+            await import("../../providers/workspace");
 
           const configPath = resolveConfigPath();
 
           // ── Non-interactive provider set via flags ───────────────────────
           if (opts.provider && opts.key) {
+            const providerQuery = opts.provider.toLowerCase();
             const providerEntry = PROVIDERS.find(
               (p) =>
-                p.label.toLowerCase().includes(opts.provider!.toLowerCase()) ||
-                (p.key ?? "").toLowerCase().includes(opts.provider!.toLowerCase()),
+                p.label.toLowerCase().includes(providerQuery) ||
+                (p.key ?? "").toLowerCase().includes(providerQuery),
             );
-            const envKey = providerEntry?.key ?? opts.provider.toUpperCase().replace(/[^A-Z0-9]/g, "_") + "_API_KEY";
+            const envKey =
+              providerEntry?.key ??
+              opts.provider.toUpperCase().replace(/[^A-Z0-9]/g, "_") +
+                "_API_KEY";
             const config = loadConfig(configPath);
             const envSection = getEnvSection(config);
             envSection[envKey] = opts.key;
@@ -260,7 +293,9 @@ export function registerSetupCommand(program: Command) {
             console.log(`${theme.success("✓")} Config loaded`);
           } catch (err) {
             if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-              console.log(`${theme.muted("→")} No config found, using defaults`);
+              console.log(
+                `${theme.muted("→")} No config found, using defaults`,
+              );
             } else {
               throw err;
             }
@@ -297,7 +332,9 @@ export function registerSetupCommand(program: Command) {
                   : result.status === "fail"
                     ? theme.error("✗")
                     : theme.warn("⚠");
-              const detail = result.detail ? theme.muted(` ${result.detail}`) : "";
+              const detail = result.detail
+                ? theme.muted(` ${result.detail}`)
+                : "";
               console.log(`  ${icon} ${result.label}${detail}`);
             }
             console.log(

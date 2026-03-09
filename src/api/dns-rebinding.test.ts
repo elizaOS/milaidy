@@ -152,7 +152,8 @@ describe("isAllowedHost — DNS rebinding protection", () => {
   });
 
   it("allows one of multiple comma-separated MILADY_ALLOWED_HOSTS", () => {
-    process.env.MILADY_ALLOWED_HOSTS = "myserver.local,192.168.1.10,staging.internal";
+    process.env.MILADY_ALLOWED_HOSTS =
+      "myserver.local,192.168.1.10,staging.internal";
     expect(isAllowedHost(fakeReq("192.168.1.10"))).toBe(true);
     expect(isAllowedHost(fakeReq("staging.internal"))).toBe(true);
   });

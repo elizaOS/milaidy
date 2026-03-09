@@ -36,9 +36,17 @@ export interface CheckResult {
 // ---------------------------------------------------------------------------
 
 export const MODEL_KEY_VARS = [
-  { key: "ANTHROPIC_API_KEY", alias: "CLAUDE_API_KEY", label: "Anthropic (Claude)" },
+  {
+    key: "ANTHROPIC_API_KEY",
+    alias: "CLAUDE_API_KEY",
+    label: "Anthropic (Claude)",
+  },
   { key: "OPENAI_API_KEY", label: "OpenAI" },
-  { key: "GOOGLE_API_KEY", alias: "GOOGLE_GENERATIVE_AI_API_KEY", label: "Google (Gemini)" },
+  {
+    key: "GOOGLE_API_KEY",
+    alias: "GOOGLE_GENERATIVE_AI_API_KEY",
+    label: "Google (Gemini)",
+  },
   { key: "GROQ_API_KEY", label: "Groq" },
   { key: "XAI_API_KEY", alias: "GROK_API_KEY", label: "xAI (Grok)" },
   { key: "OPENROUTER_API_KEY", label: "OpenRouter" },
@@ -48,7 +56,11 @@ export const MODEL_KEY_VARS = [
   { key: "COHERE_API_KEY", label: "Cohere" },
   { key: "PERPLEXITY_API_KEY", label: "Perplexity" },
   { key: "ZAI_API_KEY", alias: "Z_AI_API_KEY", label: "Zai" },
-  { key: "AI_GATEWAY_API_KEY", alias: "AIGATEWAY_API_KEY", label: "Vercel AI Gateway" },
+  {
+    key: "AI_GATEWAY_API_KEY",
+    alias: "AIGATEWAY_API_KEY",
+    label: "Vercel AI Gateway",
+  },
   { key: "ELIZAOS_CLOUD_API_KEY", label: "elizaOS Cloud" },
   { key: "OLLAMA_BASE_URL", label: "Ollama (local)" },
 ] as const;
@@ -105,7 +117,8 @@ export function checkRuntime(): CheckResult {
 
 export function checkNodeModules(projectRoot?: string): CheckResult {
   const root =
-    projectRoot ?? path.resolve(process.env.MILADY_PROJECT_ROOT ?? process.cwd());
+    projectRoot ??
+    path.resolve(process.env.MILADY_PROJECT_ROOT ?? process.cwd());
   const nmDir = path.join(root, "node_modules");
 
   if (!existsSync(nmDir)) {
@@ -129,7 +142,8 @@ export function checkNodeModules(projectRoot?: string): CheckResult {
 
 export function checkBuildArtifacts(projectRoot?: string): CheckResult {
   const root =
-    projectRoot ?? path.resolve(process.env.MILADY_PROJECT_ROOT ?? process.cwd());
+    projectRoot ??
+    path.resolve(process.env.MILADY_PROJECT_ROOT ?? process.cwd());
   const distEntry = path.join(root, "dist", "entry.js");
 
   if (!existsSync(distEntry)) {
@@ -154,11 +168,23 @@ export function checkBuildArtifacts(projectRoot?: string): CheckResult {
 // Config checks
 // ---------------------------------------------------------------------------
 
-export function checkConfigFile(configPath?: string): CheckResult {
-  const resolved =
-    configPath ??
-    process.env.MILADY_CONFIG_PATH ??
-    path.join(os.homedir(), ".milady", "milady.json");
+function resolveConfigPath(
+  env: Record<string, string | undefined> = process.env,
+): string {
+  if (env.MILADY_CONFIG_PATH?.trim()) {
+    return env.MILADY_CONFIG_PATH;
+  }
+
+  const stateDir =
+    env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
+  return path.join(stateDir, "milady.json");
+}
+
+export function checkConfigFile(
+  configPath?: string,
+  env: Record<string, string | undefined> = process.env,
+): CheckResult {
+  const resolved = configPath ?? resolveConfigPath(env);
 
   if (!existsSync(resolved)) {
     return {
@@ -291,7 +317,7 @@ export function checkDiskSpace(
   try {
     const stats = statfsSync(dir);
     const freeBytes = stats.bsize * stats.bavail;
-    const freeGB = (freeBytes / (1024 ** 3)).toFixed(1);
+    const freeGB = (freeBytes / 1024 ** 3).toFixed(1);
 
     if (freeBytes < MIN_FREE_BYTES) {
       return {
@@ -478,7 +504,7 @@ export async function runAllChecks(
     checkNodeModules(opts.projectRoot),
     checkBuildArtifacts(opts.projectRoot),
     // config
-    checkConfigFile(opts.configPath),
+    checkConfigFile(opts.configPath, env),
     checkModelKey(env),
     checkHostConfig(env),
     // storage

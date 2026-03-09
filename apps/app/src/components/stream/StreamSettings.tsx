@@ -8,11 +8,11 @@
  */
 
 import { useState } from "react";
-import { getAllWidgets } from "./overlays/registry";
-import type { UseOverlayLayout } from "./overlays/useOverlayLayout";
-import type { WidgetConfigField, WidgetInstance } from "./overlays/types";
 import type { StreamSourceType } from "./helpers";
-import { STREAM_SOURCE_LABELS } from "./helpers";
+import { isSupportedStreamUrl, STREAM_SOURCE_LABELS } from "./helpers";
+import { getAllWidgets } from "./overlays/registry";
+import type { WidgetConfigField, WidgetInstance } from "./overlays/types";
+import type { UseOverlayLayout } from "./overlays/useOverlayLayout";
 
 type Section = "channel" | "overlays" | "source";
 
@@ -46,7 +46,10 @@ function ConfigField({
   switch (field.type) {
     case "boolean":
       return (
-        <label key={fieldKey} className="flex items-center gap-2 text-[12px] text-txt">
+        <label
+          key={fieldKey}
+          className="flex items-center gap-2 text-[12px] text-txt"
+        >
           <input
             type="checkbox"
             checked={Boolean(value)}
@@ -64,7 +67,9 @@ function ConfigField({
             type="number"
             min={field.min}
             max={field.max}
-            value={typeof value === "number" ? value : (field.default as number)}
+            value={
+              typeof value === "number" ? value : (field.default as number)
+            }
             onChange={(e) => onChange(fieldKey, Number(e.target.value))}
             className="bg-bg-muted border border-border text-txt text-[12px] rounded px-2 py-1 outline-none focus:border-accent w-full"
           />
@@ -80,7 +85,9 @@ function ConfigField({
             className="bg-bg-muted border border-border text-txt text-[12px] rounded px-2 py-1 cursor-pointer"
           >
             {field.options?.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </label>
@@ -103,7 +110,9 @@ function ConfigField({
           <span className="text-[11px] text-muted">{field.label}</span>
           <input
             type="text"
-            value={typeof value === "string" ? value : String(field.default ?? "")}
+            value={
+              typeof value === "string" ? value : String(field.default ?? "")
+            }
             onChange={(e) => onChange(fieldKey, e.target.value)}
             className="bg-bg-muted border border-border text-txt text-[12px] rounded px-2 py-1 outline-none focus:border-accent w-full"
           />
@@ -137,7 +146,9 @@ function WidgetRow({
           type="button"
           onClick={onToggle}
           className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 cursor-pointer ${
-            instance.enabled ? "bg-[var(--accent)]" : "bg-[rgba(255,255,255,0.12)]"
+            instance.enabled
+              ? "bg-[var(--accent)]"
+              : "bg-[rgba(255,255,255,0.12)]"
           }`}
           title={instance.enabled ? "Disable widget" : "Enable widget"}
         >
@@ -153,7 +164,9 @@ function WidgetRow({
             {def?.name ?? instance.type}
           </div>
           {def?.description && (
-            <div className="text-[10px] text-muted truncate">{def.description}</div>
+            <div className="text-[10px] text-muted truncate">
+              {def.description}
+            </div>
           )}
         </div>
 
@@ -206,6 +219,8 @@ export function StreamSettings({
   const [customUrlInput, setCustomUrlInput] = useState(
     streamSource.type === "custom-url" ? (streamSource.url ?? "") : "",
   );
+  const trimmedCustomUrl = customUrlInput.trim();
+  const customUrlValid = isSupportedStreamUrl(trimmedCustomUrl);
 
   const { layout, toggleWidget, updateWidget, resetLayout } = overlayLayout;
 
@@ -234,7 +249,9 @@ export function StreamSettings({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-          <span className="text-[13px] font-semibold text-txt">Stream Settings</span>
+          <span className="text-[13px] font-semibold text-txt">
+            Stream Settings
+          </span>
           <button
             type="button"
             onClick={onClose}
@@ -257,15 +274,16 @@ export function StreamSettings({
           {section === "channel" && (
             <div className="flex flex-col gap-3">
               <p className="text-[12px] text-muted">
-                Select where to broadcast. To switch channels, stop the stream first.
+                Select where to broadcast. To switch channels, stop the stream
+                first.
               </p>
 
               {destinations.length === 0 ? (
                 <div className="text-[12px] text-muted border border-border rounded-lg p-4 text-center">
                   No streaming destinations configured.
                   <br />
-                  Install a streaming plugin (Twitch, YouTube, Retake.tv, Custom RTMP)
-                  via the Plugins tab.
+                  Install a streaming plugin (Twitch, YouTube, Retake.tv, Custom
+                  RTMP) via the Plugins tab.
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -276,7 +294,11 @@ export function StreamSettings({
                         key={d.id}
                         type="button"
                         disabled={streamLive}
-                        title={streamLive ? "Stop stream to change channel" : undefined}
+                        title={
+                          streamLive
+                            ? "Stop stream to change channel"
+                            : undefined
+                        }
                         onClick={() => onDestinationChange(d.id)}
                         className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left ${
                           active
@@ -286,10 +308,14 @@ export function StreamSettings({
                       >
                         <span
                           className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            active ? "bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" : "bg-muted/30"
+                            active
+                              ? "bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]"
+                              : "bg-muted/30"
                           }`}
                         />
-                        <span className={`text-[13px] font-medium ${active ? "text-[var(--accent)]" : "text-txt"}`}>
+                        <span
+                          className={`text-[13px] font-medium ${active ? "text-[var(--accent)]" : "text-txt"}`}
+                        >
                           {d.name}
                         </span>
                         {active && (
@@ -353,81 +379,102 @@ export function StreamSettings({
                 Choose what content is captured and broadcast.
               </p>
 
-              {(["stream-tab", "game", "custom-url"] as StreamSourceType[]).map((st) => {
-                const isGame = st === "game";
-                const disabled = isGame && !activeGameViewerUrl.trim();
-                const active = streamSource.type === st;
+              {(["stream-tab", "game", "custom-url"] as StreamSourceType[]).map(
+                (st) => {
+                  const isGame = st === "game";
+                  const disabled = isGame && !activeGameViewerUrl.trim();
+                  const active = streamSource.type === st;
 
-                return (
-                  <div key={st}>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => {
-                        if (st !== "custom-url") {
-                          onSourceChange(st, isGame ? activeGameViewerUrl : undefined);
-                        }
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-left ${
-                        active && st !== "custom-url"
-                          ? "border-[var(--accent)]/60 bg-[var(--accent)]/10"
-                          : "border-border bg-[rgba(255,255,255,0.03)] hover:border-[var(--accent)]/30 hover:bg-[rgba(255,255,255,0.05)]"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                  return (
+                    <div key={st}>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          if (st !== "custom-url") {
+                            onSourceChange(
+                              st,
+                              isGame ? activeGameViewerUrl : undefined,
+                            );
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-left ${
                           active && st !== "custom-url"
-                            ? "bg-[var(--accent)]"
-                            : "bg-muted/30"
-                        }`}
-                      />
-                      <div>
-                        <div className={`text-[13px] font-medium ${active && st !== "custom-url" ? "text-[var(--accent)]" : "text-txt"}`}>
-                          {STREAM_SOURCE_LABELS[st]}
-                        </div>
-                        <div className="text-[10px] text-muted">
-                          {st === "stream-tab" && "Capture the stream browser tab (default)"}
-                          {st === "game" && (activeGameViewerUrl.trim() ? `Active game: ${activeGameViewerUrl}` : "No game active")}
-                          {st === "custom-url" && "Broadcast from a custom HTTP(S) URL"}
-                        </div>
-                      </div>
-                    </button>
-
-                    {st === "custom-url" && (
-                      <div
-                        className={`mt-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                          active ? "border-[var(--accent)]/60 bg-[var(--accent)]/10" : "border-border bg-[rgba(255,255,255,0.03)]"
+                            ? "border-[var(--accent)]/60 bg-[var(--accent)]/10"
+                            : "border-border bg-[rgba(255,255,255,0.03)] hover:border-[var(--accent)]/30 hover:bg-[rgba(255,255,255,0.05)]"
                         }`}
                       >
-                        <input
-                          type="text"
-                          placeholder="https://your-url.com"
-                          value={customUrlInput}
-                          onChange={(e) => setCustomUrlInput(e.target.value)}
-                          className="flex-1 bg-transparent text-txt text-[12px] outline-none placeholder:text-muted/40"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && customUrlInput.trim()) {
-                              onSourceChange("custom-url", customUrlInput.trim());
-                            }
-                          }}
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                            active && st !== "custom-url"
+                              ? "bg-[var(--accent)]"
+                              : "bg-muted/30"
+                          }`}
                         />
-                        <button
-                          type="button"
-                          disabled={!customUrlInput.trim()}
-                          onClick={() => {
-                            if (customUrlInput.trim()) {
-                              onSourceChange("custom-url", customUrlInput.trim());
-                            }
-                          }}
-                          className="px-2 py-1 rounded bg-[var(--accent)]/20 text-[var(--accent)] text-[11px] font-semibold hover:bg-[var(--accent)]/30 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        <div>
+                          <div
+                            className={`text-[13px] font-medium ${active && st !== "custom-url" ? "text-[var(--accent)]" : "text-txt"}`}
+                          >
+                            {STREAM_SOURCE_LABELS[st]}
+                          </div>
+                          <div className="text-[10px] text-muted">
+                            {st === "stream-tab" &&
+                              "Capture the stream browser tab (default)"}
+                            {st === "game" &&
+                              (activeGameViewerUrl.trim()
+                                ? `Active game: ${activeGameViewerUrl}`
+                                : "No game active")}
+                            {st === "custom-url" &&
+                              "Broadcast from a custom HTTP(S) URL"}
+                          </div>
+                        </div>
+                      </button>
+
+                      {st === "custom-url" && (
+                        <div
+                          className={`mt-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                            active
+                              ? "border-[var(--accent)]/60 bg-[var(--accent)]/10"
+                              : "border-border bg-[rgba(255,255,255,0.03)]"
+                          }`}
                         >
-                          Use
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          <input
+                            type="text"
+                            placeholder="https://your-url.com"
+                            value={customUrlInput}
+                            onChange={(e) => setCustomUrlInput(e.target.value)}
+                            className="flex-1 bg-transparent text-txt text-[12px] outline-none placeholder:text-muted/40"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && customUrlValid) {
+                                onSourceChange("custom-url", trimmedCustomUrl);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={!customUrlValid}
+                            onClick={() => {
+                              if (customUrlValid) {
+                                onSourceChange("custom-url", trimmedCustomUrl);
+                              }
+                            }}
+                            className="px-2 py-1 rounded bg-[var(--accent)]/20 text-[var(--accent)] text-[11px] font-semibold hover:bg-[var(--accent)]/30 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Use
+                          </button>
+                        </div>
+                      )}
+                      {st === "custom-url" &&
+                        trimmedCustomUrl &&
+                        !customUrlValid && (
+                          <p className="mt-1 px-1 text-[10px] text-danger">
+                            Custom URLs must start with `http://` or `https://`.
+                          </p>
+                        )}
+                    </div>
+                  );
+                },
+              )}
             </div>
           )}
         </div>
