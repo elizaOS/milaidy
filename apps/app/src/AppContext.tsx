@@ -45,6 +45,7 @@ import {
   type McpServerConfig,
   type McpServerStatus,
   type MintResult,
+  type NfaStatusResponse,
   type OnboardingOptions,
   type PluginInfo,
   type RegistryPlugin,
@@ -81,6 +82,7 @@ import {
   markPendingAutonomyGapsPartial,
   mergeAutonomyEvents,
 } from "./autonomy-events";
+import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   expandSavedCustomCommand,
   loadSavedCustomCommands,
@@ -774,7 +776,6 @@ export interface StartupErrorState {
   path?: string;
 }
 
-const BACKEND_STARTUP_TIMEOUT_MS = 30_000;
 const AGENT_READY_TIMEOUT_MS = 90_000;
 
 interface ApiLikeError {
@@ -946,6 +947,11 @@ export interface AppState {
   registryLoading: boolean;
   registryRegistering: boolean;
   registryError: string | null;
+
+  // NFA (BAP-578)
+  nfaStatus: NfaStatusResponse | null;
+  nfaStatusLoading: boolean;
+  nfaStatusError: string | null;
 
   // Drop / Mint
   dropStatus: DropStatus | null;
@@ -1225,6 +1231,7 @@ export interface AppActions {
   loadDropStatus: () => Promise<void>;
   mintFromDrop: (shiny: boolean) => Promise<void>;
   loadWhitelistStatus: () => Promise<void>;
+  loadNfaStatus: () => Promise<void>;
 
   // Character
   loadCharacter: () => Promise<void>;
@@ -1522,6 +1529,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryRegistering, setRegistryRegistering] = useState(false);
   const [registryError, setRegistryError] = useState<string | null>(null);
+
+  // --- NFA (BAP-578) ---
+  const [nfaStatus, setNfaStatus] = useState<NfaStatusResponse | null>(null);
+  const [nfaStatusLoading, setNfaStatusLoading] = useState(false);
+  const [nfaStatusError, setNfaStatusError] = useState<string | null>(null);
 
   // --- Drop / Mint ---
   const [dropStatus, setDropStatus] = useState<DropStatus | null>(null);
@@ -1894,7 +1906,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppsSubTab(activeGameViewerUrl.trim() ? "games" : "browse");
       }
       const path = pathForTab(newTab);
-      // In Electron packaged builds (file:// URLs), use hash routing to avoid
+      // In desktop packaged builds (file:// URLs), use hash routing to avoid
       // "Not allowed to load local resource: file:///..." errors.
       if (window.location.protocol === "file:") {
         window.location.hash = path;
@@ -2647,7 +2659,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     ).electron;
     if (electron?.ipcRenderer) {
-      // Electron: Use IPC to restart embedded agent
+      // Desktop runtime: use IPC to restart the embedded agent.
       await electron.ipcRenderer.invoke("agent:restart");
     } else {
       // Fallback for web: call API restart endpoint
@@ -4088,6 +4100,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadNfaStatus = useCallback(async () => {
+    try {
+      setNfaStatusLoading(true);
+      setNfaStatusError(null);
+      const s = await client.getNfaStatus();
+      setNfaStatus(s);
+    } catch (err) {
+      setNfaStatusError(
+        err instanceof Error ? err.message : "Failed to load NFA status",
+      );
+    } finally {
+      setNfaStatusLoading(false);
+    }
+  }, []);
+
   // ── Character actions ──────────────────────────────────────────────
 
   const handleSaveCharacter = useCallback(async () => {
@@ -4569,7 +4596,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const resp = await client.cloudLogin();
       if (!resp.ok) throw new Error("Failed to start login session");
-      window.open(resp.browserUrl, "_blank");
+      // Electrobun injects a window.electron compatibility bridge for desktop IPC.
+      const electronApi = (
+        window as typeof window & {
+          electron?: {
+            ipcRenderer?: {
+              invoke: (channel: string, payload?: unknown) => Promise<unknown>;
+            };
+          };
+        }
+      ).electron;
+      if (electronApi?.ipcRenderer) {
+        await electronApi.ipcRenderer.invoke("desktop:openExternal", {
+          url: resp.browserUrl,
+        });
+      } else {
+        window.open(resp.browserUrl, "_blank");
+      }
       // Poll for completion
       let attempts = 0;
       cloudLoginPollTimer.current = window.setInterval(async () => {
@@ -4944,7 +4987,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           reason: "backend-timeout",
           phase: "starting-backend",
           message: `Backend did not become reachable within ${Math.round(
-            BACKEND_STARTUP_TIMEOUT_MS / 1000,
+            getBackendStartupTimeoutMs() / 1000,
           )}s.`,
           detail: formatStartupErrorDetail(err),
           status: apiErr?.status,
@@ -5081,7 +5124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupPhase("starting-backend");
       setAuthRequired(false);
       setConnected(false);
-      const backendDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+      const backendDeadlineAt = Date.now() + getBackendStartupTimeoutMs();
       let lastBackendError: unknown = null;
 
       // Keep the splash screen up until the backend is reachable.
@@ -5141,7 +5184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // On fresh installs, unblock to onboarding as soon as options are available.
       if (onboardingNeedsOptions) {
-        const optionsDeadlineAt = Date.now() + BACKEND_STARTUP_TIMEOUT_MS;
+        const optionsDeadlineAt = Date.now() + getBackendStartupTimeoutMs();
         let optionsError: unknown = null;
         while (!cancelled) {
           if (Date.now() >= optionsDeadlineAt) {
@@ -5653,7 +5696,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         60_000,
       );
 
-      // Load tab from URL — use hash in file:// mode (Electron packaged builds)
+      // Load tab from URL — use hash in file:// mode for packaged desktop builds.
       const navPath =
         window.location.protocol === "file:"
           ? window.location.hash.replace(/^#/, "") || "/"
@@ -5685,7 +5728,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void initApp();
 
-    // Navigation listener — use hashchange in file:// mode (Electron packaged builds)
+    // Navigation listener — use hashchange in file:// mode for packaged desktop builds.
     const isFileProtocol = window.location.protocol === "file:";
     const handleNavChange = () => {
       const navPath = isFileProtocol
@@ -5858,6 +5901,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     registryLoading,
     registryRegistering,
     registryError,
+    nfaStatus,
+    nfaStatusLoading,
+    nfaStatusError,
     dropStatus,
     dropLoading,
     mintInProgress,
@@ -6057,6 +6103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadDropStatus,
     mintFromDrop,
     loadWhitelistStatus,
+    loadNfaStatus,
     loadCharacter,
     handleSaveCharacter,
     handleCharacterFieldInput,

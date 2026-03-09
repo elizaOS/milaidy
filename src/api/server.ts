@@ -133,6 +133,7 @@ import {
 import { handleMemoryRoutes } from "./memory-routes";
 import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
+import { handleNfaRoutes } from "./nfa-routes";
 import { verifyAndWhitelistHolder } from "./nft-verify";
 import type {
   CoordinationLLMResponse,
@@ -149,6 +150,7 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
+import { applyPublicRpcDefaults } from "./public-rpc";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
@@ -9401,6 +9403,27 @@ async function handleRequest(
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // NFA / Identity routes (BAP-578)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (
+    await handleNfaRoutes({
+      req,
+      res,
+      method,
+      pathname,
+      json,
+      error,
+      readJsonBody: () => readJsonBody(req, res),
+      nfaContractAddress: process.env.BAP578_CONTRACT_ADDRESS,
+      workspaceDir:
+        state.config.agents?.defaults?.workspace ??
+        resolveDefaultAgentWorkspaceDir(),
+    })
+  ) {
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   //  ERC-8004 Registry Routes
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -14601,6 +14624,7 @@ export async function startApiServer(opts?: {
   const envKeysToHydrate = [
     "EVM_PRIVATE_KEY",
     "SOLANA_PRIVATE_KEY",
+    "BAP578_CONTRACT_ADDRESS",
     "ALCHEMY_API_KEY",
     "INFURA_API_KEY",
     "ANKR_API_KEY",
@@ -14615,6 +14639,27 @@ export async function startApiServer(opts?: {
     }
   }
 
+  // Migrate older wallet configs that still stored BSC RPC under legacy keys.
+  if (!process.env.BSC_RPC_URL?.trim()) {
+    const legacyBscRpc =
+      persistedEnv?.NODEREAL_BSC_RPC_URL?.trim() ||
+      persistedEnv?.QUICKNODE_BSC_RPC_URL?.trim() ||
+      process.env.NODEREAL_BSC_RPC_URL?.trim() ||
+      process.env.QUICKNODE_BSC_RPC_URL?.trim() ||
+      null;
+    if (legacyBscRpc) {
+      process.env.BSC_RPC_URL = legacyBscRpc;
+    }
+  }
+
+  const appliedPublicRpcDefaults = applyPublicRpcDefaults(process.env);
+  if (appliedPublicRpcDefaults.length > 0) {
+    logger.info(
+      `[milady-api] Using public RPC defaults for unset endpoints: ${appliedPublicRpcDefaults
+        .map(({ key, url }) => `${key}=${url}`)
+        .join(", ")}`,
+    );
+  }
   // Self-heal older configs where wallet keys were never provisioned
   // (e.g. RPC/cloud configured outside onboarding).
   if (ensureWalletKeysInEnvAndConfig(config)) {

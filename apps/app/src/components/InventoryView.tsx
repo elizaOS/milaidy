@@ -11,6 +11,7 @@ import type {
   EvmChainBalance,
 } from "../api-client";
 import { createTranslator } from "../i18n";
+import { IdentityCard } from "./IdentityCard";
 import {
   buildWalletPreflightNotice,
   getWalletPreflightChecks,
@@ -461,6 +462,10 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const [trackedBscTokens, setTrackedBscTokens] =
     useState<TrackedBscToken[]>(loadTrackedBscTokens);
   const [showRecents, setShowRecents] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    message: string;
+    onResult: (confirmed: boolean) => void;
+  } | null>(null);
   const recentsRef = useRef<HTMLDivElement>(null);
 
   // Close recents dropdown on outside click
@@ -622,8 +627,12 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
     const knownBscContracts = new Set(
       rows
-        .filter((row) => isBscChainName(row.chain) && row.contractAddress)
-        .map((row) => toNormalizedAddress(row.contractAddress!)),
+        .filter(
+          (row): row is TokenRow & { contractAddress: string } =>
+            isBscChainName(row.chain) &&
+            typeof row.contractAddress === "string",
+        )
+        .map((row) => toNormalizedAddress(row.contractAddress)),
     );
     for (const tracked of trackedBscTokens) {
       const normalized = toNormalizedAddress(tracked.contractAddress);
@@ -884,8 +893,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     const normalized = toNormalizedAddress(tokenAddress);
     const matchedRow = tokenRows.find(
       (row) =>
-        Boolean(row.contractAddress) &&
-        toNormalizedAddress(row.contractAddress!) === normalized,
+        typeof row.contractAddress === "string" &&
+        toNormalizedAddress(row.contractAddress) === normalized,
     );
     const matchedQuote =
       latestQuote &&
@@ -953,23 +962,22 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       return;
     }
     const sideLabel = latestQuote.side.toUpperCase();
-    const sideAction = latestQuote.side === "buy" ? "Spend" : "Sell";
-    const confirmFn =
-      typeof window !== "undefined" && typeof window.confirm === "function"
-        ? window.confirm.bind(window)
-        : () => true;
-    const confirmed = confirmFn(
-      t("wallet.confirmExecute", {
-        sideLabel,
-        sideAction,
-        inAmount: latestQuote.quoteIn.amount,
-        inSymbol: latestQuote.quoteIn.symbol,
-        outAmount: latestQuote.quoteOut.amount,
-        outSymbol: latestQuote.quoteOut.symbol,
-        minAmount: latestQuote.minReceive.amount,
-        minSymbol: latestQuote.minReceive.symbol,
-      }),
-    );
+    const message = t("wallet.confirmExecute", {
+      side: sideLabel,
+      sideLabel,
+      sideAction: latestQuote.side === "buy" ? "Spend" : "Sell",
+      inAmount: latestQuote.quoteIn.amount,
+      inSymbol: latestQuote.quoteIn.symbol,
+      outAmount: latestQuote.quoteOut.amount,
+      outSymbol: latestQuote.quoteOut.symbol,
+      minAmount: latestQuote.minReceive.amount,
+      minSymbol: latestQuote.minReceive.symbol,
+    });
+
+    const confirmed = await new Promise<boolean>((resolve) => {
+      setPendingConfirm({ message, onResult: resolve });
+    });
+    setPendingConfirm(null);
     if (!confirmed) return;
 
     setExecuteBusy(true);
@@ -1074,6 +1082,32 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         </div>
       )}
       {needsSetup ? renderSetup() : renderContent()}
+
+      {/* ── Wallet-styled confirmation dialog ───────────────────────── */}
+      {pendingConfirm && (
+        <div className="wt__confirm-backdrop">
+          <div className="wt__confirm-modal">
+            <div className="wt__confirm-title">{t("wallet.confirmTrade")}</div>
+            <div className="wt__confirm-message">{pendingConfirm.message}</div>
+            <div className="wt__confirm-actions">
+              <button
+                type="button"
+                className="wt__btn wt__confirm-btn"
+                onClick={() => pendingConfirm.onResult(false)}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="wt__btn wt__confirm-btn is-buy"
+                onClick={() => pendingConfirm.onResult(true)}
+              >
+                {t("wallet.confirmAction")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1090,8 +1124,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           {t("wallet.setup.rpcNotConfigured")}
         </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          Connect via Eliza Cloud or configure a custom BSC RPC provider
-          (NodeReal / QuickNode) to enable market feed and trading.
+          Connect via Eliza Cloud or use Public Node (or a custom BSC RPC URL)
+          to enable market feed and trading.
         </p>
         <button
           type="button"
@@ -1149,6 +1183,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
     return (
       <div className="space-y-2 mt-3">
+        <IdentityCard />
         {/* ── Block 1: Portfolio header ─────────────────────────── */}
         <div className="wt__portfolio">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1267,8 +1302,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                 {t("wallet.setup.rpcNotConfigured")}
               </div>
               <div className="text-[var(--muted)] leading-relaxed">
-                Connect via Eliza Cloud or configure a custom BSC RPC provider
-                (NodeReal / QuickNode) to enable trading.
+                Connect via Eliza Cloud or use Public Node (or a custom BSC RPC
+                URL) to enable trading.
               </div>
               <div className="mt-2">
                 <button
@@ -1840,7 +1875,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
                           className="wt__row-btn is-remove"
                           title={t("wallet.removeManualTitle")}
                           onClick={() =>
-                            handleUntrackToken(row.contractAddress!)
+                            handleUntrackToken(row.contractAddress)
                           }
                           disabled={tradeBusy}
                         >

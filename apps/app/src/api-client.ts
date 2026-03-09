@@ -6,6 +6,13 @@
  */
 
 import type {
+  IdentityRecord,
+  LearningLeaf,
+  NfaContractMetadata,
+  NfaInfo,
+  NfaRecord,
+} from "../../../packages/plugin-bnb-identity/src/types";
+import type {
   AudioGenConfig,
   AudioGenProvider,
   CustomActionDef,
@@ -98,12 +105,36 @@ export type {
 export type { DropStatus, MintResult };
 export type { VerificationResult };
 export type {
+  IdentityRecord,
+  LearningLeaf,
+  NfaContractMetadata,
+  NfaInfo,
+  NfaRecord,
+};
+export type {
   AllPermissionsState,
   PermissionState,
   PermissionStatus,
   SystemPermissionId,
   SystemPermissionDefinition as PermissionDefinition,
 };
+
+// ---------------------------------------------------------------------------
+// NFA / Identity types (BAP-578)
+// ---------------------------------------------------------------------------
+
+export interface NfaStatusResponse {
+  identity: IdentityRecord | null;
+  nfa: NfaRecord | null;
+  onChain: NfaInfo | null;
+  contractAddress: string | null;
+}
+
+export interface NfaLearningsResponse {
+  entries: LearningLeaf[];
+  root: string;
+  count: number;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1881,11 +1912,11 @@ export class MiladyClient {
   private static resolveElectronLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
-    // In capacitor-electron mode the main process injects the live API base
+    // In capacitor-electron mode the desktop host injects the live API base.
     // once the embedded agent has bound a port. Avoid eager localhost probes
     // to prevent noisy ERR_CONNECTION_REFUSED logs during startup.
     if (proto === "capacitor-electron:") return "";
-    // Legacy Electron file:// mode fallback.
+    // Legacy packaged desktop file:// mode fallback.
     if (proto === "file:" && /\bElectron\b/i.test(window.navigator.userAgent)) {
       return "http://localhost:2138";
     }
@@ -1908,7 +1939,7 @@ export class MiladyClient {
         ? window.sessionStorage.getItem("milady_api_token")
         : null;
     this._token = token?.trim() || stored || null;
-    // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
+    // Priority: explicit arg > desktop-injected global > same origin (Vite proxy)
     const injectedBase =
       typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
@@ -1919,14 +1950,14 @@ export class MiladyClient {
 
   /**
    * Resolve the API base URL lazily.
-   * In Electron the main process injects window.__MILADY_API_BASE__ after the
+   * In desktop mode the host injects window.__MILADY_API_BASE__ after the
    * page loads (once the agent runtime starts). Re-checking on every call
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
     if (!this._explicitBase && typeof window !== "undefined") {
       const injected = window.__MILADY_API_BASE__;
-      // In Electron the API base can be injected after initial render. Always
+      // In desktop mode the API base can be injected after initial render. Always
       // prefer the injected value when present so the client can switch away
       // from the localhost fallback once the main process publishes the real
       // endpoint.
@@ -3068,6 +3099,82 @@ export class MiladyClient {
     });
   }
 
+  // NFA / Identity (BAP-578)
+
+  async getNfaStatus(): Promise<NfaStatusResponse> {
+    return this.fetch("/api/nfa/status");
+  }
+  async getNfaLearnings(): Promise<NfaLearningsResponse> {
+    return this.fetch("/api/nfa/learnings");
+  }
+
+  /** Mint a new NFA. */
+  async mintNfa(opts: {
+    useWalletKey?: boolean;
+    persona?: string;
+    experience?: string;
+    agentURI?: string;
+  }): Promise<{
+    success: boolean;
+    txHash?: string;
+    tokenId?: string;
+    error?: string;
+  }> {
+    return this.fetch("/api/nfa/mint", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Anchor learnings on-chain. */
+  async anchorLearnings(opts: { useWalletKey?: boolean }): Promise<{
+    success: boolean;
+    txHash?: string;
+    root?: string;
+    count?: number;
+    error?: string;
+  }> {
+    return this.fetch("/api/nfa/anchor", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Transfer NFA to another address. */
+  async transferNfa(opts: {
+    to: string;
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    return this.fetch("/api/nfa/transfer", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Upgrade NFA logic contract. */
+  async upgradeNfaLogic(opts: {
+    newLogicAddress: string;
+    useWalletKey?: boolean;
+  }): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    return this.fetch("/api/nfa/upgrade-logic", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /** Toggle NFA pause state. */
+  async toggleNfaPause(opts: { useWalletKey?: boolean }): Promise<{
+    success: boolean;
+    txHash?: string;
+    paused?: boolean;
+    error?: string;
+  }> {
+    return this.fetch("/api/nfa/pause", {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  }
+
   // Wallet
 
   async getWalletAddresses(): Promise<WalletAddresses> {
@@ -3719,7 +3826,7 @@ export class MiladyClient {
     if (this.baseUrl) {
       host = new URL(this.baseUrl).host;
     } else {
-      // In non-HTTP environments (Electron capacitor-electron://, file://, etc.)
+      // In non-HTTP environments (desktop capacitor-electron://, file://, etc.)
       // window.location.host may be empty or a non-routable placeholder like "-".
       const loc = window.location;
       if (loc.protocol !== "http:" && loc.protocol !== "https:") return;

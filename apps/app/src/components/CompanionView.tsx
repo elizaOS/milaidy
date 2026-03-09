@@ -27,6 +27,8 @@ import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import { VrmViewer } from "./avatar/VrmViewer";
 import { BubbleEmote } from "./BubbleEmote";
 import { ChatModalView } from "./ChatModalView";
+import { CompanionIdentityPopover } from "./CompanionIdentityPopover";
+import { IdentityCard } from "./IdentityCard";
 import { WalletTradingProfileModal } from "./WalletTradingProfileModal";
 import {
   getWalletTxStatusLabel,
@@ -298,6 +300,11 @@ export function CompanionView() {
     handlePauseResume,
     handleRestart,
     setActionNotice,
+    // Identity
+    nfaStatus,
+    nfaStatusLoading,
+    nfaStatusError,
+    loadNfaStatus,
   } = useApp();
   const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
@@ -337,6 +344,7 @@ export function CompanionView() {
   const solAddress = walletAddresses?.solanaAddress ?? null;
 
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
+  const [identityPanelOpen, setIdentityPanelOpen] = useState(false);
   const [walletActionMode, setWalletActionMode] = useState<
     "send" | "swap" | "receive"
   >("receive");
@@ -411,6 +419,7 @@ export function CompanionView() {
   const recentTxRefreshAtRef = useRef<Record<string, number>>({});
 
   const walletPanelRef = useRef<HTMLDivElement | null>(null);
+  const identityPanelRef = useRef<HTMLDivElement | null>(null);
   const vrmFileInputRef = useRef<HTMLInputElement | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1331,6 +1340,28 @@ export function CompanionView() {
   }, [walletPanelOpen]);
 
   useEffect(() => {
+    if (!identityPanelOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!identityPanelRef.current?.contains(event.target as Node)) {
+        setIdentityPanelOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIdentityPanelOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [identityPanelOpen]);
+
+  useEffect(() => {
     if (!walletPanelOpen) return;
     if (walletLoading || walletBalances) return;
     void loadBalances();
@@ -2032,6 +2063,8 @@ export function CompanionView() {
                         </button>
                       </div>
                     </div>
+
+                    <IdentityCard />
 
                     <div className="anime-wallet-popover-total">
                       <div className="anime-wallet-popover-total-value">
@@ -2989,6 +3022,19 @@ export function CompanionView() {
                 </div>
               )}
             </div>
+
+            {/* Identity (BAP-578 / ERC-8004) */}
+            <CompanionIdentityPopover
+              panelRef={identityPanelRef}
+              open={identityPanelOpen}
+              status={nfaStatus}
+              loading={nfaStatusLoading}
+              error={nfaStatusError}
+              onToggle={() => {
+                if (!identityPanelOpen) void loadNfaStatus();
+                setIdentityPanelOpen((prev) => !prev);
+              }}
+            />
           </div>
 
           <div className="anime-comp-header-right">

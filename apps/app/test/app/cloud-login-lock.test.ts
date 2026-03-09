@@ -117,6 +117,11 @@ describe("cloud login locking", () => {
       clearInterval: globalThis.clearInterval,
       open: vi.fn(() => null),
     });
+    delete (
+      window as typeof window & {
+        electron?: unknown;
+      }
+    ).electron;
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
 
     for (const fn of Object.values(mockClient)) {
@@ -266,6 +271,57 @@ describe("cloud login locking", () => {
     });
 
     expect(mockClient.cloudLogin).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("uses desktop IPC to open cloud login in Electrobun", async () => {
+    const invoke = vi.fn(async () => undefined);
+    (
+      window as typeof window & {
+        electron?: {
+          ipcRenderer?: {
+            invoke: (channel: string, payload?: unknown) => Promise<unknown>;
+          };
+        };
+      }
+    ).electron = {
+      ipcRenderer: { invoke },
+    };
+    mockClient.cloudLogin.mockResolvedValue({
+      ok: true,
+      browserUrl: "https://eliza.cloud/login",
+      sessionId: "session-1",
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleCloudLogin();
+    });
+
+    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+      url: "https://eliza.cloud/login",
+    });
+    expect(window.open).not.toHaveBeenCalled();
 
     await act(async () => {
       tree?.unmount();
