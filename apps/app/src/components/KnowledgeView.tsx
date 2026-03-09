@@ -643,7 +643,7 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
         const msg =
           err instanceof Error ? err.message : "Failed to load knowledge data";
         setLoadError(msg);
-        setActionNoticeRef.current({ type: "error", message: msg });
+        setActionNoticeRef.current(msg, "error");
       }
     } finally {
       setLoading(false);

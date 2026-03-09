@@ -19,7 +19,7 @@ interface ChatViewContextStub {
   chatSending: boolean;
   chatFirstTokenReceived: boolean;
   conversationMessages: ChatMessage[];
-  handleChatSend: (mode: "simple" | "power") => Promise<void>;
+  handleChatSend: (channelType?: string) => Promise<void>;
   handleChatStop: () => void;
   setState: (key: string, value: unknown) => void;
   droppedFiles: string[];
@@ -180,7 +180,7 @@ describe("ChatView game-modal variant", () => {
     await act(async () => {
       sendButtons[0].props.onClick();
     });
-    expect(handleChatSend).toHaveBeenCalledWith("simple");
+    expect(handleChatSend).toHaveBeenCalledWith();
   });
 
   it("disables composer controls while agent is starting", async () => {

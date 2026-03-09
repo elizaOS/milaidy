@@ -1223,16 +1223,6 @@ export interface AppActions {
   handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
   handleExportKeys: () => Promise<void>;
 
-  // BSC Trading (optional — dynamically injected)
-  getBscTradePreflight?: () => Promise<void>;
-  getBscTradeQuote?: (
-    request?: Partial<BscTradeQuoteRequest>,
-  ) => Promise<BscTradeQuoteResponse>;
-  executeBscTrade?: (
-    request?: Partial<BscTradeQuoteRequest>,
-  ) => Promise<BscTradeExecuteResponse>;
-  getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
-
   // Registry / Drop
   loadRegistryStatus: () => Promise<void>;
   registerOnChain: () => Promise<void>;
@@ -5438,6 +5428,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           .catch(() => {}); // non-critical
       };
       hydratePtySessions();
+      let ptyHydratedViaWs = false;
 
       // Connect WebSocket
       client.connectWs();

@@ -19,12 +19,14 @@ import {
 } from "react";
 import { getVrmPreviewUrl, useApp } from "../AppContext";
 import { client, type ImageAttachment, type VoiceConfig } from "../api-client";
+import { VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import {
   useVoiceChat,
   type VoicePlaybackStartEvent,
 } from "../hooks/useVoiceChat";
 import { createTranslator } from "../i18n";
 import { AgentActivityBox } from "./AgentActivityBox";
+
 import { ChatEmptyState, ChatMessage, TypingIndicator } from "./ChatMessage";
 import { MessageContent } from "./MessageContent";
 
@@ -77,7 +79,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     droppedFiles,
     shareIngestNotice,
     chatAgentVoiceMuted: agentVoiceMuted,
-    chatMode,
     selectedVrmIndex,
     chatPendingImages,
     setChatPendingImages,
@@ -128,9 +129,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       void loadVoiceConfig();
     };
 
-    window.addEventListener("milady:voice-config-updated", handler);
+    window.addEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
     return () =>
-      window.removeEventListener("milady:voice-config-updated", handler);
+      window.removeEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
   }, [loadVoiceConfig]);
 
   // ── Derived composer state ──────────────────────────────────────
@@ -614,7 +615,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             <button
               type="button"
               className="chat-game-send-btn chat-game-send-btn-primary"
-              onClick={() => void handleChatSend(chatMode)}
+              onClick={() => void handleChatSend()}
               disabled={isComposerLocked || !chatInput.trim()}
             >
               {isAgentStarting ? t("chat.agentStarting") : t("chat.send")}

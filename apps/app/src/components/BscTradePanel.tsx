@@ -8,6 +8,7 @@
 
 import { useCallback, useState } from "react";
 import type {
+  BscTradeExecuteRequest,
   BscTradeExecuteResponse,
   BscTradePreflightResponse,
   BscTradeQuoteRequest,
@@ -35,15 +36,19 @@ export interface BscTradePanelProps {
   trackedTokens: TrackedToken[];
   onAddToken: (token: TrackedToken) => void;
   copyToClipboard: (text: string) => Promise<void>;
-  setActionNotice: (msg: string, level: string, duration: number) => void;
+  setActionNotice: (
+    text: string,
+    tone?: "info" | "success" | "error",
+    ttlMs?: number,
+  ) => void;
   getBscTradePreflight?: (
     tokenAddress?: string,
   ) => Promise<BscTradePreflightResponse>;
   getBscTradeQuote?: (
-    request?: Partial<BscTradeQuoteRequest>,
+    request: BscTradeQuoteRequest,
   ) => Promise<BscTradeQuoteResponse>;
   executeBscTrade?: (
-    request?: Partial<BscTradeQuoteRequest>,
+    request: BscTradeExecuteRequest,
   ) => Promise<BscTradeExecuteResponse>;
   getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 }
