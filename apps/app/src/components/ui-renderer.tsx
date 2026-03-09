@@ -33,6 +33,8 @@ import type {
 
 const UiContext = createContext<UiRenderContext | null>(null);
 
+const BLOCKED_LINK_PROTOCOLS = new Set(["javascript", "data", "vbscript"]);
+
 function useUiCtx(): UiRenderContext {
   const ctx = useContext(UiContext);
   if (!ctx) throw new Error("UiRenderer context missing");
@@ -179,6 +181,30 @@ export function evaluateUiVisibility(
     return !evaluateUiVisibility(condition.not, state, auth);
 
   return true;
+}
+
+export function sanitizeLinkHref(href: unknown): string {
+  const raw = String(href ?? "#").trim();
+  if (!raw) return "#";
+
+  // Keep relative/hash links unchanged.
+  if (
+    raw.startsWith("#") ||
+    raw.startsWith("/") ||
+    raw.startsWith("./") ||
+    raw.startsWith("../") ||
+    raw.startsWith("?")
+  ) {
+    return raw;
+  }
+
+  const match = /^([a-zA-Z][a-zA-Z\d+.-]*):/.exec(raw);
+  if (!match) return raw;
+
+  const protocol = match[1].toLowerCase();
+  if (BLOCKED_LINK_PROTOCOLS.has(protocol)) return "#";
+
+  return raw;
 }
 
 // ── Built-in validators ─────────────────────────────────────────────
@@ -1033,9 +1059,11 @@ const ButtonComponent: ComponentFn = (props, _children, ctx, el) => {
 };
 
 const LinkComponent: ComponentFn = (props, _children, ctx, el) => {
+  const safeHref = sanitizeLinkHref(props.href);
+
   return (
     <a
-      href={String(props.href ?? "#")}
+      href={safeHref}
       className="text-xs text-[var(--accent)] underline hover:opacity-80"
       target={props.external ? "_blank" : undefined}
       rel={props.external ? "noopener noreferrer" : undefined}
