@@ -2376,6 +2376,28 @@ function getCachedFile(filePath: string, mtimeMs: number): Buffer {
  * Serve built dashboard assets from apps/app/dist with SPA fallback.
  * Returns true when the request is handled.
  */
+export function injectApiBaseIntoHtml(
+  html: Buffer,
+  externalBase?: string | null,
+): Buffer {
+  const trimmedBase = externalBase?.trim();
+  if (!trimmedBase) return html;
+
+  const headCloseTag = "</head>";
+  const headCloseIndex = html.indexOf(headCloseTag);
+  if (headCloseIndex < 0) return html;
+
+  const injection = Buffer.from(
+    `<script>window.__MILADY_API_BASE__=${JSON.stringify(trimmedBase)};</script>`,
+  );
+
+  return Buffer.concat([
+    html.subarray(0, headCloseIndex),
+    injection,
+    html.subarray(headCloseIndex),
+  ]);
+}
+
 function serveStaticUi(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -2442,18 +2464,10 @@ function serveStaticUi(
 
   // When served behind a reverse proxy (e.g. Railway /proxy/PORT/), inject the
   // API base so the UI client sends requests to the correct path prefix.
-  let html = uiIndexHtml;
-  const externalBase = process.env.MILADY_EXTERNAL_BASE_URL;
-  if (externalBase) {
-    const injection = Buffer.from(
-      `<script>window.__MILADY_API_BASE__=${JSON.stringify(externalBase)};</script>`,
-    );
-    html = Buffer.concat([
-      Buffer.from(uiIndexHtml.subarray(0, uiIndexHtml.indexOf("</head>"))),
-      injection,
-      Buffer.from(uiIndexHtml.subarray(uiIndexHtml.indexOf("</head>"))),
-    ]);
-  }
+  const html = injectApiBaseIntoHtml(
+    uiIndexHtml,
+    process.env.MILADY_EXTERNAL_BASE_URL,
+  );
 
   sendStaticResponse(
     req,
@@ -4743,12 +4757,13 @@ export function isAllowedHost(req: http.IncomingMessage): boolean {
   return LOCAL_HOST_RE.test(hostname);
 }
 
-function resolveCorsOrigin(origin?: string): string | null {
+export function resolveCorsOrigin(origin?: string): string | null {
   if (!origin) return null;
   const trimmed = origin.trim();
   if (!trimmed) return null;
 
-  // When bound to a wildcard address, allow any origin (token gate protects the API)
+  // When bound to a wildcard address, allow any origin. Non-loopback binds still
+  // require an explicit token, so this only relaxes the browser origin check.
   const bindHost = (process.env.MILADY_API_BIND ?? "").trim().toLowerCase();
   if (WILDCARD_BIND_RE.test(stripPort(bindHost))) return trimmed;
 
@@ -4985,8 +5000,6 @@ export function ensureApiTokenForBindHost(host: string): void {
   const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
-  // Allow explicitly disabling auto-generated token (e.g. behind an auth proxy)
-  if (process.env.MILADY_API_TOKEN_REQUIRED === "0") return;
 
   const generated = crypto.randomBytes(32).toString("hex");
   process.env.MILADY_API_TOKEN = generated;

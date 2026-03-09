@@ -1,13 +1,20 @@
 import { logger } from "@elizaos/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureApiTokenForBindHost } from "./server";
+import { ensureApiTokenForBindHost, resolveCorsOrigin } from "./server";
 
 describe("ensureApiTokenForBindHost", () => {
   const previousToken = process.env.MILADY_API_TOKEN;
+  const previousBind = process.env.MILADY_API_BIND;
+  const previousAllowedOrigins = process.env.MILADY_ALLOWED_ORIGINS;
 
   afterEach(() => {
     if (previousToken === undefined) delete process.env.MILADY_API_TOKEN;
     else process.env.MILADY_API_TOKEN = previousToken;
+    if (previousBind === undefined) delete process.env.MILADY_API_BIND;
+    else process.env.MILADY_API_BIND = previousBind;
+    if (previousAllowedOrigins === undefined)
+      delete process.env.MILADY_ALLOWED_ORIGINS;
+    else process.env.MILADY_ALLOWED_ORIGINS = previousAllowedOrigins;
     vi.restoreAllMocks();
   });
 
@@ -44,5 +51,38 @@ describe("ensureApiTokenForBindHost", () => {
     expect(loggedMessages.some((message) => message.includes(generated))).toBe(
       false,
     );
+  });
+});
+
+describe("resolveCorsOrigin", () => {
+  const previousBind = process.env.MILADY_API_BIND;
+  const previousAllowedOrigins = process.env.MILADY_ALLOWED_ORIGINS;
+
+  afterEach(() => {
+    if (previousBind === undefined) delete process.env.MILADY_API_BIND;
+    else process.env.MILADY_API_BIND = previousBind;
+    if (previousAllowedOrigins === undefined)
+      delete process.env.MILADY_ALLOWED_ORIGINS;
+    else process.env.MILADY_ALLOWED_ORIGINS = previousAllowedOrigins;
+  });
+
+  it("allows any origin when bound to a wildcard host", () => {
+    process.env.MILADY_API_BIND = "0.0.0.0:2138";
+    delete process.env.MILADY_ALLOWED_ORIGINS;
+
+    expect(resolveCorsOrigin("https://evil.example.com")).toBe(
+      "https://evil.example.com",
+    );
+  });
+
+  it("still honors the explicit allowlist when not wildcard-bound", () => {
+    process.env.MILADY_API_BIND = "127.0.0.1";
+    process.env.MILADY_ALLOWED_ORIGINS =
+      "https://proxy.example.com, https://other.example.com";
+
+    expect(resolveCorsOrigin("https://proxy.example.com")).toBe(
+      "https://proxy.example.com",
+    );
+    expect(resolveCorsOrigin("https://blocked.example.com")).toBeNull();
   });
 });
