@@ -28,10 +28,10 @@ import {
   APP_RESUME_EVENT,
   COMMAND_PALETTE_EVENT,
   CONNECT_EVENT,
+  dispatchMiladyEvent,
   EMOTE_PICKER_EVENT,
   SHARE_TARGET_EVENT,
   TRAY_ACTION_EVENT,
-  dispatchMiladyEvent,
 } from "./events";
 
 /**
@@ -248,7 +248,9 @@ function handleDeepLink(url: string): void {
               );
               break;
             }
-            dispatchMiladyEvent(CONNECT_EVENT, { gatewayUrl: validatedUrl.href });
+            dispatchMiladyEvent(CONNECT_EVENT, {
+              gatewayUrl: validatedUrl.href,
+            });
           } catch {
             console.error("[Milady] Invalid gateway URL format");
           }

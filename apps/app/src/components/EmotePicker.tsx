@@ -2,7 +2,11 @@ import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client } from "../api-client";
-import { EMOTE_PICKER_EVENT, STOP_EMOTE_EVENT, dispatchMiladyEvent } from "../events";
+import {
+  dispatchMiladyEvent,
+  EMOTE_PICKER_EVENT,
+  STOP_EMOTE_EVENT,
+} from "../events";
 
 // Types
 interface EmoteItem {

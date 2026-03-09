@@ -46,7 +46,9 @@ export function ShortcutsOverlay() {
   const grouped: Record<string, typeof COMMON_SHORTCUTS> = {};
   for (const s of COMMON_SHORTCUTS) {
     const scope = s.scope ?? "global";
-    if (!grouped[scope]) grouped[scope] = [];
+    if (!grouped[scope]) {
+      grouped[scope] = [];
+    }
     grouped[scope].push(s);
   }
 
@@ -57,7 +59,13 @@ export function ShortcutsOverlay() {
         if (e.target === e.currentTarget) setOpen(false);
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") setOpen(false);
+        if (
+          e.target === e.currentTarget &&
+          (e.key === "Enter" || e.key === " ")
+        ) {
+          e.preventDefault();
+          setOpen(false);
+        }
       }}
       role="dialog"
       aria-modal="true"

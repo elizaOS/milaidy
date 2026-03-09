@@ -23,7 +23,8 @@ export const APP_PAUSE_EVENT = "milady:app-pause" as const;
 export const CONNECT_EVENT = "milady:connect" as const;
 
 // ── Voice / config ───────────────────────────────────────────────────────
-export const VOICE_CONFIG_UPDATED_EVENT = "milady:voice-config-updated" as const;
+export const VOICE_CONFIG_UPDATED_EVENT =
+  "milady:voice-config-updated" as const;
 
 // ── Sidebar sync ─────────────────────────────────────────────────────────
 export const SELF_STATUS_SYNC_EVENT = "milady:self-status-refresh" as const;
@@ -44,9 +45,7 @@ export type MiladyWindowEventName =
   | typeof VOICE_CONFIG_UPDATED_EVENT
   | typeof SELF_STATUS_SYNC_EVENT;
 
-export type MiladyEventName =
-  | MiladyDocumentEventName
-  | MiladyWindowEventName;
+export type MiladyEventName = MiladyDocumentEventName | MiladyWindowEventName;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 

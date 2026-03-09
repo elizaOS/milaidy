@@ -23,9 +23,8 @@ function findText(
   root: TestRenderer.ReactTestInstance,
   value: string,
 ): TestRenderer.ReactTestInstance[] {
-  return root.findAll(
-    (node: TestRenderer.ReactTestInstance) =>
-      node.children.some((child) => child === value),
+  return root.findAll((node: TestRenderer.ReactTestInstance) =>
+    node.children.some((child) => child === value),
   );
 }
 
@@ -56,9 +55,9 @@ describe("ShortcutsOverlay", () => {
     const dialog = tree.root.findByProps({ role: "dialog" });
     expect(dialog.props["aria-label"]).toBe("Keyboard shortcuts");
     expect(findText(tree.root, "Open command palette")).toHaveLength(1);
-    expect(
-      tree.root.findAllByType("kbd" as React.ElementType),
-    ).toHaveLength(COMMON_SHORTCUTS.length);
+    expect(tree.root.findAllByType("kbd" as React.ElementType)).toHaveLength(
+      COMMON_SHORTCUTS.length,
+    );
     expect(preventDefault).toHaveBeenCalledOnce();
   });
 

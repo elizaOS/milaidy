@@ -15,8 +15,7 @@ vi.mock("../../src/components/EmotePicker", () => ({
 }));
 
 vi.mock("../../src/components/MemoryDebugPanel", () => ({
-  MemoryDebugPanel: () =>
-    React.createElement("div", null, "MemoryDebugPanel"),
+  MemoryDebugPanel: () => React.createElement("div", null, "MemoryDebugPanel"),
 }));
 
 vi.mock("../../src/components/RestartBanner", () => ({
@@ -47,15 +46,12 @@ describe("ShellOverlays", () => {
     [{ text: "Saved", tone: "success" }, "bg-ok"],
     [{ text: "Failed", tone: "error" }, "bg-danger"],
     [{ text: "Working", tone: "info" }, "bg-accent"],
-  ])(
-    "maps %o action notices to the expected tone class",
-    (actionNotice, expectedClass) => {
-      const markup = renderToStaticMarkup(
-        React.createElement(ShellOverlays, { actionNotice }),
-      );
+  ])("maps %o action notices to the expected tone class", (actionNotice, expectedClass) => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ShellOverlays, { actionNotice }),
+    );
 
-      expect(markup).toContain(actionNotice.text);
-      expect(markup).toContain(expectedClass);
-    },
-  );
+    expect(markup).toContain(actionNotice.text);
+    expect(markup).toContain(expectedClass);
+  });
 });

@@ -18,7 +18,7 @@ import {
   type VoiceMode,
   type VoiceProvider,
 } from "../api-client";
-import { VOICE_CONFIG_UPDATED_EVENT, dispatchWindowEvent } from "../events";
+import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import {
   CloudConnectionStatus,
   CloudSourceModeToggle,
@@ -228,9 +228,12 @@ function WakeWordSection({
     let handle: { remove: () => Promise<void> } | null = null;
     void (async () => {
       try {
-        handle = await Swabble.addListener("audioLevel", (evt: { level: number }) => {
-          setAudioLevel(evt.level);
-        });
+        handle = await Swabble.addListener(
+          "audioLevel",
+          (evt: { level: number }) => {
+            setAudioLevel(evt.level);
+          },
+        );
       } catch {
         // Not available
       }

@@ -12,9 +12,9 @@ function findButton(
   root: TestRenderer.ReactTestInstance,
   label: string,
 ): TestRenderer.ReactTestInstance {
-  const match = root.findAllByType("button" as React.ElementType).find((node) =>
-    node.children.join("").includes(label),
-  );
+  const match = root
+    .findAllByType("button" as React.ElementType)
+    .find((node) => node.children.join("").includes(label));
   if (!match) {
     throw new Error(`Could not find button with label: ${label}`);
   }

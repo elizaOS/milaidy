@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  type BuildCommandsArgs,
   buildCommands,
   NAV_COMMANDS,
-  type BuildCommandsArgs,
 } from "../../src/command-registry";
 
 function makeArgs(overrides?: Partial<BuildCommandsArgs>): BuildCommandsArgs {
@@ -31,7 +31,7 @@ describe("command-registry", () => {
     for (const nav of NAV_COMMANDS) {
       const found = cmds.find((c) => c.id === nav.id);
       expect(found, `missing nav command ${nav.id}`).toBeDefined();
-      expect(found!.category).toBe("navigation");
+      expect(found?.category).toBe("navigation");
     }
   });
 
@@ -51,14 +51,14 @@ describe("command-registry", () => {
     const cmds = buildCommands(makeArgs({ agentState: "running" }));
     const pr = cmds.find((c) => c.id === "pause-resume-agent");
     expect(pr).toBeDefined();
-    expect(pr!.label).toBe("Pause Agent");
+    expect(pr?.label).toBe("Pause Agent");
   });
 
   it("shows Resume Agent when paused", () => {
     const cmds = buildCommands(makeArgs({ agentState: "paused" }));
     const pr = cmds.find((c) => c.id === "pause-resume-agent");
     expect(pr).toBeDefined();
-    expect(pr!.label).toBe("Resume Agent");
+    expect(pr?.label).toBe("Resume Agent");
   });
 
   it("includes Open Current Game when URL is present", () => {

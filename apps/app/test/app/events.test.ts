@@ -2,22 +2,22 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
-  COMMAND_PALETTE_EVENT,
-  EMOTE_PICKER_EVENT,
-  STOP_EMOTE_EVENT,
   AGENT_READY_EVENT,
-  BRIDGE_READY_EVENT,
-  SHARE_TARGET_EVENT,
-  TRAY_ACTION_EVENT,
-  APP_RESUME_EVENT,
   APP_PAUSE_EVENT,
+  APP_RESUME_EVENT,
+  BRIDGE_READY_EVENT,
+  COMMAND_PALETTE_EVENT,
   CONNECT_EVENT,
-  VOICE_CONFIG_UPDATED_EVENT,
-  SELF_STATUS_SYNC_EVENT,
-  type MiladyDocumentEventName,
-  type MiladyWindowEventName,
   dispatchMiladyEvent,
   dispatchWindowEvent,
+  EMOTE_PICKER_EVENT,
+  type MiladyDocumentEventName,
+  type MiladyWindowEventName,
+  SELF_STATUS_SYNC_EVENT,
+  SHARE_TARGET_EVENT,
+  STOP_EMOTE_EVENT,
+  TRAY_ACTION_EVENT,
+  VOICE_CONFIG_UPDATED_EVENT,
 } from "../../src/events";
 
 describe("event constants", () => {

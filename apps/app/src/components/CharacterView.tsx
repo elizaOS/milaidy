@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { type CharacterData, client, type VoiceConfig } from "../api-client";
 import { resolveApiUrl } from "../asset-url";
-import { VOICE_CONFIG_UPDATED_EVENT, dispatchWindowEvent } from "../events";
+import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import type { ConfigUiHint } from "../types";
 import { AvatarSelector } from "./AvatarSelector";
 import type { JsonSchemaObject } from "./config-catalog";

@@ -9,11 +9,7 @@ import type { Tab } from "./navigation";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
-export type CommandCategory =
-  | "agent"
-  | "navigation"
-  | "refresh"
-  | "utility";
+export type CommandCategory = "agent" | "navigation" | "refresh" | "utility";
 
 export interface CommandDef {
   id: string;
@@ -32,21 +28,22 @@ export interface CommandItem extends CommandDef {
 // ── Static navigation commands ───────────────────────────────────────────
 // These are always present; the palette builder just binds the setTab action.
 
-export const NAV_COMMANDS: readonly { id: string; label: string; tab: Tab }[] = [
-  { id: "nav-chat", label: "Open Chat", tab: "chat" },
-  { id: "nav-apps", label: "Open Apps", tab: "apps" },
-  { id: "nav-character", label: "Open Character", tab: "character" },
-  { id: "nav-triggers", label: "Open Triggers", tab: "triggers" },
-  { id: "nav-wallets", label: "Open Wallets", tab: "wallets" },
-  { id: "nav-knowledge", label: "Open Knowledge", tab: "knowledge" },
-  { id: "nav-connectors", label: "Open Social", tab: "connectors" },
-  { id: "nav-plugins", label: "Open Plugins", tab: "plugins" },
-  { id: "nav-settings", label: "Open Settings", tab: "settings" },
-  { id: "nav-database", label: "Open Database", tab: "database" },
-  { id: "nav-logs", label: "Open Logs", tab: "logs" },
-  { id: "nav-security", label: "Open Security", tab: "security" },
-  { id: "nav-lifo", label: "Open Lifo", tab: "lifo" },
-] as const;
+export const NAV_COMMANDS: readonly { id: string; label: string; tab: Tab }[] =
+  [
+    { id: "nav-chat", label: "Open Chat", tab: "chat" },
+    { id: "nav-apps", label: "Open Apps", tab: "apps" },
+    { id: "nav-character", label: "Open Character", tab: "character" },
+    { id: "nav-triggers", label: "Open Triggers", tab: "triggers" },
+    { id: "nav-wallets", label: "Open Wallets", tab: "wallets" },
+    { id: "nav-knowledge", label: "Open Knowledge", tab: "knowledge" },
+    { id: "nav-connectors", label: "Open Social", tab: "connectors" },
+    { id: "nav-plugins", label: "Open Plugins", tab: "plugins" },
+    { id: "nav-settings", label: "Open Settings", tab: "settings" },
+    { id: "nav-database", label: "Open Database", tab: "database" },
+    { id: "nav-logs", label: "Open Logs", tab: "logs" },
+    { id: "nav-security", label: "Open Security", tab: "security" },
+    { id: "nav-lifo", label: "Open Lifo", tab: "lifo" },
+  ] as const;
 
 // ── Builder ──────────────────────────────────────────────────────────────
 
@@ -137,16 +134,46 @@ export function buildCommands(args: BuildCommandsArgs): CommandItem[] {
 
   // Refresh
   commands.push(
-    { id: "refresh-plugins", label: "Refresh Features", category: "refresh", action: loadPlugins },
-    { id: "refresh-skills", label: "Refresh Skills", category: "refresh", action: loadSkills },
-    { id: "refresh-logs", label: "Refresh Logs", category: "refresh", action: loadLogs },
-    { id: "refresh-workbench", label: "Refresh Workbench", category: "refresh", action: loadWorkbench },
+    {
+      id: "refresh-plugins",
+      label: "Refresh Features",
+      category: "refresh",
+      action: loadPlugins,
+    },
+    {
+      id: "refresh-skills",
+      label: "Refresh Skills",
+      category: "refresh",
+      action: loadSkills,
+    },
+    {
+      id: "refresh-logs",
+      label: "Refresh Logs",
+      category: "refresh",
+      action: loadLogs,
+    },
+    {
+      id: "refresh-workbench",
+      label: "Refresh Workbench",
+      category: "refresh",
+      action: loadWorkbench,
+    },
   );
 
   // Utility
   commands.push(
-    { id: "chat-clear", label: "Clear Chat", category: "utility", action: handleChatClear },
-    { id: "report-bug", label: "Report Bug", category: "utility", action: openBugReport },
+    {
+      id: "chat-clear",
+      label: "Clear Chat",
+      category: "utility",
+      action: handleChatClear,
+    },
+    {
+      id: "report-bug",
+      label: "Report Bug",
+      category: "utility",
+      action: openBugReport,
+    },
   );
 
   return commands;
