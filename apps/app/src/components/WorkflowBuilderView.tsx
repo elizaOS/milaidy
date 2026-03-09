@@ -457,7 +457,7 @@ export function WorkflowBuilderView() {
 
   if (viewMode === "runs" && editingWorkflow) {
     return (
-      <div>
+      <div className="flex flex-col h-full min-h-0">
         {errorBanner}
         <WorkflowRunsPanel
           runs={runs}
@@ -472,7 +472,7 @@ export function WorkflowBuilderView() {
   // ── List view ─────────────────────────────────────────────────────────
 
   return (
-    <div>
+    <div className="flex flex-col h-full min-h-0 overflow-y-auto">
       {errorBanner}
       <WorkflowListPanel
         loading={loading}

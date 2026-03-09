@@ -425,7 +425,14 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         }
       >
         {inModal ? (
-          <div className="settings-section-pane pt-4">{renderContent()}</div>
+          currentSubTab === "workflows" ? (
+            // Workflow builder manages its own layout — skip settings-section-pane padding/scroll
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {renderContent()}
+            </div>
+          ) : (
+            <div className="settings-section-pane pt-4">{renderContent()}</div>
+          )
         ) : (
           renderContent()
         )}
