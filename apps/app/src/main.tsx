@@ -22,6 +22,17 @@ import { AppProvider } from "./AppContext";
 import { initializeCapacitorBridge } from "./bridge/capacitor-bridge";
 import { isElectrobunRuntime } from "./bridge/electrobun-runtime";
 import { initializeStorageBridge } from "./bridge/storage-bridge";
+import {
+  AGENT_READY_EVENT,
+  APP_PAUSE_EVENT,
+  APP_RESUME_EVENT,
+  COMMAND_PALETTE_EVENT,
+  CONNECT_EVENT,
+  dispatchMiladyEvent,
+  EMOTE_PICKER_EVENT,
+  SHARE_TARGET_EVENT,
+  TRAY_ACTION_EVENT,
+} from "./events";
 
 /**
  * Platform detection utilities
@@ -63,11 +74,7 @@ function dispatchShareTarget(payload: ShareTargetPayload): void {
     window.__MILADY_SHARE_QUEUE__ = [];
   }
   window.__MILADY_SHARE_QUEUE__.push(payload);
-  document.dispatchEvent(
-    new CustomEvent("milady:share-target", {
-      detail: payload,
-    }),
-  );
+  dispatchMiladyEvent(SHARE_TARGET_EVENT, payload);
 }
 
 /**
@@ -84,9 +91,7 @@ async function initializeAgent(): Promise<void> {
     );
 
     // Dispatch event so the UI knows the agent is available
-    document.dispatchEvent(
-      new CustomEvent("milady:agent-ready", { detail: status }),
-    );
+    dispatchMiladyEvent(AGENT_READY_EVENT, status);
   } catch (err) {
     console.warn(
       "[Milady] Agent not available:",
@@ -175,10 +180,10 @@ function initializeAppLifecycle(): void {
   CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
       // App came to foreground - refresh data if needed
-      document.dispatchEvent(new CustomEvent("milady:app-resume"));
+      dispatchMiladyEvent(APP_RESUME_EVENT);
     } else {
       // App went to background
-      document.dispatchEvent(new CustomEvent("milady:app-pause"));
+      dispatchMiladyEvent(APP_PAUSE_EVENT);
     }
   });
 
@@ -243,11 +248,9 @@ function handleDeepLink(url: string): void {
               );
               break;
             }
-            document.dispatchEvent(
-              new CustomEvent("milady:connect", {
-                detail: { gatewayUrl: validatedUrl.href },
-              }),
-            );
+            dispatchMiladyEvent(CONNECT_EVENT, {
+              gatewayUrl: validatedUrl.href,
+            });
           } catch {
             console.error("[Milady] Invalid gateway URL format");
           }
@@ -316,10 +319,10 @@ async function initializeElectron(): Promise<void> {
 
     await Desktop.addListener("shortcutPressed", (event: { id: string }) => {
       if (event.id === "command-palette") {
-        document.dispatchEvent(new CustomEvent("milady:command-palette"));
+        dispatchMiladyEvent(COMMAND_PALETTE_EVENT);
       }
       if (event.id === "emote-picker") {
-        document.dispatchEvent(new CustomEvent("milady:emote-picker"));
+        dispatchMiladyEvent(EMOTE_PICKER_EVENT);
       }
     });
 
@@ -340,11 +343,7 @@ async function initializeElectron(): Promise<void> {
     await Desktop.addListener(
       "trayMenuClick",
       (event: { itemId: string; checked?: boolean }) => {
-        document.dispatchEvent(
-          new CustomEvent("milady:tray-action", {
-            detail: event,
-          }),
-        );
+        dispatchMiladyEvent(TRAY_ACTION_EVENT, event);
       },
     );
   } catch {}

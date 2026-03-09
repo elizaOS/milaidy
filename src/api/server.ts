@@ -27,12 +27,34 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-import type {
-  CoordinationLLMResponse,
-  SwarmEvent,
-  TaskCompletionSummary,
-  TaskContext,
-} from "@elizaos/plugin-agent-orchestrator";
+
+/**
+ * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
+ * These are only used as structural types for the SwarmCoordinator callbacks;
+ * no runtime import is needed.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
+type SwarmEvent = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
+type TaskContext = Record<string, any>;
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
+interface TaskCompletionSummary {
+  sessionId: string;
+  label: string;
+  agentType: string;
+  originalTask: string;
+  status: string;
+  completionSummary: string;
+  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
+  [key: string]: any;
+}
+
 import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -11468,10 +11490,11 @@ async function handleRequest(
     }
 
     const tradePermissionMode = resolveTradePermissionMode(state.config);
+    const isAgentRequest = isAgentAutomationRequest(req);
     const hasLocalKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const canExecuteLocally = canUseLocalTradeExecution(
       tradePermissionMode,
-      false,
+      isAgentRequest,
     );
     const addrs = getWalletAddresses();
 
@@ -13167,7 +13190,8 @@ async function handleRequest(
     // Fallback to @elizaos/plugin-agent-orchestrator (npm)
     if (!handled) {
       try {
-        const orchestratorPlugin = await import(
+        // biome-ignore lint/suspicious/noExplicitAny: legacy route handler may not exist in 2.x
+        const orchestratorPlugin: any = await import(
           "@elizaos/plugin-agent-orchestrator"
         );
         if (orchestratorPlugin.createCodingAgentRouteHandler) {
@@ -15001,11 +15025,7 @@ async function handleRequest(
 function sanitizeWorkflowHookPayload(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
-  const clone = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
-  delete clone.__proto__;
-  delete clone.constructor;
-  delete clone.prototype;
-  return clone;
+  return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------

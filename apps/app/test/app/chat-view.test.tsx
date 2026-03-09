@@ -86,6 +86,16 @@ function createContext(
     uiLanguage: "en",
     chatMode: "simple",
     chatAgentVoiceMuted: false,
+    handleStart: vi.fn(async () => {}),
+    handlePauseResume: vi.fn(async () => {}),
+    handleRestart: vi.fn(async () => {}),
+    handleChatRetry: vi.fn(),
+    lifecycleBusy: false,
+    lifecycleAction: null,
+    autonomousEvents: [],
+    workbench: null,
+    openEmotePicker: vi.fn(),
+    ptySessions: [],
     ...overrides,
   };
 }

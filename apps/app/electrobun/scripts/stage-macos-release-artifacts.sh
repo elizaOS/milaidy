@@ -36,19 +36,20 @@ retry_command() {
   local delay_seconds="$2"
   shift 2
 
-  local attempt exit_code=0
+  local attempt command_status=0
   for ((attempt = 1; attempt <= attempts; attempt += 1)); do
     if "$@"; then
       return 0
+    else
+      command_status=$?
     fi
-    exit_code=$?
-    echo "Command failed (attempt $attempt/$attempts, exit=$exit_code): $*" >&2
+    echo "Command failed (attempt $attempt/$attempts, exit=$command_status): $*" >&2
     if [[ "$attempt" -lt "$attempts" ]]; then
       sleep "$((delay_seconds * attempt))"
     fi
   done
 
-  return "$exit_code"
+  return "$command_status"
 }
 
 TARBALL_PATH="$(find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst" | sort | head -1)"
@@ -88,6 +89,20 @@ if [[ ! -f "$DIRECT_LAUNCHER_SOURCE" ]]; then
   exit 1
 fi
 
+entitlement_args=()
+if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
+  TMP_ENTITLEMENTS_PATH="$TMP_ROOT/staged-entitlements.plist"
+  if ! codesign -d --entitlements :- "$STAGED_APP_PATH" >"$TMP_ENTITLEMENTS_PATH" 2>/dev/null; then
+    echo "stage-macos-release-artifacts: failed to extract entitlements from staged app bundle"
+    exit 1
+  fi
+  if [[ ! -s "$TMP_ENTITLEMENTS_PATH" ]]; then
+    echo "stage-macos-release-artifacts: extracted entitlements were empty"
+    exit 1
+  fi
+  entitlement_args=(--entitlements "$TMP_ENTITLEMENTS_PATH")
+fi
+
 TMP_LAUNCHER_PATH="$TMP_ROOT/direct-launcher"
 /usr/bin/clang \
   -O2 \
@@ -100,12 +115,14 @@ install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"
 
 echo "Staged app bundle: $STAGED_APP_PATH"
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
-  # Replacing the launcher invalidates the extracted app signature, so we need
-  # to re-sign the staged bundle before wrapping it into a DMG. This staged
-  # copy is only an intermediate artifact; notarization happens on the final
-  # DMG below, so Gatekeeper validation on the app itself would fail here.
-  codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$LAUNCHER_PATH"
-  codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"
+  # The extracted updater app bundle is already correctly signed/notarized by
+  # electrobun. Re-sign only what changed and keep the original entitlements so
+  # we do not rewrite valid nested signatures with a blanket --deep pass.
+  if ! codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$LAUNCHER_PATH"; then
+    echo "stage-macos-release-artifacts: launcher runtime signing failed, retrying without hardened runtime" >&2
+    codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "${entitlement_args[@]}" "$LAUNCHER_PATH"
+  fi
+  codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$STAGED_APP_PATH"
   codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
 else
   echo "Skipping staged app signature verification (unsigned/local build)."

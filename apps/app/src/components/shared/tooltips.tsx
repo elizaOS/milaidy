@@ -106,6 +106,47 @@ export function Tooltip({
 }
 
 /**
+ * Lightweight tooltip for icon buttons.
+ *
+ * Uses a `<div>` wrapper (not `<button>`) so it can safely wrap interactive
+ * elements like icon buttons without nesting buttons.
+ */
+export function IconTooltip({
+  children,
+  label,
+  shortcut,
+  position = "top",
+}: {
+  children: React.ReactNode;
+  label: string;
+  shortcut?: string;
+  position?: "top" | "bottom";
+}) {
+  const posClass =
+    position === "top"
+      ? "bottom-full left-1/2 -translate-x-1/2 mb-2"
+      : "top-full left-1/2 -translate-x-1/2 mt-2";
+  const arrowClass =
+    position === "top"
+      ? "top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-bg-elevated"
+      : "bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-bg-elevated";
+
+  return (
+    <div className="relative group">
+      {children}
+      <div
+        className={`absolute ${posClass} px-2 py-1 bg-bg-elevated border border-border text-[11px] text-txt-strong rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg pointer-events-none`}
+        role="tooltip"
+      >
+        <div className="font-medium">{label}</div>
+        {shortcut && <div className="text-muted mt-0.5">{shortcut}</div>}
+        <div className={`absolute ${arrowClass}`} />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Spotlight overlay for guided tours.
  */
 

@@ -14,6 +14,7 @@ import {
 } from "../AppContext";
 import { client } from "../api-client";
 import { resolveAppAssetUrl } from "../asset-url";
+import { STOP_EMOTE_EVENT } from "../events";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import { VrmViewer } from "./avatar/VrmViewer";
 
@@ -93,8 +94,8 @@ export function ChatAvatar({
     const handler = () => {
       vrmEngineRef.current?.stopEmote();
     };
-    document.addEventListener("milady:stop-emote", handler);
-    return () => document.removeEventListener("milady:stop-emote", handler);
+    document.addEventListener(STOP_EMOTE_EVENT, handler);
+    return () => document.removeEventListener(STOP_EMOTE_EVENT, handler);
   }, [engineReady]);
 
   return (
