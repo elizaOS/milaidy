@@ -5000,6 +5000,8 @@ export function ensureApiTokenForBindHost(host: string): void {
   const token = process.env.MILADY_API_TOKEN?.trim();
   if (token) return;
   if (isLoopbackBindHost(host)) return;
+  // Allow explicitly disabling auto-generated token (e.g. behind an auth proxy)
+  if (process.env.MILADY_API_TOKEN_REQUIRED === "0") return;
 
   const generated = crypto.randomBytes(32).toString("hex");
   process.env.MILADY_API_TOKEN = generated;
