@@ -14,7 +14,10 @@ describe("smoke-test.sh", () => {
 
     expect(script).toContain(
       'PACKAGED_HANDOFF_GRACE_SECONDS="$' +
-        '{PACKAGED_HANDOFF_GRACE_SECONDS:-15}"',
+        '{PACKAGED_HANDOFF_GRACE_SECONDS:-90}"',
+    );
+    expect(script).toContain(
+      "Launcher exited before the first health probe; continuing to wait for packaged app handoff...",
     );
     expect(script).toContain(
       "Launcher exited; waiting for packaged app handoff...",
@@ -22,7 +25,6 @@ describe("smoke-test.sh", () => {
     expect(script).toContain(
       "Launcher handoff detected; following packaged app process",
     );
-    expect(script).toContain("launcher exited before packaged app handoff");
     expect(script).toContain('if [[ "$f" == *"/.dmg-staging/"* ]]; then');
   });
 
@@ -41,6 +43,8 @@ describe("smoke-test.sh", () => {
     expect(script).toContain(
       'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
     );
+    expect(script).toContain("Contents/Resources/app/bun/index\\\\.js");
+    expect(script).toContain("Contents/Resources/main\\\\.js");
   });
 
   it("uses a minimal launcher environment on macOS GitHub Actions", () => {
