@@ -68,20 +68,21 @@ export const nfaTransferAction: Action = {
       return;
     }
 
-    const text = message.content?.text ?? "";
-    const toAddress = extractAddress(text);
-
-    if (!toAddress) {
-      await callback({
-        text:
-          "Please provide a valid 0x address to transfer the NFA to.\n\n" +
-          "Example: **transfer nfa to 0x1234...abcd**",
-      });
-      return;
-    }
-
     const pendingKey = "bnb_nfa_transfer_pending";
-    if (!state?.[pendingKey]) {
+    const pending = state?.[pendingKey] as { toAddress: string } | undefined;
+    if (!pending) {
+      const text = message.content?.text ?? "";
+      const toAddress = extractAddress(text);
+
+      if (!toAddress) {
+        await callback({
+          text:
+            "Please provide a valid 0x address to transfer the NFA to.\n\n" +
+            "Example: **transfer nfa to 0x1234...abcd**",
+        });
+        return;
+      }
+
       await callback({
         text:
           `WARNING: You are about to transfer NFA ownership.\n\n` +
@@ -102,9 +103,6 @@ export const nfaTransferAction: Action = {
       if (state) delete state[pendingKey];
       return;
     }
-
-    const pending = state[pendingKey] as { toAddress: string };
-
     await callback({ text: "Sending NFA transfer transaction..." });
 
     try {
@@ -204,20 +202,23 @@ export const nfaUpgradeLogicAction: Action = {
       return;
     }
 
-    const text = message.content?.text ?? "";
-    const newLogicAddress = extractAddress(text);
-
-    if (!newLogicAddress) {
-      await callback({
-        text:
-          "Please provide the new logic contract address.\n\n" +
-          "Example: **upgrade nfa logic to 0x1234...abcd**",
-      });
-      return;
-    }
-
     const pendingKey = "bnb_nfa_upgrade_logic_pending";
-    if (!state?.[pendingKey]) {
+    const pending = state?.[pendingKey] as
+      | { newLogicAddress: string }
+      | undefined;
+    if (!pending) {
+      const text = message.content?.text ?? "";
+      const newLogicAddress = extractAddress(text);
+
+      if (!newLogicAddress) {
+        await callback({
+          text:
+            "Please provide the new logic contract address.\n\n" +
+            "Example: **upgrade nfa logic to 0x1234...abcd**",
+        });
+        return;
+      }
+
       await callback({
         text:
           `Ready to upgrade NFA logic contract.\n\n` +
@@ -237,9 +238,6 @@ export const nfaUpgradeLogicAction: Action = {
       if (state) delete state[pendingKey];
       return;
     }
-
-    const pending = state[pendingKey] as { newLogicAddress: string };
-
     await callback({ text: "Sending NFA logic upgrade transaction..." });
 
     try {

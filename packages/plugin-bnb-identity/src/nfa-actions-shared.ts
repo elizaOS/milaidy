@@ -11,7 +11,14 @@ export type { ResolvedBnbIdentityConfig };
 
 export function userConfirmed(message: Memory): boolean {
   const userText = message.content?.text?.toLowerCase() ?? "";
-  return userText.includes("confirm") || userText.includes("yes");
+  if (
+    /\b(?:do not|don't|dont|not|cancel|stop|no)\s+(?:confirm|yes)\b/.test(
+      userText,
+    )
+  ) {
+    return false;
+  }
+  return /\bconfirm\b/.test(userText) || /\byes\b/.test(userText);
 }
 
 export function networkLabelForDisplay(network: string): string {

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client } from "../api-client";
+import { IdentityOverflowMenu } from "./IdentityOverflowMenu";
 import { NfaConfirmDialog, type NfaOperation } from "./NfaConfirmDialog";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -30,93 +31,6 @@ function TxResultBanner({
       <button type="button" onClick={onDismiss}>
         ×
       </button>
-    </div>
-  );
-}
-
-function OverflowMenu({
-  items,
-}: {
-  items: { label: string; onClick: () => void; hidden?: boolean }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return;
-    const handler = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const visible = items.filter((item) => !item.hidden);
-  if (visible.length === 0) return null;
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button
-        type="button"
-        className="anime-wallet-identity-btn"
-        style={{ padding: "7px 10px", flex: "none" }}
-        onClick={() => setOpen((value) => !value)}
-      >
-        ···
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            bottom: "calc(100% + 4px)",
-            minWidth: 120,
-            background:
-              "linear-gradient(165deg, rgba(17, 23, 34, 0.98), rgba(7, 10, 18, 0.98))",
-            border: "1px solid rgba(255, 255, 255, 0.18)",
-            borderRadius: 8,
-            boxShadow: "0 12px 28px rgba(0,0,0,0.5)",
-            zIndex: 50,
-            overflow: "hidden",
-          }}
-        >
-          {visible.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "7px 10px",
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase" as const,
-                color: "rgba(241, 244, 252, 0.85)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(event) => {
-                (event.target as HTMLElement).style.background =
-                  "rgba(255,255,255,0.06)";
-              }}
-              onMouseLeave={(event) => {
-                (event.target as HTMLElement).style.background = "none";
-              }}
-              onClick={() => {
-                setOpen(false);
-                item.onClick();
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -409,13 +323,7 @@ export function IdentityCard() {
         </>
       ) : (
         <>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <div className="anime-wallet-identity-header">
             <div className="anime-wallet-identity-title">
               NFA #{nfa.tokenId}
             </div>
@@ -433,7 +341,7 @@ export function IdentityCard() {
             </div>
           </div>
 
-          <div className="anime-wallet-identity-row" style={{ marginTop: 6 }}>
+          <div className="anime-wallet-identity-row anime-wallet-identity-row-first">
             <span className="anime-wallet-identity-row-label">Owner</span>
             <span className="anime-wallet-identity-row-value">
               <a
@@ -483,7 +391,7 @@ export function IdentityCard() {
             >
               Anchor Learnings
             </button>
-            <OverflowMenu
+            <IdentityOverflowMenu
               items={[
                 {
                   label: paused ? "Unpause" : "Pause",

@@ -1726,6 +1726,61 @@
   );
 }
 
+.anime-wallet-identity-overflow {
+  position: relative;
+}
+
+.anime-wallet-identity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.anime-wallet-identity-overflow-toggle {
+  flex: none;
+  padding: 7px 10px;
+}
+
+.anime-wallet-identity-row-first {
+  margin-top: 6px;
+}
+
+.anime-wallet-identity-overflow-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  min-width: 120px;
+  background: linear-gradient(
+    165deg,
+    rgba(17, 23, 34, 0.98),
+    rgba(7, 10, 18, 0.98)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.anime-wallet-identity-overflow-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(241, 244, 252, 0.85);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.anime-wallet-identity-overflow-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .anime-wallet-identity-tx {
   display: flex;
   align-items: flex-start;
