@@ -85,6 +85,17 @@ async function askSecret(prompt: string): Promise<string> {
   });
 }
 
+async function readStdinValue(): Promise<string> {
+  if (process.stdin.isTTY) return "";
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+
+  return Buffer.concat(chunks).toString("utf-8").trim();
+}
+
 // ---------------------------------------------------------------------------
 // Config read/write
 // ---------------------------------------------------------------------------
@@ -244,14 +255,16 @@ export function registerSetupCommand(program: Command) {
     .option("--provider <name>", "Model provider (non-interactive)")
     .option(
       "--key <value>",
-      "API key or URL (non-interactive, use with --provider)",
+      "Unsafe: API key or URL via argv (prefer --key-stdin)",
     )
+    .option("--key-stdin", "Read the API key or URL from stdin")
     .option("--no-wizard", "Skip the model provider wizard")
     .action(
       async (opts: {
         workspace?: string;
         provider?: string;
         key?: string;
+        keyStdin?: boolean;
         wizard: boolean;
       }) => {
         await runCommandWithRuntime(defaultRuntime, async () => {
@@ -260,9 +273,19 @@ export function registerSetupCommand(program: Command) {
             await import("../../providers/workspace");
 
           const configPath = resolveConfigPath();
+          const keyFromStdin = opts.keyStdin ? await readStdinValue() : "";
+          const keyValue = opts.key ?? keyFromStdin;
+
+          if (opts.key && opts.keyStdin) {
+            throw new Error("Use either --key or --key-stdin, not both.");
+          }
+
+          if (opts.keyStdin && !keyFromStdin) {
+            throw new Error("No API key or URL received on stdin.");
+          }
 
           // ── Non-interactive provider set via flags ───────────────────────
-          if (opts.provider && opts.key) {
+          if (opts.provider && keyValue) {
             const providerQuery = opts.provider.toLowerCase();
             const providerEntry = PROVIDERS.find(
               (p) =>
@@ -275,10 +298,15 @@ export function registerSetupCommand(program: Command) {
                 "_API_KEY";
             const config = loadConfig(configPath);
             const envSection = getEnvSection(config);
-            envSection[envKey] = opts.key;
+            envSection[envKey] = keyValue;
             config.env = envSection;
             saveConfig(configPath, config);
             console.log(`${theme.success("✓")} Saved ${theme.command(envKey)}`);
+            if (opts.key) {
+              console.log(
+                `${theme.warn("⚠")} ${theme.muted("Passing secrets via --key exposes them in shell history and process lists. Prefer --key-stdin.")}`,
+              );
+            }
           }
 
           // ── Interactive wizard (TTY only, skipped with --no-wizard) ──────

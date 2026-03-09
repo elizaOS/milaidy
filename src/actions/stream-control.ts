@@ -132,7 +132,7 @@ export const setStreamDestinationAction: Action = {
   ],
   description:
     "Switch the active streaming destination (e.g. switch from Twitch to YouTube). " +
-    "The stream must be offline before switching. Use GET_STREAM_STATUS to check first.",
+    "The stream must be offline before switching.",
   validate: async () => true,
 
   handler: async (_runtime, _message, _state, options) => {
