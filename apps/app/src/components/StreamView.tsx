@@ -38,6 +38,7 @@ import { IdleContent } from "./stream/IdleContent";
 import { OverlayLayer } from "./stream/overlays/OverlayLayer";
 import { useOverlayLayout } from "./stream/overlays/useOverlayLayout";
 import { StatusBar } from "./stream/StatusBar";
+import { StreamSettings } from "./stream/StreamSettings";
 import { StreamTerminal } from "./stream/StreamTerminal";
 import { StreamVoiceConfig } from "./stream/StreamVoiceConfig";
 
@@ -244,6 +245,9 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     [],
   );
 
+  // Settings panel
+  const [showSettings, setShowSettings] = useState(false);
+
   // PIP mode state — small overlay window
   const [isPip, setIsPip] = useState(false);
 
@@ -309,7 +313,8 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     return "idle";
   }, [activeGameViewerUrl, terminalActive, autonomousEvents]);
 
-  const { layout } = useOverlayLayout(activeDestination?.id);
+  const overlayLayout = useOverlayLayout(activeDestination?.id);
+  const { layout } = overlayLayout;
 
   const feedEvents = useMemo(
     () =>
@@ -376,6 +381,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         streamSource={streamSource}
         activeGameViewerUrl={activeGameViewerUrl}
         onSourceChange={handleSourceChange}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Stream voice config — TTS toggle and status */}
@@ -425,6 +431,21 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
 
           {/* VRM avatar — picture-in-picture overlay */}
           <AvatarPip isSpeaking={chatAvatarSpeaking} />
+
+          {/* Stream settings panel */}
+          {showSettings && (
+            <StreamSettings
+              destinations={destinations}
+              activeDestination={activeDestination}
+              onDestinationChange={handleDestinationChange}
+              streamLive={streamLive}
+              streamSource={streamSource}
+              activeGameViewerUrl={activeGameViewerUrl}
+              onSourceChange={handleSourceChange}
+              overlayLayout={overlayLayout}
+              onClose={() => setShowSettings(false)}
+            />
+          )}
         </div>
 
         {/* Activity sidebar */}

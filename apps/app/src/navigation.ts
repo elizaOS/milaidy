@@ -19,8 +19,8 @@ import {
 /** Apps are only enabled in dev mode; production builds hide this feature. */
 export const APPS_ENABLED = import.meta.env.DEV;
 
-/** Stream tab — enabled when the "streaming-base" plugin is active (or in dev mode). */
-export const STREAM_ENABLED = import.meta.env.DEV;
+/** Stream tab — always enabled; actual streaming requires streaming-base plugin config. */
+export const STREAM_ENABLED = true;
 /**
  * Companion tab — enabled by default since the VRM companion UI launch.
  * Previously opt-in; now opt-out via VITE_ENABLE_COMPANION_MODE=false.
@@ -216,10 +216,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   if (!APPS_ENABLED && (normalized === "/apps" || normalized === "/game")) {
     return "chat";
   }
-  // Stream tab hidden — redirect to chat
-  if (!STREAM_ENABLED && normalized === "/stream") {
-    return "chat";
-  }
+  // Stream tab (always enabled)
   // Check current paths first, then legacy redirects
   return PATH_TO_TAB.get(normalized) ?? LEGACY_PATHS[normalized] ?? null;
 }
