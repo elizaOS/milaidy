@@ -86,6 +86,7 @@ function ViewRouter() {
       case "plugins":
       case "skills":
       case "actions":
+      case "workflows":
       case "triggers":
       case "fine-tuning":
       case "trajectories":
