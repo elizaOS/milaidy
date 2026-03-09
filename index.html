@@ -266,6 +266,84 @@
       color: var(--fg);
     }
 
+    .artifact-panel {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: left;
+    }
+
+    .artifact-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .artifact-header a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .artifact-header a:hover {
+      color: var(--fg);
+    }
+
+    .artifact-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .artifact-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .artifact-platform {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .artifact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .artifact-link,
+    .artifact-placeholder {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      min-height: 32px;
+      padding: 0.35rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      text-decoration: none;
+      color: var(--fg);
+      background: var(--bg);
+    }
+
+    .artifact-link:hover {
+      border-color: var(--fg);
+      background: var(--hover);
+    }
+
+    .artifact-link .artifact-size {
+      color: var(--muted);
+    }
+
+    .artifact-placeholder {
+      color: var(--muted);
+    }
+
     .no-release {
       display: none;
     }
@@ -275,6 +353,13 @@
       h1 { font-size: 2rem; }
       .tagline { font-size: 1rem; }
       .mascot img { width: 110px; height: 110px; }
+      .artifact-row {
+        grid-template-columns: 1fr;
+      }
+      .artifact-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
@@ -285,21 +370,45 @@
     <p class="tagline">your cute personal AI assistant.<br>runs on your machine. always on, always yours.</p>
 
     <div class="downloads" id="downloads">
-      <a id="dl-mac" class="download-btn primary-btn" href="https://github.com/milady-ai/milaidy/releases" target="_blank" rel="noopener">
+      <a id="dl-mac" class="download-btn primary-btn" href="https://github.com/milady-ai/milady/releases" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-        <span class="label">Download for macOS<br><span class="meta">.dmg &mdash; Apple Silicon & Intel</span></span>
+        <span class="label">Download for macOS<br><span class="meta" id="dl-mac-meta">.dmg &mdash; Apple Silicon & Intel</span></span>
       </a>
-      <a id="dl-win" class="download-btn" href="https://github.com/milady-ai/milaidy/releases" target="_blank" rel="noopener">
+      <a id="dl-win" class="download-btn" href="https://github.com/milady-ai/milady/releases" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l8-1.25V12H3zm0 .5h8v6.5l-8-1.25V12.5zM11.5 5.34l9.5-1.59V12h-9.5V5.34zM11.5 12.5H21v7.25l-9.5-1.59V12.5z"/></svg>
-        <span class="label">Download for Windows<br><span class="meta">.exe installer</span></span>
+        <span class="label">Download for Windows<br><span class="meta" id="dl-win-meta">installer</span></span>
       </a>
-      <a id="dl-linux" class="download-btn" href="https://github.com/milady-ai/milaidy/releases" target="_blank" rel="noopener">
+      <a id="dl-linux" class="download-btn" href="https://github.com/milady-ai/milady/releases" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.368 1.884 1.43.868.074 1.32-.333 1.855-.262.282.034.56.198.867.262.39.068.85-.005 1.266-.267.417-.264.786-.668.803-1.467.016-.932-.322-2.003-.547-2.67a.58.58 0 00.012-.2c-.003-.463-.06-.927-.22-1.37-.19-.466-.516-.903-1.024-1.137a3.1 3.1 0 00-.944-.268c-.335-.014-.7.03-1.06.127-.085-.1-.163-.197-.255-.297-.7-.75-1.322-1.517-1.664-2.453a5.091 5.091 0 01-.317-1.867c.009-.468.061-.936.042-1.466-.039-1.081-.321-2.272-.979-3.295-1.047-1.737-2.986-2.832-5.044-2.832zm.063 1.031c1.664 0 3.26.925 4.137 2.382.579.961.865 2 .9 2.938.018.514-.03.998-.04 1.484a6.09 6.09 0 00.381 2.267c.404 1.102 1.088 1.95 1.835 2.747.163.171.32.339.472.508-.2.053-.373.13-.565.27-.322.23-.575.614-.622 1.104-.028.3.032.58.127.87.095.29.222.57.34.868.237.595.451 1.297.461 2.006.001.468-.218.736-.509.913-.29.177-.645.252-.908.21a1.597 1.597 0 01-.653-.209c-.484-.293-.806-.37-1.327-.448-.521-.078-1.29.062-1.399-.602a.47.47 0 00-.036-.1c-.197-.414-.513-.689-.877-.758-.365-.07-.72.037-1.024.178-.607.282-1.077.594-1.775.67-.834.09-1.573-.1-2.314-.509-.74-.407-1.947-.37-2.715-.555-.384-.09-.592-.196-.672-.347-.08-.15-.072-.407.165-.979.264-.477.143-.926.075-1.354a8.62 8.62 0 01-.05-.488c-.003-.163.025-.32.082-.455.056-.131.118-.178.154-.194.328-.145.596-.23.833-.429.236-.199.437-.477.691-.756.118-.135.265-.207.44-.257a.44.44 0 00.108-.04c.208-.107.362-.36.362-.62 0-.04-.005-.08-.013-.118-.178-.64-.05-1.332.18-2.02.535-1.607 1.695-3.218 2.491-4.163.881-1.204 1.143-2.249 1.227-3.47.042-.598.004-1.097.17-1.523.332-.852.827-1.268 1.45-1.478.312-.105.656-.16 1.013-.165zm-2.521 12.486c-.103 0-.207.023-.302.068-.277.129-.407.462-.293.744l.002.004c.087.215.135.442.135.688 0 1.024-.832 1.856-1.856 1.856-.189 0-.37-.028-.543-.081l-.004-.002a.56.56 0 00-.18-.032.532.532 0 00-.488.322.535.535 0 00.17.673c.341.25.748.392 1.171.392a2.906 2.906 0 002.9-2.906c0-.457-.114-.9-.327-1.3a.535.535 0 00-.385-.426zm5.028 0a.537.537 0 00-.385.426c-.213.4-.326.843-.326 1.3a2.906 2.906 0 002.9 2.906c.422 0 .829-.142 1.17-.392a.534.534 0 00.17-.673.532.532 0 00-.487-.322.561.561 0 00-.18.032l-.005.002a1.834 1.834 0 01-.543.081 1.858 1.858 0 01-1.856-1.856c0-.246.047-.473.134-.688l.003-.004a.564.564 0 00-.294-.744.529.529 0 00-.301-.068z"/></svg>
-        <span class="label">Download for Linux<br><span class="meta">.AppImage</span></span>
+        <span class="label">Download for Linux<br><span class="meta" id="dl-linux-meta">archive</span></span>
       </a>
     </div>
 
     <p class="version-badge" id="version-badge"></p>
+    <section class="artifact-panel no-release" id="artifact-panel">
+      <div class="artifact-header">
+        <span>Latest release assets</span>
+        <a id="artifact-release-link" href="https://github.com/milady-ai/milady/releases" target="_blank" rel="noopener">View all</a>
+      </div>
+      <div class="artifact-grid">
+        <div class="artifact-row">
+          <div class="artifact-platform">macOS</div>
+          <div class="artifact-links" id="artifacts-mac"></div>
+        </div>
+        <div class="artifact-row">
+          <div class="artifact-platform">Windows</div>
+          <div class="artifact-links" id="artifacts-win"></div>
+        </div>
+        <div class="artifact-row">
+          <div class="artifact-platform">Linux</div>
+          <div class="artifact-links" id="artifacts-linux"></div>
+        </div>
+        <div class="artifact-row">
+          <div class="artifact-platform">Checksums</div>
+          <div class="artifact-links" id="artifacts-extra"></div>
+        </div>
+      </div>
+    </section>
 
     <div class="divider">or use the CLI</div>
 
@@ -311,9 +420,9 @@
     </div>
 
     <footer>
-      <a href="https://github.com/milady-ai/milaidy" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/milady-ai/milaidy/releases" target="_blank" rel="noopener">Releases</a>
-      <a href="https://github.com/milady-ai/milaidy#readme" target="_blank" rel="noopener">Docs</a>
+      <a href="https://github.com/milady-ai/milady" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/milady-ai/milady/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/milady-ai/milady#readme" target="_blank" rel="noopener">Docs</a>
     </footer>
   </main>
 
@@ -328,44 +437,208 @@
       setTimeout(() => toast.classList.remove('show'), 1500);
     }
 
+    const RELEASES_URL = 'https://github.com/milady-ai/milady/releases';
+    const RELEASES_API_URL = 'https://api.github.com/repos/milady-ai/milady/releases?per_page=10';
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes) || bytes <= 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let value = bytes;
+      let unitIndex = 0;
+      while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+      }
+      const rounded = value >= 100 || unitIndex === 0 ? Math.round(value) : value.toFixed(1);
+      return rounded + ' ' + units[unitIndex];
+    }
+
+    function assetLabel(asset) {
+      const name = asset.name.toLowerCase();
+      if (name.endsWith('.dmg')) {
+        if (name.includes('arm64')) return 'arm64 .dmg';
+        if (name.includes('x64')) return 'intel .dmg';
+        return '.dmg';
+      }
+      if (name.endsWith('.exe')) {
+        return asset.size < 1024 * 1024 ? 'bootstrap .exe' : '.exe installer';
+      }
+      if (name.endsWith('.zip')) return '.zip installer';
+      if (name.endsWith('.tar.gz')) return '.tar.gz';
+      if (name.endsWith('.tar.zst')) return '.tar.zst';
+      if (name.endsWith('.appimage')) return '.AppImage';
+      if (name.endsWith('.deb')) return '.deb';
+      if (name === 'sha256sums.txt') return 'SHA256SUMS.txt';
+      return asset.name;
+    }
+
+    function setButtonMeta(id, asset) {
+      if (!asset) return;
+      const meta = document.getElementById(id);
+      if (!meta) return;
+      const size = formatBytes(asset.size);
+      meta.textContent = size ? assetLabel(asset) + ' • ' + size : assetLabel(asset);
+    }
+
+    function createArtifactLink(asset) {
+      const link = document.createElement('a');
+      link.className = 'artifact-link';
+      link.href = asset.browser_download_url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+
+      const label = document.createElement('span');
+      label.textContent = assetLabel(asset);
+      link.appendChild(label);
+
+      const size = formatBytes(asset.size);
+      if (size) {
+        const sizeNode = document.createElement('span');
+        sizeNode.className = 'artifact-size';
+        sizeNode.textContent = size;
+        link.appendChild(sizeNode);
+      }
+
+      return link;
+    }
+
+    function renderArtifacts(containerId, assets) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.textContent = '';
+      if (!assets.length) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'artifact-placeholder';
+        placeholder.textContent = 'Not published in this release';
+        container.appendChild(placeholder);
+        return;
+      }
+      for (const asset of assets) {
+        container.appendChild(createArtifactLink(asset));
+      }
+    }
+
+    function preferredAsset(assets, matchers) {
+      for (const matcher of matchers) {
+        const match = assets.find(matcher);
+        if (match) return match;
+      }
+      return assets[0] || null;
+    }
+
+    function isDownloadAsset(asset) {
+      const name = asset.name.toLowerCase();
+      if (name.endsWith('.blockmap') || name.endsWith('.yml') || name.endsWith('.yaml')) return false;
+      if (name.endsWith('.patch') || name.endsWith('update.json')) return false;
+      return true;
+    }
+
+    function isMacAsset(asset) {
+      return asset.name.toLowerCase().endsWith('.dmg');
+    }
+
+    function isWindowsAsset(asset) {
+      const name = asset.name.toLowerCase();
+      return name.endsWith('.exe') || name.endsWith('.zip');
+    }
+
+    function isLinuxAsset(asset) {
+      const name = asset.name.toLowerCase();
+      return (
+        name.endsWith('.tar.gz') ||
+        name.endsWith('.appimage') ||
+        name.endsWith('.deb') ||
+        name.endsWith('.tar.zst')
+      );
+    }
+
+    function sortAssets(assets, scoreFn) {
+      return [...assets].sort((a, b) => scoreFn(a) - scoreFn(b));
+    }
+
+    function selectRelease(releases) {
+      return releases.find((release) => {
+        if (release.draft) return false;
+        return (release.assets || []).some(isDownloadAsset);
+      });
+    }
+
     // Fetch latest release (including pre-releases) and update download links
     (async function () {
       try {
-        // Use /releases endpoint with per_page=1 to get the most recent release
-        // (the /releases/latest endpoint only returns non-prerelease, non-draft releases)
-        const res = await fetch('https://api.github.com/repos/milady-ai/milaidy/releases?per_page=1');
+        const res = await fetch(RELEASES_API_URL);
         if (!res.ok) return;
         const releases = await res.json();
         if (!releases.length) return;
-        const release = releases[0];
-        if (release.draft) return;
-        const assets = release.assets || [];
+        const release = selectRelease(releases);
+        if (!release) return;
+        const assets = (release.assets || []).filter(isDownloadAsset);
         const tag = release.tag_name || '';
 
         // Show version
         const badge = document.getElementById('version-badge');
         badge.innerHTML = '<a href="' + release.html_url + '" target="_blank" rel="noopener">' + tag + '</a>';
+        document.getElementById('artifact-release-link').href = release.html_url || RELEASES_URL;
+        document.getElementById('artifact-panel').classList.remove('no-release');
 
-        // Match assets to platforms — prefer arm64 DMG for macOS
-        var macUrl = '';
-        for (const asset of assets) {
+        const macAssets = sortAssets(assets.filter(isMacAsset), (asset) => {
           const name = asset.name.toLowerCase();
-          const url = asset.browser_download_url;
+          if (name.includes('arm64')) return 0;
+          if (name.includes('x64')) return 1;
+          return 2;
+        });
+        const winAssets = sortAssets(assets.filter(isWindowsAsset), (asset) => {
+          const name = asset.name.toLowerCase();
+          if (name.endsWith('.zip')) return 0;
+          if (name.endsWith('.exe') && asset.size >= 1024 * 1024) return 1;
+          if (name.endsWith('.exe')) return 2;
+          return 3;
+        });
+        const linuxAssets = sortAssets(assets.filter(isLinuxAsset), (asset) => {
+          const name = asset.name.toLowerCase();
+          if (name.endsWith('.tar.gz')) return 0;
+          if (name.endsWith('.appimage')) return 1;
+          if (name.endsWith('.deb')) return 2;
+          if (name.endsWith('.tar.zst')) return 3;
+          return 4;
+        });
+        const extraAssets = assets.filter((asset) => asset.name.toLowerCase() === 'sha256sums.txt');
 
-          if (name.endsWith('.dmg')) {
-            // Prefer arm64 DMG; fall back to any DMG
-            if (name.includes('arm64') || !macUrl) {
-              macUrl = url;
-            }
-          } else if (name.endsWith('.exe')) {
-            document.getElementById('dl-win').href = url;
-          } else if (name.endsWith('.appimage')) {
-            document.getElementById('dl-linux').href = url;
-          }
+        const macPrimary = preferredAsset(macAssets, [
+          (asset) => asset.name.toLowerCase().includes('arm64'),
+          () => true,
+        ]);
+        const winPrimary = preferredAsset(winAssets, [
+          (asset) => asset.name.toLowerCase().endsWith('.zip'),
+          (asset) => asset.name.toLowerCase().endsWith('.exe') && asset.size >= 1024 * 1024,
+          (asset) => asset.name.toLowerCase().endsWith('.exe'),
+          () => true,
+        ]);
+        const linuxPrimary = preferredAsset(linuxAssets, [
+          (asset) => asset.name.toLowerCase().endsWith('.tar.gz'),
+          (asset) => asset.name.toLowerCase().endsWith('.appimage'),
+          (asset) => asset.name.toLowerCase().endsWith('.deb'),
+          (asset) => asset.name.toLowerCase().endsWith('.tar.zst'),
+          () => true,
+        ]);
+
+        if (macPrimary) {
+          document.getElementById('dl-mac').href = macPrimary.browser_download_url;
+          setButtonMeta('dl-mac-meta', macPrimary);
         }
-        if (macUrl) {
-          document.getElementById('dl-mac').href = macUrl;
+        if (winPrimary) {
+          document.getElementById('dl-win').href = winPrimary.browser_download_url;
+          setButtonMeta('dl-win-meta', winPrimary);
         }
+        if (linuxPrimary) {
+          document.getElementById('dl-linux').href = linuxPrimary.browser_download_url;
+          setButtonMeta('dl-linux-meta', linuxPrimary);
+        }
+
+        renderArtifacts('artifacts-mac', macAssets);
+        renderArtifacts('artifacts-win', winAssets);
+        renderArtifacts('artifacts-linux', linuxAssets);
+        renderArtifacts('artifacts-extra', extraAssets);
       } catch (e) {
         // Silently fall back to /releases page
       }
