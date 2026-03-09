@@ -191,6 +191,16 @@ export type WorkflowNodeType =
   | "subworkflow"
   | "output";
 
+export type WorkflowConditionOperator =
+  | "truthy"
+  | "==="
+  | "!=="
+  | ">="
+  | "<="
+  | ">"
+  | "<"
+  | "contains";
+
 export type WorkflowNodePosition = { x: number; y: number };
 
 export type WorkflowNode = {

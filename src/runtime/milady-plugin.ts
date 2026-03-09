@@ -38,9 +38,9 @@ import { DEFAULT_AGENT_WORKSPACE_DIR } from "../providers/workspace";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
 import { createTriggerTaskAction } from "../triggers/action";
 import { registerTriggerTaskWorker } from "../triggers/runtime";
-import { loadCustomActions, setCustomActionsRuntime } from "./custom-actions";
-import { setWorkflowRuntime, hydrateRuns } from "../workflows/runtime";
+import { hydrateRuns, setWorkflowRuntime } from "../workflows/runtime";
 import { loadWorkflows } from "../workflows/storage";
+import { loadCustomActions, setCustomActionsRuntime } from "./custom-actions";
 
 export type MiladyPluginConfig = {
   workspaceDir?: string;
@@ -48,6 +48,10 @@ export type MiladyPluginConfig = {
   sessionStorePath?: string;
   agentId?: string;
 };
+
+function sanitizePromptField(value: string): string {
+  return JSON.stringify(value.replace(/\s+/g, " ").trim());
+}
 
 export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
   const workspaceDir = config?.workspaceDir ?? DEFAULT_AGENT_WORKSPACE_DIR;
@@ -151,14 +155,20 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
         const nodeCount = w.nodes.length;
         const trigger = w.nodes.find((n) => n.type === "trigger");
         const triggerType = trigger?.config?.triggerType ?? "manual";
-        return `- **${w.name}**: ${w.description} [${nodeCount} nodes, trigger: ${triggerType}]`;
+        return [
+          "-",
+          `name=${sanitizePromptField(w.name)}`,
+          `description=${sanitizePromptField(w.description || "No description")}`,
+          `nodes=${nodeCount}`,
+          `trigger=${sanitizePromptField(String(triggerType))}`,
+        ].join(" ");
       });
 
       return {
         text: [
           "## Workflows",
           "",
-          "The following visual workflows are available. You can run them via the RUN_WORKFLOW action.",
+          "The following visual workflows are configured. Workflows with manual triggers can be started from the Workflows page in the dashboard.",
           ...lines,
         ].join("\n"),
       };

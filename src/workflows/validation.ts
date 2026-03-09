@@ -12,7 +12,9 @@
  * @module workflows/validation
  */
 
+import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
+  WorkflowConditionOperator,
   WorkflowDef,
   WorkflowEdge,
   WorkflowNode,
@@ -26,7 +28,7 @@ const REQUIRED_CONFIG: Partial<Record<WorkflowNodeType, string[]>> = {
   trigger: ["triggerType"],
   action: ["actionName"],
   llm: ["prompt"],
-  condition: ["expression"],
+  condition: [],
   transform: ["code"],
   delay: [], // at least one of duration|date, checked separately
   hook: ["hookId"],
@@ -40,8 +42,74 @@ const REQUIRED_HANDLES: Partial<Record<WorkflowNodeType, string[]>> = {
   condition: ["true", "false"],
 };
 
-export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
+type ValidateWorkflowOptions = {
+  workflows?: WorkflowDef[];
+  now?: Date;
+};
+
+function isConditionOperator(
+  value: unknown,
+): value is WorkflowConditionOperator {
+  return (
+    value === "truthy" ||
+    value === "===" ||
+    value === "!==" ||
+    value === ">=" ||
+    value === "<=" ||
+    value === ">" ||
+    value === "<" ||
+    value === "contains"
+  );
+}
+
+export function validateTransformWorkflowSecurity(
+  def: WorkflowDef,
+): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
+  const hasTransform = def.nodes.some((node) => node.type === "transform");
+  if (!hasTransform) {
+    return issues;
+  }
+
+  const trigger = def.nodes.find((node) => node.type === "trigger");
+  const triggerType =
+    typeof trigger?.config?.triggerType === "string"
+      ? trigger.config.triggerType
+      : "manual";
+  if (triggerType !== "manual") {
+    issues.push({
+      severity: "error",
+      nodeId: trigger?.id,
+      message:
+        'Transform workflows must use a "manual" trigger because transform nodes execute user-authored code.',
+    });
+  }
+
+  for (const node of def.nodes) {
+    if (node.type !== "hook" || node.config?.webhookEnabled !== true) {
+      continue;
+    }
+
+    issues.push({
+      severity: "error",
+      nodeId: node.id,
+      message:
+        "Transform workflows cannot expose webhook-enabled hooks because hook resumes would bypass terminal authorization.",
+    });
+  }
+
+  return issues;
+}
+
+export function validateWorkflow(
+  def: WorkflowDef,
+  options: ValidateWorkflowOptions = {},
+): WorkflowValidationResult {
+  const issues: WorkflowValidationIssue[] = [];
+  const now = options.now ?? new Date();
+  const workflowRegistry = options.workflows
+    ? buildWorkflowRegistry(def, options.workflows)
+    : null;
 
   if (!def.nodes || def.nodes.length === 0) {
     issues.push({ severity: "error", message: "Workflow has no nodes" });
@@ -117,7 +185,10 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
     const adjacency = buildAdjacency(def.edges);
     const queue = [triggers[0].id];
     while (queue.length > 0) {
-      const current = queue.pop()!;
+      const current = queue.pop();
+      if (!current) {
+        continue;
+      }
       if (reachable.has(current)) continue;
       reachable.add(current);
       const neighbors = adjacency.get(current) ?? [];
@@ -189,8 +260,100 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
           message: `Delay node "${node.label || node.id}" needs either "duration" or "date" in config`,
         });
       }
+
+      if (hasDuration) {
+        const durationMs = parseDuration(String(node.config.duration));
+        if (durationMs > MAX_IN_PROCESS_DELAY_MS) {
+          issues.push({
+            severity: "error",
+            nodeId: node.id,
+            message: `Delay node "${node.label || node.id}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+          });
+        }
+      }
+
+      if (hasDate) {
+        const targetDate = new Date(String(node.config.date));
+        if (!Number.isNaN(targetDate.getTime())) {
+          const delayMs = Math.max(0, targetDate.getTime() - now.getTime());
+          if (delayMs > MAX_IN_PROCESS_DELAY_MS) {
+            issues.push({
+              severity: "error",
+              nodeId: node.id,
+              message: `Delay node "${node.label || node.id}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+            });
+          }
+        }
+      }
+    }
+
+    if (node.type === "subworkflow" && workflowRegistry) {
+      const workflowId =
+        typeof node.config.workflowId === "string"
+          ? node.config.workflowId
+          : "";
+      if (workflowId && !workflowRegistry.has(workflowId)) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Subworkflow node "${node.label || node.id}" references unknown workflow "${workflowId}"`,
+        });
+      }
+    }
+
+    if (node.type === "condition") {
+      const leftOperand =
+        typeof node.config.leftOperand === "string"
+          ? node.config.leftOperand.trim()
+          : "";
+      const expression =
+        typeof node.config.expression === "string"
+          ? node.config.expression.trim()
+          : "";
+      const rawOperator = node.config.operator;
+      const operator = isConditionOperator(rawOperator)
+        ? rawOperator
+        : "truthy";
+      const rightOperand =
+        typeof node.config.rightOperand === "string"
+          ? node.config.rightOperand.trim()
+          : "";
+
+      if (!leftOperand && !expression) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" is missing a condition`,
+        });
+      }
+
+      if (rawOperator !== undefined && !isConditionOperator(rawOperator)) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" uses an invalid operator`,
+        });
+      }
+
+      if (leftOperand && operator !== "truthy" && !rightOperand) {
+        issues.push({
+          severity: "error",
+          nodeId: node.id,
+          message: `Condition node "${node.label || node.id}" is missing a right-hand operand`,
+        });
+      }
     }
   }
+
+  const cycle = detectSubworkflowCycle(def, options.workflows);
+  if (cycle) {
+    issues.push({
+      severity: "error",
+      message: `Subworkflow cycle detected: ${cycle.join(" -> ")}`,
+    });
+  }
+
+  issues.push(...validateTransformWorkflowSecurity(def));
 
   // --- Output nodes should be terminal ---
   for (const node of def.nodes) {
@@ -213,7 +376,8 @@ export function validateWorkflow(def: WorkflowDef): WorkflowValidationResult {
       issues.push({
         severity: "warning",
         nodeId: node.id,
-        message: "Trigger node has no outgoing edges — workflow will do nothing",
+        message:
+          "Trigger node has no outgoing edges — workflow will do nothing",
       });
     }
   }
@@ -234,4 +398,68 @@ function buildAdjacency(edges: WorkflowEdge[]): Map<string, string[]> {
     adj.set(edge.source, list);
   }
   return adj;
+}
+
+function buildWorkflowRegistry(
+  def: WorkflowDef,
+  workflows?: WorkflowDef[],
+): Map<string, WorkflowDef> {
+  const registry = new Map<string, WorkflowDef>();
+  for (const workflow of workflows ?? []) {
+    registry.set(workflow.id, workflow);
+  }
+  registry.set(def.id, def);
+  return registry;
+}
+
+function detectSubworkflowCycle(
+  def: WorkflowDef,
+  workflows?: WorkflowDef[],
+): string[] | null {
+  if (!workflows || workflows.length === 0) {
+    return null;
+  }
+
+  const registry = buildWorkflowRegistry(def, workflows);
+  const visited = new Set<string>();
+  const stack: string[] = [];
+
+  const visit = (workflowId: string): string[] | null => {
+    const stackIndex = stack.indexOf(workflowId);
+    if (stackIndex >= 0) {
+      return [...stack.slice(stackIndex), workflowId];
+    }
+    if (visited.has(workflowId)) {
+      return null;
+    }
+
+    const workflow = registry.get(workflowId);
+    if (!workflow) {
+      return null;
+    }
+
+    stack.push(workflowId);
+    for (const node of workflow.nodes) {
+      if (node.type !== "subworkflow") {
+        continue;
+      }
+      const childWorkflowId =
+        typeof node.config.workflowId === "string"
+          ? node.config.workflowId
+          : "";
+      if (!childWorkflowId) {
+        continue;
+      }
+
+      const cycle = visit(childWorkflowId);
+      if (cycle) {
+        return cycle;
+      }
+    }
+    stack.pop();
+    visited.add(workflowId);
+    return null;
+  };
+
+  return visit(def.id);
 }

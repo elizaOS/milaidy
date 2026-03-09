@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMockHeadersRequest } from "./../test-support/test-helpers";
+import type { WorkflowDef } from "../workflows/types";
 
 vi.mock("@elizaos/plugin-pi-ai", () => ({
   listPiAiModelOptions: () => [],
@@ -10,7 +11,10 @@ vi.mock("@elizaos/plugin-agent-orchestrator", () => ({
   createCodingAgentRouteHandler: () => async () => false,
 }));
 
-import { resolveTerminalRunRejection } from "./server";
+import {
+  resolveTerminalRunRejection,
+  resolveWorkflowTransformRejection,
+} from "./server";
 
 function req(
   headers: http.IncomingHttpHeaders = {},
@@ -19,6 +23,20 @@ function req(
     http.IncomingMessage,
     "headers"
   >;
+}
+
+function makeWorkflow(nodes: WorkflowDef["nodes"]): WorkflowDef {
+  return {
+    id: "workflow-1",
+    name: "Workflow",
+    description: "",
+    nodes,
+    edges: [],
+    enabled: true,
+    version: 1,
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2025-01-01T00:00:00.000Z",
+  };
 }
 
 describe("resolveTerminalRunRejection", () => {
@@ -131,6 +149,59 @@ describe("resolveTerminalRunRejection", () => {
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
       {},
+    );
+
+    expect(rejection).toEqual({
+      status: 401,
+      reason:
+        "Missing terminal token. Provide X-Milady-Terminal-Token header or terminalToken in request body.",
+    });
+  });
+
+  it("does not require terminal auth for workflows without transform nodes", () => {
+    process.env.MILADY_API_TOKEN = "api-token";
+    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
+
+    const rejection = resolveWorkflowTransformRejection(
+      req() as http.IncomingMessage,
+      {},
+      makeWorkflow([
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Trigger",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+      ]),
+    );
+
+    expect(rejection).toBeNull();
+  });
+
+  it("requires terminal auth for workflows with transform nodes", () => {
+    process.env.MILADY_API_TOKEN = "api-token";
+    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
+
+    const rejection = resolveWorkflowTransformRejection(
+      req() as http.IncomingMessage,
+      {},
+      makeWorkflow([
+        {
+          id: "t1",
+          type: "trigger",
+          label: "Trigger",
+          position: { x: 0, y: 0 },
+          config: { triggerType: "manual" },
+        },
+        {
+          id: "tr1",
+          type: "transform",
+          label: "Transform",
+          position: { x: 0, y: 100 },
+          config: { code: "return params._last" },
+        },
+      ]),
     );
 
     expect(rejection).toEqual({

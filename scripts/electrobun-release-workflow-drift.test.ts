@@ -77,12 +77,12 @@ describe("Electrobun release workflow drift", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateJobIndex = workflow.indexOf("name: Validate Release Inputs");
     const buildJobIndex = workflow.indexOf(
-      "name: Build ${{ matrix.platform.name }}",
+      "name: Build $" + "{{ matrix.platform.name }}",
     );
     const releaseCheckIndex = workflow.indexOf("run: bun run release:check");
 
     expect(workflow).toContain('BUN_VERSION: "1.3.9"');
-    expect(workflow).toContain("bun-version: ${{ env.BUN_VERSION }}");
+    expect(workflow).toContain("bun-version: $" + "{{ env.BUN_VERSION }}");
     expect(workflow).not.toContain("bun-version: latest");
     expect(validateJobIndex).toBeGreaterThan(-1);
     expect(buildJobIndex).toBeGreaterThan(validateJobIndex);
@@ -105,7 +105,6 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
   });
-
   it("keeps updater transport files off the public GitHub release asset list", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 

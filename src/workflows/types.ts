@@ -12,64 +12,20 @@
 // Graph model (persisted in milady.json)
 // ---------------------------------------------------------------------------
 
-export type WorkflowNodeType =
-  | "trigger"
-  | "action"
-  | "llm"
-  | "condition"
-  | "transform"
-  | "delay"
-  | "hook"
-  | "loop"
-  | "subworkflow"
-  | "output";
+import type {
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodeType,
+} from "../contracts/config";
 
-export type WorkflowNodePosition = { x: number; y: number };
-
-/**
- * A single node in the workflow graph.
- *
- * `config` is an untyped bag whose schema depends on `type`:
- *
- * - **trigger**: `{ triggerType: "manual"|"cron"|"webhook"|"event", cronExpression?, webhookPath?, eventName? }`
- * - **action**: `{ actionName: string, parameters: Record<string,string> }`
- * - **llm**: `{ prompt: string, model?: string, temperature?: number, maxTokens?: number }`
- * - **condition**: `{ expression: string }` — evaluates to truthy/falsy
- * - **transform**: `{ code: string }` — sandboxed JS, receives `params` object
- * - **delay**: `{ duration?: string, date?: string }` — human-readable or ISO date
- * - **hook**: `{ hookId: string, webhookEnabled?: boolean, description?: string }`
- * - **loop**: `{ itemsExpression: string, variableName?: string }`
- * - **subworkflow**: `{ workflowId: string }`
- * - **output**: `{ outputExpression?: string }`
- */
-export type WorkflowNode = {
-  id: string;
-  type: WorkflowNodeType;
-  label: string;
-  position: WorkflowNodePosition;
-  config: Record<string, unknown>;
-};
-
-export type WorkflowEdge = {
-  id: string;
-  source: string;
-  target: string;
-  /** For condition nodes: "true" | "false". For loop: "body" | "done". */
-  sourceHandle?: string;
-  label?: string;
-};
-
-export type WorkflowDef = {
-  id: string;
-  name: string;
-  description: string;
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-  enabled: boolean;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-};
+export type {
+  WorkflowConditionOperator,
+  WorkflowDef,
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodePosition,
+  WorkflowNodeType,
+} from "../contracts/config";
 
 // ---------------------------------------------------------------------------
 // Compiled workflow (in-memory only)
@@ -79,9 +35,7 @@ export type CompiledStep = {
   nodeId: string;
   nodeType: WorkflowNodeType;
   label: string;
-  execute: (
-    context: WorkflowContext,
-  ) => Promise<unknown>;
+  execute: (context: WorkflowContext) => Promise<unknown>;
 };
 
 export type CompiledWorkflow = {

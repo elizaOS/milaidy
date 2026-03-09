@@ -12,19 +12,19 @@ vi.mock("./compiler", () => ({
   compileWorkflow: vi.fn(),
 }));
 
+import { compileWorkflow } from "./compiler";
 import {
-  setWorkflowRuntime,
-  getWorkflowRuntime,
-  getWorkflowRun,
-  listWorkflowRuns,
   cancelWorkflowRun,
-  resolveHook,
-  listPendingHooks,
+  getWorkflowRun,
+  getWorkflowRuntime,
   hydrateRuns,
+  listPendingHooks,
+  listWorkflowRuns,
+  resolveHook,
+  setWorkflowRuntime,
   startWorkflow,
 } from "./runtime";
-import { loadWorkflows, loadWorkflowRuns } from "./storage";
-import { compileWorkflow } from "./compiler";
+import { loadWorkflowRuns, loadWorkflows } from "./storage";
 import type { WorkflowRun } from "./types";
 
 const mockRuntime = {
@@ -52,6 +52,14 @@ function makeSimpleDef(id: string, name: string, enabled = true) {
     createdAt: "2025-01-01",
     updatedAt: "2025-01-01",
   };
+}
+
+function expectRun(run: WorkflowRun | null): WorkflowRun {
+  expect(run).not.toBeNull();
+  if (!run) {
+    throw new Error("Expected workflow run to exist");
+  }
+  return run;
 }
 
 function mockEmptyCompilation(workflowId: string, workflowName: string) {
@@ -106,9 +114,7 @@ describe("startWorkflow", () => {
   });
 
   it("returns a workflow run with correct fields", async () => {
-    vi.mocked(loadWorkflows).mockReturnValue([
-      makeSimpleDef("wf1", "Test WF"),
-    ]);
+    vi.mocked(loadWorkflows).mockReturnValue([makeSimpleDef("wf1", "Test WF")]);
     mockEmptyCompilation("wf1", "Test WF");
 
     const run = await startWorkflow("wf1", { key: "value" });
@@ -120,9 +126,7 @@ describe("startWorkflow", () => {
   });
 
   it("defaults input to empty object", async () => {
-    vi.mocked(loadWorkflows).mockReturnValue([
-      makeSimpleDef("wf1", "Test"),
-    ]);
+    vi.mocked(loadWorkflows).mockReturnValue([makeSimpleDef("wf1", "Test")]);
     mockEmptyCompilation("wf1", "Test");
 
     const run = await startWorkflow("wf1");
@@ -140,15 +144,12 @@ describe("getWorkflowRun", () => {
   });
 
   it("returns run after it was created via startWorkflow", async () => {
-    vi.mocked(loadWorkflows).mockReturnValue([
-      makeSimpleDef("wf1", "Test"),
-    ]);
+    vi.mocked(loadWorkflows).mockReturnValue([makeSimpleDef("wf1", "Test")]);
     mockEmptyCompilation("wf1", "Test");
 
     const run = await startWorkflow("wf1");
-    const fetched = getWorkflowRun(run.runId);
-    expect(fetched).not.toBeNull();
-    expect(fetched!.runId).toBe(run.runId);
+    const fetched = expectRun(getWorkflowRun(run.runId));
+    expect(fetched.runId).toBe(run.runId);
   });
 });
 
@@ -166,7 +167,9 @@ describe("listWorkflowRuns", () => {
     await startWorkflow("wf-unique-filter");
     const filtered = listWorkflowRuns("wf-unique-filter");
     expect(filtered.length).toBeGreaterThanOrEqual(1);
-    expect(filtered.every((r) => r.workflowId === "wf-unique-filter")).toBe(true);
+    expect(filtered.every((r) => r.workflowId === "wf-unique-filter")).toBe(
+      true,
+    );
   });
 
   it("returns runs for all workflows when no filter", async () => {
@@ -228,8 +231,8 @@ describe("cancelWorkflowRun", () => {
     expect(result).toBe(true);
 
     const cancelled = getWorkflowRun(run.runId);
-    expect(cancelled!.status).toBe("cancelled");
-    expect(cancelled!.finishedAt).toBeDefined();
+    expect(expectRun(cancelled).status).toBe("cancelled");
+    expect(expectRun(cancelled).finishedAt).toBeDefined();
   });
 
   it("returns false for already completed run", async () => {
@@ -249,9 +252,7 @@ describe("cancelWorkflowRun", () => {
   });
 
   it("returns false for already cancelled run", async () => {
-    vi.mocked(loadWorkflows).mockReturnValue([
-      makeSimpleDef("wf-c2", "C2"),
-    ]);
+    vi.mocked(loadWorkflows).mockReturnValue([makeSimpleDef("wf-c2", "C2")]);
     vi.mocked(compileWorkflow).mockReturnValue({
       workflowId: "wf-c2",
       workflowName: "C2",
@@ -314,7 +315,7 @@ describe("cancelWorkflowRun", () => {
     await new Promise((r) => setTimeout(r, 20));
 
     const cancelled = getWorkflowRun(run.runId);
-    expect(cancelled!.status).toBe("cancelled");
+    expect(expectRun(cancelled).status).toBe("cancelled");
   });
 });
 
@@ -417,11 +418,10 @@ describe("hydrateRuns", () => {
     hydrateRuns();
 
     for (const staleRun of staleRuns) {
-      const run = getWorkflowRun(staleRun.runId);
-      expect(run).not.toBeNull();
-      expect(run!.status).toBe("failed");
-      expect(run!.error).toContain("Process restarted");
-      expect(run!.finishedAt).toBeDefined();
+      const run = expectRun(getWorkflowRun(staleRun.runId));
+      expect(run.status).toBe("failed");
+      expect(run.error).toContain("Process restarted");
+      expect(run.finishedAt).toBeDefined();
     }
   });
 
@@ -443,9 +443,9 @@ describe("hydrateRuns", () => {
 
     hydrateRuns();
 
-    const completed = getWorkflowRun("hydrate-completed");
-    expect(completed!.status).toBe("completed");
-    expect(completed!.output).toEqual({ result: "ok" });
+    const completed = expectRun(getWorkflowRun("hydrate-completed"));
+    expect(completed.status).toBe("completed");
+    expect(completed.output).toEqual({ result: "ok" });
   });
 
   it("preserves failed runs as-is", () => {
@@ -465,9 +465,9 @@ describe("hydrateRuns", () => {
 
     hydrateRuns();
 
-    const failed = getWorkflowRun("hydrate-failed");
-    expect(failed!.status).toBe("failed");
-    expect(failed!.error).toBe("original error");
+    const failed = expectRun(getWorkflowRun("hydrate-failed"));
+    expect(failed.status).toBe("failed");
+    expect(failed.error).toBe("original error");
   });
 
   it("preserves cancelled runs as-is", () => {
@@ -486,8 +486,8 @@ describe("hydrateRuns", () => {
 
     hydrateRuns();
 
-    const cancelled = getWorkflowRun("hydrate-cancelled");
-    expect(cancelled!.status).toBe("cancelled");
+    const cancelled = expectRun(getWorkflowRun("hydrate-cancelled"));
+    expect(cancelled.status).toBe("cancelled");
   });
 
   it("handles storage errors gracefully", () => {
@@ -529,12 +529,13 @@ describe("workflow execution", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     const finished = getWorkflowRun(run.runId);
-    expect(finished!.status).toBe("completed");
-    expect(finished!.output).toEqual({ value: 42 });
-    expect(finished!.finishedAt).toBeDefined();
-    expect(finished!.events).toHaveLength(1);
-    expect(finished!.events[0].nodeId).toBe("step1");
-    expect(finished!.events[0].status).toBe("completed");
+    const completed = expectRun(finished);
+    expect(completed.status).toBe("completed");
+    expect(completed.output).toEqual({ value: 42 });
+    expect(completed.finishedAt).toBeDefined();
+    expect(completed.events).toHaveLength(1);
+    expect(completed.events[0].nodeId).toBe("step1");
+    expect(completed.events[0].status).toBe("completed");
   });
 
   it("marks run as failed when step throws", async () => {
@@ -564,8 +565,9 @@ describe("workflow execution", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     const finished = getWorkflowRun(run.runId);
-    expect(finished!.status).toBe("failed");
-    expect(finished!.error).toContain("Step exploded");
+    const failed = expectRun(finished);
+    expect(failed.status).toBe("failed");
+    expect(failed.error).toContain("Step exploded");
   });
 
   it("tracks step events for each executed step", async () => {
@@ -599,10 +601,99 @@ describe("workflow execution", () => {
     await new Promise((r) => setTimeout(r, 100));
 
     const finished = getWorkflowRun(run.runId);
-    expect(finished!.events).toHaveLength(2);
-    expect(finished!.events[0].nodeId).toBe("s1");
-    expect(finished!.events[0].nodeLabel).toBe("First");
-    expect(finished!.events[1].nodeId).toBe("s2");
-    expect(finished!.events[1].nodeLabel).toBe("Second");
+    const completed = expectRun(finished);
+    expect(completed.events).toHaveLength(2);
+    expect(completed.events[0].nodeId).toBe("s1");
+    expect(completed.events[0].nodeLabel).toBe("First");
+    expect(completed.events[1].nodeId).toBe("s2");
+    expect(completed.events[1].nodeLabel).toBe("Second");
+  });
+
+  it("respects cancellation during step execution", async () => {
+    let stepCount = 0;
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-cancel-exec", "Cancel Exec"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-cancel-exec",
+      workflowName: "Cancel Exec",
+      entrySteps: [
+        {
+          nodeId: "s1",
+          nodeType: "action",
+          label: "Step 1",
+          execute: async () => {
+            stepCount++;
+            // Simulate slow step
+            await new Promise((r) => setTimeout(r, 200));
+            return "done";
+          },
+        },
+        {
+          nodeId: "s2",
+          nodeType: "action",
+          label: "Step 2",
+          execute: async () => {
+            stepCount++;
+            return "should not run";
+          },
+        },
+      ],
+      stepCount: 2,
+      hasDelays: false,
+      hasHooks: false,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-cancel-exec");
+    // Cancel while step 1 is executing
+    await new Promise((r) => setTimeout(r, 50));
+    cancelWorkflowRun(run.runId);
+
+    // Wait for async to settle
+    await new Promise((r) => setTimeout(r, 300));
+
+    const finished = getWorkflowRun(run.runId);
+    expect(expectRun(finished).status).toBe("cancelled");
+    // Step 2 should not have executed (cancel checked between steps)
+    // Note: step 1 may have already started, but step 2 should be skipped
+    expect(stepCount).toBeLessThanOrEqual(1);
+  });
+
+  it("does not overwrite cancelled status with completed", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-no-overwrite", "No Overwrite"),
+    ]);
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-no-overwrite",
+      workflowName: "No Overwrite",
+      entrySteps: [
+        {
+          nodeId: "slow",
+          nodeType: "delay",
+          label: "Slow",
+          execute: async () => {
+            await new Promise((r) => setTimeout(r, 100));
+            return { delayed: true };
+          },
+        },
+      ],
+      stepCount: 1,
+      hasDelays: true,
+      hasHooks: false,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-no-overwrite");
+    // Cancel immediately
+    await new Promise((r) => setTimeout(r, 10));
+    cancelWorkflowRun(run.runId);
+
+    // Wait for async to settle
+    await new Promise((r) => setTimeout(r, 200));
+
+    const finished = getWorkflowRun(run.runId);
+    // Status should remain cancelled, not get overwritten to completed
+    expect(expectRun(finished).status).toBe("cancelled");
   });
 });
