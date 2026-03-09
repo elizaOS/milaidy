@@ -41,6 +41,7 @@ const activeRuns = new Map<string, WorkflowRun>();
 const pendingHooks = new Map<
   string,
   {
+    hookId: string;
     runId: string;
     resolve: (payload: Record<string, unknown>) => void;
   }
@@ -207,7 +208,15 @@ async function executeWorkflow(
 
   try {
     for (const step of compiled.entrySteps) {
+      if (isRunCancelled(run.runId)) {
+        break;
+      }
+
       const result = await executeStep(step, ctx, run);
+
+      if (isRunCancelled(run.runId)) {
+        break;
+      }
 
       // Check for hook pause
       if (isHookResult(result)) {
@@ -217,9 +226,15 @@ async function executeWorkflow(
 
         // Wait for hook resolution
         const hookPayload = await waitForHook(hookId, run.runId);
+        if (isRunCancelled(run.runId) || hookPayload.__cancelled === true) {
+          break;
+        }
+
         ctx.results[step.nodeId] = hookPayload;
         ctx._last = hookPayload;
-        updateRunStatus(run.runId, "running");
+        if (!isRunCancelled(run.runId)) {
+          updateRunStatus(run.runId, "running");
+        }
         continue;
       }
 
@@ -236,11 +251,18 @@ async function executeWorkflow(
       ctx._last = result;
     }
 
-    updateRunStatus(run.runId, "completed", {
-      output: ctx._last,
-      finishedAt: new Date().toISOString(),
-    });
+    if (!isRunCancelled(run.runId)) {
+      updateRunStatus(run.runId, "completed", {
+        output: ctx._last,
+        finishedAt: new Date().toISOString(),
+      });
+    }
   } catch (err) {
+    if (isRunCancelled(run.runId)) {
+      persistRun(run.runId);
+      return;
+    }
+
     updateRunStatus(run.runId, "failed", {
       error: err instanceof Error ? err.message : String(err),
       finishedAt: new Date().toISOString(),
@@ -294,7 +316,7 @@ function waitForHook(
   runId: string,
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
-    pendingHooks.set(hookId, { runId, resolve });
+    pendingHooks.set(getPendingHookKey(hookId, runId), { hookId, runId, resolve });
   });
 }
 
@@ -305,11 +327,17 @@ export function resolveHook(
   hookId: string,
   payload: Record<string, unknown> = {},
 ): boolean {
-  const hook = pendingHooks.get(hookId);
-  if (!hook) return false;
-  pendingHooks.delete(hookId);
-  hook.resolve(payload);
-  return true;
+  for (const [key, hook] of pendingHooks.entries()) {
+    if (hook.hookId !== hookId) {
+      continue;
+    }
+
+    pendingHooks.delete(key);
+    hook.resolve(payload);
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -319,7 +347,7 @@ export function listPendingHooks(): Array<{
   hookId: string;
   runId: string;
 }> {
-  return Array.from(pendingHooks.entries()).map(([hookId, { runId }]) => ({
+  return Array.from(pendingHooks.values()).map(({ hookId, runId }) => ({
     hookId,
     runId,
   }));
@@ -443,4 +471,12 @@ function isSubworkflowResult(result: unknown): boolean {
     result !== null &&
     (result as Record<string, unknown>).__subworkflow === true
   );
+}
+
+function getPendingHookKey(hookId: string, runId: string): string {
+  return `${runId}:${hookId}`;
+}
+
+function isRunCancelled(runId: string): boolean {
+  return activeRuns.get(runId)?.status === "cancelled";
 }
