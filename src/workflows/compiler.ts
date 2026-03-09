@@ -97,45 +97,54 @@ export function evaluateExpression(
   expression: string,
   ctx: WorkflowContext,
 ): boolean {
-  const interpolated = interpolate(expression, ctx);
+  const trimmedExpression = expression.trim();
 
-  // Check for comparison operators
-  for (const op of ["===", "!==", ">=", "<=", ">", "<"] as const) {
-    const idx = interpolated.indexOf(op);
-    if (idx > -1) {
-      const left = interpolated.slice(0, idx).trim();
-      const right = interpolated.slice(idx + op.length).trim();
-      return compareValues(left, right, op);
-    }
+  // Truthy check: only allow a single context path token.
+  const truthyMatch = trimmedExpression.match(/^\{\{\s*([^}]+)\s*\}\}$/);
+  if (truthyMatch) {
+    const value = resolvePath(ctx, truthyMatch[1].trim());
+    return isTruthyValue(value);
   }
 
-  // Check for "contains"
-  const containsMatch = interpolated.match(
-    /^(.+?)\s+contains\s+["'](.+?)["']$/i,
+  // Strict comparison grammar to avoid operator-injection via interpolation.
+  const comparisonMatch = trimmedExpression.match(
+    /^(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)\s*(===|!==|>=|<=|>|<)\s*(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)$/,
+  );
+  if (comparisonMatch) {
+    const left = resolveOperand(ctx, comparisonMatch[1]);
+    const right = resolveOperand(ctx, comparisonMatch[3]);
+    if (left === undefined || right === undefined) {
+      return false;
+    }
+    return compareValues(
+      left,
+      right,
+      comparisonMatch[2] as "===" | "!==" | ">=" | "<=" | ">" | "<",
+    );
+  }
+
+  const containsMatch = trimmedExpression.match(
+    /^(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)\s+contains\s+(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)$/i,
   );
   if (containsMatch) {
-    return containsMatch[1].includes(containsMatch[2]);
+    const left = resolveOperand(ctx, containsMatch[1]);
+    const right = resolveOperand(ctx, containsMatch[2]);
+    if (left === undefined || right === undefined) {
+      return false;
+    }
+    return String(left).includes(String(right));
   }
 
-  // Truthy check
-  const trimmed = interpolated.trim();
-  return (
-    trimmed !== "" &&
-    trimmed !== "false" &&
-    trimmed !== "0" &&
-    trimmed !== "null" &&
-    trimmed !== "undefined"
-  );
+  return false;
 }
 
 function compareValues(
-  left: string,
-  right: string,
+  left: unknown,
+  right: unknown,
   op: "===" | "!==" | ">=" | "<=" | ">" | "<",
 ): boolean {
-  // Remove surrounding quotes if present
-  const cleanLeft = stripQuotes(left);
-  const cleanRight = stripQuotes(right);
+  const cleanLeft = normalizeComparisonOperand(left);
+  const cleanRight = normalizeComparisonOperand(right);
 
   const numLeft = Number(cleanLeft);
   const numRight = Number(cleanRight);
@@ -155,6 +164,43 @@ function compareValues(
     case "<":
       return isNumeric ? numLeft < numRight : cleanLeft < cleanRight;
   }
+}
+
+function resolveOperand(ctx: WorkflowContext, token: string): unknown {
+  const trimmed = token.trim();
+  const contextMatch = trimmed.match(/^\{\{\s*([^}]+)\s*\}\}$/);
+  if (contextMatch) {
+    return resolvePath(ctx, contextMatch[1].trim());
+  }
+
+  return parseLiteralOperand(trimmed);
+}
+
+function parseLiteralOperand(token: string): unknown {
+  const stripped = stripQuotes(token);
+  if (/^-?\d+(\.\d+)?$/.test(stripped)) {
+    return Number(stripped);
+  }
+  if (stripped === "true") return true;
+  if (stripped === "false") return false;
+  if (stripped === "null") return null;
+  if (stripped === "undefined") return undefined;
+  return stripped;
+}
+
+function normalizeComparisonOperand(value: unknown): string | number {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (typeof value === "string") return stripQuotes(value);
+  return JSON.stringify(value);
+}
+
+function isTruthyValue(value: unknown): boolean {
+  if (!value) return false;
+  if (typeof value !== "string") return true;
+  return !["", "false", "0", "null", "undefined"].includes(value.trim());
 }
 
 function stripQuotes(s: string): string {

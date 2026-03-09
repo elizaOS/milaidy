@@ -279,6 +279,43 @@ describe("cancelWorkflowRun", () => {
     // Second cancel should return false
     expect(cancelWorkflowRun(run.runId)).toBe(false);
   });
+
+  it("keeps cancelled run status when in-flight step resolves", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-cancel-final", "Cancel Final"),
+    ]);
+
+    let releaseStep: (() => void) | null = null;
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-cancel-final",
+      workflowName: "Cancel Final",
+      entrySteps: [
+        {
+          nodeId: "slow",
+          nodeType: "delay",
+          label: "Slow",
+          execute: async () =>
+            await new Promise((resolve) => {
+              releaseStep = () => resolve({ done: true });
+            }),
+        },
+      ],
+      stepCount: 1,
+      hasDelays: true,
+      hasHooks: false,
+      hasLoops: false,
+    });
+
+    const run = await startWorkflow("wf-cancel-final");
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(cancelWorkflowRun(run.runId)).toBe(true);
+    releaseStep?.();
+    await new Promise((r) => setTimeout(r, 20));
+
+    const cancelled = getWorkflowRun(run.runId);
+    expect(cancelled!.status).toBe("cancelled");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,6 +332,39 @@ describe("listPendingHooks", () => {
   it("returns array (may have hooks from other tests)", () => {
     const hooks = listPendingHooks();
     expect(Array.isArray(hooks)).toBe(true);
+  });
+
+  it("tracks pending hooks for concurrent runs with same hookId", async () => {
+    vi.mocked(loadWorkflows).mockReturnValue([
+      makeSimpleDef("wf-shared-hook", "Shared Hook"),
+    ]);
+
+    vi.mocked(compileWorkflow).mockReturnValue({
+      workflowId: "wf-shared-hook",
+      workflowName: "Shared Hook",
+      entrySteps: [
+        {
+          nodeId: "wait",
+          nodeType: "hook",
+          label: "Wait",
+          execute: async () => ({ __hook: true, hookId: "shared" }),
+        },
+      ],
+      stepCount: 1,
+      hasDelays: false,
+      hasHooks: true,
+      hasLoops: false,
+    });
+
+    const runA = await startWorkflow("wf-shared-hook");
+    const runB = await startWorkflow("wf-shared-hook");
+    await new Promise((r) => setTimeout(r, 20));
+
+    const hooks = listPendingHooks().filter((hook) => hook.hookId === "shared");
+    expect(hooks).toHaveLength(2);
+    expect(hooks.map((hook) => hook.runId).sort()).toEqual(
+      [runA.runId, runB.runId].sort(),
+    );
   });
 });
 

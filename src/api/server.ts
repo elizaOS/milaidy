@@ -14850,6 +14850,29 @@ async function handleRequest(
   if (method === "POST" && workflowStartMatch) {
     const wfId = decodeURIComponent(workflowStartMatch[1]);
     const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
+
+    const workflow = getWorkflow(wfId);
+    if (!workflow) {
+      error(res, "Workflow not found", 404);
+      return;
+    }
+
+    const hasTransformNode = workflow.nodes.some((node) => node.type === "transform");
+    if (hasTransformNode) {
+      const terminalRejection = resolveTerminalRunRejection(
+        req,
+        body as TerminalRunRequestBody,
+      );
+      if (terminalRejection) {
+        error(
+          res,
+          `Starting transform workflows requires terminal authorization. ${terminalRejection.reason}`,
+          terminalRejection.status,
+        );
+        return;
+      }
+    }
+
     try {
       const run = await startWorkflow(
         wfId,
@@ -14896,7 +14919,8 @@ async function handleRequest(
   if (method === "POST" && workflowHookMatch) {
     const hookId = decodeURIComponent(workflowHookMatch[1]);
     const body = (await readJsonBody<Record<string, unknown>>(req, res)) ?? {};
-    if (!resolveHook(hookId, body)) {
+    const sanitizedPayload = sanitizeWorkflowHookPayload(body);
+    if (!resolveHook(hookId, sanitizedPayload)) {
       error(res, "No pending hook with that ID", 404);
       return;
     }
@@ -14972,6 +14996,16 @@ async function handleRequest(
 
   // ── Fallback ────────────────────────────────────────────────────────────
   error(res, "Not found", 404);
+}
+
+function sanitizeWorkflowHookPayload(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const clone = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+  delete clone.__proto__;
+  delete clone.constructor;
+  delete clone.prototype;
+  return clone;
 }
 
 // ---------------------------------------------------------------------------
