@@ -1,11 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Pause,
-  Play,
-  RotateCcw,
-} from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import type {
@@ -108,11 +101,6 @@ export function AutonomousPanel({
     chatAgentVoiceMuted,
     chatAvatarSpeaking,
     setState,
-    handleStart,
-    handlePauseResume,
-    handleRestart,
-    lifecycleBusy,
-    lifecycleAction,
   } = useApp();
 
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
@@ -157,11 +145,7 @@ export function AutonomousPanel({
     [runHealthRows],
   );
 
-  const state = agentStatus?.state ?? "not_started";
-  const isAgentStopped = state === "stopped" || state === "not_started" || !agentStatus;
-  const isRunning = state === "running";
-  const isPaused = state === "paused";
-  const isTransitioning = state === "starting" || state === "restarting";
+  const isAgentStopped = agentStatus?.state === "stopped" || !agentStatus;
   const tasks = workbench?.tasks ?? [];
   const triggers = workbench?.triggers ?? [];
   const todos = workbench?.todos ?? [];
@@ -171,117 +155,32 @@ export function AutonomousPanel({
       className={`${mobile ? "w-full min-w-0" : "w-[280px] min-w-[280px] xl:w-[340px] xl:min-w-[340px] 2xl:w-[420px] 2xl:min-w-[420px] border-l"} border-border bg-bg flex flex-col h-full font-body text-[13px]`}
       data-testid="autonomous-panel"
     >
-      <div className="px-3 py-2 border-b border-border flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isRunning
-                    ? "bg-ok"
-                    : isPaused
-                      ? "bg-warn animate-pulse"
-                      : state === "error"
-                        ? "bg-danger"
-                        : "bg-muted"
-                }`}
-              />
-              <span className="text-xs uppercase tracking-wide text-muted">
-                {mobile ? "Status" : "Autonomous Loop"}
-              </span>
-            </div>
-            <div className="mt-1 text-[12px] text-muted">
-              {isRunning
-                ? "Heartbeat active"
-                : isPaused
-                  ? "Paused"
-                  : isTransitioning
-                    ? state === "starting"
-                      ? "Starting…"
-                      : "Restarting…"
-                    : `Agent ${agentStatus?.state ?? "offline"}`}
-            </div>
+      <div className="px-3 py-2 border-b border-border flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs uppercase tracking-wide text-muted">
+            {mobile ? "Status" : "Autonomous Loop"}
           </div>
-          {mobile && (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center w-7 h-7 border border-border bg-card text-sm text-muted cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0"
-              onClick={onClose}
-              aria-label="Close autonomous panel"
-            >
-              &times;
-            </button>
-          )}
+          <div className="mt-1 text-[12px] text-muted">
+            {agentStatus?.state === "running"
+              ? "Live stream connected"
+              : `Agent state: ${agentStatus?.state ?? "offline"}`}
+          </div>
         </div>
-
-        {/* ── Heartbeat controls ──────────────────────────────────── */}
-        <div className="flex items-center gap-1.5">
-          {isAgentStopped && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-ok text-ok bg-ok/10 hover:bg-ok/20 rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={() => void handleStart()}
-              disabled={lifecycleBusy}
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Start Heartbeat</span>
-            </button>
-          )}
-          {(isRunning || isPaused) && (
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                isPaused
-                  ? "border-ok text-ok bg-ok/10 hover:bg-ok/20"
-                  : "border-warn text-warn bg-warn/10 hover:bg-warn/20"
-              }`}
-              onClick={() => void handlePauseResume()}
-              disabled={lifecycleBusy || isTransitioning}
-            >
-              {lifecycleBusy ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : isPaused ? (
-                <Play className="w-3.5 h-3.5" />
-              ) : (
-                <Pause className="w-3.5 h-3.5" />
-              )}
-              <span>{isPaused ? "Resume" : "Pause"}</span>
-            </button>
-          )}
-          {!isAgentStopped && (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center w-7 h-7 border border-border text-muted hover:border-accent hover:text-accent rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={() => void handleRestart()}
-              disabled={lifecycleBusy || state === "restarting"}
-              title="Restart agent"
-            >
-              {(lifecycleBusy && lifecycleAction === "restart") ||
-              state === "restarting" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <RotateCcw className="w-3.5 h-3.5" />
-              )}
-            </button>
-          )}
-          {isTransitioning && (
-            <Loader2 className="w-4 h-4 text-muted animate-spin" />
-          )}
-        </div>
+        {mobile && (
+          <button
+            type="button"
+            className="inline-flex items-center justify-center w-7 h-7 border border-border bg-card text-sm text-muted cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0"
+            onClick={onClose}
+            aria-label="Close autonomous panel"
+          >
+            &times;
+          </button>
+        )}
       </div>
 
       {isAgentStopped ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-3">
+        <div className="flex items-center justify-center flex-1">
           <p className="text-muted">Agent not running</p>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium border border-ok text-ok bg-ok/10 hover:bg-ok/20 rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={() => void handleStart()}
-            disabled={lifecycleBusy}
-          >
-            <Play className="w-4 h-4" />
-            <span>Start Heartbeat</span>
-          </button>
         </div>
       ) : (
         <div
