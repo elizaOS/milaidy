@@ -234,6 +234,13 @@ describe("evaluateExpression", () => {
 
     expect(evaluateExpression('{{_last}} === "x === x"', ctx)).toBe(true);
   });
+
+  it("rejects malformed expression grammar", () => {
+    const ctx = makeCtx({ _last: "safe" });
+
+    expect(evaluateExpression("{{_last}} ===", ctx)).toBe(false);
+    expect(evaluateExpression("{{_last}} && true", ctx)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
