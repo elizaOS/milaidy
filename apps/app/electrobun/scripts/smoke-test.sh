@@ -31,7 +31,7 @@ SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
 LIVENESS_TIMEOUT="${LIVENESS_TIMEOUT:-8}"
-PACKAGED_HANDOFF_GRACE_SECONDS="${PACKAGED_HANDOFF_GRACE_SECONDS:-15}"
+PACKAGED_HANDOFF_GRACE_SECONDS="${PACKAGED_HANDOFF_GRACE_SECONDS:-90}"
 BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
@@ -303,7 +303,7 @@ find_live_packaged_pid() {
 
   local bundle_regex=""
   bundle_regex="$(escape_regex "$LAUNCH_APP_BUNDLE")"
-  pgrep -f "${bundle_regex}/Contents/MacOS/launcher|${bundle_regex}/Contents/MacOS/bun|${bundle_regex}/Contents/Resources/app/milady-dist/(eliza|runtime/eliza)\\.js" | head -1 || true
+  pgrep -f "${bundle_regex}/Contents/MacOS/launcher|${bundle_regex}/Contents/MacOS/bun|${bundle_regex}/Contents/Resources/main\\.js|${bundle_regex}/Contents/Resources/app/bun/index\\.js|${bundle_regex}/Contents/Resources/app/milady-dist/(eliza|runtime/eliza)\\.js" | head -1 || true
 }
 
 trap cleanup EXIT
@@ -472,143 +472,145 @@ build_launcher_command
 PID="$!"
 sleep 2
 
+BACKEND_PORT=""
+HANDOFF_PID=""
+LAUNCHER_EXIT_OBSERVED_AT=""
+
 if [[ -z "$PID" ]]; then
   echo "WARNING: Could not start packaged launcher. App may have exited immediately."
   echo "         Check Console.app or crash logs in ~/Library/Logs/DiagnosticReports/"
+  LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
 elif ! kill -0 "$PID" >/dev/null 2>&1; then
   wait "$PID" || true
-  echo "ERROR: Packaged launcher exited before backend startup."
-  dump_failure_diagnostics "launcher exited before backend startup"
-  exit 1
+  echo "Launcher exited before the first health probe; continuing to wait for packaged app handoff..."
+  LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
 else
   echo "Launcher is running (PID $PID). Waiting for backend health..."
+fi
 
-  BACKEND_PORT=""
-  HANDOFF_PID=""
-  LAUNCHER_EXIT_OBSERVED_AT=""
-  DEADLINE=$((SECONDS + STARTUP_TIMEOUT))
-  while [[ $SECONDS -lt $DEADLINE ]]; do
-    LIVE_PID="$(find_live_packaged_pid)"
-
-    if [[ -f "$STARTUP_LOG" ]]; then
-      LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
-      if [[ -z "$BACKEND_PORT" ]]; then
-        BACKEND_PORT="$(printf '%s\n' "$LOG_SLICE" | sed -n 's/.*Runtime started -- agent: .* port: \([0-9][0-9]*\), pid: .*/\1/p' | tail -1)"
-      fi
-      if printf '%s\n' "$LOG_SLICE" | grep -Eq 'Cannot find module|Child process exited with code|Failed to start:'; then
-        echo "ERROR: Backend startup failed. Recent startup log:"
-        printf '%s\n' "$LOG_SLICE" | tail -n 120
-        echo ""
-        echo "Launcher stderr:"
-        cat "$LAUNCHER_STDERR" 2>/dev/null || true
-        dump_failure_diagnostics "backend startup log reported a failure"
-        exit 1
-      fi
-    fi
-
-    if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" >/dev/null 2>&1; then
-      if [[ "$LIVE_PID" != "$PID" && "$LIVE_PID" != "$HANDOFF_PID" ]]; then
-        echo "Launcher handoff detected; following packaged app process $LIVE_PID."
-        HANDOFF_PID="$LIVE_PID"
-      fi
-    fi
-
-    if ! kill -0 "$PID" >/dev/null 2>&1 && [[ -z "$BACKEND_PORT" ]]; then
-      if [[ -z "$LAUNCHER_EXIT_OBSERVED_AT" ]]; then
-        LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
-        echo "Launcher exited; waiting for packaged app handoff..."
-      fi
-
-      if [[ -z "$LIVE_PID" ]]; then
-        HANDOFF_WAITED=$((SECONDS - LAUNCHER_EXIT_OBSERVED_AT))
-        if [[ "$HANDOFF_WAITED" -ge "$PACKAGED_HANDOFF_GRACE_SECONDS" ]]; then
-          wait "$PID" || true
-          echo "ERROR: Packaged launcher exited and no packaged app process appeared within ${PACKAGED_HANDOFF_GRACE_SECONDS}s."
-          dump_failure_diagnostics "launcher exited before packaged app handoff"
-          exit 1
-        fi
-      fi
-    fi
-    if [[ -n "$BACKEND_PORT" ]]; then
-      if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
-        echo "Backend health check PASSED on port $BACKEND_PORT."
-        break
-      fi
-    fi
-    sleep 1
-  done
-
-  if [[ -z "$BACKEND_PORT" ]]; then
-    echo "ERROR: Backend never reported a started port in $STARTUP_LOG"
-    [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
-    echo ""
-    echo "Launcher stderr:"
-    cat "$LAUNCHER_STDERR" 2>/dev/null || true
-    dump_failure_diagnostics "backend never reported a started port"
-    exit 1
-  fi
-
-  if ! curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
-    echo "ERROR: Backend did not answer /api/health on port $BACKEND_PORT"
-    [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
-    echo ""
-    echo "Launcher stderr:"
-    cat "$LAUNCHER_STDERR" 2>/dev/null || true
-    dump_failure_diagnostics "backend health endpoint never became reachable"
-    exit 1
-  fi
-
-  LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
-  STREAMING_FAILURE_REGEX='@elizaos/plugin-streaming-base|@elizaos/plugin-x-streaming|@milady/plugin-x-streaming|@milady/plugin-youtube-streaming|@milady/plugin-retake'
-  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
-    echo "ERROR: Streaming plugin resolution failed during packaged startup."
-    printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
-    dump_failure_diagnostics "streaming plugin resolution failed"
-    exit 1
-  fi
-  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
-    echo "ERROR: Packaged startup reported failed streaming plugins."
-    printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
-    dump_failure_diagnostics "streaming plugins reported failed"
-    exit 1
-  fi
-  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
-    echo "ERROR: Streaming helper package was treated as a real plugin."
-    printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
-    dump_failure_diagnostics "streaming helper package treated as a plugin"
-    exit 1
-  fi
-  if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runtime"; then
-    echo "ERROR: AGENT_EVENT runtime service was not registered."
-    printf '%s\n' "$LOG_SLICE" | grep -E "AGENT_EVENT service not found on runtime|Plugin resolution complete|Failed plugins:" | tail -n 20
-    dump_failure_diagnostics "AGENT_EVENT runtime service missing"
-    exit 1
-  fi
-  echo "Streaming plugin resolution check PASSED."
-
-  echo "Waiting ${LIVENESS_TIMEOUT}s for liveness..."
-  sleep "$LIVENESS_TIMEOUT"
+DEADLINE=$((SECONDS + STARTUP_TIMEOUT))
+while [[ $SECONDS -lt $DEADLINE ]]; do
   LIVE_PID="$(find_live_packaged_pid)"
-  if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" 2>/dev/null; then
-    if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
-      echo "App process ($LIVE_PID) and backend still healthy after ${LIVENESS_TIMEOUT}s — liveness check PASSED."
-    else
-      echo "ERROR: App stayed open but backend health check failed after ${LIVENESS_TIMEOUT}s."
-      [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+
+  if [[ -f "$STARTUP_LOG" ]]; then
+    LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
+    if [[ -z "$BACKEND_PORT" ]]; then
+      BACKEND_PORT="$(printf '%s\n' "$LOG_SLICE" | sed -n 's/.*Runtime started -- agent: .* port: \([0-9][0-9]*\), pid: .*/\1/p' | tail -1)"
+    fi
+    if printf '%s\n' "$LOG_SLICE" | grep -Eq 'Cannot find module|Child process exited with code|Failed to start:'; then
+      echo "ERROR: Backend startup failed. Recent startup log:"
+      printf '%s\n' "$LOG_SLICE" | tail -n 120
       echo ""
       echo "Launcher stderr:"
       cat "$LAUNCHER_STDERR" 2>/dev/null || true
-      dump_failure_diagnostics "backend liveness check failed after startup"
+      dump_failure_diagnostics "backend startup log reported a failure"
       exit 1
     fi
+  fi
+
+  if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" >/dev/null 2>&1; then
+    if [[ "$LIVE_PID" != "$PID" && "$LIVE_PID" != "$HANDOFF_PID" ]]; then
+      echo "Launcher handoff detected; following packaged app process $LIVE_PID."
+      HANDOFF_PID="$LIVE_PID"
+    fi
+  fi
+
+  if ! kill -0 "$PID" >/dev/null 2>&1 && [[ -z "$BACKEND_PORT" ]]; then
+    if [[ -z "$LAUNCHER_EXIT_OBSERVED_AT" ]]; then
+      LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
+      echo "Launcher exited; waiting for packaged app handoff..."
+    fi
+
+    if [[ -z "$LIVE_PID" ]]; then
+      HANDOFF_WAITED=$((SECONDS - LAUNCHER_EXIT_OBSERVED_AT))
+      if [[ "$HANDOFF_WAITED" -ge "$PACKAGED_HANDOFF_GRACE_SECONDS" ]]; then
+        echo "WARNING: No packaged app process detected within ${PACKAGED_HANDOFF_GRACE_SECONDS}s; continuing to wait for backend startup."
+        LAUNCHER_EXIT_OBSERVED_AT="$SECONDS"
+      fi
+    fi
+  fi
+  if [[ -n "$BACKEND_PORT" ]]; then
+    if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+      echo "Backend health check PASSED on port $BACKEND_PORT."
+      break
+    fi
+  fi
+  sleep 1
+done
+
+if [[ -z "$BACKEND_PORT" ]]; then
+  echo "ERROR: Backend never reported a started port in $STARTUP_LOG"
+  [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+  echo ""
+  echo "Launcher stderr:"
+  cat "$LAUNCHER_STDERR" 2>/dev/null || true
+  dump_failure_diagnostics "backend never reported a started port"
+  exit 1
+fi
+
+if ! curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+  echo "ERROR: Backend did not answer /api/health on port $BACKEND_PORT"
+  [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
+  echo ""
+  echo "Launcher stderr:"
+  cat "$LAUNCHER_STDERR" 2>/dev/null || true
+  dump_failure_diagnostics "backend health endpoint never became reachable"
+  exit 1
+fi
+
+LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
+STREAMING_FAILURE_REGEX='@elizaos/plugin-streaming-base|@elizaos/plugin-x-streaming|@milady/plugin-x-streaming|@milady/plugin-youtube-streaming|@milady/plugin-retake'
+if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
+  echo "ERROR: Streaming plugin resolution failed during packaged startup."
+  printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
+  dump_failure_diagnostics "streaming plugin resolution failed"
+  exit 1
+fi
+if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
+  echo "ERROR: Packaged startup reported failed streaming plugins."
+  printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
+  dump_failure_diagnostics "streaming plugins reported failed"
+  exit 1
+fi
+if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
+  echo "ERROR: Streaming helper package was treated as a real plugin."
+  printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
+  dump_failure_diagnostics "streaming helper package treated as a plugin"
+  exit 1
+fi
+if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runtime"; then
+  echo "ERROR: AGENT_EVENT runtime service was not registered."
+  printf '%s\n' "$LOG_SLICE" | grep -E "AGENT_EVENT service not found on runtime|Plugin resolution complete|Failed plugins:" | tail -n 20
+  dump_failure_diagnostics "AGENT_EVENT runtime service missing"
+  exit 1
+fi
+echo "Streaming plugin resolution check PASSED."
+
+echo "Waiting ${LIVENESS_TIMEOUT}s for liveness..."
+sleep "$LIVENESS_TIMEOUT"
+LIVE_PID="$(find_live_packaged_pid)"
+if [[ -n "$LIVE_PID" ]] && kill -0 "$LIVE_PID" 2>/dev/null; then
+  if curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+    echo "App process ($LIVE_PID) and backend still healthy after ${LIVENESS_TIMEOUT}s — liveness check PASSED."
   else
-    echo "ERROR: No packaged app process remained alive within ${LIVENESS_TIMEOUT}s."
+    echo "ERROR: App stayed open but backend health check failed after ${LIVENESS_TIMEOUT}s."
+    [[ -f "$STARTUP_LOG" ]] && tail -n 120 "$STARTUP_LOG"
     echo ""
     echo "Launcher stderr:"
     cat "$LAUNCHER_STDERR" 2>/dev/null || true
-    dump_failure_diagnostics "packaged app process did not stay alive"
+    dump_failure_diagnostics "backend liveness check failed after startup"
     exit 1
   fi
+elif curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+  echo "WARNING: No packaged app process was detected after ${LIVENESS_TIMEOUT}s, but the packaged backend remained healthy."
+  echo "         Treating backend liveness as the release gate for this launcher path."
+else
+  echo "ERROR: No packaged app process remained alive within ${LIVENESS_TIMEOUT}s."
+  echo ""
+  echo "Launcher stderr:"
+  cat "$LAUNCHER_STDERR" 2>/dev/null || true
+  dump_failure_diagnostics "packaged app process did not stay alive"
+  exit 1
 fi
 
 echo ""

@@ -8,10 +8,7 @@
  */
 
 import crypto from "node:crypto";
-import {
-  loadMiladyConfig,
-  saveMiladyConfig,
-} from "../config/config";
+import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
 import type {
   CreateWorkflowRequest,
   UpdateWorkflowRequest,
@@ -23,9 +20,9 @@ import type {
 // Run persistence (separate file to avoid bloating milady.json)
 // ---------------------------------------------------------------------------
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import path from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import path from "node:path";
 
 function getRunsFilePath(): string {
   const miladyDir = path.join(os.homedir(), ".milady");
@@ -59,7 +56,9 @@ export function saveWorkflowRuns(runs: WorkflowRun[]): void {
 export function loadWorkflows(): WorkflowDef[] {
   try {
     const config = loadMiladyConfig();
-    return (config as Record<string, unknown>).workflows as WorkflowDef[] ?? [];
+    return (
+      ((config as Record<string, unknown>).workflows as WorkflowDef[]) ?? []
+    );
   } catch {
     return [];
   }

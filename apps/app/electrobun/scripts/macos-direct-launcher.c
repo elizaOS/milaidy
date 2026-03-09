@@ -45,7 +45,40 @@ int main(void) {
     return fail("failed to change into launcher directory");
   }
 
-  char *const child_argv[] = {"./bun", "../Resources/main.js", NULL};
+  size_t bun_path_size = strlen(resolved_path) + strlen("/bun") + 1U;
+  char *bun_path = malloc(bun_path_size);
+  if (bun_path == NULL) {
+    fputs("failed to allocate bun path buffer\n", stderr);
+    return 111;
+  }
+  if (snprintf(bun_path, bun_path_size, "%s/bun", resolved_path) < 0) {
+    free(bun_path);
+    fputs("failed to format bun path\n", stderr);
+    return 111;
+  }
+
+  size_t main_js_path_size =
+      strlen(resolved_path) + strlen("/../Resources/main.js") + 1U;
+  char *main_js_path = malloc(main_js_path_size);
+  if (main_js_path == NULL) {
+    free(bun_path);
+    fputs("failed to allocate main.js path buffer\n", stderr);
+    return 111;
+  }
+  if (snprintf(
+          main_js_path,
+          main_js_path_size,
+          "%s/../Resources/main.js",
+          resolved_path) < 0) {
+    free(main_js_path);
+    free(bun_path);
+    fputs("failed to format main.js path\n", stderr);
+    return 111;
+  }
+
+  char *const child_argv[] = {bun_path, main_js_path, NULL};
   execv(child_argv[0], child_argv);
+  free(main_js_path);
+  free(bun_path);
   return fail("failed to exec bundled bun runtime");
 }

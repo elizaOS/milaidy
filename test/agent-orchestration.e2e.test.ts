@@ -217,24 +217,19 @@ describe("Agent Orchestrator Plugin Loading", () => {
     expect(mod).toBeDefined();
   });
 
-  it("stub exports createCodingAgentRouteHandler function", async () => {
-    const mod = (await import("@elizaos/plugin-agent-orchestrator")) as {
-      createCodingAgentRouteHandler?: unknown;
-    };
-    // The stub should export this function for API route handling
-    expect(typeof mod.createCodingAgentRouteHandler).toBe("function");
+  it("dist bundle exports agentOrchestratorPlugin", () => {
+    // Verify the orchestrator plugin dist exists and exports the main plugin
+    const distPath = path.resolve(
+      packageRoot,
+      "node_modules/@elizaos/plugin-agent-orchestrator/dist/index.js",
+    );
+    expect(fs.existsSync(distPath)).toBe(true);
+    const dist = fs.readFileSync(distPath, "utf-8");
+    expect(dist).toContain("agentOrchestratorPlugin");
   });
 
-  it("stub exports getCoordinator function", async () => {
-    const mod = (await import("@elizaos/plugin-agent-orchestrator")) as {
-      getCoordinator?: unknown;
-    };
-    // The stub should export this for coordinator access
-    expect(typeof mod.getCoordinator).toBe("function");
-  });
-
-  it("installed version is >= 0.3.4 with ready-event timeout fallback (F-12)", async () => {
-    // Read the installed package version to verify the bump took effect
+  it("installed version is >= 2.0.0-alpha", async () => {
+    // Read the installed package version to verify the upgrade took effect
     const pkgPath = path.resolve(
       packageRoot,
       "node_modules/@elizaos/plugin-agent-orchestrator/package.json",
@@ -242,19 +237,11 @@ describe("Agent Orchestrator Plugin Loading", () => {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
       version: string;
     };
-    const [major, minor, patch] = pkg.version.split(".").map(Number);
+    const [major] = pkg.version.split(".").map(Number);
     expect(
-      major > 0 || minor > 3 || (minor === 3 && patch >= 4),
-      `Expected >= 0.3.4, got ${pkg.version}`,
+      major >= 2,
+      `Expected >= 2.0.0-alpha, got ${pkg.version}`,
     ).toBe(true);
-
-    // Verify the timeout fallback code is present in the bundle
-    const distPath = path.resolve(
-      packageRoot,
-      "node_modules/@elizaos/plugin-agent-orchestrator/dist/index.js",
-    );
-    const dist = fs.readFileSync(distPath, "utf-8");
-    expect(dist).toContain("ready event not received");
   });
 });
 

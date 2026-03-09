@@ -14,15 +14,21 @@
  * @module workflows/compiler
  */
 
-import type { IAgentRuntime } from "@elizaos/core";
+import {
+  type HandlerOptions,
+  type IAgentRuntime,
+  type Memory,
+  ModelType,
+} from "@elizaos/core";
+import { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";
 import type {
   CompiledStep,
   CompiledWorkflow,
+  WorkflowConditionOperator,
   WorkflowContext,
   WorkflowDef,
   WorkflowEdge,
   WorkflowNode,
-  WorkflowNodeType,
 } from "./types";
 import { validateWorkflow } from "./validation";
 
@@ -35,10 +41,7 @@ import { validateWorkflow } from "./validation";
  * context.  Supports `{{_last}}`, `{{_last.field}}`, `{{nodeId.field}}`,
  * and `{{trigger.field}}`.
  */
-export function interpolate(
-  template: string,
-  ctx: WorkflowContext,
-): string {
+export function interpolate(template: string, ctx: WorkflowContext): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_match, path: string) => {
     const trimmed = path.trim();
     const value = resolvePath(ctx, trimmed);
@@ -87,120 +90,303 @@ function resolvePath(ctx: WorkflowContext, path: string): unknown {
 }
 
 /**
- * Evaluate a simple expression string against the workflow context.
- * Returns a boolean.  Supports:
- * - Template interpolation: `{{_last.status}} === 200`
- * - Truthy check of a single interpolated value: `{{_last.ok}}`
- * - String contains: `{{_last.text}} contains "error"`
+ * Evaluate a condition expression against the workflow context.
+ * Parses the author-defined operands before interpolation so operator-like
+ * content inside workflow data cannot change the comparison being performed.
  */
 export function evaluateExpression(
   expression: string,
   ctx: WorkflowContext,
 ): boolean {
-  const trimmedExpression = expression.trim();
+  return evaluateConditionConfig({ expression }, ctx);
+}
 
-  // Truthy check: only allow a single context path token.
-  const truthyMatch = trimmedExpression.match(/^\{\{\s*([^}]+)\s*\}\}$/);
-  if (truthyMatch) {
-    const value = resolvePath(ctx, truthyMatch[1].trim());
-    return isTruthyValue(value);
+type WorkflowConditionConfig = {
+  expression?: string;
+  leftOperand?: string;
+  operator?: WorkflowConditionOperator;
+  rightOperand?: string;
+};
+
+type NormalizedConditionConfig = {
+  leftOperand: string;
+  operator: WorkflowConditionOperator;
+  rightOperand?: string;
+};
+
+const COMPARISON_OPERATORS = ["===", "!==", ">=", "<=", ">", "<"] as const;
+const EXACT_PLACEHOLDER_PATTERN = /^\{\{([^}]+)\}\}$/;
+
+export function evaluateConditionConfig(
+  config: WorkflowConditionConfig,
+  ctx: WorkflowContext,
+): boolean {
+  const normalized = normalizeConditionConfig(config);
+  const left = resolveConditionOperand(normalized.leftOperand, ctx);
+
+  if (normalized.operator === "truthy") {
+    return isTruthyConditionValue(left);
   }
 
-  // Strict comparison grammar to avoid operator-injection via interpolation.
-  const comparisonMatch = trimmedExpression.match(
-    /^(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)\s*(===|!==|>=|<=|>|<)\s*(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)$/,
-  );
-  if (comparisonMatch) {
-    const left = resolveOperand(ctx, comparisonMatch[1]);
-    const right = resolveOperand(ctx, comparisonMatch[3]);
-    if (left === undefined || right === undefined) {
-      return false;
-    }
-    return compareValues(
-      left,
-      right,
-      comparisonMatch[2] as "===" | "!==" | ">=" | "<=" | ">" | "<",
-    );
+  const right = resolveConditionOperand(normalized.rightOperand ?? "", ctx);
+  if (normalized.operator === "contains") {
+    return String(left ?? "").includes(String(right ?? ""));
   }
 
-  const containsMatch = trimmedExpression.match(
-    /^(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)\s+contains\s+(\{\{\s*[^}]+\s*\}\}|"[^"]*"|'[^']*'|\S+)$/i,
-  );
+  return compareConditionValues(left, right, normalized.operator);
+}
+
+function normalizeConditionConfig(
+  config: WorkflowConditionConfig,
+): NormalizedConditionConfig {
+  const leftOperand =
+    typeof config.leftOperand === "string" ? config.leftOperand.trim() : "";
+  const operator = isConditionOperator(config.operator)
+    ? config.operator
+    : "truthy";
+  const rightOperand =
+    typeof config.rightOperand === "string" ? config.rightOperand.trim() : "";
+
+  if (leftOperand) {
+    return {
+      leftOperand,
+      operator,
+      rightOperand: operator === "truthy" ? undefined : rightOperand,
+    };
+  }
+
+  return parseConditionExpression(String(config.expression ?? ""));
+}
+
+function parseConditionExpression(
+  expression: string,
+): NormalizedConditionConfig {
+  const trimmed = expression.trim();
+  if (!trimmed) {
+    return {
+      leftOperand: "",
+      operator: "truthy",
+    };
+  }
+
+  const containsMatch = trimmed.match(/^(.+?)\s+contains\s+(.+)$/i);
   if (containsMatch) {
-    const left = resolveOperand(ctx, containsMatch[1]);
-    const right = resolveOperand(ctx, containsMatch[2]);
-    if (left === undefined || right === undefined) {
-      return false;
+    return {
+      leftOperand: containsMatch[1].trim(),
+      operator: "contains",
+      rightOperand: containsMatch[2].trim(),
+    };
+  }
+
+  for (const operator of COMPARISON_OPERATORS) {
+    const idx = findTopLevelOperatorIndex(trimmed, operator);
+    if (idx < 0) {
+      continue;
     }
-    return String(left).includes(String(right));
+
+    return {
+      leftOperand: trimmed.slice(0, idx).trim(),
+      operator,
+      rightOperand: trimmed.slice(idx + operator.length).trim(),
+    };
+  }
+
+  if (hasTopLevelLogicalOperator(trimmed)) {
+    return {
+      leftOperand: "",
+      operator: "truthy",
+    };
+  }
+
+  return {
+    leftOperand: trimmed,
+    operator: "truthy",
+  };
+}
+
+function findTopLevelOperatorIndex(
+  expression: string,
+  operator: (typeof COMPARISON_OPERATORS)[number],
+): number {
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i <= expression.length - operator.length; i += 1) {
+    const ch = expression[i];
+    if (quote) {
+      if (ch === quote && expression[i - 1] !== "\\") {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (expression.slice(i, i + operator.length) === operator) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function hasTopLevelLogicalOperator(expression: string): boolean {
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i < expression.length - 1; i += 1) {
+    const ch = expression[i];
+    if (quote) {
+      if (ch === quote && expression[i - 1] !== "\\") {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    const pair = expression.slice(i, i + 2);
+    if (pair === "&&" || pair === "||") {
+      return true;
+    }
   }
 
   return false;
 }
 
-function compareValues(
+function resolveConditionOperand(
+  operand: string,
+  ctx: WorkflowContext,
+): unknown {
+  const trimmed = operand.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const exactPlaceholder = trimmed.match(EXACT_PLACEHOLDER_PATTERN);
+  if (exactPlaceholder) {
+    return resolvePath(ctx, exactPlaceholder[1].trim());
+  }
+  if (trimmed.includes("{{")) {
+    return interpolate(trimmed, ctx);
+  }
+
+  return parseConditionLiteral(trimmed);
+}
+
+function parseConditionLiteral(value: string): unknown {
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "true") return true;
+  if (lowered === "false") return false;
+  if (lowered === "null") return null;
+  if (lowered === "undefined") return undefined;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return stripQuotes(trimmed);
+  }
+
+  const numeric = Number(trimmed);
+  if (trimmed !== "" && !Number.isNaN(numeric)) {
+    return numeric;
+  }
+
+  return trimmed;
+}
+
+function compareConditionValues(
   left: unknown,
   right: unknown,
   op: "===" | "!==" | ">=" | "<=" | ">" | "<",
 ): boolean {
-  const cleanLeft = normalizeComparisonOperand(left);
-  const cleanRight = normalizeComparisonOperand(right);
+  const numLeft = typeof left === "number" ? left : Number(left);
+  const numRight = typeof right === "number" ? right : Number(right);
+  const isNumeric =
+    left !== null &&
+    left !== "" &&
+    right !== null &&
+    right !== "" &&
+    !Number.isNaN(numLeft) &&
+    !Number.isNaN(numRight);
 
-  const numLeft = Number(cleanLeft);
-  const numRight = Number(cleanRight);
-  const isNumeric = !Number.isNaN(numLeft) && !Number.isNaN(numRight);
+  const normalizedLeft = normalizeConditionComparable(left);
+  const normalizedRight = normalizeConditionComparable(right);
 
   switch (op) {
     case "===":
-      return isNumeric ? numLeft === numRight : cleanLeft === cleanRight;
+      return isNumeric
+        ? numLeft === numRight
+        : normalizedLeft === normalizedRight;
     case "!==":
-      return isNumeric ? numLeft !== numRight : cleanLeft !== cleanRight;
+      return isNumeric
+        ? numLeft !== numRight
+        : normalizedLeft !== normalizedRight;
     case ">=":
-      return isNumeric ? numLeft >= numRight : cleanLeft >= cleanRight;
+      return isNumeric
+        ? numLeft >= numRight
+        : normalizedLeft >= normalizedRight;
     case "<=":
-      return isNumeric ? numLeft <= numRight : cleanLeft <= cleanRight;
+      return isNumeric
+        ? numLeft <= numRight
+        : normalizedLeft <= normalizedRight;
     case ">":
-      return isNumeric ? numLeft > numRight : cleanLeft > cleanRight;
+      return isNumeric ? numLeft > numRight : normalizedLeft > normalizedRight;
     case "<":
-      return isNumeric ? numLeft < numRight : cleanLeft < cleanRight;
+      return isNumeric ? numLeft < numRight : normalizedLeft < normalizedRight;
   }
 }
 
-function resolveOperand(ctx: WorkflowContext, token: string): unknown {
-  const trimmed = token.trim();
-  const contextMatch = trimmed.match(/^\{\{\s*([^}]+)\s*\}\}$/);
-  if (contextMatch) {
-    return resolvePath(ctx, contextMatch[1].trim());
+function normalizeConditionComparable(
+  value: unknown,
+): string | number | boolean {
+  if (typeof value === "string") {
+    return value;
   }
-
-  return parseLiteralOperand(trimmed);
-}
-
-function parseLiteralOperand(token: string): unknown {
-  const stripped = stripQuotes(token);
-  if (/^-?\d+(\.\d+)?$/.test(stripped)) {
-    return Number(stripped);
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
   }
-  if (stripped === "true") return true;
-  if (stripped === "false") return false;
-  if (stripped === "null") return null;
-  if (stripped === "undefined") return undefined;
-  return stripped;
+  if (value === null || value === undefined) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
-function normalizeComparisonOperand(value: unknown): string | number {
-  if (typeof value === "number") return value;
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (typeof value === "string") return stripQuotes(value);
-  return JSON.stringify(value);
+function isTruthyConditionValue(value: unknown): boolean {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    return (
+      trimmed !== "" &&
+      trimmed !== "false" &&
+      trimmed !== "0" &&
+      trimmed !== "null" &&
+      trimmed !== "undefined"
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return Boolean(value);
 }
 
-function isTruthyValue(value: unknown): boolean {
-  if (!value) return false;
-  if (typeof value !== "string") return true;
-  return !["", "false", "0", "null", "undefined"].includes(value.trim());
+function isConditionOperator(
+  value: unknown,
+): value is WorkflowConditionOperator {
+  return (
+    value === "truthy" ||
+    value === "===" ||
+    value === "!==" ||
+    value === ">=" ||
+    value === "<=" ||
+    value === ">" ||
+    value === "<" ||
+    value === "contains"
+  );
 }
 
 function stripQuotes(s: string): string {
@@ -211,6 +397,33 @@ function stripQuotes(s: string): string {
     return s.slice(1, -1);
   }
   return s;
+}
+
+function toWorkflowMessageText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined || value === null) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function createWorkflowActionMessage(ctx: WorkflowContext): Memory {
+  return {
+    id: ctx.runId,
+    agentId: ctx.workflowId,
+    entityId: ctx.workflowId,
+    roomId: ctx.runId,
+    createdAt: Date.now(),
+    content: {
+      text: toWorkflowMessageText(ctx._last),
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -238,9 +451,12 @@ export function compileWorkflow(
     code: string,
     params: Record<string, unknown>,
   ) => Promise<unknown>,
+  availableWorkflows?: WorkflowDef[],
 ): CompiledWorkflow {
   // 1. Validate
-  const validation = validateWorkflow(def);
+  const validation = validateWorkflow(def, {
+    workflows: availableWorkflows,
+  });
   if (!validation.valid) {
     const errors = validation.issues
       .filter((i) => i.severity === "error")
@@ -319,12 +535,19 @@ function walkGraph(
 
     // Skip the trigger node itself (it's the entry point, not a step)
     if (node.type !== "trigger") {
-      const step = compileNode(node, nodeMap, adjacency, visited, runtime, codeRunner);
+      const step = compileNode(
+        node,
+        nodeMap,
+        adjacency,
+        visited,
+        runtime,
+        codeRunner,
+      );
       steps.push(step);
     }
 
     // Find the next node(s)
-    const outEdges = adjacency.get(currentId) ?? [];
+    const outEdges: WorkflowEdge[] = adjacency.get(currentId) ?? [];
 
     if (node.type === "condition") {
       // Condition nodes are handled inside compileNode — stop linear walk
@@ -372,12 +595,8 @@ function compileNode(
         nodeType,
         label,
         execute: async (ctx) => {
-          const actionName = interpolate(
-            String(config.actionName ?? ""),
-            ctx,
-          );
-          const rawParams =
-            (config.parameters as Record<string, string>) ?? {};
+          const actionName = interpolate(String(config.actionName ?? ""), ctx);
+          const rawParams = (config.parameters as Record<string, string>) ?? {};
           const resolvedParams: Record<string, string> = {};
           for (const [key, val] of Object.entries(rawParams)) {
             resolvedParams[key] = interpolate(String(val), ctx);
@@ -386,19 +605,21 @@ function compileNode(
           // Find the action in the runtime
           const actions = runtime.actions ?? [];
           const action = actions.find(
-            (a) =>
-              a.name === actionName ||
-              a.similes?.includes(actionName),
+            (a) => a.name === actionName || a.similes?.includes(actionName),
           );
           if (!action) {
             throw new Error(`Action "${actionName}" not found in runtime`);
           }
 
+          const message = createWorkflowActionMessage(ctx);
+          const options: HandlerOptions = {
+            parameters: resolvedParams,
+          };
           const result = await action.handler(
             runtime,
-            {} as never, // message placeholder
+            message,
             undefined,
-            { parameters: resolvedParams } as never,
+            options,
           );
           return result;
         },
@@ -416,7 +637,7 @@ function compileNode(
           const maxTokens =
             typeof config.maxTokens === "number" ? config.maxTokens : 2000;
 
-          const result = await runtime.useModel("text_large" as never, {
+          const result = await runtime.useModel(ModelType.TEXT_LARGE, {
             prompt,
             temperature,
             maxTokens,
@@ -431,15 +652,12 @@ function compileNode(
         nodeType,
         label,
         execute: async (ctx) => {
-          const expression = String(config.expression ?? "true");
-          const result = evaluateExpression(expression, ctx);
+          const result = evaluateConditionConfig(config, ctx);
           const branch = result ? "true" : "false";
 
           // Find the edges for each branch and execute the matching one
           const outEdges = adjacency.get(nodeId) ?? [];
-          const matchingEdge = outEdges.find(
-            (e) => e.sourceHandle === branch,
-          );
+          const matchingEdge = outEdges.find((e) => e.sourceHandle === branch);
           if (!matchingEdge) {
             return { branch, executed: false };
           }
@@ -474,9 +692,7 @@ function compileNode(
         execute: async (ctx) => {
           const code = String(config.code ?? "");
           if (!codeRunner) {
-            throw new Error(
-              "Transform nodes require a sandboxed code runner",
-            );
+            throw new Error("Transform nodes require a sandboxed code runner");
           }
           // Pass the full context as params to the sandbox
           const params: Record<string, unknown> = {
@@ -505,9 +721,13 @@ function compileNode(
             ? Math.max(0, date.getTime() - Date.now())
             : duration;
 
-          if (delayMs > 0 && delayMs <= 60_000) {
-            // Only actually sleep for short delays (< 1 min) in non-durable mode
-            // Longer delays should use Workflow DevKit's sleep() in production
+          if (delayMs > MAX_IN_PROCESS_DELAY_MS) {
+            throw new Error(
+              `Delay node "${label || nodeId}" exceeds the in-process maximum of 60 seconds and requires durable workflow execution`,
+            );
+          }
+
+          if (delayMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
 
@@ -548,7 +768,10 @@ function compileNode(
           const variableName = String(config.variableName ?? "item");
 
           // Resolve the items array
-          const rawItems = resolvePath(ctx, itemsExpr.replace(/^\{\{|\}\}$/g, ""));
+          const rawItems = resolvePath(
+            ctx,
+            itemsExpr.replace(/^\{\{|\}\}$/g, ""),
+          );
           const items = Array.isArray(rawItems) ? rawItems : [];
 
           // Find the "body" branch edge
@@ -634,44 +857,4 @@ function compileNode(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Duration parser
-// ---------------------------------------------------------------------------
-
-const DURATION_REGEX =
-  /^(\d+)\s*(ms|milliseconds?|s|seconds?|m|min|minutes?|h|hours?|d|days?|w|weeks?)$/i;
-
-const UNIT_MS: Record<string, number> = {
-  ms: 1,
-  millisecond: 1,
-  milliseconds: 1,
-  s: 1000,
-  second: 1000,
-  seconds: 1000,
-  m: 60_000,
-  min: 60_000,
-  minute: 60_000,
-  minutes: 60_000,
-  h: 3_600_000,
-  hour: 3_600_000,
-  hours: 3_600_000,
-  d: 86_400_000,
-  day: 86_400_000,
-  days: 86_400_000,
-  w: 604_800_000,
-  week: 604_800_000,
-  weeks: 604_800_000,
-};
-
-/**
- * Parse a human-readable duration string into milliseconds.
- * Examples: "5m", "30 seconds", "2 hours", "1 day", "500ms"
- */
-export function parseDuration(duration: string): number {
-  const match = duration.trim().match(DURATION_REGEX);
-  if (!match) return 0;
-  const value = Number.parseInt(match[1], 10);
-  const unit = match[2].toLowerCase();
-  const multiplier = UNIT_MS[unit] ?? 0;
-  return value * multiplier;
-}
+export { MAX_IN_PROCESS_DELAY_MS, parseDuration } from "./duration";

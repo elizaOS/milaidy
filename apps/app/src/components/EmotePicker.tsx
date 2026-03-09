@@ -2,6 +2,11 @@ import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client } from "../api-client";
+import {
+  dispatchMiladyEvent,
+  EMOTE_PICKER_EVENT,
+  STOP_EMOTE_EVENT,
+} from "../events";
 
 // Types
 interface EmoteItem {
@@ -314,7 +319,7 @@ export function EmotePicker() {
 
   // Stop emote
   const stopEmote = useCallback(() => {
-    document.dispatchEvent(new CustomEvent("milady:stop-emote"));
+    dispatchMiladyEvent(STOP_EMOTE_EVENT);
     setPlaying(null);
   }, []);
 
@@ -351,9 +356,9 @@ export function EmotePicker() {
       }
     };
 
-    document.addEventListener("milady:emote-picker", handleElectronToggle);
+    document.addEventListener(EMOTE_PICKER_EVENT, handleElectronToggle);
     return () =>
-      document.removeEventListener("milady:emote-picker", handleElectronToggle);
+      document.removeEventListener(EMOTE_PICKER_EVENT, handleElectronToggle);
   }, [emotePickerOpen, openEmotePicker, closeEmotePicker]);
 
   // Focus search input on open

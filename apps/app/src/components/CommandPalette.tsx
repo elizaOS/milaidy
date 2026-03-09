@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useApp } from "../AppContext";
+import { COMMAND_PALETTE_EVENT } from "../events";
 import { useBugReport } from "../hooks/useBugReport";
 import {
   buildCommandPaletteCommands,
@@ -74,6 +75,35 @@ export function CommandPalette() {
     const query = commandQuery.toLowerCase();
     return allCommands.filter((cmd) => cmd.label.toLowerCase().includes(query));
   }, [allCommands, commandQuery]);
+
+  // Listen for milady:command-palette from main.tsx (electron shortcut Cmd/Ctrl+K)
+  useEffect(() => {
+    const toggle = () => {
+      setState("commandPaletteOpen", !commandPaletteOpen);
+      if (!commandPaletteOpen) {
+        setState("commandQuery", "");
+        setState("commandActiveIndex", 0);
+      }
+    };
+    document.addEventListener(COMMAND_PALETTE_EVENT, toggle);
+    return () => document.removeEventListener(COMMAND_PALETTE_EVENT, toggle);
+  }, [commandPaletteOpen, setState]);
+
+  // Also listen for Ctrl/Meta+K in the browser (non-native context)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setState("commandPaletteOpen", !commandPaletteOpen);
+        if (!commandPaletteOpen) {
+          setState("commandQuery", "");
+          setState("commandActiveIndex", 0);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [commandPaletteOpen, setState]);
 
   // Auto-focus input when opened
   useEffect(() => {

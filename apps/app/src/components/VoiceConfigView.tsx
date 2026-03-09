@@ -18,6 +18,7 @@ import {
   type VoiceMode,
   type VoiceProvider,
 } from "../api-client";
+import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import {
   CloudConnectionStatus,
   CloudSourceModeToggle,
@@ -227,9 +228,12 @@ function WakeWordSection({
     let handle: { remove: () => Promise<void> } | null = null;
     void (async () => {
       try {
-        handle = await Swabble.addListener("audioLevel", (evt) => {
-          setAudioLevel(evt.level);
-        });
+        handle = await Swabble.addListener(
+          "audioLevel",
+          (evt: { level: number }) => {
+            setAudioLevel(evt.level);
+          },
+        );
       } catch {
         // Not available
       }
@@ -586,11 +590,7 @@ export function VoiceConfigView() {
           ...(swabbleCfg ? { swabble: swabbleCfg } : {}),
         },
       });
-      window.dispatchEvent(
-        new CustomEvent("milady:voice-config-updated", {
-          detail: normalizedVoiceConfig,
-        }),
-      );
+      dispatchWindowEvent(VOICE_CONFIG_UPDATED_EVENT, normalizedVoiceConfig);
       setSaveSuccess(true);
       setDirty(false);
       setTimeout(() => setSaveSuccess(false), 2500);
