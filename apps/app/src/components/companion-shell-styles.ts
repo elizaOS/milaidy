@@ -16,6 +16,7 @@ export const COMPANION_OVERLAY_TABS = new Set<Tab>([
   "plugins",
   "advanced",
   "actions",
+  "workflows",
   "triggers",
   "fine-tuning",
   "trajectories",
@@ -70,6 +71,7 @@ export function tabFlags(tab: Tab) {
   const isAdvancedOverlay =
     tab === "advanced" ||
     tab === "actions" ||
+    tab === "workflows" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
     tab === "trajectories" ||
