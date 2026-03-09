@@ -4664,6 +4664,14 @@ const APP_ORIGIN_RE =
 const LOCAL_HOST_RE =
   /^(localhost|127\.0\.0\.1|\[?::1\]?|\[?0:0:0:0:0:0:0:1\]?|::ffff:127\.0\.0\.1)$/;
 
+/** Wildcard bind addresses that listen on all interfaces. */
+const WILDCARD_BIND_RE = /^(0\.0\.0\.0|::|0:0:0:0:0:0:0:0)$/;
+
+/** Strip an optional port suffix from a hostname string. */
+function stripPort(host: string): string {
+  return host.replace(/:\d+$/, "");
+}
+
 export function isAllowedHost(req: http.IncomingMessage): boolean {
   const raw = req.headers.host;
   if (!raw) return true; // No Host header → non-browser client (e.g. curl)
@@ -4681,17 +4689,35 @@ export function isAllowedHost(req: http.IncomingMessage): boolean {
     hostname = trimmed;
   } else {
     // IPv4 or hostname: localhost:31337 → localhost
-    hostname = trimmed.replace(/:\d+$/, "");
+    hostname = stripPort(trimmed);
   }
 
   if (!hostname) return true;
 
-  // Allow configured custom bind host (if non-loopback, the token gate
-  // enforced by ensureApiTokenForBindHost already protects the API)
-  const bindHost = process.env.MILADY_API_BIND?.trim().toLowerCase();
-  if (bindHost && hostname === bindHost.replace(/:\d+$/, "").trim()) {
+  const bindHost = (process.env.MILADY_API_BIND ?? "").trim().toLowerCase();
+
+  // When binding on all interfaces (0.0.0.0 / ::), any Host is acceptable —
+  // ensureApiTokenForBindHost already enforces a token for non-loopback binds.
+  if (WILDCARD_BIND_RE.test(stripPort(bindHost))) {
     return true;
   }
+
+  // Allow the exact configured bind hostname.
+  if (bindHost && hostname === stripPort(bindHost)) {
+    return true;
+  }
+
+  // Allow explicitly listed extra hostnames via MILADY_ALLOWED_HOSTS
+  // (comma-separated, e.g. "myserver.local,192.168.1.10").
+  const extra = process.env.MILADY_ALLOWED_HOSTS;
+  if (extra) {
+    const allowed = extra
+      .split(",")
+      .map((h) => stripPort(h.trim().toLowerCase()))
+      .filter(Boolean);
+    if (allowed.includes(hostname)) return true;
+  }
+
   return LOCAL_HOST_RE.test(hostname);
 }
 
@@ -6499,7 +6525,16 @@ async function handleRequest(
   // DNS to 127.0.0.1 and read the unauthenticated localhost API from a
   // malicious page.
   if (!isAllowedHost(req)) {
-    json(res, { error: "Forbidden — invalid Host header" }, 403);
+    const incomingHost = req.headers.host ?? "your-hostname";
+    json(
+      res,
+      {
+        error: "Forbidden — invalid Host header",
+        hint: `To allow this host, set MILADY_ALLOWED_HOSTS=${incomingHost} in your environment, or access via http://localhost`,
+        docs: "https://docs.milady.ai/configuration#allowed-hosts",
+      },
+      403,
+    );
     return;
   }
 

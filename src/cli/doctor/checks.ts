@@ -318,6 +318,76 @@ export function checkDiskSpace(
 }
 
 // ---------------------------------------------------------------------------
+// Config checks (continued)
+// ---------------------------------------------------------------------------
+
+/** Wildcard bind addresses — same regex as server.ts. */
+const WILDCARD_BIND_RE = /^(0\.0\.0\.0|::|0:0:0:0:0:0:0:0)$/;
+const LOOPBACK_BIND_RE =
+  /^(localhost|127\.0\.0\.1|::1|\[::1\]|0:0:0:0:0:0:0:1)$/;
+
+export function checkHostConfig(
+  env: Record<string, string | undefined> = process.env,
+): CheckResult {
+  const rawBind = env.MILADY_API_BIND?.trim() ?? "127.0.0.1";
+  const bindHost = rawBind.replace(/:\d+$/, "").toLowerCase();
+  const token = env.MILADY_API_TOKEN?.trim() ?? "";
+  const allowedHosts = env.MILADY_ALLOWED_HOSTS?.trim() ?? "";
+
+  const isWildcard = WILDCARD_BIND_RE.test(bindHost);
+  const isLoopback = LOOPBACK_BIND_RE.test(bindHost);
+
+  // Wildcard bind: API is reachable from all interfaces — token auto-generated
+  // each restart if not explicitly set, which breaks persistent clients.
+  if (isWildcard && !token) {
+    return {
+      label: "Host binding",
+      category: "config",
+      status: "warn",
+      detail: `MILADY_API_BIND=${rawBind} — token is auto-generated each restart`,
+      fix: "Set a stable MILADY_API_TOKEN=<secret> in your environment",
+    };
+  }
+
+  // Non-loopback, non-wildcard bind without a token — ensureApiTokenForBindHost
+  // will auto-generate one, but flag it so the user is aware.
+  if (!isLoopback && !isWildcard && !token) {
+    return {
+      label: "Host binding",
+      category: "config",
+      status: "warn",
+      detail: `MILADY_API_BIND=${rawBind} without MILADY_API_TOKEN — token auto-generated each restart`,
+      fix: "Set a stable MILADY_API_TOKEN=<secret>",
+    };
+  }
+
+  if (allowedHosts) {
+    return {
+      label: "Host binding",
+      category: "config",
+      status: "pass",
+      detail: `${rawBind} + MILADY_ALLOWED_HOSTS=${allowedHosts}`,
+    };
+  }
+
+  if (!isLoopback) {
+    return {
+      label: "Host binding",
+      category: "config",
+      status: "pass",
+      detail: `${rawBind} (token protected)`,
+    };
+  }
+
+  return {
+    label: "Host binding",
+    category: "config",
+    status: "pass",
+    detail: "Loopback only (default)",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Network checks
 // ---------------------------------------------------------------------------
 
@@ -410,6 +480,7 @@ export async function runAllChecks(
     // config
     checkConfigFile(opts.configPath),
     checkModelKey(env),
+    checkHostConfig(env),
     // storage
     checkStateDir(env),
     checkDatabase(env),
