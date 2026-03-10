@@ -305,6 +305,28 @@ function extractRows(result: unknown): unknown[] {
   return Array.isArray(record.rows) ? record.rows : [];
 }
 
+async function computeBySource(
+  runtime: IAgentRuntime,
+): Promise<Record<string, number>> {
+  try {
+    const result = await executeRawSql(
+      runtime,
+      "SELECT source, count(*) AS cnt FROM trajectories GROUP BY source",
+    );
+    const rows = extractRows(result);
+    const bySource: Record<string, number> = {};
+    for (const row of rows) {
+      const r = asRecord(row);
+      if (!r) continue;
+      const src = typeof r.source === "string" ? r.source : "";
+      if (src) bySource[src] = toNumber(r.cnt, 0);
+    }
+    return bySource;
+  } catch {
+    return {};
+  }
+}
+
 function warnRuntime(
   runtime: IAgentRuntime,
   message: string,
@@ -886,6 +908,42 @@ async function saveTrajectory(
   }
 }
 
+/**
+ * Read orchestrator trajectory context from the runtime, if set.
+ * The coding agent orchestrator plugin sets `__orchestratorTrajectoryCtx` on
+ * the runtime around `useModel()` calls so we can tag them here.
+ */
+function readOrchestratorTrajectoryContext(runtime: unknown):
+  | {
+      source: "orchestrator";
+      decisionType: string;
+      sessionId?: string;
+      taskLabel?: string;
+      repo?: string;
+      workdir?: string;
+      originalTask?: string;
+    }
+  | undefined {
+  if (!runtime || typeof runtime !== "object") return undefined;
+  const ctx = (runtime as Record<string, unknown>).__orchestratorTrajectoryCtx;
+  if (!ctx || typeof ctx !== "object") return undefined;
+  const candidate = ctx as Record<string, unknown>;
+  if (
+    candidate.source !== "orchestrator" ||
+    typeof candidate.decisionType !== "string"
+  )
+    return undefined;
+  return candidate as {
+    source: "orchestrator";
+    decisionType: string;
+    sessionId?: string;
+    taskLabel?: string;
+    repo?: string;
+    workdir?: string;
+    originalTask?: string;
+  };
+}
+
 async function appendLlmCall(
   runtime: IAgentRuntime,
   stepId: string,
@@ -902,6 +960,11 @@ async function appendLlmCall(
   trajectory.status =
     trajectory.status === "active" ? "active" : trajectory.status;
 
+  // Check for orchestrator trajectory context set by the coding agent plugin.
+  // When present, it overrides the generic "action" / "runtime.useModel" defaults
+  // so orchestrator LLM calls are identifiable in the trajectories viewer.
+  const orchestratorCtx = readOrchestratorTrajectoryContext(runtime);
+
   const step = ensureStep(trajectory, stepId, now);
   const call: PersistedLlmCall = {
     callId: toText(params.callId, `${stepId}-call-${step.llmCalls.length + 1}`),
@@ -912,8 +975,10 @@ async function appendLlmCall(
     response: toText(params.response, ""),
     temperature: toNumber(params.temperature, 0),
     maxTokens: toNumber(params.maxTokens, 0),
-    purpose: toText(params.purpose, "action"),
-    actionType: toText(params.actionType, "runtime.useModel"),
+    purpose: orchestratorCtx?.decisionType ?? toText(params.purpose, "action"),
+    actionType: orchestratorCtx
+      ? "orchestrator.useModel"
+      : toText(params.actionType, "runtime.useModel"),
     latencyMs: toNumber(params.latencyMs, 0),
   };
 
@@ -926,6 +991,31 @@ async function appendLlmCall(
   trajectory.startTime = Math.min(trajectory.startTime, now);
   trajectory.endTime = Math.max(trajectory.endTime ?? now, now);
   trajectory.updatedAt = new Date(now).toISOString();
+
+  // Merge orchestrator metadata into trajectory metadata for filtering/display
+  if (orchestratorCtx) {
+    trajectory.source = "orchestrator";
+    const meta = (trajectory.metadata ?? {}) as Record<string, unknown>;
+    meta.orchestrator = {
+      decisionType: orchestratorCtx.decisionType,
+      ...(orchestratorCtx.sessionId && {
+        sessionId: orchestratorCtx.sessionId,
+      }),
+      ...(orchestratorCtx.taskLabel && {
+        taskLabel: orchestratorCtx.taskLabel,
+      }),
+      ...(orchestratorCtx.repo && {
+        repo: orchestratorCtx.repo,
+      }),
+      ...(orchestratorCtx.workdir && {
+        workdir: orchestratorCtx.workdir,
+      }),
+      ...(orchestratorCtx.originalTask && {
+        originalTask: orchestratorCtx.originalTask,
+      }),
+    };
+    trajectory.metadata = meta;
+  }
 
   await saveTrajectory(runtime, trajectory);
 }
@@ -1296,11 +1386,13 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
       const countRow = asRecord(extractRows(countResult)[0]);
       const total = toNumber(countRow?.total, 0);
 
+      const bySource = await computeBySource(runtime);
+
       return {
         total,
         enabled: true,
         byStatus: {},
-        bySource: {},
+        bySource,
       };
     } catch {
       return { total: 0, byStatus: {}, bySource: {} };
@@ -1783,11 +1875,13 @@ export class DatabaseTrajectoryLogger extends Service {
       const countRow = asRecord(extractRows(countResult)[0]);
       const total = toNumber(countRow?.total, 0);
 
+      const bySource = await computeBySource(this.runtime);
+
       return {
         total,
         enabled: this.enabled,
         byStatus: {},
-        bySource: {},
+        bySource,
       };
     } catch {
       return { total: 0, byStatus: {}, bySource: {} };

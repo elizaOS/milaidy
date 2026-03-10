@@ -33,6 +33,7 @@ const SOURCE_COLORS: Record<string, { bg: string; fg: string }> = {
   telegram: { bg: "rgba(34, 197, 94, 0.15)", fg: "rgb(34, 197, 94)" },
   discord: { bg: "rgba(88, 101, 242, 0.15)", fg: "rgb(88, 101, 242)" },
   api: { bg: "rgba(156, 163, 175, 0.15)", fg: "rgb(156, 163, 175)" },
+  orchestrator: { bg: "rgba(168, 85, 247, 0.15)", fg: "rgb(168, 85, 247)" },
 };
 
 interface TrajectoriesViewProps {
