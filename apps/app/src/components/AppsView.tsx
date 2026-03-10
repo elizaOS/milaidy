@@ -44,12 +44,12 @@ const HYPERSCAPE_SCRIPTED_ROLE_OPTIONS: Array<{
   value: HyperscapeScriptedRole;
   label: string;
 }> = [
-  { value: "balanced", label: "Balanced" },
-  { value: "combat", label: "Combat" },
-  { value: "woodcutting", label: "Woodcutting" },
-  { value: "fishing", label: "Fishing" },
-  { value: "mining", label: "Mining" },
-];
+    { value: "balanced", label: "Balanced" },
+    { value: "combat", label: "Combat" },
+    { value: "woodcutting", label: "Woodcutting" },
+    { value: "fishing", label: "Fishing" },
+    { value: "mining", label: "Mining" },
+  ];
 
 const CATEGORY_LABELS: Record<string, string> = {
   game: "Game",
@@ -766,13 +766,13 @@ export function AppsView() {
                 <>
                   Goal: {hyperscapeGoalResponse.goal.description ?? "unknown"}
                   {typeof hyperscapeGoalResponse.goal.progressPercent ===
-                  "number"
+                    "number"
                     ? ` (${hyperscapeGoalResponse.goal.progressPercent}%)`
                     : ""}
                 </>
               ) : (
                 (hyperscapeGoalResponse?.message ??
-                "No active goal loaded for the selected agent.")
+                  "No active goal loaded for the selected agent.")
               )}
             </div>
 
@@ -832,31 +832,29 @@ export function AppsView() {
     if (!hasCurrentGame) return null;
 
     return (
-      <div className="mb-4 border border-border bg-card p-3 flex flex-col gap-2">
-        <div className="font-bold text-xs">
+      <div className="mb-5 border border-border/40 bg-accent/5 backdrop-blur-md p-4 flex flex-col gap-3 rounded-2xl shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-accent" />
+        <div className="font-bold text-sm text-accent">
           {t("appsview.ActiveGameSession")}
         </div>
-        <div className="text-sm">
+        <div className="text-base font-semibold text-txt-strong">
           {activeGameDisplayName || activeGameApp || "Current game"}
         </div>
-        <div className="text-[11px] text-muted">
+        <div className="text-xs text-muted">
           {t("appsview.ResumeInFullScree")}
         </div>
-        <div className="text-[11px] text-muted break-all">
-          {currentGameViewerUrl}
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mt-1">
           <button
             type="button"
             onClick={handleOpenCurrentGame}
-            className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+            className="px-4 py-2 text-xs font-medium bg-accent text-accent-fg rounded-xl shadow-[0_0_15px_rgba(var(--accent),0.3)] hover:shadow-[0_0_20px_rgba(var(--accent),0.5)] hover:-translate-y-0.5 transition-all cursor-pointer"
           >
             {t("appsview.ResumeFullscreen")}
           </button>
           <button
             type="button"
             onClick={handleOpenCurrentGameInNewTab}
-            className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+            className="px-4 py-2 text-xs font-medium bg-bg-accent border border-border/50 text-txt rounded-xl hover:border-accent hover:text-accent hover:-translate-y-0.5 transition-all cursor-pointer shadow-sm"
           >
             {t("appsview.OpenInNewTab")}
           </button>
@@ -889,13 +887,13 @@ export function AppsView() {
           </div>
         ) : null}
 
-        <div className="border border-border p-4 bg-card flex flex-col gap-3">
-          <div className="flex items-start gap-2">
-            <div>
-              <div className="font-bold text-sm">
+        <div className="border border-border/40 p-5 bg-card/60 backdrop-blur-md flex flex-col gap-4 rounded-2xl shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <div className="font-bold text-lg text-txt-strong">
                 {selectedApp.displayName ?? selectedApp.name}
               </div>
-              <div className="text-xs text-muted">
+              <div className="text-sm text-muted mt-1">
                 {selectedApp.description ?? "No description"}
               </div>
             </div>
@@ -1033,18 +1031,18 @@ export function AppsView() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-2">
+      <div className="flex gap-3 mb-2">
         <input
           type="text"
           placeholder={t("appsview.SearchApps")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1 px-3 py-2 border border-border rounded-md bg-card text-txt text-sm focus:border-accent focus:outline-none"
+          className="flex-1 px-4 py-2.5 border border-border/50 rounded-xl bg-bg/50 backdrop-blur-sm text-txt text-sm focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none shadow-inner transition-all"
         />
         <button
           type="button"
           onClick={() => void loadApps()}
-          className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
+          className="px-4 py-2.5 text-sm font-medium bg-bg-accent border border-border/50 text-txt rounded-xl hover:border-accent hover:text-accent transition-all cursor-pointer shadow-sm"
         >
           {t("appsview.Refresh")}
         </button>
@@ -1084,21 +1082,21 @@ export function AppsView() {
               : "No apps available."}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
           {filtered.map((app) => {
             const isActive = activeAppNames.has(app.name);
             return (
               <div
                 key={app.name}
-                className="border border-border p-4 bg-card flex flex-col gap-2"
+                className="relative overflow-hidden border border-border/40 bg-card/60 backdrop-blur-md p-5 rounded-2xl flex flex-col gap-3 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(var(--accent),0.15)] hover:-translate-y-1 hover:border-accent/50 group"
               >
                 <div className="flex justify-between items-start gap-2">
-                  <div className="font-bold text-sm">
+                  <div className="font-bold text-base text-txt-strong group-hover:text-accent transition-colors">
                     {app.displayName ?? app.name}
                   </div>
                   <button
                     type="button"
-                    className="text-xs px-2 py-0.5 bg-card border border-border cursor-pointer hover:border-accent"
+                    className="flex shrink-0 items-center justify-center w-8 h-8 rounded-lg bg-bg-accent border border-border/50 text-muted hover:text-accent hover:border-accent transition-all shadow-sm cursor-pointer"
                     onClick={() => setSelectedAppName(app.name)}
                     title={`Open ${app.displayName ?? app.name}`}
                   >
@@ -1106,26 +1104,26 @@ export function AppsView() {
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {app.category ? (
-                    <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border border-border/50 bg-bg/50 backdrop-blur text-muted">
                       {CATEGORY_LABELS[app.category] ?? app.category}
                     </span>
                   ) : null}
                   {isActive ? (
-                    <span className="text-[10px] px-1.5 py-0.5 border border-ok text-ok">
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border border-ok/30 bg-ok/10 text-ok">
                       {t("appsview.Active")}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="text-xs text-muted flex-1">
+                <div className="text-sm text-muted flex-1 line-clamp-3">
                   {app.description ?? "No description"}
                 </div>
 
                 <button
                   type="button"
-                  className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover self-start disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-xs px-4 py-2 mt-2 bg-accent text-accent-fg font-medium cursor-pointer hover:shadow-[0_0_15px_rgba(var(--accent),0.4)] hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 rounded-xl transition-all self-start"
                   disabled={busyApp === app.name}
                   onClick={() => void handleLaunch(app)}
                 >

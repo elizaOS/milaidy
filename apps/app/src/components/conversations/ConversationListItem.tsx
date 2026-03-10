@@ -33,6 +33,8 @@ interface ConversationListItemProps {
   onSetConfirmDelete: (id: string) => void;
 }
 
+import { Edit2, Trash2 } from "lucide-react";
+
 export function ConversationListItem({
   conv,
   isActive,
@@ -59,19 +61,17 @@ export function ConversationListItem({
       key={conv.id}
       data-testid="conv-item"
       data-active={isActive || undefined}
-      className={`${
-        isGameModal
-          ? "chat-game-conv-item"
+      className={`${isGameModal
+          ? "group relative flex items-center gap-3 w-full p-2.5 rounded-xl cursor-pointer transition-all border border-transparent"
           : "flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px]"
-      } ${
-        isActive
+        } ${isActive
           ? isGameModal
-            ? "is-active"
+            ? "bg-accent/15 border-accent/30 shadow-[0_0_15px_rgba(240,178,50,0.1)]"
             : "bg-bg-hover border-l-accent"
           : isGameModal
-            ? ""
+            ? "hover:bg-white/5 hover:border-white/10"
             : "border-l-transparent hover:bg-bg-hover"
-      } group`}
+        }`}
     >
       {isEditing ? (
         <input
@@ -89,7 +89,7 @@ export function ConversationListItem({
             type="button"
             className={
               isGameModal
-                ? "chat-game-conv-select-btn"
+                ? "flex flex-col flex-1 min-w-0 text-left cursor-pointer outline-none border-none bg-transparent m-0 p-0"
                 : "flex items-center gap-2 flex-1 min-w-0 bg-transparent border-0 p-0 m-0 text-left cursor-pointer"
             }
             onClick={() => onSelect(conv.id)}
@@ -99,19 +99,19 @@ export function ConversationListItem({
               <span
                 className={
                   isGameModal
-                    ? "chat-game-conv-unread"
+                    ? "absolute top-3 left-3 w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(240,178,50,0.8)]"
                     : "w-2 h-2 rounded-full bg-accent shrink-0"
                 }
               />
             )}
 
             <div
-              className={isGameModal ? "chat-game-conv-body" : "flex-1 min-w-0"}
+              className={isGameModal ? "flex-1 min-w-0 flex flex-col gap-1 w-full" : "flex-1 min-w-0"}
             >
               <span
                 className={
                   isGameModal
-                    ? "chat-game-conv-title"
+                    ? `text-[13px] font-medium truncate leading-tight transition-colors ${isActive ? "text-accent text-shadow-glow" : "text-white/90 group-hover:text-white"}`
                     : "font-medium truncate text-txt"
                 }
               >
@@ -120,7 +120,7 @@ export function ConversationListItem({
               <span
                 className={
                   isGameModal
-                    ? "chat-game-conv-time"
+                    ? "text-[11px] text-white/40 truncate"
                     : "text-[11px] text-muted mt-0.5"
                 }
               >
@@ -134,7 +134,7 @@ export function ConversationListItem({
             type="button"
             className={
               isGameModal
-                ? "chat-game-conv-action"
+                ? `flex items-center justify-center w-7 h-7 rounded-lg bg-transparent text-white/40 opacity-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white/10 hover:text-white`
                 : "opacity-0 group-hover:opacity-100 transition-opacity border-none bg-transparent text-muted hover:text-accent cursor-pointer text-sm px-1 py-0.5 rounded flex-shrink-0"
             }
             onClick={(e) => {
@@ -143,7 +143,7 @@ export function ConversationListItem({
             }}
             title={t("conversations.rename")}
           >
-            &#x270E;
+            {isGameModal ? <Edit2 className="w-3.5 h-3.5" /> : "\u270E"}
           </button>
 
           {/* Delete with confirm (default variant) or direct delete (game-modal) */}
@@ -151,14 +151,14 @@ export function ConversationListItem({
             <button
               type="button"
               data-testid="conv-delete"
-              className="chat-game-conv-action chat-game-conv-action-danger"
+              className="flex items-center justify-center w-7 h-7 rounded-lg bg-transparent text-white/40 opacity-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-danger/20 hover:text-danger"
               onClick={(e) => {
                 e.stopPropagation();
                 void onDelete(conv.id);
               }}
               title={t("conversations.delete")}
             >
-              &times;
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           ) : confirmDeleteId === conv.id ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">

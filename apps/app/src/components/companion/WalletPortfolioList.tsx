@@ -18,7 +18,6 @@ type WalletPortfolioListProps = {
 
 export function WalletPortfolioList({
   visibleWalletTokenRows,
-  walletSelectedTokenKey,
   setWalletSelectedTokenKey,
   setWalletTokenDetailsOpen,
   walletTokenDetailsOpen,
@@ -33,48 +32,48 @@ export function WalletPortfolioList({
 }: WalletPortfolioListProps) {
   return (
     <>
-      <div className="anime-wallet-token-list">
+      <div className="text-sm">
         {visibleWalletTokenRows.length > 0 ? (
           visibleWalletTokenRows.map((row) => (
             <button
               key={row.key}
               type="button"
-              className={`anime-wallet-token-row ${walletSelectedTokenKey === row.key ? "is-active" : ""}`}
+              className={`text-sm`}
               onClick={() => {
                 setWalletSelectedTokenKey(row.key);
                 setWalletTokenDetailsOpen(true);
               }}
               data-testid={`wallet-token-row-${row.key}`}
             >
-              <div className="anime-wallet-token-main">
-                <span className="anime-wallet-token-logo" aria-hidden="true">
+              <div className="text-sm">
+                <span className="text-sm" aria-hidden="true">
                   {row.logoUrl ? (
                     <img src={row.logoUrl} alt="" loading="lazy" />
                   ) : (
                     row.symbol.slice(0, 1)
                   )}
                 </span>
-                <div className="anime-wallet-token-meta">
-                  <span className="anime-wallet-token-name">{row.name}</span>
-                  <span className="anime-wallet-token-balance">
+                <div className="text-sm">
+                  <span className="text-sm">{row.name}</span>
+                  <span className="text-sm">
                     {row.balance} {row.symbol}
                   </span>
                 </div>
               </div>
-              <div className="anime-wallet-token-value-wrap">
-                <span className="anime-wallet-token-value">
+              <div className="text-sm">
+                <span className="text-sm">
                   $
                   {row.valueUsd.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
                 </span>
-                <span className="anime-wallet-token-chain">{row.chain}</span>
+                <span className="text-sm">{row.chain}</span>
               </div>
             </button>
           ))
         ) : (
-          <div className="anime-wallet-asset-empty">
+          <div className="text-sm">
             {walletLoading
               ? t("wallet.loadingBalances")
               : t("wallet.noTokensFound")}
@@ -83,14 +82,14 @@ export function WalletPortfolioList({
       </div>
 
       {selectedWalletToken && (
-        <div className="anime-wallet-token-detail-toggle">
-          <div className="anime-wallet-token-detail-toggle-meta">
+        <div className="text-sm">
+          <div className="text-sm">
             <span>{selectedWalletToken.name}</span>
             <span>{selectedWalletToken.chain}</span>
           </div>
           <button
             type="button"
-            className="anime-wallet-address-copy"
+            className="text-sm"
             data-testid="wallet-token-details-toggle"
             onClick={() => setWalletTokenDetailsOpen(!walletTokenDetailsOpen)}
           >
@@ -102,29 +101,29 @@ export function WalletPortfolioList({
       )}
 
       {selectedWalletToken && walletTokenDetailsOpen && (
-        <div className="anime-wallet-token-detail">
-          <div className="anime-wallet-token-detail-head">
+        <div className="text-sm">
+          <div className="text-sm">
             <span>{t("wallet.tokenDetails")}</span>
             <span>
               {t("wallet.tokenShare")}: {selectedWalletTokenShare.toFixed(2)}%
             </span>
           </div>
-          <div className="anime-wallet-token-detail-grid">
-            <div className="anime-wallet-token-detail-item">
+          <div className="text-sm">
+            <div className="text-sm">
               <span>{t("wallet.name")}</span>
               <strong>{selectedWalletToken.name}</strong>
             </div>
-            <div className="anime-wallet-token-detail-item">
+            <div className="text-sm">
               <span>{t("wallet.chain")}</span>
               <strong>{selectedWalletToken.chain}</strong>
             </div>
-            <div className="anime-wallet-token-detail-item">
+            <div className="text-sm">
               <span>{t("wallet.table.balance")}</span>
               <strong>
                 {selectedWalletToken.balance} {selectedWalletToken.symbol}
               </strong>
             </div>
-            <div className="anime-wallet-token-detail-item">
+            <div className="text-sm">
               <span>{t("wallet.value")}</span>
               <strong>
                 $
@@ -136,18 +135,18 @@ export function WalletPortfolioList({
             </div>
           </div>
           {selectedWalletToken.assetAddress && (
-            <div className="anime-wallet-token-detail-address">
+            <div className="text-sm">
               <span>{t("wallet.tokenAddress")}</span>
               <code title={selectedWalletToken.assetAddress}>
                 {selectedWalletToken.assetAddress}
               </code>
             </div>
           )}
-          <div className="anime-wallet-token-detail-actions">
+          <div className="text-sm">
             {selectedWalletToken.assetAddress && (
               <button
                 type="button"
-                className="anime-wallet-address-copy"
+                className="text-sm"
                 onClick={() => {
                   void handleCopySelectedTokenAddress();
                 }}
@@ -160,21 +159,21 @@ export function WalletPortfolioList({
                 href={selectedWalletTokenExplorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="anime-wallet-tx-link anime-wallet-recent-link"
+                className="text-sm"
               >
                 {t("wallet.tokenViewExplorer")}
               </a>
             )}
             <button
               type="button"
-              className="anime-wallet-address-copy"
+              className="text-sm"
               onClick={handleSelectedTokenSwap}
             >
               {t("wallet.tokenSwapThis")}
             </button>
             <button
               type="button"
-              className="anime-wallet-address-copy"
+              className="text-sm"
               onClick={handleSelectedTokenSend}
             >
               {t("wallet.tokenSendThis")}

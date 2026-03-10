@@ -152,6 +152,17 @@ export class VrmEngine {
   private resolveReady: (() => void) | null = null;
   private rejectReady: ((error?: unknown) => void) | null = null;
 
+  // Transition state
+  private isCameraTransitioning = false;
+  private transitionStartFov = 0;
+  private transitionTargetFov = 0;
+  private transitionStartPos = new THREE.Vector3();
+  private transitionTargetPos = new THREE.Vector3();
+  private transitionStartLookAt = new THREE.Vector3();
+  private transitionTargetLookAt = new THREE.Vector3();
+  private transitionProgress = 0;
+  private transitionDuration = 0.8; // seconds
+
   private handleControlStart = (): void => {
     if (!this.interactionEnabled) return;
   };
@@ -326,26 +337,54 @@ export class VrmEngine {
     }
   }
   setCameraProfile(profile: CameraProfile): void {
-    this.cameraProfile = profile;
-    if (profile === "companion") {
-      this.cameraAnimation = { ...this.cameraAnimation, enabled: false };
-    }
-    if (this.vrm && this.camera) {
-      this.cameraManager.centerAndFrame(
-        this.vrm,
-        this.camera,
-        this.controls,
-        this.cameraProfile,
-        this.lookAtTarget,
-        this.baseCameraPosition,
-        (c) => this.cameraManager.applyInteractionMode(c, this.interactionMode),
-      );
-    } else if (this.camera && this.controls) {
-      this.cameraManager.applyCameraProfileToCamera(
-        this.camera,
-        this.controls,
-        this.cameraProfile,
-      );
+    if (this.cameraProfile === profile) return;
+
+    // Save current state for transition
+    if (this.camera) {
+      this.transitionStartFov = this.camera.fov;
+      this.transitionStartPos.copy(this.camera.position);
+      this.transitionStartLookAt.copy(this.lookAtTarget);
+
+      this.cameraProfile = profile;
+      if (profile === "companion" || profile === "companion_close") {
+        this.cameraAnimation = { ...this.cameraAnimation, enabled: false };
+      }
+
+      const targetLookAt = new THREE.Vector3();
+      const targetPos = new THREE.Vector3();
+
+      if (this.vrm) {
+        this.cameraManager.centerAndFrame(
+          this.vrm,
+          this.camera,
+          this.controls,
+          this.cameraProfile,
+          targetLookAt,
+          targetPos,
+          (c) => this.cameraManager.applyInteractionMode(c, this.interactionMode),
+        );
+      } else if (this.controls) {
+        this.cameraManager.applyCameraProfileToCamera(
+          this.camera,
+          this.controls,
+          this.cameraProfile,
+        );
+        targetPos.copy(this.camera.position);
+      }
+
+      this.transitionTargetFov = this.camera.fov;
+      this.transitionTargetPos.copy(targetPos);
+      this.transitionTargetLookAt.copy(targetLookAt);
+
+      // Reset position/fov back to start, we will lerp to target in loop
+      this.camera.fov = this.transitionStartFov;
+      this.camera.position.copy(this.transitionStartPos);
+      this.camera.updateProjectionMatrix();
+
+      this.isCameraTransitioning = true;
+      this.transitionProgress = 0;
+    } else {
+      this.cameraProfile = profile;
     }
   }
   resize(width: number, height: number): void {
@@ -498,13 +537,7 @@ export class VrmEngine {
     } catch {
       /* optional in some versions */
     }
-    const isOfficialMilady = /\/vrms\/milady-official-\d+\.vrm(?:\?|$)/i.test(
-      url,
-    );
-    if (isOfficialMilady) {
-      vrm.scene.rotateY(Math.PI * 2);
-      vrm.scene.updateMatrixWorld(true);
-    } else if (this.forceFaceCameraFlip) {
+    if (this.forceFaceCameraFlip) {
       vrm.scene.updateMatrixWorld(true);
     } else {
       this.cameraManager.ensureFacingCamera(vrm, this.camera);
@@ -700,11 +733,43 @@ export class VrmEngine {
       this.vrm.update(stableDelta);
       this.footShadow.update(this.vrm);
     }
+
+    // Process camera transition
+    if (this.isCameraTransitioning) {
+      this.transitionProgress += stableDelta / this.transitionDuration;
+      let finished = false;
+      if (this.transitionProgress >= 1.0) {
+        this.transitionProgress = 1.0;
+        this.isCameraTransitioning = false;
+        finished = true;
+      }
+
+      // Smooth step easing
+      const t = this.transitionProgress;
+      const ease = t * t * (3.0 - 2.0 * t);
+
+      camera.position.lerpVectors(this.transitionStartPos, this.transitionTargetPos, ease);
+      this.baseCameraPosition.copy(camera.position);
+
+      this.lookAtTarget.lerpVectors(this.transitionStartLookAt, this.transitionTargetLookAt, ease);
+
+      camera.fov = THREE.MathUtils.lerp(this.transitionStartFov, this.transitionTargetFov, ease);
+      camera.updateProjectionMatrix();
+
+      if (this.controls) {
+        this.controls.target.copy(this.lookAtTarget);
+        if (finished) {
+          this.controls.update(); // Sync once at the very end when bounds match
+        }
+      }
+    }
+
     const manualCameraActive = this.interactionEnabled;
     if (
       !manualCameraActive &&
       this.cameraAnimation.enabled &&
-      this.baseCameraPosition.length() > 0
+      this.baseCameraPosition.length() > 0 &&
+      !this.isCameraTransitioning
     ) {
       this.cameraManager.applyCameraSway(
         camera,
@@ -714,14 +779,14 @@ export class VrmEngine {
       );
     }
     if (this.controls) {
-      if (manualCameraActive) {
+      if (manualCameraActive && !this.isCameraTransitioning) {
         this.controls.update();
         this.lookAtTarget.copy(this.controls.target);
-      } else {
+      } else if (!this.isCameraTransitioning) {
         this.controls.target.copy(this.lookAtTarget);
       }
     }
-    if (!manualCameraActive) {
+    if (!manualCameraActive || this.isCameraTransitioning) {
       camera.lookAt(this.lookAtTarget);
     }
     renderer.render(scene, camera);

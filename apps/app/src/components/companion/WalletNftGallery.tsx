@@ -12,32 +12,32 @@ export function WalletNftGallery({
   t,
 }: WalletNftGalleryProps) {
   return (
-    <div className="anime-wallet-nft-grid">
+    <div className="text-sm">
       {walletNftsLoading ? (
-        <div className="anime-wallet-asset-empty">
+        <div className="text-sm">
           {t("wallet.loadingNfts")}
         </div>
       ) : filteredWalletCollectibleRows.length > 0 ? (
         filteredWalletCollectibleRows.slice(0, 8).map((row) => (
-          <div key={row.key} className="anime-wallet-nft-card">
-            <div className="anime-wallet-nft-thumb">
+          <div key={row.key} className="text-sm">
+            <div className="text-sm">
               {row.imageUrl ? (
                 <img src={row.imageUrl} alt={row.name} loading="lazy" />
               ) : (
                 <span>{t("wallet.noImage")}</span>
               )}
             </div>
-            <div className="anime-wallet-nft-meta">
-              <span className="anime-wallet-nft-name">{row.name}</span>
-              <span className="anime-wallet-nft-collection">
+            <div className="text-sm">
+              <span className="text-sm">{row.name}</span>
+              <span className="text-sm">
                 {row.collectionName}
               </span>
-              <span className="anime-wallet-nft-chain">{row.chain}</span>
+              <span className="text-sm">{row.chain}</span>
             </div>
           </div>
         ))
       ) : (
-        <div className="anime-wallet-asset-empty">
+        <div className="text-sm">
           {t("wallet.noNftsFound")}
         </div>
       )}

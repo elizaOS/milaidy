@@ -12,8 +12,6 @@ export function WalletTradingProfileModal({
   error,
   profile,
   bnbUsdEstimate,
-  windowFilter,
-  sourceFilter,
   onClose,
   onRefresh,
   onWindowFilterChange,
@@ -55,13 +53,13 @@ export function WalletTradingProfileModal({
       : null;
 
   return (
-    <div className="anime-wallet-trading-profile-modal">
-      <div className="anime-wallet-trading-profile-header">
+    <div className="text-sm">
+      <div className="text-sm">
         <span>{t("wallet.profile.title")}</span>
-        <div className="anime-wallet-trading-profile-header-actions">
+        <div className="text-sm">
           <button
             type="button"
-            className="anime-wallet-address-copy"
+            className="text-sm"
             onClick={onRefresh}
             disabled={loading}
           >
@@ -69,19 +67,19 @@ export function WalletTradingProfileModal({
           </button>
           <button
             type="button"
-            className="anime-wallet-trading-profile-close"
+            className="text-sm"
             onClick={onClose}
           >
             {t("wallet.close")}
           </button>
         </div>
       </div>
-      <div className="anime-wallet-trading-profile-filters">
+      <div className="text-sm">
         {windows.map((w) => (
           <button
             key={w}
             type="button"
-            className={`anime-wallet-portfolio-filter ${windowFilter === w ? "is-active" : ""}`}
+            className={`text-sm`}
             onClick={() => onWindowFilterChange(w)}
           >
             {windowLabels[w]}
@@ -91,7 +89,7 @@ export function WalletTradingProfileModal({
           <button
             key={s}
             type="button"
-            className={`anime-wallet-portfolio-source-filter ${sourceFilter === s ? "is-active" : ""}`}
+            className={`text-sm`}
             onClick={() => onSourceFilterChange(s)}
           >
             {s}
@@ -99,68 +97,68 @@ export function WalletTradingProfileModal({
         ))}
       </div>
 
-      {error && <div className="anime-wallet-popover-error">{error}</div>}
+      {error && <div className="text-sm">{error}</div>}
 
       {summary && (
-        <div className="anime-wallet-trading-profile-summary">
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+        <div className="text-sm">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.realizedPnl")}
             </span>
             <span
-              className={`anime-wallet-trading-profile-stat-value ${pnlBnb >= 0 ? "is-positive" : "is-negative"}`}
+              className={`text-sm`}
             >
               {pnlBnb >= 0 ? "+" : ""}
               {pnlBnb.toFixed(4)} {t("wallettradingprofilemodal.BNB")}
               {pnlUsd != null && (
-                <span className="anime-wallet-trading-profile-stat-usd">
+                <span className="text-sm">
                   {" "}
                   (${pnlUsd.toFixed(2)})
                 </span>
               )}
             </span>
           </div>
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.volume")}
             </span>
-            <span className="anime-wallet-trading-profile-stat-value">
+            <span className="text-sm">
               {volumeBnb.toFixed(4)} {t("wallettradingprofilemodal.BNB")}
             </span>
           </div>
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.totalSwaps")}
             </span>
-            <span className="anime-wallet-trading-profile-stat-value">
+            <span className="text-sm">
               {summary.totalSwaps}
             </span>
           </div>
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.winRate")}
             </span>
-            <span className="anime-wallet-trading-profile-stat-value">
+            <span className="text-sm">
               {summary.tradeWinRate != null
                 ? `${(summary.tradeWinRate * 100).toFixed(1)}%`
                 : "—"}
             </span>
           </div>
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.successRate")}
             </span>
-            <span className="anime-wallet-trading-profile-stat-value">
+            <span className="text-sm">
               {summary.txSuccessRate != null
                 ? `${(summary.txSuccessRate * 100).toFixed(1)}%`
                 : "—"}
             </span>
           </div>
-          <div className="anime-wallet-trading-profile-stat">
-            <span className="anime-wallet-trading-profile-stat-label">
+          <div className="text-sm">
+            <span className="text-sm">
               {t("wallet.profile.buySell")}
             </span>
-            <span className="anime-wallet-trading-profile-stat-value">
+            <span className="text-sm">
               {summary.buyCount} / {summary.sellCount}
             </span>
           </div>
@@ -168,7 +166,7 @@ export function WalletTradingProfileModal({
       )}
 
       {!summary && !loading && !error && (
-        <div className="anime-wallet-asset-empty">
+        <div className="text-sm">
           {t("wallet.profile.noData")}
         </div>
       )}

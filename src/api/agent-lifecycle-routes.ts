@@ -22,7 +22,7 @@ export interface AgentLifecycleRouteState {
 
 export interface AgentLifecycleRouteContext
   extends RouteRequestMeta,
-    Pick<RouteHelpers, "json"> {
+  Pick<RouteHelpers, "json"> {
   state: AgentLifecycleRouteState;
 }
 
@@ -33,14 +33,9 @@ export async function handleAgentLifecycleRoutes(
 
   // ── POST /api/agent/start ─────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/agent/start") {
-    state.agentState = "running";
+    state.agentState = "paused";
     state.startedAt = Date.now();
     state.model = detectRuntimeModel(state.runtime);
-
-    // Enable the autonomy task — the core TaskService will pick it up
-    // and fire the first tick immediately (updatedAt starts at 0).
-    const svc = getAutonomySvc(state.runtime);
-    if (svc) await svc.enableAutonomy();
 
     json(res, {
       ok: true,

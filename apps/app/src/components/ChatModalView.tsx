@@ -70,22 +70,26 @@ export function ChatModalView({
 
   return (
     <div
-      className={isCompanionDock ? "chat-game-dock" : "chat-game-overlay"}
+      className={
+        isCompanionDock
+          ? "absolute inset-0 z-10 flex flex-col bg-transparent px-4"
+          : "absolute inset-[10vh_10vw] z-[100] flex flex-col rounded-2xl bg-black/60"
+      }
       data-chat-game-overlay={!isCompanionDock || undefined}
       data-chat-game-dock={isCompanionDock || undefined}
     >
       <div
-        className={`chat-game-shell anime-theme-scope ${isCompanionDock ? "chat-game-shell-docked" : ""}`}
+        className="flex-1 flex flex-col min-h-0 relative rounded-2xl overflow-hidden bg-transparent"
         data-chat-game-shell
       >
-        <div className="chat-game-body">
+        <div className="flex-1 flex min-h-0">
           <aside
-            className={`chat-game-sidebar ${mobileSidebarOpen ? "is-open" : ""}`}
+            className={`w-[276px] shrink-0 border-r border-white/10 flex flex-col bg-black/20 ${mobileSidebarOpen ? "block" : isCompanionDock ? "hidden" : "hidden md:flex"}`}
             data-chat-game-sidebar
           >
             <ConversationsSidebar variant="game-modal" />
           </aside>
-          <section className="chat-game-thread" data-chat-game-thread>
+          <section className="flex-1 flex flex-col min-w-0 bg-transparent relative" data-chat-game-thread>
             <ChatView variant="game-modal" />
           </section>
         </div>

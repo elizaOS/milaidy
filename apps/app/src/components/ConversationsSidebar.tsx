@@ -99,7 +99,7 @@ export function ConversationsSidebar({
     <aside
       className={
         isGameModal
-          ? "chat-game-sidebar-root"
+          ? "flex flex-col h-full bg-black/20 backdrop-blur-md"
           : `${mobile ? "w-full min-w-0 h-full" : "w-48 min-w-48 xl:w-60 xl:min-w-60 border-r"} border-border bg-bg flex flex-col overflow-y-auto text-[13px]`
       }
       data-testid="conversations-sidebar"
@@ -124,14 +124,14 @@ export function ConversationsSidebar({
 
       <div
         className={
-          isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"
+          isGameModal ? "p-3 border-b border-white/10 shrink-0" : "p-3 border-b border-border"
         }
       >
         <button
           type="button"
           className={
             isGameModal
-              ? "chat-game-new-chat-btn"
+              ? "w-full py-2 px-3 rounded-lg border border-accent/60 bg-accent/10 text-accent font-medium text-sm transition-all hover:bg-accent/20 hover:border-accent hover:shadow-[0_0_15px_rgba(240,178,50,0.15)] active:scale-[0.98]"
               : "w-full px-3 py-1.5 border border-accent rounded-md bg-transparent text-accent text-[12px] font-medium cursor-pointer transition-colors hover:bg-accent hover:text-accent-fg"
           }
           onClick={() => {
@@ -145,14 +145,14 @@ export function ConversationsSidebar({
 
       <div
         className={
-          isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"
+          isGameModal ? "flex-1 overflow-y-auto p-2 space-y-1 min-h-0 custom-scrollbar" : "flex-1 overflow-y-auto py-1"
         }
       >
         {sortedConversations.length === 0 ? (
           <div
             className={
               isGameModal
-                ? "chat-game-sidebar-empty"
+                ? "py-8 text-center text-white/40 text-sm font-medium italic"
                 : "px-3 py-6 text-center text-muted text-xs"
             }
           >

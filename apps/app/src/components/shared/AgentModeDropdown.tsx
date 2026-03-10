@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { Bot, Check, Cpu, Settings2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../../AppContext";
 import {
@@ -191,10 +191,27 @@ export function AgentModeDropdown({
     ],
   );
 
+  const isCompanion = variant === "companion";
+  const theme = {
+    panelBg: isCompanion ? "bg-black/80 backdrop-blur-xl border-white/10" : "bg-bg-elevated border-border",
+    textStrong: isCompanion ? "text-white/90" : "text-txt-strong",
+    textMuted: isCompanion ? "text-white/60" : "text-muted",
+    textAccent: isCompanion ? "text-white/90" : "text-accent",
+    cardBg: isCompanion ? "bg-black/40 border-white/10" : "bg-bg-accent border-border",
+    btnBase: "flex-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-all",
+    btnActive: isCompanion ? "bg-white/20 text-white shadow-sm" : "bg-bg shadow-sm text-txt-strong",
+    btnInactive: isCompanion ? "text-white/60 hover:text-white hover:bg-white/5" : "text-muted hover:text-txt",
+    btnCardBase: "flex-1 flex flex-col items-center justify-center py-2 px-1 text-[11px] font-medium rounded-md transition-all",
+    btnCardActive: isCompanion ? "bg-white/20 shadow-sm border border-white/30 text-white font-semibold" : "bg-bg shadow-sm border border-accent/20 text-accent font-semibold",
+    btnCardInactive: isCompanion ? "text-white/60 hover:bg-white/10 hover:text-white" : "text-muted hover:bg-bg/50 hover:text-txt",
+    listBtnBase: "flex items-center justify-between w-full py-1.5 px-3 text-[11px] font-medium rounded-md transition-all",
+    divider: isCompanion ? "border-white/10" : "border-border",
+  };
+
   const triggerClass =
     variant === "native"
-      ? "inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95 rounded-md"
-      : "anime-roster-config-btn";
+      ? `inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95 rounded-md ${moreOpen ? "bg-accent/10 border-accent text-accent shadow-sm" : ""}`
+      : `flex items-center justify-center w-8 h-8 rounded-full bg-white/5 text-white/80 hover:text-white hover:bg-white/20 border border-transparent hover:border-white/30 transition-all cursor-pointer ${moreOpen ? "bg-white/20 text-white border-white/30 shadow-sm" : ""}`;
 
   return (
     <div
@@ -210,137 +227,141 @@ export function AgentModeDropdown({
         {variant === "native" ? (
           <Settings2 className="w-5 h-5" />
         ) : (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
+          <Cpu className="w-4 h-4" />
         )}
       </button>
 
       {moreOpen && (
-        <div className="chat-game-more-menu" role="menu">
+        <div
+          className={`absolute top-full right-0 mt-2 w-[340px] border rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col ${theme.panelBg}`}
+          role="menu"
+        >
           <div
-            className="chat-game-mode-group"
+            className="p-4 space-y-4"
             data-testid="chat-game-agent-mode-controls"
           >
-            <span className="chat-game-more-item-title">
-              {t("chat.modal.agentMode")}
-            </span>
-            <span className="chat-game-more-item-sub">
-              {modeLoading
-                ? t("chat.modal.providerDetecting")
-                : `${automationModeLabel} • ${tradeModeLabel} • ${chatModeLabel}`}
-            </span>
-            <div className="chat-game-mode-row">
-              <span className="chat-game-mode-label">
-                {t("chat.modal.responseMode")}
-              </span>
-              <div className="chat-game-mode-switch">
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${chatMode === "simple" ? "is-active" : ""}`}
-                  onClick={() => setState("chatMode", "simple")}
-                  data-testid="chat-game-response-simple"
-                >
-                  {t("chat.modal.responseModeSimple")}
-                </button>
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${chatMode === "power" ? "is-active" : ""}`}
-                  onClick={() => setState("chatMode", "power")}
-                  data-testid="chat-game-response-power"
-                >
-                  {t("chat.modal.responseModePower")}
-                </button>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Bot className={`w-4 h-4 ${theme.textAccent}`} />
+                <span className={`font-semibold text-sm ${theme.textStrong}`}>
+                  {t("chat.modal.agentMode")}
+                </span>
+              </div>
+              <p className={`text-[11px] leading-tight ${theme.textMuted}`}>
+                {modeLoading
+                  ? t("chat.modal.providerDetecting")
+                  : `${automationModeLabel} • ${tradeModeLabel} • ${chatModeLabel}`}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
+                  {t("chat.modal.responseMode")}
+                </span>
+                <div className={`flex p-1 rounded-lg border ${theme.cardBg}`}>
+                  <button
+                    type="button"
+                    className={`${theme.btnBase} ${chatMode === "simple" ? theme.btnActive : theme.btnInactive}`}
+                    onClick={() => setState("chatMode", "simple")}
+                    data-testid="chat-game-response-simple"
+                  >
+                    {t("chat.modal.responseModeSimple")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${theme.btnBase} ${chatMode === "power" ? theme.btnActive : theme.btnInactive}`}
+                    onClick={() => setState("chatMode", "power")}
+                    data-testid="chat-game-response-power"
+                  >
+                    {t("chat.modal.responseModePower")}
+                  </button>
+                </div>
+                <p className={`text-[10px] leading-tight ${theme.textMuted}`}>
+                  {chatMode === "power"
+                    ? t("chat.modal.responseModeHintPower")
+                    : t("chat.modal.responseModeHintSimple")}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
+                  {t("permissions.automationMode")}
+                </span>
+                <div className={`flex p-1 rounded-lg border gap-1 ${theme.cardBg}`}>
+                  <button
+                    type="button"
+                    className={`${theme.btnCardBase} ${automationMode === "connectors-only" ? theme.btnCardActive : theme.btnCardInactive}`}
+                    disabled={modeLoading || automationSaving}
+                    onClick={() => {
+                      void handleAutomationModeChange("connectors-only");
+                    }}
+                    data-testid="chat-game-automation-connectors"
+                  >
+                    <span className="mb-0.5">{t("permissions.mode.semi")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${theme.btnCardBase} ${automationMode === "full" ? theme.btnCardActive : theme.btnCardInactive}`}
+                    disabled={modeLoading || automationSaving}
+                    onClick={() => {
+                      void handleAutomationModeChange("full");
+                    }}
+                    data-testid="chat-game-automation-full"
+                  >
+                    <span className="mb-0.5">{t("permissions.mode.full")}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
+                  {t("permissions.tradeMode")}
+                </span>
+                <div className={`flex flex-col p-1 rounded-lg border gap-1 ${theme.cardBg}`}>
+                  <button
+                    type="button"
+                    className={`${theme.listBtnBase} ${tradeMode === "user-sign-only" ? theme.btnActive : theme.btnInactive}`}
+                    disabled={modeLoading || tradeSaving}
+                    onClick={() => {
+                      void handleTradeModeChange("user-sign-only");
+                    }}
+                    data-testid="chat-game-trade-user-sign"
+                  >
+                    {t("permissions.trade.userSign")}
+                    {tradeMode === "user-sign-only" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${theme.listBtnBase} ${tradeMode === "manual-local-key" ? theme.btnActive : theme.btnInactive}`}
+                    disabled={modeLoading || tradeSaving}
+                    onClick={() => {
+                      void handleTradeModeChange("manual-local-key");
+                    }}
+                    data-testid="chat-game-trade-manual"
+                  >
+                    {t("permissions.trade.manual")}
+                    {tradeMode === "manual-local-key" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${theme.listBtnBase} ${tradeMode === "agent-auto" ? theme.btnCardActive : theme.btnInactive}`}
+                    disabled={modeLoading || tradeSaving}
+                    onClick={() => {
+                      void handleTradeModeChange("agent-auto");
+                    }}
+                    data-testid="chat-game-trade-agent"
+                  >
+                    {t("permissions.trade.agent")}
+                    {tradeMode === "agent-auto" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
+                  </button>
+                </div>
               </div>
             </div>
-            <span className="chat-game-more-item-sub">
-              {chatMode === "power"
-                ? t("chat.modal.responseModeHintPower")
-                : t("chat.modal.responseModeHintSimple")}
-            </span>
-            <div className="chat-game-mode-row">
-              <span className="chat-game-mode-label">
-                {t("permissions.automationMode")}
-              </span>
-              <div className="chat-game-mode-switch">
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${automationMode === "connectors-only" ? "is-active" : ""}`}
-                  disabled={modeLoading || automationSaving}
-                  onClick={() => {
-                    void handleAutomationModeChange("connectors-only");
-                  }}
-                  data-testid="chat-game-automation-connectors"
-                >
-                  {t("permissions.mode.semi")}
-                </button>
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${automationMode === "full" ? "is-active" : ""}`}
-                  disabled={modeLoading || automationSaving}
-                  onClick={() => {
-                    void handleAutomationModeChange("full");
-                  }}
-                  data-testid="chat-game-automation-full"
-                >
-                  {t("permissions.mode.full")}
-                </button>
-              </div>
-            </div>
-            <div className="chat-game-mode-row">
-              <span className="chat-game-mode-label">
-                {t("permissions.tradeMode")}
-              </span>
-              <div className="chat-game-mode-switch">
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${tradeMode === "user-sign-only" ? "is-active" : ""}`}
-                  disabled={modeLoading || tradeSaving}
-                  onClick={() => {
-                    void handleTradeModeChange("user-sign-only");
-                  }}
-                  data-testid="chat-game-trade-user-sign"
-                >
-                  {t("permissions.trade.userSign")}
-                </button>
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${tradeMode === "manual-local-key" ? "is-active" : ""}`}
-                  disabled={modeLoading || tradeSaving}
-                  onClick={() => {
-                    void handleTradeModeChange("manual-local-key");
-                  }}
-                  data-testid="chat-game-trade-manual"
-                >
-                  {t("permissions.trade.manual")}
-                </button>
-                <button
-                  type="button"
-                  className={`chat-game-mode-chip ${tradeMode === "agent-auto" ? "is-active" : ""}`}
-                  disabled={modeLoading || tradeSaving}
-                  onClick={() => {
-                    void handleTradeModeChange("agent-auto");
-                  }}
-                  data-testid="chat-game-trade-agent"
-                >
-                  {t("permissions.trade.agent")}
-                </button>
-              </div>
-            </div>
-            <span className="chat-game-more-item-sub">
+
+            <p className={`text-[10px] text-center pt-2 border-t ${theme.textMuted} ${theme.divider}`}>
               {t("chat.modal.tradeModeHint")}
-            </span>
+            </p>
           </div>
         </div>
       )}

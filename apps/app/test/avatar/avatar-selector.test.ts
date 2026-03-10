@@ -23,12 +23,6 @@ describe("Avatar VRM Utilities", () => {
       }
     });
 
-    it("returns correct path for official VRMs (25-32)", () => {
-      for (let i = 1; i <= 8; i++) {
-        expect(getVrmUrl(24 + i)).toBe(`/vrms/milady-official-${i}.vrm`);
-      }
-    });
-
     it("returns correct path for named VRMs (33)", () => {
       expect(getVrmUrl(33)).toBe("/vrms/shaw.vrm");
     });
@@ -45,14 +39,6 @@ describe("Avatar VRM Utilities", () => {
     it("returns correct preview path for base VRMs (1-24)", () => {
       for (let i = 1; i <= 24; i++) {
         expect(getVrmPreviewUrl(i)).toBe(`/vrms/previews/milady-${i}.png`);
-      }
-    });
-
-    it("returns correct preview path for official VRMs (25-32)", () => {
-      for (let i = 1; i <= 8; i++) {
-        expect(getVrmPreviewUrl(24 + i)).toBe(
-          `/vrms/previews/milady-official-${i}.png`,
-        );
       }
     });
 

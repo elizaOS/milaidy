@@ -7,7 +7,6 @@ import type {
   WorkbenchTask,
   WorkbenchTodo,
 } from "../api-client";
-import { ChatControlsPanel } from "./ChatControlsPanel";
 import { CodingAgentsSection } from "./CodingAgentsSection";
 import { formatTime } from "./shared/format";
 
@@ -391,11 +390,10 @@ export function AutonomousPanel({
                             />
                             <div className="flex-1 min-w-0">
                               <div
-                                className={`text-txt-strong ${
-                                  task.isCompleted
+                                className={`text-txt-strong ${task.isCompleted
                                     ? "line-through opacity-60"
                                     : ""
-                                }`}
+                                  }`}
                               >
                                 {task.name}
                               </div>
@@ -502,11 +500,10 @@ export function AutonomousPanel({
                               className="mt-0.5"
                             />
                             <div
-                              className={`flex-1 text-txt ${
-                                todo.isCompleted
+                              className={`flex-1 text-txt ${todo.isCompleted
                                   ? "line-through opacity-60"
                                   : ""
-                              }`}
+                                }`}
                             >
                               {todo.name}
                             </div>
@@ -521,14 +518,6 @@ export function AutonomousPanel({
           )}
         </div>
       )}
-
-      <ChatControlsPanel
-        mobile={mobile}
-        chatAvatarVisible={chatAvatarVisible}
-        chatAvatarSpeaking={chatAvatarSpeaking}
-        chatAgentVoiceMuted={chatAgentVoiceMuted}
-        setState={setState}
-      />
     </aside>
   );
 }

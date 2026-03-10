@@ -73,9 +73,9 @@ export function WalletSwapPanel({
   t,
 }: WalletSwapPanelProps) {
   return (
-    <div className="anime-wallet-action-body">
+    <div className="text-sm">
       <section
-        className="anime-wallet-flow"
+        className="text-sm"
         aria-label={t("wallet.swapFlowAria")}
       >
         {[
@@ -89,18 +89,16 @@ export function WalletSwapPanel({
           },
           { label: t("wallet.flow.done"), step: 4 },
         ].map((item, index, steps) => {
-          const isActive = swapFlowStep >= item.step;
-          const railActive = swapFlowStep > item.step;
           return (
             <div
               key={item.step}
-              className={`anime-wallet-flow-step ${isActive ? "is-active" : ""}`}
+              className={`text-sm`}
             >
-              <span className="anime-wallet-flow-marker" aria-hidden="true" />
-              <span className="anime-wallet-flow-label">{item.label}</span>
+              <span className="text-sm" aria-hidden="true" />
+              <span className="text-sm">{item.label}</span>
               {index < steps.length - 1 && (
                 <span
-                  className={`anime-wallet-flow-rail ${railActive ? "is-active" : ""}`}
+                  className={`text-sm`}
                   aria-hidden="true"
                 />
               )}
@@ -109,7 +107,7 @@ export function WalletSwapPanel({
         })}
       </section>
 
-      <div className="anime-wallet-status-hint">
+      <div className="text-sm">
         {swapFlowStep === 1 && t("wallet.flowHint.input")}
         {swapFlowStep === 2 &&
           (swapBusy
@@ -124,24 +122,24 @@ export function WalletSwapPanel({
         {swapFlowStep === 4 && t("wallet.flowHint.submitted")}
       </div>
 
-      <div className="anime-wallet-side-toggle">
+      <div className="text-sm">
         <button
           type="button"
-          className={`anime-wallet-side-btn ${swapSide === "buy" ? "is-active" : ""}`}
+          className={`text-sm`}
           onClick={() => setSwapSide("buy")}
         >
           {t("wallet.buy")}
         </button>
         <button
           type="button"
-          className={`anime-wallet-side-btn ${swapSide === "sell" ? "is-active" : ""}`}
+          className={`text-sm`}
           onClick={() => setSwapSide("sell")}
         >
           {t("wallet.sell")}
         </button>
       </div>
 
-      <label className="anime-wallet-field">
+      <label className="text-sm">
         <span>{t("wallet.tokenContract")}</span>
         <input
           type="text"
@@ -150,8 +148,8 @@ export function WalletSwapPanel({
           placeholder={t("walletswappanel.0x")}
         />
       </label>
-      <div className="anime-wallet-field-grid">
-        <label className="anime-wallet-field">
+      <div className="text-sm">
+        <label className="text-sm">
           <span>
             {swapSide === "buy"
               ? t("wallet.spendSymbol", {
@@ -168,7 +166,7 @@ export function WalletSwapPanel({
             placeholder="0.01"
           />
         </label>
-        <label className="anime-wallet-field">
+        <label className="text-sm">
           <span>{t("wallet.slippagePercent")}</span>
           <input
             type="text"
@@ -179,7 +177,7 @@ export function WalletSwapPanel({
         </label>
       </div>
 
-      <div className="anime-wallet-balance-meta">
+      <div className="text-sm">
         <span>
           {t("wallet.available")}:{" "}
           {swapCanUsePresets
@@ -195,12 +193,12 @@ export function WalletSwapPanel({
         )}
       </div>
 
-      <div className="anime-wallet-amount-presets">
+      <div className="text-sm">
         {swapPresetButtons.map((preset) => (
           <button
             key={preset.label}
             type="button"
-            className={`anime-wallet-preset-btn ${preset.active ? "is-active" : ""}`}
+            className={`text-sm`}
             disabled={!swapCanUsePresets || swapBusy || swapExecuteBusy}
             onClick={() => {
               handleSwapPreset(preset.ratio);
@@ -211,10 +209,10 @@ export function WalletSwapPanel({
         ))}
       </div>
 
-      <div className="anime-wallet-popover-actions">
+      <div className="text-sm">
         <button
           type="button"
-          className="anime-wallet-popover-action"
+          className="text-sm"
           disabled={
             !swapTokenValid || !swapAmountValid || swapBusy || swapExecuteBusy
           }
@@ -226,7 +224,7 @@ export function WalletSwapPanel({
         </button>
         <button
           type="button"
-          className="anime-wallet-popover-action is-primary"
+          className="text-sm"
           disabled={swapBusy || swapExecuteBusy || !swapQuote}
           onClick={() => {
             void handleSwapExecute();
@@ -241,26 +239,26 @@ export function WalletSwapPanel({
       </div>
 
       {swapQuote && (
-        <div className="anime-wallet-quote-card">
-          <div className="anime-wallet-quote-line">
+        <div className="text-sm">
+          <div className="text-sm">
             <span>{t("wallet.quote.input")}</span>
             <strong>
               {swapQuote.quoteIn.amount} {swapQuote.quoteIn.symbol}
             </strong>
           </div>
-          <div className="anime-wallet-quote-line">
+          <div className="text-sm">
             <span>{t("wallet.quote.expected")}</span>
             <strong>
               {swapQuote.quoteOut.amount} {swapQuote.quoteOut.symbol}
             </strong>
           </div>
-          <div className="anime-wallet-quote-line">
+          <div className="text-sm">
             <span>{t("wallet.quote.minReceive")}</span>
             <strong>
               {swapQuote.minReceive.amount} {swapQuote.minReceive.symbol}
             </strong>
           </div>
-          <div className="anime-wallet-quote-line">
+          <div className="text-sm">
             <span>{t("wallet.route")}</span>
             <strong>
               {t("wallet.hopsCount", {
@@ -270,7 +268,7 @@ export function WalletSwapPanel({
           </div>
           {swapRouteLabel && (
             <div
-              className="anime-wallet-quote-route"
+              className="text-sm"
               title={swapQuote.route.join(" -> ")}
             >
               {swapRouteLabel}
@@ -280,7 +278,7 @@ export function WalletSwapPanel({
       )}
 
       {swapLastTxHash && (
-        <div className="anime-wallet-tx-row">
+        <div className="text-sm">
           <span>{t("wallet.txSubmitted")}:</span>
           <code>
             {swapLastTxHash.slice(0, 10)}...
@@ -293,7 +291,7 @@ export function WalletSwapPanel({
             }
             target="_blank"
             rel="noopener noreferrer"
-            className="anime-wallet-tx-link"
+            className="text-sm"
           >
             {t("wallet.view")}
           </a>
@@ -301,27 +299,27 @@ export function WalletSwapPanel({
       )}
 
       {(swapUserSignTx || swapUserSignApprovalTx) && (
-        <div className="anime-wallet-usersign">
-          <div className="anime-wallet-usersign-title">
+        <div className="text-sm">
+          <div className="text-sm">
             {t("wallet.userSignPlan")}
           </div>
-          <div className="anime-wallet-usersign-steps">
+          <div className="text-sm">
             {swapUserSignApprovalTx && (
-              <div className="anime-wallet-usersign-step">
+              <div className="text-sm">
                 {t("wallet.userSignSellOneStep")}
               </div>
             )}
-            <div className="anime-wallet-usersign-step">
+            <div className="text-sm">
               {swapUserSignApprovalTx
                 ? t("wallet.userSignSellTwoStep")
                 : t("wallet.userSignSwapOneStep")}
             </div>
           </div>
-          <div className="anime-wallet-usersign-actions">
+          <div className="text-sm">
             {swapUserSignApprovalTx && (
               <button
                 type="button"
-                className="anime-wallet-address-copy"
+                className="text-sm"
                 onClick={() => {
                   void handleCopyUserSignPayload(swapUserSignApprovalTx);
                 }}
@@ -332,7 +330,7 @@ export function WalletSwapPanel({
             {swapUserSignTx && (
               <button
                 type="button"
-                className="anime-wallet-address-copy"
+                className="text-sm"
                 onClick={() => {
                   void handleCopyUserSignPayload(swapUserSignTx);
                 }}

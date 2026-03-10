@@ -1,5 +1,4 @@
-import { ascii } from "../ascii";
-import { cyberGreen, isRich, theme } from "../terminal/theme";
+import { isRich, theme } from "../terminal/theme";
 import { resolveCommitHash } from "./git-commit";
 
 type BannerOptions = {
@@ -25,16 +24,6 @@ export function formatCliBannerLine(
   return `${title} ${version} (${commitLabel})`;
 }
 
-function formatAsciiBanner(rich: boolean): string {
-  if (rich) {
-    return ascii
-      .split("\n")
-      .map((line) => cyberGreen(line))
-      .join("\n");
-  }
-  return ascii;
-}
-
 export function emitCliBanner(version: string, options: BannerOptions = {}) {
   if (bannerEmitted) {
     return;
@@ -50,9 +39,8 @@ export function emitCliBanner(version: string, options: BannerOptions = {}) {
     return;
   }
   const rich = options.richTty ?? isRich();
-  const art = formatAsciiBanner(rich);
   const line = formatCliBannerLine(version, options);
-  process.stdout.write(`\n${art}\n\n${line}\n\n`);
+  process.stdout.write(`${line}\n\n`);
   bannerEmitted = true;
 }
 

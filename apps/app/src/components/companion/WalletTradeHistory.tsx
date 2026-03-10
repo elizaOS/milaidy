@@ -35,7 +35,6 @@ type WalletTradeHistoryProps = {
 export function WalletTradeHistory({
   walletRecentExpanded,
   setWalletRecentExpanded,
-  walletRecentFilter,
   setWalletRecentFilter,
   walletRecentFilterOptions,
   visibleWalletRecentTrades,
@@ -46,14 +45,14 @@ export function WalletTradeHistory({
   t,
 }: WalletTradeHistoryProps) {
   return (
-    <div className="anime-wallet-recent-section">
-      <div className="anime-wallet-recent-header">
+    <div className="text-sm">
+      <div className="text-sm">
         <span>{t("wallet.recentActivity")}</span>
-        <div className="anime-wallet-recent-header-actions">
+        <div className="text-sm">
           {walletRecentExpanded && visibleWalletRecentTrades.length > 0 && (
             <button
               type="button"
-              className="anime-wallet-address-copy"
+              className="text-sm"
               onClick={() => {
                 for (const entry of visibleWalletRecentTrades) {
                   void refreshRecentTradeStatus(entry.hash, true);
@@ -65,7 +64,7 @@ export function WalletTradeHistory({
           )}
           <button
             type="button"
-            className="anime-wallet-address-copy"
+            className="text-sm"
             data-testid="wallet-recent-toggle"
             onClick={() => setWalletRecentExpanded((prev) => !prev)}
           >
@@ -77,12 +76,12 @@ export function WalletTradeHistory({
       </div>
       {walletRecentExpanded && (
         <>
-          <div className="anime-wallet-recent-filters">
+          <div className="text-sm">
             {walletRecentFilterOptions.map((filterOption) => (
               <button
                 key={filterOption.key}
                 type="button"
-                className={`anime-wallet-portfolio-filter ${walletRecentFilter === filterOption.key ? "is-active" : ""}`}
+                className={`text-sm`}
                 onClick={() => setWalletRecentFilter(filterOption.key)}
                 data-testid={`wallet-recent-filter-${filterOption.key}`}
               >
@@ -90,26 +89,26 @@ export function WalletTradeHistory({
               </button>
             ))}
           </div>
-          <div className="anime-wallet-recent-list">
+          <div className="text-sm">
             {groupedWalletRecentTrades.length > 0 ? (
               groupedWalletRecentTrades.map((group) => (
                 <div
                   key={group.key}
-                  className="anime-wallet-recent-group"
+                  className="text-sm"
                   data-testid={`wallet-recent-group-${group.key}`}
                 >
-                  <div className="anime-wallet-recent-group-title">
+                  <div className="text-sm">
                     {group.label}
                   </div>
                   {group.entries.map((entry, entryIndex) => (
-                    <div key={entry.hash} className="anime-wallet-recent-row">
-                      <div className="anime-wallet-recent-main">
+                    <div key={entry.hash} className="text-sm">
+                      <div className="text-sm">
                         <span
-                          className={`anime-wallet-recent-side is-${entry.side}`}
+                          className={`text-sm`}
                         >
                           {entry.side.toUpperCase()}
                         </span>
-                        <div className="anime-wallet-recent-meta">
+                        <div className="text-sm">
                           <span>
                             {entry.amount} {entry.inputSymbol} {"->"}{" "}
                             {entry.outputSymbol}
@@ -117,9 +116,9 @@ export function WalletTradeHistory({
                           <code>{shortHash(entry.hash)}</code>
                         </div>
                       </div>
-                      <div className="anime-wallet-recent-actions">
+                      <div className="text-sm">
                         <span
-                          className={`anime-wallet-tx-pill is-${entry.status}`}
+                          className={`text-sm`}
                         >
                           {getWalletTxStatusLabel(entry.status, t)}
                         </span>
@@ -127,13 +126,13 @@ export function WalletTradeHistory({
                           href={safeExplorerHref(entry.explorerUrl, entry.hash)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="anime-wallet-tx-link anime-wallet-recent-link"
+                          className="text-sm"
                         >
                           {t("wallet.view")}
                         </a>
                         <button
                           type="button"
-                          className="anime-wallet-address-copy"
+                          className="text-sm"
                           data-testid={`wallet-recent-copy-hash-${group.key}-${entryIndex}`}
                           onClick={() => {
                             void handleCopyRecentTxHash(entry.hash);
@@ -143,7 +142,7 @@ export function WalletTradeHistory({
                         </button>
                         <button
                           type="button"
-                          className="anime-wallet-address-copy"
+                          className="text-sm"
                           disabled={Boolean(walletRecentBusyHashes[entry.hash])}
                           onClick={() => {
                             void refreshRecentTradeStatus(entry.hash);
@@ -156,25 +155,25 @@ export function WalletTradeHistory({
                       </div>
                       {(entry.confirmations > 0 ||
                         typeof entry.nonce === "number") && (
-                        <div className="anime-wallet-recent-extra">
-                          {entry.confirmations > 0 && (
-                            <span>
-                              {t("wallet.txStatus.confirmations", {
-                                count: entry.confirmations,
-                              })}
-                            </span>
-                          )}
-                          {typeof entry.nonce === "number" && (
-                            <span>
-                              {t("wallet.txStatus.nonce", {
-                                nonce: entry.nonce,
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                          <div className="text-sm">
+                            {entry.confirmations > 0 && (
+                              <span>
+                                {t("wallet.txStatus.confirmations", {
+                                  count: entry.confirmations,
+                                })}
+                              </span>
+                            )}
+                            {typeof entry.nonce === "number" && (
+                              <span>
+                                {t("wallet.txStatus.nonce", {
+                                  nonce: entry.nonce,
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       {entry.status === "reverted" && entry.reason && (
-                        <div className="anime-wallet-recent-reason">
+                        <div className="text-sm">
                           {entry.reason}
                         </div>
                       )}
@@ -183,7 +182,7 @@ export function WalletTradeHistory({
                 </div>
               ))
             ) : (
-              <div className="anime-wallet-asset-empty">
+              <div className="text-sm">
                 {t("wallet.noRecentActivity")}
               </div>
             )}

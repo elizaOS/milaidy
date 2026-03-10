@@ -38,8 +38,14 @@ import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
-import { Modal } from "./shared/Modal";
-import { SectionCard } from "./shared/SectionCard";
+import { LANGUAGES } from "./shared/LanguageDropdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  SectionCard,
+} from "@milady/ui";
 import { VoiceConfigView } from "./VoiceConfigView";
 
 interface SettingsSectionDef {
@@ -138,10 +144,10 @@ function SettingsSidebar({
   );
 
   return (
-    <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-bg-accent/30">
+    <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border/50 bg-bg/50 backdrop-blur-xl">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(var(--accent),0.3)]">
             <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
@@ -162,7 +168,7 @@ function SettingsSidebar({
             placeholder={t("settings.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 text-sm border border-border bg-bg rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-muted transition-all"
+            className="w-full pl-10 pr-3 py-2.5 text-sm border border-border/50 bg-bg/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder:text-muted transition-all shadow-inner"
           />
         </div>
 
@@ -176,16 +182,14 @@ function SettingsSidebar({
                 key={section.id}
                 type="button"
                 onClick={() => onSectionChange(section.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${
-                  isActive
-                    ? "bg-accent text-accent-fg shadow-md"
-                    : "text-txt hover:bg-bg-hover hover:shadow-sm"
-                }`}
+                className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all duration-300 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal group ${isActive
+                  ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.2)] scale-[1.01]"
+                  : "text-txt hover:bg-bg-hover hover:border-border/50 border border-transparent"
+                  }`}
               >
                 <span
-                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${
-                    isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
-                  }`}
+                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                 </span>
@@ -221,7 +225,7 @@ function UpdatesSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between p-4 bg-bg-accent rounded-lg">
+      <div className="flex items-center justify-between p-5 bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
         <div>
           <div className="font-medium text-sm">
             {t("settings.versionPrefix")}
@@ -234,7 +238,7 @@ function UpdatesSection() {
           type="button"
           onClick={() => void loadUpdateStatus(true)}
           disabled={updateLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-xl font-medium text-sm hover:shadow-[0_0_15px_rgba(var(--accent),0.4)] transition-all cursor-pointer disabled:opacity-50 disabled:shadow-none"
         >
           {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
           {updateLoading ? t("settings.checking") : t("settings.checkNow")}
@@ -242,11 +246,11 @@ function UpdatesSection() {
       </div>
 
       {updateStatus?.updateAvailable && (
-        <div className="p-4 bg-ok/10 border border-ok/30 rounded-lg">
-          <div className="font-medium text-ok mb-1">
+        <div className="p-4 bg-ok/10 border border-ok/30 rounded-2xl">
+          <div className="font-bold text-ok mb-1">
             {t("settings.updateAvailable")}
           </div>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-txt-strong">
             {updateStatus.currentVersion} {t("settingsview.Rarr")}{" "}
             {updateStatus.latestVersion}
           </p>
@@ -332,11 +336,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openExportModal}
-            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer"
             aria-haspopup="dialog"
           >
-            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-              <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
+              <Download className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -351,11 +355,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openImportModal}
-            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer"
             aria-haspopup="dialog"
           >
-            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-              <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
+              <Upload className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -369,10 +373,10 @@ function AdvancedSection() {
         </div>
 
         {/* Danger Zone */}
-        <div className="border border-danger/30 rounded-lg overflow-hidden">
-          <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
+        <div className="border border-danger/30 rounded-2xl overflow-hidden bg-bg/40 backdrop-blur-sm">
+          <div className="bg-danger/10 px-5 py-3 border-b border-danger/20 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-danger" />
-            <span className="font-medium text-sm text-danger">
+            <span className="font-bold text-sm text-danger tracking-wide uppercase">
               {t("settings.dangerZone")}
             </span>
           </div>
@@ -394,7 +398,7 @@ function AdvancedSection() {
                   );
                   if (confirmed) void handleReset();
                 }}
-                className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
+                className="px-4 py-2 border border-danger/50 bg-danger/5 text-danger rounded-xl text-sm font-bold hover:bg-danger hover:text-danger-fg transition-all cursor-pointer shadow-sm"
               >
                 {t("settings.resetEverything")}
               </button>
@@ -403,154 +407,162 @@ function AdvancedSection() {
         </div>
       </div>
 
-      <Modal
+      <Dialog
         open={exportModalOpen}
-        onClose={closeExportModal}
-        title={t("settings.exportAgent")}
+        onOpenChange={(open) => { if (!open) closeExportModal(); }}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label
-              htmlFor="settings-export-password"
-              className="text-sm font-medium text-txt-strong"
-            >
-              {t("settingsview.Password")}
-            </label>
-            <input
-              id="settings-export-password"
-              type="password"
-              value={exportPassword}
-              onChange={(e) => setState("exportPassword", e.target.value)}
-              placeholder={t("settingsview.EnterExportPasswor")}
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-            <label className="flex items-center gap-2 text-sm text-muted">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("settings.exportAgent")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="settings-export-password"
+                className="text-sm font-medium text-txt-strong"
+              >
+                {t("settingsview.Password")}
+              </label>
               <input
-                type="checkbox"
-                checked={exportIncludeLogs}
-                onChange={(e) =>
-                  setState("exportIncludeLogs", e.target.checked)
-                }
+                id="settings-export-password"
+                type="password"
+                value={exportPassword}
+                onChange={(e) => setState("exportPassword", e.target.value)}
+                placeholder={t("settingsview.EnterExportPasswor")}
+                className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
               />
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={exportIncludeLogs}
+                  onChange={(e) =>
+                    setState("exportIncludeLogs", e.target.checked)
+                  }
+                />
 
-              {t("settingsview.IncludeRecentLogs")}
-            </label>
-          </div>
-
-          {exportError && (
-            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {exportError}
+                {t("settingsview.IncludeRecentLogs")}
+              </label>
             </div>
-          )}
-          {exportSuccess && (
-            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
-              {exportSuccess}
+
+            {exportError && (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {exportError}
+              </div>
+            )}
+            {exportSuccess && (
+              <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+                {exportSuccess}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
+                onClick={closeExportModal}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+                disabled={exportBusy}
+                onClick={() => void handleAgentExport()}
+              >
+                {exportBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("settings.export")}
+              </button>
             </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
-              onClick={closeExportModal}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-              disabled={exportBusy}
-              onClick={() => void handleAgentExport()}
-            >
-              {exportBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("settings.export")}
-            </button>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
-      <Modal
+      <Dialog
         open={importModalOpen}
-        onClose={closeImportModal}
-        title={t("settings.importAgent")}
+        onOpenChange={(open) => { if (!open) closeImportModal(); }}
       >
-        <div className="space-y-4">
-          <input
-            ref={importFileInputRef}
-            type="file"
-            className="hidden"
-            accept=".eliza-agent,.agent,application/octet-stream"
-            onChange={(e) =>
-              setState("importFile", e.target.files?.[0] ?? null)
-            }
-          />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-txt-strong">
-              {t("settingsview.BackupFile")}
-            </div>
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
-              onClick={() => importFileInputRef.current?.click()}
-            >
-              <span className="min-w-0 flex-1 truncate text-sm text-txt">
-                {importFile?.name ?? "Choose an exported backup file"}
-              </span>
-              <span className="shrink-0 text-xs font-medium text-accent">
-                {importFile ? "Change" : "Browse"}
-              </span>
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="settings-import-password"
-              className="text-sm font-medium text-txt-strong"
-            >
-              {t("settingsview.Password")}
-            </label>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("settings.importAgent")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <input
-              id="settings-import-password"
-              type="password"
-              value={importPassword}
-              onChange={(e) => setState("importPassword", e.target.value)}
-              placeholder={t("settingsview.EnterImportPasswor")}
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
+              ref={importFileInputRef}
+              type="file"
+              className="hidden"
+              accept=".eliza-agent,.agent,application/octet-stream"
+              onChange={(e) =>
+                setState("importFile", e.target.files?.[0] ?? null)
+              }
             />
-          </div>
 
-          {importError && (
-            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {importError}
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-txt-strong">
+                {t("settingsview.BackupFile")}
+              </div>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-txt">
+                  {importFile?.name ?? "Choose an exported backup file"}
+                </span>
+                <span className="shrink-0 text-xs font-medium text-accent">
+                  {importFile ? "Change" : "Browse"}
+                </span>
+              </button>
             </div>
-          )}
-          {importSuccess && (
-            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
-              {importSuccess}
-            </div>
-          )}
 
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
-              onClick={closeImportModal}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-              disabled={importBusy}
-              onClick={() => void handleAgentImport()}
-            >
-              {importBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("settings.import")}
-            </button>
+            <div className="space-y-2">
+              <label
+                htmlFor="settings-import-password"
+                className="text-sm font-medium text-txt-strong"
+              >
+                {t("settingsview.Password")}
+              </label>
+              <input
+                id="settings-import-password"
+                type="password"
+                value={importPassword}
+                onChange={(e) => setState("importPassword", e.target.value)}
+                placeholder={t("settingsview.EnterImportPasswor")}
+                className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
+              />
+            </div>
+
+            {importError && (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {importError}
+              </div>
+            )}
+            {importSuccess && (
+              <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+                {importSuccess}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
+                onClick={closeImportModal}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+                disabled={importBusy}
+                onClick={() => void handleAgentImport()}
+              >
+                {importBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("settings.import")}
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -697,35 +709,24 @@ export function SettingsView({
             <div className="text-xs font-semibold text-txt-strong mb-2">
               {t("settings.language")}
             </div>
-            <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                  uiLanguage === "en"
+            <div className="flex flex-wrap gap-1.5 border border-border rounded-lg p-1">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.id}
+                  type="button"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${uiLanguage === lang.id
                     ? "bg-accent text-accent-fg shadow-sm"
                     : "text-txt hover:bg-bg-hover"
-                }`}
-                onClick={() => {
-                  setUiLanguage("en");
-                  setActionNotice(t("settings.languageSaved"), "success", 2200);
-                }}
-              >
-                {t("settings.languageEnglish")}
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                  uiLanguage === "zh-CN"
-                    ? "bg-accent text-accent-fg shadow-sm"
-                    : "text-txt hover:bg-bg-hover"
-                }`}
-                onClick={() => {
-                  setUiLanguage("zh-CN");
-                  setActionNotice(t("settings.languageSaved"), "success", 2200);
-                }}
-              >
-                {t("settings.languageChineseSimplified")}
-              </button>
+                    }`}
+                  onClick={() => {
+                    setUiLanguage(lang.id);
+                    setActionNotice(t("settings.languageSaved"), "success", 2200);
+                  }}
+                >
+                  <span className="text-sm">{lang.flag}</span>
+                  {lang.label}
+                </button>
+              ))}
             </div>
           </div>
         </SectionCard>

@@ -2,7 +2,6 @@ import { resolveAppAssetUrl } from "../utils/asset-url";
 
 /** Number of bundled VRM avatars shipped with the app. */
 const BASE_VRM_COUNT = 24;
-const OFFICIAL_VRM_COUNT = 8;
 
 /** Named VRM avatars that don't follow the milady-N convention.
  *  flip: true  → model's eye-bone convention differs from milady; needs an
@@ -15,8 +14,7 @@ const NAMED_VRMS: {
     flip?: boolean;
 }[] = [{ file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw", flip: true }];
 
-export const VRM_COUNT =
-    BASE_VRM_COUNT + OFFICIAL_VRM_COUNT + NAMED_VRMS.length;
+export const VRM_COUNT = BASE_VRM_COUNT + NAMED_VRMS.length;
 
 function normalizeAvatarIndex(index: number): number {
     if (!Number.isFinite(index)) return 1;
@@ -33,11 +31,7 @@ export function getVrmUrl(index: number): string {
     if (safeIndex <= BASE_VRM_COUNT) {
         return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
     }
-    if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-        const officialIndex = safeIndex - BASE_VRM_COUNT;
-        return resolveAppAssetUrl(`vrms/milady-official-${officialIndex}.vrm`);
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
     return resolveAppAssetUrl(`vrms/${named.file}`);
 }
 
@@ -48,13 +42,7 @@ export function getVrmPreviewUrl(index: number): string {
     if (safeIndex <= BASE_VRM_COUNT) {
         return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
     }
-    if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-        const officialIndex = safeIndex - BASE_VRM_COUNT;
-        return resolveAppAssetUrl(
-            `vrms/previews/milady-official-${officialIndex}.png`,
-        );
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
     return resolveAppAssetUrl(`vrms/previews/${named.preview}`);
 }
 
@@ -67,13 +55,7 @@ export function getVrmBackgroundUrl(index: number): string {
     if (safeIndex <= BASE_VRM_COUNT) {
         return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.${EXT}`);
     }
-    if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-        const officialIndex = safeIndex - BASE_VRM_COUNT;
-        return resolveAppAssetUrl(
-            `vrms/backgrounds/milady-official-${officialIndex}.${EXT}`,
-        );
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
     const baseName = named.preview.split(".")[0];
     return resolveAppAssetUrl(`vrms/backgrounds/${baseName}.${EXT}`);
 }
@@ -85,29 +67,20 @@ export function getVrmTitle(index: number): string {
     if (safeIndex <= BASE_VRM_COUNT) {
         return `MILADY-${String(safeIndex).padStart(2, "0")}`;
     }
-    if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-        const officialIndex = safeIndex - BASE_VRM_COUNT;
-        return `OFFICIAL-${String(officialIndex).padStart(2, "0")}`;
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
     return named.label.toUpperCase();
 }
 
 /** Whether a bundled index points to the official Milady avatar set. */
 export function isOfficialVrmIndex(index: number): boolean {
-    const normalized = normalizeAvatarIndex(index);
-    return (
-        normalized > BASE_VRM_COUNT &&
-        normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT
-    );
+    return false;
 }
 
 /** Whether a VRM index requires an explicit 180° face-camera flip instead of auto-detection. */
 export function getVrmNeedsFlip(index: number): boolean {
     const normalized = normalizeAvatarIndex(index);
-    if (normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) return false;
-    const named =
-        NAMED_VRMS[normalized - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
+    if (normalized <= BASE_VRM_COUNT) return false;
+    const named = NAMED_VRMS[normalized - BASE_VRM_COUNT - 1];
     return named?.flip ?? false;
 }
 

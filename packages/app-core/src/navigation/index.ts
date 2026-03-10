@@ -69,12 +69,6 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
     description: "Conversations and messaging",
   },
   {
-    label: "Companion",
-    tabs: ["companion"],
-    icon: Heart,
-    description: "Companion mode (feature flag)",
-  },
-  {
     label: "Stream",
     tabs: ["stream"],
     icon: Radio,
@@ -141,7 +135,6 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
 export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
   return ALL_TAB_GROUPS.filter(
     (g) =>
-      (COMPANION_ENABLED || g.label !== "Companion") &&
       (APPS_ENABLED || g.label !== "Apps") &&
       (streamEnabled || g.label !== "Stream"),
   );

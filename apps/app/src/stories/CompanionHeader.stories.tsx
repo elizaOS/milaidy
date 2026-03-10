@@ -10,8 +10,6 @@ const meta = {
     layout: "fullscreen",
   },
   args: {
-    chatDockOpen: false,
-    setChatDockOpen: fn(),
     name: "Milady",
     agentState: "running",
     stateColor: "text-ok border-ok",

@@ -23,15 +23,11 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
     setWalletActionMode,
     walletPortfolioTab,
     setWalletPortfolioTab,
-    walletPortfolioChain,
     setWalletPortfolioChain,
     walletTotalUsd,
     walletChainOptions,
     walletRefreshBusy,
     bscChainError,
-    walletReady,
-    rpcReady,
-    gasReady,
     walletError,
     loadBalances,
     loadNfts,
@@ -87,23 +83,23 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
       </button>
 
       <div
-        className={`anime-wallet-popover ${walletPanelOpen ? "is-open" : ""}`}
+        className={`text-sm`}
         role="dialog"
         aria-label={t("wallet.panelAriaLabel")}
       >
-        <div className="anime-wallet-popover-head">
+        <div className="text-sm">
           <div>
-            <div className="anime-wallet-popover-title">
+            <div className="text-sm">
               {t("wallet.title")}
             </div>
-            <div className="anime-wallet-popover-sub">
+            <div className="text-sm">
               {evmShort ?? solShort ?? t("wallet.notConnected")}
             </div>
           </div>
-          <div className="anime-wallet-popover-head-actions">
+          <div className="text-sm">
             <button
               type="button"
-              className="anime-wallet-popover-ghost"
+              className="text-sm"
               onClick={() => {
                 void loadBalances();
                 if (walletPortfolioTab === "collectibles") {
@@ -119,27 +115,27 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
           </div>
         </div>
 
-        <div className="anime-wallet-popover-total">
-          <div className="anime-wallet-popover-total-value">
+        <div className="text-sm">
+          <div className="text-sm">
             {walletTotalUsd > 0
               ? `$${walletTotalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "$0.00"}
           </div>
-          <div className="anime-wallet-popover-total-label">
+          <div className="text-sm">
             {t("wallet.estimatedPortfolioValue")}
           </div>
         </div>
 
         {walletError && (
-          <div className="anime-wallet-popover-error">{walletError}</div>
+          <div className="text-sm">{walletError}</div>
         )}
 
-        <div className="anime-wallet-mode-switch">
+        <div className="text-sm">
           {(["send", "swap", "receive"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
-              className={`anime-wallet-mode-btn ${walletActionMode === mode ? "is-active" : ""}`}
+              className={`text-sm`}
               onClick={() => setWalletActionMode(mode)}
             >
               {mode === "send"
@@ -151,19 +147,19 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
           ))}
         </div>
 
-        <div className="anime-wallet-readiness-row">
+        <div className="text-sm">
           <span
-            className={`anime-wallet-ready-chip ${walletReady ? "is-ready" : "is-off"}`}
+            className={`text-sm`}
           >
             {t("wallet.preflightCheck.wallet")}
           </span>
           <span
-            className={`anime-wallet-ready-chip ${rpcReady ? "is-ready" : "is-off"}`}
+            className={`text-sm`}
           >
             {t("wallet.readyChipFeed")}
           </span>
           <span
-            className={`anime-wallet-ready-chip ${gasReady ? "is-ready" : "is-off"}`}
+            className={`text-sm`}
           >
             {t("wallet.preflightCheck.gas")}
           </span>
@@ -171,21 +167,21 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
 
         {walletActionMode === "receive" && (
           <>
-            <div className="anime-wallet-address-list">
+            <div className="text-sm">
               {evmAddress && (
-                <div className="anime-wallet-address-row">
-                  <span className="anime-wallet-address-chain">
+                <div className="text-sm">
+                  <span className="text-sm">
                     {t("companionwalletpanel.EVM")}
                   </span>
                   <code
-                    className="anime-wallet-address-code"
+                    className="text-sm"
                     title={evmAddress}
                   >
                     {evmShort}
                   </code>
                   <button
                     type="button"
-                    className="anime-wallet-address-copy"
+                    className="text-sm"
                     onClick={() => {
                       void copyToClipboard(evmAddress);
                       setActionNotice(
@@ -200,19 +196,19 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
                 </div>
               )}
               {solAddress && (
-                <div className="anime-wallet-address-row">
-                  <span className="anime-wallet-address-chain">
+                <div className="text-sm">
+                  <span className="text-sm">
                     {t("companionwalletpanel.SOL")}
                   </span>
                   <code
-                    className="anime-wallet-address-code"
+                    className="text-sm"
                     title={solAddress}
                   >
                     {solShort}
                   </code>
                   <button
                     type="button"
-                    className="anime-wallet-address-copy"
+                    className="text-sm"
                     onClick={() => {
                       void copyToClipboard(solAddress);
                       setActionNotice(
@@ -228,8 +224,8 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
               )}
             </div>
 
-            <div className="anime-wallet-portfolio-toolbar">
-              <div className="anime-wallet-portfolio-tabs">
+            <div className="text-sm">
+              <div className="text-sm">
                 {(
                   [
                     { key: "tokens", label: t("wallet.tokens") },
@@ -242,19 +238,19 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
                   <button
                     key={tab.key}
                     type="button"
-                    className={`anime-wallet-portfolio-tab ${walletPortfolioTab === tab.key ? "is-active" : ""}`}
+                    className={`text-sm`}
                     onClick={() => setWalletPortfolioTab(tab.key)}
                   >
                     {tab.label}
                   </button>
                 ))}
               </div>
-              <div className="anime-wallet-portfolio-filters">
+              <div className="text-sm">
                 {walletChainOptions.map((chainOption) => (
                   <button
                     key={chainOption.value}
                     type="button"
-                    className={`anime-wallet-portfolio-filter ${walletPortfolioChain === chainOption.value ? "is-active" : ""}`}
+                    className={`text-sm`}
                     onClick={() => setWalletPortfolioChain(chainOption.value)}
                   >
                     {chainOption.label}
@@ -362,7 +358,7 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
         )}
 
         {bscChainError && (
-          <div className="anime-wallet-popover-error">
+          <div className="text-sm">
             {t("wallet.bscFeedError", { error: bscChainError })}
           </div>
         )}
