@@ -217,7 +217,7 @@ describe("Agent Orchestrator Plugin Loading", () => {
     expect(mod).toBeDefined();
   });
 
-  it("dist bundle exports agentOrchestratorPlugin", () => {
+  it("dist bundle exports codingAgentPlugin", () => {
     // Verify the orchestrator plugin dist exists and exports the main plugin
     const distPath = path.resolve(
       packageRoot,
@@ -225,7 +225,7 @@ describe("Agent Orchestrator Plugin Loading", () => {
     );
     expect(fs.existsSync(distPath)).toBe(true);
     const dist = fs.readFileSync(distPath, "utf-8");
-    expect(dist).toContain("agentOrchestratorPlugin");
+    expect(dist).toContain("codingAgentPlugin");
   });
 
   it("installed version matches package.json spec", async () => {
