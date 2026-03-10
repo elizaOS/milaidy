@@ -4689,7 +4689,7 @@ export function resolveMcpTerminalAuthorizationRejection(
 const LOCAL_ORIGIN_RE =
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|\[0:0:0:0:0:0:0:1\])(:\d+)?$/i;
 const APP_ORIGIN_RE =
-  /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
+  /^(capacitor|capacitor-electron|app|tauri|file|electrobun):\/\/.*$/i;
 
 /**
  * Hostname allowlist for DNS rebinding protection.
@@ -4779,8 +4779,13 @@ export function resolveCorsOrigin(origin?: string): string | null {
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
   if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
-  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
+  if (
+    trimmed === "null" ||
+    trimmed === "file://" ||
+    process.env.MILADY_ALLOW_NULL_ORIGIN === "1"
+  ) {
     return "null";
+  }
   return null;
 }
 

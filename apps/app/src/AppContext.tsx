@@ -392,6 +392,7 @@ function saveChatMode(value: ConversationMode): void {
 
 export type OnboardingStep =
   | "welcome"
+  | "language"
   | "name"
   | "ownerName"
   | "avatar"

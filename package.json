@@ -51,7 +51,7 @@
   "scripts": {
     "benchmark:server": "node --import tsx src/benchmark/server.ts",
     "build": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && scripts/rt.sh scripts/write-build-info.ts && cd apps/app && ../../scripts/rt.sh run build",
-    "install:build": "bun install --ignore-scripts && node scripts/init-submodules.mjs && node scripts/ensure-skills.mjs && node scripts/ensure-avatars.mjs && node scripts/link-browser-server.mjs && node scripts/patch-deps.mjs",
+    "install:build": "bun install --ignore-scripts && node scripts/init-submodules.mjs && node scripts/ensure-skills.mjs && node scripts/ensure-avatars.mjs && node scripts/link-browser-server.mjs && node scripts/ensure-vision-deps.mjs && node scripts/patch-deps.mjs",
     "build:node": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && node --import tsx scripts/write-build-info.ts && cd apps/app && npm run build",
     "build:android": "cd apps/app && ../../scripts/rt.sh run build:android",
     "build:desktop": "cd apps/app && VITE_APP_VARIANT=base vite build && cd electrobun && bun run build:native-effects && bun run build",
@@ -81,7 +81,7 @@
     "learn:loop": "echo 'Knowledge loop not yet implemented'",
     "learn:snapshot": "echo 'Knowledge snapshot not yet implemented'",
     "milady": "scripts/rt.sh scripts/run-node.mjs",
-    "postinstall": "node ./scripts/init-submodules.mjs && node ./scripts/ensure-skills.mjs && node ./scripts/ensure-avatars.mjs && node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs",
+    "postinstall": "node ./scripts/init-submodules.mjs && node ./scripts/ensure-skills.mjs && node ./scripts/ensure-avatars.mjs && node ./scripts/link-browser-server.mjs && node ./scripts/ensure-vision-deps.mjs && node ./scripts/patch-deps.mjs",
     "pre-review:local": "node scripts/pre-review-local.mjs",
     "prepack": "scripts/rt.sh run build",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath git-hooks',{stdio:'ignore'})}catch{}\"",
@@ -114,7 +114,7 @@
     "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui",
     "db:reset": "scripts/rt.sh scripts/run-node.mjs db reset",
     "doctor": "scripts/rt.sh scripts/run-node.mjs doctor",
-    "repair": "node scripts/init-submodules.mjs && node scripts/ensure-avatars.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/patch-deps.mjs"
+    "repair": "node scripts/init-submodules.mjs && node scripts/ensure-avatars.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/ensure-vision-deps.mjs && node scripts/patch-deps.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.13",

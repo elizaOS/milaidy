@@ -969,6 +969,16 @@ function killOrphanedWorkspaceProcesses() {
 
 killOrphanedWorkspaceProcesses();
 killPort(UI_PORT);
+
+// Ensure vision dependencies are installed
+try {
+  execSync("node scripts/ensure-vision-deps.mjs", { stdio: "inherit" });
+} catch (_err) {
+  console.warn(
+    `\n  ${orange("[milady]")} ${dim("Failed to auto-install vision dependencies")}`,
+  );
+}
+
 if (!uiOnly) {
   killPort(API_PORT);
   // ANVIL_PORT is killed after on-chain preference is determined (in main block).
