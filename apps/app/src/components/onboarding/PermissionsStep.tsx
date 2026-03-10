@@ -5,10 +5,14 @@ export function PermissionsStep() {
   const { handleOnboardingNext } = useApp();
 
   return (
-    <div className="max-w-[600px] mx-auto mt-10 font-body">
+    <>
+      <div className="onboarding-section-title">Permissions</div>
+      <div className="onboarding-divider">
+        <div className="onboarding-divider-diamond" />
+      </div>
       <PermissionsOnboardingSection
         onContinue={(options) => void handleOnboardingNext(options)}
       />
-    </div>
+    </>
   );
 }
