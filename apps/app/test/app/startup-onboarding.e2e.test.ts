@@ -4,18 +4,12 @@ import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type OnboardingStep =
-  | "welcome"
+  | "wakeUp"
   | "language"
-  | "setupMode"
-  | "runMode"
-  | "dockerSetup"
-  | "cloudProvider"
-  | "modelSelection"
-  | "cloudLogin"
-  | "llmProvider"
-  | "inventorySetup"
-  | "connectors"
-  | "permissions";
+  | "identity"
+  | "connection"
+  | "senses"
+  | "activate";
 
 type AppHarnessState = {
   onboardingLoading: boolean;
@@ -79,7 +73,6 @@ type AppHarnessState = {
   onboardingName: string;
   onboardingStyle: string;
   onboardingTheme: string;
-  onboardingSetupMode: "quick" | "advanced" | "";
   onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
   onboardingCloudProvider: string;
   onboardingSmallModel: string;
@@ -206,6 +199,16 @@ vi.mock("../../src/components/TerminalPanel", () => ({
 vi.mock("../../src/components/AvatarSelector", () => ({
   AvatarSelector: () => React.createElement("div", null, "AvatarSelector"),
 }));
+vi.mock("../../src/components/companion/VrmStage", () => ({
+  VrmStage: () => React.createElement("div", null, "VrmStage"),
+}));
+vi.mock("../../src/components/StreamView", () => ({
+  StreamView: () => React.createElement("div", null, "StreamView"),
+}));
+vi.mock("../../src/components/CompanionShell", () => ({
+  CompanionShell: () => React.createElement("div", null, "CompanionShell"),
+  useCompanionShell: () => ({}),
+}));
 vi.mock("../../src/components/PermissionsSection", () => ({
   PermissionsOnboardingSection: ({
     onContinue,
@@ -295,12 +298,11 @@ function createHarnessState(): AppHarnessState {
     onboardingComplete: false,
     tab: "chat",
     actionNotice: null,
-    onboardingStep: "welcome",
+    onboardingStep: "wakeUp",
     onboardingOptions: onboardingOptions(),
-    onboardingName: "",
+    onboardingName: "Milady",
     onboardingStyle: "",
     onboardingTheme: "milady",
-    onboardingSetupMode: "quick",
     onboardingRunMode: "",
     onboardingCloudProvider: "",
     onboardingSmallModel: "small-model",
@@ -368,49 +370,24 @@ describe("app startup onboarding flow (e2e)", () => {
   beforeEach(() => {
     state = createHarnessState();
 
+    const STEP_ORDER: OnboardingStep[] = ["wakeUp", "language", "identity", "connection", "senses", "activate"];
+
     const handleOnboardingNext = async () => {
-      switch (state.onboardingStep) {
-        case "welcome":
-          state.onboardingStep = "language";
-          break;
-        case "language":
-          state.onboardingStep = "setupMode";
-          break;
-        case "setupMode":
-          state.onboardingStep = state.onboardingSetupMode === "advanced" ? "runMode" : "llmProvider";
-          break;
-        case "runMode":
-          state.onboardingStep = "llmProvider";
-          break;
-        case "llmProvider":
-          state.onboardingStep = "permissions";
-          break;
-        case "permissions":
-          state.onboardingComplete = true;
-          state.tab = "chat";
-          break;
-        default:
-          break;
+      if (state.onboardingStep === "activate") {
+        state.onboardingComplete = true;
+        state.tab = "chat";
+        return;
+      }
+      const idx = STEP_ORDER.indexOf(state.onboardingStep);
+      if (idx >= 0 && idx < STEP_ORDER.length - 1) {
+        state.onboardingStep = STEP_ORDER[idx + 1];
       }
     };
 
     const handleOnboardingBack = () => {
-      switch (state.onboardingStep) {
-        case "language":
-          state.onboardingStep = "welcome";
-          break;
-        case "setupMode":
-          state.onboardingStep = "language";
-          break;
-        case "runMode":
-        case "llmProvider":
-          state.onboardingStep = "setupMode";
-          break;
-        case "permissions":
-          state.onboardingStep = "llmProvider";
-          break;
-        default:
-          break;
+      const idx = STEP_ORDER.indexOf(state.onboardingStep);
+      if (idx > 0) {
+        state.onboardingStep = STEP_ORDER[idx - 1];
       }
     };
 
@@ -444,22 +421,23 @@ describe("app startup onboarding flow (e2e)", () => {
     const renderedTree = tree;
 
     for (let i = 0; i < 20 && !state.onboardingComplete; i += 1) {
-      if (state.onboardingStep === "setupMode") {
-        state.onboardingSetupMode = "quick";
-        await rerender(renderedTree);
-      }
-
-      if (state.onboardingStep === "llmProvider") {
+      if (state.onboardingStep === "connection" && !state.onboardingProvider) {
         state.onboardingProvider = "ollama";
-        // Mock api key requirement bypassing logic or ensure valid state
-        state.onboardingApiKey = "test-key";
         await rerender(renderedTree);
       }
 
-      if (state.onboardingStep === "permissions") {
+      if (state.onboardingStep === "senses") {
         clickButton(renderedTree, "permissions-continue");
-      } else {
-        clickButton(renderedTree, "next");
+      } else if (state.onboardingStep === "language") {
+        clickButton(renderedTree, "English");
+      } else if (state.onboardingStep === "wakeUp") {
+        clickButton(renderedTree, "Activate");
+      } else if (state.onboardingStep === "identity") {
+        clickButton(renderedTree, "Confirm");
+      } else if (state.onboardingStep === "connection") {
+        clickButton(renderedTree, "onboardingwizard.confirm");
+      } else if (state.onboardingStep === "activate") {
+        clickButton(renderedTree, "Enter");
       }
       await rerender(renderedTree);
     }

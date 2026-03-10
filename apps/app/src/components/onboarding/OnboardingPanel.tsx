@@ -1,5 +1,5 @@
 import { type ReactNode, useRef, useEffect } from "react";
-import { type OnboardingStep } from "@milady/app-core/state/types";
+import { type OnboardingStep } from "@milady/app-core/state";
 
 interface OnboardingPanelProps {
   step: OnboardingStep;
