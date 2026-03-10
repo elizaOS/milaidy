@@ -476,6 +476,5 @@ describe("app startup onboarding flow (e2e)", () => {
 
     expect(renderedText).toContain("ChatView");
     expect(renderedText).toContain("Header");
-    expect(renderedText).toContain("Nav");
   });
 });

@@ -256,7 +256,7 @@ jobs:
 
       - name: Setup Node.js (GitHub-hosted)
         if: runner.os != 'Linux'
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           check-latest: false
@@ -298,7 +298,7 @@ jobs:
       - name: Build renderer assets
         run: |
           cd apps/app
-          npx vite build
+          bunx vite build
 
       - name: Build native macOS effects dylib
         if: runner.os == 'macOS'
@@ -370,7 +370,7 @@ jobs:
 
       # WHY v3 + check-latest: false — v4 has slow post-action and nodejs.org timeouts; v3 uses toolcache.
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           check-latest: false

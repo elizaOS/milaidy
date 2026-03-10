@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
           check-latest: false
@@ -50,7 +50,7 @@ jobs:
           python-version: "3.12"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
           check-latest: false
@@ -136,7 +136,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
           check-latest: false

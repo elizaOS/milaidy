@@ -24,11 +24,7 @@ vi.mock("../../src/AppContext", () => ({
 }));
 
 vi.mock("../../src/components/Header", () => ({
-  Header: () => React.createElement("div", null, "Header"),
-}));
-vi.mock("../../src/components/Nav", () => ({
-  Nav: ({ mobileLeft }: { mobileLeft?: React.ReactNode }) =>
-    React.createElement("div", null, "Nav", mobileLeft),
+  Header: ({ mobileLeft }: { mobileLeft?: React.ReactNode }) => React.createElement("div", null, "Header", mobileLeft),
 }));
 vi.mock("../../src/components/CommandPalette", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
