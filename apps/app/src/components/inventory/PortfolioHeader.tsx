@@ -58,7 +58,7 @@ export function PortfolioHeader({
           </div>
           {bscNativeBalance !== null && (
             <div className="wt__bnb-sub">
-              {formatBalance(bscNativeBalance)} BNB
+              {formatBalance(bscNativeBalance)}  {t("portfolioheader.BNB")}
             </div>
           )}
         </div>
@@ -107,8 +107,8 @@ export function PortfolioHeader({
               ? t("wallet.status.feedLiveTitle")
               : bscChainError
                 ? t("wallet.status.feedErrorTitle", {
-                    error: bscChainError,
-                  })
+                  error: bscChainError,
+                })
                 : t("wallet.status.feedOfflineTitle")
           }
         />
@@ -124,8 +124,8 @@ export function PortfolioHeader({
               ? t("wallet.status.tradeReadyTitle")
               : rpcReady
                 ? t("wallet.status.tradeNeedGasTitle", {
-                    threshold: BSC_GAS_READY_THRESHOLD,
-                  })
+                  threshold: BSC_GAS_READY_THRESHOLD,
+                })
                 : t("wallet.status.tradeFeedRequired")
           }
         />
@@ -133,7 +133,7 @@ export function PortfolioHeader({
       {/* Inline BSC error with retry */}
       {bscChainError && (
         <div className="wt__error-inline mt-2">
-          <span className="wt__error-inline-text">BSC: {bscChainError}</span>
+          <span className="wt__error-inline-text">{t("portfolioheader.BSC")} {bscChainError}</span>
           <button
             type="button"
             className="wt__error-retry"
@@ -152,8 +152,8 @@ export function PortfolioHeader({
             {t("wallet.setup.rpcNotConfigured")}
           </div>
           <div className="text-[var(--muted)] leading-relaxed">
-            Connect via Eliza Cloud or configure a custom BSC RPC provider
-            (NodeReal / QuickNode) to enable trading.
+
+            {t("portfolioheader.ConnectViaElizaCl")}
           </div>
           <div className="mt-2">
             <button
@@ -161,7 +161,8 @@ export function PortfolioHeader({
               className="px-3 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] cursor-pointer text-[11px] font-mono hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
               onClick={goToRpcSettings}
             >
-              Configure RPC
+
+              {t("portfolioheader.ConfigureRPC")}
             </button>
           </div>
         </div>

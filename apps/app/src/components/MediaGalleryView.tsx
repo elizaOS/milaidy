@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { client, type QueryResult } from "../api-client";
+import { useApp } from "../AppContext";
 
 type MediaType = "all" | "image" | "video" | "audio";
 
@@ -126,6 +127,7 @@ function collectStrings(obj: unknown, out: string[]) {
 }
 
 export function MediaGalleryView() {
+    const { t } = useApp();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -214,7 +216,7 @@ export function MediaGalleryView() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <input
           type="text"
-          placeholder="Search media..."
+          placeholder={t("mediagalleryview.SearchMedia")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs w-[200px]"
@@ -236,7 +238,7 @@ export function MediaGalleryView() {
           ))}
         </div>
         <span className="text-[11px] text-[var(--muted)] ml-auto">
-          {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+          {filtered.length}  {t("mediagalleryview.item")}{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -248,11 +250,12 @@ export function MediaGalleryView() {
 
       {loading ? (
         <div className="text-center py-16 text-[var(--muted)] text-sm italic">
-          Scanning for media...
-        </div>
+          
+                            {t("mediagalleryview.ScanningForMedia")}
+                          </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-[var(--muted)] text-sm mb-2">No media found</div>
+          <div className="text-[var(--muted)] text-sm mb-2">{t("mediagalleryview.NoMediaFound")}</div>
           <div className="text-[var(--muted)] text-xs">
             {media.length === 0
               ? "No images, videos, or audio files were detected in the database."
@@ -376,10 +379,10 @@ export function MediaGalleryView() {
             </div>
             {/* Footer info */}
             <div className="p-3 border-t border-[var(--border)] text-[11px] text-[var(--muted)] flex gap-4">
-              <span>Type: {lightboxItem.type}</span>
-              <span>Source: {lightboxItem.source}</span>
+              <span>{t("mediagalleryview.Type")} {lightboxItem.type}</span>
+              <span>{t("mediagalleryview.Source")} {lightboxItem.source}</span>
               {lightboxItem.createdAt && (
-                <span>Date: {lightboxItem.createdAt}</span>
+                <span>{t("mediagalleryview.Date")} {lightboxItem.createdAt}</span>
               )}
             </div>
           </div>

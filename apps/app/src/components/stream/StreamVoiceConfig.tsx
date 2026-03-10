@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { client } from "../../api-client";
+import { useApp } from "../../AppContext";
 
 interface VoiceStatus {
   enabled: boolean;
@@ -19,6 +20,7 @@ interface VoiceStatus {
 }
 
 export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
+    const { t } = useApp();
   const [status, setStatus] = useState<VoiceStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -127,7 +129,7 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
             </>
           )}
         </svg>
-        <span>Voice</span>
+        <span>{t("streamvoiceconfig.Voice")}</span>
       </button>
 
       {/* Status indicators (when enabled) */}
@@ -136,14 +138,15 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
           <span className="text-muted">
             {providerLabel}
             {!status.hasApiKey && status.provider !== "edge" && (
-              <span className="text-warning ml-1" title="No API key configured">
-                (no key)
-              </span>
+              <span className="text-warning ml-1" title={t("streamvoiceconfig.NoAPIKeyConfigure")}>
+                
+                                              {t("streamvoiceconfig.NoKey")}
+                                            </span>
             )}
           </span>
 
           {speaking && (
-            <span className="text-accent animate-pulse">Speaking...</span>
+            <span className="text-accent animate-pulse">{t("streamvoiceconfig.Speaking")}</span>
           )}
 
           {/* Test button — only when stream is live and bridge attached */}
@@ -153,10 +156,11 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
               onClick={testSpeak}
               disabled={speaking}
               className="px-1.5 py-0.5 rounded bg-surface text-muted hover:bg-surface-hover hover:text-txt text-xs transition-colors"
-              title="Test TTS on stream"
+              title={t("streamvoiceconfig.TestTTSOnStream")}
             >
-              Test
-            </button>
+              
+                                        {t("streamvoiceconfig.Test")}
+                                      </button>
           )}
         </>
       )}

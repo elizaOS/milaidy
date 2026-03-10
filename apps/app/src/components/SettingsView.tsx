@@ -323,7 +323,7 @@ function UpdatesSection() {
             {t("settings.updateAvailable")}
           </div>
           <p className="text-sm text-muted">
-            {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
+            {updateStatus.currentVersion}  {t("settingsview.Rarr")} {updateStatus.latestVersion}
           </p>
         </div>
       )}
@@ -490,14 +490,15 @@ function AdvancedSection() {
               htmlFor="settings-export-password"
               className="text-sm font-medium text-txt-strong"
             >
-              Password
+
+              {t("settingsview.Password")}
             </label>
             <input
               id="settings-export-password"
               type="password"
               value={exportPassword}
               onChange={(e) => setState("exportPassword", e.target.value)}
-              placeholder="Enter export password"
+              placeholder={t("settingsview.EnterExportPasswor")}
               className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
             <label className="flex items-center gap-2 text-sm text-muted">
@@ -508,7 +509,8 @@ function AdvancedSection() {
                   setState("exportIncludeLogs", e.target.checked)
                 }
               />
-              Include recent logs in the backup
+
+              {t("settingsview.IncludeRecentLogs")}
             </label>
           </div>
 
@@ -562,7 +564,8 @@ function AdvancedSection() {
 
           <div className="space-y-2">
             <div className="text-sm font-medium text-txt-strong">
-              Backup file
+
+              {t("settingsview.BackupFile")}
             </div>
             <button
               type="button"
@@ -583,14 +586,15 @@ function AdvancedSection() {
               htmlFor="settings-import-password"
               className="text-sm font-medium text-txt-strong"
             >
-              Password
+
+              {t("settingsview.Password")}
             </label>
             <input
               id="settings-import-password"
               type="password"
               value={importPassword}
               onChange={(e) => setState("importPassword", e.target.value)}
-              placeholder="Enter import password"
+              placeholder={t("settingsview.EnterImportPasswor")}
               className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
           </div>
@@ -839,7 +843,7 @@ export function SettingsView({
       {visibleSectionIds.has("coding-agents") && (
         <SectionCard
           id="coding-agents"
-          title="Coding Agents"
+          title={t("settingsview.CodingAgents")}
           description="Configure AI coding agents for multi-agent task execution."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -850,7 +854,7 @@ export function SettingsView({
       {visibleSectionIds.has("wallet-rpc") && (
         <SectionCard
           id="wallet-rpc"
-          title="Wallet & RPC"
+          title={t("settingsview.WalletRPC")}
           description="Configure chain RPC providers for trading and market data."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -916,7 +920,7 @@ export function SettingsView({
       {visibleSections.length === 0 && (
         <SectionCard
           id="settings-empty"
-          title="No matching settings"
+          title={t("settingsview.NoMatchingSettings")}
           description="Try a broader search or clear the current filter."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -925,7 +929,8 @@ export function SettingsView({
             className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
             onClick={() => setSearchQuery("")}
           >
-            Clear search
+
+            {t("settingsview.ClearSearch")}
           </button>
         </SectionCard>
       )}
@@ -961,7 +966,7 @@ export function SettingsView({
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
               onClick={handleClose}
               aria-label="Close settings"
-              title="Close settings"
+              title={t("settingsview.CloseSettings")}
             >
               <X className="w-4 h-4" />
             </button>

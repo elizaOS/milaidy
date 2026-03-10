@@ -4,6 +4,21 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { startMemoryLeakDetector } from "../../src/hooks/useMemoryMonitor";
+
+let mockDateNow = 1000000;
+vi.spyOn(Date, "now").mockImplementation(() => mockDateNow);
+
+let intervalCallbacks: (() => void)[] = [];
+vi.stubGlobal("setInterval", (cb: () => void) => {
+  intervalCallbacks.push(cb);
+  return intervalCallbacks.length;
+});
+vi.stubGlobal("clearInterval", (id: number) => {
+  // Simple mock: just clear all for these tests since we only test one thing per block
+  // or we could remove by index if needed.
+  intervalCallbacks = [];
+});
 
 // Mock the Performance API memory interface
 const mockMemory = {
@@ -15,29 +30,37 @@ const mockMemory = {
 // Store original performance object
 const originalPerformance = globalThis.performance;
 
+function setupPerformanceMock() {
+  const perfToken = { ...mockMemory };
+  Object.defineProperty(globalThis, "performance", {
+    value: { ...originalPerformance, memory: perfToken },
+    writable: true,
+    configurable: true,
+  });
+  return perfToken;
+}
+
+function restorePerformanceMock() {
+  Object.defineProperty(globalThis, "performance", {
+    value: originalPerformance,
+    writable: true,
+    configurable: true,
+  });
+}
+
 describe("startMemoryLeakDetector", () => {
+  let perfToken: typeof mockMemory;
   beforeEach(() => {
-    Object.defineProperty(globalThis, "performance", {
-      value: { ...originalPerformance, memory: { ...mockMemory } },
-      writable: true,
-      configurable: true,
-    });
-    vi.useFakeTimers();
+    perfToken = setupPerformanceMock();
+    mockDateNow = 1000000;
+    intervalCallbacks = [];
   });
 
   afterEach(() => {
-    vi.useRealTimers();
-    Object.defineProperty(globalThis, "performance", {
-      value: originalPerformance,
-      writable: true,
-      configurable: true,
-    });
+    restorePerformanceMock();
   });
 
   it("returns a cleanup function", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
 
     const stop = startMemoryLeakDetector();
     expect(typeof stop).toBe("function");
@@ -45,10 +68,6 @@ describe("startMemoryLeakDetector", () => {
   });
 
   it("calls onLeak callback when leak is detected", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     let currentHeap = 50 * 1024 * 1024;
 
@@ -61,9 +80,10 @@ describe("startMemoryLeakDetector", () => {
     // Simulate rapid memory growth
     for (let i = 0; i < 10; i++) {
       currentHeap += 100 * 1024 * 1024; // 100 MB per second = massive leak
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      console.log(`t: ${mockDateNow}, heap: ${currentHeap}`);
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     expect(onLeak).toHaveBeenCalled();
@@ -71,10 +91,6 @@ describe("startMemoryLeakDetector", () => {
   });
 
   it("stops monitoring when cleanup is called", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     let currentHeap = 50 * 1024 * 1024;
 
@@ -90,9 +106,9 @@ describe("startMemoryLeakDetector", () => {
     // Simulate rapid memory growth after stop
     for (let i = 0; i < 10; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // onLeak should not have been called since we stopped
@@ -100,10 +116,6 @@ describe("startMemoryLeakDetector", () => {
   });
 
   it("respects custom threshold - high threshold prevents detection", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     let currentHeap = 50 * 1024 * 1024;
 
@@ -117,9 +129,9 @@ describe("startMemoryLeakDetector", () => {
     // Simulate rapid memory growth
     for (let i = 0; i < 10; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Should not trigger because threshold is too high
@@ -129,16 +141,7 @@ describe("startMemoryLeakDetector", () => {
 
   it("handles missing memory API gracefully", async () => {
     // Remove memory property entirely
-    Object.defineProperty(globalThis, "performance", {
-      value: { ...originalPerformance },
-      writable: true,
-      configurable: true,
-    });
-
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
+    vi.stubGlobal("performance", { ...originalPerformance });
     const onLeak = vi.fn();
     const stop = startMemoryLeakDetector({
       intervalMs: 1000,
@@ -146,7 +149,10 @@ describe("startMemoryLeakDetector", () => {
     });
 
     // Advance time - should not crash
-    vi.advanceTimersByTime(10000);
+    for (let i = 0; i < 10; i++) {
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
+    }
 
     // onLeak should not be called since memory API isn't available
     expect(onLeak).not.toHaveBeenCalled();
@@ -155,10 +161,6 @@ describe("startMemoryLeakDetector", () => {
   });
 
   it("reports correct memory values in onLeak callback", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     let capturedInfo: { mbPerMinute: number; currentMb: number } | null = null;
     let currentHeap = 50 * 1024 * 1024;
 
@@ -173,9 +175,9 @@ describe("startMemoryLeakDetector", () => {
     // Simulate rapid memory growth
     for (let i = 0; i < 10; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     expect(capturedInfo).not.toBeNull();
@@ -185,10 +187,6 @@ describe("startMemoryLeakDetector", () => {
   });
 
   it("requires minimum samples before detecting leak", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     let currentHeap = 50 * 1024 * 1024;
 
@@ -201,9 +199,9 @@ describe("startMemoryLeakDetector", () => {
     // Only advance 3 times (less than the minimum 6 samples needed)
     for (let i = 0; i < 3; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Should not trigger yet - not enough samples
@@ -212,9 +210,9 @@ describe("startMemoryLeakDetector", () => {
     // Continue to get enough samples
     for (let i = 0; i < 5; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Now should have triggered
@@ -224,28 +222,21 @@ describe("startMemoryLeakDetector", () => {
 });
 
 describe("memory leak detection edge cases", () => {
+  let perfToken: typeof mockMemory;
   beforeEach(() => {
-    vi.stubGlobal("performance", {
-      ...originalPerformance,
-      memory: { ...mockMemory },
-    });
-    vi.useFakeTimers();
+    perfToken = setupPerformanceMock();
+    mockDateNow = 1000000;
+    intervalCallbacks = [];
   });
 
   afterEach(() => {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
+    restorePerformanceMock();
   });
 
   it("handles stable memory (no growth)", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     // Memory stays constant
-    (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-      50 * 1024 * 1024;
+    perfToken.usedJSHeapSize = 50 * 1024 * 1024;
 
     const stop = startMemoryLeakDetector({
       intervalMs: 1000,
@@ -255,7 +246,8 @@ describe("memory leak detection edge cases", () => {
 
     // Advance time without changing memory
     for (let i = 0; i < 20; i++) {
-      vi.advanceTimersByTime(1000);
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Should not detect leak with stable memory
@@ -264,10 +256,6 @@ describe("memory leak detection edge cases", () => {
   });
 
   it("handles decreasing memory (GC occurring)", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak = vi.fn();
     let currentHeap = 500 * 1024 * 1024; // Start high
 
@@ -280,9 +268,9 @@ describe("memory leak detection edge cases", () => {
     // Simulate memory decreasing (GC running)
     for (let i = 0; i < 10; i++) {
       currentHeap -= 20 * 1024 * 1024; // Memory decreases
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Should not detect leak when memory is decreasing
@@ -291,10 +279,6 @@ describe("memory leak detection edge cases", () => {
   });
 
   it("multiple detectors can run independently", async () => {
-    const { startMemoryLeakDetector } = await import(
-      "../../src/hooks/useMemoryMonitor"
-    );
-
     const onLeak1 = vi.fn();
     const onLeak2 = vi.fn();
     let currentHeap = 50 * 1024 * 1024;
@@ -314,9 +298,9 @@ describe("memory leak detection edge cases", () => {
     // Simulate memory growth
     for (let i = 0; i < 10; i++) {
       currentHeap += 100 * 1024 * 1024;
-      (performance as { memory: typeof mockMemory }).memory.usedJSHeapSize =
-        currentHeap;
-      vi.advanceTimersByTime(1000);
+      perfToken.usedJSHeapSize = currentHeap;
+      mockDateNow += 1000;
+      intervalCallbacks.forEach((cb) => cb());
     }
 
     // Both should have detected the leak

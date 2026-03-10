@@ -28,8 +28,8 @@ import type {
   ValidationCheck,
   VisibilityCondition,
 } from "./ui-spec";
-
-// ── Context ─────────────────────────────────────────────────────────
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 const UiContext = createContext<UiRenderContext | null>(null);
 
@@ -690,11 +690,10 @@ const ToggleComponent: ComponentFn = (props, _children, ctx, el) => {
   return (
     <button
       type="button"
-      className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${
-        pressed
-          ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
-          : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
-      }`}
+      className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${pressed
+        ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+        : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
+        }`}
       onClick={() => {
         setValue(!pressed);
         fireEvent(el.on?.press, ctx);
@@ -735,11 +734,10 @@ const ToggleGroupComponent: ComponentFn = (props, _children, ctx) => {
           <button
             key={item.value}
             type="button"
-            className={`px-2.5 py-1 text-xs border cursor-pointer transition-colors ${
-              active
-                ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
-                : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
-            }`}
+            className={`px-2.5 py-1 text-xs border cursor-pointer transition-colors ${active
+              ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+              : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
+              }`}
             onClick={() => toggle(item.value)}
           >
             {item.label}
@@ -765,11 +763,10 @@ const ButtonGroupComponent: ComponentFn = (props, _children, ctx) => {
           <button
             key={btn.value}
             type="button"
-            className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${
-              active
-                ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
-                : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
-            }`}
+            className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${active
+              ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+              : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
+              }`}
             onClick={() => setValue(btn.value)}
           >
             {btn.label}
@@ -825,6 +822,8 @@ const TableComponent: ComponentFn = (props) => {
 };
 
 const CarouselComponent: ComponentFn = (props) => {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const items =
     (props.items as Array<{ title: string; description: string }>) ?? [];
   const [current, setCurrent] = useState(0);
@@ -847,7 +846,8 @@ const CarouselComponent: ComponentFn = (props) => {
           onClick={() => setCurrent((p) => Math.max(0, p - 1))}
           disabled={current === 0}
         >
-          &larr;
+
+          {t("ui-renderer.Larr")}
         </button>
         <span className="text-[10px] text-[var(--muted)] self-center">
           {current + 1} / {items.length}
@@ -858,7 +858,8 @@ const CarouselComponent: ComponentFn = (props) => {
           onClick={() => setCurrent((p) => Math.min(items.length - 1, p + 1))}
           disabled={current === items.length - 1}
         >
-          &rarr;
+
+          {t("ui-renderer.Rarr")}
         </button>
       </div>
     </div>
@@ -1142,11 +1143,10 @@ const TabsComponent: ComponentFn = (props, _children, ctx) => {
           <button
             key={tab.value}
             type="button"
-            className={`px-3 py-1.5 text-xs cursor-pointer transition-colors ${
-              tab.value === active
-                ? "border-b-2 border-[var(--accent)] text-[var(--accent)] font-semibold"
-                : "text-[var(--muted)] hover:text-[var(--text)]"
-            }`}
+            className={`px-3 py-1.5 text-xs cursor-pointer transition-colors ${tab.value === active
+              ? "border-b-2 border-[var(--accent)] text-[var(--accent)] font-semibold"
+              : "text-[var(--muted)] hover:text-[var(--text)]"
+              }`}
             onClick={() => setValue(tab.value)}
           >
             {tab.label}
@@ -1159,6 +1159,8 @@ const TabsComponent: ComponentFn = (props, _children, ctx) => {
 };
 
 const PaginationComponent: ComponentFn = (props, _children, ctx) => {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const total = Number(props.totalPages ?? 1);
   const [value, setValue] = useStatePath(
     props.statePath as string | undefined,
@@ -1173,17 +1175,17 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
         disabled={current <= 1}
         onClick={() => setValue(current - 1)}
       >
-        &larr;
+
+        {t("ui-renderer.Larr")}
       </button>
       {Array.from({ length: total }, (_, i) => i + 1).map((page) => (
         <button
           key={page}
           type="button"
-          className={`px-2 py-1 text-xs border cursor-pointer ${
-            page === current
-              ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
-              : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--bg-hover)]"
-          }`}
+          className={`px-2 py-1 text-xs border cursor-pointer ${page === current
+            ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+            : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--bg-hover)]"
+            }`}
           onClick={() => setValue(page)}
         >
           {page}
@@ -1195,7 +1197,8 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
         disabled={current >= total}
         onClick={() => setValue(current + 1)}
       >
-        &rarr;
+
+        {t("ui-renderer.Rarr")}
       </button>
     </div>
   );
@@ -1350,6 +1353,8 @@ const TooltipComponent: ComponentFn = (props) => {
 };
 
 const PopoverComponent: ComponentFn = (props) => {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [open, setOpen] = useState(false);
   return (
     <div className="relative inline-block">
@@ -1368,7 +1373,8 @@ const PopoverComponent: ComponentFn = (props) => {
             className="text-[10px] text-[var(--muted)] mt-1 cursor-pointer hover:text-[var(--text)]"
             onClick={() => setOpen(false)}
           >
-            Close
+
+            {t("ui-renderer.Close")}
           </button>
         </div>
       )}
@@ -1440,6 +1446,8 @@ const AccordionComponent: ComponentFn = (props) => {
 };
 
 const DialogComponent: ComponentFn = (props, children, ctx) => {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const openPath = props.openPath as string | undefined;
   const isOpen = openPath ? !!getByPath(ctx.state, openPath) : false;
   if (!isOpen) return null;
@@ -1478,7 +1486,8 @@ const DialogComponent: ComponentFn = (props, children, ctx) => {
             className="text-[var(--muted)] hover:text-[var(--text)] text-lg leading-none px-1 cursor-pointer"
             onClick={close}
           >
-            &times;
+
+            {t("ui-renderer.Times")}
           </button>
         </div>
         {children}
@@ -1584,6 +1593,7 @@ const COMPONENTS: Record<string, ComponentFn> = {
 // ══════════════════════════════════════════════════════════════════════
 
 function ElementRenderer({ elementId }: { elementId: string }) {
+  const { t } = useApp();
   const ctx = useUiCtx();
   const el = ctx.spec.elements[elementId];
   if (!el) return null;
@@ -1597,7 +1607,8 @@ function ElementRenderer({ elementId }: { elementId: string }) {
   if (!component) {
     return (
       <div className="text-[10px] text-[var(--destructive)] border border-dashed border-[var(--destructive)] p-2">
-        Unknown component: {el.type}
+
+        {t("ui-renderer.UnknownComponent")} {el.type}
       </div>
     );
   }

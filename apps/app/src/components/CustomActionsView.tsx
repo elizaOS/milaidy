@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { type CustomActionDef, client } from "../api-client";
 import { CustomActionEditor } from "./CustomActionEditor";
+import { useApp } from "../AppContext";
 
 export function CustomActionsView() {
+    const { t } = useApp();
   const [actions, setActions] = useState<CustomActionDef[]>([]);
   const [search, setSearch] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -138,7 +140,7 @@ export function CustomActionsView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-muted">Loading actions...</div>
+        <div className="text-muted">{t("customactionsview.LoadingActions")}</div>
       </div>
     );
   }
@@ -147,11 +149,12 @@ export function CustomActionsView() {
     <div className="flex flex-col h-full p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold text-txt">Custom Actions</h1>
+        <h1 className="text-lg font-bold text-txt">{t("customactionsview.CustomActions")}</h1>
         <div className="flex items-center gap-2">
           <label className="px-3 py-1.5 text-sm border border-border bg-surface text-muted rounded cursor-pointer hover:bg-card transition-colors">
-            Import
-            <input
+            
+                                  {t("customactionsview.Import")}
+                                  <input
               type="file"
               accept="application/json"
               onChange={handleImport}
@@ -164,15 +167,17 @@ export function CustomActionsView() {
             disabled={actions.length === 0}
             className="px-3 py-1.5 text-sm border border-border bg-surface text-muted rounded hover:bg-card transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Export
-          </button>
+            
+                                  {t("customactionsview.Export")}
+                                </button>
           <button
             type="button"
             onClick={handleCreate}
             className="px-3 py-1.5 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
           >
-            Create Action
-          </button>
+            
+                                  {t("customactionsview.CreateAction")}
+                                </button>
         </div>
       </div>
 
@@ -180,7 +185,7 @@ export function CustomActionsView() {
       <div className="flex items-center">
         <input
           type="text"
-          placeholder="Search actions by name or description..."
+          placeholder={t("customactionsview.SearchActionsByNa")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 px-3 py-2 text-sm border border-border bg-surface text-txt rounded focus:outline-none focus:ring-1 focus:ring-accent"
@@ -201,8 +206,9 @@ export function CustomActionsView() {
               onClick={handleCreate}
               className="px-4 py-2 text-sm border border-accent bg-accent text-txt rounded hover:bg-accent/80 transition-colors"
             >
-              Create Action
-            </button>
+              
+                                        {t("customactionsview.CreateAction")}
+                                      </button>
           )}
         </div>
       ) : (
@@ -240,8 +246,8 @@ export function CustomActionsView() {
 
                 {/* Parameters Count */}
                 <p className="text-xs text-muted">
-                  {action.parameters?.length || 0} parameter
-                  {action.parameters?.length === 1 ? "" : "s"}
+                  {action.parameters?.length || 0}  {t("customactionsview.parameter")}
+                                            {action.parameters?.length === 1 ? "" : "s"}
                 </p>
               </button>
 
@@ -256,7 +262,7 @@ export function CustomActionsView() {
                     }
                     className="cursor-pointer"
                   />
-                  <span className="text-xs text-muted">Enabled</span>
+                  <span className="text-xs text-muted">{t("customactionsview.Enabled")}</span>
                 </label>
 
                 <div className="flex items-center gap-2">
@@ -265,15 +271,17 @@ export function CustomActionsView() {
                     onClick={() => handleEdit(action)}
                     className="px-2 py-1 text-xs border border-border bg-surface text-muted rounded hover:bg-card transition-colors"
                   >
-                    Edit
-                  </button>
+                    
+                                                  {t("customactionsview.Edit")}
+                                                </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(action.id, action.name)}
                     className="px-2 py-1 text-xs border border-border bg-surface text-danger rounded hover:bg-card transition-colors"
                   >
-                    Delete
-                  </button>
+                    
+                                                  {t("customactionsview.Delete")}
+                                                </button>
                 </div>
               </div>
             </div>

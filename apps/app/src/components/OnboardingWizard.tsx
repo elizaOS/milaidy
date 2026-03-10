@@ -461,13 +461,15 @@ export function OnboardingWizard() {
                 className="mt-6 text-[13px] text-muted hover:text-txt underline cursor-pointer bg-transparent border-none"
                 onClick={() => setShowImport(true)}
               >
-                restore from backup
+
+                {t("onboardingwizard.restoreFromBackup")}
               </button>
             ) : (
               <div className="mt-6 mx-auto max-w-[400px] border border-border bg-card rounded-xl p-4 text-left">
                 <div className="flex justify-between items-center mb-3">
                   <div className="font-bold text-sm text-txt-strong">
-                    Import Agent
+
+                    {t("onboardingwizard.ImportAgent")}
                   </div>
                   <button
                     type="button"
@@ -480,12 +482,15 @@ export function OnboardingWizard() {
                       setImportPassword("");
                     }}
                   >
-                    cancel
+
+                    {t("onboardingwizard.cancel")}
                   </button>
                 </div>
                 <div className="text-xs text-muted mb-3">
-                  Select an <code className="text-[11px]">.eliza-agent</code>{" "}
-                  export file and enter the password used during export.
+
+                  {t("onboardingwizard.SelectAn")} <code className="text-[11px]">{t("onboardingwizard.ElizaAgent")}</code>{" "}
+
+                  {t("onboardingwizard.exportFileAndEnte")}
                 </div>
                 <div className="flex flex-col gap-2">
                   <input
@@ -500,7 +505,7 @@ export function OnboardingWizard() {
                   />
                   <input
                     type="password"
-                    placeholder="Decryption password"
+                    placeholder={t("onboardingwizard.DecryptionPassword")}
                     value={importPassword}
                     onChange={(e) => {
                       setImportPassword(e.target.value);
@@ -830,10 +835,12 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                mint ur drop!
+
+                {t("onboardingwizard.mintUrDrop")}
               </h2>
               <p className="text-[13px] text-txt mt-1 opacity-70">
-                claim ur character to get started
+
+                {t("onboardingwizard.claimUrCharacterT")}
               </p>
             </div>
             <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
@@ -844,14 +851,16 @@ export function OnboardingWizard() {
                   mintFromDrop(false).then(() => handleOnboardingNext());
                 }}
               >
-                Mint Character
+
+                {t("onboardingwizard.MintCharacter")}
               </button>
               <button
                 type="button"
                 className="px-4 py-3 bg-card border border-border text-txt font-bold rounded-lg hover:border-accent cursor-pointer"
                 onClick={() => handleOnboardingNext()}
               >
-                Skip for now
+
+                {t("onboardingwizard.SkipForNow")}
               </button>
             </div>
           </div>
@@ -872,20 +881,22 @@ export function OnboardingWizard() {
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                  i'll live in the cloud~
+
+                  {t("onboardingwizard.iLlLiveInTheClo")}
                 </h2>
                 <p className="text-[13px] text-txt mt-1 opacity-70">
-                  since ur on mobile i'll run on eliza cloud. i can still do
-                  everything — browse the web, manage ur stuff, and more
+
+                  {t("onboardingwizard.sinceUrOnMobileI")}
                 </p>
               </div>
               <div className="flex flex-col gap-3 max-w-[460px] mx-auto">
                 <div className="px-4 py-4 border border-accent bg-accent text-accent-fg rounded-lg text-left">
                   <div className="font-bold text-sm flex items-center gap-1.5">
-                    <Cloud className="w-4 h-4" /> cloud
+                    <Cloud className="w-4 h-4" />  {t("onboardingwizard.cloud")}
                   </div>
                   <div className="text-[12px] mt-1 opacity-80">
-                    always on, works from any device, easiest setup
+
+                    {t("onboardingwizard.alwaysOnWorksFro")}
                   </div>
                 </div>
               </div>
@@ -917,11 +928,11 @@ export function OnboardingWizard() {
                 onClick={() => handleRunModeSelect("cloud")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
-                  <Cloud className="w-4 h-4" /> cloud
+                  <Cloud className="w-4 h-4" />  {t("onboardingwizard.cloud")}
                 </div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run on eliza cloud. easiest setup, always on, can still use
-                  ur browser &amp; computer if u let me
+
+                  {t("onboardingwizard.iRunOnElizaCloud")}
                 </div>
               </button>
               <button
@@ -933,11 +944,11 @@ export function OnboardingWizard() {
                 onClick={() => handleRunModeSelect("local-sandbox")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
-                  <Lock className="w-4 h-4" /> local (sandbox)
+                  <Lock className="w-4 h-4" />  {t("onboardingwizard.localSandbox")}
                 </div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run on ur machine in a secure container. ur api keys stay
-                  hidden even from me. needs docker
+
+                  {t("onboardingwizard.iRunOnUrMachine")}
                 </div>
               </button>
               <button
@@ -949,11 +960,11 @@ export function OnboardingWizard() {
                 onClick={() => handleRunModeSelect("local-rawdog")}
               >
                 <div className="font-bold text-sm flex items-center gap-1.5">
-                  <Zap className="w-4 h-4" /> local (raw)
+                  <Zap className="w-4 h-4" />  {t("onboardingwizard.localRaw")}
                 </div>
                 <div className="text-[12px] mt-1 opacity-70">
-                  i run directly on ur machine w full access. fastest &amp;
-                  simplest but no sandbox protection
+
+                  {t("onboardingwizard.iRunDirectlyOnUr")}
                 </div>
               </button>
             </div>
@@ -977,7 +988,8 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                okay which cloud?
+
+                {t("onboardingwizard.okayWhichCloud")}
               </h2>
             </div>
             <div className="flex flex-col gap-2 text-left max-w-[600px] mx-auto">
@@ -1021,10 +1033,11 @@ export function OnboardingWizard() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <title>Connected</title>
+                      <title>{t("onboardingwizard.Connected")}</title>
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    connected~
+
+                    {t("onboardingwizard.connected")}
                   </div>
                 ) : (
                   <button
@@ -1036,7 +1049,8 @@ export function OnboardingWizard() {
                     {cloudLoginBusy ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
-                        connecting...
+
+                        {t("onboardingwizard.connecting")}
                       </span>
                     ) : (
                       "connect account"
@@ -1058,13 +1072,15 @@ export function OnboardingWizard() {
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                Model Selection
+
+                {t("onboardingwizard.ModelSelection")}
               </h2>
             </div>
             <div className="flex flex-col gap-4 text-left max-w-[600px] mx-auto">
               <div>
                 <span className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                  Small Model:
+
+                  {t("onboardingwizard.SmallModel")}
                 </span>
                 <select
                   value={onboardingSmallModel}
@@ -1082,7 +1098,8 @@ export function OnboardingWizard() {
               </div>
               <div>
                 <span className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                  Large Model:
+
+                  {t("onboardingwizard.LargeModel")}
                 </span>
                 <select
                   value={onboardingLargeModel}
@@ -1107,20 +1124,22 @@ export function OnboardingWizard() {
           <div className="max-w-[500px] mx-auto mt-10 text-center font-body">
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                Cloud Login
+
+                {t("onboardingwizard.CloudLogin")}
               </h2>
             </div>
             {cloudConnected ? (
               <div className="max-w-[600px] mx-auto">
-                <p className="text-txt mb-2">Logged in successfully!</p>
+                <p className="text-txt mb-2">{t("onboardingwizard.LoggedInSuccessful")}</p>
                 {cloudUserId && (
-                  <p className="text-muted text-sm">User ID: {cloudUserId}</p>
+                  <p className="text-muted text-sm">{t("onboardingwizard.UserID")} {cloudUserId}</p>
                 )}
               </div>
             ) : (
               <div className="max-w-[600px] mx-auto">
                 <p className="text-txt mb-4">
-                  Click the button below to log in to Eliza Cloud
+
+                  {t("onboardingwizard.ClickTheButtonBel")}
                 </p>
                 <button
                   type="button"
@@ -1131,7 +1150,8 @@ export function OnboardingWizard() {
                   {cloudLoginBusy ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="inline-block w-5 h-5 border-2 border-border border-t-accent rounded-full animate-spin" />
-                      Logging in...
+
+                      {t("onboardingwizard.LoggingIn")}
                     </span>
                   ) : (
                     "Login to Eliza Cloud"
@@ -1265,7 +1285,8 @@ export function OnboardingWizard() {
               />
               <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-4 max-w-[420px] relative text-[15px] text-txt leading-relaxed">
                 <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                  what is my brain?
+
+                  {t("onboardingwizard.whatIsMyBrain")}
                 </h2>
               </div>
               <div className="w-full mx-auto px-2">
@@ -1325,7 +1346,8 @@ export function OnboardingWizard() {
                   setState("onboardingPrimaryModel", "");
                 }}
               >
-                change
+
+                {t("onboardingwizard.change")}
               </button>
             </div>
 
@@ -1341,7 +1363,8 @@ export function OnboardingWizard() {
                       }`}
                     onClick={() => setState("onboardingElizaCloudTab", "login")}
                   >
-                    Login
+
+                    {t("onboardingwizard.Login")}
                   </button>
                   <button
                     type="button"
@@ -1353,7 +1376,8 @@ export function OnboardingWizard() {
                       setState("onboardingElizaCloudTab", "apikey")
                     }
                   >
-                    API Key
+
+                    {t("onboardingwizard.APIKey")}
                   </button>
                 </div>
 
@@ -1371,10 +1395,11 @@ export function OnboardingWizard() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <title>Connected</title>
+                          <title>{t("onboardingwizard.Connected")}</title>
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        connected~
+
+                        {t("onboardingwizard.connected")}
                       </div>
                     ) : (
                       <button
@@ -1386,7 +1411,8 @@ export function OnboardingWizard() {
                         {cloudLoginBusy ? (
                           <span className="flex items-center justify-center gap-2">
                             <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
-                            connecting...
+
+                            {t("onboardingwizard.connecting")}
                           </span>
                         ) : (
                           "connect account"
@@ -1399,7 +1425,8 @@ export function OnboardingWizard() {
                       </p>
                     )}
                     <p className="text-xs text-muted mt-3">
-                      Free credits to start. Opens browser to authenticate.
+
+                      {t("onboardingwizard.FreeCreditsToStar")}
                     </p>
                   </div>
                 ) : (
@@ -1408,26 +1435,28 @@ export function OnboardingWizard() {
                       htmlFor="elizacloud-apikey"
                       className="block text-sm text-txt mb-1.5"
                     >
-                      Eliza Cloud API Key
+
+                      {t("onboardingwizard.ElizaCloudAPIKey")}
                     </label>
                     <input
                       id="elizacloud-apikey"
                       type="password"
-                      placeholder="ec-..."
+                      placeholder={t("onboardingwizard.ec")}
                       value={onboardingApiKey}
                       onChange={handleApiKeyChange}
                       className="w-full px-3 py-2.5 text-sm border border-border rounded-lg bg-card text-txt focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                     <p className="text-xs text-muted mt-2">
-                      Use this if browser login doesn't work. Get your API key
-                      from{" "}
+
+                      {t("onboardingwizard.UseThisIfBrowser")}{" "}
                       <a
                         href="https://elizacloud.ai/dashboard/settings"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-accent hover:underline"
                       >
-                        elizacloud.ai/dashboard
+
+                        {t("onboardingwizard.elizacloudAiDashbo")}
                       </a>
                     </p>
                   </div>
@@ -1449,7 +1478,8 @@ export function OnboardingWizard() {
                       setState("onboardingSubscriptionTab", "token")
                     }
                   >
-                    Setup Token
+
+                    {t("onboardingwizard.SetupToken")}
                   </button>
                   <button
                     type="button"
@@ -1461,20 +1491,22 @@ export function OnboardingWizard() {
                       setState("onboardingSubscriptionTab", "oauth")
                     }
                   >
-                    OAuth Login
+
+                    {t("onboardingwizard.OAuthLogin")}
                   </button>
                 </div>
 
                 {onboardingSubscriptionTab === "token" ? (
                   <>
                     <span className="text-[13px] font-bold text-txt-strong block mb-2">
-                      Setup Token:
+
+                      {t("onboardingwizard.SetupToken1")}
                     </span>
                     <input
                       type="password"
                       value={onboardingApiKey}
                       onChange={handleApiKeyChange}
-                      placeholder="sk-ant-oat01-..."
+                      placeholder={t("onboardingwizard.skAntOat01")}
                       className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                     />
                     <p className="text-xs text-muted mt-2 whitespace-pre-line">
@@ -1496,14 +1528,15 @@ export function OnboardingWizard() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <title>Connected</title>
+                        <title>{t("onboardingwizard.Connected")}</title>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      Connected to Claude
+
+                      {t("onboardingwizard.ConnectedToClaude")}
                     </div>
                     <p className="text-xs text-muted text-center">
-                      Your Claude subscription is linked. Click Next to
-                      continue.
+
+                      {t("onboardingwizard.YourClaudeSubscrip")}
                     </p>
                   </div>
                 ) : !anthropicOAuthStarted ? (
@@ -1513,10 +1546,12 @@ export function OnboardingWizard() {
                       className="w-full max-w-xs px-6 py-3 border border-accent bg-accent text-accent-fg text-sm font-medium cursor-pointer hover:bg-accent-hover transition-colors"
                       onClick={() => void handleAnthropicStart()}
                     >
-                      Login with Anthropic
+
+                      {t("onboardingwizard.LoginWithAnthropic")}
                     </button>
                     <p className="text-xs text-muted text-center">
-                      Requires Claude Pro ($20/mo) or Max ($100/mo).
+
+                      {t("onboardingwizard.RequiresClaudePro")}
                     </p>
                     {anthropicError && (
                       <p className="text-xs text-red-400">{anthropicError}</p>
@@ -1525,13 +1560,15 @@ export function OnboardingWizard() {
                 ) : (
                   <div className="flex flex-col items-center gap-3">
                     <p className="text-sm text-txt text-center">
-                      After logging in, you'll see a code on Anthropic's page.
+
+                      {t("onboardingwizard.AfterLoggingInYo")}
                       <br />
-                      Copy and paste it below:
+
+                      {t("onboardingwizard.CopyAndPasteItBe")}
                     </p>
                     <input
                       type="text"
-                      placeholder="Paste the authorization code here..."
+                      placeholder={t("onboardingwizard.PasteTheAuthorizat")}
                       value={anthropicCode}
                       onChange={(e) => setAnthropicCode(e.target.value)}
                       className="w-full max-w-xs px-3 py-2 border border-border bg-card text-sm text-center focus:border-accent focus:outline-none"
@@ -1545,7 +1582,8 @@ export function OnboardingWizard() {
                       className="w-full max-w-xs px-6 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => void handleAnthropicExchange()}
                     >
-                      Connect
+
+                      {t("onboardingwizard.Connect")}
                     </button>
                   </div>
                 )}
@@ -1568,14 +1606,15 @@ export function OnboardingWizard() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <title>Connected</title>
+                        <title>{t("onboardingwizard.Connected")}</title>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      Connected to ChatGPT
+
+                      {t("onboardingwizard.ConnectedToChatGPT")}
                     </div>
                     <p className="text-xs text-muted text-center">
-                      Your ChatGPT subscription is linked. Click Next to
-                      continue.
+
+                      {t("onboardingwizard.YourChatGPTSubscri")}
                     </p>
                   </div>
                 ) : !openaiOAuthStarted ? (
@@ -1585,30 +1624,33 @@ export function OnboardingWizard() {
                       className="w-full max-w-xs px-6 py-3 border border-accent bg-accent text-accent-fg text-sm font-medium cursor-pointer hover:bg-accent-hover transition-colors"
                       onClick={() => void handleOpenAIStart()}
                     >
-                      Login with OpenAI
+
+                      {t("onboardingwizard.LoginWithOpenAI")}
                     </button>
                     <p className="text-xs text-muted text-center">
-                      Requires ChatGPT Plus ($20/mo) or Pro ($200/mo).
+
+                      {t("onboardingwizard.RequiresChatGPTPlu")}
                     </p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
                     <div className="p-3 border border-border bg-card text-sm text-fg rounded">
-                      <p className="font-medium mb-1">Almost there!</p>
+                      <p className="font-medium mb-1">{t("onboardingwizard.AlmostThere")}</p>
                       <p className="text-muted text-xs leading-relaxed">
-                        After logging in, you'll be redirected to a page that
-                        won't load (starts with{" "}
+
+                        {t("onboardingwizard.AfterLoggingInYo1")}{" "}
                         <code className="text-fg bg-input px-1 py-0.5 text-xs">
-                          localhost:1455
+
+                          {t("onboardingwizard.localhost1455")}
                         </code>
-                        ). Copy the <strong>entire URL</strong> from your
-                        browser's address bar and paste it below.
+
+                        {t("onboardingwizard.CopyThe")} <strong>{t("onboardingwizard.entireURL")}</strong>  {t("onboardingwizard.fromYour")}
                       </p>
                     </div>
                     <input
                       type="text"
                       className="w-full px-3 py-2.5 border border-border bg-input text-fg text-sm placeholder:text-muted"
-                      placeholder="http://localhost:1455/auth/callback?code=..."
+                      placeholder={t("onboardingwizard.httpLocalhost145")}
                       value={openaiCallbackUrl}
                       onChange={(e) => {
                         setOpenaiCallbackUrl(e.target.value);
@@ -1625,7 +1667,8 @@ export function OnboardingWizard() {
                         disabled={!openaiCallbackUrl}
                         onClick={() => void handleOpenAIExchange()}
                       >
-                        Complete Login
+
+                        {t("onboardingwizard.CompleteLogin")}
                       </button>
                       <button
                         type="button"
@@ -1635,7 +1678,8 @@ export function OnboardingWizard() {
                           setOpenaiCallbackUrl("");
                         }}
                       >
-                        Start Over
+
+                        {t("onboardingwizard.StartOver")}
                       </button>
                     </div>
                   </div>
@@ -1652,13 +1696,14 @@ export function OnboardingWizard() {
               onboardingProvider !== "pi-ai" && (
                 <div className="text-left">
                   <span className="text-[13px] font-bold text-txt-strong block mb-2">
-                    API Key:
+
+                    {t("onboardingwizard.APIKey1")}
                   </span>
                   <input
                     type="password"
                     value={onboardingApiKey}
                     onChange={handleApiKeyChange}
-                    placeholder="Enter your API key"
+                    placeholder={t("onboardingwizard.EnterYourAPIKey")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                   />
                 </div>
@@ -1667,7 +1712,8 @@ export function OnboardingWizard() {
             {/* Ollama — no config needed */}
             {onboardingProvider === "ollama" && (
               <p className="text-xs text-muted">
-                No configuration needed. Make sure Ollama is running locally.
+
+                {t("onboardingwizard.NoConfigurationNee")}
               </p>
             )}
 
@@ -1675,7 +1721,8 @@ export function OnboardingWizard() {
             {onboardingProvider === "pi-ai" && (
               <div className="text-left">
                 <span className="text-[13px] font-bold text-txt-strong block mb-2">
-                  Primary Model (optional):
+
+                  {t("onboardingwizard.PrimaryModelOptio")}
                 </span>
 
                 {piAiModels.length > 0 ? (
@@ -1695,7 +1742,8 @@ export function OnboardingWizard() {
                       className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                     >
                       <option value="">
-                        Use pi default model
+
+                        {t("onboardingwizard.UsePiDefaultModel")}
                         {piAiDefaultModel ? ` (${piAiDefaultModel})` : ""}
                       </option>
                       {piAiModels.map((model: PiAiModelOption) => (
@@ -1703,7 +1751,7 @@ export function OnboardingWizard() {
                           {model.name} ({model.provider})
                         </option>
                       ))}
-                      <option value="__custom__">Custom model spec…</option>
+                      <option value="__custom__">{t("onboardingwizard.CustomModelSpec")}</option>
                     </select>
 
                     {piAiSelectValue === "__custom__" && (
@@ -1713,7 +1761,7 @@ export function OnboardingWizard() {
                         onChange={(e) =>
                           setState("onboardingPrimaryModel", e.target.value)
                         }
-                        placeholder="provider/model (e.g. anthropic/claude-sonnet-4.5)"
+                        placeholder={t("onboardingwizard.providerModelEG")}
                         className="w-full mt-2 px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                       />
                     )}
@@ -1725,14 +1773,14 @@ export function OnboardingWizard() {
                     onChange={(e) =>
                       setState("onboardingPrimaryModel", e.target.value)
                     }
-                    placeholder="provider/model (e.g. anthropic/claude-sonnet-4.5)"
+                    placeholder={t("onboardingwizard.providerModelEG")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none"
                   />
                 )}
 
                 <p className="text-xs text-muted mt-2">
-                  Uses credentials from ~/.pi/agent/auth.json. Leave blank to
-                  use your pi default model.
+
+                  {t("onboardingwizard.UsesCredentialsFro")}
                   {piAiModels.length > 0
                     ? " Pick from the dropdown or choose a custom model spec."
                     : " Enter provider/model manually if you want an override."}
@@ -1746,7 +1794,8 @@ export function OnboardingWizard() {
               onboardingOptions?.openrouterModels && (
                 <div className="mt-4 text-left">
                   <span className="text-[13px] font-bold text-txt-strong block mb-2">
-                    Select Model:
+
+                    {t("onboardingwizard.SelectModel")}
                   </span>
                   <div className="flex flex-col gap-2">
                     {onboardingOptions?.openrouterModels?.map(
@@ -1785,12 +1834,14 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                soooo can i have a wallet?
+
+                {t("onboardingwizard.sooooCanIHaveAW")}
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full px-4">
               <h3 className="text-[13px] font-bold text-txt-strong col-span-full mb-2">
-                Select Chains:
+
+                {t("onboardingwizard.SelectChains")}
               </h3>
               {onboardingOptions?.inventoryProviders.map(
                 (provider: InventoryProviderOption) => {
@@ -1821,7 +1872,8 @@ export function OnboardingWizard() {
                       {onboardingSelectedChains.has(provider.id) && (
                         <div className="mt-3 ml-6">
                           <span className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                            RPC Provider:
+
+                            {t("onboardingwizard.RPCProvider")}
                           </span>
                           <select
                             value={selectedRpc}
@@ -1855,16 +1907,17 @@ export function OnboardingWizard() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                   >
-                                    <title>Connected</title>
+                                    <title>{t("onboardingwizard.Connected")}</title>
                                     <polyline points="20 6 9 17 4 12" />
                                   </svg>
-                                  connected~ no keys needed
+
+                                  {t("onboardingwizard.connectedNoKeysN")}
                                 </div>
                               ) : (
                                 <div className="mt-2">
                                   <p className="text-xs text-muted mb-2">
-                                    Eliza Cloud RPC — no keys necessary. Log in
-                                    to use.
+
+                                    {t("onboardingwizard.ElizaCloudRPCNo")}
                                   </p>
                                   <button
                                     type="button"
@@ -1875,7 +1928,8 @@ export function OnboardingWizard() {
                                     {cloudLoginBusy ? (
                                       <span className="flex items-center justify-center gap-2">
                                         <span className="inline-block w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
-                                        connecting...
+
+                                        {t("onboardingwizard.connecting")}
                                       </span>
                                     ) : (
                                       "connect account"
@@ -1893,7 +1947,8 @@ export function OnboardingWizard() {
                             onboardingRpcSelections[provider.id] && (
                               <div className="mt-3">
                                 <span className="text-[13px] font-bold text-txt-strong block mb-2 text-left">
-                                  RPC API Key (optional):
+
+                                  {t("onboardingwizard.RPCAPIKeyOptiona")}
                                 </span>
                                 <input
                                   type="password"
@@ -1909,7 +1964,7 @@ export function OnboardingWizard() {
                                       e.target.value,
                                     )
                                   }
-                                  placeholder="Optional API key"
+                                  placeholder={t("onboardingwizard.OptionalAPIKey")}
                                   className="w-full px-3 py-2 border border-border bg-card text-sm mt-2 focus:border-accent focus:outline-none"
                                 />
                               </div>
@@ -1935,7 +1990,8 @@ export function OnboardingWizard() {
             />
             <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
               <h2 className="text-[28px] font-normal mb-1 text-txt-strong">
-                how do you want to reach me?
+
+                {t("onboardingwizard.howDoYouWantToR")}
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left w-full max-w-[800px] mx-auto px-2">
@@ -1945,25 +2001,30 @@ export function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-sm text-txt-strong">
-                    Telegram
+
+                    {t("onboardingwizard.Telegram")}
                   </div>
                   {onboardingTelegramToken.trim() && (
                     <span className="text-[10px] text-accent border border-accent px-1.5 py-0.5 rounded">
-                      Configured
+
+                      {t("onboardingwizard.Configured")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  Get a bot token from{" "}
+
+                  {t("onboardingwizard.GetABotTokenFrom")}{" "}
                   <a
                     href="https://t.me/BotFather"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-accent underline"
                   >
-                    @BotFather
+
+                    {t("onboardingwizard.BotFather")}
                   </a>{" "}
-                  on Telegram
+
+                  {t("onboardingwizard.onTelegram")}
                 </p>
                 <input
                   type="password"
@@ -1971,7 +2032,7 @@ export function OnboardingWizard() {
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     setState("onboardingTelegramToken", e.target.value)
                   }
-                  placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  placeholder={t("onboardingwizard.123456ABCDEF1234gh")}
                   className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                 />
               </div>
@@ -1982,23 +2043,27 @@ export function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-sm text-txt-strong">
-                    Discord
+
+                    {t("onboardingwizard.Discord")}
                   </div>
                   {onboardingDiscordToken.trim() && (
                     <span className="text-[10px] text-accent border border-accent px-1.5 py-0.5 rounded">
-                      Configured
+
+                      {t("onboardingwizard.Configured")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  Only a bot token is needed.{" "}
+
+                  {t("onboardingwizard.OnlyABotTokenIs")}{" "}
                   <a
                     href="https://discord.com/developers/applications"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-accent hover:underline"
                   >
-                    Create a bot →
+
+                    {t("onboardingwizard.CreateABot")}
                   </a>
                 </p>
                 <input
@@ -2007,7 +2072,7 @@ export function OnboardingWizard() {
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     setState("onboardingDiscordToken", e.target.value)
                   }
-                  placeholder="Discord bot token"
+                  placeholder={t("onboardingwizard.DiscordBotToken")}
                   className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                 />
               </div>
@@ -2018,24 +2083,28 @@ export function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-sm text-txt-strong">
-                    Twilio SMS
+
+                    {t("onboardingwizard.TwilioSMS")}
                   </div>
                   {onboardingTwilioAccountSid.trim() &&
                     onboardingTwilioAuthToken.trim() && (
                       <span className="text-[10px] text-accent border border-accent px-1.5 py-0.5 rounded">
-                        Configured
+
+                        {t("onboardingwizard.Configured")}
                       </span>
                     )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  SMS green-text messaging via{" "}
+
+                  {t("onboardingwizard.SMSGreenTextMessa")}{" "}
                   <a
                     href="https://www.twilio.com/console"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-accent underline"
                   >
-                    Twilio Console
+
+                    {t("onboardingwizard.TwilioConsole")}
                   </a>
                 </p>
                 <div className="flex flex-col gap-2">
@@ -2045,7 +2114,7 @@ export function OnboardingWizard() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setState("onboardingTwilioAccountSid", e.target.value)
                     }
-                    placeholder="Account SID"
+                    placeholder={t("onboardingwizard.AccountSID")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                   />
                   <input
@@ -2054,7 +2123,7 @@ export function OnboardingWizard() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setState("onboardingTwilioAuthToken", e.target.value)
                     }
-                    placeholder="Auth Token"
+                    placeholder={t("onboardingwizard.AuthToken")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                   />
                   <input
@@ -2063,7 +2132,7 @@ export function OnboardingWizard() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setState("onboardingTwilioPhoneNumber", e.target.value)
                     }
-                    placeholder="+1234567890 (Twilio phone number)"
+                    placeholder={t("onboardingwizard.1234567890Twilio")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                   />
                 </div>
@@ -2075,23 +2144,27 @@ export function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-sm text-txt-strong">
-                    Blooio iMessage
+
+                    {t("onboardingwizard.BlooioIMessage")}
                   </div>
                   {onboardingBlooioApiKey.trim() && (
                     <span className="text-[10px] text-accent border border-accent px-1.5 py-0.5 rounded">
-                      Configured
+
+                      {t("onboardingwizard.Configured")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  Blue-text iMessage integration via{" "}
+
+                  {t("onboardingwizard.BlueTextIMessageI")}{" "}
                   <a
                     href="https://blooio.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-accent underline"
                   >
-                    Blooio
+
+                    {t("onboardingwizard.Blooio")}
                   </a>
                 </p>
                 <div className="flex flex-col gap-2">
@@ -2101,7 +2174,7 @@ export function OnboardingWizard() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setState("onboardingBlooioApiKey", e.target.value)
                     }
-                    placeholder="Blooio API key"
+                    placeholder={t("onboardingwizard.BlooioAPIKey")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                   />
                   <input
@@ -2110,7 +2183,7 @@ export function OnboardingWizard() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setState("onboardingBlooioPhoneNumber", e.target.value)
                     }
-                    placeholder="+1234567890 (your phone number)"
+                    placeholder={t("onboardingwizard.1234567890YourPh")}
                     className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                   />
                 </div>
@@ -2122,23 +2195,27 @@ export function OnboardingWizard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-sm text-txt-strong">
-                    GitHub
+
+                    {t("onboardingwizard.GitHub")}
                   </div>
                   {(onboardingGithubToken ?? "").trim() && (
                     <span className="text-[10px] text-accent border border-accent px-1.5 py-0.5 rounded">
-                      Configured
+
+                      {t("onboardingwizard.Configured")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted mb-3 mt-1">
-                  For coding agents, PRs, and issue management.{" "}
+
+                  {t("onboardingwizard.ForCodingAgentsP")}{" "}
                   <a
                     href="https://github.com/settings/tokens"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-accent underline"
                   >
-                    Create a token
+
+                    {t("onboardingwizard.CreateAToken")}
                   </a>
                 </p>
                 <input
@@ -2147,14 +2224,14 @@ export function OnboardingWizard() {
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     setState("onboardingGithubToken", e.target.value)
                   }
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  placeholder={t("onboardingwizard.ghpXxxxxxxxxxxxxxxx")}
                   className="w-full px-3 py-2 border border-border bg-card text-sm focus:border-accent focus:outline-none rounded"
                 />
                 {onboardingOptions?.githubOAuthAvailable &&
                   !(onboardingGithubToken ?? "").trim() && (
                     <p className="text-[11px] text-muted mt-2">
-                      Or skip this — you'll be prompted to authorize via GitHub
-                      OAuth when needed.
+
+                      {t("onboardingwizard.OrSkipThisYouL")}
                     </p>
                   )}
               </div>
@@ -2304,6 +2381,7 @@ function DockerSetupStep({
   avatarVrmPath: string;
   avatarFallbackPreviewUrl: string;
 }) {
+  const { t } = useApp();
   const [checking, setChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [startMessage, setStartMessage] = useState("");
@@ -2415,7 +2493,7 @@ function DockerSetupStep({
           pulse
         />
         <div className="onboarding-speech bg-card border border-border rounded-xl px-5 py-4 mx-auto mb-6 max-w-[600px] relative text-[15px] text-txt leading-relaxed">
-          <p>checking ur machine for sandbox stuff...</p>
+          <p>{t("onboardingwizard.checkingUrMachine")}</p>
         </div>
       </div>
     );
@@ -2449,34 +2527,35 @@ function DockerSetupStep({
         ) : isInstalled && !isRunning ? (
           <>
             <h2 className="text-[24px] font-normal mb-2 text-txt-strong">
-              docker is installed but sleeping
+
+              {t("onboardingwizard.dockerIsInstalled")}
             </h2>
             <p className="text-[13px] opacity-70 mb-3">
-              i found docker on ur machine but the daemon isn't running yet.
-              lemme try to wake it up for u~
+
+              {t("onboardingwizard.iFoundDockerOnUr")}
             </p>
           </>
         ) : (
           <>
             <h2 className="text-[24px] font-normal mb-2 text-txt-strong">
-              need docker for sandbox mode
+
+              {t("onboardingwizard.needDockerForSand")}
             </h2>
             <p className="text-[13px] opacity-70 mb-3">
-              to run me in a sandbox i need docker installed on{" "}
-              {getPlatformName()}. it's like a little apartment building where i
-              live safely separated from ur files
+
+              {t("onboardingwizard.toRunMeInASandb")}{" "}
+              {getPlatformName()}{t("onboardingwizard.ItSLikeALittle")}
             </p>
             {dockerStatus?.platform === "win32" && (
               <p className="text-[12px] opacity-60 mb-2">
-                on windows u also need WSL2 enabled — docker desktop will set it
-                up for u
+
+                {t("onboardingwizard.onWindowsUAlsoNe")}
               </p>
             )}
             {dockerStatus?.platform === "darwin" && (
               <p className="text-[12px] opacity-60 mb-2">
-                pro tip: if ur on apple silicon u can also install apple
-                container tools for even better isolation (brew install
-                apple/apple/container-tools)
+
+                {t("onboardingwizard.proTipIfUrOnAp")}
               </p>
             )}
           </>
@@ -2498,7 +2577,7 @@ function DockerSetupStep({
               <XCircle className="w-4 h-4" />
             )}
           </span>
-          <span>Docker {isInstalled ? "installed" : "not found"}</span>
+          <span>{t("onboardingwizard.Docker")} {isInstalled ? "installed" : "not found"}</span>
         </div>
 
         {isInstalled && (
@@ -2515,7 +2594,7 @@ function DockerSetupStep({
                 <AlertTriangle className="w-4 h-4" />
               )}
             </span>
-            <span>Docker daemon {isRunning ? "running" : "not running"}</span>
+            <span>{t("onboardingwizard.DockerDaemon")} {isRunning ? "running" : "not running"}</span>
           </div>
         )}
 
@@ -2534,7 +2613,8 @@ function DockerSetupStep({
               )}
             </span>
             <span>
-              Apple Container{" "}
+
+              {t("onboardingwizard.AppleContainer")}{" "}
               {hasAppleContainer
                 ? "available (preferred)"
                 : "not installed (optional)"}
@@ -2559,7 +2639,8 @@ function DockerSetupStep({
             rel="noopener noreferrer"
             className="px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover inline-block no-underline"
           >
-            install docker
+
+            {t("onboardingwizard.installDocker")}
           </a>
         )}
         {isInstalled && !isRunning && !starting && (
@@ -2568,7 +2649,8 @@ function DockerSetupStep({
             className="px-4 py-2 border border-accent bg-accent text-accent-fg text-sm cursor-pointer rounded-full hover:bg-accent-hover"
             onClick={() => void handleStartDocker()}
           >
-            start docker for me
+
+            {t("onboardingwizard.startDockerForMe")}
           </button>
         )}
         {!starting && (
@@ -2584,14 +2666,15 @@ function DockerSetupStep({
 
       {isReady && (
         <p className="text-[12px] text-txt opacity-50 mt-4">
-          using: {hasAppleContainer ? "Apple Container" : "Docker"} on{" "}
+
+          {t("onboardingwizard.using")} {hasAppleContainer ? "Apple Container" : "Docker"} on{" "}
           {getPlatformName()}
         </p>
       )}
       {!isReady && !starting && (
         <p className="text-[12px] text-txt opacity-40 mt-4">
-          u can still continue without docker — i just won't have sandbox
-          protection
+
+          {t("onboardingwizard.uCanStillContinue")}
         </p>
       )}
     </div>

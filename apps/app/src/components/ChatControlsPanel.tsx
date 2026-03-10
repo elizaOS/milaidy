@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AppState } from "../AppContext";
 import { ChatAvatar } from "./ChatAvatar";
+import { useApp } from "../AppContext";
 
 interface ChatControlsPanelProps {
   mobile: boolean;
@@ -17,6 +18,7 @@ export function ChatControlsPanel({
   chatAgentVoiceMuted,
   setState,
 }: ChatControlsPanelProps) {
+    const { t } = useApp();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -26,7 +28,7 @@ export function ChatControlsPanel({
         className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <span>Chat Controls</span>
+        <span>{t("chatcontrolspanel.ChatControls")}</span>
         <span>{collapsed ? "\u25B6" : "\u25BC"}</span>
       </button>
       {!collapsed && (
@@ -38,17 +40,17 @@ export function ChatControlsPanel({
               <ChatAvatar isSpeaking={chatAvatarSpeaking} />
             ) : (
               <div className="h-full w-full flex items-end justify-center pb-5 text-xs text-muted">
-                Avatar hidden
-              </div>
+                
+                                                  {t("chatcontrolspanel.AvatarHidden")}
+                                                </div>
             )}
           </div>
 
           <div className="pt-2 flex flex-col gap-2">
             <div className="text-[10px] leading-relaxed text-muted">
-              Channel profile is selected automatically from message channel
-              type. Voice messages always use fast compact mode for lower
-              latency.
-            </div>
+              
+                                        {t("chatcontrolspanel.ChannelProfileIsS")}
+                                      </div>
 
             <div className="grid grid-cols-2 gap-1.5">
               <button
@@ -73,7 +75,7 @@ export function ChatControlsPanel({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <title>Avatar visibility</title>
+                  <title>{t("chatcontrolspanel.AvatarVisibility")}</title>
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                   {!chatAvatarVisible && <line x1="3" y1="3" x2="21" y2="21" />}
@@ -106,7 +108,7 @@ export function ChatControlsPanel({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <title>Agent voice</title>
+                  <title>{t("chatcontrolspanel.AgentVoice")}</title>
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   {chatAgentVoiceMuted ? (
                     <line x1="23" y1="9" x2="17" y2="15" />

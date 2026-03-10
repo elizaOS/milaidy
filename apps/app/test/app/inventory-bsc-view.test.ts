@@ -105,13 +105,13 @@ function createQuote(side: "buy" | "sell" = "buy") {
     slippageBps: 500,
     route: isBuy
       ? [
-          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-        ]
+        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+        "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+      ]
       : [
-          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-        ],
+        "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      ],
     quoteIn: isBuy
       ? { symbol: "BNB", amount: "0.1", amountWei: "100000000000000000" }
       : { symbol: "CAKE", amount: "1.0", amountWei: "1000000000000000000" },
@@ -156,29 +156,29 @@ function createExecuteResult(
     unsignedApprovalTx:
       !executed && side === "sell" && requiresApproval
         ? {
-            chainId: 56,
-            from: "0x1111111111111111111111111111111111111111",
-            to: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-            data: "0xabcd",
-            valueWei: "0",
-            explorerUrl: "https://bscscan.com",
-            spender: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
-            amountWei: "1000000000000000000",
-          }
+          chainId: 56,
+          from: "0x1111111111111111111111111111111111111111",
+          to: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          data: "0xabcd",
+          valueWei: "0",
+          explorerUrl: "https://bscscan.com",
+          spender: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+          amountWei: "1000000000000000000",
+        }
         : undefined,
     requiresApproval:
       !executed && side === "sell" ? requiresApproval : undefined,
     execution: executed
       ? {
-          hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          nonce: 12,
-          gasLimit: "220000",
-          valueWei: "100000000000000000",
-          explorerUrl:
-            "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          blockNumber: 51_234_567,
-          status: executionStatus,
-        }
+        hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        nonce: 12,
+        gasLimit: "220000",
+        valueWei: "100000000000000000",
+        explorerUrl:
+          "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        blockNumber: 51_234_567,
+        status: executionStatus,
+      }
       : undefined,
   };
 }
@@ -211,8 +211,8 @@ function createContext(
     inventoryCollapseSolana: true,
     walletError: null,
     cloudConnected: true,
-    loadBalances: vi.fn(async () => {}),
-    loadNfts: vi.fn(async () => {}),
+    loadBalances: vi.fn(async () => { }),
+    loadNfts: vi.fn(async () => { }),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
     getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) =>
       createQuote(request?.side ?? "buy"),
@@ -233,7 +233,9 @@ function createContext(
     })),
     setTab: vi.fn(),
     setActionNotice: vi.fn(),
-    copyToClipboard: vi.fn(async () => {}),
+    copyToClipboard: vi.fn(async () => { }),
+    uiLanguage: "en",
+    t: (k: string) => k,
   };
 
   if (overrides) {
@@ -277,7 +279,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Portfolio");
+    expect(content).toContain("wallet.portfolio");
     expect(content).toContain("BSC");
     expect(content).not.toContain("Ethereum native");
   });
@@ -322,7 +324,7 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
     let content = text(tree?.root);
-    expect(content).toContain("Trade Not Ready");
+    expect(content).toContain("wallet.status.tradeNotReady");
 
     const readyCtx = createContext({
       walletBalances: createWalletBalances("0.005"),
@@ -332,7 +334,7 @@ describe("InventoryView BSC-first", () => {
       tree?.update(React.createElement(InventoryView));
     });
     content = text(tree?.root);
-    expect(content).toContain("Trade Ready");
+    expect(content).toContain("wallet.status.tradeReady");
   });
 
   it("renders BSC chain errors and token preflight/quote actions", async () => {
@@ -347,7 +349,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Feed Offline");
+    expect(content).toContain("wallet.status.feedOffline");
 
     const normalCtx = createContext({
       walletBalances: createWalletBalances("0.006", null),
@@ -413,8 +415,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Eliza Cloud");
-    expect(content).toContain("NodeReal / QuickNode");
+    expect(content).toContain("portfolioheader.ConnectViaElizaCl");
   });
 
   it("supports quick trade input and preset actions", async () => {
@@ -468,7 +469,7 @@ describe("InventoryView BSC-first", () => {
 
     expect(ctx.getBscTradeQuote).toHaveBeenCalled();
     const content = text(tree?.root);
-    expect(content).toContain("Latest quote");
+    expect(content).toContain("bsctradepanel.LatestQuote");
 
     await act(async () => {
       quickSell.props.onClick();
@@ -586,7 +587,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     // Inline confirmation should appear
-    expect(text(tree?.root)).toContain("Confirm buy trade?");
+    expect(text(tree?.root)).toContain("bsctradepanel.Confirm buy");
 
     // Click the Confirm button
     const confirmButton = tree?.root.findAll(
@@ -601,7 +602,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
-    expect(text(tree?.root)).toContain("View tx 0xaaaaaaaa");
+    expect(text(tree?.root)).toContain("bsctradepanel.ViewTx 0xaaaaaaaa");
   });
 
   it("shows two-step notice for sell in user-sign mode", async () => {
@@ -765,6 +766,6 @@ describe("InventoryView BSC-first", () => {
     expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
       "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
-    expect(text(tree?.root)).toContain("Confirmations");
+    expect(text(tree?.root)).toContain("bsctradepanel.Confirmations");
   });
 });

@@ -13,6 +13,7 @@
  */
 
 import { useCanvasWindow } from "../hooks/useCanvasWindow";
+import { useApp } from "../AppContext";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -34,6 +35,7 @@ interface CanvasWindowViewProps {
 // ---------------------------------------------------------------------------
 
 function Spinner() {
+    const { t } = useApp();
   return (
     <svg
       className="animate-spin h-3 w-3 text-muted"
@@ -69,6 +71,7 @@ export function CanvasWindowView({
   title,
   className,
 }: CanvasWindowViewProps) {
+    const { t } = useApp();
   const { containerRef, isReady } = useCanvasWindow({ url, enabled, title });
 
   const showLoading = enabled && !isReady;
@@ -86,7 +89,7 @@ export function CanvasWindowView({
       {showLoading && (
         <div className="flex items-center justify-center gap-2 w-full h-full border border-dashed border-border rounded">
           <Spinner />
-          <span className="text-muted text-xs">Loading...</span>
+          <span className="text-muted text-xs">{t("canvaswindowview.Loading")}</span>
         </div>
       )}
     </div>

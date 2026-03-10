@@ -132,8 +132,9 @@ export function Nav({ mobileLeft }: NavProps) {
                   <activeGroup.icon className="w-4 h-4 text-accent-fg" />
                 </span>
                 <span className="text-sm font-semibold text-txt-strong">
-                  Menu
-                </span>
+                  
+                                                    {t("nav.Menu")}
+                                                  </span>
               </div>
               <button
                 type="button"
@@ -193,12 +194,15 @@ export function Nav({ mobileLeft }: NavProps) {
 
             {/* Footer */}
             <div className="border-t border-border p-3 text-[11px] text-muted text-center">
-              Press{" "}
+              
+                                        {t("nav.Press")}{" "}
               <kbd className="px-1.5 py-0.5 bg-bg-accent border border-border rounded text-[10px] font-mono">
-                ESC
-              </kbd>{" "}
-              to close
-            </div>
+                
+                                              {t("nav.ESC")}
+                                            </kbd>{" "}
+              
+                                        {t("nav.toClose")}
+                                      </div>
           </div>
         </div>
       )}

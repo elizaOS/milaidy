@@ -5,7 +5,7 @@
  * Supports filtering, search, export, and clearing trajectories.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import {
   client,
   type TrajectoryConfig,
@@ -18,6 +18,8 @@ import {
   formatTrajectoryTimestamp,
   formatTrajectoryTokenCount,
 } from "./trajectory-format";
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 type StatusFilter = "" | "active" | "completed" | "error";
 
@@ -42,6 +44,8 @@ interface TrajectoriesViewProps {
 export function TrajectoriesView({
   onSelectTrajectory,
 }: TrajectoriesViewProps) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<TrajectoryListResult | null>(null);
   const [stats, setStats] = useState<TrajectoryStats | null>(null);
@@ -161,19 +165,19 @@ export function TrajectoriesView({
       {stats && (
         <div className="flex flex-wrap gap-4 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Total:</span>
+            <span className="text-muted">{t("trajectoriesview.Total")}</span>
             <span className="font-semibold">
               {stats.totalTrajectories.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">LLM Calls:</span>
+            <span className="text-muted">{t("trajectoriesview.LLMCalls")}</span>
             <span className="font-semibold">
               {stats.totalLlmCalls.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Tokens:</span>
+            <span className="text-muted">{t("trajectoriesview.Tokens")}</span>
             <span className="font-semibold text-accent">
               {formatTrajectoryTokenCount(
                 stats.totalPromptTokens + stats.totalCompletionTokens,
@@ -193,21 +197,20 @@ export function TrajectoriesView({
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Avg Duration:</span>
+            <span className="text-muted">{t("trajectoriesview.AvgDuration")}</span>
             <span className="font-semibold">
               {formatTrajectoryDuration(stats.averageDurationMs)}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <label className="flex items-center gap-1.5">
-              <span className="text-muted">Logging:</span>
+              <span className="text-muted">{t("trajectoriesview.Logging")}</span>
               <button
                 type="button"
-                className={`px-2 py-0.5 text-[11px] border rounded ${
-                  config?.enabled
+                className={`px-2 py-0.5 text-[11px] border rounded ${config?.enabled
                     ? "bg-success/20 border-success text-success"
                     : "bg-warn/20 border-warn text-warn"
-                }`}
+                  }`}
                 onClick={handleEnableLogging}
                 disabled={config?.enabled}
               >
@@ -222,7 +225,7 @@ export function TrajectoriesView({
       <div className="flex flex-wrap gap-1.5 items-center">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={t("trajectoriesview.Search")}
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt w-48"
           value={searchQuery}
           onChange={(e) => {
@@ -239,10 +242,10 @@ export function TrajectoriesView({
             setPage(0);
           }}
         >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-          <option value="error">Error</option>
+          <option value="">{t("trajectoriesview.AllStatuses")}</option>
+          <option value="active">{t("trajectoriesview.Active")}</option>
+          <option value="completed">{t("trajectoriesview.Completed")}</option>
+          <option value="error">{t("trajectoriesview.Error")}</option>
         </select>
 
         {sources.length > 0 && (
@@ -254,7 +257,7 @@ export function TrajectoriesView({
               setPage(0);
             }}
           >
-            <option value="">All sources</option>
+            <option value="">{t("trajectoriesview.AllSources")}</option>
             {sources.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -269,7 +272,8 @@ export function TrajectoriesView({
             className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleClearFilters}
           >
-            Clear filters
+
+            {t("trajectoriesview.ClearFilters")}
           </button>
         )}
 
@@ -297,28 +301,32 @@ export function TrajectoriesView({
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("json", true)}
               >
-                JSON (with prompts)
+
+                {t("trajectoriesview.JSONWithPrompts")}
               </button>
               <button
                 type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("json", false)}
               >
-                JSON (redacted)
+
+                {t("trajectoriesview.JSONRedacted")}
               </button>
               <button
                 type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("csv", false)}
               >
-                CSV (summary only)
+
+                {t("trajectoriesview.CSVSummaryOnly")}
               </button>
               <button
                 type="button"
                 className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
                 onClick={() => handleExport("zip", true)}
               >
-                ZIP (folders)
+
+                {t("trajectoriesview.ZIPFolders")}
               </button>
             </div>
           </div>
@@ -345,15 +353,17 @@ export function TrajectoriesView({
       <div className="flex-1 min-h-0 overflow-y-auto border border-border bg-card">
         {loading && trajectories.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            Loading trajectories...
+
+            {t("trajectoriesview.LoadingTrajectories")}
           </div>
         ) : trajectories.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
+
+            {t("trajectoriesview.NoTrajectories")} {hasActiveFilters ? "matching filters" : "yet"}.
             {!config?.enabled && (
               <div className="mt-2 text-warn text-[11px]">
-                Trajectory logging should auto-enable; click ENABLE if startup
-                is still settling.
+
+                {t("trajectoriesview.TrajectoryLoggingS")}
               </div>
             )}
           </div>
@@ -361,12 +371,12 @@ export function TrajectoriesView({
           <table className="w-full text-xs">
             <thead className="bg-muted/10 sticky top-0">
               <tr>
-                <th className="text-left px-2 py-1.5 font-medium">Time</th>
-                <th className="text-left px-2 py-1.5 font-medium">Source</th>
-                <th className="text-left px-2 py-1.5 font-medium">Status</th>
-                <th className="text-right px-2 py-1.5 font-medium">Calls</th>
-                <th className="text-right px-2 py-1.5 font-medium">Tokens</th>
-                <th className="text-right px-2 py-1.5 font-medium">Duration</th>
+                <th className="text-left px-2 py-1.5 font-medium">{t("trajectoriesview.Time")}</th>
+                <th className="text-left px-2 py-1.5 font-medium">{t("trajectoriesview.Source")}</th>
+                <th className="text-left px-2 py-1.5 font-medium">{t("trajectoriesview.Status")}</th>
+                <th className="text-right px-2 py-1.5 font-medium">{t("trajectoriesview.Calls")}</th>
+                <th className="text-right px-2 py-1.5 font-medium">{t("trajectoriesview.Tokens1")}</th>
+                <th className="text-right px-2 py-1.5 font-medium">{t("trajectoriesview.Duration")}</th>
               </tr>
             </thead>
             <tbody>
@@ -432,7 +442,8 @@ export function TrajectoriesView({
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted">
-            Showing {page * pageSize + 1}–
+
+            {t("trajectoriesview.Showing")} {page * pageSize + 1}–
             {Math.min((page + 1) * pageSize, total)} of {total}
           </span>
           <div className="flex gap-1">
@@ -442,7 +453,8 @@ export function TrajectoriesView({
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
-              Prev
+
+              {t("trajectoriesview.Prev")}
             </button>
             <button
               type="button"
@@ -450,7 +462,8 @@ export function TrajectoriesView({
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= totalPages - 1}
             >
-              Next
+
+              {t("trajectoriesview.Next")}
             </button>
           </div>
         </div>

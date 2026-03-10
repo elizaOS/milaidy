@@ -5,8 +5,9 @@
  * away from the Apps tab. Provides drag, resize, and close controls.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useMemo } from "react";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 export function GameViewOverlay() {
   const {
@@ -14,7 +15,9 @@ export function GameViewOverlay() {
     activeGameViewerUrl,
     activeGameSandbox,
     setState,
+    uiLanguage,
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   // --- Drag state ---
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -84,17 +87,19 @@ export function GameViewOverlay() {
             type="button"
             className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleExpand}
-            title="Expand back to Apps tab"
+            title={t("gameviewoverlay.ExpandBackToApps")}
           >
-            Expand
+
+            {t("gameviewoverlay.Expand")}
           </button>
           <button
             type="button"
             className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-danger hover:text-danger"
             onClick={handleClose}
-            title="Close overlay"
+            title={t("gameviewoverlay.CloseOverlay")}
           >
-            Close
+
+            {t("gameviewoverlay.Close")}
           </button>
         </div>
         {/* Iframe */}

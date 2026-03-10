@@ -16,6 +16,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { type MemorySample, useMemoryMonitor } from "../hooks/useMemoryMonitor";
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 interface MemoryDebugPanelProps {
   /** Force enable in production (default: false, only shows in dev) */
@@ -37,6 +39,8 @@ function MiniChart({
   samples: MemorySample[];
   maxSamples: number;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   if (samples.length < 2) return null;
 
   const width = 120;
@@ -61,7 +65,7 @@ function MiniChart({
 
   return (
     <svg width={width} height={height} className="opacity-70">
-      <title>Memory usage over time</title>
+      <title>{t("memorydebugpanel.MemoryUsageOverTi")}</title>
       <defs>
         <linearGradient id="memGradient" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
@@ -93,6 +97,9 @@ export function MemoryDebugPanel({
 }: MemoryDebugPanelProps) {
   // Only render in dev mode unless forced
   const shouldRender = forceEnable || import.meta.env.DEV;
+
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [minimized, setMinimized] = useState(initialMinimized);
   const [position, setPosition] = useState(initialPosition);
@@ -164,7 +171,7 @@ export function MemoryDebugPanel({
     return (
       <span className={color}>
         {sign}
-        {trend.mbPerMinute.toFixed(2)} MB/min
+        {trend.mbPerMinute.toFixed(2)}  {t("memorydebugpanel.MBMin")}
       </span>
     );
   }, [trend]);
@@ -187,11 +194,10 @@ export function MemoryDebugPanel({
       <div className="flex items-center justify-between px-2 py-1 border-b border-border bg-bg-muted rounded-t-lg cursor-move">
         <div className="flex items-center gap-1.5">
           <span
-            className={`w-2 h-2 rounded-full ${
-              isLeaking ? "bg-danger animate-pulse" : "bg-success"
-            }`}
+            className={`w-2 h-2 rounded-full ${isLeaking ? "bg-danger animate-pulse" : "bg-success"
+              }`}
           />
-          <span className="text-txt-muted">Memory</span>
+          <span className="text-txt-muted">{t("memorydebugpanel.Memory")}</span>
         </div>
         <div className="flex items-center gap-1">
           {!minimized && (
@@ -199,7 +205,7 @@ export function MemoryDebugPanel({
               type="button"
               className="p-0.5 hover:bg-accent/20 rounded text-muted hover:text-txt"
               onClick={clearHistory}
-              title="Clear history"
+              title={t("memorydebugpanel.ClearHistory")}
             >
               <svg
                 width="10"
@@ -209,7 +215,7 @@ export function MemoryDebugPanel({
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <title>Clear</title>
+                <title>{t("memorydebugpanel.Clear")}</title>
                 <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
               </svg>
             </button>
@@ -251,7 +257,7 @@ export function MemoryDebugPanel({
           <div className="space-y-2">
             {/* Current usage */}
             <div className="flex justify-between">
-              <span className="text-muted">Heap:</span>
+              <span className="text-muted">{t("memorydebugpanel.Heap")}</span>
               <span className="text-txt">
                 {metrics ? formatMB(metrics.usedHeapSize) : "..."}
               </span>
@@ -259,7 +265,7 @@ export function MemoryDebugPanel({
 
             {/* Limit */}
             <div className="flex justify-between">
-              <span className="text-muted">Limit:</span>
+              <span className="text-muted">{t("memorydebugpanel.Limit")}</span>
               <span className="text-txt">
                 {metrics ? formatMB(metrics.heapSizeLimit) : "..."}
               </span>
@@ -269,13 +275,12 @@ export function MemoryDebugPanel({
             {metrics && (
               <div className="h-1.5 bg-bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all ${
-                    metrics.usagePercent > 80
+                  className={`h-full transition-all ${metrics.usagePercent > 80
                       ? "bg-danger"
                       : metrics.usagePercent > 60
                         ? "bg-warning"
                         : "bg-accent"
-                  }`}
+                    }`}
                   style={{ width: `${Math.min(100, metrics.usagePercent)}%` }}
                 />
               </div>
@@ -283,7 +288,7 @@ export function MemoryDebugPanel({
 
             {/* Trend */}
             <div className="flex justify-between">
-              <span className="text-muted">Trend:</span>
+              <span className="text-muted">{t("memorydebugpanel.Trend")}</span>
               {trendDisplay ?? <span className="text-muted">...</span>}
             </div>
 
@@ -293,7 +298,8 @@ export function MemoryDebugPanel({
             {/* Leak warning */}
             {isLeaking && (
               <div className="text-danger text-center text-[10px] font-bold animate-pulse">
-                POTENTIAL LEAK DETECTED
+
+                {t("memorydebugpanel.POTENTIALLEAKDETEC")}
               </div>
             )}
           </div>

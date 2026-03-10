@@ -25,6 +25,8 @@ interface AutonomousPanelContextStub {
     workdir: string;
     status: string;
   }>;
+  uiLanguage?: string;
+  t?: (k: string) => string;
 }
 
 const mockUseApp = vi.fn<() => AutonomousPanelContextStub>();
@@ -80,6 +82,8 @@ function makeContext(
     workbenchTriggersAvailable: false,
     workbenchTodosAvailable: false,
     ptySessions: [],
+    uiLanguage: "en",
+    t: (k: string) => k,
     ...overrides,
   };
 }
@@ -112,7 +116,7 @@ describe("AutonomousPanel", () => {
     const markup = renderToStaticMarkup(React.createElement(AutonomousPanel));
 
     expect(markup).toContain('data-testid="autonomous-panel"');
-    expect(readAllText(markup)).toContain("Agent not running");
+    expect(readAllText(markup)).toContain("autonomouspanel.AgentNotRunnin");
   });
 
   it("updates current thought/action and stream count as events arrive", async () => {
@@ -151,13 +155,13 @@ describe("AutonomousPanel", () => {
     );
 
     const initialText = normalizeText(readAllText(initialMarkup));
-    expect(initialText).toMatch(/Event Stream \(2\)/);
+    expect(initialText).toMatch(/autonomouspanel.EventStream \(2\)/);
     expect(initialText).toContain("Thinking about priorities");
     expect(initialText).toContain("Called resolve_priority action");
-    expect(initialText).toContain("Replay Health");
-    expect(initialText).toContain("Gaps 1");
-    expect(initialText).toContain("missing 2");
-    expect(initialText).toContain("Gap detected");
+    expect(initialText).toContain("autonomouspanel.ReplayHealth");
+    expect(initialText).toContain("autonomouspanel.Gaps 1");
+    expect(initialText).toContain("autonomouspanel.Missing 2");
+    expect(initialText).toContain("autonomouspanel.GapDetected");
 
     liveState.autonomousEvents = [
       ...liveState.autonomousEvents,
@@ -180,12 +184,12 @@ describe("AutonomousPanel", () => {
     );
 
     const panelText = normalizeText(readAllText(updatedMarkup));
-    expect(panelText).toMatch(/Event Stream \(4\)/);
+    expect(panelText).toMatch(/autonomouspanel.EventStream \(4\)/);
     expect(panelText).toContain("Switching to execution mode");
-    expect(panelText).toContain("provider event");
-    expect(panelText).toContain("Action provider event");
-    expect(panelText).toContain("run run-ops-1");
-    expect(panelText).toContain("seq 5");
+    expect(panelText).toContain("autonomouspanel.ProviderEvent");
+    expect(panelText).toContain("autonomouspanel.Action provider e");
+    expect(panelText).toContain("autonomouspanel.Run run-ops-1");
+    expect(panelText).toContain("autonomouspanel.Seq 5");
   });
 
   it("renders tasks, triggers, and todos from workbench context", async () => {
@@ -241,9 +245,9 @@ describe("AutonomousPanel", () => {
     const markup = renderToStaticMarkup(React.createElement(AutonomousPanel));
 
     const panelText = normalizeText(readAllText(markup));
-    expect(panelText).toMatch(/Tasks \(1\)/);
-    expect(panelText).toMatch(/Triggers \(1\)/);
-    expect(panelText).toMatch(/Todos \(1\)/);
+    expect(panelText).toMatch(/autonomouspanel.Tasks \(1\)/);
+    expect(panelText).toMatch(/autonomouspanel.Triggers \(1\)/);
+    expect(panelText).toMatch(/autonomouspanel.Todos \(1\)/);
     expect(panelText).toContain("Investigate autonomous stream reliability");
     expect(panelText).toContain("Heartbeat Trigger");
     expect(panelText).toContain("Verify panel receives heartbeat updates");

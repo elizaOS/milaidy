@@ -13,6 +13,10 @@ function findByTestId(
   return root.find((node) => node.props["data-testid"] === testId);
 }
 
+vi.mock("../../src/AppContext", () => ({
+  useApp: () => ({ t: (k: string) => "Latest quote" }),
+}));
+
 describe("BscTradePanel", () => {
   it("surfaces preflight failures from the toolbar button", async () => {
     const setActionNotice = vi.fn();

@@ -39,7 +39,7 @@ export function WalletSendPanel({
           type="text"
           value={sendTo}
           onChange={(event) => setSendTo(event.target.value)}
-          placeholder="0x..."
+          placeholder={t("walletsendpanel.0x")}
         />
       </label>
       <div className="anime-wallet-field-grid">
@@ -58,9 +58,9 @@ export function WalletSendPanel({
             value={sendAsset}
             onChange={(event) => setSendAsset(event.target.value)}
           >
-            <option value="BNB">BNB</option>
-            <option value="USDT">USDT</option>
-            <option value="USDC">USDC</option>
+            <option value="BNB">{t("walletsendpanel.BNB")}</option>
+            <option value="USDT">{t("walletsendpanel.USDT")}</option>
+            <option value="USDC">{t("walletsendpanel.USDC")}</option>
           </select>
         </label>
       </div>

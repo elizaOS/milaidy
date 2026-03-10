@@ -2,7 +2,9 @@
  * Pairing view component — simple pairing screen for authentication.
  */
 
+import { useMemo } from "react";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 const PAIRING_DOCS_URL =
   "https://github.com/milady-ai/milady/blob/develop/docs/api-reference.mdx#authenticate-via-pairing-code";
@@ -16,7 +18,9 @@ export function PairingView() {
     pairingBusy,
     handlePairingSubmit,
     setState,
+    uiLanguage
   } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setState("pairingCodeInput", e.target.value);
@@ -40,10 +44,12 @@ export function PairingView() {
   return (
     <div className="max-w-[560px] mx-auto mt-15 p-6 border border-border bg-card rounded-[10px]">
       <h1 className="text-lg font-semibold mb-2 text-txt-strong">
-        Pairing Required
+
+        {t("pairingview.PairingRequired")}
       </h1>
       <p className="text-muted mb-4 leading-relaxed">
-        Enter the pairing code from the server logs to authenticate.
+
+        {t("pairingview.EnterThePairingCo")}
       </p>
 
       {pairingEnabled ? (
@@ -53,14 +59,15 @@ export function PairingView() {
               htmlFor="pairing-code"
               className="text-sm text-txt-strong block mb-2"
             >
-              Pairing Code
+
+              {t("pairingview.PairingCode")}
             </label>
             <input
               id="pairing-code"
               type="text"
               value={pairingCodeInput}
               onChange={handleCodeChange}
-              placeholder="Enter pairing code"
+              placeholder={t("pairingview.EnterPairingCode")}
               disabled={pairingBusy}
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-bg-muted text-txt text-sm focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -88,11 +95,11 @@ export function PairingView() {
         </form>
       ) : (
         <div className="text-muted text-sm space-y-2">
-          <p>Pairing is not enabled on this server.</p>
-          <p>Next steps:</p>
+          <p>{t("pairingview.PairingIsNotEnabl")}</p>
+          <p>{t("pairingview.NextSteps")}</p>
           <ol className="list-decimal pl-5 space-y-1">
-            <li>Ask the server owner for an API token.</li>
-            <li>Enable pairing on the server and restart Milady.</li>
+            <li>{t("pairingview.AskTheServerOwner")}</li>
+            <li>{t("pairingview.EnablePairingOnTh")}</li>
           </ol>
           <a
             href={PAIRING_DOCS_URL}
@@ -100,7 +107,8 @@ export function PairingView() {
             rel="noreferrer"
             className="inline-flex px-3 py-2 border border-border rounded text-txt hover:border-accent hover:text-accent"
           >
-            Pairing setup docs
+
+            {t("pairingview.PairingSetupDocs")}
           </a>
         </div>
       )}

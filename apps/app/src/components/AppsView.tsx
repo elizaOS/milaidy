@@ -592,7 +592,8 @@ export function AppsView() {
 
           <div className="flex flex-col gap-1">
             <span className="text-[11px] text-muted">
-              Embedded agents ({hyperscapeAgents.length})
+              
+                                        {t("appsview.EmbeddedAgents")}{hyperscapeAgents.length})
             </span>
             <select
               value={hyperscapeSelectedAgentId}
@@ -601,7 +602,7 @@ export function AppsView() {
               }
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
             >
-              <option value="">Select embedded agent</option>
+              <option value="">{t("appsview.SelectEmbeddedAgen")}</option>
               {hyperscapeAgents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.name} ({agent.state}) [{agent.agentId}]
@@ -610,10 +611,11 @@ export function AppsView() {
             </select>
             {selectedHyperscapeAgent ? (
               <div className="text-[11px] text-muted">
-                Character: {selectedHyperscapeAgent.characterId} | Health:{" "}
+                
+                                              {t("appsview.Character")} {selectedHyperscapeAgent.characterId}  {t("appsview.Health")}{" "}
                 {selectedHyperscapeAgent.health ?? "n/a"}
                 {" / "}
-                {selectedHyperscapeAgent.maxHealth ?? "n/a"} | Position:{" "}
+                {selectedHyperscapeAgent.maxHealth ?? "n/a"}  {t("appsview.Position")}{" "}
                 {formatHyperscapePosition(selectedHyperscapeAgent.position)}
               </div>
             ) : null}
@@ -639,14 +641,14 @@ export function AppsView() {
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Create Embedded Agent</div>
+            <div className="font-bold text-xs">{t("appsview.CreateEmbeddedAgen")}</div>
             <input
               type="text"
               value={hyperscapeCharacterIdInput}
               onChange={(event) =>
                 setHyperscapeCharacterIdInput(event.target.value)
               }
-              placeholder="Character ID"
+              placeholder={t("appsview.CharacterID")}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
             />
             <div className="flex flex-wrap gap-2 items-center">
@@ -659,7 +661,7 @@ export function AppsView() {
                 }
                 className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none"
               >
-                <option value="">No scripted role</option>
+                <option value="">{t("appsview.NoScriptedRole")}</option>
                 {HYPERSCAPE_SCRIPTED_ROLE_OPTIONS.map((role) => (
                   <option key={role.value} value={role.value}>
                     {role.label}
@@ -674,8 +676,9 @@ export function AppsView() {
                     setHyperscapeAutoStart(event.target.checked)
                   }
                 />
-                Auto start
-              </span>
+                
+                                              {t("appsview.AutoStart")}
+                                            </span>
               <button
                 type="button"
                 className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
@@ -690,14 +693,14 @@ export function AppsView() {
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Send Message</div>
+            <div className="font-bold text-xs">{t("appsview.SendMessage")}</div>
             <textarea
               rows={2}
               value={hyperscapeMessageInput}
               onChange={(event) =>
                 setHyperscapeMessageInput(event.target.value)
               }
-              placeholder="Say something to selected agent..."
+              placeholder={t("appsview.SaySomethingToSel")}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none resize-y"
             />
             <button
@@ -713,7 +716,7 @@ export function AppsView() {
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Send Command</div>
+            <div className="font-bold text-xs">{t("appsview.SendCommand")}</div>
             <select
               value={hyperscapeCommand}
               onChange={(event) =>
@@ -736,7 +739,7 @@ export function AppsView() {
               onChange={(event) =>
                 setHyperscapeCommandDataInput(event.target.value)
               }
-              placeholder='{"target":[0,0,0]}'
+              placeholder={t("appsview.Target000")}
               className="px-3 py-2 border border-border rounded-md bg-card text-txt text-xs focus:border-accent focus:outline-none resize-y"
             />
             <button
@@ -752,7 +755,7 @@ export function AppsView() {
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-2">
-            <div className="font-bold text-xs">Goal + Quick Actions</div>
+            <div className="font-bold text-xs">{t("appsview.GoalQuickActions")}</div>
             <div className="text-xs text-muted">
               {hyperscapeGoalResponse?.goal ? (
                 <>
@@ -807,7 +810,8 @@ export function AppsView() {
 
             {hyperscapeQuickActionsResponse?.nearbyLocations?.length ? (
               <div className="text-[11px] text-muted">
-                Nearby:{" "}
+                
+                                              {t("appsview.Nearby")}{" "}
                 {hyperscapeQuickActionsResponse.nearbyLocations
                   .slice(0, 4)
                   .map((location) => `${location.name} (${location.distance})`)
@@ -825,13 +829,14 @@ export function AppsView() {
 
     return (
       <div className="mb-4 border border-border bg-card p-3 flex flex-col gap-2">
-        <div className="font-bold text-xs">Active Game Session</div>
+        <div className="font-bold text-xs">{t("appsview.ActiveGameSession")}</div>
         <div className="text-sm">
           {activeGameDisplayName || activeGameApp || "Current game"}
         </div>
         <div className="text-[11px] text-muted">
-          Resume in full-screen or open the viewer in a new tab.
-        </div>
+          
+                          {t("appsview.ResumeInFullScree")}
+                        </div>
         <div className="text-[11px] text-muted break-all">
           {currentGameViewerUrl}
         </div>
@@ -841,15 +846,17 @@ export function AppsView() {
             onClick={handleOpenCurrentGame}
             className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
           >
-            Resume Fullscreen
-          </button>
+            
+                                {t("appsview.ResumeFullscreen")}
+                              </button>
           <button
             type="button"
             onClick={handleOpenCurrentGameInNewTab}
             className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
           >
-            Open in New Tab
-          </button>
+            
+                                {t("appsview.OpenInNewTab")}
+                              </button>
         </div>
       </div>
     );
@@ -864,8 +871,9 @@ export function AppsView() {
             onClick={() => setSelectedAppName(null)}
             className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
           >
-            Back
-          </button>
+            
+                                {t("appsview.Back")}
+                              </button>
           <div className="text-[11px] text-muted break-all">
             {selectedApp.name}
           </div>
@@ -892,12 +900,14 @@ export function AppsView() {
             <span className="flex-1" />
             {selectedAppIsActive ? (
               <span className="text-[10px] px-1.5 py-0.5 border border-ok text-ok">
-                Active
-              </span>
+                
+                                            {t("appsview.Active")}
+                                          </span>
             ) : (
               <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-                Inactive
-              </span>
+                
+                                                {t("appsview.Inactive")}
+                                              </span>
             )}
             {selectedApp.category ? (
               <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
@@ -921,8 +931,9 @@ export function AppsView() {
                 className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
                 onClick={handleOpenCurrentGame}
               >
-                View Active Session
-              </button>
+                
+                                            {t("appsview.ViewActiveSession")}
+                                          </button>
             ) : null}
             {selectedAppHasActiveViewer ? (
               <button
@@ -930,26 +941,27 @@ export function AppsView() {
                 className="text-xs px-3.5 py-1.5 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
                 onClick={handleOpenCurrentGameInNewTab}
               >
-                Open Viewer in New Tab
-              </button>
+                
+                                            {t("appsview.OpenViewerInNewT")}
+                                          </button>
             ) : null}
           </div>
 
           <div className="border border-border p-2 flex flex-col gap-1 text-[11px]">
             <div>
-              <span className="text-muted">Launch type:</span>{" "}
+              <span className="text-muted">{t("appsview.LaunchType")}</span>{" "}
               {selectedApp.launchType || "n/a"}
             </div>
             <div>
-              <span className="text-muted">Latest version:</span>{" "}
+              <span className="text-muted">{t("appsview.LatestVersion")}</span>{" "}
               {selectedApp.latestVersion ?? "n/a"}
             </div>
             <div>
-              <span className="text-muted">Launch URL:</span>{" "}
+              <span className="text-muted">{t("appsview.LaunchURL")}</span>{" "}
               {selectedApp.launchUrl ?? "n/a"}
             </div>
             <div className="break-all">
-              <span className="text-muted">Repository:</span>{" "}
+              <span className="text-muted">{t("appsview.Repository")}</span>{" "}
               {selectedApp.repository ? (
                 <a
                   href={selectedApp.repository}
@@ -967,7 +979,7 @@ export function AppsView() {
 
           {selectedApp.capabilities?.length ? (
             <div className="border border-border p-2 flex flex-col gap-1">
-              <div className="font-bold text-xs">Capabilities</div>
+              <div className="font-bold text-xs">{t("appsview.Capabilities")}</div>
               <div className="flex flex-wrap gap-1">
                 {selectedApp.capabilities.map((capability) => (
                   <span
@@ -983,17 +995,17 @@ export function AppsView() {
 
           {selectedApp.viewer ? (
             <div className="border border-border p-2 flex flex-col gap-1 text-[11px]">
-              <div className="font-bold text-xs">Viewer Config</div>
+              <div className="font-bold text-xs">{t("appsview.ViewerConfig")}</div>
               <div className="break-all">
-                <span className="text-muted">URL:</span>{" "}
+                <span className="text-muted">{t("appsview.URL")}</span>{" "}
                 {selectedApp.viewer.url}
               </div>
               <div>
-                <span className="text-muted">postMessage auth:</span>{" "}
+                <span className="text-muted">{t("appsview.postMessageAuth")}</span>{" "}
                 {selectedApp.viewer.postMessageAuth ? "enabled" : "disabled"}
               </div>
               <div>
-                <span className="text-muted">Sandbox:</span>{" "}
+                <span className="text-muted">{t("appsview.Sandbox")}</span>{" "}
                 {selectedApp.viewer.sandbox ?? DEFAULT_VIEWER_SANDBOX}
               </div>
             </div>
@@ -1001,10 +1013,11 @@ export function AppsView() {
 
           {selectedApp.name === HYPERSCAPE_APP_NAME ? (
             <div className="border border-border p-2 flex flex-col gap-2">
-              <div className="font-bold text-xs">Hyperscape Controls</div>
+              <div className="font-bold text-xs">{t("appsview.HyperscapeControls")}</div>
               <div className="text-[11px] text-muted">
-                Embedded agents, commands, and telemetry.
-              </div>
+                
+                                            {t("appsview.EmbeddedAgentsCom")}
+                                          </div>
               {renderHyperscapeControls()}
             </div>
           ) : null}
@@ -1018,7 +1031,7 @@ export function AppsView() {
       <div className="flex gap-2 mb-2">
         <input
           type="text"
-          placeholder="Search apps..."
+          placeholder={t("appsview.SearchApps")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1 px-3 py-2 border border-border rounded-md bg-card text-txt text-sm focus:border-accent focus:outline-none"
@@ -1028,8 +1041,9 @@ export function AppsView() {
           onClick={() => void loadApps()}
           className="px-3 py-1 text-xs bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover"
         >
-          Refresh
-        </button>
+          
+                            {t("appsview.Refresh")}
+                          </button>
       </div>
 
       <div className="flex items-center gap-2 mb-4 text-[11px] text-muted">
@@ -1040,7 +1054,7 @@ export function AppsView() {
         >
           {showActiveOnly ? "Showing Active" : "Active Only"}
         </button>
-        <span>{activeAppNames.size} active</span>
+        <span>{activeAppNames.size}  {t("appsview.active")}</span>
       </div>
 
       {renderActiveSessionCard()}
@@ -1053,8 +1067,9 @@ export function AppsView() {
 
       {loading ? (
         <div className="text-center py-10 text-muted italic">
-          Loading apps...
-        </div>
+          
+                            {t("appsview.LoadingApps")}
+                          </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-10 text-muted italic">
           {showActiveOnly
@@ -1094,8 +1109,9 @@ export function AppsView() {
                   ) : null}
                   {isActive ? (
                     <span className="text-[10px] px-1.5 py-0.5 border border-ok text-ok">
-                      Active
-                    </span>
+                      
+                                                      {t("appsview.Active")}
+                                                    </span>
                   ) : null}
                 </div>
 

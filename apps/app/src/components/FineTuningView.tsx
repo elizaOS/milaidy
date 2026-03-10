@@ -4,6 +4,7 @@ import {
   parsePositiveInteger,
 } from "../../../../src/utils/number-parsing";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import {
   client,
   type StartTrainingOptions,
@@ -79,7 +80,8 @@ function summarizeAvailability(reason?: string): string {
 }
 
 export function FineTuningView() {
-  const { handleRestart, setActionNotice } = useApp();
+  const { handleRestart, setActionNotice, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [pageLoading, setPageLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -485,7 +487,7 @@ export function FineTuningView() {
 
   if (pageLoading) {
     return (
-      <div className="text-sm text-muted">Loading fine-tuning workspace...</div>
+      <div className="text-sm text-muted">{t("finetuningview.LoadingFineTuning")}</div>
     );
   }
 
@@ -494,10 +496,10 @@ export function FineTuningView() {
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Fine-Tuning</h2>
+            <h2 className="text-lg font-semibold">{t("finetuningview.FineTuning")}</h2>
             <p className="text-xs text-muted mt-1">
-              Build datasets from real trajectories, run training jobs, then
-              import and activate models.
+
+              {t("finetuningview.BuildDatasetsFrom")}
             </p>
           </div>
           <button
@@ -507,7 +509,8 @@ export function FineTuningView() {
               void refreshAll();
             }}
           >
-            Refresh All
+
+            {t("finetuningview.RefreshAll")}
           </button>
         </div>
         {errorMessage && (
@@ -518,20 +521,20 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Status</h3>
+        <h3 className="text-sm font-bold mb-3">{t("finetuningview.Status")}</h3>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
-          <div>Runtime: {status?.runtimeAvailable ? "ready" : "offline"}</div>
-          <div>Running Jobs: {status?.runningJobs ?? 0}</div>
-          <div>Queued Jobs: {status?.queuedJobs ?? 0}</div>
-          <div>Datasets: {status?.datasetCount ?? 0}</div>
-          <div>Models: {status?.modelCount ?? 0}</div>
-          <div>Failed Jobs: {status?.failedJobs ?? 0}</div>
+          <div>{t("finetuningview.Runtime")} {status?.runtimeAvailable ? "ready" : "offline"}</div>
+          <div>{t("finetuningview.RunningJobs")} {status?.runningJobs ?? 0}</div>
+          <div>{t("finetuningview.QueuedJobs")} {status?.queuedJobs ?? 0}</div>
+          <div>{t("finetuningview.Datasets")} {status?.datasetCount ?? 0}</div>
+          <div>{t("finetuningview.Models")} {status?.modelCount ?? 0}</div>
+          <div>{t("finetuningview.FailedJobs")} {status?.failedJobs ?? 0}</div>
         </div>
       </section>
 
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h3 className="text-sm font-bold">Trajectories</h3>
+          <h3 className="text-sm font-bold">{t("finetuningview.Trajectories")}</h3>
           <button
             type="button"
             className="px-2 py-1 text-xs border border-border hover:border-accent"
@@ -539,7 +542,8 @@ export function FineTuningView() {
               void loadTrajectories();
             }}
           >
-            Refresh
+
+            {t("finetuningview.Refresh")}
           </button>
         </div>
         {!trajectoryList.available ? (
@@ -549,17 +553,19 @@ export function FineTuningView() {
         ) : (
           <div className="space-y-3">
             <div className="text-xs text-muted">
-              {trajectoryList.total} trajectory rows available.
+              {trajectoryList.total}  {t("finetuningview.trajectoryRowsAvai")}
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="border border-border">
                 <div className="px-2 py-1 text-[11px] border-b border-border text-muted">
-                  Latest trajectories
+
+                  {t("finetuningview.LatestTrajectories")}
                 </div>
                 <div className="max-h-72 overflow-auto">
                   {trajectoryList.trajectories.length === 0 ? (
                     <div className="p-3 text-xs text-muted">
-                      No trajectories found yet.
+
+                      {t("finetuningview.NoTrajectoriesFoun")}
                     </div>
                   ) : (
                     trajectoryList.trajectories.map((trajectory) => (
@@ -575,7 +581,8 @@ export function FineTuningView() {
                           {trajectory.trajectoryId}
                         </div>
                         <div className="text-muted mt-1">
-                          Calls: {trajectory.llmCallCount} · Reward:{" "}
+
+                          {t("finetuningview.Calls")} {trajectory.llmCallCount}  {t("finetuningview.Reward")}{" "}
                           {trajectory.totalReward ?? "n/a"} ·{" "}
                           {formatDate(trajectory.createdAt)}
                         </div>
@@ -586,32 +593,35 @@ export function FineTuningView() {
               </div>
               <div className="border border-border p-2">
                 <div className="text-[11px] text-muted mb-2">
-                  Selected trajectory
+
+                  {t("finetuningview.SelectedTrajectory")}
                 </div>
                 {trajectoryLoading ? (
                   <div className="text-xs text-muted">
-                    Loading trajectory detail...
+
+                    {t("finetuningview.LoadingTrajectoryD")}
                   </div>
                 ) : !selectedTrajectory ? (
                   <div className="text-xs text-muted">
-                    Choose a trajectory to inspect.
+
+                    {t("finetuningview.ChooseATrajectory")}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="text-xs">
-                      <span className="font-semibold">Trajectory:</span>{" "}
+                      <span className="font-semibold">{t("finetuningview.Trajectory")}</span>{" "}
                       <span className="font-mono">
                         {selectedTrajectory.trajectoryId}
                       </span>
                     </div>
                     <div className="text-xs">
-                      <span className="font-semibold">Agent:</span>{" "}
+                      <span className="font-semibold">{t("finetuningview.Agent")}</span>{" "}
                       <span className="font-mono">
                         {selectedTrajectory.agentId}
                       </span>
                     </div>
                     <div className="text-xs">
-                      <span className="font-semibold">Reward:</span>{" "}
+                      <span className="font-semibold">{t("finetuningview.Reward1")}</span>{" "}
                       {selectedTrajectory.totalReward ?? "n/a"}
                     </div>
                     <textarea
@@ -628,19 +638,19 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Datasets</h3>
+        <h3 className="text-sm font-bold mb-3">{t("finetuningview.Datasets1")}</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={buildLimit}
             onChange={(event) => setBuildLimit(event.target.value)}
-            placeholder="Limit trajectories (e.g. 250)"
+            placeholder={t("finetuningview.LimitTrajectories")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={buildMinCalls}
             onChange={(event) => setBuildMinCalls(event.target.value)}
-            placeholder="Min LLM calls per trajectory"
+            placeholder={t("finetuningview.MinLLMCallsPerTr")}
           />
           <button
             type="button"
@@ -659,12 +669,13 @@ export function FineTuningView() {
               void loadDatasets();
             }}
           >
-            Refresh Datasets
+
+            {t("finetuningview.RefreshDatasets")}
           </button>
         </div>
         <div className="space-y-2 max-h-52 overflow-auto">
           {datasets.length === 0 ? (
-            <div className="text-xs text-muted">No datasets yet.</div>
+            <div className="text-xs text-muted">{t("finetuningview.NoDatasetsYet")}</div>
           ) : (
             datasets.map((dataset) => (
               <label
@@ -679,8 +690,9 @@ export function FineTuningView() {
                 />
                 <span className="font-mono">{dataset.id}</span>
                 <span className="text-muted">
-                  {dataset.sampleCount} samples · {dataset.trajectoryCount}{" "}
-                  trajectories
+                  {dataset.sampleCount}  {t("finetuningview.samples")} {dataset.trajectoryCount}{" "}
+
+                  {t("finetuningview.trajectories")}
                 </span>
               </label>
             ))
@@ -689,14 +701,14 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Training Jobs</h3>
+        <h3 className="text-sm font-bold mb-3">{t("finetuningview.TrainingJobs")}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
           <select
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={selectedDatasetId}
             onChange={(event) => setSelectedDatasetId(event.target.value)}
           >
-            <option value="">Auto-build dataset from trajectories</option>
+            <option value="">{t("finetuningview.AutoBuildDatasetF")}</option>
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
                 {dataset.id}
@@ -710,33 +722,33 @@ export function FineTuningView() {
               setStartBackend(event.target.value as "mlx" | "cuda" | "cpu")
             }
           >
-            <option value="cpu">cpu</option>
-            <option value="mlx">mlx</option>
-            <option value="cuda">cuda</option>
+            <option value="cpu">{t("finetuningview.cpu")}</option>
+            <option value="mlx">{t("finetuningview.mlx")}</option>
+            <option value="cuda">{t("finetuningview.cuda")}</option>
           </select>
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startModel}
             onChange={(event) => setStartModel(event.target.value)}
-            placeholder="Base model (optional)"
+            placeholder={t("finetuningview.BaseModelOptional")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startIterations}
             onChange={(event) => setStartIterations(event.target.value)}
-            placeholder="Iterations (optional)"
+            placeholder={t("finetuningview.IterationsOptional")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startBatchSize}
             onChange={(event) => setStartBatchSize(event.target.value)}
-            placeholder="Batch size (optional)"
+            placeholder={t("finetuningview.BatchSizeOptional")}
           />
           <input
             className="px-2 py-1 border border-border bg-bg text-sm"
             value={startLearningRate}
             onChange={(event) => setStartLearningRate(event.target.value)}
-            placeholder="Learning rate (optional)"
+            placeholder={t("finetuningview.LearningRateOptio")}
           />
         </div>
         <div className="flex gap-2 mb-3">
@@ -758,11 +770,13 @@ export function FineTuningView() {
               void loadStatus();
             }}
           >
-            Refresh Jobs
+
+            {t("finetuningview.RefreshJobs")}
           </button>
           {activeRunningJob && (
             <div className="text-xs text-warn flex items-center">
-              Active job:{" "}
+
+              {t("finetuningview.ActiveJob")}{" "}
               <span className="font-mono ml-1">{activeRunningJob.id}</span>
             </div>
           )}
@@ -770,14 +784,13 @@ export function FineTuningView() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="border border-border max-h-72 overflow-auto">
             {jobs.length === 0 ? (
-              <div className="p-3 text-xs text-muted">No jobs yet.</div>
+              <div className="p-3 text-xs text-muted">{t("finetuningview.NoJobsYet")}</div>
             ) : (
               jobs.map((job) => (
                 <div
                   key={job.id}
-                  className={`px-2 py-2 border-b border-border text-xs ${
-                    selectedJobId === job.id ? "bg-bg-hover" : ""
-                  }`}
+                  className={`px-2 py-2 border-b border-border text-xs ${selectedJobId === job.id ? "bg-bg-hover" : ""
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -811,20 +824,21 @@ export function FineTuningView() {
             )}
           </div>
           <div className="border border-border p-2">
-            <div className="text-[11px] text-muted mb-2">Selected job logs</div>
+            <div className="text-[11px] text-muted mb-2">{t("finetuningview.SelectedJobLogs")}</div>
             {!selectedJob ? (
               <div className="text-xs text-muted">
-                Select a job to inspect logs.
+
+                {t("finetuningview.SelectAJobToInsp")}
               </div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
-                  <span className="font-semibold">Status:</span>{" "}
+                  <span className="font-semibold">{t("finetuningview.Status1")}</span>{" "}
                   {selectedJob.status} · {formatProgress(selectedJob.progress)}{" "}
                   · {selectedJob.phase}
                 </div>
                 <div className="text-xs">
-                  <span className="font-semibold">Dataset:</span>{" "}
+                  <span className="font-semibold">{t("finetuningview.Dataset")}</span>{" "}
                   <span className="font-mono">{selectedJob.datasetId}</span>
                 </div>
                 <textarea
@@ -839,34 +853,36 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Trained Models</h3>
+        <h3 className="text-sm font-bold mb-3">{t("finetuningview.TrainedModels")}</h3>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="border border-border max-h-72 overflow-auto">
             {models.length === 0 ? (
               <div className="p-3 text-xs text-muted">
-                No trained models yet.
+
+                {t("finetuningview.NoTrainedModelsYe")}
               </div>
             ) : (
               models.map((model) => (
                 <button
                   type="button"
                   key={model.id}
-                  className={`w-full text-left px-2 py-2 border-b border-border text-xs ${
-                    selectedModelId === model.id
+                  className={`w-full text-left px-2 py-2 border-b border-border text-xs ${selectedModelId === model.id
                       ? "bg-bg-hover"
                       : "hover:bg-bg-hover"
-                  }`}
+                    }`}
                   onClick={() => setSelectedModelId(model.id)}
                 >
                   <div className="font-mono">
                     {model.id} {model.active ? "· active" : ""}
                   </div>
                   <div className="text-muted mt-1">
-                    backend: {model.backend}
+
+                    {t("finetuningview.backend")} {model.backend}
                     {model.ollamaModel ? ` · ollama: ${model.ollamaModel}` : ""}
                   </div>
                   <div className="text-muted">
-                    benchmark: {model.benchmark.status}
+
+                    {t("finetuningview.benchmark")} {model.benchmark.status}
                     {model.benchmark.lastRunAt
                       ? ` · ${formatDate(model.benchmark.lastRunAt)}`
                       : ""}
@@ -876,19 +892,20 @@ export function FineTuningView() {
             )}
           </div>
           <div className="border border-border p-2">
-            <div className="text-[11px] text-muted mb-2">Model actions</div>
+            <div className="text-[11px] text-muted mb-2">{t("finetuningview.ModelActions")}</div>
             {!selectedModel ? (
               <div className="text-xs text-muted">
-                Select a model to import or activate.
+
+                {t("finetuningview.SelectAModelToIm")}
               </div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs">
-                  <span className="font-semibold">Model:</span>{" "}
+                  <span className="font-semibold">{t("finetuningview.Model")}</span>{" "}
                   <span className="font-mono">{selectedModel.id}</span>
                 </div>
                 <div className="text-xs">
-                  <span className="font-semibold">Adapter path:</span>{" "}
+                  <span className="font-semibold">{t("finetuningview.AdapterPath")}</span>{" "}
                   <span className="font-mono">
                     {selectedModel.adapterPath ?? "n/a"}
                   </span>
@@ -898,19 +915,19 @@ export function FineTuningView() {
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importModelName}
                   onChange={(event) => setImportModelName(event.target.value)}
-                  placeholder="Ollama model name (optional)"
+                  placeholder={t("finetuningview.OllamaModelNameO")}
                 />
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importBaseModel}
                   onChange={(event) => setImportBaseModel(event.target.value)}
-                  placeholder="Base model for Ollama (optional)"
+                  placeholder={t("finetuningview.BaseModelForOllam")}
                 />
                 <input
                   className="w-full px-2 py-1 border border-border bg-bg text-sm"
                   value={importOllamaUrl}
                   onChange={(event) => setImportOllamaUrl(event.target.value)}
-                  placeholder="Ollama URL"
+                  placeholder={t("finetuningview.OllamaURL")}
                 />
                 <button
                   type="button"
@@ -931,7 +948,7 @@ export function FineTuningView() {
                   onChange={(event) =>
                     setActivateProviderModel(event.target.value)
                   }
-                  placeholder='Provider model (e.g. "ollama/my-model")'
+                  placeholder={t("finetuningview.ProviderModelEG")}
                 />
                 <div className="flex gap-2">
                   <button
@@ -985,11 +1002,12 @@ export function FineTuningView() {
       </section>
 
       <section className="border border-border bg-card p-4">
-        <h3 className="text-sm font-bold mb-3">Live Training Events</h3>
+        <h3 className="text-sm font-bold mb-3">{t("finetuningview.LiveTrainingEvents")}</h3>
         <div className="max-h-56 overflow-auto border border-border">
           {trainingEvents.length === 0 ? (
             <div className="p-3 text-xs text-muted">
-              No live events yet. Start a job to stream progress here.
+
+              {t("finetuningview.NoLiveEventsYet")}
             </div>
           ) : (
             trainingEvents.map((event, index) => (

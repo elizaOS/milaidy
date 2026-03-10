@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { client } from "../../api-client";
+import { useApp } from "../../AppContext";
+import { createTranslator } from "../../i18n";
 
 interface TerminalLine {
   id: string;
@@ -9,6 +11,8 @@ interface TerminalLine {
 }
 
 export function StreamTerminal() {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [lines, setLines] = useState<TerminalLine[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineIdRef = useRef(0);
@@ -57,7 +61,8 @@ export function StreamTerminal() {
     <div className="h-full w-full bg-bg-muted flex flex-col">
       <div className="flex items-center px-3 py-1.5 border-b border-border bg-bg shrink-0">
         <span className="text-[11px] font-mono text-muted tracking-wide">
-          TERMINAL
+
+          {t("streamterminal.TERMINAL")}
         </span>
       </div>
       <div
@@ -66,7 +71,8 @@ export function StreamTerminal() {
       >
         {lines.length === 0 ? (
           <span className="text-muted italic text-[11px]">
-            Waiting for terminal activity...
+
+            {t("streamterminal.WaitingForTerminal")}
           </span>
         ) : (
           lines.map((line) => (

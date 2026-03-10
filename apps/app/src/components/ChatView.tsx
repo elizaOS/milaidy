@@ -510,7 +510,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
               />
               <button
                 type="button"
-                title="Remove image"
+                title={t("chatview.RemoveImage")}
                 aria-label={`Remove image ${img.name}`}
                 onClick={() => removeImage(i)}
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
@@ -527,9 +527,10 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           className="pb-1 text-[10px] text-muted relative"
           style={{ zIndex: 1 }}
         >
-          Silence end→first token: {voiceLatency.speechEndToFirstTokenMs ?? "—"}
-          ms · end→voice start: {voiceLatency.speechEndToVoiceStartMs ?? "—"}ms
-          · first sentence:{" "}
+          
+                            {t("chatview.SilenceEndFirstTo")} {voiceLatency.speechEndToFirstTokenMs ?? "—"}
+          
+                            {t("chatview.msEndVoiceStart")} {voiceLatency.speechEndToVoiceStartMs ?? "—"}{t("chatview.msFirst")}{" "}
           {voiceLatency.firstSegmentCached == null
             ? "—"
             : voiceLatency.firstSegmentCached
@@ -574,7 +575,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             onClick={openEmotePicker}
             disabled={isComposerLocked}
             aria-label={t("chat.openEmotePicker")}
-            title="Emotes (⌘E)"
+            title={t("chatview.EmotesE")}
           >
             <Smile className="w-4 h-4" />
           </button>
@@ -638,7 +639,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             }`}
             onClick={() => fileInputRef.current?.click()}
             aria-label="Attach image"
-            title="Attach image"
+            title={t("chatview.AttachImage")}
             disabled={isComposerLocked}
           >
             <Paperclip className="w-4 h-4" />
@@ -686,7 +687,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
             onClick={openEmotePicker}
             disabled={isComposerLocked}
             aria-label={t("chat.openEmotePicker")}
-            title="Emotes (⌘E)"
+            title={t("chatview.EmotesE")}
           >
             <Smile className="w-4 h-4" />
           </button>

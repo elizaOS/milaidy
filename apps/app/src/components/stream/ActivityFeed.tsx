@@ -7,8 +7,10 @@ import {
   getEventSource,
   getEventText,
 } from "./helpers";
+import { useApp } from "../../AppContext";
 
 export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
+    const { t } = useApp();
   const feedRef = useRef<HTMLDivElement>(null);
   const prevLenRef = useRef(0);
 
@@ -23,8 +25,9 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
     <div className="flex flex-col h-full border-l border-border bg-bg">
       <div className="px-3 py-2 border-b border-border shrink-0">
         <span className="text-xs font-bold uppercase tracking-wider text-muted">
-          Activity
-        </span>
+          
+                            {t("activityfeed.Activity")}
+                          </span>
       </div>
       <div
         ref={feedRef}
@@ -32,8 +35,9 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
       >
         {events.length === 0 ? (
           <div className="text-muted text-xs py-4 text-center">
-            No events yet
-          </div>
+            
+                                  {t("activityfeed.NoEventsYet")}
+                                </div>
         ) : (
           events.map((event) => {
             const isThought = event.stream === "thought";

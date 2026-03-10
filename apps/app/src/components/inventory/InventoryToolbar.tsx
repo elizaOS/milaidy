@@ -68,7 +68,8 @@ export function InventoryToolbar({
             className={`wt__chip ${inventoryChainFocus === "bsc" ? "is-active" : ""}`}
             onClick={() => setState("inventoryChainFocus", "bsc")}
           >
-            BSC
+
+            {t("inventorytoolbar.BSC")}
           </button>
           <button
             type="button"
@@ -115,7 +116,8 @@ export function InventoryToolbar({
           inventoryView === "tokens" ? loadBalances() : loadNfts()
         }
       >
-        Refresh
+
+        {t("inventorytoolbar.Refresh")}
       </button>
     </div>
   );

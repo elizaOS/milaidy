@@ -1,3 +1,5 @@
+import { useApp } from "../AppContext";
+
 export type CloudSourceMode = "cloud" | "own-key";
 
 export function CloudSourceModeToggle({
@@ -11,6 +13,7 @@ export function CloudSourceModeToggle({
   cloudLabel?: string;
   ownKeyLabel?: string;
 }) {
+    const { t } = useApp();
   return (
     <div className="flex border border-[var(--border)]">
       <button
@@ -48,14 +51,16 @@ export function CloudConnectionStatus({
   connectedText?: string;
   disconnectedText: string;
 }) {
+    const { t } = useApp();
   return (
     <div className="flex items-center justify-between py-2.5 px-3 border border-[var(--border)] bg-[var(--bg-muted)]">
       {connected ? (
         <>
           <span className="text-xs text-[var(--text)]">{connectedText}</span>
           <span className="text-[10px] px-1.5 py-0.5 border border-green-600 text-green-600">
-            Active
-          </span>
+            
+                                  {t("cloudsourcecontrols.Active")}
+                                </span>
         </>
       ) : (
         <>
@@ -63,8 +68,9 @@ export function CloudConnectionStatus({
             {disconnectedText}
           </span>
           <span className="text-[10px] px-1.5 py-0.5 border border-yellow-600 text-yellow-600">
-            Offline
-          </span>
+            
+                                      {t("cloudsourcecontrols.Offline")}
+                                    </span>
         </>
       )}
     </div>

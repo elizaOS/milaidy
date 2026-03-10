@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import { isElectrobunRuntime } from "../bridge/electrobun-runtime";
 
 export function RestartBanner() {
@@ -9,7 +10,9 @@ export function RestartBanner() {
     restartBannerDismissed,
     dismissRestartBanner,
     triggerRestart,
+    uiLanguage
   } = useApp();
+  const t = createTranslator(uiLanguage);
 
   const [restarting, setRestarting] = useState(false);
 
@@ -46,7 +49,8 @@ export function RestartBanner() {
           onClick={dismissRestartBanner}
           className="rounded px-3 py-1 text-[12px] text-amber-100 hover:bg-amber-700 transition-colors"
         >
-          Later
+
+          {t("restartbanner.Later")}
         </button>
         <button
           type="button"

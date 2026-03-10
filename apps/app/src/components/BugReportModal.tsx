@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client } from "../api-client";
 import { useBugReport } from "../hooks/useBugReport";
+import { useApp } from "../AppContext";
 
 const ENV_OPTIONS = ["macOS", "Windows", "Linux", "Other"] as const;
 const GITHUB_NEW_ISSUE_URL =
@@ -39,6 +40,7 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 export function BugReportModal() {
+  const { t } = useApp();
   const { isOpen, close } = useBugReport();
   const [form, setForm] = useState<BugReportForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -79,7 +81,7 @@ export function BugReportModal() {
                     : "Other",
           }));
       })
-      .catch(() => {});
+      .catch(() => { });
     setTimeout(() => descRef.current?.focus(), 50);
 
     return () => {
@@ -200,19 +202,22 @@ export function BugReportModal() {
         <div className="w-full max-w-md border border-border bg-card shadow-lg flex flex-col">
           <div className="flex items-center px-5 py-3 border-b border-border">
             <span className="font-bold text-sm flex-1">
-              Bug Report Submitted
+
+              {t("bugreportmodal.BugReportSubmitted")}
             </span>
             <button
               type="button"
               className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
               onClick={close}
             >
-              &times;
+
+              {t("bugreportmodal.Times")}
             </button>
           </div>
           <div className="px-5 py-6 text-center">
             <p className="text-sm text-txt mb-3">
-              Your bug report has been submitted successfully.
+
+              {t("bugreportmodal.YourBugReportHas")}
             </p>
             <a
               href={resultUrl}
@@ -229,7 +234,8 @@ export function BugReportModal() {
               onClick={close}
               className="px-4 py-1.5 border border-border text-sm text-muted hover:text-txt cursor-pointer"
             >
-              Close
+
+              {t("bugreportmodal.Close")}
             </button>
           </div>
         </div>
@@ -242,13 +248,14 @@ export function BugReportModal() {
       <div className="w-full max-w-lg border border-border bg-card shadow-lg flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center px-5 py-3 border-b border-border shrink-0">
-          <span className="font-bold text-sm flex-1">Report a Bug</span>
+          <span className="font-bold text-sm flex-1">{t("bugreportmodal.ReportABug")}</span>
           <button
             type="button"
             className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
             onClick={close}
           >
-            &times;
+
+            {t("bugreportmodal.Times")}
           </button>
         </div>
 
@@ -261,11 +268,12 @@ export function BugReportModal() {
           )}
 
           <label className={labelClass}>
-            Description <span className="text-danger">*</span>
+
+            {t("bugreportmodal.Description")} <span className="text-danger">*</span>
             <textarea
               ref={descRef}
               className={textareaClass}
-              placeholder="Describe the issue you encountered."
+              placeholder={t("bugreportmodal.DescribeTheIssueY")}
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               rows={3}
@@ -273,7 +281,8 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Steps to Reproduce <span className="text-danger">*</span>
+
+            {t("bugreportmodal.StepsToReproduce")} <span className="text-danger">*</span>
             <textarea
               className={textareaClass}
               placeholder={"1. Go to ...\n2. Click on ...\n3. Observe ..."}
@@ -284,10 +293,11 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Expected Behavior
+
+            {t("bugreportmodal.ExpectedBehavior")}
             <textarea
               className={textareaClass}
-              placeholder="Describe the expected result."
+              placeholder={t("bugreportmodal.DescribeTheExpecte")}
               value={form.expectedBehavior}
               onChange={(e) => updateField("expectedBehavior", e.target.value)}
               rows={2}
@@ -295,10 +305,11 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Actual Behavior
+
+            {t("bugreportmodal.ActualBehavior")}
             <textarea
               className={textareaClass}
-              placeholder="Describe the actual result."
+              placeholder={t("bugreportmodal.DescribeTheActual")}
               value={form.actualBehavior}
               onChange={(e) => updateField("actualBehavior", e.target.value)}
               rows={2}
@@ -307,13 +318,14 @@ export function BugReportModal() {
 
           <div className="flex gap-3">
             <label className={`${labelClass} flex-1`}>
-              Environment
+
+              {t("bugreportmodal.Environment")}
               <select
                 className={inputClass}
                 value={form.environment}
                 onChange={(e) => updateField("environment", e.target.value)}
               >
-                <option value="">Select...</option>
+                <option value="">{t("bugreportmodal.Select")}</option>
                 {ENV_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
@@ -322,11 +334,12 @@ export function BugReportModal() {
               </select>
             </label>
             <label className={`${labelClass} flex-1`}>
-              Node Version
+
+              {t("bugreportmodal.NodeVersion")}
               <input
                 type="text"
                 className={inputClass}
-                placeholder="22.x"
+                placeholder={t("bugreportmodal.22X")}
                 value={form.nodeVersion}
                 onChange={(e) => updateField("nodeVersion", e.target.value)}
               />
@@ -334,11 +347,12 @@ export function BugReportModal() {
           </div>
 
           <label className={labelClass}>
-            Model Provider
+
+            {t("bugreportmodal.ModelProvider")}
             <input
               type="text"
               className={inputClass}
-              placeholder="Anthropic / OpenAI / Ollama"
+              placeholder={t("bugreportmodal.AnthropicOpenAI")}
               value={form.modelProvider}
               onChange={(e) => updateField("modelProvider", e.target.value)}
             />
@@ -355,12 +369,13 @@ export function BugReportModal() {
                 className="w-3 h-3 inline-block transition-transform"
                 style={{ transform: showLogs ? "rotate(90deg)" : "none" }}
               />
-              Logs
+
+              {t("bugreportmodal.Logs")}
             </button>
             {showLogs && (
               <textarea
                 className={`${textareaClass} mt-1 font-mono text-xs`}
-                placeholder="Paste relevant error output or logs"
+                placeholder={t("bugreportmodal.PasteRelevantError")}
                 value={form.logs}
                 onChange={(e) => updateField("logs", e.target.value)}
                 rows={4}
@@ -376,7 +391,8 @@ export function BugReportModal() {
             onClick={close}
             className="px-3 py-1.5 border border-border text-sm text-muted hover:text-txt cursor-pointer"
           >
-            Cancel
+
+            {t("bugreportmodal.Cancel")}
           </button>
           <div className="flex items-center gap-2">
             <button

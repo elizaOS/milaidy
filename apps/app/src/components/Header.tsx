@@ -204,7 +204,7 @@ export function Header() {
                   <span className="hidden sm:inline">
                     {t("header.freeMintLive")}
                   </span>
-                  <span className="sm:hidden">Mint</span>
+                  <span className="sm:hidden">{t("header.Mint")}</span>
                 </button>
               )}
 
@@ -216,7 +216,7 @@ export function Header() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-9 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-accent hover:shadow-sm ${cloudCredits === null ? "border-muted text-muted" : creditColor}`}
-                  title="Cloud credits balance"
+                  title={t("header.CloudCreditsBalanc")}
                 >
                   <CircleDollarSign className="w-3.5 h-3.5" />
                   {cloudCredits === null
@@ -229,7 +229,7 @@ export function Header() {
                   <span className="hidden sm:inline">
                     {t("header.cloudDisconnected")}
                   </span>
-                  <span className="sm:hidden">Cloud</span>
+                  <span className="sm:hidden">{t("header.Cloud")}</span>
                 </span>
               ))}
 
@@ -242,7 +242,8 @@ export function Header() {
               data-testid="ui-shell-toggle"
             >
               <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-current/50 text-[10px] leading-none">
-                &#x21C4;
+
+                {t("header.X21C4")}
               </span>
               <span className="hidden sm:flex flex-col items-start leading-[1.02]">
                 <span className="text-[9px] uppercase tracking-[0.08em] opacity-80">
@@ -339,7 +340,7 @@ export function Header() {
 
             {/* Command Palette */}
             <IconButtonTooltip
-              label="Command Palette"
+              label={t("header.CommandPalette")}
               shortcut={
                 navigator.platform?.includes("Mac") ? "\u2318K" : "Ctrl+K"
               }
@@ -389,7 +390,8 @@ export function Header() {
                   {evmShort && (
                     <div className="flex items-center gap-2 text-xs py-2 px-1 rounded-md hover:bg-bg-hover transition-colors">
                       <span className="font-bold font-mono min-w-[40px] text-muted">
-                        EVM
+
+                        {t("header.EVM")}
                       </span>
                       <code className="font-mono flex-1 truncate text-txt-strong">
                         {evmShort}
@@ -417,7 +419,8 @@ export function Header() {
                   {solShort && (
                     <div className="flex items-center gap-2 text-xs py-2 px-1 rounded-md hover:bg-bg-hover transition-colors border-t border-border">
                       <span className="font-bold font-mono min-w-[40px] text-muted">
-                        SOL
+
+                        {t("header.SOL")}
                       </span>
                       <code className="font-mono flex-1 truncate text-txt-strong">
                         {solShort}

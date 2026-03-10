@@ -10,8 +10,9 @@
  * - Document detail view with fragments
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 import type {
   KnowledgeDocument,
   KnowledgeFragment,
@@ -104,11 +105,14 @@ function StatsCard({
   loading: boolean;
   hasError?: boolean;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded">
         <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1">
-          Documents
+
+          {t("knowledgeview.Documents")}
         </div>
         <div className="text-2xl font-semibold text-[var(--txt)]">
           {loading ? "—" : hasError ? "—" : (stats?.documentCount ?? 0)}
@@ -116,14 +120,15 @@ function StatsCard({
       </div>
       <div className="p-4 border border-[var(--border)] bg-[var(--card)] rounded overflow-visible">
         <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] mb-1 flex items-center gap-1">
-          Fragments
+
+          {t("knowledgeview.Fragments")}
           <span className="relative group">
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[var(--muted)] text-[9px] leading-none cursor-help opacity-60 group-hover:opacity-100 transition-opacity">
               ?
             </span>
             <span className="pointer-events-none absolute left-0 top-full mt-1.5 w-52 px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] text-[var(--text-strong)] text-[11px] normal-case tracking-normal leading-snug opacity-0 group-hover:opacity-100 transition-opacity border border-[var(--border-strong)] shadow-md">
-              Documents are split into smaller text chunks called fragments for
-              efficient search and context retrieval.
+
+              {t("knowledgeview.DocumentsAreSplit")}
             </span>
           </span>
         </div>
@@ -151,6 +156,8 @@ function UploadZone({
   uploading: boolean;
   uploadStatus: { current: number; total: number; filename: string } | null;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [dragOver, setDragOver] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -196,11 +203,10 @@ function UploadZone({
   return (
     <div className="mb-6">
       <section
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragOver
-            ? "border-[var(--accent)] bg-[var(--accent)]/5"
-            : "border-[var(--border)] hover:border-[var(--muted)]"
-        } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragOver
+          ? "border-[var(--accent)] bg-[var(--accent)]/5"
+          : "border-[var(--border)] hover:border-[var(--muted)]"
+          } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -238,8 +244,7 @@ function UploadZone({
           )}
         </div>
         <div className="text-[11px] text-[var(--muted)] mb-4">
-          Supported: PDF, Markdown, Text, DOCX, JSON, CSV, XML, HTML, PNG, JPG,
-          WEBP, GIF • folders are imported recursively
+          {t("knowledgeview.SupportedPDFMark")}
         </div>
         <div className="flex gap-3 justify-center">
           <button
@@ -248,7 +253,8 @@ function UploadZone({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
-            Choose Files
+
+            {t("knowledgeview.ChooseFiles")}
           </button>
           <button
             type="button"
@@ -256,7 +262,8 @@ function UploadZone({
             onClick={() => folderInputRef.current?.click()}
             disabled={uploading}
           >
-            Choose Folder
+
+            {t("knowledgeview.ChooseFolder")}
           </button>
           <button
             type="button"
@@ -264,7 +271,8 @@ function UploadZone({
             onClick={() => setShowUrlInput(!showUrlInput)}
             disabled={uploading}
           >
-            Add from URL
+
+            {t("knowledgeview.AddFromURL")}
           </button>
         </div>
         <label className="mt-4 inline-flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -274,24 +282,25 @@ function UploadZone({
             onChange={(e) => setIncludeImageDescriptions(e.target.checked)}
             disabled={uploading}
           />
-          Include AI image descriptions (more context, may increase cost)
+
+          {t("knowledgeview.IncludeAIImageDes")}
         </label>
       </section>
 
       {showUrlInput && (
         <div className="mt-4 p-4 border border-[var(--border)] bg-[var(--card)] rounded">
           <div className="text-xs text-[var(--muted)] mb-2">
-            Paste a URL to import content. YouTube links will be
-            auto-transcribed.
+
+            {t("knowledgeview.PasteAURLToImpor")}
           </div>
           <div className="text-[11px] text-[var(--muted)] mb-2">
-            Image URLs can optionally use AI description extraction and may
-            increase costs.
+
+            {t("knowledgeview.ImageURLsCanOptio")}
           </div>
           <div className="flex gap-2">
             <input
               type="url"
-              placeholder="https://example.com/document.pdf or YouTube URL"
+              placeholder={t("knowledgeview.httpsExampleCom")}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
@@ -304,7 +313,8 @@ function UploadZone({
               onClick={handleUrlSubmit}
               disabled={!urlInput.trim() || uploading}
             >
-              Import
+
+              {t("knowledgeview.Import")}
             </button>
           </div>
         </div>
@@ -322,6 +332,8 @@ function SearchBar({
   onSearch: (query: string) => void;
   searching: boolean;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [query, setQuery] = useState("");
 
   const handleSubmit = useCallback(() => {
@@ -335,7 +347,7 @@ function SearchBar({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Search knowledge..."
+          placeholder={t("knowledgeview.SearchKnowledge")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -364,14 +376,18 @@ function SearchResults({
   results: KnowledgeSearchResult[];
   onClear: () => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--txt)]">
-          Search Results ({results.length})
+
+          {t("knowledgeview.SearchResults")}{results.length})
         </h3>
         <button type="button" className={btnGhost} onClick={onClear}>
-          Clear
+
+          {t("knowledgeview.Clear")}
         </button>
       </div>
       <div className="space-y-2">
@@ -385,7 +401,7 @@ function SearchResults({
                 {result.documentTitle || "Unknown Document"}
               </span>
               <span className="text-[10px] px-1.5 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded">
-                {(result.similarity * 100).toFixed(0)}% match
+                {(result.similarity * 100).toFixed(0)}{t("knowledgeview.Match")}
               </span>
             </div>
             <p className="text-sm text-[var(--txt)] line-clamp-3">
@@ -395,7 +411,8 @@ function SearchResults({
         ))}
         {results.length === 0 && (
           <div className="text-center py-8 text-[var(--muted)]">
-            No results found
+
+            {t("knowledgeview.NoResultsFound")}
           </div>
         )}
       </div>
@@ -416,6 +433,8 @@ function DocumentCard({
   onDelete: (id: string) => void;
   deleting: boolean;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   return (
     <div className="flex items-center justify-between p-4 border border-[var(--border)] bg-[var(--card)] rounded hover:border-[var(--accent)]/50 transition-colors">
       <button
@@ -433,12 +452,14 @@ function DocumentCard({
           <span>{formatShortDate(doc.createdAt, { fallback: "—" })}</span>
           {doc.source === "youtube" && (
             <span className="px-1.5 py-0.5 bg-[#e74c3c]/10 text-[#e74c3c] rounded text-[10px]">
-              YouTube
+
+              {t("knowledgeview.YouTube")}
             </span>
           )}
           {doc.source === "url" && (
             <span className="px-1.5 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded text-[10px]">
-              URL
+
+              {t("knowledgeview.URL")}
             </span>
           )}
         </div>
@@ -466,6 +487,8 @@ function DocumentDetailModal({
   documentId: string;
   onClose: () => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [doc, setDoc] = useState<KnowledgeDocument | null>(null);
   const [fragments, setFragments] = useState<KnowledgeFragment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -513,7 +536,8 @@ function DocumentDetailModal({
             {loading ? "Loading..." : doc?.filename || "Document"}
           </h2>
           <button type="button" className={btnGhost} onClick={onClose}>
-            Close
+
+            {t("knowledgeview.Close")}
           </button>
         </div>
 
@@ -521,7 +545,8 @@ function DocumentDetailModal({
         <div className="flex-1 overflow-y-auto p-4">
           {loading && (
             <div className="text-center py-8 text-[var(--muted)]">
-              Loading...
+
+              {t("knowledgeview.Loading")}
             </div>
           )}
 
@@ -535,16 +560,16 @@ function DocumentDetailModal({
               <div className="mb-6 p-4 bg-[var(--card)] border border-[var(--border)] rounded">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-[var(--muted)]">Type:</span>{" "}
+                    <span className="text-[var(--muted)]">{t("knowledgeview.Type")}</span>{" "}
                     <span className="text-[var(--txt)]">{doc.contentType}</span>
                   </div>
                   <div>
-                    <span className="text-[var(--muted)]">Source:</span>{" "}
+                    <span className="text-[var(--muted)]">{t("knowledgeview.Source")}</span>{" "}
                     <span className="text-[var(--txt)]">{doc.source}</span>
                   </div>
                   {doc.url && (
                     <div className="col-span-2">
-                      <span className="text-[var(--muted)]">URL:</span>{" "}
+                      <span className="text-[var(--muted)]">{t("knowledgeview.URL1")}</span>{" "}
                       <a
                         href={doc.url}
                         target="_blank"
@@ -560,7 +585,8 @@ function DocumentDetailModal({
 
               {/* Fragments */}
               <h3 className="text-sm font-medium text-[var(--txt)] mb-3">
-                Fragments ({fragments.length})
+
+                {t("knowledgeview.Fragments1")}{fragments.length})
               </h3>
               <div className="space-y-3">
                 {fragments.map((fragment, index) => (
@@ -570,11 +596,13 @@ function DocumentDetailModal({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-[var(--muted)]">
-                        Fragment {index + 1}
+
+                        {t("knowledgeview.Fragment")} {index + 1}
                       </span>
                       {fragment.position !== undefined && (
                         <span className="text-[10px] text-[var(--muted)]">
-                          Position: {fragment.position}
+
+                          {t("knowledgeview.Position")} {fragment.position}
                         </span>
                       )}
                     </div>
@@ -585,7 +613,8 @@ function DocumentDetailModal({
                 ))}
                 {fragments.length === 0 && (
                   <div className="text-center py-4 text-[var(--muted)]">
-                    No fragments found
+
+                    {t("knowledgeview.NoFragmentsFound")}
                   </div>
                 )}
               </div>
@@ -600,7 +629,8 @@ function DocumentDetailModal({
 /* ── Main KnowledgeView Component ───────────────────────────────────── */
 
 export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
-  const { setActionNotice } = useApp();
+  const { setActionNotice, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const setActionNoticeRef = useRef(setActionNotice);
   setActionNoticeRef.current = setActionNotice;
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
@@ -1032,7 +1062,8 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
     >
       {!inModal && (
         <h1 className="text-xl font-semibold text-[var(--txt)] mb-6">
-          Knowledge Base
+
+          {t("knowledgeview.KnowledgeBase")}
         </h1>
       )}
 
@@ -1045,7 +1076,8 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
       {isServiceLoading && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded border border-[var(--border)] bg-[var(--card)] text-sm text-[var(--muted)]">
           <span className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-          Knowledge service is loading...
+
+          {t("knowledgeview.KnowledgeServiceIs")}
         </div>
       )}
 
@@ -1057,7 +1089,8 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
             onClick={() => loadData()}
             className="ml-3 px-2 py-1 text-xs border border-[var(--danger)] rounded hover:bg-[var(--danger)]/20 transition-colors"
           >
-            Retry
+
+            {t("knowledgeview.Retry")}
           </button>
         </div>
       )}
@@ -1082,7 +1115,8 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-medium text-[var(--txt)]">
-            Documents ({documents.length})
+
+            {t("knowledgeview.Documents1")}{documents.length})
           </h2>
           <button
             type="button"
@@ -1096,15 +1130,17 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
 
         {loading && documents.length === 0 && (
           <div className="text-center py-8 text-[var(--muted)]">
-            Loading documents...
+
+            {t("knowledgeview.LoadingDocuments")}
           </div>
         )}
 
         {!loading && documents.length === 0 && (
           <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-lg">
-            <div className="text-[var(--muted)] mb-2">No documents yet</div>
+            <div className="text-[var(--muted)] mb-2">{t("knowledgeview.NoDocumentsYet")}</div>
             <div className="text-xs text-[var(--muted)]">
-              Upload files or import from URL to get started
+
+              {t("knowledgeview.UploadFilesOrImpo")}
             </div>
           </div>
         )}

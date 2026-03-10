@@ -7,6 +7,8 @@ import {
   type SecurityAuditSeverity,
 } from "../api-client";
 import { formatDateTime } from "./shared/format";
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 const EVENT_TYPES: SecurityAuditEventType[] = [
   "sandbox_mode_transition",
@@ -61,6 +63,8 @@ function formatErrorMessage(error: unknown): string {
 }
 
 export function SecurityAuditView() {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [entries, setEntries] = useState<SecurityAuditEntry[]>([]);
   const [typeFilter, setTypeFilter] = useState("");
   const [severityFilter, setSeverityFilter] = useState("");
@@ -158,7 +162,7 @@ export function SecurityAuditView() {
           onChange={(event) => setTypeFilter(event.target.value)}
           aria-label="Filter by event type"
         >
-          <option value="">All types</option>
+          <option value="">{t("securityauditview.AllTypes")}</option>
           {EVENT_TYPES.map((type) => (
             <option key={type} value={type}>
               {type}
@@ -172,7 +176,7 @@ export function SecurityAuditView() {
           onChange={(event) => setSeverityFilter(event.target.value)}
           aria-label="Filter by severity"
         >
-          <option value="">All severities</option>
+          <option value="">{t("securityauditview.AllSeverities")}</option>
           {SEVERITIES.map((severity) => (
             <option key={severity} value={severity}>
               {severity}
@@ -183,7 +187,7 @@ export function SecurityAuditView() {
         <input
           type="text"
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt min-w-56"
-          placeholder="Since (epoch ms or ISO)"
+          placeholder={t("securityauditview.SinceEpochMsOrI")}
           value={sinceFilter}
           onChange={(event) => setSinceFilter(event.target.value)}
           aria-label="Since timestamp"
@@ -210,7 +214,8 @@ export function SecurityAuditView() {
               setLimitFilter(String(DEFAULT_LIMIT));
             }}
           >
-            Clear filters
+
+            {t("securityauditview.ClearFilters")}
           </button>
         )}
 
@@ -219,7 +224,8 @@ export function SecurityAuditView() {
           className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
           onClick={() => void refresh()}
         >
-          Refresh
+
+          {t("securityauditview.Refresh")}
         </button>
 
         <label className="ml-auto inline-flex items-center gap-2 text-xs text-muted">
@@ -228,7 +234,8 @@ export function SecurityAuditView() {
             checked={live}
             onChange={(event) => setLive(event.target.checked)}
           />
-          Live
+
+          {t("securityauditview.Live")}
         </label>
       </div>
 
@@ -241,11 +248,13 @@ export function SecurityAuditView() {
       <div className="font-mono text-xs flex-1 min-h-0 overflow-y-auto border border-border p-2 bg-card">
         {loading && !live ? (
           <div className="text-center py-8 text-muted">
-            Loading audit entries...
+
+            {t("securityauditview.LoadingAuditEntrie")}
           </div>
         ) : entries.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            No audit entries found.
+
+            {t("securityauditview.NoAuditEntriesFou")}
           </div>
         ) : (
           entries.map((entry, index) => (
@@ -272,7 +281,8 @@ export function SecurityAuditView() {
               {entry.metadata && Object.keys(entry.metadata).length > 0 && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-[11px] text-muted hover:text-txt">
-                    Metadata
+
+                    {t("securityauditview.Metadata")}
                   </summary>
                   <pre className="mt-2 p-2 bg-bg border border-border overflow-x-auto text-[11px] leading-relaxed">
                     {JSON.stringify(entry.metadata, null, 2)}

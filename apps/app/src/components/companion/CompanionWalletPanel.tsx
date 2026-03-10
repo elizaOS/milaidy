@@ -174,7 +174,7 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
             <div className="anime-wallet-address-list">
               {evmAddress && (
                 <div className="anime-wallet-address-row">
-                  <span className="anime-wallet-address-chain">BSC</span>
+                  <span className="anime-wallet-address-chain">{t("companionwalletpanel.BSC")}</span>
                   <code
                     className="anime-wallet-address-code"
                     title={evmAddress}
@@ -199,7 +199,7 @@ export function CompanionWalletPanel(props: WalletPanelProps) {
               )}
               {solAddress && (
                 <div className="anime-wallet-address-row">
-                  <span className="anime-wallet-address-chain">SOL</span>
+                  <span className="anime-wallet-address-chain">{t("companionwalletpanel.SOL")}</span>
                   <code
                     className="anime-wallet-address-code"
                     title={solAddress}

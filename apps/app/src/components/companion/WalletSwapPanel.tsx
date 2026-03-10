@@ -146,7 +146,7 @@ export function WalletSwapPanel({
           type="text"
           value={swapTokenAddress}
           onChange={(event) => setSwapTokenAddress(event.target.value)}
-          placeholder="0x..."
+          placeholder={t("walletswappanel.0x")}
         />
       </label>
       <div className="anime-wallet-field-grid">
@@ -154,11 +154,11 @@ export function WalletSwapPanel({
           <span>
             {swapSide === "buy"
               ? t("wallet.spendSymbol", {
-                  symbol: swapInputSymbol,
-                })
+                symbol: swapInputSymbol,
+              })
               : t("wallet.sellSymbol", {
-                  symbol: swapInputSymbol,
-                })}
+                symbol: swapInputSymbol,
+              })}
           </span>
           <input
             type="text"

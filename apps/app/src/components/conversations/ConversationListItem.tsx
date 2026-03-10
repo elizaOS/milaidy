@@ -9,6 +9,7 @@ import {
   formatRelativeTime,
 } from "./conversation-utils";
 
+
 interface ConversationListItemProps {
   conv: { id: string; title: string; updatedAt: string };
   isActive: boolean;
@@ -63,19 +64,17 @@ export function ConversationListItem({
       key={conv.id}
       data-testid="conv-item"
       data-active={isActive || undefined}
-      className={`${
-        isGameModal
+      className={`${isGameModal
           ? "chat-game-conv-item"
           : "flex items-center px-3 py-2 gap-2 cursor-pointer transition-colors border-l-[3px]"
-      } ${
-        isActive
+        } ${isActive
           ? isGameModal
             ? "is-active"
             : "bg-bg-hover border-l-accent"
           : isGameModal
             ? ""
             : "border-l-transparent hover:bg-bg-hover"
-      } group`}
+        } group`}
     >
       {isEditing ? (
         <input
@@ -158,7 +157,8 @@ export function ConversationListItem({
             }}
             title={t("conversations.rename")}
           >
-            &#x270E;
+
+            {t("conversationlistitem.X270E")}
           </button>
 
           {/* Delete with confirm (default variant) or direct delete (game-modal) */}
@@ -173,7 +173,8 @@ export function ConversationListItem({
               }}
               title={t("conversations.delete")}
             >
-              &times;
+
+              {t("conversationlistitem.Times")}
             </button>
           ) : confirmDeleteId === conv.id ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -208,7 +209,8 @@ export function ConversationListItem({
               }}
               title={t("conversations.delete")}
             >
-              &times;
+
+              {t("conversationlistitem.Times")}
             </button>
           )}
         </>

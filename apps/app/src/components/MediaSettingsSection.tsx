@@ -150,6 +150,7 @@ function setNestedValue(
 }
 
 export function MediaSettingsSection() {
+    const { t } = useApp();
   const { cloudConnected } = useApp();
   const [mediaConfig, setMediaConfig] = useState<MediaConfig>({});
   const [loading, setLoading] = useState(true);
@@ -257,8 +258,9 @@ export function MediaSettingsSection() {
   if (loading) {
     return (
       <div className="py-8 text-center text-[var(--muted)] text-xs">
-        Loading media configuration...
-      </div>
+        
+                    {t("mediasettingssection.LoadingMediaConfig")}
+                  </div>
     );
   }
 
@@ -302,8 +304,9 @@ export function MediaSettingsSection() {
       {/* Mode toggle (cloud vs own-key) */}
       <div className="flex items-center gap-3">
         <span className="text-xs font-semibold text-[var(--muted)]">
-          API Source:
-        </span>
+          
+                            {t("mediasettingssection.APISource")}
+                          </span>
         <CloudSourceModeToggle
           mode={currentMode}
           onChange={(mode) => {
@@ -342,8 +345,9 @@ export function MediaSettingsSection() {
       {currentMode === "own-key" && (
         <div className="flex flex-col gap-3">
           <div className="text-xs font-semibold text-[var(--muted)]">
-            Provider:
-          </div>
+            
+                                  {t("mediasettingssection.Provider")}
+                                </div>
           <div
             className="grid gap-1.5"
             style={{ gridTemplateColumns: `repeat(${providers.length}, 1fr)` }}
@@ -408,7 +412,7 @@ export function MediaSettingsSection() {
           {/* Provider-specific model selection for image generation */}
           {activeTab === "image" && currentProvider === "fal" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -421,36 +425,43 @@ export function MediaSettingsSection() {
                   updateNestedValue("image.fal.model", e.target.value)
                 }
               >
-                <optgroup label="Flux">
-                  <option value="fal-ai/flux-pro">Flux Pro</option>
-                  <option value="fal-ai/flux-pro/v1.1">Flux Pro v1.1</option>
+                <optgroup label={t("mediasettingssection.Flux")}>
+                  <option value="fal-ai/flux-pro">{t("mediasettingssection.FluxPro")}</option>
+                  <option value="fal-ai/flux-pro/v1.1">{t("mediasettingssection.FluxProV11")}</option>
                   <option value="fal-ai/flux-pro/kontext">
-                    Flux Kontext Pro
-                  </option>
-                  <option value="fal-ai/flux-2-flex">Flux 2 Flex</option>
-                  <option value="fal-ai/flux/dev">Flux Dev</option>
-                  <option value="fal-ai/flux/schnell">Flux Schnell</option>
-                  <option value="fal-ai/fast-flux">Fast Flux</option>
+                    
+                                                          {t("mediasettingssection.FluxKontextPro")}
+                                                        </option>
+                  <option value="fal-ai/flux-2-flex">{t("mediasettingssection.Flux2Flex")}</option>
+                  <option value="fal-ai/flux/dev">{t("mediasettingssection.FluxDev")}</option>
+                  <option value="fal-ai/flux/schnell">{t("mediasettingssection.FluxSchnell")}</option>
+                  <option value="fal-ai/fast-flux">{t("mediasettingssection.FastFlux")}</option>
                 </optgroup>
-                <optgroup label="Other Models">
+                <optgroup label={t("mediasettingssection.OtherModels")}>
                   <option value="fal-ai/nano-banana-pro">
-                    Nano Banana Pro (Google)
-                  </option>
+                    
+                                                          {t("mediasettingssection.NanoBananaProGoo")}
+                                                        </option>
                   <option value="fal-ai/recraft/v3/text-to-image">
-                    Recraft V3
-                  </option>
+                    
+                                                          {t("mediasettingssection.RecraftV3")}
+                                                        </option>
                   <option value="fal-ai/kling-image/v3/text-to-image">
-                    Kling Image v3
-                  </option>
+                    
+                                                          {t("mediasettingssection.KlingImageV3")}
+                                                        </option>
                   <option value="fal-ai/kling-image/o3/text-to-image">
-                    Kling Image O3
-                  </option>
+                    
+                                                          {t("mediasettingssection.KlingImageO3")}
+                                                        </option>
                   <option value="xai/grok-imagine-image">
-                    Grok Imagine (xAI)
-                  </option>
+                    
+                                                          {t("mediasettingssection.GrokImagineXAI")}
+                                                        </option>
                   <option value="fal-ai/stable-diffusion-3">
-                    Stable Diffusion 3
-                  </option>
+                    
+                                                          {t("mediasettingssection.StableDiffusion3")}
+                                                        </option>
                 </optgroup>
               </select>
             </div>
@@ -459,7 +470,7 @@ export function MediaSettingsSection() {
           {activeTab === "image" && currentProvider === "openai" && (
             <div className="flex gap-3">
               <div className="flex-1 flex flex-col gap-1.5">
-                <span className="text-xs font-semibold">Model</span>
+                <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
                 <select
                   className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                   value={
@@ -472,12 +483,12 @@ export function MediaSettingsSection() {
                     updateNestedValue("image.openai.model", e.target.value)
                   }
                 >
-                  <option value="dall-e-3">DALL-E 3</option>
-                  <option value="dall-e-2">DALL-E 2</option>
+                  <option value="dall-e-3">{t("mediasettingssection.DALLE3")}</option>
+                  <option value="dall-e-2">{t("mediasettingssection.DALLE2")}</option>
                 </select>
               </div>
               <div className="flex-1 flex flex-col gap-1.5">
-                <span className="text-xs font-semibold">Quality</span>
+                <span className="text-xs font-semibold">{t("mediasettingssection.Quality")}</span>
                 <select
                   className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                   value={
@@ -490,7 +501,7 @@ export function MediaSettingsSection() {
                     updateNestedValue("image.openai.quality", e.target.value)
                   }
                 >
-                  <option value="standard">Standard</option>
+                  <option value="standard">{t("mediasettingssection.Standard")}</option>
                   <option value="hd">HD</option>
                 </select>
               </div>
@@ -500,7 +511,7 @@ export function MediaSettingsSection() {
           {/* Video FAL model selection */}
           {activeTab === "video" && currentProvider === "fal" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -513,67 +524,84 @@ export function MediaSettingsSection() {
                   updateNestedValue("video.fal.model", e.target.value)
                 }
               >
-                <optgroup label="Text to Video">
-                  <option value="fal-ai/veo3.1">Veo 3.1 (Google)</option>
-                  <option value="fal-ai/veo3.1/fast">Veo 3.1 Fast</option>
-                  <option value="fal-ai/sora-2/text-to-video">Sora 2</option>
+                <optgroup label={t("mediasettingssection.TextToVideo")}>
+                  <option value="fal-ai/veo3.1">{t("mediasettingssection.Veo31Google")}</option>
+                  <option value="fal-ai/veo3.1/fast">{t("mediasettingssection.Veo31Fast")}</option>
+                  <option value="fal-ai/sora-2/text-to-video">{t("mediasettingssection.Sora2")}</option>
                   <option value="fal-ai/sora-2/text-to-video/pro">
-                    Sora 2 Pro
-                  </option>
+                    
+                                                          {t("mediasettingssection.Sora2Pro")}
+                                                        </option>
                   <option value="fal-ai/kling-video/v3/pro/text-to-video">
-                    Kling 3.0 Pro
-                  </option>
+                    
+                                                          {t("mediasettingssection.Kling30Pro")}
+                                                        </option>
                   <option value="fal-ai/kling-video/v3/standard/text-to-video">
-                    Kling 3.0
-                  </option>
+                    
+                                                          {t("mediasettingssection.Kling30")}
+                                                        </option>
                   <option value="fal-ai/kling-video/o3/pro/text-to-video">
-                    Kling O3 Pro
-                  </option>
+                    
+                                                          {t("mediasettingssection.KlingO3Pro")}
+                                                        </option>
                   <option value="fal-ai/kling-video/o3/standard/text-to-video">
-                    Kling O3
-                  </option>
+                    
+                                                          {t("mediasettingssection.KlingO3")}
+                                                        </option>
                   <option value="xai/grok-imagine-video/text-to-video">
-                    Grok Video (xAI)
-                  </option>
+                    
+                                                          {t("mediasettingssection.GrokVideoXAI")}
+                                                        </option>
                   <option value="fal-ai/minimax/video-01-live">
-                    Minimax Hailuo
-                  </option>
-                  <option value="fal-ai/hunyuan-video">Hunyuan Video</option>
-                  <option value="fal-ai/mochi-v1">Mochi 1</option>
+                    
+                                                          {t("mediasettingssection.MinimaxHailuo")}
+                                                        </option>
+                  <option value="fal-ai/hunyuan-video">{t("mediasettingssection.HunyuanVideo")}</option>
+                  <option value="fal-ai/mochi-v1">{t("mediasettingssection.Mochi1")}</option>
                   <option value="fal-ai/wan/v2.2-a14b/text-to-video">
-                    Wan 2.2
-                  </option>
+                    
+                                                          {t("mediasettingssection.Wan22")}
+                                                        </option>
                 </optgroup>
-                <optgroup label="Image to Video">
+                <optgroup label={t("mediasettingssection.ImageToVideo")}>
                   <option value="fal-ai/kling-video/v3/pro/image-to-video">
-                    Kling 3.0 Pro
-                  </option>
+                    
+                                                          {t("mediasettingssection.Kling30Pro")}
+                                                        </option>
                   <option value="fal-ai/kling-video/o3/standard/image-to-video">
-                    Kling O3
-                  </option>
-                  <option value="fal-ai/veo3.1/image-to-video">Veo 3.1</option>
+                    
+                                                          {t("mediasettingssection.KlingO3")}
+                                                        </option>
+                  <option value="fal-ai/veo3.1/image-to-video">{t("mediasettingssection.Veo31")}</option>
                   <option value="fal-ai/veo3.1/fast/image-to-video">
-                    Veo 3.1 Fast
-                  </option>
-                  <option value="fal-ai/sora-2/image-to-video">Sora 2</option>
+                    
+                                                          {t("mediasettingssection.Veo31Fast")}
+                                                        </option>
+                  <option value="fal-ai/sora-2/image-to-video">{t("mediasettingssection.Sora2")}</option>
                   <option value="fal-ai/sora-2/image-to-video/pro">
-                    Sora 2 Pro
-                  </option>
+                    
+                                                          {t("mediasettingssection.Sora2Pro")}
+                                                        </option>
                   <option value="xai/grok-imagine-video/image-to-video">
-                    Grok (xAI)
-                  </option>
+                    
+                                                          {t("mediasettingssection.GrokXAI")}
+                                                        </option>
                   <option value="fal-ai/minimax/video-01-live/image-to-video">
-                    Minimax Hailuo
-                  </option>
+                    
+                                                          {t("mediasettingssection.MinimaxHailuo")}
+                                                        </option>
                   <option value="fal-ai/luma-dream-machine/image-to-video">
-                    Luma Dream Machine
-                  </option>
+                    
+                                                          {t("mediasettingssection.LumaDreamMachine")}
+                                                        </option>
                   <option value="fal-ai/pixverse/v4.5/image-to-video">
-                    Pixverse v4.5
-                  </option>
+                    
+                                                          {t("mediasettingssection.PixverseV45")}
+                                                        </option>
                   <option value="fal-ai/ltx-2-19b/image-to-video">
-                    LTX-2 19B
-                  </option>
+                    
+                                                          {t("mediasettingssection.LTX219B")}
+                                                        </option>
                 </optgroup>
               </select>
             </div>
@@ -582,7 +610,7 @@ export function MediaSettingsSection() {
           {/* Audio Suno model selection */}
           {activeTab === "audio" && currentProvider === "suno" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -595,8 +623,8 @@ export function MediaSettingsSection() {
                   updateNestedValue("audio.suno.model", e.target.value)
                 }
               >
-                <option value="chirp-v3.5">Chirp v3.5</option>
-                <option value="chirp-v3">Chirp v3</option>
+                <option value="chirp-v3.5">{t("mediasettingssection.ChirpV35")}</option>
+                <option value="chirp-v3">{t("mediasettingssection.ChirpV3")}</option>
               </select>
             </div>
           )}
@@ -605,8 +633,9 @@ export function MediaSettingsSection() {
           {activeTab === "audio" && currentProvider === "elevenlabs" && (
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold">
-                Max Duration (seconds)
-              </span>
+                
+                                              {t("mediasettingssection.MaxDurationSecond")}
+                                            </span>
               <input
                 type="number"
                 min={0.5}
@@ -632,7 +661,7 @@ export function MediaSettingsSection() {
           {/* Vision model selection */}
           {activeTab === "vision" && currentProvider === "openai" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -645,16 +674,16 @@ export function MediaSettingsSection() {
                   updateNestedValue("vision.openai.model", e.target.value)
                 }
               >
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o Mini</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-4o">{t("mediasettingssection.GPT4o")}</option>
+                <option value="gpt-4o-mini">{t("mediasettingssection.GPT4oMini")}</option>
+                <option value="gpt-4-turbo">{t("mediasettingssection.GPT4Turbo")}</option>
               </select>
             </div>
           )}
 
           {activeTab === "vision" && currentProvider === "google" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -667,16 +696,16 @@ export function MediaSettingsSection() {
                   updateNestedValue("vision.google.model", e.target.value)
                 }
               >
-                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-2.0-flash">{t("mediasettingssection.Gemini20Flash")}</option>
+                <option value="gemini-1.5-pro">{t("mediasettingssection.Gemini15Pro")}</option>
+                <option value="gemini-1.5-flash">{t("mediasettingssection.Gemini15Flash")}</option>
               </select>
             </div>
           )}
 
           {activeTab === "vision" && currentProvider === "anthropic" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">Model</span>
+              <span className="text-xs font-semibold">{t("mediasettingssection.Model")}</span>
               <select
                 className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
                 value={
@@ -690,12 +719,14 @@ export function MediaSettingsSection() {
                 }
               >
                 <option value="claude-sonnet-4-20250514">
-                  Claude Sonnet 4
-                </option>
+                  
+                                                    {t("mediasettingssection.ClaudeSonnet4")}
+                                                  </option>
                 <option value="claude-3-5-sonnet-20241022">
-                  Claude 3.5 Sonnet
-                </option>
-                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                  
+                                                    {t("mediasettingssection.Claude35Sonnet")}
+                                                  </option>
+                <option value="claude-3-haiku-20240307">{t("mediasettingssection.Claude3Haiku")}</option>
               </select>
             </div>
           )}

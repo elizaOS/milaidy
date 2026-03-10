@@ -22,6 +22,8 @@ import {
 } from "../lifo-runtime";
 import { pathForTab } from "../navigation";
 import { LifoMonitorPanel } from "./LifoMonitorPanel";
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 interface TerminalOutputEvent {
   event?: unknown;
@@ -39,6 +41,8 @@ function formatError(error: unknown): string {
 }
 
 export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const explorerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<LifoRuntime | null>(null);
@@ -486,13 +490,12 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
 
           <div className="flex items-center gap-2">
             <span
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${
-                error
+              className={`rounded-full px-2 py-1 text-[11px] font-medium ${error
                   ? "bg-danger/20 text-danger"
                   : ready
                     ? "bg-ok/20 text-ok"
                     : "bg-warn/20 text-warn"
-              }`}
+                }`}
             >
               {error ? "error" : ready ? "ready" : "booting"}
             </span>
@@ -511,7 +514,8 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
                 onClick={openPopout}
                 className={btnAccentCls}
               >
-                Open Lifo Popout
+
+                {t("lifosandboxview.OpenLifoPopout")}
               </button>
             )}
 
@@ -525,7 +529,8 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
                   {pipEnabled ? "Disable PIP" : "Enable PIP"}
                 </button>
                 <button type="button" onClick={resetSession} className={btnCls}>
-                  Reset
+
+                  {t("lifosandboxview.Reset")}
                 </button>
               </>
             )}
@@ -535,7 +540,8 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
         <div
           className={`mt-2 text-[11px] ${inModal ? "text-[var(--muted)]" : "text-muted"}`}
         >
-          Agent commands replayed:{" "}
+
+          {t("lifosandboxview.AgentCommandsRepla")}{" "}
           <span className={inModal ? "text-[var(--txt)]" : "text-txt"}>
             {runCount}
           </span>
@@ -550,34 +556,32 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
 
       <div className="grid flex-1 min-h-[360px] grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
         <div
-          className={`${panelCls} min-h-[280px] ${
-            popoutMode ? "" : "pointer-events-none select-none"
-          }`}
+          className={`${panelCls} min-h-[280px] ${popoutMode ? "" : "pointer-events-none select-none"
+            }`}
         >
           <div
-            className={`px-3 py-2 text-xs font-semibold border-b ${
-              inModal
+            className={`px-3 py-2 text-xs font-semibold border-b ${inModal
                 ? "border-[var(--border)] text-[var(--txt)]"
                 : "border-border text-txt"
-            }`}
+              }`}
           >
-            Explorer
+
+            {t("lifosandboxview.Explorer")}
           </div>
           <div ref={explorerRef} className="h-[calc(100%-37px)] w-full" />
         </div>
         <div
-          className={`${panelCls} min-h-[280px] ${
-            popoutMode ? "" : "pointer-events-none select-none"
-          }`}
+          className={`${panelCls} min-h-[280px] ${popoutMode ? "" : "pointer-events-none select-none"
+            }`}
         >
           <div
-            className={`px-3 py-2 text-xs font-semibold border-b ${
-              inModal
+            className={`px-3 py-2 text-xs font-semibold border-b ${inModal
                 ? "border-[var(--border)] text-[var(--txt)]"
                 : "border-border text-txt"
-            }`}
+              }`}
           >
-            Terminal
+
+            {t("lifosandboxview.Terminal")}
           </div>
           <div ref={terminalRef} className="h-[calc(100%-37px)] w-full" />
         </div>
@@ -604,21 +608,20 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
       )}
 
       <div
-        className={`${
-          inModal
+        className={`${inModal
             ? "rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm"
             : "rounded-xl border border-border bg-panel"
-        } p-3 min-h-[140px] max-h-[220px] overflow-auto`}
+          } p-3 min-h-[140px] max-h-[220px] overflow-auto`}
       >
         <div
           className={`text-xs font-semibold ${inModal ? "text-[var(--txt)]" : "text-txt"}`}
         >
-          Agent Replay Log
+
+          {t("lifosandboxview.AgentReplayLog")}
         </div>
         <pre
-          className={`mt-2 whitespace-pre-wrap break-words text-[11px] font-mono ${
-            inModal ? "text-[var(--muted)]" : "text-muted"
-          }`}
+          className={`mt-2 whitespace-pre-wrap break-words text-[11px] font-mono ${inModal ? "text-[var(--muted)]" : "text-muted"
+            }`}
         >
           {output.length > 0
             ? output.join("\n")

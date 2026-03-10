@@ -1,12 +1,15 @@
 import { LogsView } from "./LogsView";
+import { useApp } from "../AppContext";
 
 export function LogsPageView() {
+    const { t } = useApp();
   return (
     <div className="flex flex-col h-full">
-      <h2 className="text-lg font-bold mb-1">Logs</h2>
+      <h2 className="text-lg font-bold mb-1">{t("logspageview.Logs")}</h2>
       <p className="text-[13px] text-[var(--muted)] mb-4">
-        Agent runtime logs with filtering.
-      </p>
+        
+                      {t("logspageview.AgentRuntimeLogsW")}
+                    </p>
       <div className="flex-1 min-h-0">
         <LogsView />
       </div>

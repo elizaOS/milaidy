@@ -2,6 +2,7 @@ import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { client } from "../api-client";
+import { createTranslator } from "../i18n";
 import {
   dispatchMiladyEvent,
   EMOTE_PICKER_EVENT,
@@ -203,7 +204,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function EmotePicker() {
-  const { emotePickerOpen, openEmotePicker, closeEmotePicker } = useApp();
+  const { emotePickerOpen, openEmotePicker, closeEmotePicker, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [search, setSearch] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -382,7 +384,7 @@ export function EmotePicker() {
       >
         <div className="flex items-center gap-2">
           <Menu className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-semibold text-white">Emotes</span>
+          <span className="text-sm font-semibold text-white">{t("emotepicker.Emotes")}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -392,7 +394,8 @@ export function EmotePicker() {
             onClick={stopEmote}
             className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
           >
-            Stop
+
+            {t("emotepicker.Stop")}
           </button>
 
           {/* Shortcut label */}
@@ -416,7 +419,7 @@ export function EmotePicker() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search emotes..."
+          placeholder={t("emotepicker.SearchEmotes")}
           className="w-full rounded bg-gray-800 px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
@@ -426,24 +429,23 @@ export function EmotePicker() {
         <button
           type="button"
           onClick={() => setActiveCategory(null)}
-          className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-            activeCategory === null
+          className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${activeCategory === null
               ? "bg-blue-600 text-white"
               : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-          }`}
+            }`}
         >
-          All
+
+          {t("emotepicker.All")}
         </button>
         {CATEGORIES.map((cat) => (
           <button
             type="button"
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-              activeCategory === cat
+            className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${activeCategory === cat
                 ? "bg-blue-600 text-white"
                 : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            }`}
+              }`}
           >
             <span className="mr-1">{CATEGORY_ICONS[cat]}</span>
             {CATEGORY_LABELS[cat]}
@@ -461,11 +463,10 @@ export function EmotePicker() {
               onClick={() => playEmote(emote.id)}
               disabled={playing === emote.id}
               title={emote.name}
-              className={`flex aspect-square items-center justify-center rounded text-2xl transition-colors ${
-                playing === emote.id
+              className={`flex aspect-square items-center justify-center rounded text-2xl transition-colors ${playing === emote.id
                   ? "bg-blue-600"
                   : "bg-gray-800 hover:bg-gray-700"
-              }`}
+                }`}
             >
               {emote.icon}
             </button>
@@ -474,7 +475,8 @@ export function EmotePicker() {
 
         {filteredEmotes.length === 0 && (
           <div className="py-8 text-center text-sm text-gray-500">
-            No emotes found
+
+            {t("emotepicker.NoEmotesFound")}
           </div>
         )}
       </div>

@@ -174,8 +174,9 @@ export function ConversationsSidebar({
             onClick={onClose}
             aria-label={t("conversations.closePanel")}
           >
-            &times;
-          </button>
+            
+                                  {t("conversationssidebar.Times")}
+                                </button>
         </div>
       )}
 

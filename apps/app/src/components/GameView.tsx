@@ -392,8 +392,9 @@ export function GameView() {
         </span>
         {activeGamePostMessageAuth ? (
           <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-            postMessage auth
-          </span>
+            
+                                  {t("gameview.postMessageAuth")}
+                                </span>
         ) : null}
         <span className="flex-1" />
         {/* Toggle logs panel */}

@@ -43,6 +43,7 @@ function TagEditor({
   onChange: (items: string[]) => void;
   placeholder?: string;
 }) {
+    const { t } = useApp();
   const [inputValue, setInputValue] = useState("");
 
   const addItem = () => {
@@ -81,8 +82,9 @@ function TagEditor({
           className="text-[10px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--card)] cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
           onClick={addItem}
         >
-          + add
-        </button>
+          
+                            {t("characterview.Add")}
+                          </button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto border border-[var(--border)] bg-[var(--bg-muted)] p-1.5 flex flex-wrap gap-1.5 content-start">
         {items.map((item, i) => (
@@ -96,8 +98,9 @@ function TagEditor({
               className="text-[var(--muted)] hover:text-[var(--danger,#e74c3c)] cursor-pointer text-[10px] leading-none"
               onClick={() => removeItem(i)}
             >
-              &times;
-            </button>
+              
+                                  {t("characterview.Times")}
+                                </button>
           </span>
         ))}
       </div>
@@ -123,6 +126,7 @@ function ThemedSelect<T extends string>({
   onChange: (id: T) => void;
   placeholder?: string;
 }) {
+    const { t } = useApp();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -860,8 +864,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
     return (
       <div className={sectionCls}>
         <div className="text-center py-6 text-[var(--muted)] text-[13px]">
-          loading character data...
-        </div>
+          
+                          {t("characterview.loadingCharacterDa")}
+                        </div>
       </div>
     );
   }
@@ -884,9 +889,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           {!isRegistered && !dropLive && (
             <div className="flex flex-col gap-3">
               <div className="text-[12px] text-[var(--muted)]">
-                Register your agent on Ethereum mainnet to claim your ERC-8004
-                identity NFT.
-              </div>
+                
+                                              {t("characterview.RegisterYourAgent")}
+                                            </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -909,20 +914,24 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 px-3 py-2 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
                 <span className="text-xs font-bold text-[var(--accent)]">
-                  MINT IS LIVE
-                </span>
+                  
+                                                    {t("characterview.MINTISLIVE")}
+                                                  </span>
                 <span className="text-[11px] text-[var(--muted)]">
-                  MiladyMaker #{(dropStatus?.currentSupply ?? 0) + 1} of{" "}
+                  
+                                                    {t("characterview.MiladyMaker")}{(dropStatus?.currentSupply ?? 0) + 1} of{" "}
                   {dropStatus?.maxSupply ?? 2138}
                 </span>
               </div>
               <div className="text-[12px] text-[var(--muted)]">
-                Claim your limited-edition Milady Agent NFT.{" "}
-                {dropStatus?.maxSupply ?? 2138} total.{" "}
+                
+                                              {t("characterview.ClaimYourLimitedE")}{" "}
+                {dropStatus?.maxSupply ?? 2138}  {t("characterview.total")}{" "}
                 {(dropStatus?.maxSupply ?? 2138) -
                   (dropStatus?.currentSupply ?? 0)}{" "}
-                remaining.
-              </div>
+                
+                                              {t("characterview.remaining")}
+                                            </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -950,8 +959,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               )}
               {mintResult && (
                 <div className="text-xs text-[var(--ok,#16a34a)]">
-                  Minted! Token #{mintResult.agentId} | MiladyMaker #
-                  {mintResult.mintNumber}
+                  
+                                                    {t("characterview.MintedToken")}{mintResult.agentId}  {t("characterview.MiladyMaker1")}
+                                                    {mintResult.mintNumber}
                   {mintResult.isShiny && " (shiny)"}{" "}
                   <a
                     href={`https://etherscan.io/tx/${mintResult.txHash}`}
@@ -959,8 +969,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                     rel="noopener noreferrer"
                     className="underline text-[var(--accent)]"
                   >
-                    view tx
-                  </a>
+                    
+                                                          {t("characterview.viewTx")}
+                                                        </a>
                 </div>
               )}
             </div>
@@ -976,18 +987,20 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-[12px]">
                     <span className="text-[var(--ok,#16a34a)] font-semibold">
-                      Registered
-                    </span>
+                      
+                                                    {t("characterview.Registered")}
+                                                  </span>
                     <span className="text-[var(--muted)]">|</span>
-                    <span>Token #{registryStatus.tokenId}</span>
+                    <span>{t("characterview.Token")}{registryStatus.tokenId}</span>
                     <span className="text-[var(--muted)]">|</span>
                     <span>{onChainName}</span>
                   </div>
                   {nameOutOfSync && (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--warn,#f59e0b)]">
-                        On-chain name "{onChainName}" differs from "
-                        {currentName}"
+                        
+                                                          {t("characterview.OnChainName")}{onChainName}{t("characterview.DiffersFrom")}
+                                                          {currentName}"
                       </span>
                       <button
                         type="button"
@@ -1010,16 +1023,18 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                     rel="noopener noreferrer"
                     className="text-[11px] underline text-[var(--accent)]"
                   >
-                    view on etherscan
-                  </a>
+                    
+                                              {t("characterview.viewOnEtherscan")}
+                                            </a>
                 </div>
               );
             })()}
 
           {hasWallet && userMinted && !isRegistered && (
             <div className="text-[12px] text-[var(--ok,#16a34a)]">
-              Minted from collection! Waiting for confirmation...
-            </div>
+              
+                                        {t("characterview.MintedFromCollecti")}
+                                      </div>
           )}
         </div>
       )}
@@ -1028,7 +1043,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
       <div className={sectionCls}>
         {/* Header row: title + action buttons */}
         <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-sm">Identity & Personality</div>
+          <div className="font-bold text-sm">{t("characterview.IdentityPersonali")}</div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -1042,31 +1057,33 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               type="button"
               className={tinyBtnCls}
               onClick={() => fileInputRef.current?.click()}
-              title="import character.json"
+              title={t("characterview.importCharacterJso")}
             >
-              import
-            </button>
+              
+                                        {t("characterview.import")}
+                                      </button>
             <button
               className={tinyBtnCls}
               onClick={handleExport}
-              title="export as character.json"
+              title={t("characterview.exportAsCharacter")}
               type="button"
             >
-              export
-            </button>
+              
+                                        {t("characterview.export")}
+                                      </button>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <span className={labelCls}>name</span>
+            <span className={labelCls}>{t("characterview.name")}</span>
             <div className="flex items-center gap-2 max-w-[280px]">
               <input
                 type="text"
                 value={d.name ?? ""}
                 maxLength={50}
-                placeholder="agent name"
+                placeholder={t("characterview.agentName")}
                 onChange={(e) => handleFieldEdit("name", e.target.value)}
                 className={`${inputCls} flex-1 text-[13px]`}
               />
@@ -1074,16 +1091,17 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 type="button"
                 className={tinyBtnCls}
                 onClick={() => void handleRandomName()}
-                title="random name"
+                title={t("characterview.randomName")}
               >
-                random
-              </button>
+                
+                                              {t("characterview.random")}
+                                            </button>
             </div>
           </div>
 
           {/* Avatar full-width row */}
           <div className="flex flex-col gap-1 w-full">
-            <span className={labelCls}>avatar</span>
+            <span className={labelCls}>{t("characterview.avatar")}</span>
             <div className="w-full">
               <AvatarSelector
                 selected={selectedVrmIndex}
@@ -1117,7 +1135,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           <div className="mt-1 grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-4">
             <div className="flex flex-col gap-1 h-[220px]">
               <div className="flex items-center justify-between">
-                <span className={labelCls}>about me</span>
+                <span className={labelCls}>{t("characterview.aboutMe")}</span>
                 <button
                   type="button"
                   className={tinyBtnCls}
@@ -1130,26 +1148,26 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <textarea
                 value={bioText}
                 rows={4}
-                placeholder="describe who your agent is. personality, background, how they see the world."
+                placeholder={t("characterview.describeWhoYourAg")}
                 onChange={(e) => handleFieldEdit("bio", e.target.value)}
                 className={`${textareaCls} flex-1 min-h-0`}
               />
             </div>
             <TagEditor
-              label="adjectives"
+              label={t("characterview.adjectives")}
               items={d.adjectives ?? []}
               onChange={(items) =>
                 handleCharacterArrayInput("adjectives", items.join("\n"))
               }
-              placeholder="add adjective..."
+              placeholder={t("characterview.addAdjective")}
             />
             <TagEditor
-              label="topics"
+              label={t("characterview.topics")}
               items={d.topics ?? []}
               onChange={(items) =>
                 handleCharacterArrayInput("topics", items.join("\n"))
               }
-              placeholder="add topic..."
+              placeholder={t("characterview.addTopic")}
             />
           </div>
 
@@ -1157,8 +1175,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className={labelCls}>
-                directions and things i should know
-              </span>
+                
+                                              {t("characterview.directionsAndThing")}
+                                            </span>
               <button
                 type="button"
                 className={tinyBtnCls}
@@ -1172,7 +1191,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               value={d.system ?? ""}
               rows={5}
               maxLength={10000}
-              placeholder="write in first person. this is who they are, not instructions about them."
+              placeholder={t("characterview.writeInFirstPerso")}
               onChange={(e) => handleFieldEdit("system", e.target.value)}
               className={`${textareaCls} font-[var(--mono)]`}
             />
@@ -1184,10 +1203,11 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
       <div className={sectionCls}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
-            <div className="font-bold text-sm">Style Rules</div>
+            <div className="font-bold text-sm">{t("characterview.StyleRules")}</div>
             <span className="font-normal text-[11px] text-[var(--muted)]">
-              — communication guidelines
-            </span>
+              
+                                        {t("characterview.CommunicationGuid")}
+                                      </span>
           </div>
           <button
             type="button"
@@ -1227,7 +1247,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
       {/* ═══ SECTION 3: EXAMPLES ═══ */}
       <div className={sectionCls}>
-        <div className="font-bold text-sm mb-3">Examples</div>
+        <div className="font-bold text-sm mb-3">{t("characterview.Examples")}</div>
 
         <div className="flex flex-col gap-3">
           {/* Chat Examples */}
@@ -1236,10 +1256,12 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <span className="inline-block transition-transform group-open:rotate-90">
                 &#9654;
               </span>
-              chat examples
-              <span className="font-normal text-[var(--muted)]">
-                — how the agent responds
-              </span>
+              
+                                        {t("characterview.chatExamples")}
+                                        <span className="font-normal text-[var(--muted)]">
+                
+                                              {t("characterview.HowTheAgentResp")}
+                                            </span>
               <button
                 type="button"
                 className={`${tinyBtnCls} ml-auto`}
@@ -1262,7 +1284,8 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] text-[var(--muted)] font-semibold">
-                      conversation {ci + 1}
+                      
+                                                    {t("characterview.conversation")} {ci + 1}
                     </span>
                     <button
                       type="button"
@@ -1273,8 +1296,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                         handleFieldEdit("messageExamples", updated);
                       }}
                     >
-                      remove
-                    </button>
+                      
+                                                    {t("characterview.remove")}
+                                                  </button>
                   </div>
                   {convo.examples.map((msg, mi) => (
                     <div
@@ -1309,8 +1333,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               ))}
               {(d.messageExamples ?? []).length === 0 && (
                 <div className={`${hintCls} py-2`}>
-                  no chat examples yet. click generate to create some.
-                </div>
+                  
+                                                    {t("characterview.noChatExamplesYet")}
+                                                  </div>
               )}
             </div>
           </details>
@@ -1321,10 +1346,12 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
               <span className="inline-block transition-transform group-open:rotate-90">
                 &#9654;
               </span>
-              post examples
-              <span className="font-normal text-[var(--muted)]">
-                — social media voice
-              </span>
+              
+                                        {t("characterview.postExamples")}
+                                        <span className="font-normal text-[var(--muted)]">
+                
+                                              {t("characterview.SocialMediaVoice")}
+                                            </span>
               <button
                 type="button"
                 className={`${tinyBtnCls} ml-auto`}
@@ -1359,14 +1386,16 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       handleFieldEdit("postExamples", updated);
                     }}
                   >
-                    &times;
-                  </button>
+                    
+                                              {t("characterview.Times")}
+                                            </button>
                 </div>
               ))}
               {(d.postExamples ?? []).length === 0 && (
                 <div className={`${hintCls} py-2`}>
-                  no post examples yet. click generate to create some.
-                </div>
+                  
+                                                    {t("characterview.noPostExamplesYet")}
+                                                  </div>
               )}
               <button
                 type="button"
@@ -1376,8 +1405,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   handleFieldEdit("postExamples", updated);
                 }}
               >
-                + add post
-              </button>
+                
+                                              {t("characterview.AddPost")}
+                                            </button>
             </div>
           </details>
         </div>
@@ -1385,21 +1415,22 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
       {/* ═══ SECTION 4: VOICE ═══ */}
       <div className={sectionCls}>
-        <div className="font-bold text-sm mb-3">Voice</div>
+        <div className="font-bold text-sm mb-3">{t("characterview.Voice")}</div>
 
         {voiceLoading ? (
           <div className="text-center py-4 text-[var(--muted)] text-[13px]">
-            Loading voice config...
-          </div>
+            
+                                  {t("characterview.LoadingVoiceConfig")}
+                                </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="text-xs text-[var(--muted)]">
-              Choose the speaking voice here. Provider and TTS/STT backend setup
-              is in Settings.
-            </div>
+              
+                                            {t("characterview.ChooseTheSpeaking")}
+                                          </div>
 
             <div className="flex flex-col gap-1">
-              <span className={labelCls}>voice</span>
+              <span className={labelCls}>{t("characterview.voice")}</span>
               <div className="flex items-center gap-2">
                 <ThemedSelect
                   value={
@@ -1451,7 +1482,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       if (preset) handleSelectPreset(preset);
                     }
                   }}
-                  placeholder="select a voice..."
+                  placeholder={t("characterview.selectAVoice")}
                 />
                 {(() => {
                   const activePreset = VOICE_PRESETS.find(
@@ -1464,16 +1495,18 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                       onClick={handleStopTest}
                       type="button"
                     >
-                      stop
-                    </button>
+                      
+                                                {t("characterview.stop")}
+                                              </button>
                   ) : (
                     <button
                       type="button"
                       className={tinyBtnCls}
                       onClick={() => handleTestVoice(activePreset.previewUrl)}
                     >
-                      preview
-                    </button>
+                      
+                                                    {t("characterview.preview")}
+                                                  </button>
                   );
                 })()}
               </div>
@@ -1481,11 +1514,11 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
 
             {selectedPresetId === "custom" && (
               <div className="flex flex-col gap-1">
-                <span className={labelCls}>voice ID</span>
+                <span className={labelCls}>{t("characterview.voiceID")}</span>
                 <input
                   type="text"
                   value={voiceConfig.elevenlabs?.voiceId ?? ""}
-                  placeholder="paste ElevenLabs voice ID"
+                  placeholder={t("characterview.pasteElevenLabsVoi")}
                   onChange={(e) =>
                     handleVoiceFieldChange("voiceId", e.target.value)
                   }
@@ -1499,8 +1532,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                 <span className="inline-block transition-transform group-open:rotate-90">
                   &#9654;
                 </span>
-                advanced voice settings
-              </summary>
+                
+                                                  {t("characterview.advancedVoiceSetti")}
+                                                </summary>
               <div className="mt-3">
                 <ConfigRenderer
                   schema={

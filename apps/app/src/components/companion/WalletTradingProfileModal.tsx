@@ -1,4 +1,4 @@
-import type {
+import {
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
@@ -111,7 +111,7 @@ export function WalletTradingProfileModal({
               className={`anime-wallet-trading-profile-stat-value ${pnlBnb >= 0 ? "is-positive" : "is-negative"}`}
             >
               {pnlBnb >= 0 ? "+" : ""}
-              {pnlBnb.toFixed(4)} BNB
+              {pnlBnb.toFixed(4)}  {t("wallettradingprofilemodal.BNB")}
               {pnlUsd != null && (
                 <span className="anime-wallet-trading-profile-stat-usd">
                   {" "}
@@ -125,7 +125,7 @@ export function WalletTradingProfileModal({
               {t("wallet.profile.volume")}
             </span>
             <span className="anime-wallet-trading-profile-stat-value">
-              {volumeBnb.toFixed(4)} BNB
+              {volumeBnb.toFixed(4)}  {t("wallettradingprofilemodal.BNB")}
             </span>
           </div>
           <div className="anime-wallet-trading-profile-stat">

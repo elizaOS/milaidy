@@ -6,6 +6,7 @@ import { Check, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { ConversationMessage } from "../api-client";
 import { MessageContent } from "./MessageContent";
+import { useApp } from "../AppContext";
 
 interface ChatMessageProps {
   message: ConversationMessage;
@@ -36,6 +37,7 @@ export function ChatMessage({
   onRetry,
   onDelete,
 }: ChatMessageProps) {
+  const { t } = useApp();
   const [copied, setCopied] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const isUser = message.role === "user";
@@ -101,7 +103,8 @@ export function ChatMessage({
               message.source &&
               message.source !== "client_chat" && (
                 <span className="text-[10px] text-muted opacity-60">
-                  via {message.source}
+
+                  {t("chatmessage.via")} {message.source}
                 </span>
               )}
           </div>
@@ -109,11 +112,10 @@ export function ChatMessage({
 
         {/* Message Content */}
         <div
-          className={`relative group px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
-            isUser
+          className={`relative group px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${isUser
               ? "bg-accent text-accent-fg rounded-br-md"
               : "bg-bg-accent border border-border text-txt rounded-bl-md"
-          }`}
+            }`}
         >
           <MessageContent message={message} />
 
@@ -121,7 +123,8 @@ export function ChatMessage({
           {!isUser && message.interrupted && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-danger/30">
               <span className="text-xs text-danger">
-                (Response interrupted)
+
+                {t("chatmessage.ResponseInterrupte")}
               </span>
               {onRetry && (
                 <button
@@ -130,7 +133,8 @@ export function ChatMessage({
                   className="flex items-center gap-1 px-2 py-0.5 text-xs text-danger border border-danger/40 rounded hover:bg-danger/10 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  Retry
+
+                  {t("chatmessage.Retry")}
                 </button>
               )}
             </div>
@@ -159,7 +163,7 @@ export function ChatMessage({
                 type="button"
                 onClick={() => onRetry(message.id)}
                 className="p-1.5 rounded-md text-muted hover:text-accent hover:bg-bg-hover transition-colors"
-                title="Retry message"
+                title={t("chatmessage.RetryMessage")}
                 aria-label="Retry message"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -171,7 +175,7 @@ export function ChatMessage({
                 type="button"
                 onClick={() => onDelete(message.id)}
                 className="p-1.5 rounded-md text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                title="Delete message"
+                title={t("chatmessage.DeleteMessage")}
                 aria-label="Delete message"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -193,6 +197,7 @@ export function TypingIndicator({
   agentName: string;
   agentAvatarSrc?: string | null;
 }) {
+  const { t } = useApp();
   const agentInitial = agentName.trim().charAt(0).toUpperCase() || "A";
 
   return (
@@ -239,6 +244,7 @@ export function TypingIndicator({
 /* ── Empty State ─────────────────────────────────────────────────────── */
 
 export function ChatEmptyState({ agentName }: { agentName: string }) {
+  const { t } = useApp();
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
       <div className="w-16 h-16 rounded-2xl bg-accent-subtle flex items-center justify-center mb-4">
@@ -254,16 +260,17 @@ export function ChatEmptyState({ agentName }: { agentName: string }) {
           className="text-accent"
           aria-label="Chat icon"
         >
-          <title>Chat</title>
+          <title>{t("chatmessage.Chat")}</title>
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       </div>
       <h3 className="text-lg font-semibold text-txt-strong mb-2">
-        Start a conversation
+
+        {t("chatmessage.StartAConversation")}
       </h3>
       <p className="text-sm text-muted max-w-sm mb-6">
-        Send a message to {agentName} to begin chatting. You can also drag and
-        drop images or use voice input.
+
+        {t("chatmessage.SendAMessageTo")} {agentName}  {t("chatmessage.toBeginChattingY")}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
         {["Hello!", "How are you?", "Tell me a joke", "Help me with..."].map(

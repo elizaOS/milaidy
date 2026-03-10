@@ -8,6 +8,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { registerWidget } from "../registry";
 import type { WidgetDefinition, WidgetRenderProps } from "../types";
+import { useApp } from "../../../../AppContext";
+import { createTranslator } from "../../../../i18n";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -88,6 +90,8 @@ function PeonHud({
   agentMode,
   agentName,
 }: WidgetRenderProps) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const accentColor = (instance.config.accentColor as string) ?? "#00e5ff";
   const showLabel = (instance.config.showLabel as boolean) ?? true;
   const showEventCount = (instance.config.showEventCount as boolean) ?? true;
@@ -197,7 +201,7 @@ function PeonHud({
             letterSpacing: "0.1em",
           }}
         >
-          {events.length} events
+          {events.length}  {t("peonhudwidget.events")}
         </div>
       )}
     </div>

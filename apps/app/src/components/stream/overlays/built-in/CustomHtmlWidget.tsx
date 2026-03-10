@@ -24,12 +24,17 @@
 import { useRef } from "react";
 import { registerWidget } from "../registry";
 import type { WidgetDefinition, WidgetRenderProps } from "../types";
+import { useApp } from "../../../../AppContext";
+import { createTranslator } from "../../../../i18n";
+import { useMemo } from "react";
 
 /** CSP that blocks all network access — inline scripts/styles only. */
 const INLINE_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';";
 
 function CustomHtml({ instance }: WidgetRenderProps) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const mode = (instance.config.mode as string) ?? "inline";
   const htmlContent = (instance.config.html as string) ?? "";
   const cssContent = (instance.config.css as string) ?? "";
@@ -45,7 +50,7 @@ function CustomHtml({ instance }: WidgetRenderProps) {
         src={url}
         sandbox="allow-scripts"
         className="w-full h-full border-0 rounded"
-        title="Custom widget (external URL)"
+        title={t("customhtmlwidget.CustomWidgetExter")}
       />
     );
   }
@@ -67,7 +72,7 @@ function CustomHtml({ instance }: WidgetRenderProps) {
       srcDoc={srcdoc}
       sandbox="allow-scripts"
       className="w-full h-full border-0 rounded"
-      title="Custom widget (inline)"
+      title={t("customhtmlwidget.CustomWidgetInlin")}
     />
   );
 }

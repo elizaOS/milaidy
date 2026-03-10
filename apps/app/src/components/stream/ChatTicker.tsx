@@ -1,8 +1,12 @@
 import { useMemo } from "react";
+import { createTranslator } from "../../i18n";
 import type { StreamEventEnvelope } from "../../api-client";
 import { CHANNEL_COLORS } from "./helpers";
+import { useApp } from "../../AppContext";
 
 export function ChatTicker({ events }: { events: StreamEventEnvelope[] }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   // Build ticker entries directly from inbound message events (retake, discord, etc.)
   const recent = useMemo(() => {
     const entries: Array<{
@@ -36,7 +40,8 @@ export function ChatTicker({ events }: { events: StreamEventEnvelope[] }) {
     <div className="px-4 py-1.5 bg-bg border-t border-border overflow-hidden shrink-0">
       <div className="flex items-center gap-4 text-xs text-muted overflow-x-auto whitespace-nowrap scrollbar-hide">
         <span className="text-[10px] uppercase tracking-wider text-muted shrink-0">
-          chat
+
+          {t("chatticker.chat")}
         </span>
         {recent.map((entry) => {
           const color = CHANNEL_COLORS[entry.source]?.text;

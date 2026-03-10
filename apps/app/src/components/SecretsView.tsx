@@ -10,6 +10,8 @@ import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SecretInfo } from "../api-client";
 import { client } from "../api-client";
+import { useApp } from "../AppContext";
+import { createTranslator } from "../i18n";
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
@@ -80,6 +82,8 @@ function savePinnedKeys(keys: Set<string>) {
 /* ── Component ──────────────────────────────────────────────────────── */
 
 export function SecretsView() {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [allSecrets, setAllSecrets] = useState<SecretInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +212,8 @@ export function SecretsView() {
   if (loading) {
     return (
       <div className="text-[var(--muted)] text-[13px] italic py-8 text-center">
-        Loading secrets...
+
+        {t("secretsview.LoadingSecrets")}
       </div>
     );
   }
@@ -222,7 +227,8 @@ export function SecretsView() {
           className="text-[13px] text-[var(--accent)] bg-transparent border-0 cursor-pointer underline"
           onClick={load}
         >
-          Retry
+
+          {t("secretsview.Retry")}
         </button>
       </div>
     );
@@ -232,8 +238,8 @@ export function SecretsView() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <p className="text-[13px] text-[var(--muted)] m-0">
-          Manage API keys and credentials. Add secrets from your plugins, set
-          them once.
+
+          {t("secretsview.ManageAPIKeysAnd")}
         </p>
         <button
           type="button"
@@ -243,7 +249,8 @@ export function SecretsView() {
             setPickerSearch("");
           }}
         >
-          + Add Secret
+
+          {t("secretsview.AddSecret")}
         </button>
       </div>
 
@@ -263,8 +270,8 @@ export function SecretsView() {
       {/* Empty state */}
       {vaultSecrets.length === 0 && (
         <div className="text-[var(--muted)] text-[13px] italic py-8 text-center border border-dashed border-[var(--border)]">
-          Your vault is empty. Click "Add Secret" to choose which API keys to
-          manage here.
+
+          {t("secretsview.YourVaultIsEmpty")}
         </div>
       )}
 
@@ -318,11 +325,10 @@ export function SecretsView() {
         <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[var(--border)]">
           <button
             type="button"
-            className={`px-4 py-2 text-[13px] font-medium border-0 cursor-pointer transition-colors ${
-              dirtyKeys.length > 0
+            className={`px-4 py-2 text-[13px] font-medium border-0 cursor-pointer transition-colors ${dirtyKeys.length > 0
                 ? "bg-[var(--accent)] text-white"
                 : "bg-[var(--bg-card)] text-[var(--muted)] cursor-not-allowed"
-            }`}
+              }`}
             disabled={dirtyKeys.length === 0 || saving}
             onClick={handleSave}
           >
@@ -358,6 +364,8 @@ function SecretPicker({
   onAdd: (key: string) => void;
   onClose: () => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   // Group available by category
   const grouped = useMemo(() => {
     return groupSecretsByCategory(available);
@@ -381,7 +389,8 @@ function SecretPicker({
       <div className="bg-[var(--bg)] border border-[var(--border)] w-[560px] max-h-[480px] flex flex-col shadow-2xl">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
           <span className="text-[14px] font-semibold text-[var(--txt)]">
-            Add Secrets to Vault
+
+            {t("secretsview.AddSecretsToVault")}
           </span>
           <button
             type="button"
@@ -394,7 +403,7 @@ function SecretPicker({
         <input
           type="text"
           className="w-full px-4 py-2.5 border-b border-[var(--border)] bg-transparent text-[13px] text-[var(--txt)] outline-none font-body"
-          placeholder="Search by key, description, or plugin name..."
+          placeholder={t("secretsview.SearchByKeyDescr")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -445,7 +454,8 @@ function SecretPicker({
                         className="px-2.5 py-1 text-[12px] bg-[var(--accent)] text-white border-0 cursor-pointer hover:opacity-90 flex-shrink-0"
                         onClick={() => onAdd(s.key)}
                       >
-                        Add
+
+                        {t("secretsview.Add")}
                       </button>
                     </div>
                   );
@@ -478,6 +488,8 @@ function SecretCard({
   onDraftChange: (val: string) => void;
   onRemove: () => void;
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const enabledPlugins = secret.usedBy.filter((u) => u.enabled);
   const pluginList = secret.usedBy
     .map((u) => u.pluginName || u.pluginId)
@@ -510,7 +522,8 @@ function SecretCard({
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {showRequired && (
             <span className="text-[10px] text-[var(--danger)] font-medium px-1.5 py-0.5 border border-[var(--danger)] rounded">
-              Required
+
+              {t("secretsview.Required")}
             </span>
           )}
           {/* Remove from vault — only if not set (set secrets always show) or if explicitly pinned */}
@@ -519,7 +532,7 @@ function SecretCard({
               type="button"
               className="text-[11px] text-[var(--muted)] bg-transparent border-0 cursor-pointer hover:text-[var(--danger)]"
               onClick={onRemove}
-              title="Remove from vault"
+              title={t("secretsview.RemoveFromVault")}
             >
               x
             </button>

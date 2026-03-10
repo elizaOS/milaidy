@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import type { ConversationMessage, PluginInfo } from "../api-client";
 import { client } from "../api-client";
+import { createTranslator } from "../i18n";
 import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
@@ -368,7 +369,8 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   const [dismissed, setDismissed] = useState(false);
   const mountedRef = useRef(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { setActionNotice, loadPlugins } = useApp();
+  const { setActionNotice, loadPlugins, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   // Track mount state — reset to true on each mount (needed for StrictMode
   // which unmounts/remounts and would leave the ref false otherwise).
@@ -524,7 +526,7 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (dismissed) {
     return (
       <div className="my-2 px-3 py-2 border border-ok/30 bg-ok/5 text-xs text-ok">
-        {plugin?.name ?? pluginId} — enabled
+        {plugin?.name ?? pluginId}  {t("messagecontent.Enabled")}
       </div>
     );
   }
@@ -532,7 +534,8 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (loading) {
     return (
       <div className="my-2 px-3 py-2 border border-border bg-card text-xs text-muted italic">
-        Loading {pluginId} configuration...
+
+        {t("messagecontent.Loading")} {pluginId}  {t("messagecontent.configuration")}
       </div>
     );
   }
@@ -540,7 +543,8 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (!plugin) {
     return (
       <div className="my-2 px-3 py-2 border border-border bg-card text-xs text-muted italic">
-        Plugin "{pluginId}" not found.
+
+        {t("messagecontent.Plugin")}{pluginId}{t("messagecontent.NotFound")}
       </div>
     );
   }
@@ -557,11 +561,11 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
           ) : (
             <span className="text-[13px] opacity-60">{"\u2699\uFE0F"}</span>
           )}
-          <span>{plugin.name} Configuration</span>
+          <span>{plugin.name}  {t("messagecontent.Configuration")}</span>
         </div>
         <div className="flex items-center gap-2">
           {plugin.configured && (
-            <span className="text-[10px] text-ok font-medium">Configured</span>
+            <span className="text-[10px] text-ok font-medium">{t("messagecontent.Configured")}</span>
           )}
           <span
             className={`text-[10px] font-medium ${isEnabled ? "text-ok" : "text-muted"}`}
@@ -586,7 +590,8 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
         </div>
       ) : (
         <div className="px-3 py-2 text-xs text-muted italic">
-          No configurable parameters.
+
+          {t("messagecontent.NoConfigurablePara")}
         </div>
       )}
 
@@ -623,7 +628,7 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
           </button>
         )}
 
-        {saved && <span className="text-xs text-ok">Saved</span>}
+        {saved && <span className="text-xs text-ok">{t("messagecontent.Saved")}</span>}
         {error && <span className="text-xs text-danger">{error}</span>}
       </div>
     </div>
@@ -633,8 +638,9 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
 // ── UiSpec block ────────────────────────────────────────────────────
 
 function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
+  const { sendActionMessage, uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [showRaw, setShowRaw] = useState(false);
-  const { sendActionMessage } = useApp();
 
   const handleAction = useCallback(
     (action: string, params?: Record<string, unknown>) => {
@@ -648,7 +654,8 @@ function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
     <div className="my-2 border border-border overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-hover border-b border-border">
         <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">
-          Interactive UI
+
+          {t("messagecontent.InteractiveUI")}
         </span>
         <button
           type="button"

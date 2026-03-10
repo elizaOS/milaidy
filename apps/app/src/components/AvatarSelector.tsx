@@ -8,6 +8,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { getVrmPreviewUrl, getVrmTitle, VRM_COUNT } from "../AppContext";
+import { useApp } from "../AppContext";
 
 export interface AvatarSelectorProps {
   /** Currently selected index (1-N for bundled, 0 for custom) */
@@ -165,7 +166,7 @@ export function AvatarSelector({
               onDragEnter={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              title="Upload custom .vrm (click or drag)"
+              title={t("avatarselector.UploadCustomVrm")}
               type="button"
             >
               <svg
@@ -179,7 +180,7 @@ export function AvatarSelector({
                 strokeLinejoin="round"
                 aria-label="Upload VRM"
               >
-                <title>Upload VRM</title>
+                <title>{t("avatarselector.UploadVRM")}</title>
                 {dragOver ? (
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v10" />
                 ) : (
@@ -187,7 +188,7 @@ export function AvatarSelector({
                 )}
               </svg>
               {dragOver && (
-                <span className="text-[10px] mt-1 font-medium">drop .vrm</span>
+                <span className="text-[10px] mt-1 font-medium">{t("avatarselector.dropVrm")}</span>
               )}
             </button>
           </>

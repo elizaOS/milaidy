@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
+import { createTranslator } from "../../i18n";
 import type {
   ConversationMessage,
   StreamEventEnvelope,
 } from "../../api-client";
 import { CHANNEL_COLORS, getEventSource, getEventText } from "./helpers";
+import { useApp } from "../../AppContext";
 
 export function ChatContent({
   events,
@@ -12,6 +14,8 @@ export function ChatContent({
   events: StreamEventEnvelope[];
   messages: ConversationMessage[];
 }) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const recentExchanges = useMemo(() => {
@@ -76,7 +80,8 @@ export function ChatContent({
     >
       {recentExchanges.length === 0 ? (
         <div className="flex items-center justify-center h-full text-muted text-sm">
-          Waiting for messages...
+
+          {t("chatcontent.WaitingForMessages")}
         </div>
       ) : (
         recentExchanges.map((exchange) => {
@@ -87,20 +92,18 @@ export function ChatContent({
           return (
             <div
               key={exchange.id}
-              className={`flex ${
-                exchange.role === "assistant" || exchange.role === "event"
+              className={`flex ${exchange.role === "assistant" || exchange.role === "event"
                   ? "justify-end"
                   : "justify-start"
-              }`}
+                }`}
             >
               <div
-                className={`max-w-[75%] rounded-lg px-4 py-2.5 ${
-                  exchange.role === "assistant" || exchange.role === "event"
+                className={`max-w-[75%] rounded-lg px-4 py-2.5 ${exchange.role === "assistant" || exchange.role === "event"
                     ? "bg-accent/20 text-txt-strong"
                     : channelStyle
                       ? `${channelStyle.bg} text-txt border ${channelStyle.border}`
                       : "bg-bg-muted text-txt"
-                }`}
+                  }`}
               >
                 <div
                   className={`text-[10px] uppercase mb-1 ${channelStyle?.text ?? "text-muted"}`}

@@ -3,7 +3,9 @@
  */
 
 import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useApp } from "../../AppContext";
+import { createTranslator } from "../../i18n";
 
 interface TooltipProps {
   children: React.ReactNode;
@@ -171,6 +173,8 @@ export function Spotlight({
   onPrev,
   onSkip,
 }: SpotlightProps) {
+  const { uiLanguage } = useApp();
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -216,14 +220,16 @@ export function Spotlight({
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs text-muted font-medium">
-            Step {step} of {totalSteps}
+
+            {t("tooltips.Step")} {step} of {totalSteps}
           </span>
           <button
             type="button"
             onClick={onSkip}
             className="text-xs text-muted hover:text-txt"
           >
-            Skip tour
+
+            {t("tooltips.SkipTour")}
           </button>
         </div>
 
@@ -237,7 +243,8 @@ export function Spotlight({
             disabled={step === 1}
             className="px-4 py-2 text-sm border border-border rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-bg-hover transition-colors"
           >
-            Previous
+
+            {t("tooltips.Previous")}
           </button>
 
           <div className="flex gap-1">
@@ -245,9 +252,8 @@ export function Spotlight({
               (dotIndex) => (
                 <div
                   key={`step-dot-${dotIndex}`}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    dotIndex + 1 === step ? "bg-accent" : "bg-border"
-                  }`}
+                  className={`w-2 h-2 rounded-full transition-colors ${dotIndex + 1 === step ? "bg-accent" : "bg-border"
+                    }`}
                 />
               ),
             )}
