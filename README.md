@@ -21,7 +21,7 @@ Grab from **[Releases](https://github.com/milady-ai/milady/releases/latest)**:
 | macOS (Apple Silicon) | [`Milady-arm64.dmg`](https://github.com/milady-ai/milady/releases/latest) | for your overpriced rectangle |
 | macOS (Intel) | [`Milady-x64.dmg`](https://github.com/milady-ai/milady/releases/latest) | boomer mac (why separate arm64/x64: [Build & release](docs/build-and-release.md#macos-why-two-dmgs-arm64-and-x64)) |
 | Windows | [`Milady-Setup.exe`](https://github.com/milady-ai/milady/releases/latest) | for the gamer anons |
-| Linux | [`Milady.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) | I use arch btw |
+| Linux | [`.AppImage`](https://github.com/milady-ai/milady/releases/latest) / [`.deb`](https://github.com/milady-ai/milady/releases/latest) / [APT repo](#debian--ubuntu-apt) | I use arch btw |
 
 Signed and notarized. No Gatekeeper FUD. We're legit.
 
@@ -93,6 +93,20 @@ NPM global:
 npm install -g miladyai
 milady setup
 ```
+
+### Debian / Ubuntu (APT)
+
+```bash
+# Add the repository
+curl -fsSL https://apt.milaidy.com/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/milady.gpg
+echo "deb [signed-by=/usr/share/keyrings/milady.gpg] https://apt.milaidy.com stable main" | \
+  sudo tee /etc/apt/sources.list.d/milady.list
+
+# Install
+sudo apt update && sudo apt install milady
+```
+
+Works on Debian 12+, Ubuntu 22.04+, Linux Mint 22+, Pop!_OS, and other Debian derivatives. Updates come through `apt upgrade`.
 
 ### Security: API token
 
