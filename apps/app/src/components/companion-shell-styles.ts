@@ -141,6 +141,8 @@ export function cardSizeClass(f: TabFlags) {
     return "w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible";
   if (f.isAdvancedOverlay)
     return "w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden";
+  if (f.isStream)
+    return "w-[95vw] h-[95vh] max-w-[1500px] backdrop-blur-3xl border rounded-2xl overflow-hidden";
   if (f.isSettings || f.isApps || f.isKnowledge || f.isWallets)
     return "w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl overflow-hidden";
   return "w-[65vw] min-w-[700px] h-[100vh] border-l backdrop-blur-2xl";
@@ -149,6 +151,7 @@ export function cardSizeClass(f: TabFlags) {
 export function cardBackground(f: TabFlags) {
   if (f.isSkills) return "rgba(20, 24, 38, 0.85)";
   if (f.isPluginsLike) return "transparent";
+  if (f.isStream) return "rgba(14, 17, 24, 0.95)";
   if (
     f.isSettings ||
     f.isAdvancedOverlay ||
@@ -225,6 +228,7 @@ export function accentRgbVar(f: TabFlags) {
 export function viewWrapperOverflow(f: TabFlags) {
   if (f.isPluginsLike) return "overflow-visible";
   if (
+    f.isStream ||
     f.isSettings ||
     f.isAdvancedOverlay ||
     f.isApps ||
@@ -238,6 +242,7 @@ export function viewWrapperOverflow(f: TabFlags) {
 export function viewWrapperPadding(f: TabFlags) {
   if (f.isSkills) return "px-10 pb-10 pt-4";
   if (
+    f.isStream ||
     f.isSettings ||
     f.isAdvancedOverlay ||
     f.isApps ||
@@ -254,6 +259,13 @@ export function viewWrapperStyle(
   f: TabFlags,
   accentColor: string,
 ): React.CSSProperties {
+  // Stream tab: inherit from the active data-theme so theme switching works.
+  // Only override --bg to transparent so the companion shell backdrop shows through.
+  if (f.isStream) {
+    return {
+      "--bg": "transparent",
+    } as React.CSSProperties;
+  }
   if (
     f.isSettings ||
     f.isPlugins ||

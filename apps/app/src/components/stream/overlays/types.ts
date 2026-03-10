@@ -88,3 +88,42 @@ export interface OverlayLayout {
   /** The destination this layout is associated with (metadata only). */
   destinationId?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Scene system
+// ---------------------------------------------------------------------------
+
+export { ALL_SCENE_IDS, BROADCAST_SCENE_IDS, isBroadcastScene, type SceneId } from "@milady/shared/scene-ids";
+
+/** Background configuration for a scene. */
+export interface BackgroundConfig {
+  type: "color" | "gradient" | "image";
+  /** CSS color or gradient string, or image URL */
+  value: string;
+  /** For images: opacity (0-1), default 0.7 */
+  opacity?: number;
+}
+
+/** Slate configuration for broadcast scenes (Starting Soon, BRB, Ending). */
+export interface SlateConfig {
+  text: string;
+  subtext?: string;
+  backgroundColor?: string;
+  textColor?: string;
+}
+
+/** Per-scene layout: overlay arrangement + optional slate config. */
+export interface SceneLayout {
+  sceneId: SceneId;
+  layout: OverlayLayout;
+  slate?: SlateConfig;
+  background?: BackgroundConfig;
+}
+
+/** Top-level persisted structure: all scene layouts for a destination. */
+export interface SceneLayouts {
+  version: 2;
+  /** null = auto-detect from agent activity */
+  activeSceneId: SceneId | null;
+  scenes: Record<string, SceneLayout>;
+}

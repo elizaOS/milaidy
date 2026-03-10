@@ -125,6 +125,11 @@ export default defineConfig({
         ),
       },
       {
+        // General @milady/* → src/* alias (excludes capacitor-* and plugin-* packages)
+        find: /^@milady(?!\/capacitor-)(?!\/plugin-)/,
+        replacement: path.join(repoRoot, "src"),
+      },
+      {
         find: "@milady/plugin-streaming-base",
         replacement: path.join(
           repoRoot,

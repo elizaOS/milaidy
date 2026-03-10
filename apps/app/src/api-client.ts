@@ -5139,6 +5139,46 @@ export class MiladyClient {
       body: JSON.stringify({ settings }),
     });
   }
+
+  // ── Scene layouts (per-scene widget arrangements) ─────────────────────
+
+  async getSceneLayouts(
+    destinationId?: string | null,
+  ): Promise<{ ok: boolean; layouts: unknown }> {
+    const qs = destinationId
+      ? `?destination=${encodeURIComponent(destinationId)}`
+      : "";
+    return this.fetch(`/api/stream/scene-layouts${qs}`);
+  }
+
+  async saveSceneLayouts(
+    layouts: unknown,
+    destinationId?: string | null,
+  ): Promise<{ ok: boolean }> {
+    const qs = destinationId
+      ? `?destination=${encodeURIComponent(destinationId)}`
+      : "";
+    return this.fetch(`/api/stream/scene-layouts${qs}`, {
+      method: "POST",
+      body: JSON.stringify({ layouts }),
+    });
+  }
+
+  async getActiveScene(): Promise<{
+    ok: boolean;
+    sceneId: string | null;
+  }> {
+    return this.fetch("/api/stream/active-scene");
+  }
+
+  async setActiveScene(
+    sceneId: string | null,
+  ): Promise<{ ok: boolean; sceneId: string | null }> {
+    return this.fetch("/api/stream/active-scene", {
+      method: "POST",
+      body: JSON.stringify({ sceneId }),
+    });
+  }
 }
 
 // Singleton

@@ -270,6 +270,67 @@ export function writeStreamSettings(settings: StreamVisualSettings): void {
   logger.info("[stream] Stream settings saved");
 }
 
+// ---------------------------------------------------------------------------
+// Scene layouts persistence (v2 — per-scene widget arrangements)
+// ---------------------------------------------------------------------------
+
+function sceneLayoutsFile(destinationId?: string | null): string {
+  if (destinationId) {
+    return path.join(
+      OVERLAY_DIR,
+      `scene-layouts-${safeDestId(destinationId)}.json`,
+    );
+  }
+  return path.join(OVERLAY_DIR, "scene-layouts.json");
+}
+
+export function readSceneLayouts(
+  destinationId?: string | null,
+): unknown | null {
+  const file = sceneLayoutsFile(destinationId);
+  try {
+    if (fs.existsSync(file)) {
+      return JSON.parse(fs.readFileSync(file, "utf-8"));
+    }
+  } catch {
+    logger.warn("[stream] Failed to read scene layouts file");
+  }
+  // Try global fallback if destination-specific not found
+  if (destinationId) {
+    const globalFile = sceneLayoutsFile(null);
+    try {
+      if (fs.existsSync(globalFile)) {
+        return JSON.parse(fs.readFileSync(globalFile, "utf-8"));
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+export function writeSceneLayouts(
+  layouts: unknown,
+  destinationId?: string | null,
+): void {
+  fs.mkdirSync(OVERLAY_DIR, { recursive: true });
+  const file = sceneLayoutsFile(destinationId);
+  fs.writeFileSync(file, JSON.stringify(layouts, null, 2), "utf-8");
+  const label = destinationId ? `[${destinationId}]` : "[global]";
+  logger.info(`[stream] Scene layouts ${label} saved`);
+}
+
+// Active scene — in-memory only; resets to null (auto-detect) on server restart
+let _activeScene: string | null = null;
+
+export function getActiveScene(): string | null {
+  return _activeScene;
+}
+
+export function setActiveScene(sceneId: string | null): void {
+  _activeScene = sceneId;
+}
+
 /**
  * Build the visual config for browser-capture by merging:
  *   1. Server-side stream-settings.json (authoritative)
@@ -279,13 +340,23 @@ export function writeStreamSettings(settings: StreamVisualSettings): void {
  */
 export function getHeadlessCaptureConfig(destinationId?: string | null): {
   overlayLayout?: string;
+  sceneLayouts?: string;
   theme?: string;
   avatarIndex?: number;
   destinationId?: string;
 } {
   const settings = readStreamSettings();
+
+  // Read scene layouts (v2) for seeding into headless browser localStorage
+  let sceneLayoutsJson: string | undefined;
+  const sl = readSceneLayouts(destinationId);
+  if (sl) {
+    try { sceneLayoutsJson = JSON.stringify(sl); } catch { /* ignore */ }
+  }
+
   return {
     overlayLayout: getOverlayLayoutJson(destinationId) ?? undefined,
+    sceneLayouts: sceneLayoutsJson,
     theme: settings.theme ?? process.env.STREAM_THEME,
     avatarIndex:
       settings.avatarIndex ??

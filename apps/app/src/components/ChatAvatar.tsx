@@ -69,7 +69,7 @@ export function ChatAvatar({
       setShowFallback(true);
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [vrmPath]);
 
   // Subscribe to WebSocket emote events and trigger avatar animations.
   useEffect(() => {

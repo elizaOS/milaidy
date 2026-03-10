@@ -437,3 +437,77 @@ export const manageOverlayWidgetAction: Action = {
     },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// SET_SCENE
+// ---------------------------------------------------------------------------
+
+import { ALL_SCENE_IDS } from "../shared/scene-ids";
+
+export const setSceneAction: Action = {
+  name: "SET_SCENE",
+  similes: [
+    "SWITCH_SCENE",
+    "CHANGE_SCENE",
+    "SHOW_STARTING_SOON",
+    "SHOW_BRB",
+    "SHOW_ENDING",
+    "GO_TO_SCENE",
+  ],
+  description:
+    "Switch the active stream scene. Use broadcast scenes for transitions " +
+    "(starting-soon, be-right-back, ending) or content scenes for activity " +
+    "(idle, terminal, chatting, gaming). Set to empty/null to return to auto-detect.",
+  validate: async () => true,
+
+  handler: async (_runtime, _message, _state, options) => {
+    try {
+      const params = (
+        options as { parameters?: Record<string, unknown> } | undefined
+      )?.parameters;
+      const sceneId =
+        typeof params?.sceneId === "string" ? params.sceneId.trim() : "";
+
+      if (sceneId && !(ALL_SCENE_IDS as readonly string[]).includes(sceneId)) {
+        return {
+          text: `Invalid scene "${sceneId}". Valid scenes: ${ALL_SCENE_IDS.join(", ")}, or empty for auto-detect.`,
+          success: false,
+        };
+      }
+
+      const result = await apiPost("/api/stream/active-scene", {
+        sceneId: sceneId || null,
+      });
+
+      if (!result.ok) {
+        const msg =
+          (result.data as Record<string, unknown>)?.error ??
+          `HTTP ${result.status}`;
+        return { text: `Failed to set scene: ${msg}`, success: false };
+      }
+
+      const data = result.data as Record<string, unknown>;
+      return {
+        text: data.sceneId
+          ? `Switched to scene: ${data.sceneId}`
+          : "Returned to auto-detect mode.",
+        success: true,
+      };
+    } catch (err) {
+      return {
+        text: `Failed to set scene: ${err instanceof Error ? err.message : String(err)}`,
+        success: false,
+      };
+    }
+  },
+
+  parameters: [
+    {
+      name: "sceneId",
+      description:
+        "Scene ID: idle, terminal, chatting, gaming, starting-soon, be-right-back, ending. Empty or null for auto-detect.",
+      required: false,
+      schema: { type: "string" as const },
+    },
+  ],
+};

@@ -20,18 +20,18 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
   }, [events.length]);
 
   return (
-    <div className="flex flex-col h-full border-l border-border bg-bg">
-      <div className="px-3 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-bold uppercase tracking-wider text-muted">
+    <div className="flex flex-col h-full bg-[#141720]">
+      <div className="px-3 py-2.5 border-b border-[#1e2230] shrink-0">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Activity
         </span>
       </div>
       <div
         ref={feedRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1.5"
       >
         {events.length === 0 ? (
-          <div className="text-muted text-xs py-4 text-center">
+          <div className="text-gray-600 text-xs py-8 text-center">
             No events yet
           </div>
         ) : (
@@ -50,23 +50,23 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
             return (
               <div
                 key={event.eventId}
-                className={`rounded border px-2 py-1.5 ${
+                className={`rounded-lg px-2.5 py-2 ${
                   isNewViewer
-                    ? "border-emerald-500/30 bg-emerald-500/5"
+                    ? "bg-emerald-500/5 border-l-2 border-l-emerald-500/40"
                     : isThought
-                      ? "border-yellow-500/30 bg-yellow-500/5"
+                      ? "bg-yellow-500/5 border-l-2 border-l-yellow-500/40"
                       : isAction
-                        ? "border-blue-500/30 bg-blue-500/5"
+                        ? "bg-blue-500/5 border-l-2 border-l-blue-500/40"
                         : isAssistant
-                          ? "border-green-500/30 bg-green-500/5"
+                          ? "bg-green-500/5 border-l-2 border-l-green-500/40"
                           : channelStyle
-                            ? `${channelStyle.border} ${channelStyle.bg}`
-                            : "border-border"
+                            ? `${channelStyle.bg} border-l-2`
+                            : "bg-[#1a1f2e]/50 border-l-2 border-l-[#2a3040]"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-[11px] font-semibold uppercase ${
+                    className={`text-[10px] font-semibold uppercase ${
                       isNewViewer
                         ? "text-emerald-400"
                         : isThought
@@ -77,7 +77,7 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
                               ? "text-green-400"
                               : channelStyle
                                 ? channelStyle.text
-                                : "text-accent"
+                                : "text-indigo-400"
                     }`}
                   >
                     {isNewViewer
@@ -90,13 +90,15 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
                             ? `@${from}`
                             : `[${source}]`}
                   </span>
-                  <span className="text-[10px] text-muted">
+                  <span className="text-[10px] text-gray-600">
                     {formatTime(event.ts, { fallback: "" })}
                   </span>
                 </div>
                 <div
                   className={`text-[12px] mt-0.5 break-words line-clamp-3 ${
-                    isThought ? "text-yellow-200/70 italic" : "text-txt"
+                    isThought
+                      ? "text-yellow-200/60 italic"
+                      : "text-gray-300"
                   }`}
                 >
                   {getEventText(event)}

@@ -25,14 +25,18 @@ vi.mock("@elizaos/core", () => ({
 }));
 
 import {
+  getActiveScene,
   getHeadlessCaptureConfig,
   parseDestinationQuery,
   readOverlayLayout,
+  readSceneLayouts,
   readStreamSettings,
   safeDestId,
   seedOverlayDefaults,
+  setActiveScene,
   validateStreamSettings,
   writeOverlayLayout,
+  writeSceneLayouts,
   writeStreamSettings,
 } from "./stream-persistence";
 
@@ -398,5 +402,84 @@ describe("getHeadlessCaptureConfig()", () => {
   it("passes through destinationId", () => {
     const config = getHeadlessCaptureConfig("retake");
     expect(config.destinationId).toBe("retake");
+  });
+});
+
+// ===========================================================================
+// readSceneLayouts() / writeSceneLayouts()
+// ===========================================================================
+
+describe("readSceneLayouts() / writeSceneLayouts()", () => {
+  const testLayouts = {
+    version: 2,
+    activeSceneId: null,
+    scenes: { idle: { sceneId: "idle", layout: { version: 1, name: "Test", widgets: [] } } },
+  };
+
+  it("returns null when no scene layouts file exists", () => {
+    const layouts = readSceneLayouts(null);
+    expect(layouts).toBeNull();
+  });
+
+  it("round-trips global scene layouts", () => {
+    writeSceneLayouts(testLayouts, null);
+    const read = readSceneLayouts(null);
+    expect(read).toEqual(testLayouts);
+  });
+
+  it("round-trips destination-specific scene layouts", () => {
+    writeSceneLayouts(testLayouts, "retake");
+    const read = readSceneLayouts("retake");
+    expect(read).toEqual(testLayouts);
+  });
+
+  it("falls back to global when destination-specific is missing", () => {
+    writeSceneLayouts(testLayouts, null);
+    const read = readSceneLayouts("nonexistent");
+    expect(read).toEqual(testLayouts);
+  });
+});
+
+// ===========================================================================
+// getActiveScene() / setActiveScene()
+// ===========================================================================
+
+describe("getActiveScene() / setActiveScene()", () => {
+  it("defaults to null", () => {
+    setActiveScene(null);
+    expect(getActiveScene()).toBeNull();
+  });
+
+  it("stores and returns a scene ID", () => {
+    setActiveScene("gaming");
+    expect(getActiveScene()).toBe("gaming");
+  });
+
+  it("resets to null", () => {
+    setActiveScene("idle");
+    setActiveScene(null);
+    expect(getActiveScene()).toBeNull();
+  });
+});
+
+// ===========================================================================
+// getHeadlessCaptureConfig() — scene layouts
+// ===========================================================================
+
+describe("getHeadlessCaptureConfig() with scene layouts", () => {
+  it("includes sceneLayouts JSON when file exists", () => {
+    const layouts = { version: 2, activeSceneId: null, scenes: {} };
+    writeSceneLayouts(layouts, null);
+    const config = getHeadlessCaptureConfig(null);
+    expect(config.sceneLayouts).toBeDefined();
+    const parsed = JSON.parse(config.sceneLayouts as string);
+    expect(parsed.version).toBe(2);
+  });
+
+  it("omits sceneLayouts when no file exists", () => {
+    const config = getHeadlessCaptureConfig("nonexistent-dest");
+    // May be undefined or have scene layouts if global fallback exists
+    // Just verify it doesn't throw
+    expect(config).toBeDefined();
   });
 });

@@ -2376,6 +2376,16 @@ function getCachedFile(filePath: string, mtimeMs: number): Buffer {
  * Serve built dashboard assets from apps/app/dist with SPA fallback.
  * Returns true when the request is handled.
  */
+/** Extract optional `?scene=<id>` query param for per-scene background images. */
+export function parseSceneParam(r: http.IncomingMessage): string | null {
+  try {
+    const u = new URL(r.url || "", "http://localhost");
+    const s = u.searchParams.get("scene");
+    // Only allow safe scene IDs (alphanumeric + hyphen)
+    return s && /^[a-z0-9-]+$/.test(s) ? s : null;
+  } catch { return null; }
+}
+
 export function injectApiBaseIntoHtml(
   html: Buffer,
   externalBase?: string | null,
@@ -2464,10 +2474,23 @@ function serveStaticUi(
 
   // When served behind a reverse proxy (e.g. Railway /proxy/PORT/), inject the
   // API base so the UI client sends requests to the correct path prefix.
-  const html = injectApiBaseIntoHtml(
-    uiIndexHtml,
-    process.env.MILADY_EXTERNAL_BASE_URL,
-  );
+  let externalBase = process.env.MILADY_EXTERNAL_BASE_URL;
+  if (!externalBase && process.env.VSCODE_PROXY_URI) {
+    try {
+      const proxyUrl = new URL(
+        process.env.VSCODE_PROXY_URI.replace(
+          "{{port}}",
+          String(process.env.MILADY_API_PORT || "2138"),
+        ),
+      );
+      externalBase =
+        proxyUrl.origin +
+        (proxyUrl.pathname.endsWith("/")
+          ? proxyUrl.pathname.slice(0, -1)
+          : proxyUrl.pathname);
+    } catch { /* ignore malformed URI */ }
+  }
+  const html = injectApiBaseIntoHtml(uiIndexHtml, externalBase);
 
   sendStaticResponse(
     req,
@@ -4754,6 +4777,16 @@ export function isAllowedHost(req: http.IncomingMessage): boolean {
     if (allowed.includes(hostname)) return true;
   }
 
+  // When running behind a VS Code / code-server proxy (e.g. Railway), allow
+  // the proxy hostname so requests forwarded through the tunnel are accepted.
+  const proxyUri = process.env.VSCODE_PROXY_URI;
+  if (proxyUri) {
+    try {
+      const proxyHost = new URL(proxyUri.replace("{{port}}", "0")).hostname;
+      if (hostname === proxyHost) return true;
+    } catch { /* malformed URI — skip */ }
+  }
+
   return LOCAL_HOST_RE.test(hostname);
 }
 
@@ -4775,6 +4808,16 @@ export function resolveCorsOrigin(origin?: string): string | null {
       .map((v) => v.trim())
       .filter(Boolean);
     if (allow.includes(trimmed)) return trimmed;
+  }
+
+  // When running behind a VS Code / code-server proxy (e.g. Railway), allow
+  // the proxy origin so the browser can reach the API through the tunnel.
+  const proxyUri = process.env.VSCODE_PROXY_URI;
+  if (proxyUri) {
+    try {
+      const proxyOrigin = new URL(proxyUri.replace("{{port}}", "0")).origin;
+      if (trimmed === proxyOrigin) return trimmed;
+    } catch { /* malformed URI — skip */ }
   }
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
@@ -10561,9 +10604,12 @@ async function handleRequest(
     return;
   }
 
+  // parseSceneParam is hoisted to module scope (exported) so it can be unit-tested.
+
   // ── POST /api/avatar/background ──────────────────────────────────────────
   // Upload a custom background image. Saved to ~/.milady/avatars/custom-background.<ext>.
   if (method === "POST" && pathname === "/api/avatar/background") {
+    const sceneParam = parseSceneParam(req);
     const MAX_BG_BYTES = 10 * 1024 * 1024; // 10 MB
     const rawBody = await readRequestBodyBuffer(req, {
       maxBytes: MAX_BG_BYTES,
@@ -10603,13 +10649,14 @@ async function handleRequest(
     const avatarDir = path.join(resolveStateDir(), "avatars");
     fs.mkdirSync(avatarDir, { recursive: true });
     // Remove any previous custom background (may have a different extension)
+    const bgPrefix = sceneParam ? `custom-background-${sceneParam}` : "custom-background";
     for (const old of ["png", "jpg", "webp"]) {
-      const p = path.join(avatarDir, `custom-background.${old}`);
+      const p = path.join(avatarDir, `${bgPrefix}.${old}`);
       try {
         fs.unlinkSync(p);
       } catch {}
     }
-    const bgPath = path.join(avatarDir, `custom-background.${ext}`);
+    const bgPath = path.join(avatarDir, `${bgPrefix}.${ext}`);
     fs.writeFileSync(bgPath, rawBody);
     json(res, { ok: true, size: rawBody.length });
     return;
@@ -10622,14 +10669,16 @@ async function handleRequest(
     pathname === "/api/avatar/background"
   ) {
     const avatarDir = path.join(resolveStateDir(), "avatars");
+    const sceneParam = parseSceneParam(req);
     const MIME: Record<string, string> = {
       png: "image/png",
       jpg: "image/jpeg",
       webp: "image/webp",
     };
+    const bgPrefix = sceneParam ? `custom-background-${sceneParam}` : "custom-background";
     let found = "";
     for (const ext of ["png", "jpg", "webp"]) {
-      const p = path.join(avatarDir, `custom-background.${ext}`);
+      const p = path.join(avatarDir, `${bgPrefix}.${ext}`);
       try {
         if (fs.statSync(p).isFile()) {
           found = p;

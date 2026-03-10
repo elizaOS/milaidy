@@ -42,9 +42,11 @@ export interface BrowserCaptureConfig {
   quality?: number;
   /** Optional overlay layout JSON to seed into localStorage before page load. */
   overlayLayout?: string;
+  /** Optional scene layouts JSON (v2) to seed into localStorage. */
+  sceneLayouts?: string;
   /** Theme name to apply (e.g. "milady", "haxor", "psycho"). */
   theme?: string;
-  /** Avatar VRM index (1–8). */
+  /** Avatar VRM index (1–33). */
   avatarIndex?: number;
   /** Destination ID — seeds the destination-specific localStorage key. */
   destinationId?: string;
@@ -121,6 +123,7 @@ export async function startBrowserCapture(config: BrowserCaptureConfig) {
   await page.evaluateOnNewDocument(
     (
       overlayLayout: string | undefined,
+      sceneLayouts: string | undefined,
       theme: string | undefined,
       avatarIndex: number | undefined,
       destinationId: string | undefined,
@@ -136,6 +139,15 @@ export async function startBrowserCapture(config: BrowserCaptureConfig) {
           );
         }
       }
+      if (sceneLayouts) {
+        localStorage.setItem("milady.stream.scene-layouts.v2", sceneLayouts);
+        if (destinationId) {
+          localStorage.setItem(
+            `milady.stream.scene-layouts.v2.${destinationId}`,
+            sceneLayouts,
+          );
+        }
+      }
       if (theme) {
         localStorage.setItem("milady:theme", theme);
       }
@@ -144,6 +156,7 @@ export async function startBrowserCapture(config: BrowserCaptureConfig) {
       }
     },
     config.overlayLayout,
+    config.sceneLayouts,
     config.theme,
     config.avatarIndex,
     config.destinationId,

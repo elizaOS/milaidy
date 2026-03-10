@@ -23,6 +23,7 @@ import {
   goLiveAction,
   goOfflineAction,
   manageOverlayWidgetAction,
+  setSceneAction,
   setStreamDestinationAction,
   speakOnStreamAction,
 } from "../actions/stream-control";
@@ -218,6 +219,7 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       setStreamDestinationAction,
       speakOnStreamAction,
       manageOverlayWidgetAction,
+      setSceneAction,
       ...loadCustomActions(),
     ],
   };

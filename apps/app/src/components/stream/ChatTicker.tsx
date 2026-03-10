@@ -3,7 +3,6 @@ import type { StreamEventEnvelope } from "../../api-client";
 import { CHANNEL_COLORS } from "./helpers";
 
 export function ChatTicker({ events }: { events: StreamEventEnvelope[] }) {
-  // Build ticker entries directly from inbound message events (retake, discord, etc.)
   const recent = useMemo(() => {
     const entries: Array<{
       id: string;
@@ -33,17 +32,17 @@ export function ChatTicker({ events }: { events: StreamEventEnvelope[] }) {
   if (recent.length === 0) return null;
 
   return (
-    <div className="px-4 py-1.5 bg-bg border-t border-border overflow-hidden shrink-0">
-      <div className="flex items-center gap-4 text-xs text-muted overflow-x-auto whitespace-nowrap scrollbar-hide">
-        <span className="text-[10px] uppercase tracking-wider text-muted shrink-0">
+    <div className="px-4 py-1.5 bg-[#141720] border-t border-[#1e2230] overflow-hidden shrink-0">
+      <div className="flex items-center gap-4 text-xs text-gray-500 overflow-x-auto whitespace-nowrap scrollbar-hide">
+        <span className="text-[10px] uppercase tracking-wider text-gray-600 shrink-0 font-semibold">
           chat
         </span>
         {recent.map((entry) => {
           const color = CHANNEL_COLORS[entry.source]?.text;
           return (
             <span key={entry.id} className="shrink-0">
-              <span className={color ?? "text-accent"}>@{entry.from}</span>
-              <span className="text-txt">: {entry.text.slice(0, 80)}</span>
+              <span className={color ?? "text-indigo-400"}>@{entry.from}</span>
+              <span className="text-gray-300">: {entry.text.slice(0, 80)}</span>
             </span>
           );
         })}

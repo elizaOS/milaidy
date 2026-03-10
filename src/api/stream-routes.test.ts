@@ -925,6 +925,90 @@ describe("handleStreamRoute", () => {
       );
     });
   });
+
+  // ── POST /api/stream/active-scene validation ──
+  describe("POST /api/stream/active-scene validation", () => {
+    it("rejects invalid sceneId", async () => {
+      const state = mockState();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/active-scene",
+        body: JSON.stringify({ sceneId: "invalid-scene" }),
+      });
+      const { res, getJson, getStatus } = createMockHttpResponse();
+      await handleStreamRoute(req, res, "/api/stream/active-scene", "POST", state);
+      expect(getStatus()).toBe(400);
+      expect(getJson()).toHaveProperty("error");
+    });
+
+    it("accepts valid sceneId", async () => {
+      const state = mockState();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/active-scene",
+        body: JSON.stringify({ sceneId: "gaming" }),
+      });
+      const { res, getJson, getStatus } = createMockHttpResponse();
+      await handleStreamRoute(req, res, "/api/stream/active-scene", "POST", state);
+      expect(getStatus()).toBe(200);
+      const data = getJson() as { ok: boolean; sceneId: string };
+      expect(data.ok).toBe(true);
+      expect(data.sceneId).toBe("gaming");
+    });
+
+    it("accepts null sceneId for auto-detect", async () => {
+      const state = mockState();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/active-scene",
+        body: JSON.stringify({ sceneId: null }),
+      });
+      const { res, getJson, getStatus } = createMockHttpResponse();
+      await handleStreamRoute(req, res, "/api/stream/active-scene", "POST", state);
+      expect(getStatus()).toBe(200);
+      const data = getJson() as { ok: boolean; sceneId: string | null };
+      expect(data.ok).toBe(true);
+    });
+  });
+
+  // ── POST /api/stream/scene-layouts validation ──
+  describe("POST /api/stream/scene-layouts validation", () => {
+    it("rejects invalid scene IDs in layouts", async () => {
+      const state = mockState();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/scene-layouts",
+        body: JSON.stringify({
+          layouts: {
+            version: 2,
+            scenes: { "invalid-id": { sceneId: "invalid-id", layout: { version: 1, widgets: [] } } },
+          },
+        }),
+      });
+      const { res, getJson, getStatus } = createMockHttpResponse();
+      await handleStreamRoute(req, res, "/api/stream/scene-layouts", "POST", state);
+      expect(getStatus()).toBe(400);
+      expect((getJson() as { error: string }).error).toContain("invalid-id");
+    });
+
+    it("accepts valid scene IDs in layouts", async () => {
+      const state = mockState();
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/stream/scene-layouts",
+        body: JSON.stringify({
+          layouts: {
+            version: 2,
+            activeSceneId: null,
+            scenes: { idle: { sceneId: "idle", layout: { version: 1, widgets: [] } } },
+          },
+        }),
+      });
+      const { res, getStatus } = createMockHttpResponse();
+      await handleStreamRoute(req, res, "/api/stream/scene-layouts", "POST", state);
+      expect(getStatus()).toBe(200);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
