@@ -1824,10 +1824,9 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
   if (!cloud) return;
 
   const cloudMode = cloud.enabled;
-  const hasApiKey = Boolean(cloud.apiKey);
-  const cloudExplicitlyDisabled = cloudMode === false;
-  const effectivelyEnabled =
-    cloudMode === true || (!cloudExplicitlyDisabled && hasApiKey);
+  // Require explicit cloud.enabled = true. Previously, undefined + apiKey
+  // would count as enabled, causing the model to revert to cloud on restart.
+  const effectivelyEnabled = cloudMode === true;
 
   if (effectivelyEnabled) {
     process.env.ELIZAOS_CLOUD_ENABLED = "true";

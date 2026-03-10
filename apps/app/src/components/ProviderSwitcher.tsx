@@ -282,9 +282,11 @@ export function ProviderSwitcher({
         !target.enabled || enabledAiProviders.some((p) => p.id !== newId);
       if (cloudEnabled || piAiEnabled) {
         try {
-          // Disable cloud inference but keep cloud connected for RPC/services
+          // Disable cloud inference and explicitly mark cloud as disabled
+          // so the cloud-status check doesn't re-enable it on restart.
           await client.updateConfig({
             cloud: {
+              enabled: false,
               services: { inference: false },
               inferenceMode: "byok",
             },
@@ -394,6 +396,7 @@ export function ProviderSwitcher({
     try {
       await client.updateConfig({
         cloud: {
+          enabled: false,
           services: { inference: false },
           inferenceMode: "byok",
         },
