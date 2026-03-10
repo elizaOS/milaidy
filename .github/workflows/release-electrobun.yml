@@ -634,11 +634,30 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload build artifacts
+      - name: Write CI artifact note
+        run: |
+          cat > apps/app/electrobun/artifacts/CI-ARTIFACT-README.txt <<'EOF'
+          This directory is uploaded through GitHub Actions upload-artifact.
+
+          If you downloaded this from the Actions run page, GitHub wraps the
+          entire artifact in an outer zip file. That outer zip is CI transport,
+          not the installer format.
+
+          End-user installers inside this artifact:
+          - macOS direct install: *.app.zip
+          - macOS installer: *.dmg
+          - Windows installer: *Setup*.zip or *Setup*.tar.gz
+
+          Prefer the GitHub Release page for direct installer downloads. Those
+          assets are published without the outer Actions artifact zip wrapper.
+          EOF
+
+      - name: Upload CI transport artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: electrobun-${{ matrix.platform.artifact-name }}
+          name: electrobun-${{ matrix.platform.artifact-name }}-ci-bundle
           path: |
+            apps/app/electrobun/artifacts/CI-ARTIFACT-README.txt
             apps/app/electrobun/artifacts/*.app/**
             apps/app/electrobun/artifacts/*.app.zip
             apps/app/electrobun/artifacts/*.dmg
@@ -667,7 +686,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
-          pattern: electrobun-*
+          pattern: electrobun-*-ci-bundle
           merge-multiple: false
 
       - name: List artifacts

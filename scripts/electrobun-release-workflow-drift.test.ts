@@ -133,12 +133,20 @@ describe("Electrobun release workflow drift", () => {
   it("ships wrapper diagnostics with the build artifacts", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Upload build artifacts");
+    expect(workflow).toContain("name: Write CI artifact note");
+    expect(workflow).toContain(
+      "apps/app/electrobun/artifacts/CI-ARTIFACT-README.txt",
+    );
+    expect(workflow).toContain("name: Upload CI transport artifacts");
+    expect(workflow).toContain(
+      "electrobun-$" + "{{ matrix.platform.artifact-name }}-ci-bundle",
+    );
     expect(workflow).toContain("apps/app/electrobun/artifacts/*.app/**");
     expect(workflow).toContain("apps/app/electrobun/artifacts/*.app.zip");
     expect(workflow).toContain(
       "apps/app/electrobun/build/**/wrapper-diagnostics.json",
     );
+    expect(workflow).toContain("pattern: electrobun-*-ci-bundle");
   });
 
   it("requires the staged macOS app for signature verification instead of mounting the DMG", () => {
