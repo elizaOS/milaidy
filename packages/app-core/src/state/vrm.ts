@@ -72,7 +72,7 @@ export function getVrmTitle(index: number): string {
 }
 
 /** Whether a bundled index points to the official Milady avatar set. */
-export function isOfficialVrmIndex(index: number): boolean {
+export function isOfficialVrmIndex(_index: number): boolean {
     return false;
 }
 

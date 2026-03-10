@@ -382,10 +382,6 @@ export function ConnectionStep() {
               style={{
                 fontSize: "0.875rem",
                 paddingBottom: "0.5rem",
-                borderBottom:
-                  onboardingMiladyCloudTab === "login"
-                    ? "2px solid var(--accent)"
-                    : "2px solid transparent",
                 color:
                   onboardingMiladyCloudTab === "login"
                     ? "var(--accent)"

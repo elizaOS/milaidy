@@ -1,4 +1,4 @@
-import { ONBOARDING_STEPS, type OnboardingStep } from "@milady/app-core/state";
+import { ONBOARDING_STEPS } from "@milady/app-core/state";
 import { useApp } from "../../AppContext";
 
 export function OnboardingStepNav() {
