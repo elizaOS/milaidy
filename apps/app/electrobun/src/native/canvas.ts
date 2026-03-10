@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs";
 import * as os from "node:os";
+import * as path from "node:path";
 import { BrowserWindow } from "electrobun/bun";
 import type {
   CanvasWindowInfo,
@@ -219,7 +220,7 @@ export class CanvasManager {
       // Skip if window is hidden off-screen (see hide() which uses -99999)
       if (x < -1000 || y < -1000) return null;
 
-      const tmpPath = `${os.tmpdir()}${process.platform === "win32" ? "\\" : "/"}milady-canvas-snapshot-${Date.now()}.png`;
+      const tmpPath = path.join(os.tmpdir(), `milady-canvas-snapshot-${Date.now()}.png`);
       let proc: ReturnType<typeof Bun.spawn>;
 
       if (process.platform === "darwin") {
@@ -245,10 +246,10 @@ $gfx.CopyFromScreen(${x}, ${y}, 0, 0, $bmp.Size)
 $gfx.Dispose()
 $bmp.Save('${tmpPath.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()`;
-        proc = Bun.spawn(
-          ["powershell", "-NoProfile", "-Command", psScript],
-          { stdout: "pipe", stderr: "pipe" },
-        );
+        proc = Bun.spawn(["powershell", "-NoProfile", "-Command", psScript], {
+          stdout: "pipe",
+          stderr: "pipe",
+        });
       } else {
         // Linux: ImageMagick `import` with root window crop
         proc = Bun.spawn(

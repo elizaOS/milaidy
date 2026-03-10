@@ -271,10 +271,10 @@ $gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Siz
 $gfx.Dispose()
 $bmp.Save('${tmpPath.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
 $bmp.Dispose()`;
-          proc = Bun.spawn(
-            ["powershell", "-NoProfile", "-Command", psScript],
-            { stdout: "ignore", stderr: "ignore" },
-          );
+          proc = Bun.spawn(["powershell", "-NoProfile", "-Command", psScript], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
         } else {
           // Linux: try scrot first
           try {

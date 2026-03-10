@@ -56,7 +56,11 @@ function getDiagnosticLogPath(): string {
     //   macOS/Linux: ~/.config/Milady
     const configDir =
       process.platform === "win32"
-        ? path.join(process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"), "Milady")
+        ? path.join(
+            process.env.APPDATA ??
+              path.join(os.homedir(), "AppData", "Roaming"),
+            "Milady",
+          )
         : path.join(os.homedir(), ".config", "Milady");
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
