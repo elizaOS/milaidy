@@ -733,6 +733,12 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   const cloudMode = config.cloud?.enabled;
   const cloudHasApiKey = Boolean(config.cloud?.apiKey);
   const cloudExplicitlyDisabled = cloudMode === false;
+  // Note: this is intentionally broader than the inference-path check in
+  // applyCloudConfigToEnv (which requires explicit `enabled: true`).  Here
+  // hasApiKey acts as an implicit enable signal so the cloud *plugin* gets
+  // loaded for RPC/services (auth, credits, billing) even when inference
+  // itself is handled by the user's own keys (BYOK).  The inference and
+  // persistence paths gate on `cloud.enabled === true` separately.
   const cloudEffectivelyEnabled =
     cloudMode === true || (!cloudExplicitlyDisabled && cloudHasApiKey);
   // When inferenceMode is "byok" or "local", OR services.inference is false,
@@ -1824,10 +1830,9 @@ export function applyCloudConfigToEnv(config: MiladyConfig): void {
   if (!cloud) return;
 
   const cloudMode = cloud.enabled;
-  const hasApiKey = Boolean(cloud.apiKey);
-  const cloudExplicitlyDisabled = cloudMode === false;
-  const effectivelyEnabled =
-    cloudMode === true || (!cloudExplicitlyDisabled && hasApiKey);
+  // Require explicit cloud.enabled = true. Previously, undefined + apiKey
+  // would count as enabled, causing the model to revert to cloud on restart.
+  const effectivelyEnabled = cloudMode === true;
 
   if (effectivelyEnabled) {
     process.env.ELIZAOS_CLOUD_ENABLED = "true";

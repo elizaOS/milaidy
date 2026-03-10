@@ -1,6 +1,11 @@
 import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
-import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
+import {
+  computeBySource,
+  extractRows,
+  installDatabaseTrajectoryLogger,
+  readOrchestratorTrajectoryContext,
+} from "./trajectory-persistence";
 
 async function waitForCallCount(
   fn: ReturnType<typeof vi.fn>,
@@ -151,5 +156,249 @@ describe("installDatabaseTrajectoryLogger", () => {
     );
 
     await waitForCallCount(dbExecute, callsAfterInstall + 2);
+  });
+
+  it("tags LLM calls with orchestrator context when __orchestratorTrajectoryCtx is set", async () => {
+    const originalLogLlmCall = vi.fn();
+    const legacyLogger = {
+      listTrajectories: vi.fn(),
+      getTrajectoryDetail: vi.fn(),
+      logLlmCall: originalLogLlmCall,
+      logProviderAccess: vi.fn(),
+      isEnabled: () => true,
+    } as Record<string, unknown>;
+
+    const { runtime, dbExecute } =
+      createRuntimeWithTrajectoryLogger(legacyLogger);
+
+    // Set orchestrator context on the runtime
+    (
+      runtime as unknown as Record<string, unknown>
+    ).__orchestratorTrajectoryCtx = {
+      source: "orchestrator",
+      decisionType: "stall-check",
+      sessionId: "sess-42",
+      taskLabel: "implement feature X",
+    };
+
+    installDatabaseTrajectoryLogger(runtime);
+    await waitForCallCount(dbExecute, 1);
+    const callsAfterInstall = dbExecute.mock.calls.length;
+
+    const patchedLogLlmCall = legacyLogger.logLlmCall as (
+      ...args: unknown[]
+    ) => void;
+
+    patchedLogLlmCall({
+      stepId: "step-orch-1",
+      model: "claude-sonnet",
+      systemPrompt: "system",
+      userPrompt: "classify this output",
+      response: "the agent is stalled",
+      temperature: 0,
+      maxTokens: 512,
+      purpose: "action",
+      actionType: "runtime.useModel",
+      latencyMs: 200,
+    });
+
+    await waitForCallCount(dbExecute, callsAfterInstall + 1);
+
+    // Find the INSERT SQL call — dbExecute receives a tagged template result
+    // which may be a raw SQL string or a Sql object. Stringify all args to search.
+    const insertIdx = dbExecute.mock.calls.findIndex((call: unknown[]) => {
+      const serialized = JSON.stringify(call);
+      return serialized.includes("INSERT INTO trajectories");
+    });
+
+    expect(insertIdx).toBeGreaterThanOrEqual(0);
+
+    // Serialize the full call to check for expected values
+    const insertSql = JSON.stringify(dbExecute.mock.calls[insertIdx]);
+
+    // Verify source is "orchestrator"
+    expect(insertSql).toContain("orchestrator");
+
+    // Verify the LLM call has orchestrator overrides:
+    // purpose should be the decisionType ("stall-check")
+    // actionType should be "orchestrator.useModel"
+    expect(insertSql).toContain("stall-check");
+    expect(insertSql).toContain("orchestrator.useModel");
+
+    // Verify metadata contains orchestrator session/task info
+    expect(insertSql).toContain("sess-42");
+    expect(insertSql).toContain("implement feature X");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readOrchestratorTrajectoryContext
+// ---------------------------------------------------------------------------
+
+describe("readOrchestratorTrajectoryContext", () => {
+  it("returns undefined for null/undefined input", () => {
+    expect(readOrchestratorTrajectoryContext(null)).toBeUndefined();
+    expect(readOrchestratorTrajectoryContext(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for non-object input", () => {
+    expect(readOrchestratorTrajectoryContext("string")).toBeUndefined();
+    expect(readOrchestratorTrajectoryContext(42)).toBeUndefined();
+  });
+
+  it("returns undefined when __orchestratorTrajectoryCtx is missing", () => {
+    expect(readOrchestratorTrajectoryContext({})).toBeUndefined();
+  });
+
+  it("returns undefined when ctx is not an object", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: "not-an-object",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when source is not 'orchestrator'", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: {
+          source: "runtime",
+          decisionType: "stall-check",
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when decisionType is not a string", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: {
+          source: "orchestrator",
+          decisionType: 123,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns valid context with required fields only", () => {
+    const result = readOrchestratorTrajectoryContext({
+      __orchestratorTrajectoryCtx: {
+        source: "orchestrator",
+        decisionType: "stall-check",
+      },
+    });
+    expect(result).toEqual({
+      source: "orchestrator",
+      decisionType: "stall-check",
+    });
+  });
+
+  it("returns valid context with all optional fields", () => {
+    const ctx = {
+      source: "orchestrator" as const,
+      decisionType: "coordination",
+      sessionId: "sess-1",
+      taskLabel: "fix bug",
+      repo: "my-repo",
+      workdir: "/tmp/work",
+      originalTask: "Fix the login flow",
+    };
+    const result = readOrchestratorTrajectoryContext({
+      __orchestratorTrajectoryCtx: ctx,
+    });
+    expect(result).toEqual(ctx);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractRows
+// ---------------------------------------------------------------------------
+
+describe("extractRows", () => {
+  it("returns the array directly when input is an array", () => {
+    const rows = [{ a: 1 }, { a: 2 }];
+    expect(extractRows(rows)).toBe(rows);
+  });
+
+  it("returns rows property when input is a { rows } wrapper", () => {
+    const rows = [{ source: "runtime", cnt: 3 }];
+    expect(extractRows({ rows })).toBe(rows);
+  });
+
+  it("returns empty array for null/undefined", () => {
+    expect(extractRows(null)).toEqual([]);
+    expect(extractRows(undefined)).toEqual([]);
+  });
+
+  it("returns empty array for non-array non-object", () => {
+    expect(extractRows("string")).toEqual([]);
+    expect(extractRows(42)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeBySource
+// ---------------------------------------------------------------------------
+
+describe("computeBySource", () => {
+  function mockRuntime(queryResult: unknown): IAgentRuntime {
+    return {
+      adapter: {
+        db: {
+          execute: vi.fn(async () => queryResult),
+        },
+      },
+    } as unknown as IAgentRuntime;
+  }
+
+  it("returns source counts from SQL result rows", async () => {
+    const runtime = mockRuntime({
+      rows: [
+        { source: "runtime", cnt: 5 },
+        { source: "orchestrator", cnt: 3 },
+        { source: "chat", cnt: 12 },
+      ],
+    });
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 5, orchestrator: 3, chat: 12 });
+  });
+
+  it("returns source counts from flat array result", async () => {
+    const runtime = mockRuntime([
+      { source: "runtime", cnt: 2 },
+      { source: "orchestrator", cnt: 1 },
+    ]);
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 2, orchestrator: 1 });
+  });
+
+  it("skips rows with non-string source", async () => {
+    const runtime = mockRuntime([
+      { source: "runtime", cnt: 1 },
+      { source: null, cnt: 5 },
+      { source: 123, cnt: 2 },
+    ]);
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 1 });
+  });
+
+  it("returns empty object when DB throws", async () => {
+    const runtime = {
+      adapter: {
+        db: {
+          execute: vi.fn(async () => {
+            throw new Error("db unavailable");
+          }),
+        },
+      },
+    } as unknown as IAgentRuntime;
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({});
+  });
+
+  it("returns empty object when no DB adapter", async () => {
+    const runtime = {} as IAgentRuntime;
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({});
   });
 });

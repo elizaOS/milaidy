@@ -6045,7 +6045,10 @@ export async function handleSwarmSynthesis(
 }
 
 // ── Parse Action Block from Milaidy's Response ─────────────────────────
-import { parseActionBlock } from "./parse-action-block";
+import {
+  parseActionBlock,
+  stripActionBlockFromDisplay,
+} from "./parse-action-block";
 
 // ── Coordinator Event Routing ───────────────────────────────────────────
 
@@ -6156,13 +6159,10 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
           }
 
           // WS broadcast the natural language portion (strip JSON action block).
+          // Both fenced (```json ... ```) and bare JSON must be removed since
+          // the LLM may return either format.
           if (result.text && result.text !== "(no response)") {
-            const displayText = result.text
-              .replace(
-                /```(?:json)?\s*\n?\{[\s\S]*?"action"[\s\S]*?\}\s*\n?```/g,
-                "",
-              )
-              .trim();
+            const displayText = stripActionBlockFromDisplay(result.text);
             if (displayText && displayText.length > 2) {
               const conv = st.activeConversationId
                 ? st.conversations.get(st.activeConversationId)

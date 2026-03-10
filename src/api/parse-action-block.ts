@@ -29,6 +29,50 @@ export interface PTYService {
 const VALID_ACTIONS = ["respond", "escalate", "ignore", "complete"];
 
 /**
+ * Strip JSON action blocks from text before displaying in chat.
+ * Handles both fenced (```json ... ```) and bare JSON formats.
+ */
+export function stripActionBlockFromDisplay(text: string): string {
+  // First: fenced ```json action blocks — only strip if the action value is
+  // one of our known orchestrator actions to avoid false-positive stripping.
+  let cleaned = text.replace(
+    /```(?:json)?\s*\n?(\{[\s\S]*?"action"[\s\S]*?\})\s*\n?```/g,
+    (_match, json: string) => {
+      try {
+        const parsed = JSON.parse(json);
+        if (parsed && VALID_ACTIONS.includes(parsed.action)) return "";
+      } catch {
+        // malformed JSON — leave as-is
+      }
+      return _match;
+    },
+  );
+
+  // Second: bare JSON action blocks. Walk backwards from end of string to find
+  // the last '{' that starts a valid JSON object containing an "action" key.
+  // Note: this won't match nested objects (e.g. {"action":"respond","ctx":{"k":"v"}})
+  // because JSON.parse would fail on the truncated slice. Safe given our flat action schema.
+  const lastBrace = cleaned.lastIndexOf("{");
+  if (lastBrace >= 0) {
+    const candidate = cleaned.slice(lastBrace);
+    try {
+      const parsed = JSON.parse(candidate);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        VALID_ACTIONS.includes(parsed.action)
+      ) {
+        cleaned = cleaned.slice(0, lastBrace);
+      }
+    } catch {
+      // Not valid JSON — leave text as-is
+    }
+  }
+
+  return cleaned.trim();
+}
+
+/**
  * Parse a JSON action block from Milaidy's natural language response.
  * Looks for a fenced ```json block first, then bare JSON with "action" key.
  * Returns null if no valid action block is found.

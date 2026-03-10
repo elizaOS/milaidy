@@ -85,8 +85,9 @@ export async function handleCloudStatusRoutes(
     const cloudMode = config.cloud?.enabled;
     const cloudEnabled = cloudMode === true;
     const hasApiKey = Boolean(config.cloud?.apiKey?.trim());
-    const effectivelyEnabled =
-      cloudEnabled || (cloudMode !== false && hasApiKey);
+    // Require explicit cloud.enabled = true. Previously, undefined + apiKey
+    // would count as enabled, causing the model to revert to cloud on restart.
+    const effectivelyEnabled = cloudEnabled;
     const cloudAuth = runtime
       ? (runtime.getService("CLOUD_AUTH") as CloudAuthIdentityService | null)
       : null;
