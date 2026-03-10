@@ -33,10 +33,19 @@ const VALID_ACTIONS = ["respond", "escalate", "ignore", "complete"];
  * Handles both fenced (```json ... ```) and bare JSON formats.
  */
 export function stripActionBlockFromDisplay(text: string): string {
-  // First: fenced ```json action blocks
+  // First: fenced ```json action blocks — only strip if the action value is
+  // one of our known orchestrator actions to avoid false-positive stripping.
   let cleaned = text.replace(
-    /```(?:json)?\s*\n?\{[\s\S]*?"action"[\s\S]*?\}\s*\n?```/g,
-    "",
+    /```(?:json)?\s*\n?(\{[\s\S]*?"action"[\s\S]*?\})\s*\n?```/g,
+    (_match, json: string) => {
+      try {
+        const parsed = JSON.parse(json);
+        if (parsed && VALID_ACTIONS.includes(parsed.action)) return "";
+      } catch {
+        // malformed JSON — leave as-is
+      }
+      return _match;
+    },
   );
 
   // Second: bare JSON action blocks. Walk backwards from end of string to find
@@ -48,7 +57,11 @@ export function stripActionBlockFromDisplay(text: string): string {
     const candidate = cleaned.slice(lastBrace);
     try {
       const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === "object" && "action" in parsed) {
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        VALID_ACTIONS.includes(parsed.action)
+      ) {
         cleaned = cleaned.slice(0, lastBrace);
       }
     } catch {
