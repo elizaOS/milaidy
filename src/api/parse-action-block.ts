@@ -41,6 +41,8 @@ export function stripActionBlockFromDisplay(text: string): string {
 
   // Second: bare JSON action blocks. Walk backwards from end of string to find
   // the last '{' that starts a valid JSON object containing an "action" key.
+  // Note: this won't match nested objects (e.g. {"action":"respond","ctx":{"k":"v"}})
+  // because JSON.parse would fail on the truncated slice. Safe given our flat action schema.
   const lastBrace = cleaned.lastIndexOf("{");
   if (lastBrace >= 0) {
     const candidate = cleaned.slice(lastBrace);

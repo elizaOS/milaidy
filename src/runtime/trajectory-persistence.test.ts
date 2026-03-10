@@ -1,6 +1,11 @@
 import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
-import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
+import {
+  computeBySource,
+  extractRows,
+  installDatabaseTrajectoryLogger,
+  readOrchestratorTrajectoryContext,
+} from "./trajectory-persistence";
 
 async function waitForCallCount(
   fn: ReturnType<typeof vi.fn>,
@@ -151,5 +156,177 @@ describe("installDatabaseTrajectoryLogger", () => {
     );
 
     await waitForCallCount(dbExecute, callsAfterInstall + 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readOrchestratorTrajectoryContext
+// ---------------------------------------------------------------------------
+
+describe("readOrchestratorTrajectoryContext", () => {
+  it("returns undefined for null/undefined input", () => {
+    expect(readOrchestratorTrajectoryContext(null)).toBeUndefined();
+    expect(readOrchestratorTrajectoryContext(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for non-object input", () => {
+    expect(readOrchestratorTrajectoryContext("string")).toBeUndefined();
+    expect(readOrchestratorTrajectoryContext(42)).toBeUndefined();
+  });
+
+  it("returns undefined when __orchestratorTrajectoryCtx is missing", () => {
+    expect(readOrchestratorTrajectoryContext({})).toBeUndefined();
+  });
+
+  it("returns undefined when ctx is not an object", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: "not-an-object",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when source is not 'orchestrator'", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: {
+          source: "runtime",
+          decisionType: "stall-check",
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when decisionType is not a string", () => {
+    expect(
+      readOrchestratorTrajectoryContext({
+        __orchestratorTrajectoryCtx: {
+          source: "orchestrator",
+          decisionType: 123,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns valid context with required fields only", () => {
+    const result = readOrchestratorTrajectoryContext({
+      __orchestratorTrajectoryCtx: {
+        source: "orchestrator",
+        decisionType: "stall-check",
+      },
+    });
+    expect(result).toEqual({
+      source: "orchestrator",
+      decisionType: "stall-check",
+    });
+  });
+
+  it("returns valid context with all optional fields", () => {
+    const ctx = {
+      source: "orchestrator" as const,
+      decisionType: "coordination",
+      sessionId: "sess-1",
+      taskLabel: "fix bug",
+      repo: "my-repo",
+      workdir: "/tmp/work",
+      originalTask: "Fix the login flow",
+    };
+    const result = readOrchestratorTrajectoryContext({
+      __orchestratorTrajectoryCtx: ctx,
+    });
+    expect(result).toEqual(ctx);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractRows
+// ---------------------------------------------------------------------------
+
+describe("extractRows", () => {
+  it("returns the array directly when input is an array", () => {
+    const rows = [{ a: 1 }, { a: 2 }];
+    expect(extractRows(rows)).toBe(rows);
+  });
+
+  it("returns rows property when input is a { rows } wrapper", () => {
+    const rows = [{ source: "runtime", cnt: 3 }];
+    expect(extractRows({ rows })).toBe(rows);
+  });
+
+  it("returns empty array for null/undefined", () => {
+    expect(extractRows(null)).toEqual([]);
+    expect(extractRows(undefined)).toEqual([]);
+  });
+
+  it("returns empty array for non-array non-object", () => {
+    expect(extractRows("string")).toEqual([]);
+    expect(extractRows(42)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeBySource
+// ---------------------------------------------------------------------------
+
+describe("computeBySource", () => {
+  function mockRuntime(queryResult: unknown): IAgentRuntime {
+    return {
+      adapter: {
+        db: {
+          execute: vi.fn(async () => queryResult),
+        },
+      },
+    } as unknown as IAgentRuntime;
+  }
+
+  it("returns source counts from SQL result rows", async () => {
+    const runtime = mockRuntime({
+      rows: [
+        { source: "runtime", cnt: 5 },
+        { source: "orchestrator", cnt: 3 },
+        { source: "chat", cnt: 12 },
+      ],
+    });
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 5, orchestrator: 3, chat: 12 });
+  });
+
+  it("returns source counts from flat array result", async () => {
+    const runtime = mockRuntime([
+      { source: "runtime", cnt: 2 },
+      { source: "orchestrator", cnt: 1 },
+    ]);
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 2, orchestrator: 1 });
+  });
+
+  it("skips rows with non-string source", async () => {
+    const runtime = mockRuntime([
+      { source: "runtime", cnt: 1 },
+      { source: null, cnt: 5 },
+      { source: 123, cnt: 2 },
+    ]);
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({ runtime: 1 });
+  });
+
+  it("returns empty object when DB throws", async () => {
+    const runtime = {
+      adapter: {
+        db: {
+          execute: vi.fn(async () => {
+            throw new Error("db unavailable");
+          }),
+        },
+      },
+    } as unknown as IAgentRuntime;
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({});
+  });
+
+  it("returns empty object when no DB adapter", async () => {
+    const runtime = {} as IAgentRuntime;
+    const result = await computeBySource(runtime);
+    expect(result).toEqual({});
   });
 });

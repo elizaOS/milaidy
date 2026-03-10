@@ -298,14 +298,16 @@ async function executeRawSql(
   return db.execute(raw(sqlText));
 }
 
-function extractRows(result: unknown): unknown[] {
+/** @internal Exported for testing. */
+export function extractRows(result: unknown): unknown[] {
   if (Array.isArray(result)) return result;
   const record = asRecord(result);
   if (!record) return [];
   return Array.isArray(record.rows) ? record.rows : [];
 }
 
-async function computeBySource(
+/** @internal Exported for testing. */
+export async function computeBySource(
   runtime: IAgentRuntime,
 ): Promise<Record<string, number>> {
   try {
@@ -913,7 +915,8 @@ async function saveTrajectory(
  * The coding agent orchestrator plugin sets `__orchestratorTrajectoryCtx` on
  * the runtime around `useModel()` calls so we can tag them here.
  */
-function readOrchestratorTrajectoryContext(runtime: unknown):
+/** @internal Exported for testing. */
+export function readOrchestratorTrajectoryContext(runtime: unknown):
   | {
       source: "orchestrator";
       decisionType: string;
