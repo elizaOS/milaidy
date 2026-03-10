@@ -82,7 +82,7 @@ describe("cloud status routes", () => {
     });
   });
 
-  test("reports cloud status when only api key is present", async () => {
+  test("reports cloud as connected but not enabled when only api key is present", async () => {
     const result = await invoke({
       method: "GET",
       pathname: "/api/cloud/status",
@@ -93,7 +93,47 @@ describe("cloud status routes", () => {
     expect(result.handled).toBe(true);
     expect(result.payload).toEqual({
       connected: true,
+      enabled: false,
+      hasApiKey: true,
+      userId: undefined,
+      organizationId: undefined,
+      topUpUrl: "https://www.elizacloud.ai/dashboard/settings?tab=billing",
+      reason: "api_key_present_runtime_not_started",
+    });
+  });
+
+  test("reports cloud as enabled when explicitly set to true", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/cloud/status",
+      runtime: null,
+      config: { cloud: { enabled: true, apiKey: "abc123" } } as MiladyConfig,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual({
+      connected: true,
       enabled: true,
+      hasApiKey: true,
+      userId: undefined,
+      organizationId: undefined,
+      topUpUrl: "https://www.elizacloud.ai/dashboard/settings?tab=billing",
+      reason: "api_key_present_runtime_not_started",
+    });
+  });
+
+  test("reports cloud as not enabled when explicitly disabled with api key", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/cloud/status",
+      runtime: null,
+      config: { cloud: { enabled: false, apiKey: "abc123" } } as MiladyConfig,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual({
+      connected: true,
+      enabled: false,
       hasApiKey: true,
       userId: undefined,
       organizationId: undefined,
