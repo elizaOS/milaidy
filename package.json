@@ -114,7 +114,15 @@
     "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui",
     "db:reset": "scripts/rt.sh scripts/run-node.mjs db reset",
     "doctor": "scripts/rt.sh scripts/run-node.mjs doctor",
-    "repair": "node scripts/init-submodules.mjs && node scripts/ensure-avatars.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/ensure-vision-deps.mjs && node scripts/patch-deps.mjs"
+    "repair": "node scripts/init-submodules.mjs && node scripts/ensure-avatars.mjs && node scripts/ensure-skills.mjs && node scripts/link-browser-server.mjs && node scripts/patch-deps.mjs",
+    "build:win": "node scripts/build-win.mjs",
+    "build:win:base": "node scripts/build-win.mjs --variant base",
+    "build:win:companion": "node scripts/build-win.mjs --variant companion",
+    "build:win:full": "node scripts/build-win.mjs --variant full",
+    "dev:win": "node scripts/dev-win.mjs",
+    "dev:win:base": "node scripts/dev-win.mjs --variant base",
+    "dev:win:companion": "node scripts/dev-win.mjs --variant companion",
+    "dev:win:full": "node scripts/dev-win.mjs --variant full"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.13",
