@@ -172,13 +172,14 @@ describe("installDatabaseTrajectoryLogger", () => {
       createRuntimeWithTrajectoryLogger(legacyLogger);
 
     // Set orchestrator context on the runtime
-    (runtime as unknown as Record<string, unknown>).__orchestratorTrajectoryCtx =
-      {
-        source: "orchestrator",
-        decisionType: "stall-check",
-        sessionId: "sess-42",
-        taskLabel: "implement feature X",
-      };
+    (
+      runtime as unknown as Record<string, unknown>
+    ).__orchestratorTrajectoryCtx = {
+      source: "orchestrator",
+      decisionType: "stall-check",
+      sessionId: "sess-42",
+      taskLabel: "implement feature X",
+    };
 
     installDatabaseTrajectoryLogger(runtime);
     await waitForCallCount(dbExecute, 1);
