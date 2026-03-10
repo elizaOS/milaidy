@@ -229,6 +229,10 @@ describe("Agent Orchestrator Plugin Loading", () => {
   });
 
   it("installed version matches package.json spec", async () => {
+    // The 2.0.0-alpha versions were a historical artifact from the elizaOS
+    // monorepo.  The plugin was completely repurposed for agent orchestration
+    // and republished at 0.x under the `next` npm tag.  We verify a valid
+    // semver is installed rather than pinning a minimum major version.
     const pkgPath = path.resolve(
       packageRoot,
       "node_modules/@elizaos/plugin-agent-orchestrator/package.json",
@@ -236,7 +240,6 @@ describe("Agent Orchestrator Plugin Loading", () => {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
       version: string;
     };
-    // Verify a valid semver version is installed (exact version may vary)
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 });

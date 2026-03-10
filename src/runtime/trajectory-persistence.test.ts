@@ -157,6 +157,77 @@ describe("installDatabaseTrajectoryLogger", () => {
 
     await waitForCallCount(dbExecute, callsAfterInstall + 2);
   });
+
+  it("tags LLM calls with orchestrator context when __orchestratorTrajectoryCtx is set", async () => {
+    const originalLogLlmCall = vi.fn();
+    const legacyLogger = {
+      listTrajectories: vi.fn(),
+      getTrajectoryDetail: vi.fn(),
+      logLlmCall: originalLogLlmCall,
+      logProviderAccess: vi.fn(),
+      isEnabled: () => true,
+    } as Record<string, unknown>;
+
+    const { runtime, dbExecute } =
+      createRuntimeWithTrajectoryLogger(legacyLogger);
+
+    // Set orchestrator context on the runtime
+    (runtime as unknown as Record<string, unknown>).__orchestratorTrajectoryCtx =
+      {
+        source: "orchestrator",
+        decisionType: "stall-check",
+        sessionId: "sess-42",
+        taskLabel: "implement feature X",
+      };
+
+    installDatabaseTrajectoryLogger(runtime);
+    await waitForCallCount(dbExecute, 1);
+    const callsAfterInstall = dbExecute.mock.calls.length;
+
+    const patchedLogLlmCall = legacyLogger.logLlmCall as (
+      ...args: unknown[]
+    ) => void;
+
+    patchedLogLlmCall({
+      stepId: "step-orch-1",
+      model: "claude-sonnet",
+      systemPrompt: "system",
+      userPrompt: "classify this output",
+      response: "the agent is stalled",
+      temperature: 0,
+      maxTokens: 512,
+      purpose: "action",
+      actionType: "runtime.useModel",
+      latencyMs: 200,
+    });
+
+    await waitForCallCount(dbExecute, callsAfterInstall + 1);
+
+    // Find the INSERT SQL call — dbExecute receives a tagged template result
+    // which may be a raw SQL string or a Sql object. Stringify all args to search.
+    const insertIdx = dbExecute.mock.calls.findIndex((call: unknown[]) => {
+      const serialized = JSON.stringify(call);
+      return serialized.includes("INSERT INTO trajectories");
+    });
+
+    expect(insertIdx).toBeGreaterThanOrEqual(0);
+
+    // Serialize the full call to check for expected values
+    const insertSql = JSON.stringify(dbExecute.mock.calls[insertIdx]);
+
+    // Verify source is "orchestrator"
+    expect(insertSql).toContain("orchestrator");
+
+    // Verify the LLM call has orchestrator overrides:
+    // purpose should be the decisionType ("stall-check")
+    // actionType should be "orchestrator.useModel"
+    expect(insertSql).toContain("stall-check");
+    expect(insertSql).toContain("orchestrator.useModel");
+
+    // Verify metadata contains orchestrator session/task info
+    expect(insertSql).toContain("sess-42");
+    expect(insertSql).toContain("implement feature X");
+  });
 });
 
 // ---------------------------------------------------------------------------
