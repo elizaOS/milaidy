@@ -996,6 +996,22 @@ describe("applyCloudConfigToEnv", () => {
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("new-key");
   });
 
+  it("does NOT enable cloud when apiKey present but enabled is not explicitly true", () => {
+    const config = { cloud: { apiKey: "ck-123" } } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
+  });
+
+  it("clears ELIZAOS_CLOUD_ENABLED when enabled is explicitly false", () => {
+    process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    const config = {
+      cloud: { enabled: false, apiKey: "ck-123" },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+  });
+
   it("handles missing cloud config gracefully", () => {
     expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
   });
