@@ -60,19 +60,27 @@ import type { Tab } from "../navigation";
 export type UiShellMode = "companion" | "native";
 
 export type OnboardingStep =
-    | "welcome"
+    | "wakeUp"
     | "language"
-    | "setupMode"
-    | "mint"
-    | "runMode"
-    | "dockerSetup"
-    | "cloudProvider"
-    | "modelSelection"
-    | "cloudLogin"
-    | "llmProvider"
-    | "inventorySetup"
-    | "connectors"
-    | "permissions";
+    | "identity"
+    | "connection"
+    | "senses"
+    | "activate";
+
+export interface OnboardingStepMeta {
+    id: OnboardingStep;
+    name: string;
+    subtitle: string;
+}
+
+export const ONBOARDING_STEPS: OnboardingStepMeta[] = [
+    { id: "wakeUp", name: "Wake Up", subtitle: "Activation" },
+    { id: "language", name: "Language", subtitle: "Communication" },
+    { id: "identity", name: "Identity", subtitle: "Designation" },
+    { id: "connection", name: "Connection", subtitle: "Neural Link" },
+    { id: "senses", name: "Senses", subtitle: "Permissions" },
+    { id: "activate", name: "Activate", subtitle: "Complete" },
+];
 
 export interface OnboardingNextOptions {
     allowPermissionBypass?: boolean;
@@ -413,7 +421,6 @@ export interface AppState {
     onboardingOptions: OnboardingOptions | null;
     onboardingName: string;
     onboardingOwnerName: string;
-    onboardingSetupMode: "" | "quick" | "advanced";
     onboardingStyle: string;
     onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
     onboardingCloudProvider: string;
