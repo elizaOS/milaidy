@@ -118,4 +118,5 @@ e2e-screenshots/
 data/
 .avatar-clone-tmp
 
+# Debug PTY captures from plugin-agent-orchestrator (PARALLAX_DEBUG_CAPTURE=1)
 .parallax/
