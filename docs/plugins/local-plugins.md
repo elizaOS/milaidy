@@ -470,6 +470,50 @@ For rapid prototyping, you can point `main` at the TypeScript source:
 
 Milady's runtime can import TypeScript files directly in dev mode. Switch to `dist/index.js` before distributing.
 
+### Configuration-Driven Loading
+
+Load a plugin from any path using `milady.json`:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "my-plugin": {
+        "enabled": true,
+        "path": "~/projects/my-plugin/dist"
+      }
+    }
+  }
+}
+```
+
+Path supports tilde expansion (`~/`) and both relative and absolute paths. This is useful when your plugin lives outside the standard plugin directories.
+
+### Rapid Iteration Tips
+
+1. **Use `LOG_LEVEL=debug`** to see plugin loading, discovery, and initialization logs
+2. **Check plugin load order** in debug logs -- look for `Loading plugin: your-plugin-name`
+3. **Test actions via chat** -- type messages that trigger your action's validate function
+4. **Use the REST API** for programmatic testing:
+
+```bash
+# List loaded plugins
+curl http://localhost:18789/api/plugins
+
+# Search the registry
+curl http://localhost:18789/api/registry/search?q=my-plugin
+```
+
+5. **Run multiple instances** with different configs using `ELIZAOS_CONFIG_DIR`:
+
+```bash
+# Instance with your dev plugin
+ELIZAOS_CONFIG_DIR=./config-dev milady start
+
+# Instance with production plugins
+ELIZAOS_CONFIG_DIR=./config-prod milady start
+```
+
 ---
 
 ## Debugging
@@ -582,6 +626,7 @@ These environment variables affect plugin paths and behavior. They are defined i
 | `MILADY_OAUTH_DIR` | `~/.milady/credentials` | Override the OAuth credentials directory. |
 | `LOG_LEVEL` | `error` | Set log verbosity: `debug`, `info`, `warn`, `error`. |
 | `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | unset | Set to `1` to disable workspace plugin overrides (dev-only mechanism). |
+| `ELIZAOS_CONFIG_DIR` | unset | Override the ElizaOS core config directory. Useful for running multiple agent instances with different plugin configurations. |
 
 When `MILADY_STATE_DIR` is set, all derived paths change accordingly:
 - Plugins: `$MILADY_STATE_DIR/plugins/installed/`, `$MILADY_STATE_DIR/plugins/custom/`, `$MILADY_STATE_DIR/plugins/ejected/`

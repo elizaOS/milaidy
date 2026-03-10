@@ -173,11 +173,13 @@
             "group": "Plugins",
             "pages": [
               "plugins/overview",
+              "plugins/decision-guide",
               "plugins/architecture",
               "plugins/registry",
               "guides/registry",
               "plugins/create-a-plugin",
               "plugins/development",
+              "plugins/testing",
               "plugins/local-plugins",
               "plugins/plugin-eject",
               "plugins/patterns",

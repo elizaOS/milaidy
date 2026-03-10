@@ -191,17 +191,38 @@ Include an `elizaos.plugin.json` at the package root for rich UI integration in 
 - Run `tsc --noEmit` in CI to catch type errors.
 - Test the published package with `npm pack` before publishing.
 
+## Multi-Language Plugins
+
+Plugins can include implementations in multiple languages:
+
+```
+my-plugin/
+├── typescript/     # Primary TypeScript implementation
+│   ├── src/
+│   ├── package.json
+│   └── tsconfig.json
+├── python/         # Optional Python SDK bindings
+│   ├── src/
+│   └── pyproject.toml
+├── rust/           # Optional Rust native module
+│   ├── src/
+│   └── Cargo.toml
+└── elizaos.plugin.json
+```
+
+The TypeScript implementation is always required. Python and Rust implementations are optional and used by their respective SDKs. The `elizaos.plugin.json` manifest at the root describes the plugin for all languages.
+
 ## Community Registry
 
-After publishing to npm, submit your plugin to the Milady community registry by opening a pull request to the [milady-ai/milady](https://github.com/milady-ai/milady) repository.
+After publishing to npm, submit your plugin to the community registry by opening a PR to [`elizaos-plugins/registry`](https://github.com/elizaos-plugins/registry).
 
-Include:
-1. The npm package name
-2. A short description
-3. The list of required environment variables
-4. Any special installation notes
+Include in your PR:
+1. Entry in `index.json` mapping your package name to its git repo
+2. A working `elizaos.plugin.json` manifest in your package
+3. At least one passing test suite
+4. README with setup instructions and required environment variables
 
-Community plugins are reviewed for security, functionality, and documentation quality before listing.
+Community plugins are reviewed for security, functionality, and documentation quality before listing. See [Registry Documentation](./registry#submitting-a-plugin-to-the-registry) for details.
 
 ## Related
 

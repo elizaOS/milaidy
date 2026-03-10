@@ -560,6 +560,129 @@ Your skill should appear in the response with the name and description from your
 
 ---
 
+## Writing a New Skill: Complete Example
+
+Here is a complete example of a `code-review` skill that helps agents review pull requests.
+
+### Full Directory Structure
+
+```
+code-review/
+├── SKILL.md              # Required -- skill definition
+├── scripts/
+│   └── review.sh         # Optional -- executable helper
+├── references/
+│   └── review-checklist.md  # Optional -- loaded into context
+└── assets/
+    └── report-template.md   # Optional -- output template
+```
+
+### Complete SKILL.md
+
+```markdown
+---
+name: code-review
+description: Review pull requests for code quality, security issues, and best practices
+required-bins: gh, git
+required-env: GITHUB_TOKEN
+user-invocable: true
+primary-env: shell
+command-dispatch: shell
+command-tool: bash
+metadata:
+  category: development
+  author: your-name
+---
+
+# Code Review Skill
+
+Review a GitHub pull request for quality and security issues.
+
+## Instructions
+
+When asked to review a PR:
+
+1. Fetch the PR diff using `gh pr diff <number>`
+2. Analyze each changed file for:
+   - Logic errors or bugs
+   - Security vulnerabilities (injection, auth bypass, secrets exposure)
+   - Performance issues (N+1 queries, unnecessary allocations)
+   - Style violations (naming, formatting, dead code)
+3. Load the review checklist from `references/review-checklist.md`
+4. Generate a report using the template in `assets/report-template.md`
+5. Post the review as a PR comment using `gh pr review <number>`
+
+## Examples
+
+User: "Review PR #42"
+Agent: Fetches diff, analyzes changes, posts review comment
+
+User: "Review the latest PR on milady-ai/milady"
+Agent: Finds latest PR, reviews it
+```
+
+### Frontmatter Reference
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `name` | Yes | `string` | Skill identifier, must match folder name |
+| `description` | Yes | `string` | What the skill does (shown in search results) |
+| `required-os` | No | `string[]` | Platform restrictions: `macos`, `linux`, `windows` |
+| `required-bins` | No | `string[]` | CLI tools that must be in PATH |
+| `required-env` | No | `string[]` | Environment variables that must be set |
+| `primary-env` | No | `string` | Runtime: `node`, `python`, `shell` |
+| `user-invocable` | No | `boolean` | Can users invoke directly? Default: `true` |
+| `disable-model-invocation` | No | `boolean` | If `true`, not injected into LLM prompts |
+| `command-dispatch` | No | `string` | How commands are dispatched (e.g., `shell`) |
+| `command-tool` | No | `string` | Tool for command execution (e.g., `bash`) |
+| `metadata` | No | `object` | Arbitrary JSON (category, author, tags, etc.) |
+
+### When to Use Scripts vs References vs Assets
+
+| Directory | Purpose | Loaded When |
+|-----------|---------|-------------|
+| `scripts/` | Executable code the agent runs | Agent decides to execute during task |
+| `references/` | Documentation loaded into agent context | Always loaded when skill is active |
+| `assets/` | Templates, images, data files for output | Agent reads when generating output |
+
+**Guidelines:**
+- Keep `references/` files concise -- they consume context window tokens
+- Put large datasets in `assets/`, not `references/`
+- Scripts should be idempotent and safe to re-run
+- Always include error handling in scripts
+
+### Skill Resolution & Priority
+
+Skills are discovered from multiple locations. When duplicate names exist, higher-priority sources win:
+
+1. **Marketplace skills** (`{workspace}/skills/.marketplace/`) -- highest
+2. **Workspace skills** (`{workspace}/skills/`)
+3. **Managed skills** (`~/.milady/skills/`)
+4. **Extra directories** (from `skills.load.extraDirs` config)
+5. **Bundled skills** (from `@elizaos/plugin-agent-skills`) -- lowest
+
+### Enable/Disable Priority
+
+1. Database preferences (per-agent toggle via API) -- highest
+2. `skills.denyBundled` config (always blocks listed skills)
+3. `skills.entries[id].enabled` config flag
+4. `skills.allowBundled` config (whitelist mode)
+5. Default: enabled -- lowest
+
+### Skills vs Plugins: When to Use Each
+
+| Use a **Skill** when... | Use a **Plugin** when... |
+|------------------------|------------------------|
+| Extending agent behavior with instructions | Adding new API integrations |
+| No custom TypeScript code needed | Custom services, routes, or models |
+| Markdown-based knowledge is sufficient | Need database access or state management |
+| Rapid iteration (edit markdown, reload) | Need type-safe interfaces and testing |
+| Context-window-friendly additions | Need background processes |
+
+For a complete comparison of all extension points, see the [Decision Guide](/plugins/decision-guide).
+
+---
+
 ## Best Practices
 
 ### Keep Instructions Concise

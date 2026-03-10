@@ -443,8 +443,63 @@ Results are sorted by score descending, then by star count as a tiebreaker.
 
 ---
 
+---
+
+## Plugin Ecosystem
+
+### Organization Structure
+
+Official ElizaOS plugins live in the [`elizaos-plugins`](https://github.com/elizaos-plugins) GitHub organization. The registry indexes plugins from this org automatically.
+
+| Repository | Contents |
+|-----------|----------|
+| `elizaos-plugins/registry` | Registry index (`index.json`, `generated-registry.json`), registry site |
+| `elizaos-plugins/plugin-*` | Individual official plugin packages |
+
+### Naming Conventions
+
+Follow these naming patterns for discoverability:
+
+| Scope | Pattern | Example |
+|-------|---------|---------|
+| Official | `@elizaos/plugin-<name>` | `@elizaos/plugin-telegram` |
+| Organization | `@yourorg/plugin-<name>` | `@acme/plugin-crm` |
+| Community | `elizaos-plugin-<name>` | `elizaos-plugin-weather` |
+
+The `plugin-` prefix is required for automatic discovery. The registry scanner recognizes all three patterns.
+
+### Submitting a Plugin to the Registry
+
+1. **Publish to npm** — Follow the [Publishing Guide](./publish)
+2. **Open a PR** to [`elizaos-plugins/registry`](https://github.com/elizaos-plugins/registry) adding your plugin to `index.json`:
+
+```json
+{
+  "@yourorg/plugin-weather": "github:yourorg/plugin-weather"
+}
+```
+
+3. **Include in your PR:**
+   - Plugin name, description, and category
+   - A working `elizaos.plugin.json` manifest in your package
+   - At least one passing test suite
+   - README with setup instructions
+
+4. **Registry CI** validates your plugin builds, loads, and passes tests
+5. Once merged, your plugin appears in `milady plugins search` and the registry site
+
+### Registry Site
+
+The registry has a browsable web interface hosted from `registry/site/`. Users can:
+- Browse plugins by category (Core, Model Providers, Connectors, DeFi, Features)
+- Search by name, description, or tags
+- View plugin details, install commands, and configuration
+
+---
+
 ## Next Steps
 
-- [Plugin Development Guide](./development.md) -- Create your own plugins
-- [Local Plugin Development](./local-plugins.md) -- Develop without publishing
+- [Plugin Development Guide](./development) -- Create your own plugins
+- [Local Plugin Development](./local-plugins) -- Develop without publishing
+- [Publishing Guide](./publish) -- Publish to npm and the registry
 - [Contributing Guide](/guides/contribution-guide) -- Submit plugins upstream

@@ -312,8 +312,162 @@ milady start
 
 Check the logs for `[weather-plugin] Initialized` to confirm the plugin loaded.
 
+## Plugin Manifest (`elizaos.plugin.json`)
+
+Every published plugin should include an `elizaos.plugin.json` manifest at its package root. This file tells the runtime and admin UI how to configure and display your plugin.
+
+```json
+{
+  "id": "plugin-weather",
+  "name": "Weather Plugin",
+  "version": "1.0.0",
+  "kind": "feature",
+  "description": "Provides real-time weather data to your agent",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "description": "OpenWeatherMap API key"
+      },
+      "units": {
+        "type": "string",
+        "enum": ["metric", "imperial"],
+        "default": "metric"
+      }
+    },
+    "required": ["apiKey"]
+  },
+  "uiHints": [
+    {
+      "key": "apiKey",
+      "label": "API Key",
+      "type": "password",
+      "helpText": "Get one at openweathermap.org/appid"
+    },
+    {
+      "key": "units",
+      "label": "Temperature Units",
+      "type": "select",
+      "advanced": false
+    }
+  ],
+  "requiredSecrets": ["WEATHER_API_KEY"],
+  "channels": ["chat", "telegram", "discord"],
+  "dependencies": ["@elizaos/plugin-knowledge"]
+}
+```
+
+### Manifest Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique plugin identifier (kebab-case) |
+| `name` | `string` | Human-readable display name |
+| `version` | `string` | Semver version |
+| `kind` | `PluginKind` | One of: `memory`, `channel`, `provider`, `skill`, `database`, `feature` |
+| `configSchema` | `JsonSchema` | JSON Schema for plugin configuration |
+| `uiHints` | `PluginConfigUiHint[]` | Hints for admin panel rendering |
+| `requiredSecrets` | `string[]` | Environment variables that must be set |
+| `channels` | `string[]` | Supported communication channels |
+| `dependencies` | `string[]` | Other plugins this depends on |
+
+### UI Hints
+
+The `uiHints` array controls how config fields appear in the admin dashboard:
+
+```typescript
+interface PluginConfigUiHint {
+  key: string;        // matches configSchema property name
+  label: string;      // display label
+  type: 'text' | 'password' | 'number' | 'select' | 'toggle' | 'textarea';
+  helpText?: string;  // tooltip or helper text
+  advanced?: boolean; // if true, hidden under "Advanced" toggle
+  placeholder?: string;
+}
+```
+
+---
+
+## How Plugin Discovery Works
+
+When Milady starts, it discovers plugins from multiple sources in priority order:
+
+1. **Milady plugin** — Built-in workspace context and session management
+2. **Core plugins** — Always loaded (`@elizaos/plugin-sql`, `@elizaos/plugin-local-embedding`, etc.)
+3. **Connector plugins** — Auto-enabled when channel config exists (e.g., `telegram` config → `@elizaos/plugin-telegram`)
+4. **Provider plugins** — Auto-enabled when API key env var is set (e.g., `ANTHROPIC_API_KEY` → `@elizaos/plugin-anthropic`)
+5. **Feature plugins** — Enabled via feature flags in `milady.json` (e.g., `features.browser: true` → `@elizaos/plugin-browser`)
+6. **User-installed plugins** — Installed via `milady plugins install`
+7. **Custom plugins** — Dropped into `~/.milady/plugins/custom/`
+8. **Ejected plugins** — Git-cloned upstream plugins in `~/.milady/plugins/ejected/`
+
+### Auto-Enable by Environment Variable
+
+Set an API key and the corresponding plugin loads automatically:
+
+| Environment Variable | Plugin |
+|---------------------|--------|
+| `ANTHROPIC_API_KEY` | `@elizaos/plugin-anthropic` |
+| `OPENAI_API_KEY` | `@elizaos/plugin-openai` |
+| `GOOGLE_API_KEY` | `@elizaos/plugin-google-genai` |
+| `GROQ_API_KEY` | `@elizaos/plugin-groq` |
+| `OPENROUTER_API_KEY` | `@elizaos/plugin-openrouter` |
+
+### Auto-Enable by Connector Config
+
+Configure a channel in `milady.json` and the connector plugin loads:
+
+```json
+{
+  "connectors": {
+    "telegram": { "botToken": "..." },
+    "discord": { "token": "..." }
+  }
+}
+```
+
+This auto-loads `@elizaos/plugin-telegram` and `@elizaos/plugin-discord`.
+
+### Disabling Auto-Enabled Plugins
+
+Override in `milady.json`:
+
+```json
+{
+  "plugins": {
+    "@elizaos/plugin-telegram": { "enabled": false }
+  }
+}
+```
+
+---
+
+## Starter Template
+
+The fastest way to start a new plugin is the TypeScript starter template:
+
+```bash
+# Copy the starter
+cp -r examples/_plugin/typescript/ my-plugin
+cd my-plugin
+bun install
+```
+
+The template includes:
+- Pre-configured `package.json` with `@elizaos/core` peer dependency
+- TypeScript config targeting ES2022
+- Example action, provider, and service
+- Vitest test setup with runtime mocks
+- `elizaos.plugin.json` manifest
+- Cypress E2E test scaffold
+
+---
+
 ## Next Steps
 
+- [Testing Guide](/plugins/testing) — Unit, integration, and E2E testing patterns
+- [Decision Guide](/plugins/decision-guide) — Choosing between Actions, Providers, Services, and Skills
 - [Plugin Patterns](/plugins/patterns) — Common patterns for services, state, and error handling
 - [Plugin Schemas](/plugins/schemas) — Full schema reference for all plugin types
 - [Publish a Plugin](/plugins/publish) — Publish to the npm registry
