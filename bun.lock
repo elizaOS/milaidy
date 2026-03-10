@@ -14,7 +14,7 @@
         "@clack/prompts": "^1.0.0",
         "@electric-sql/pglite": "^0.3.3",
         "@elizaos/core": "alpha",
-        "@elizaos/plugin-agent-orchestrator": "alpha",
+        "@elizaos/plugin-agent-orchestrator": "0.3.12",
         "@elizaos/plugin-agent-skills": "next",
         "@elizaos/plugin-anthropic": "alpha",
         "@elizaos/plugin-browser": "next",
@@ -107,7 +107,7 @@
         "pdfjs-dist": "^5.4.530",
         "pg": "^8.16.3",
         "pino": "^10.3.1",
-        "pty-manager": "1.9.6",
+        "pty-manager": "1.9.8",
         "puppeteer-core": "^24.37.5",
         "qrcode": "^1.5.4",
         "sharp": "^0.33.5",
@@ -140,7 +140,7 @@
     },
     "apps/app": {
       "name": "@milady/app",
-      "version": "2.0.0-alpha.75",
+      "version": "2.0.0-alpha.82",
       "dependencies": {
         "@capacitor/android": "^8.0.2",
         "@capacitor/app": "^8.0.1",
@@ -188,7 +188,7 @@
     },
     "apps/app/electrobun": {
       "name": "@milady/electrobun",
-      "version": "2.0.0-alpha.76",
+      "version": "2.0.0-alpha.82",
       "dependencies": {
         "bonjour-service": "1.3.0",
         "electrobun": "^1.15.1",
@@ -455,7 +455,7 @@
     "ai": "6.0.30",
     "drizzle-orm": "0.45.1",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.6",
+    "pty-manager": "1.9.8",
   },
   "packages": {
     "@acemir/cssom": ["@acemir/cssom@0.9.31", "", {}, "sha512-ZnR3GSaH+/vJ0YlHau21FjfLYjMpYVIzTD8M8vIEQvIGxeOXyXdzCI140rrCY862p/C/BbzWsjc1dgnM9mkoTA=="],
@@ -720,7 +720,7 @@
 
     "@elizaos/core": ["@elizaos/core@2.0.0-alpha.33", "", { "dependencies": { "@bufbuild/protobuf": "^2.10.2", "@elizaos/prompts": "2.0.0-alpha.33", "@langchain/core": "^1.1.12", "@langchain/textsplitters": "^1.0.1", "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dedent": "^1.7.1", "dotenv": "^17.2.3", "drizzle-orm": "^0.44.7", "fast-redact": "^3.5.0", "file-type": "^21.3.0", "glob": "^13.0.0", "handlebars": "^4.7.8", "markdown-it": "^14.1.0", "pdfjs-dist": "^5.4.530", "unique-names-generator": "^4.7.1", "uuid": "^13.0.0", "yaml": "^2.8.1", "zod": "^4.3.6" } }, "sha512-VI7qrGbBmxwThIS5qHMUJaTBgN8Be2aA0yw2An8SNmM8XtH1YISyNUJKzctsEiNr5DMBvZH4OePCQp3a/aZUKw=="],
 
-    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@2.0.0-alpha.5", "", { "dependencies": { "uuid": "^13.0.0" }, "peerDependencies": { "@elizaos/core": "2.0.0-alpha.3" } }, "sha512-buYO6owmJLBFVKDuWbPF2bQSX0SMas/2cwS4xCcNEu/yUirqRUGD2w4P0d+bXyA1OgtMflB7jX2j3cBVg58kZA=="],
+    "@elizaos/plugin-agent-orchestrator": ["@elizaos/plugin-agent-orchestrator@0.3.12", "", { "dependencies": { "coding-agent-adapters": "0.12.0", "pty-console": "0.3.1" }, "peerDependencies": { "@elizaos/core": ">=2.0.0-alpha.0", "git-workspace-service": "0.4.4", "pty-manager": "1.9.8" } }, "sha512-0m+4+gEUpKXbNKImY5dpOYSX2MXcBZGUA+vwAz1mCZ3NkWyz5B7vj7bzoZCZ5cpmufN2MmTrsXFSIEXH8C35TA=="],
 
     "@elizaos/plugin-agent-skills": ["@elizaos/plugin-agent-skills@2.0.0-alpha.11", "", { "dependencies": { "@elizaos/core": "2.0.0-alpha.3", "fflate": "^0.8.2" } }, "sha512-trFM3i/J+DSmhwVgnt0muWMSToNxbwKq3Su1f9ZnNAnm+H2Fidptsy0OkX78mwqJBfCXIbvnsCFuLNtszjYMqw=="],
 
@@ -3030,7 +3030,7 @@
 
     "pty-console": ["pty-console@0.3.1", "", { "dependencies": { "pty-manager": "^1.9.0" } }, "sha512-ZiI3Oav83AEq1kWIQWfloMN0gM6RiAh+fCMm+ee+8wduOLqfW5AYZx5BEg3eJblCKKVQW22x2mB9UTUoM/Vpcw=="],
 
-    "pty-manager": ["pty-manager@1.9.6", "", { "dependencies": { "node-pty": "^1.0.0" }, "bin": { "pty-worker": "dist/pty-worker.js" } }, "sha512-IGfO9YIn3nC07FJcCIPIAp6eAOs2+H80A9+YhnqChJiBAcHlXLHNcpuR9MckbgIT0nwiuu83FsbjQf2nGDJx3g=="],
+    "pty-manager": ["pty-manager@1.9.8", "", { "dependencies": { "node-pty": "^1.0.0" }, "bin": { "pty-worker": "dist/pty-worker.js" } }, "sha512-FoliQUAqdWPqOZIckzafISwS9Fom/cPcxTIeyXA86ypyCW2lRIqs1UVOTvCnOnSWCRbAtLj3JmcPSZ0pH/dpig=="],
 
     "public-encrypt": ["public-encrypt@4.0.3", "", { "dependencies": { "bn.js": "^4.1.0", "browserify-rsa": "^4.0.0", "create-hash": "^1.1.0", "parse-asn1": "^5.0.0", "randombytes": "^2.0.1", "safe-buffer": "^5.1.2" } }, "sha512-zVpa8oKZSz5bTMTFClc1fQOnyyEzpl5ozpi1B5YcvBrdohMjH2rfsBtyXcuNuwjsDIXmBYlF2N5FlJYhR29t8Q=="],
 

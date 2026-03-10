@@ -126,7 +126,7 @@
     "@clack/prompts": "^1.0.0",
     "@electric-sql/pglite": "^0.3.3",
     "@elizaos/core": "alpha",
-    "@elizaos/plugin-agent-orchestrator": "alpha",
+    "@elizaos/plugin-agent-orchestrator": "0.3.12",
     "@elizaos/plugin-agent-skills": "next",
     "@elizaos/plugin-anthropic": "alpha",
     "@elizaos/plugin-browser": "next",
@@ -219,7 +219,7 @@
     "pdfjs-dist": "^5.4.530",
     "pg": "^8.16.3",
     "pino": "^10.3.1",
-    "pty-manager": "1.9.6",
+    "pty-manager": "1.9.8",
     "puppeteer-core": "^24.37.5",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
@@ -255,7 +255,7 @@
     "@elizaos/core": "alpha",
     "@elizaos/prompts": "alpha",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.6"
+    "pty-manager": "1.9.8"
   },
   "patchedDependencies": {
     "electrobun@1.15.1": "patches/electrobun@1.15.1.patch"
