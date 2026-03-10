@@ -6047,6 +6047,35 @@ export async function handleSwarmSynthesis(
 // ── Parse Action Block from Milaidy's Response ─────────────────────────
 import { parseActionBlock } from "./parse-action-block";
 
+/**
+ * Strip JSON action blocks from Milaidy's response before displaying in chat.
+ * Handles both fenced (```json ... ```) and bare JSON formats.
+ */
+function stripActionBlockFromDisplay(text: string): string {
+  // First: fenced ```json action blocks
+  let cleaned = text.replace(
+    /```(?:json)?\s*\n?\{[\s\S]*?"action"[\s\S]*?\}\s*\n?```/g,
+    "",
+  );
+
+  // Second: bare JSON action blocks. Walk backwards from end of string to find
+  // the last '{' that starts a valid JSON object containing an "action" key.
+  const lastBrace = cleaned.lastIndexOf("{");
+  if (lastBrace >= 0) {
+    const candidate = cleaned.slice(lastBrace);
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && "action" in parsed) {
+        cleaned = cleaned.slice(0, lastBrace);
+      }
+    } catch {
+      // Not valid JSON — leave text as-is
+    }
+  }
+
+  return cleaned.trim();
+}
+
 // ── Coordinator Event Routing ───────────────────────────────────────────
 
 /**
@@ -6156,13 +6185,10 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
           }
 
           // WS broadcast the natural language portion (strip JSON action block).
+          // Both fenced (```json ... ```) and bare JSON must be removed since
+          // the LLM may return either format.
           if (result.text && result.text !== "(no response)") {
-            const displayText = result.text
-              .replace(
-                /```(?:json)?\s*\n?\{[\s\S]*?"action"[\s\S]*?\}\s*\n?```/g,
-                "",
-              )
-              .trim();
+            const displayText = stripActionBlockFromDisplay(result.text);
             if (displayText && displayText.length > 2) {
               const conv = st.activeConversationId
                 ? st.conversations.get(st.activeConversationId)
