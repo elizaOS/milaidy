@@ -85,7 +85,7 @@ function createDeferred<T>() {
 }
 
 type ProbeApi = {
-  setState: (key: string, value: any) => void;
+  setState: (key: string, value: unknown) => void;
   handleOnboardingNext: () => Promise<void>;
   handleOnboardingBack: () => void;
   handleCloudLogin: () => Promise<void>;
@@ -97,6 +97,7 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
 
   useEffect(() => {
     onReady({
+      // biome-ignore lint/suspicious/noExplicitAny: test probe
       setState: (key, value) => app.setState(key as any, value),
       handleOnboardingNext: app.handleOnboardingNext,
       handleOnboardingBack: app.handleOnboardingBack,

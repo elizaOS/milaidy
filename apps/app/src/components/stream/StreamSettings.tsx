@@ -50,9 +50,11 @@ function ConfigField({
       return (
         <label
           key={fieldKey}
+          htmlFor={`config-${fieldKey}`}
           className="flex items-center gap-2 text-[12px] text-txt cursor-pointer"
         >
           <Checkbox
+            id={`config-${fieldKey}`}
             checked={Boolean(value)}
             onCheckedChange={(checked) => onChange(fieldKey, !!checked)}
           />
@@ -61,9 +63,14 @@ function ConfigField({
       );
     case "number":
       return (
-        <label key={fieldKey} className="flex flex-col gap-0.5">
+        <label
+          key={fieldKey}
+          htmlFor={`config-${fieldKey}`}
+          className="flex flex-col gap-0.5"
+        >
           <span className="text-[11px] text-muted">{field.label}</span>
           <Input
+            id={`config-${fieldKey}`}
             type="number"
             min={field.min}
             max={field.max}
@@ -77,9 +84,14 @@ function ConfigField({
       );
     case "select":
       return (
-        <label key={fieldKey} className="flex flex-col gap-0.5">
+        <label
+          key={fieldKey}
+          htmlFor={`config-${fieldKey}`}
+          className="flex flex-col gap-0.5"
+        >
           <span className="text-[11px] text-muted">{field.label}</span>
           <select
+            id={`config-${fieldKey}`}
             value={typeof value === "string" ? value : String(field.default)}
             onChange={(e) => onChange(fieldKey, e.target.value)}
             className="bg-bg-muted border border-border text-txt text-[12px] rounded px-2 py-1 cursor-pointer"
@@ -94,9 +106,14 @@ function ConfigField({
       );
     case "color":
       return (
-        <label key={fieldKey} className="flex items-center gap-2">
+        <label
+          key={fieldKey}
+          htmlFor={`config-${fieldKey}`}
+          className="flex items-center gap-2"
+        >
           <span className="text-[11px] text-muted">{field.label}</span>
           <input
+            id={`config-${fieldKey}`}
             type="color"
             value={typeof value === "string" ? value : String(field.default)}
             onChange={(e) => onChange(fieldKey, e.target.value)}
@@ -106,9 +123,14 @@ function ConfigField({
       );
     default:
       return (
-        <label key={fieldKey} className="flex flex-col gap-0.5">
+        <label
+          key={fieldKey}
+          htmlFor={`config-${fieldKey}`}
+          className="flex flex-col gap-0.5"
+        >
           <span className="text-[11px] text-muted">{field.label}</span>
           <Input
+            id={`config-${fieldKey}`}
             type="text"
             value={
               typeof value === "string" ? value : String(field.default ?? "")

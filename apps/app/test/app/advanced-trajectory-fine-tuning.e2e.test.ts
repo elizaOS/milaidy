@@ -167,17 +167,18 @@ function containsText(
 }
 
 describe("Advanced trajectories/fine-tuning integration", () => {
-  let currentTab: "trajectories" | "fine-tuning";
+  let _currentTab: "trajectories" | "fine-tuning";
   let setTab: ReturnType<typeof vi.fn>;
   let setActionNotice: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    window.setInterval = globalThis.setInterval.bind(globalThis);
-    window.clearInterval = globalThis.clearInterval.bind(globalThis);
-
-    currentTab = "trajectories";
+    let _currentTab: "trajectories" | "fine-tuning";
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    window.setInterval = globalThis.setInterval.bind(globalThis) as any;
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    window.clearInterval = globalThis.clearInterval.bind(globalThis) as any;
     setTab = vi.fn((nextTab: "trajectories" | "fine-tuning") => {
-      currentTab = nextTab;
+      _currentTab = nextTab;
     });
     setActionNotice = vi.fn();
 
@@ -207,9 +208,10 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
     mockClientFns.onWsEvent.mockImplementation(() => () => undefined);
 
+    _currentTab = "trajectories";
     mockUseApp.mockImplementation(() => ({
       t: (k: string) => k,
-      tab: currentTab,
+      tab: _currentTab,
       setTab,
       handleRestart: async () => undefined,
       setActionNotice,
@@ -224,25 +226,25 @@ describe("Advanced trajectories/fine-tuning integration", () => {
   });
 
   it("shows the same trajectory in Trajectories detail and Fine-Tuning list", async () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree!: TestRenderer.ReactTestRenderer;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(AdvancedPageView));
     });
     await flush();
 
-    const clickableRows = tree?.root.findAll(
+    const clickableRows = tree.root.findAll(
       (node) => node.type === "tr" && typeof node.props.onClick === "function",
     );
     expect(clickableRows.length).toBeGreaterThan(0);
 
     await act(async () => {
-      clickableRows[0].props.onClick();
+      clickableRows[0]?.props.onClick();
     });
     await flush();
 
     const trajectoryPrefix = `${SHARED_TRAJECTORY_ID.slice(0, 8)}...`;
-    const detailIdFound = tree?.root.findAll(
+    const detailIdFound = tree.root.findAll(
       (node) =>
         typeof node.type === "string" && containsText(node, trajectoryPrefix),
     );
@@ -251,11 +253,11 @@ describe("Advanced trajectories/fine-tuning integration", () => {
       SHARED_TRAJECTORY_ID,
     );
 
-    const backButton = tree?.root.findAll(
+    const backButton = tree.root.findAll(
       (node) =>
         node.type === "button" &&
         containsText(node, "trajectorydetailview.Back"),
-    )[0];
+    )[0] as TestRenderer.ReactTestInstance;
     expect(backButton).toBeDefined();
 
     await act(async () => {
@@ -263,9 +265,9 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
     await flush();
 
-    const fineTuningTabButton = tree?.root.findAll(
+    const fineTuningTabButton = tree.root.findAll(
       (node) => node.type === "button" && containsText(node, "Fine-Tuning"),
-    )[0];
+    )[0] as TestRenderer.ReactTestInstance;
     expect(fineTuningTabButton).toBeDefined();
 
     await act(async () => {
@@ -273,13 +275,13 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     });
 
     await act(async () => {
-      tree?.update(React.createElement(AdvancedPageView));
+      tree.update(React.createElement(AdvancedPageView));
     });
     await flush();
 
     expect(setTab).toHaveBeenCalledWith("fine-tuning");
 
-    const fineTuningIdFound = tree?.root.findAll(
+    const fineTuningIdFound = tree.root.findAll(
       (node) =>
         typeof node.type === "string" &&
         containsText(node, SHARED_TRAJECTORY_ID),

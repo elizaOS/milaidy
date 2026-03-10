@@ -3,15 +3,7 @@ import { resolveAppAssetUrl } from "../utils/asset-url";
 /** Number of bundled VRM avatars shipped with the app. */
 const BASE_VRM_COUNT = 24;
 
-/** Named VRM avatars that don't follow the milady-N convention.
- */
-const NAMED_VRMS: {
-    file: string;
-    preview: string;
-    label: string;
-}[] = [{ file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw" }];
-
-export const VRM_COUNT = BASE_VRM_COUNT + NAMED_VRMS.length;
+export const VRM_COUNT = BASE_VRM_COUNT;
 
 function normalizeAvatarIndex(index: number): number {
     if (!Number.isFinite(index)) return 1;
@@ -25,22 +17,14 @@ function normalizeAvatarIndex(index: number): number {
 export function getVrmUrl(index: number): string {
     const normalized = normalizeAvatarIndex(index);
     const safeIndex = normalized > 0 ? normalized : 1;
-    if (safeIndex <= BASE_VRM_COUNT) {
-        return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
-    return resolveAppAssetUrl(`vrms/${named.file}`);
+    return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
 }
 
 /** Resolve a bundled VRM index (1–N) to its preview thumbnail URL. */
 export function getVrmPreviewUrl(index: number): string {
     const normalized = normalizeAvatarIndex(index);
     const safeIndex = normalized > 0 ? normalized : 1;
-    if (safeIndex <= BASE_VRM_COUNT) {
-        return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
-    return resolveAppAssetUrl(`vrms/previews/${named.preview}`);
+    return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
 }
 
 /** Resolve a bundled VRM index (1-N) to its custom background URL. */
@@ -49,23 +33,14 @@ export function getVrmBackgroundUrl(index: number): string {
     const safeIndex = normalized > 0 ? normalized : 1;
     const EXT = "png";
 
-    if (safeIndex <= BASE_VRM_COUNT) {
-        return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.${EXT}`);
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
-    const baseName = named.preview.split(".")[0];
-    return resolveAppAssetUrl(`vrms/backgrounds/${baseName}.${EXT}`);
+    return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.${EXT}`);
 }
 
 /** Human-readable roster title for bundled avatars. */
 export function getVrmTitle(index: number): string {
     const normalized = normalizeAvatarIndex(index);
     const safeIndex = normalized > 0 ? normalized : 1;
-    if (safeIndex <= BASE_VRM_COUNT) {
-        return `MILADY-${String(safeIndex).padStart(2, "0")}`;
-    }
-    const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - 1];
-    return named.label.toUpperCase();
+    return `MILADY-${String(safeIndex).padStart(2, "0")}`;
 }
 
 /** Whether a bundled index points to the official Milady avatar set. */

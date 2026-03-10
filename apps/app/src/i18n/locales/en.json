@@ -1338,7 +1338,7 @@
   "configpageview.RequiresElizaCloud": "Requires Milady Cloud connection",
   "configpageview.CloudServices": "Cloud Services",
   "configpageview.RestartRequiredFor": "Restart required for changes to take effect",
-  "configpageview.ChooseWhichElizaCl": "Choose which ElizaCloud services to use. Disable inference to use your\n        own AI provider keys instead.",
+  "configpageview.ChooseWhichElizaCl": "Choose which MiladyCloud services to use. Disable inference to use your\n        own AI provider keys instead.",
   "configpageview.Config": "Config",
   "configpageview.WalletProvidersAnd": "Wallet providers and secrets.",
   "configpageview.WalletAmpRPC": "Wallet &amp; RPC",

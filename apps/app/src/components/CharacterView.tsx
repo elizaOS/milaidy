@@ -573,18 +573,6 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                   {dropStatus?.maxSupply ?? 2138}
                 </span>
               </div>
-              <div className="text-[12px] text-muted leading-relaxed">
-                {t("characterview.ClaimYourLimitedE")}{" "}
-                <strong className="text-txt">
-                  {dropStatus?.maxSupply ?? 2138}
-                </strong>{" "}
-                {t("characterview.total")}{" "}
-                <strong className="text-accent">
-                  {(dropStatus?.maxSupply ?? 2138) -
-                    (dropStatus?.currentSupply ?? 0)}
-                </strong>{" "}
-                {t("characterview.remaining")}
-              </div>
               <div className="flex items-center gap-3 mt-1">
                 <Button
                   variant="default"

@@ -20,7 +20,6 @@ vi.mock("../../src/components/avatar/VrmEngine", () => {
       idleTracks: 0,
     }));
     setInteractionEnabled = vi.fn();
-    setForceFaceCameraFlip = vi.fn();
     setCameraProfile = vi.fn();
     setInteractionMode = vi.fn();
     resize = vi.fn();
@@ -81,17 +80,12 @@ function getMockInstances(): MockVrmEngineInstance[] {
 describe("VrmViewer", () => {
   beforeEach(() => {
     (globalThis as { ResizeObserver?: unknown }).ResizeObserver = undefined;
-    (
-      globalThis as {
-        window?: {
-          addEventListener: ReturnType<typeof vi.fn>;
-          removeEventListener: ReturnType<typeof vi.fn>;
-        };
-      }
-    ).window = {
+    const mockWindow = {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-    };
+    } as unknown as Window & typeof globalThis;
+    globalThis.window = mockWindow;
+
     (
       globalThis as { requestAnimationFrame?: typeof requestAnimationFrame }
     ).requestAnimationFrame = ((cb: FrameRequestCallback) =>

@@ -7,14 +7,12 @@ import {
   Bot,
   Brain,
   Gamepad2,
-  Heart,
   MessageSquare,
   Radio,
   Settings,
   Share2,
   Sparkles,
   Wallet,
-  Zap,
 } from "lucide-react";
 
 /** Apps are only enabled in dev mode; production builds hide this feature. */
@@ -53,8 +51,7 @@ export type Tab =
   | "lifo"
   | "settings"
   | "logs"
-  | "security"
-  | "cloud";
+  | "security";
 
 export interface TabGroup {
   label: string;
@@ -69,12 +66,6 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
     tabs: ["chat"],
     icon: MessageSquare,
     description: "Conversations and messaging",
-  },
-  {
-    label: "Companion",
-    tabs: ["companion"],
-    icon: Heart,
-    description: "VRM companion interaction",
   },
   {
     label: "Stream",
@@ -118,12 +109,7 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
     icon: Settings,
     description: "Configuration and preferences",
   },
-  {
-    label: "Cloud",
-    tabs: ["cloud"],
-    icon: Zap,
-    description: "Milady Cloud management and billing",
-  },
+
   {
     label: "Advanced",
     tabs: [
@@ -178,7 +164,6 @@ const TAB_PATHS: Record<Tab, string> = {
   settings: "/settings",
   logs: "/logs",
   security: "/security",
-  cloud: "/cloud",
 };
 
 /** Legacy path redirects — old paths that now map to new tabs. */
@@ -292,8 +277,6 @@ export function titleForTab(tab: Tab): string {
       return "Stream";
     case "security":
       return "Security";
-    case "cloud":
-      return "Cloud";
     default:
       return "Milady";
   }

@@ -9,7 +9,6 @@ const { mockUseApp } = vi.hoisted(() => ({
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
-  getVrmNeedsFlip: () => false,
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
   getVrmBackgroundUrl: (index: number) =>

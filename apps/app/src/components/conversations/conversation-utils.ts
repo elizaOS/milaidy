@@ -70,7 +70,7 @@ export function resolveProviderLabel(model: string | undefined): string {
 
   const lower = value.toLowerCase();
   const knownProviders: Array<{ match: string; label: string }> = [
-    { match: "miladycloud", label: "Eliza Cloud" },
+    { match: "miladycloud", label: "Milady Cloud" },
     { match: "openrouter", label: "OpenRouter" },
     { match: "openai", label: "OpenAI" },
     { match: "anthropic", label: "Anthropic" },

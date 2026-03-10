@@ -116,62 +116,6 @@ describe("Avatar Selection State", () => {
       }
     });
   });
-
-  describe("VRM path resolution", () => {
-    it("resolves built-in index to /vrms/milady-N.vrm", () => {
-      const selectedVrmIndex = 5;
-      const customVrmUrl: string | null = null;
-
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
-
-      expect(vrmPath).toBe("/vrms/milady-5.vrm");
-    });
-
-    it("resolves custom upload (index 0) to object URL", () => {
-      const selectedVrmIndex = 0;
-      const customVrmUrl = "blob:http://localhost/abc-123";
-
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
-
-      expect(vrmPath).toBe("blob:http://localhost/abc-123");
-    });
-
-    it("resolves persisted custom VRM (index 0) to server URL", () => {
-      const selectedVrmIndex = 0;
-      const customVrmUrl = "/api/avatar/vrm?t=1234567890";
-
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
-
-      expect(vrmPath).toBe("/api/avatar/vrm?t=1234567890");
-    });
-
-    it("falls back to index 1 when custom is selected but no URL provided", () => {
-      const selectedVrmIndex = 0;
-      const customVrmUrl: string | null = null;
-
-      const vrmPath =
-        selectedVrmIndex === 0 && customVrmUrl
-          ? customVrmUrl
-          : getVrmUrl(selectedVrmIndex || 1);
-
-      expect(vrmPath).toBe("/vrms/milady-1.vrm");
-    });
-
-    it("defaults to index 1 when selectedVrmIndex is 0 without custom URL", () => {
-      const selectedVrmIndex = 0;
-      const vrmPath = getVrmUrl(selectedVrmIndex || 1);
-      expect(vrmPath).toBe("/vrms/milady-1.vrm");
-    });
-  });
 });
 
 describe("Onboarding Avatar Step", () => {

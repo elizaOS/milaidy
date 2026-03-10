@@ -47,7 +47,7 @@ describe("Header", () => {
     if (!testRenderer) {
       throw new Error("Failed to render Header");
     }
-    const root = (testRenderer as any).root;
+    const root = (testRenderer as ReactTestRenderer).root;
 
     // Check agent name
     const agentName = root.findByProps({ "data-testid": "agent-name" });

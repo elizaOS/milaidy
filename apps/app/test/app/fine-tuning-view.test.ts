@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface FineTuningContextStub {
   t: (key: string) => string;
-  setState: (key: string, value: any) => void;
+  setState: (key: string, value: unknown) => void;
   handleRestart: () => Promise<void>;
   setActionNotice: (
     text: string,
@@ -282,7 +282,7 @@ describe("FineTuningView", () => {
   });
 
   it("loads training data on mount", async () => {
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });
@@ -303,7 +303,7 @@ describe("FineTuningView", () => {
   });
 
   it("builds dataset from form inputs", async () => {
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });
@@ -336,7 +336,7 @@ describe("FineTuningView", () => {
 
   it("shows error notice when starting a training job fails", async () => {
     mockClientFns.startTrainingJob.mockRejectedValueOnce(new Error("boom"));
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });
@@ -353,7 +353,7 @@ describe("FineTuningView", () => {
   });
 
   it("starts a training job and handles live training events", async () => {
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });
@@ -390,7 +390,7 @@ describe("FineTuningView", () => {
   });
 
   it("cancels an active job", async () => {
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });
@@ -409,7 +409,7 @@ describe("FineTuningView", () => {
   });
 
   it("imports, activates, benchmarks, and smoke-tests selected model", async () => {
-    let tree: TestRenderer.ReactTestRenderer = null!;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(FineTuningView));
     });

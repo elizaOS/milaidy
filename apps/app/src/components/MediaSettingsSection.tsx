@@ -36,7 +36,7 @@ interface ProviderOption {
 }
 
 const IMAGE_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Eliza Cloud", hint: "No setup needed" },
+  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
   { id: "fal", label: "FAL.ai", hint: "Flux 2, Kling, Recraft, Grok" },
   { id: "openai", label: "OpenAI", hint: "DALL-E 3" },
   { id: "google", label: "Google", hint: "Imagen 3" },
@@ -44,20 +44,20 @@ const IMAGE_PROVIDERS: ProviderOption[] = [
 ];
 
 const VIDEO_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Eliza Cloud", hint: "No setup needed" },
+  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
   { id: "fal", label: "FAL.ai", hint: "Veo 3, Sora 2, Kling 3, Minimax" },
   { id: "openai", label: "OpenAI", hint: "Sora" },
   { id: "google", label: "Google", hint: "Veo" },
 ];
 
 const AUDIO_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Eliza Cloud", hint: "No setup needed" },
+  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
   { id: "suno", label: "Suno", hint: "Music generation" },
   { id: "elevenlabs", label: "ElevenLabs", hint: "Sound effects" },
 ];
 
 const VISION_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Eliza Cloud", hint: "No setup needed" },
+  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
   { id: "openai", label: "OpenAI", hint: "GPT-4o Vision" },
   { id: "google", label: "Google", hint: "Gemini Vision" },
   { id: "anthropic", label: "Anthropic", hint: "Claude Vision" },
@@ -340,7 +340,7 @@ export function MediaSettingsSection() {
       {currentMode === "cloud" && (
         <CloudConnectionStatus
           connected={miladyCloudConnected}
-          disconnectedText="Eliza Cloud not connected - configure in Settings -> AI Model"
+          disconnectedText="Milady Cloud not connected - configure in Settings -> AI Model"
         />
       )}
 

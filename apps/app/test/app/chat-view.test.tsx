@@ -41,10 +41,10 @@ interface ChatViewContextStub {
   handleChatRetry: (id: string) => void;
   lifecycleBusy: boolean;
   lifecycleAction: string | null;
-  autonomousEvents: any[];
-  workbench: any;
+  autonomousEvents: unknown[];
+  workbench: unknown;
   openEmotePicker: () => void;
-  ptySessions: any[];
+  ptySessions: unknown[];
 }
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
@@ -639,7 +639,8 @@ describe("addImageFiles functional updater", () => {
       throw new Error("ChatView test renderer did not initialize");
     }
     const fileInput = tree.root.find(
-      (node: any) => node.type === "input" && node.props.accept === "image/*",
+      (node: TestRenderer.ReactTestInstance) =>
+        node.type === "input" && node.props.accept === "image/*",
     );
 
     const fakeFile = new Proxy(

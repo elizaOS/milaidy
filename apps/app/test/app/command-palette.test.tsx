@@ -71,7 +71,11 @@ function nodeText(node: TestRenderer.ReactTestInstance): string {
   if (typeof node.children[0] === "string") return node.children[0];
   if (node.children) {
     return node.children
-      .map((c) => (typeof c === "string" ? c : nodeText(c as any)))
+      .map((c) =>
+        typeof c === "string"
+          ? c
+          : nodeText(c as TestRenderer.ReactTestInstance),
+      )
       .join("");
   }
   return "";

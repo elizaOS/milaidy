@@ -32,7 +32,7 @@ import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { LifoSandboxView } from "./components/LifoSandboxView";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { CloudDashboard as MiladyCloudDashboard } from "./components/MiladyCloudDashboard";
+
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PairingView } from "./components/PairingView";
@@ -103,8 +103,6 @@ function ViewRouter() {
       case "voice":
       case "settings":
         return <SettingsView />;
-      case "cloud":
-        return <MiladyCloudDashboard />;
       default:
         return <ChatView />;
     }

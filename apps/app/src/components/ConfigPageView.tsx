@@ -30,20 +30,20 @@ type RpcFieldGroup = ReadonlyArray<RpcFieldDefinition>;
 type RpcSectionConfigMap = Record<string, RpcFieldGroup>;
 
 const EVM_RPC_OPTIONS = [
-  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "eliza-cloud", label: "Milady Cloud" },
   { id: "alchemy", label: "Alchemy" },
   { id: "infura", label: "Infura" },
   { id: "ankr", label: "Ankr" },
 ] as const;
 
 const BSC_RPC_OPTIONS = [
-  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "eliza-cloud", label: "Milady Cloud" },
   { id: "nodereal", label: "NodeReal" },
   { id: "quicknode", label: "QuickNode" },
 ] as const;
 
 const SOLANA_RPC_OPTIONS = [
-  { id: "eliza-cloud", label: "Eliza Cloud" },
+  { id: "eliza-cloud", label: "Milady Cloud" },
   { id: "helius-birdeye", label: "Helius + Birdeye" },
 ] as const;
 
@@ -289,27 +289,27 @@ const CLOUD_SERVICE_DEFS: {
     key: "inference",
     label: "Model Inference",
     description:
-      "Use ElizaCloud for LLM calls. Turn off to use your own API keys (Anthropic, OpenAI, etc.)",
+      "Use MiladyCloud for LLM calls. Turn off to use your own API keys (Anthropic, OpenAI, etc.)",
   },
   {
     key: "rpc",
     label: "Blockchain RPC",
-    description: "Use ElizaCloud RPC endpoints for EVM, BSC, and Solana",
+    description: "Use MiladyCloud RPC endpoints for EVM, BSC, and Solana",
   },
   {
     key: "media",
     label: "Media Generation",
-    description: "Use ElizaCloud for image, video, audio, and vision",
+    description: "Use MiladyCloud for image, video, audio, and vision",
   },
   {
     key: "tts",
     label: "Text-to-Speech",
-    description: "Use ElizaCloud for TTS voice synthesis",
+    description: "Use MiladyCloud for TTS voice synthesis",
   },
   {
     key: "embeddings",
     label: "Embeddings",
-    description: "Use ElizaCloud for text embedding generation",
+    description: "Use MiladyCloud for text embedding generation",
   },
 ];
 

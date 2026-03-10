@@ -512,7 +512,7 @@ export function VoiceConfigView() {
       <div className="flex items-center justify-between py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)]">
         <span className="text-xs">
           {currentProvider === "elevenlabs"
-            ? `ElevenLabs — ${currentMode === "cloud" ? "Served via Eliza Cloud" : "Requires API key"}`
+            ? `ElevenLabs — ${currentMode === "cloud" ? "Served via Milady Cloud" : "Requires API key"}`
             : `${providerInfo?.label} — No API key needed`}
         </span>
         <span
@@ -544,7 +544,7 @@ export function VoiceConfigView() {
           {currentMode === "cloud" && (
             <CloudConnectionStatus
               connected={miladyCloudConnected}
-              disconnectedText="Eliza Cloud not connected. Connect in Settings."
+              disconnectedText="Milady Cloud not connected. Connect in Settings."
             />
           )}
 

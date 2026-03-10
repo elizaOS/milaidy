@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Bot,
   ChevronRight,
+  Cloud,
   Download,
   Image,
   Loader2,
@@ -46,6 +47,7 @@ import { useApp } from "../AppContext";
 import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
+import { CloudDashboard } from "./MiladyCloudDashboard";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import { VoiceConfigView } from "./VoiceConfigView";
@@ -69,6 +71,12 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "AI Model",
     icon: Bot,
     description: "Provider and model settings",
+  },
+  {
+    id: "cloud",
+    label: "Milady Cloud",
+    icon: Cloud,
+    description: "Manage your cloud agents and resources",
   },
   {
     id: "coding-agents",
@@ -792,6 +800,15 @@ export function SettingsView({
         >
           <CodingAgentSettingsSection />
         </SectionCard>
+      )}
+
+      {visibleSectionIds.has("cloud") && (
+        <section
+          id="cloud"
+          className="bg-bg rounded-2xl border border-border/50 overflow-hidden relative"
+        >
+          <CloudDashboard />
+        </section>
       )}
 
       {visibleSectionIds.has("wallet-rpc") && (

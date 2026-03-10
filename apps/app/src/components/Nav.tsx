@@ -16,7 +16,6 @@ const NAV_LABEL_I18N_KEY: Record<string, string> = {
   Apps: "nav.apps",
   Settings: "nav.settings",
   Advanced: "nav.advanced",
-  Cloud: "nav.cloud",
 };
 
 interface NavProps {
