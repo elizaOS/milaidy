@@ -43,14 +43,12 @@ export type Tab =
   | "plugins"
   | "skills"
   | "actions"
-  | "workflows"
   | "advanced"
   | "fine-tuning"
   | "trajectories"
   | "voice"
   | "runtime"
   | "database"
-  | "lifo"
   | "settings"
   | "logs"
   | "security";
@@ -124,13 +122,11 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
       "plugins",
       "skills",
       "actions",
-      "workflows",
       "triggers",
       "fine-tuning",
       "trajectories",
       "runtime",
       "database",
-      "lifo",
       "logs",
       "security",
     ],
@@ -163,14 +159,12 @@ const TAB_PATHS: Record<Tab, string> = {
   plugins: "/plugins",
   skills: "/skills",
   actions: "/actions",
-  workflows: "/workflows",
   advanced: "/advanced",
   "fine-tuning": "/fine-tuning",
   trajectories: "/trajectories",
   voice: "/voice",
   runtime: "/runtime",
   database: "/database",
-  lifo: "/lifo",
   settings: "/settings",
   logs: "/logs",
   security: "/security",
@@ -265,8 +259,6 @@ export function titleForTab(tab: Tab): string {
       return "Skills";
     case "actions":
       return "Actions";
-    case "workflows":
-      return "Workflows";
     case "advanced":
       return "Advanced";
     case "fine-tuning":
@@ -279,8 +271,6 @@ export function titleForTab(tab: Tab): string {
       return "Runtime";
     case "database":
       return "Databases";
-    case "lifo":
-      return "Lifo";
     case "settings":
       return "Settings";
     case "logs":

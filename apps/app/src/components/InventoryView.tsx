@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 import { createTranslator } from "../i18n";
 import { BscTradePanel, type TrackedToken } from "./BscTradePanel";
+import { IdentityCard } from "./IdentityCard";
 import {
   BSC_GAS_THRESHOLD,
   loadTrackedBscTokens,
@@ -167,7 +168,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
       <div
         className={`wallets-bsc__setup mt-6 border p-6 text-center ${
           inModal
-            ? "border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
+            ? "rounded-xl border-[var(--border)] bg-[var(--card)] backdrop-blur-sm"
             : "border-border bg-card"
         }`}
       >
@@ -211,7 +212,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         <div
           className={`mt-4 border px-4 py-6 text-center ${
             inModal
-              ? "border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
+              ? "rounded-xl border-[var(--border)] bg-[var(--card)] backdrop-blur-sm"
               : "border-border bg-card"
           }`}
         >
@@ -253,6 +254,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           loadBalances={loadBalances}
           goToRpcSettings={goToRpcSettings}
         />
+
+        <IdentityCard />
 
         {chainFocus === "bsc" && !bscHasError && (
           <BscTradePanel

@@ -9,36 +9,36 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { NfaRecord } from "./types.js";
+import type { LegacyNfaRecord } from "./types.js";
 
 const MILADY_DIR = join(homedir(), ".milady");
 const NFA_FILE = join(MILADY_DIR, "bap578-nfa.json");
 
 /** Reads the persisted NFA record, or null if none exists. */
-export async function readNfaRecord(): Promise<NfaRecord | null> {
+export async function readNfaRecord(): Promise<LegacyNfaRecord | null> {
   try {
     const raw = await readFile(NFA_FILE, "utf8");
-    return JSON.parse(raw) as NfaRecord;
+    return JSON.parse(raw) as LegacyNfaRecord;
   } catch {
     return null;
   }
 }
 
 /** Writes an NFA record to disk, creating ~/.milady/ if needed. */
-export async function writeNfaRecord(record: NfaRecord): Promise<void> {
+export async function writeNfaRecord(record: LegacyNfaRecord): Promise<void> {
   await mkdir(MILADY_DIR, { recursive: true });
   await writeFile(NFA_FILE, JSON.stringify(record, null, 2), "utf8");
 }
 
 /** Updates specific fields on the existing record, or throws if none exists. */
 export async function patchNfaRecord(
-  patch: Partial<NfaRecord>,
-): Promise<NfaRecord> {
+  patch: Partial<LegacyNfaRecord>,
+): Promise<LegacyNfaRecord> {
   const existing = await readNfaRecord();
   if (!existing) {
     throw new Error("No NFA record found. Mint first with: mint nfa");
   }
-  const updated: NfaRecord = {
+  const updated: LegacyNfaRecord = {
     ...existing,
     ...patch,
     lastUpdatedAt: new Date().toISOString(),

@@ -3,6 +3,7 @@ import {
   Bug,
   Check,
   CircleDollarSign,
+  Fingerprint,
   Loader2,
   Pause,
   Play,
@@ -448,6 +449,18 @@ export function Header() {
                 </div>
               </div>
             )}
+
+            {/* Identity */}
+            <IconButtonTooltip label="Identity">
+              <button
+                type="button"
+                onClick={() => setTab("wallets")}
+                aria-label="On-chain identity"
+                className={iconBtnBase}
+              >
+                <Fingerprint className="w-5 h-5" />
+              </button>
+            </IconButtonTooltip>
           </div>
         </div>
       </div>

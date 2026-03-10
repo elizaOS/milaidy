@@ -1,10 +1,12 @@
 ---
 title: "Native Modules"
 sidebarTitle: "Native Modules"
-description: "IPC-based native module system that gives the Electron desktop app access to platform capabilities."
+description: "Bridge-based native module system that gives the Electrobun desktop app access to platform capabilities."
 ---
 
-The Milady desktop app exposes platform capabilities to the web renderer through a set of **native modules** — singleton manager classes running in the Electron main process. Each module is initialized in `initializeNativeModules()` and registers its IPC handlers via `registerAllIPC()`. The renderer calls into these modules using Electron's `ipcRenderer.invoke` and `ipcRenderer.on` APIs, proxied through the context-isolated preload script.
+> Note: the channel names in this document still match the native module surface, but the current desktop shell is Electrobun, not Electron. The implementation lives in `apps/app/electrobun/` and uses the Electrobun preload bridge rather than raw Electron IPC.
+
+The Milady desktop app exposes platform capabilities to the web renderer through a set of **native modules** — singleton manager classes running in the desktop host process. Each module is initialized in `initializeNativeModules()` and registers its handlers via the desktop bridge layer.
 
 There are **10 native modules** with **118+ IPC channels** in total, covering agent lifecycle, desktop integration, network discovery, voice I/O, wake-word detection, screen capture, camera, canvas windows, geolocation, and system permissions.
 

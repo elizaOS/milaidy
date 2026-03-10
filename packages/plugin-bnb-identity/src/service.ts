@@ -17,6 +17,12 @@ import type {
   BnbIdentityConfig,
   GetAgentResult,
   GetAgentWalletResult,
+  NfaInfo,
+  NfaMintResult,
+  NfaPauseResult,
+  NfaTransferResult,
+  NfaUpdateLearningResult,
+  NfaUpgradeResult,
   RegisterResult,
   SetUriResult,
 } from "./types.js";
@@ -30,6 +36,30 @@ export type McpToolResponse = {
 };
 
 const MCP_TOOL_GENERIC_ERROR_MESSAGE = "Unknown MCP tool failure.";
+export const DEFAULT_BNB_MAINNET_RPC_URL = "https://bsc-rpc.publicnode.com";
+export const DEFAULT_BNB_TESTNET_RPC_URL =
+  "https://data-seed-prebsc-1-s1.binance.org:8545/";
+
+type NfaMintOptions = {
+  persona?: string;
+  experience?: string;
+  voiceHash?: string;
+  animationURI?: string;
+  vaultURI?: string;
+  vaultHash?: string;
+};
+
+export function resolveBnbRpcUrl(
+  config: Pick<BnbIdentityConfig, "network" | "rpcUrl">,
+): string {
+  const configuredRpcUrl = config.rpcUrl?.trim();
+  if (configuredRpcUrl) {
+    return configuredRpcUrl;
+  }
+  return config.network === "bsc"
+    ? DEFAULT_BNB_MAINNET_RPC_URL
+    : DEFAULT_BNB_TESTNET_RPC_URL;
+}
 
 export function extractMcpPayload(result: McpToolResponse): unknown {
   if (result.result !== undefined) {
@@ -150,10 +180,10 @@ export function assertMcpToolSuccess(
 }
 
 export class BnbIdentityService {
-  private runtime: IAgentRuntime;
+  private runtime: IAgentRuntime | null;
   private config: BnbIdentityConfig;
 
-  constructor(runtime: IAgentRuntime, config: BnbIdentityConfig) {
+  constructor(runtime: IAgentRuntime | null, config: BnbIdentityConfig) {
     this.runtime = runtime;
     this.config = config;
   }
@@ -228,6 +258,98 @@ export class BnbIdentityService {
     });
   }
 
+  // ── BAP-578 NFA write tools ─────────────────────────────────────────────
+
+  /** Mint a new NFA NFT for this agent. */
+  async mintNfa(
+    agentURI: string,
+    options: NfaMintOptions = {},
+  ): Promise<NfaMintResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaMintResult>("mint_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      agentURI,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+      ...options,
+    });
+  }
+
+  /** Update the on-chain learning Merkle root. */
+  async updateLearningRoot(
+    tokenId: string,
+    newRoot: string,
+  ): Promise<NfaUpdateLearningResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaUpdateLearningResult>("update_bap578_learning", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      newRoot,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
+  /** Transfer NFA ownership to a new address. */
+  async transferNfa(tokenId: string, to: string): Promise<NfaTransferResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaTransferResult>("transfer_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      to,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
+  /** Upgrade the NFA logic contract. */
+  async upgradeLogic(
+    tokenId: string,
+    newLogic: string,
+  ): Promise<NfaUpgradeResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaUpgradeResult>("upgrade_bap578_logic", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      newLogic,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
+  /** Pause the NFA (emergency circuit breaker). */
+  async pauseNfa(tokenId: string): Promise<NfaPauseResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaPauseResult>("pause_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
+  /** Unpause the NFA. */
+  async unpauseNfa(tokenId: string): Promise<NfaPauseResult> {
+    this.assertPrivateKey();
+    return this.callMcpTool<NfaPauseResult>("unpause_bap578_nfa", {
+      privateKey: this.config.privateKey,
+      tokenId,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
+  // ── BAP-578 NFA read-only tools ─────────────────────────────────────────
+
+  /** Query on-chain NFA info. */
+  async getNfaInfo(tokenId: string): Promise<NfaInfo> {
+    return this.callMcpTool<NfaInfo>("get_bap578_nfa", {
+      tokenId,
+      network: this.config.network,
+      ...this.getNfaToolConfig(),
+    });
+  }
+
   // ── Internal ───────────────────────────────────────────────────────────────
 
   private assertPrivateKey(): void {
@@ -253,15 +375,18 @@ export class BnbIdentityService {
   ): Promise<T> {
     // Try runtime MCP client first
     const mcpClient = (
-      this.runtime as unknown as {
-        mcpClient?: {
-          callTool: (request: {
-            name: string;
-            arguments: Record<string, unknown>;
-          }) => Promise<unknown>;
-        };
-      }
-    ).mcpClient;
+      this.runtime as
+        | {
+            mcpClient?: {
+              callTool: (request: {
+                name: string;
+                arguments: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+          }
+        | null
+        | undefined
+    )?.mcpClient;
     if (mcpClient?.callTool) {
       const result = (await mcpClient.callTool({
         name: toolName,
@@ -313,5 +438,14 @@ export class BnbIdentityService {
     }
     const normalized = value.trim();
     return /^0x[0-9a-fA-F]{40}$/.test(normalized) ? normalized : null;
+  }
+
+  private getNfaToolConfig(): Record<string, string> {
+    const config: Record<string, string> = {};
+    if (this.config.nfaContractAddress) {
+      config.contractAddress = this.config.nfaContractAddress;
+    }
+    config.rpcUrl = resolveBnbRpcUrl(this.config);
+    return config;
   }
 }

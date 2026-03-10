@@ -813,7 +813,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
       "Open Settings works in Milady Desktop only. In browser/cloud mode, open OS settings manually.",
     "permissions.loadingPermissions": "Loading permissions...",
     "permissions.unableLoadPermissions":
-      "Unable to load permissions. This feature requires Electron.",
+      "Unable to load permissions. This feature requires the desktop runtime.",
     "permissions.refresh": "Refresh",
     "permissions.refreshing": "Refreshing...",
     "permissions.desktopOnlyHint":
@@ -940,6 +940,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.gasReserve": "Gas reserve: {{amount}} BNB",
     "wallet.executeSide": "Execute {{side}}",
     "wallet.confirmExecute": "Confirm to execute {{side}}?",
+    "wallet.confirmTrade": "Confirm Trade",
+    "wallet.confirmAction": "Confirm",
     "wallet.executing": "Executing...",
     "wallet.tradeSent": "Trade sent.",
     "wallet.tradeSentWithHash": "Trade sent: {{hash}}",
@@ -1969,8 +1971,7 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "permissions.openSettingsDesktopOnly":
       "“打开设置”仅在 Milady Desktop 可用。浏览器/云端模式请手动前往系统设置。",
     "permissions.loadingPermissions": "正在加载权限...",
-    "permissions.unableLoadPermissions":
-      "无法加载权限。该功能需要 Electron 桌面环境。",
+    "permissions.unableLoadPermissions": "无法加载权限。该功能需要桌面运行时。",
     "permissions.refresh": "刷新",
     "permissions.refreshing": "刷新中...",
     "permissions.desktopOnlyHint":
@@ -2087,6 +2088,8 @@ export const MESSAGES: Record<UiLanguage, MessageDict> = {
     "wallet.gasReserve": "Gas 预留：{{amount}} BNB",
     "wallet.executeSide": "执行 {{side}}",
     "wallet.confirmExecute": "确认执行 {{side}} 吗？",
+    "wallet.confirmTrade": "确认交易",
+    "wallet.confirmAction": "确认",
     "wallet.executing": "执行中...",
     "wallet.tradeSent": "交易已发送。",
     "wallet.tradeSentWithHash": "交易已发送：{{hash}}",

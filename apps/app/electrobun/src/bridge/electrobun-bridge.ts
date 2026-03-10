@@ -188,10 +188,6 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
   apiBaseUpdate: "apiBaseUpdate",
   shareTargetReceived: "shareTargetReceived",
-
-  // LIFO
-  "lifo:getPipState": "lifoGetPipState",
-  "lifo:setPip": "lifoSetPip",
 };
 
 /**

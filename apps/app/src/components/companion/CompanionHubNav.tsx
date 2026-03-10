@@ -233,37 +233,6 @@ export function CompanionHubNav({
         </span>
       </button>
 
-      {/* LIFO Sandbox */}
-      <button
-        type="button"
-        className="anime-hub-btn"
-        onClick={() => setTab("lifo")}
-        style={
-          {
-            "--ac-accent": "#8b5cf6",
-            "--ac-accent-rgb": "139, 92, 246",
-          } as React.CSSProperties
-        }
-      >
-        <div className="anime-hub-btn-icon">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="4 17 10 11 4 5" />
-            <line x1="12" y1="19" x2="20" y2="19" />
-          </svg>
-        </div>
-        <span className="anime-hub-btn-label">{t("nav.lifo") || "LIFO"}</span>
-      </button>
-
       {/* Settings */}
       <button
         type="button"

@@ -241,6 +241,40 @@ describe("CompanionView", () => {
     expect(content).toContain("Character");
   });
 
+  it("renders the denser companion dropdown surface when the header menu opens", async () => {
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const root = tree?.root;
+    if (!root) {
+      throw new Error("Expected companion view to be mounted");
+    }
+
+    const menuButton = root.find(
+      (node) =>
+        node.type === "button" &&
+        typeof node.props.className === "string" &&
+        node.props.className.includes("anime-status-pill"),
+    );
+
+    await act(async () => {
+      menuButton.props.onClick();
+    });
+
+    const dropdown = root.find(
+      (node) =>
+        typeof node.props.className === "string" &&
+        node.props.className.includes("bg-[rgba(8,10,16,0.97)]"),
+    );
+
+    expect(dropdown).toBeDefined();
+    expect(text(dropdown)).toContain("Restart");
+  });
+
   it("renders a single character roster panel", async () => {
     mockUseApp.mockReturnValue(createContext());
 

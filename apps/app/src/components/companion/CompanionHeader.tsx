@@ -59,7 +59,7 @@ function MiladyDropdown({
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[160px] border border-white/15 bg-[rgba(10,8,20,0.92)] backdrop-blur-xl rounded-lg shadow-xl overflow-hidden">
+          <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[160px] overflow-hidden rounded-lg border border-white/18 bg-[rgba(8,10,16,0.97)] shadow-xl backdrop-blur-xl">
             <div className="px-3 py-2 border-b border-white/10 text-[10px] text-white/40 uppercase tracking-widest font-mono">
               {name}
             </div>

@@ -390,7 +390,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         <div
           className={`flex items-center px-4 py-1 border-b ${
             inModal
-              ? "border-[var(--border)] bg-[rgba(255,255,255,0.03)]"
+              ? "border-[var(--border)] bg-[var(--surface)]"
               : "border-border bg-bg"
           }`}
         >

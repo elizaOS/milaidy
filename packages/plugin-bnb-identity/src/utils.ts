@@ -115,7 +115,14 @@ export function networkLabelForDisplay(network: string): string {
 
 export function userConfirmed(message: Memory): boolean {
   const userText = message.content?.text?.toLowerCase() ?? "";
-  return /\b(confirm|yes)\b/.test(userText);
+  if (
+    /\b(?:do not|don't|dont|not|cancel|stop|no)\s+(?:confirm|yes)\b/.test(
+      userText,
+    )
+  ) {
+    return false;
+  }
+  return /\bconfirm\b/.test(userText) || /\byes\b/.test(userText);
 }
 
 /**

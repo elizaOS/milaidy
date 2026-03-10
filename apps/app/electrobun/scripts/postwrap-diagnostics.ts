@@ -20,6 +20,20 @@ type ArchiveReport = {
   sampleEntries: string[];
 };
 
+type SizeEntry = {
+  bytes: number;
+  path: string;
+};
+
+type SizeDiagnostics = {
+  appChildren: SizeEntry[];
+  binaryDirBytes: number;
+  bundleBytes: number;
+  largestFiles: SizeEntry[];
+  notablePaths: SizeEntry[];
+  resourcesDirBytes: number;
+};
+
 type WrapperDiagnostics = {
   appName: string;
   arch: string;
@@ -31,6 +45,7 @@ type WrapperDiagnostics = {
   outputPath: string;
   resourcesDir: string;
   resourceArchives: ArchiveReport[];
+  sizes: SizeDiagnostics;
   wrapperBundlePath: string;
 };
 
@@ -186,38 +201,221 @@ function collectBinaryReport(
   return report;
 }
 
-function collectArchiveReports(resourcesDir: string): ArchiveReport[] {
+function resolveArchiveProbeEntries(resourcesDir: string): string[] {
+  const bundlePath =
+    path.basename(resourcesDir) === "Resources" &&
+    path.basename(path.dirname(resourcesDir)) === "Contents"
+      ? path.dirname(path.dirname(resourcesDir))
+      : path.dirname(resourcesDir);
+  const bundleName = path.basename(bundlePath);
+  const relativeProbeEntries = [
+    "Contents/MacOS/libwebgpu_dawn.dylib",
+    "Contents/MacOS/bun",
+    "Contents/Resources/main.js",
+    "Contents/Resources/app/bun/index.js",
+    "bin/libwebgpu_dawn.so",
+    "bin/libwebgpu_dawn.dll",
+    "bin/bun",
+    "bin/bun.exe",
+    "resources/main.js",
+    "resources/app/bun/index.js",
+  ];
+
+  return [
+    ...new Set(
+      [...relativeProbeEntries, ...relativeProbeEntries.map((entry) => path.posix.join(bundleName, entry))].map(
+        (entry) => entry.replaceAll("\\", "/"),
+      ),
+    ),
+  ];
+}
+
+function listArchiveProbeMatches(
+  archivePath: string,
+  probeEntry: string,
+): string[] {
+  try {
+    return execText("tar", ["--zstd", "-tf", archivePath, probeEntry])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function collectArchiveReports(resourcesDir: string): ArchiveReport[] {
   if (!fs.existsSync(resourcesDir)) {
     return [];
   }
 
+  const probeEntries = resolveArchiveProbeEntries(resourcesDir);
   return fs
     .readdirSync(resourcesDir)
     .filter((entry) => entry.endsWith(".tar.zst"))
     .map((entry) => path.join(resourcesDir, entry))
     .sort()
     .map((archivePath) => {
-      let sampleEntries: string[] = [];
-      try {
-        const listing = execText("tar", ["--zstd", "-tf", archivePath]);
-        sampleEntries = listing
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(0, 20);
-        return {
-          containsWgpuDawn: listing.includes("libwebgpu_dawn"),
-          path: archivePath,
-          sampleEntries,
-        };
-      } catch (error) {
-        return {
-          containsWgpuDawn: false,
-          path: archivePath,
-          sampleEntries: [`tar listing failed: ${(error as Error).message}`],
-        };
-      }
+      const sampleEntries = probeEntries
+        .flatMap((probeEntry) => listArchiveProbeMatches(archivePath, probeEntry))
+        .filter((entry, index, all) => all.indexOf(entry) === index)
+        .slice(0, 20);
+
+      return {
+        containsWgpuDawn: sampleEntries.some((entry) =>
+          entry.includes("libwebgpu_dawn"),
+        ),
+        path: archivePath,
+        sampleEntries:
+          sampleEntries.length > 0
+            ? sampleEntries
+            : probeEntries
+                .slice(0, 6)
+                .map((probeEntry) => `probe miss: ${probeEntry}`),
+      };
     });
+}
+
+function toRelativePath(rootPath: string, targetPath: string): string {
+  const relativePath = path.relative(rootPath, targetPath);
+  return relativePath.length > 0 ? relativePath : ".";
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = -1;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function getPathSizeBytes(targetPath: string): number {
+  let stats: fs.Stats;
+  try {
+    stats = fs.lstatSync(targetPath);
+  } catch {
+    return 0;
+  }
+
+  if (stats.isSymbolicLink()) {
+    return 0;
+  }
+
+  if (stats.isFile()) {
+    return stats.size;
+  }
+
+  if (!stats.isDirectory()) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const entry of fs.readdirSync(targetPath)) {
+    total += getPathSizeBytes(path.join(targetPath, entry));
+  }
+  return total;
+}
+
+function collectImmediateChildSizes(
+  parentPath: string,
+  rootPath: string,
+): SizeEntry[] {
+  if (!fs.existsSync(parentPath)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(parentPath, { withFileTypes: true })
+    .map((entry) => path.join(parentPath, entry.name))
+    .map((entryPath) => ({
+      bytes: getPathSizeBytes(entryPath),
+      path: toRelativePath(rootPath, entryPath),
+    }))
+    .filter((entry) => entry.bytes > 0)
+    .sort((left, right) => right.bytes - left.bytes);
+}
+
+function collectLargestFiles(
+  rootPath: string,
+  limit = 12,
+): SizeEntry[] {
+  const files: SizeEntry[] = [];
+
+  const visit = (currentPath: string): void => {
+    let stats: fs.Stats;
+    try {
+      stats = fs.lstatSync(currentPath);
+    } catch {
+      return;
+    }
+
+    if (stats.isSymbolicLink()) {
+      return;
+    }
+
+    if (stats.isFile()) {
+      files.push({
+        bytes: stats.size,
+        path: toRelativePath(rootPath, currentPath),
+      });
+      return;
+    }
+
+    if (!stats.isDirectory()) {
+      return;
+    }
+
+    for (const entry of fs.readdirSync(currentPath)) {
+      visit(path.join(currentPath, entry));
+    }
+  };
+
+  visit(rootPath);
+
+  return files.sort((left, right) => right.bytes - left.bytes).slice(0, limit);
+}
+
+export function collectSizeDiagnostics(
+  bundlePath: string,
+  binaryDir: string,
+  resourcesDir: string,
+): SizeDiagnostics {
+  const appRoot = path.join(resourcesDir, "app");
+  const notableCandidates = [
+    binaryDir,
+    resourcesDir,
+    appRoot,
+    path.join(appRoot, "milady-dist"),
+    path.join(appRoot, "milady-dist", "node_modules"),
+    path.join(appRoot, "renderer"),
+    path.join(appRoot, "renderer", "assets"),
+    path.join(appRoot, "renderer", "vrms"),
+  ]
+    .filter((candidate, index, all) => all.indexOf(candidate) === index)
+    .filter((candidate) => fs.existsSync(candidate));
+
+  return {
+    appChildren: collectImmediateChildSizes(appRoot, bundlePath).slice(0, 12),
+    binaryDirBytes: getPathSizeBytes(binaryDir),
+    bundleBytes: getPathSizeBytes(bundlePath),
+    largestFiles: collectLargestFiles(bundlePath, 15),
+    notablePaths: notableCandidates
+      .map((candidate) => ({
+        bytes: getPathSizeBytes(candidate),
+        path: toRelativePath(bundlePath, candidate),
+      }))
+      .filter((entry) => entry.bytes > 0)
+      .sort((left, right) => right.bytes - left.bytes),
+    resourcesDirBytes: getPathSizeBytes(resourcesDir),
+  };
 }
 
 function main(): void {
@@ -264,6 +462,7 @@ function main(): void {
     outputPath,
     resourcesDir,
     resourceArchives: collectArchiveReports(resourcesDir),
+    sizes: collectSizeDiagnostics(wrapperBundlePath, binaryDir, resourcesDir),
     wrapperBundlePath,
   };
 
@@ -272,6 +471,9 @@ function main(): void {
 
   console.log(
     `[postwrap-diagnostics] wrote ${outputPath} (${diagnostics.os}/${diagnostics.arch})`,
+  );
+  console.log(
+    `[postwrap-diagnostics] bundle size ${formatBytes(diagnostics.sizes.bundleBytes)} | resources ${formatBytes(diagnostics.sizes.resourcesDirBytes)} | binaries ${formatBytes(diagnostics.sizes.binaryDirBytes)}`,
   );
   for (const binary of diagnostics.binaries) {
     if (!binary.exists) {
@@ -284,6 +486,11 @@ function main(): void {
   for (const archive of diagnostics.resourceArchives) {
     console.log(
       `[postwrap-diagnostics] archive ${path.basename(archive.path)} contains libwebgpu_dawn=${archive.containsWgpuDawn}`,
+    );
+  }
+  for (const entry of diagnostics.sizes.notablePaths.slice(0, 6)) {
+    console.log(
+      `[postwrap-diagnostics] size ${entry.path}: ${formatBytes(entry.bytes)}`,
     );
   }
 }

@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import TestRenderer, { act } from "react-test-renderer";
@@ -198,6 +199,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [triggersSaving, setTriggersSaving] = useState(false);
+  const triggerLoadRequestIdRef = useRef(0);
   const [triggerRunsById, setTriggerRunsById] = useState<
     Record<string, TriggerRunRecord[]>
   >({});
@@ -206,17 +208,21 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
   const [triggerError, setTriggerError] = useState<string | null>(null);
 
   const loadTriggers = useCallback(async () => {
+    const requestId = ++triggerLoadRequestIdRef.current;
     setTriggersLoading(true);
     try {
       const response = await client.getTriggers();
+      if (requestId !== triggerLoadRequestIdRef.current) return;
       setTriggers(sortTriggers(response.triggers));
       setTriggerError(null);
     } catch (error) {
+      if (requestId !== triggerLoadRequestIdRef.current) return;
       const message =
         error instanceof Error ? error.message : "Failed to load triggers";
       setTriggerError(message);
       setTriggers([]);
-    } finally {
+    }
+    if (requestId === triggerLoadRequestIdRef.current) {
       setTriggersLoading(false);
     }
   }, [client]);
@@ -263,6 +269,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
         const created = response.trigger;
         setTriggers((prev) => sortTriggers([...prev, created]));
         setTriggerError(null);
+        void loadTriggers();
         await loadTriggerHealth();
         return created;
       } catch (error) {
@@ -274,7 +281,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
         setTriggersSaving(false);
       }
     },
-    [client, loadTriggerHealth],
+    [client, loadTriggerHealth, loadTriggers],
   );
 
   const updateTrigger = useCallback(
@@ -292,6 +299,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
           ),
         );
         setTriggerError(null);
+        void loadTriggers();
         await loadTriggerHealth();
         return updated;
       } catch (error) {
@@ -303,7 +311,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
         setTriggersSaving(false);
       }
     },
-    [client, loadTriggerHealth],
+    [client, loadTriggerHealth, loadTriggers],
   );
 
   const deleteTrigger = useCallback(
@@ -320,6 +328,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
           return next;
         });
         setTriggerError(null);
+        void loadTriggers();
         await loadTriggerHealth();
         return true;
       } catch (error) {
@@ -331,7 +340,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
         setTriggersSaving(false);
       }
     },
-    [client, loadTriggerHealth],
+    [client, loadTriggerHealth, loadTriggers],
   );
 
   const runTriggerNow = useCallback(
@@ -351,6 +360,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
           await loadTriggers();
         }
         await loadTriggerRuns(id);
+        void loadTriggers();
         await loadTriggerHealth();
         setTriggerError(null);
         return response.ok;
@@ -449,6 +459,24 @@ function findTextareaByPlaceholder(
   return matches[0];
 }
 
+function countSpansByText(
+  root: TestRenderer.ReactTestInstance,
+  text: string,
+): number {
+  return root.findAll((node) => node.type === "span" && nodeText(node) === text)
+    .length;
+}
+
+async function waitForSpanCount(
+  getRoot: () => TestRenderer.ReactTestInstance,
+  text: string,
+  count: number,
+): Promise<void> {
+  await vi.waitFor(() => {
+    expect(countSpansByText(getRoot(), text)).toBe(count);
+  });
+}
+
 async function flush(): Promise<void> {
   await act(async () => {
     await Promise.resolve();
@@ -513,7 +541,7 @@ describe("TriggersView UI E2E", () => {
     const client = new MiladyClient(`http://127.0.0.1:${server.port}`);
     const triggerDisplayName = "Trigger UI E2E";
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(TriggerUiHarness, { client }),
@@ -521,87 +549,78 @@ describe("TriggersView UI E2E", () => {
     });
     await flush();
 
-    const root = tree?.root;
-    const displayNameInput = findInputByPlaceholder(
-      root,
-      "e.g. Daily Digest, Heartbeat Check",
-    );
-    const instructionsInput = findTextareaByPlaceholder(
-      root,
-      "What should the agent do when this trigger fires?",
-    );
+    const getRoot = (): TestRenderer.ReactTestInstance => {
+      if (!tree) {
+        throw new Error("Expected trigger tree to be mounted");
+      }
+      return tree.root;
+    };
 
     await act(async () => {
-      displayNameInput.props.onChange({
+      findInputByPlaceholder(
+        getRoot(),
+        "e.g. Daily Digest, Heartbeat Check",
+      ).props.onChange({
         target: { value: triggerDisplayName },
       });
-      instructionsInput.props.onChange({
+      findTextareaByPlaceholder(
+        getRoot(),
+        "What should the agent do when this trigger fires?",
+      ).props.onChange({
         target: { value: "Execute this UI E2E trigger task" },
       });
     });
 
     await act(async () => {
-      await findButtonByText(root, "Create Trigger").props.onClick();
+      await findButtonByText(getRoot(), "Create Trigger").props.onClick();
     });
     await flush();
-
-    expect(
-      root.findAll(
-        (node) => node.type === "span" && nodeText(node) === triggerDisplayName,
-      ).length,
-    ).toBe(1);
+    await waitForSpanCount(getRoot, triggerDisplayName, 1);
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
-      await findButtonByText(root, "Edit").props.onClick();
+      await findButtonByText(getRoot(), "Edit").props.onClick();
     });
     await flush();
 
     await act(async () => {
-      displayNameInput.props.onChange({
+      findInputByPlaceholder(
+        getRoot(),
+        "e.g. Daily Digest, Heartbeat Check",
+      ).props.onChange({
         target: { value: renamedTriggerDisplayName },
       });
     });
 
     await act(async () => {
-      await findButtonByText(root, "Save Changes").props.onClick();
+      await findButtonByText(getRoot(), "Save Changes").props.onClick();
     });
     await flush();
-
-    expect(
-      root.findAll(
-        (node) =>
-          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
-      ).length,
-    ).toBe(1);
+    await waitForSpanCount(getRoot, renamedTriggerDisplayName, 1);
 
     await act(async () => {
-      await findButtonByText(root, "Run now").props.onClick();
+      await findButtonByText(getRoot(), "Run now").props.onClick();
     });
     await flush();
 
     expect(runtimeHarness.injectAutonomousInstruction).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      await findButtonByText(root, "Runs").props.onClick();
+      await findButtonByText(getRoot(), "Runs").props.onClick();
     });
     await flush();
 
-    const successRows = root.findAll(
-      (node) => node.type === "span" && nodeText(node).includes("success"),
-    );
-    expect(successRows.length).toBeGreaterThan(0);
+    await vi.waitFor(() => {
+      const successRows = getRoot().findAll(
+        (node) => node.type === "span" && nodeText(node).includes("success"),
+      );
+      expect(successRows.length).toBeGreaterThan(0);
+    });
 
     await act(async () => {
-      await findButtonByText(root, "Delete").props.onClick();
+      await findButtonByText(getRoot(), "Delete").props.onClick();
     });
     await flush();
-
-    expect(
-      root.findAll(
-        (node) =>
-          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
-      ).length,
-    ).toBe(0);
+    await waitForSpanCount(getRoot, renamedTriggerDisplayName, 0);
   });
 });

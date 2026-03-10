@@ -79,6 +79,11 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     target: "es2022",
+    // The app ships inside a native desktop bundle, so Vite's default
+    // 500 kB network-oriented warning threshold is too aggressive here.
+    // Keep the threshold close enough to current artifacts that real bundle
+    // regressions still surface.
+    chunkSizeWarningLimit: 2600,
     rollupOptions: {
       input: {
         main: path.resolve(here, "index.html"),

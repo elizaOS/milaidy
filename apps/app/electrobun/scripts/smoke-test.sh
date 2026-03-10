@@ -11,13 +11,12 @@
 #     OR run without signing: set SKIP_SIGNATURE_CHECK=1
 #
 # What this script does:
-#   1. Builds the core server bundle + renderer assets that Electrobun copies
-#   2. Bundles runtime node_modules into dist/
-#   3. Builds the native macOS effects dylib
-#   4. Runs electrobun build (--env=canary by default)
-#   5. Locates the built .app bundle from artifacts/ or mounts the built DMG
-#   6. Verifies codesign + notarization
-#   7. Launches the app, waits for the embedded backend to answer /api/health,
+#   1. Uses the shared desktop build entrypoint to stage runtime/assets and run
+#      electrobun build (--env=canary by default)
+#   2. Locates the staged .app bundle from artifacts/ and verifies
+#      wrapper-diagnostics.json for non-dev builds
+#   3. Verifies codesign + notarization
+#   4. Launches the app, waits for the embedded backend to answer /api/health,
 #      then confirms the app stays alive and kills it
 
 set -euo pipefail
@@ -27,6 +26,7 @@ ELECTROBUN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_DIR="$(cd "$ELECTROBUN_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$ELECTROBUN_DIR/../../.." && pwd)"
 BUILD_ENV="${BUILD_ENV:-canary}"
+DESKTOP_BUILD_PROFILE="${DESKTOP_BUILD_PROFILE:-full}"
 SKIP_SIGNATURE_CHECK="${SKIP_SIGNATURE_CHECK:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 STARTUP_TIMEOUT="${STARTUP_TIMEOUT:-180}"
@@ -36,9 +36,12 @@ BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
 SMOKE_DIAGNOSTICS_DIR="${SMOKE_DIAGNOSTICS_DIR:-}"
-MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
 STARTUP_LOG="$HOME/.config/Milady/milady-startup.log"
+DESKTOP_RUNTIME_MANIFEST="$REPO_ROOT/dist/desktop-runtime-manifest.json"
+BUILD_SENTINEL="$(mktemp "${TMPDIR:-/tmp}/milady-electrobun-build-sentinel.XXXXXX")"
+WRAPPER_DIAGNOSTICS_PATH=""
+STREAMING_FAILURE_REGEX='@elizaos/plugin-streaming-base|@elizaos/plugin-x-streaming|@milady/plugin-pumpfun-streaming|@milady/plugin-retake|@milady/plugin-streaming-base|@milady/plugin-twitch-streaming|@milady/plugin-x-streaming|@milady/plugin-youtube-streaming'
 
 if [[ "$SKIP_SIGNATURE_CHECK" == "1" && -z "$BUILD_SKIP_CODESIGN" ]]; then
   BUILD_SKIP_CODESIGN="1"
@@ -58,39 +61,9 @@ cleanup() {
   if [[ -n "$LAUNCH_APP_BUNDLE" && "$LAUNCH_APP_BUNDLE" == /tmp/* && -d "$LAUNCH_APP_BUNDLE" ]]; then
     rm -rf "$LAUNCH_APP_BUNDLE"
   fi
-  if [[ -n "$MOUNT_POINT" && -d "$MOUNT_POINT" ]]; then
-    hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+  if [[ -n "$BUILD_SENTINEL" && -f "$BUILD_SENTINEL" ]]; then
+    rm -f "$BUILD_SENTINEL"
   fi
-}
-
-attach_dmg_with_retry() {
-  local dmg_path="$1"
-  local attempts="${2:-5}"
-  local sleep_seconds="${3:-2}"
-  local attempt=1
-  local attach_output=""
-  local mount_point=""
-
-  while [[ "$attempt" -le "$attempts" ]]; do
-    if attach_output="$(hdiutil attach -nobrowse -readonly "$dmg_path" 2>&1)"; then
-      mount_point="$(printf "%s\n" "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
-      if [[ -n "$mount_point" && -d "$mount_point" ]]; then
-        printf "%s\n" "$mount_point"
-        return 0
-      fi
-      echo "WARNING: DMG attach succeeded but no mount point was detected (attempt $attempt/$attempts)." >&2
-    else
-      echo "WARNING: DMG attach failed (attempt $attempt/$attempts):" >&2
-      printf "%s\n" "$attach_output" >&2
-    fi
-
-    if [[ "$attempt" -lt "$attempts" ]]; then
-      sleep "$sleep_seconds"
-    fi
-    attempt=$((attempt + 1))
-  done
-
-  return 1
 }
 
 ensure_diagnostics_dir() {
@@ -136,6 +109,129 @@ copy_supporting_diagnostics() {
   done < <(
     find "$ELECTROBUN_DIR/build" -type f -name "wrapper-diagnostics.json" 2>/dev/null | sort
   )
+}
+
+find_wrapper_diagnostics() {
+  [[ -d "$ELECTROBUN_DIR/build" ]] || return 0
+
+  local diagnostics_path=""
+  diagnostics_path="$(
+    find "$ELECTROBUN_DIR/build" -type f -name "wrapper-diagnostics.json" -newer "$BUILD_SENTINEL" 2>/dev/null | sort | tail -n 1
+  )"
+  if [[ -n "$diagnostics_path" ]]; then
+    printf "%s\n" "$diagnostics_path"
+    return 0
+  fi
+
+  find "$ELECTROBUN_DIR/build" -type f -name "wrapper-diagnostics.json" 2>/dev/null | sort | tail -n 1
+}
+
+print_wrapper_diagnostics_summary() {
+  local diagnostics_path="$1"
+
+  node --input-type=module - "$diagnostics_path" <<'NODE'
+import fs from "node:fs";
+
+const diagnosticsPath = process.argv[2];
+if (!diagnosticsPath) {
+  process.exit(1);
+}
+
+const data = JSON.parse(fs.readFileSync(diagnosticsPath, "utf8"));
+const sizes = data?.sizes ?? {};
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 B";
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let scaled = value;
+  let unitIndex = -1;
+  while (scaled >= 1024 && unitIndex < units.length - 1) {
+    scaled /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${scaled.toFixed(scaled >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+console.log(
+  `Wrapper size: bundle ${formatBytes(sizes.bundleBytes)} | resources ${formatBytes(sizes.resourcesDirBytes)} | binaries ${formatBytes(sizes.binaryDirBytes)}`,
+);
+
+const notablePaths = Array.isArray(sizes.notablePaths)
+  ? sizes.notablePaths.slice(0, 3)
+  : [];
+for (const entry of notablePaths) {
+  if (!entry?.path) {
+    continue;
+  }
+  console.log(`  ${entry.path}: ${formatBytes(entry.bytes)}`);
+}
+NODE
+}
+
+verify_wrapper_diagnostics() {
+  if [[ "$BUILD_ENV" == "dev" ]]; then
+    echo "Wrapper diagnostics: skipped (dev builds do not run postWrap)"
+    return 0
+  fi
+
+  WRAPPER_DIAGNOSTICS_PATH="$(find_wrapper_diagnostics)"
+  if [[ -z "$WRAPPER_DIAGNOSTICS_PATH" ]]; then
+    echo "ERROR: wrapper-diagnostics.json was not produced for this $BUILD_ENV build. The postWrap hook may not have run."
+    exit 1
+  fi
+
+  echo "Wrapper diagnostics: $WRAPPER_DIAGNOSTICS_PATH"
+  if ! print_wrapper_diagnostics_summary "$WRAPPER_DIAGNOSTICS_PATH"; then
+    echo "WARNING: wrapper diagnostics summary unavailable for $WRAPPER_DIAGNOSTICS_PATH"
+  fi
+}
+
+desktop_runtime_manifest_excludes_pack() {
+  local capability_pack="$1"
+  [[ -f "$DESKTOP_RUNTIME_MANIFEST" ]] || return 1
+
+  node --input-type=module - "$DESKTOP_RUNTIME_MANIFEST" "$capability_pack" <<'NODE'
+import fs from "node:fs";
+
+const manifestPath = process.argv[2];
+const capabilityPack = process.argv[3];
+
+if (!manifestPath || !capabilityPack) {
+  process.exit(1);
+}
+
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const excludedCapabilityPacks = Array.isArray(manifest?.excludedCapabilityPacks)
+  ? manifest.excludedCapabilityPacks
+  : [];
+
+process.exit(excludedCapabilityPacks.includes(capabilityPack) ? 0 : 1);
+NODE
+}
+
+startup_log_has_unexpected_missing_module() {
+  local log_slice="$1"
+  local missing_module_lines=""
+
+  missing_module_lines="$(printf '%s\n' "$log_slice" | grep "Cannot find module" || true)"
+  [[ -n "$missing_module_lines" ]] || return 1
+
+  if desktop_runtime_manifest_excludes_pack "streaming"; then
+    if printf '%s\n' "$missing_module_lines" | grep -Ev "$STREAMING_FAILURE_REGEX" >/dev/null; then
+      return 0
+    fi
+    return 1
+  fi
+
+  return 0
 }
 
 write_bundle_diagnostics() {
@@ -205,7 +301,6 @@ dump_failure_diagnostics() {
     echo "Startup timeout: $STARTUP_TIMEOUT"
     echo "Liveness timeout: $LIVENESS_TIMEOUT"
     echo "Packaged handoff grace: $PACKAGED_HANDOFF_GRACE_SECONDS"
-    echo "Mounted volume: ${MOUNT_POINT:-<none>}"
     echo "Launch bundle: ${LAUNCH_APP_BUNDLE:-<none>}"
     echo "Launcher path: ${LAUNCHER_PATH:-<none>}"
     echo "Current packaged PID: $(find_live_packaged_pid)"
@@ -296,6 +391,27 @@ build_launcher_command() {
   fi
 }
 
+read_startup_log_slice() {
+  [[ -f "$STARTUP_LOG" ]] || return 0
+
+  local current_size="0"
+  current_size="$(wc -c < "$STARTUP_LOG" | tr -d ' ')"
+  if [[ -z "${LOG_OFFSET:-}" || "$LOG_OFFSET" -le 0 ]]; then
+    cat "$STARTUP_LOG"
+    return 0
+  fi
+
+  # The packaged app can recreate the startup log on launch. If the file was
+  # truncated or rotated after we captured LOG_OFFSET, fall back to the whole
+  # current file instead of tailing from a byte offset beyond EOF.
+  if [[ "$current_size" -lt "$LOG_OFFSET" ]]; then
+    cat "$STARTUP_LOG"
+    return 0
+  fi
+
+  tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true
+}
+
 find_live_packaged_pid() {
   if [[ -z "$LAUNCH_APP_BUNDLE" ]]; then
     return 0
@@ -311,44 +427,30 @@ trap cleanup EXIT
 echo "============================================================"
 echo " Milady Electrobun Smoke Test"
 echo " Build env  : $BUILD_ENV"
+echo " Profile    : $DESKTOP_BUILD_PROFILE"
 echo " Working dir: $ELECTROBUN_DIR"
 echo "============================================================"
 echo ""
 
-# ── 1-4. Build or reuse packaged artifact ────────────────────────────────────
+# ── 1. Build or reuse packaged artifact ──────────────────────────────────────
 if [[ "$SKIP_BUILD" == "1" ]]; then
-  echo "[1/7] Reusing existing packaged artifact (SKIP_BUILD=1)..."
+  echo "[1/4] Reusing existing packaged artifact (SKIP_BUILD=1)..."
 else
-  echo "[1/7] Building core dist + renderer assets..."
-  (cd "$REPO_ROOT" && bunx tsdown && echo '{"type":"module"}' > dist/package.json && node --import tsx scripts/write-build-info.ts)
-  (cd "$APP_DIR" && npx vite build)
-  echo ""
-
-  echo "[2/7] Bundling runtime node_modules into dist/..."
-  (cd "$REPO_ROOT" && node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist)
-  echo ""
-
+  echo "[1/4] Building staged desktop inputs + Electrobun app (env=$BUILD_ENV, profile=$DESKTOP_BUILD_PROFILE)..."
+  touch "$BUILD_SENTINEL"
+  build_args=(scripts/desktop-build.mjs build --profile="$DESKTOP_BUILD_PROFILE" --variant=base --env="$BUILD_ENV")
   if [[ "$(uname)" == "Darwin" ]]; then
-    echo "[3/7] Building native macOS effects dylib..."
-    (cd "$ELECTROBUN_DIR" && bun run build:native-effects)
-    DYLIB="$ELECTROBUN_DIR/src/libMacWindowEffects.dylib"
-    if [[ ! -f "$DYLIB" ]]; then
-      echo "ERROR: $DYLIB not found after build. Abort."
-      exit 1
-    fi
-    echo "      OK — $DYLIB ($(du -sh "$DYLIB" | cut -f1))"
-  else
-    echo "[3/7] Skipping dylib build (not macOS)"
+    build_args+=(--stage-macos-release-app)
   fi
-  echo ""
-
-  echo "[4/7] Building Electrobun app (env=$BUILD_ENV)..."
-  (cd "$ELECTROBUN_DIR" && ELECTROBUN_DEVELOPER_ID="$BUILD_DEVELOPER_ID" ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" bun run build -- --env="$BUILD_ENV")
+  if [[ "$(uname)" == "Darwin" || "$(uname)" == "Linux" ]]; then
+    build_args+=(--build-whisper)
+  fi
+  (cd "$REPO_ROOT" && ELECTROBUN_DEVELOPER_ID="$BUILD_DEVELOPER_ID" ELECTROBUN_SKIP_CODESIGN="$BUILD_SKIP_CODESIGN" node "${build_args[@]}")
 fi
 echo ""
 
-# ── 5. Locate built .app ─────────────────────────────────────────────────────
-echo "[5/7] Locating built .app bundle..."
+# ── 2. Locate built .app ─────────────────────────────────────────────────────
+echo "[2/4] Locating built .app bundle..."
 ARTIFACTS_DIR="${ARTIFACTS_DIR_OVERRIDE:-$ELECTROBUN_DIR/artifacts}"
 LEGACY_DIST_DIR="$ELECTROBUN_DIR/dist"
 OUTPUT_DIR=""
@@ -383,18 +485,8 @@ if [[ -z "$APP_BUNDLE" ]]; then
 fi
 
 if [[ -z "$APP_BUNDLE" ]]; then
-  DMG_PATH="$(find "$OUTPUT_DIR" -maxdepth 1 -name "*.dmg" -type f -print -quit 2>/dev/null || true)"
-  if [[ -n "$DMG_PATH" && "$(uname)" == "Darwin" ]]; then
-    echo "No .app bundle found in artifacts; mounting DMG: $DMG_PATH"
-    MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"
-    if [[ -n "$MOUNT_POINT" && -d "$MOUNT_POINT" ]]; then
-      APP_BUNDLE="$(find "$MOUNT_POINT" -maxdepth 2 -name "*.app" -type d -print -quit 2>/dev/null || true)"
-    fi
-  fi
-fi
-
-if [[ -z "$APP_BUNDLE" ]]; then
-  echo "ERROR: No .app bundle found under $OUTPUT_DIR or inside the built DMG"
+  echo "ERROR: No staged .app bundle found under $OUTPUT_DIR"
+  echo "       macOS smoke now requires the staged app artifact; DMG fallback is disabled."
   exit 1
 fi
 echo "Found: $APP_BUNDLE"
@@ -415,11 +507,12 @@ else
   echo "ERROR: Neither a packaged runtime archive nor a direct WebGPU runtime was found in $APP_BUNDLE"
   exit 1
 fi
+verify_wrapper_diagnostics
 echo ""
 
-# ── 6. Signature + notarization check ────────────────────────────────────────
+# ── 3. Signature + notarization check ────────────────────────────────────────
 if [[ "$(uname)" == "Darwin" && "$SKIP_SIGNATURE_CHECK" != "1" ]]; then
-  echo "[6/7] Verifying signature and notarization..."
+  echo "[3/4] Verifying signature and notarization..."
 
   codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 
@@ -438,19 +531,13 @@ if [[ "$(uname)" == "Darwin" && "$SKIP_SIGNATURE_CHECK" != "1" ]]; then
     echo "         Set SKIP_SIGNATURE_CHECK=1 to suppress this warning."
   fi
 else
-  echo "[6/7] Signature check skipped (SKIP_SIGNATURE_CHECK=1 or not macOS)"
+  echo "[3/4] Signature check skipped (SKIP_SIGNATURE_CHECK=1 or not macOS)"
 fi
 echo ""
 
-# ── 7. Launch + backend health + liveness check ──────────────────────────────
-echo "[7/7] Launching app for backend + liveness check..."
-if [[ -n "$MOUNT_POINT" ]]; then
-  LAUNCH_APP_DIR="$(mktemp -d /tmp/milady-smoke-app.XXXXXX)"
-  LAUNCH_APP_BUNDLE="$LAUNCH_APP_DIR/$(basename "$APP_BUNDLE")"
-  ditto "$APP_BUNDLE" "$LAUNCH_APP_BUNDLE"
-else
-  LAUNCH_APP_BUNDLE="$APP_BUNDLE"
-fi
+# ── 4. Launch + backend health + liveness check ──────────────────────────────
+echo "[4/4] Launching app for backend + liveness check..."
+LAUNCH_APP_BUNDLE="$APP_BUNDLE"
 
 kill_stale_processes
 
@@ -493,11 +580,11 @@ while [[ $SECONDS -lt $DEADLINE ]]; do
   LIVE_PID="$(find_live_packaged_pid)"
 
   if [[ -f "$STARTUP_LOG" ]]; then
-    LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
+    LOG_SLICE="$(read_startup_log_slice)"
     if [[ -z "$BACKEND_PORT" ]]; then
       BACKEND_PORT="$(printf '%s\n' "$LOG_SLICE" | sed -n 's/.*Runtime started -- agent: .* port: \([0-9][0-9]*\), pid: .*/\1/p' | tail -1)"
     fi
-    if printf '%s\n' "$LOG_SLICE" | grep -Eq 'Cannot find module|Child process exited with code|Failed to start:'; then
+    if startup_log_has_unexpected_missing_module "$LOG_SLICE" || printf '%s\n' "$LOG_SLICE" | grep -Eq 'Child process exited with code|Failed to start:'; then
       echo "ERROR: Backend startup failed. Recent startup log:"
       printf '%s\n' "$LOG_SLICE" | tail -n 120
       echo ""
@@ -558,25 +645,29 @@ if ! curl -fsS "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
   exit 1
 fi
 
-LOG_SLICE="$(tail -c +"$((LOG_OFFSET + 1))" "$STARTUP_LOG" 2>/dev/null || true)"
-STREAMING_FAILURE_REGEX='@elizaos/plugin-streaming-base|@elizaos/plugin-x-streaming|@milady/plugin-x-streaming|@milady/plugin-youtube-streaming|@milady/plugin-retake'
-if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
-  echo "ERROR: Streaming plugin resolution failed during packaged startup."
-  printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
-  dump_failure_diagnostics "streaming plugin resolution failed"
-  exit 1
-fi
-if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
-  echo "ERROR: Packaged startup reported failed streaming plugins."
-  printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
-  dump_failure_diagnostics "streaming plugins reported failed"
-  exit 1
-fi
-if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
-  echo "ERROR: Streaming helper package was treated as a real plugin."
-  printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
-  dump_failure_diagnostics "streaming helper package treated as a plugin"
-  exit 1
+LOG_SLICE="$(read_startup_log_slice)"
+if desktop_runtime_manifest_excludes_pack "streaming"; then
+  echo "Streaming plugin resolution check skipped (streaming capability pack excluded)."
+else
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Could not load plugin (${STREAMING_FAILURE_REGEX})"; then
+    echo "ERROR: Streaming plugin resolution failed during packaged startup."
+    printf '%s\n' "$LOG_SLICE" | grep -E "Could not load plugin|Failed plugins:" | tail -n 40
+    dump_failure_diagnostics "streaming plugin resolution failed"
+    exit 1
+  fi
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_REGEX})"; then
+    echo "ERROR: Packaged startup reported failed streaming plugins."
+    printf '%s\n' "$LOG_SLICE" | grep -E "Plugin resolution complete|Failed plugins:" | tail -n 20
+    dump_failure_diagnostics "streaming plugins reported failed"
+    exit 1
+  fi
+  if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @milady/plugin-streaming-base did not export a valid Plugin object"; then
+    echo "ERROR: Streaming helper package was treated as a real plugin."
+    printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
+    dump_failure_diagnostics "streaming helper package treated as a plugin"
+    exit 1
+  fi
+  echo "Streaming plugin resolution check PASSED."
 fi
 if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runtime"; then
   echo "ERROR: AGENT_EVENT runtime service was not registered."
@@ -584,7 +675,6 @@ if printf '%s\n' "$LOG_SLICE" | grep -Eq "AGENT_EVENT service not found on runti
   dump_failure_diagnostics "AGENT_EVENT runtime service missing"
   exit 1
 fi
-echo "Streaming plugin resolution check PASSED."
 
 echo "Waiting ${LIVENESS_TIMEOUT}s for liveness..."
 sleep "$LIVENESS_TIMEOUT"

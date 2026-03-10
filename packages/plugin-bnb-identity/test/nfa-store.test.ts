@@ -5,9 +5,9 @@ import {
   patchNfaRecord,
   clearNfaRecord,
 } from "../src/nfa-store.js";
-import type { NfaRecord } from "../src/types.js";
+import type { LegacyNfaRecord } from "../src/types.js";
 
-const SAMPLE_RECORD: NfaRecord = {
+const SAMPLE_RECORD: LegacyNfaRecord = {
   tokenId: "42",
   contractAddress: "0x1234567890abcdef1234567890abcdef12345678",
   network: "bsc-testnet",

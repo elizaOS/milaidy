@@ -238,74 +238,13 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
-      - name: Build core dist (server bundle)
-        # tsdown output is pure JS (arch-neutral), but keep the Intel build on
-        # an explicit x64 invocation so any native tsx/node resolution matches
-        # the x64 install.
+      - name: Stage desktop bundle inputs
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bunx tsdown
-            echo '{"type":"module"}' > dist/package.json
-            arch -x86_64 node --import tsx scripts/write-build-info.ts
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper
           else
-            bunx tsdown
-            echo '{"type":"module"}' > dist/package.json
-            node --import tsx scripts/write-build-info.ts
+            node scripts/desktop-build.mjs stage --variant=base --build-whisper
           fi
-
-      - name: Build renderer (Vite)
-        # Vite output is arch-neutral JS/CSS/HTML, but bun install here may pull
-        # native optional deps, so keep the Intel build on an explicit x64 path.
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun install --ignore-scripts
-            arch -x86_64 npx vite build
-          else
-            bun install --ignore-scripts
-            npx vite build
-          fi
-        working-directory: apps/app
-
-      # Copy the Vite-built frontend into the Electrobun renderer directory.
-      # The bun entry point (src/index.ts) resolves the renderer at
-      # ../renderer/index.html relative to itself, which maps to
-      # apps/app/electrobun/renderer/ at build time and
-      # Resources/app/renderer/ in the packaged bundle.
-      # Without this step the renderer directory is absent from the package
-      # and the window opens to a file-not-found error.
-      - name: Stage renderer for Electrobun bundle
-        run: |
-          rm -rf apps/app/electrobun/renderer
-          cp -r apps/app/dist apps/app/electrobun/renderer
-
-      # macOS: compile Objective-C++ native effects dylib
-      - name: Build native macOS effects dylib
-        if: matrix.platform.os == 'macos'
-        run: |
-          if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:native-effects
-          else
-            bun run build:native-effects
-          fi
-        working-directory: apps/app/electrobun
-
-      # Build the webview bridge preload (window.electron shim injected into the webview)
-      - name: Build webview bridge preload
-        run: bun run build:preload
-        working-directory: apps/app/electrobun
-
-      # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
-      # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
-      # macOS Intel: keep the whisper build on an explicit x64 path.
-      - name: Build whisper.cpp (on-device STT)
-        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:whisper
-          else
-            bun run build:whisper
-          fi
-        working-directory: apps/app/electrobun
 
       # Import the Developer ID certificate into a temporary keychain.
       # Requires CSC_LINK (base64-encoded .p12) + CSC_KEY_PASSWORD.
@@ -382,20 +321,6 @@ jobs:
           chmod +x "$wrapper_dir/xcrun"
           chmod +x "$wrapper_dir/zip"
           echo "$wrapper_dir" >> "$GITHUB_PATH"
-
-      # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
-      # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
-      # Copy the runtime package closure that the built server bundle still imports
-      # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
-      # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
-      # macOS Intel: keep the x64 node_modules copy on an explicit x64 path.
-      - name: Bundle backend node_modules into dist/
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          else
-            node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          fi
 
       - name: Install electrobun CLI
         # macOS Intel: keep the global electrobun install on an explicit x64 path.
@@ -483,14 +408,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Electrobun app
-        # macOS Intel: keep the packaged app build on an explicit x64 path.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 electrobun build --env=${{ needs.prepare.outputs.env }}
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           else
-            electrobun build --env=${{ needs.prepare.outputs.env }}
+            node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           fi
-        working-directory: apps/app/electrobun
         env:
           # Electrobun reads these env vars directly. The workflow derives the
           # signing identity from CSC_LINK/CSC_KEY_PASSWORD during keychain setup
@@ -599,41 +522,9 @@ jobs:
           while IFS= read -r app; do
             apps+=("$app")
           done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type d -name "*.app" | sort)
-          mounted_volume=""
           if [ "${#apps[@]}" -eq 0 ]; then
-            dmgs=(apps/app/electrobun/artifacts/*.dmg)
-            if [ "${#dmgs[@]}" -eq 0 ]; then
-              echo "::warning::No .app bundle or .dmg found — skipping codesign check"
-              exit 0
-            fi
-            dmg="${dmgs[0]}"
-            echo "No .app bundle found in artifacts; mounting DMG: $dmg"
-            mount_line=""
-            for attempt in 1 2 3 4 5; do
-              attach_output="$(hdiutil attach -nobrowse -readonly "$dmg" 2>&1)" && \
-                mount_line="$(printf '%s\n' "$attach_output" | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')" && \
-                [ -n "$mount_line" ] && [ -d "$mount_line" ] && break
-              echo "::warning::DMG attach attempt $attempt/5 failed"
-              if [ -n "${attach_output:-}" ]; then
-                printf '%s\n' "$attach_output"
-              fi
-              mount_line=""
-              sleep 2
-            done
-            if [ -z "$mount_line" ]; then
-              echo "::error::Failed to determine mounted DMG volume"
-              exit 1
-            fi
-            mounted_volume="$mount_line"
-            trap 'if [ -n "$mounted_volume" ] && [ -d "$mounted_volume" ]; then hdiutil detach "$mounted_volume" >/dev/null 2>&1 || true; fi' EXIT
-            apps=()
-            while IFS= read -r app; do
-              apps+=("$app")
-            done < <(find "$mounted_volume" -maxdepth 1 -type d -name "*.app" | sort)
-            if [ "${#apps[@]}" -eq 0 ]; then
-              echo "::error::No .app bundle found inside mounted DMG"
-              exit 1
-            fi
+            echo "::error::No staged .app bundle found in apps/app/electrobun/artifacts"
+            exit 1
           fi
           for app in "${apps[@]}"; do
             echo "Verifying: $app"
@@ -646,6 +537,20 @@ jobs:
             spctl -a -vv --type exec "$app"
             retry_stapler_validate "$app" 3 10 || echo "::warning::Stapler validation failed (may be expected for .app; DMG stapling is the norm)"
           done
+          found_app_zip=0
+          while IFS= read -r app_zip; do
+            [[ -z "$app_zip" ]] && continue
+            found_app_zip=1
+            echo "Verifying direct app archive: $app_zip"
+            zipinfo -1 "$app_zip" | grep -q "\.app/" || {
+              echo "::error::Expected a macOS .app payload inside $app_zip"
+              exit 1
+            }
+          done < <(find apps/app/electrobun/artifacts -maxdepth 1 -type f -name "*.app.zip" | sort)
+          if [ "$found_app_zip" -eq 0 ]; then
+            echo "::error::No staged .app.zip found in apps/app/electrobun/artifacts"
+            exit 1
+          fi
           found_dmg=0
           while IFS= read -r dmg; do
             [[ -z "$dmg" ]] && continue
@@ -730,6 +635,8 @@ jobs:
         with:
           name: electrobun-${{ matrix.platform.artifact-name }}
           path: |
+            apps/app/electrobun/artifacts/*.app/**
+            apps/app/electrobun/artifacts/*.app.zip
             apps/app/electrobun/artifacts/*.dmg
             apps/app/electrobun/artifacts/*.tar.zst
             apps/app/electrobun/artifacts/*.exe
@@ -737,6 +644,7 @@ jobs:
             apps/app/electrobun/artifacts/*.tar.gz
             apps/app/electrobun/artifacts/*-update.json
             apps/app/electrobun/artifacts/*.patch
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
           if-no-files-found: error
           retention-days: 30
 
@@ -767,6 +675,7 @@ jobs:
           # Public GitHub releases should expose end-user installables, not the
           # updater transport files or the bare Windows bootstrap wrapper.
           find release-artifacts -type f \( \
+            -name "*.app.zip" -o \
             -name "*.dmg" -o \
             -name "*Setup*.zip" -o \
             -name "*Setup*.tar.gz" \

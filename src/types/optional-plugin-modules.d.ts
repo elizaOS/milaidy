@@ -31,6 +31,12 @@ declare module "@elizaos/plugin-code" {
   export { plugin };
 }
 
+declare module "@elizaos/plugin-agent-orchestrator" {
+  const plugin: import("@elizaos/core").Plugin;
+  export default plugin;
+  export { plugin };
+}
+
 declare module "@elizaos/plugin-claude-code-workbench" {
   const plugin: import("@elizaos/core").Plugin;
   export default plugin;

@@ -1,10 +1,14 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import {
   assertMcpToolSuccess,
+  BnbIdentityService,
+  DEFAULT_BNB_MAINNET_RPC_URL,
+  DEFAULT_BNB_TESTNET_RPC_URL,
   extractMcpPayload,
   extractMcpTextPayload,
   type McpToolResponse,
   parseMcpResult,
+  resolveBnbRpcUrl,
 } from "../src/service.js";
 
 const toolName = "some_mcp_tool";
@@ -143,5 +147,105 @@ describe("assertMcpToolSuccess", () => {
     expect(() => assertMcpToolSuccess(toolName, input)).toThrow(
       "MCP tool some_mcp_tool error: Unknown MCP tool failure.",
     );
+  });
+});
+
+describe("resolveBnbRpcUrl", () => {
+  it("prefers explicit rpcUrl when provided", () => {
+    expect(
+      resolveBnbRpcUrl({
+        network: "bsc",
+        rpcUrl: "https://custom-rpc.example",
+      }),
+    ).toBe("https://custom-rpc.example");
+  });
+
+  it("defaults bsc mainnet to Public Node", () => {
+    expect(resolveBnbRpcUrl({ network: "bsc" })).toBe(
+      DEFAULT_BNB_MAINNET_RPC_URL,
+    );
+  });
+
+  it("keeps the existing testnet fallback when no rpcUrl is configured", () => {
+    expect(resolveBnbRpcUrl({ network: "bsc-testnet" })).toBe(
+      DEFAULT_BNB_TESTNET_RPC_URL,
+    );
+  });
+
+  it("propagates the fallback RPC into NFA MCP calls when no custom RPC is configured", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock(async (_input: unknown, _init?: RequestInit) => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          result: {
+            tokenId: "42",
+            owner: "0x123",
+            balance: "1",
+            active: true,
+            logicContract: null,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            metadata: null,
+            metadataURI: "",
+            freeMint: false,
+          },
+        }),
+    }));
+    globalThis.fetch = fetchMock as typeof fetch;
+    process.env.BNB_MCP_URL = "http://localhost:3001";
+
+    try {
+      const service = new BnbIdentityService(null, {
+        network: "bsc",
+        gatewayPort: 0,
+      });
+
+      await service.getNfaInfo("42");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.rpcUrl).toBe(DEFAULT_BNB_MAINNET_RPC_URL);
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.BNB_MCP_URL;
+    }
+  });
+});
+
+import type {
+  NfaMintResult,
+  NfaPauseResult,
+  NfaUpdateLearningResult,
+} from "../src/types.js";
+
+describe("parseMcpResult with NFA types", () => {
+  it("parses NfaMintResult from content text", () => {
+    const input: McpToolResponse = {
+      content:
+        '{"tokenId":"1","txHash":"0xabc","owner":"0x123","network":"bsc-testnet"}',
+    };
+    const value = parseMcpResult<NfaMintResult>(input, "mint_bap578_nfa");
+    expect(value.tokenId).toBe("1");
+    expect(value.owner).toBe("0x123");
+  });
+
+  it("parses NfaUpdateLearningResult", () => {
+    const input: McpToolResponse = {
+      content: `{"txHash":"0xabc","previousRoot":"0x${"0".repeat(64)}","newRoot":"0x${"a".repeat(64)}","network":"bsc-testnet"}`,
+    };
+    const value = parseMcpResult<NfaUpdateLearningResult>(
+      input,
+      "update_bap578_learning",
+    );
+    expect(value.newRoot).toBe(`0x${"a".repeat(64)}`);
+  });
+
+  it("parses NfaPauseResult", () => {
+    const input: McpToolResponse = {
+      content: '{"txHash":"0xabc","paused":true,"network":"bsc-testnet"}',
+    };
+    const value = parseMcpResult<NfaPauseResult>(input, "pause_bap578_nfa");
+    expect(value.paused).toBe(true);
   });
 });

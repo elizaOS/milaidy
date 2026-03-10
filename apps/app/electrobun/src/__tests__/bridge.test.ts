@@ -85,11 +85,6 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
     expect(CHANNEL_TO_RPC_METHOD["talkmode:getState"]).toBe("talkmodeGetState");
   });
 
-  it("maps all LIFO channels correctly", () => {
-    expect(CHANNEL_TO_RPC_METHOD["lifo:getPipState"]).toBe("lifoGetPipState");
-    expect(CHANNEL_TO_RPC_METHOD["lifo:setPip"]).toBe("lifoSetPip");
-  });
-
   it("returns undefined for unknown channels", () => {
     expect(CHANNEL_TO_RPC_METHOD["unknown:channel"]).toBeUndefined();
     expect(CHANNEL_TO_RPC_METHOD[""]).toBeUndefined();

@@ -450,6 +450,41 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-x-streaming")).toBe(false);
   });
 
+  it("filters manifest-excluded optional runtime packages from the load set", async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "milady-plugin-manifest-"),
+    );
+    const manifestPath = path.join(tempRoot, "desktop-runtime-manifest.json");
+    await fs.writeFile(
+      manifestPath,
+      JSON.stringify({
+        excludedCapabilityPacks: ["streaming"],
+        excludedPackages: [
+          "@milady/plugin-retake",
+          "@milady/plugin-youtube-streaming",
+        ],
+      }),
+      "utf8",
+    );
+
+    const config = {
+      connectors: {
+        retake: { accessToken: "token" },
+      },
+      plugins: {
+        allow: ["youtube-streaming"],
+      },
+    } as unknown as MiladyConfig;
+
+    const names = collectPluginNames(config, {
+      desktopRuntimeManifestPath: manifestPath,
+    });
+
+    expect(names.has("@milady/plugin-retake")).toBe(false);
+    expect(names.has("@milady/plugin-youtube-streaming")).toBe(false);
+    expect(names.has("@elizaos/plugin-shell")).toBe(true);
+  });
+
   it("uses @elizaos/plugin-telegram from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
     // When both connectors AND plugins.entries set telegram, the plugin
     // should load exactly once.

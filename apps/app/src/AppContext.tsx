@@ -94,7 +94,6 @@ import {
   t as translateText,
   type UiLanguage,
 } from "./i18n";
-import { isLifoPopoutMode } from "./lifo-popout";
 import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 import { mapServerTasksToSessions } from "./pty-session-hydrate";
@@ -1435,6 +1434,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [triggersLoading, setTriggersLoading] = useState(false);
   const [triggersSaving, setTriggersSaving] = useState(false);
+  const triggerLoadRequestIdRef = useRef(0);
   const [triggerRunsById, setTriggerRunsById] = useState<
     Record<string, TriggerRunRecord[]>
   >({});
@@ -1853,7 +1853,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentTheme(name);
     applyTheme(name);
     // Sync to server so headless stream capture uses the same theme
-    client.saveStreamSettings({ theme: name }).catch(() => {});
+    void Promise.resolve(client.saveStreamSettings?.({ theme: name })).catch(
+      () => {},
+    );
   }, []);
 
   const setUiLanguage = useCallback(
@@ -1984,17 +1986,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadTriggers = useCallback(async () => {
+    const requestId = ++triggerLoadRequestIdRef.current;
     setTriggersLoading(true);
     try {
       const data = await client.getTriggers();
+      if (requestId !== triggerLoadRequestIdRef.current) return;
       setTriggers(sortTriggersByNextRun(data.triggers));
       setTriggerError(null);
     } catch (err) {
+      if (requestId !== triggerLoadRequestIdRef.current) return;
       const message =
         err instanceof Error ? err.message : "Failed to load triggers";
       setTriggerError(message);
       setTriggers([]);
-    } finally {
+    }
+    if (requestId === triggerLoadRequestIdRef.current) {
       setTriggersLoading(false);
     }
   }, [sortTriggersByNextRun]);
@@ -2028,6 +2034,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return sortTriggersByNextRun(merged);
         });
         setTriggerError(null);
+        void loadTriggers();
         void loadTriggerHealth();
         return created;
       } catch (err) {
@@ -2039,7 +2046,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTriggersSaving(false);
       }
     },
-    [loadTriggerHealth, sortTriggersByNextRun],
+    [loadTriggerHealth, loadTriggers, sortTriggersByNextRun],
   );
 
   const updateTrigger = useCallback(
@@ -2058,6 +2065,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return sortTriggersByNextRun(merged);
         });
         setTriggerError(null);
+        void loadTriggers();
         void loadTriggerHealth();
         return updated;
       } catch (err) {
@@ -2069,7 +2077,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTriggersSaving(false);
       }
     },
-    [loadTriggerHealth, sortTriggersByNextRun],
+    [loadTriggerHealth, loadTriggers, sortTriggersByNextRun],
   );
 
   const deleteTrigger = useCallback(
@@ -2088,6 +2096,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return next;
         });
         setTriggerError(null);
+        void loadTriggers();
         void loadTriggerHealth();
         return true;
       } catch (err) {
@@ -2099,7 +2108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTriggersSaving(false);
       }
     },
-    [loadTriggerHealth],
+    [loadTriggerHealth, loadTriggers],
   );
 
   const runTriggerNow = useCallback(
@@ -2124,6 +2133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await loadTriggers();
         }
         await loadTriggerRuns(id);
+        void loadTriggers();
         void loadTriggerHealth();
         setTriggerError(null);
         return response.ok;
@@ -4632,7 +4642,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const electronApi = (
         window as {
           electron?: {
-            ipcRenderer: {
+            ipcRenderer?: {
               invoke: (ch: string, p?: unknown) => Promise<unknown>;
             };
           };
@@ -5066,74 +5076,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn(`${STARTUP_WARN_PREFIX} ${scope}`, err);
     };
 
-    // Detect Lifo popout mode — lightweight init that skips agent lifecycle.
-    const isPopoutMode = isLifoPopoutMode();
-
     const initApp = async () => {
-      // Popout fast-path: just connect WS and fetch events. No agent
-      // lifecycle, no onboarding, no auth gates.
-      if (isPopoutMode) {
-        const navPath =
-          window.location.protocol === "file:"
-            ? window.location.hash.replace(/^#/, "") || "/"
-            : window.location.pathname;
-        const urlTab = tabFromPath(navPath);
-        setTabRaw(urlTab ?? "lifo");
-        setOnboardingComplete(true);
-        setOnboardingLoading(false);
-
-        // Wait for API to be reachable (it's already running from the main window)
-        for (let i = 0; i < 30 && !cancelled; i++) {
-          try {
-            const status = await client.getStatus();
-            setAgentStatus(status);
-            setConnected(true);
-            break;
-          } catch {
-            await new Promise<void>((r) => setTimeout(r, 500));
-          }
-        }
-
-        client.connectWs();
-        unbindStatus = client.onWsEvent(
-          "status",
-          (data: Record<string, unknown>) => {
-            const nextStatus = parseAgentStatusEvent(data);
-            if (nextStatus) setAgentStatus(nextStatus);
-          },
-        );
-        unbindAgentEvents = client.onWsEvent(
-          "agent_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-        unbindHeartbeatEvents = client.onWsEvent(
-          "heartbeat_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-
-        await fetchAutonomyReplay();
-
-        // Restore custom avatar in the popout so the stream captures it.
-        const popoutAvatarIndex = loadAvatarIndex();
-        if (popoutAvatarIndex === 0) {
-          const hasVrm = await client.hasCustomVrm();
-          if (hasVrm) {
-            setSelectedVrmIndex(0);
-            setCustomVrmUrl(resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
-          }
-        } else {
-          setSelectedVrmIndex(popoutAvatarIndex);
-        }
-
-        return;
-      }
-
       if (import.meta.env.DEV && startupRunId > 0) {
         console.debug(`[milady] Retrying startup run #${startupRunId}`);
       }
@@ -5418,8 +5361,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Hydrate coding agent sessions (also re-called on WS reconnect / server restart)
       const hydratePtySessions = () => {
-        client
-          .getCodingAgentStatus()
+        void Promise.resolve(client.getCodingAgentStatus?.())
           .then((status) => {
             if (status?.tasks) {
               setPtySessions(mapServerTasksToSessions(status.tasks));

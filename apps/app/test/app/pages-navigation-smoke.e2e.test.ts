@@ -9,9 +9,6 @@ const { mockUseApp, noop } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   noop: vi.fn(),
 }));
-const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
-  mockUseLifoAutoPopout: vi.fn(),
-}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -115,9 +112,6 @@ vi.mock("../../src/components/LoadingScreen", () => ({
 vi.mock("../../src/components/TerminalPanel", () => ({
   TerminalPanel: () => React.createElement("footer", null, "TerminalPanel"),
 }));
-vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
-  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
-}));
 
 vi.mock("../../src/components/PluginsPageView", () => ({
   PluginsPageView: () =>
@@ -160,11 +154,6 @@ vi.mock("../../src/components/DatabasePageView", () => ({
 vi.mock("../../src/components/LogsPageView", () => ({
   LogsPageView: () =>
     React.createElement("section", null, "LogsPageView Ready"),
-}));
-
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () =>
-    React.createElement("section", null, "LifoSandboxView Ready"),
 }));
 
 vi.mock("../../src/hooks/useContextMenu", () => ({
@@ -276,7 +265,6 @@ describe("pages navigation smoke (e2e)", () => {
       },
     };
     mockUseApp.mockReset();
-    mockUseLifoAutoPopout.mockReset();
     mockUseApp.mockImplementation(() => state);
   });
 
@@ -368,7 +356,6 @@ describe("pages navigation smoke (e2e)", () => {
       },
       { label: "Runtime", tab: "runtime", token: "RuntimeView Ready" },
       { label: "Databases", tab: "database", token: "DatabasePageView Ready" },
-      { label: "Lifo", tab: "lifo", token: "LifoSandboxView Ready" },
       { label: "Logs", tab: "logs", token: "LogsPageView Ready" },
     ];
 
@@ -418,7 +405,6 @@ describe("pages navigation smoke (e2e)", () => {
       { tab: "voice", token: "SettingsView Ready" },
       { tab: "runtime", token: "RuntimeView Ready" },
       { tab: "database", token: "DatabasePageView Ready" },
-      { tab: "lifo", token: "LifoSandboxView Ready" },
       { tab: "settings", token: "SettingsView Ready" },
       { tab: "logs", token: "LogsPageView Ready" },
     ];

@@ -20,11 +20,6 @@ import type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-  WorkflowConditionOperator,
-  WorkflowDef,
-  WorkflowEdge,
-  WorkflowNode,
-  WorkflowNodeType,
 } from "../../../src/config/types.milady";
 import type { DropStatus, MintResult } from "../../../src/contracts/drop";
 import type { StylePreset } from "../../../src/contracts/onboarding";
@@ -76,11 +71,6 @@ export type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-  WorkflowConditionOperator,
-  WorkflowDef,
-  WorkflowEdge,
-  WorkflowNode,
-  WorkflowNodeType,
 };
 export type { StylePreset };
 export type {
@@ -116,44 +106,20 @@ export type {
 };
 
 // ---------------------------------------------------------------------------
-// Workflow run types
+// NFA / Identity types (BAP-578)
 // ---------------------------------------------------------------------------
 
-export type WorkflowRunStatus =
-  | "pending"
-  | "running"
-  | "paused"
-  | "sleeping"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-export interface WorkflowStepEvent {
-  stepId: string;
-  nodeId: string;
-  nodeLabel: string;
-  nodeType: string;
-  status: "started" | "completed" | "failed" | "retrying" | "skipped";
-  input?: Record<string, unknown>;
-  output?: unknown;
-  error?: string;
-  startedAt: string;
-  finishedAt?: string;
-  attempt: number;
+export interface NfaStatusResponse {
+  identity: IdentityRecord | null;
+  nfa: NfaRecord | null;
+  onChain: NfaInfo | null;
+  contractAddress: string | null;
 }
 
-export interface WorkflowRunSummary {
-  runId: string;
-  workflowId: string;
-  workflowName: string;
-  status: WorkflowRunStatus;
-  input: Record<string, unknown>;
-  output?: unknown;
-  currentNodeId?: string;
-  events: WorkflowStepEvent[];
-  startedAt: string;
-  finishedAt?: string;
-  error?: string;
+export interface NfaLearningsResponse {
+  entries: LearningLeaf[];
+  root: string;
+  count: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +326,11 @@ export class ApiError extends Error {
 
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
+}
+
+function isAbortSignalCompatibilityError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /Expected signal .*AbortSignal/i.test(error.message);
 }
 
 export interface RuntimeOrderItem {
@@ -2054,20 +2025,31 @@ export class MiladyClient {
           ? AbortSignal.any([init.signal, timeoutController.signal])
           : (init?.signal ?? timeoutController.signal);
 
-      try {
-        return await fetch(`${this.baseUrl}${path}`, {
-          ...init,
-          signal,
-          headers: {
-            "X-Milady-Client-Id": this.clientId,
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(this._uiLanguage
-              ? { "X-Milady-UI-Language": this._uiLanguage }
-              : {}),
-            ...init?.headers,
-          },
+      const requestInit: RequestInit = {
+        ...init,
+        headers: {
+          "X-Milady-Client-Id": this.clientId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(this._uiLanguage
+            ? { "X-Milady-UI-Language": this._uiLanguage }
+            : {}),
+          ...init?.headers,
+        },
+      };
+
+      const executeFetch = async (requestSignal?: AbortSignal) => {
+        return fetch(`${this.baseUrl}${path}`, {
+          ...requestInit,
+          ...(requestSignal ? { signal: requestSignal } : {}),
         });
+      };
+
+      try {
+        return await executeFetch(signal);
       } catch (err) {
+        if (signal && isAbortSignalCompatibilityError(err)) {
+          return await executeFetch();
+        }
         if (timeoutController.signal.aborted) {
           throw new ApiError({
             kind: "timeout",
@@ -4731,111 +4713,6 @@ export class MiladyClient {
       method: "POST",
       body: JSON.stringify({ prompt }),
     });
-  }
-
-  // ── Workflows ──────────────────────────────────────────────────────────
-
-  async listWorkflows(): Promise<WorkflowDef[]> {
-    const data = await this.fetch<{ workflows: WorkflowDef[] }>(
-      "/api/workflows",
-    );
-    return data.workflows;
-  }
-
-  async getWorkflow(id: string): Promise<WorkflowDef> {
-    const data = await this.fetch<{ workflow: WorkflowDef }>(
-      `/api/workflows/${encodeURIComponent(id)}`,
-    );
-    return data.workflow;
-  }
-
-  async createWorkflow(
-    workflow: Pick<WorkflowDef, "name"> &
-      Partial<Pick<WorkflowDef, "description" | "nodes" | "edges" | "enabled">>,
-  ): Promise<WorkflowDef> {
-    const data = await this.fetch<{ ok: boolean; workflow: WorkflowDef }>(
-      "/api/workflows",
-      { method: "POST", body: JSON.stringify(workflow) },
-    );
-    return data.workflow;
-  }
-
-  async updateWorkflow(
-    id: string,
-    workflow: Partial<
-      Pick<WorkflowDef, "name" | "description" | "nodes" | "edges" | "enabled">
-    >,
-  ): Promise<WorkflowDef> {
-    const data = await this.fetch<{ ok: boolean; workflow: WorkflowDef }>(
-      `/api/workflows/${encodeURIComponent(id)}`,
-      { method: "PUT", body: JSON.stringify(workflow) },
-    );
-    return data.workflow;
-  }
-
-  async deleteWorkflow(id: string): Promise<void> {
-    await this.fetch(`/api/workflows/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-  }
-
-  async validateWorkflow(id: string): Promise<{
-    valid: boolean;
-    issues: Array<{ severity: string; nodeId?: string; message: string }>;
-  }> {
-    return this.fetch(`/api/workflows/${encodeURIComponent(id)}/validate`, {
-      method: "POST",
-    });
-  }
-
-  async startWorkflow(
-    id: string,
-    input?: Record<string, unknown>,
-  ): Promise<WorkflowRunSummary> {
-    const data = await this.fetch<{ ok: boolean; run: WorkflowRunSummary }>(
-      `/api/workflows/${encodeURIComponent(id)}/start`,
-      { method: "POST", body: JSON.stringify({ input }) },
-    );
-    return data.run;
-  }
-
-  async listWorkflowRuns(workflowId: string): Promise<WorkflowRunSummary[]> {
-    const data = await this.fetch<{ runs: WorkflowRunSummary[] }>(
-      `/api/workflows/${encodeURIComponent(workflowId)}/runs`,
-    );
-    return data.runs;
-  }
-
-  async getWorkflowRun(runId: string): Promise<WorkflowRunSummary> {
-    const data = await this.fetch<{ run: WorkflowRunSummary }>(
-      `/api/workflow-runs/${encodeURIComponent(runId)}`,
-    );
-    return data.run;
-  }
-
-  async cancelWorkflowRun(runId: string): Promise<void> {
-    await this.fetch(`/api/workflow-runs/${encodeURIComponent(runId)}/cancel`, {
-      method: "POST",
-    });
-  }
-
-  async resolveWorkflowHook(
-    hookId: string,
-    payload?: Record<string, unknown>,
-  ): Promise<void> {
-    await this.fetch(
-      `/api/workflow-hooks/${encodeURIComponent(hookId)}/resolve`,
-      { method: "POST", body: JSON.stringify(payload ?? {}) },
-    );
-  }
-
-  async listPendingWorkflowHooks(): Promise<
-    Array<{ hookId: string; runId: string }>
-  > {
-    const data = await this.fetch<{
-      hooks: Array<{ hookId: string; runId: string }>;
-    }>("/api/workflow-hooks");
-    return data.hooks;
   }
 
   // ═══════════════════════════════════════════════════════════════════════

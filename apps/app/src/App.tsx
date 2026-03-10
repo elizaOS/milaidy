@@ -2,7 +2,7 @@
  * Root App component — routing shell.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
@@ -23,7 +23,6 @@ import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
-import { LifoSandboxView } from "./components/LifoSandboxView";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -38,24 +37,20 @@ import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
-import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { useStreamPopoutNavigation } from "./hooks/useStreamPopoutNavigation";
-import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
 import type { Tab } from "./navigation";
-import { APPS_ENABLED, COMPANION_ENABLED, pathForTab } from "./navigation";
+import { APPS_ENABLED, COMPANION_ENABLED } from "./navigation";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
-/** Check if we're in pop-out mode (StreamView only, no chrome).
- *  Excludes lifo popout values — those use the dedicated LifoSandboxView shell. */
+/** Check if we're in pop-out mode (StreamView only, no chrome). */
 function useIsPopout(): boolean {
   const [popout] = useState(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(
       window.location.search || window.location.hash.split("?")[1] || "",
     );
-    if (!params.has("popout")) return false;
-    return !isLifoPopoutValue(params.get("popout"));
+    return params.has("popout");
   });
   return popout;
 }
@@ -86,13 +81,11 @@ function ViewRouter() {
       case "plugins":
       case "skills":
       case "actions":
-      case "workflows":
       case "triggers":
       case "fine-tuning":
       case "trajectories":
       case "runtime":
       case "database":
-      case "lifo":
       case "logs":
       case "security":
         return <AdvancedPageView />;
@@ -123,7 +116,6 @@ export function App() {
     unreadConversations,
     activeGameViewerUrl,
     gameOverlayEnabled,
-    setActionNotice,
   } = useApp();
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
@@ -156,13 +148,11 @@ export function App() {
     tab === "plugins" ||
     tab === "skills" ||
     tab === "actions" ||
-    tab === "workflows" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
     tab === "trajectories" ||
     tab === "runtime" ||
     tab === "database" ||
-    tab === "lifo" ||
     tab === "logs" ||
     tab === "security";
   const unreadCount = unreadConversations?.size ?? 0;
@@ -288,23 +278,6 @@ export function App() {
   }, [isChat]);
 
   const bugReport = useBugReportState();
-  const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
-
-  useLifoAutoPopout({
-    enabled:
-      !lifoPopoutMode &&
-      !onboardingLoading &&
-      onboardingComplete &&
-      !authRequired,
-    targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
-    onPopupBlocked: () => {
-      setActionNotice(
-        "Lifo popout blocked by the browser. Allow popups to watch agent computer-use live.",
-        "error",
-        3800,
-      );
-    },
-  });
 
   const agentStarting = agentStatus?.state === "starting";
 
@@ -342,18 +315,6 @@ export function App() {
 
   if (authRequired) return <PairingView />;
   if (!onboardingComplete) return <OnboardingWizard />;
-
-  if (lifoPopoutMode) {
-    return (
-      <BugReportProvider value={bugReport}>
-        <div className="flex h-screen w-screen min-h-0 bg-bg text-txt">
-          <main className="flex-1 min-h-0 overflow-hidden p-3 xl:p-4">
-            <LifoSandboxView />
-          </main>
-        </div>
-      </BugReportProvider>
-    );
-  }
 
   /* ── Companion shell mode ─────────────────────────────────────────── */
   if (shellMode === "companion" && COMPANION_OVERLAY_TABS.has(effectiveTab)) {

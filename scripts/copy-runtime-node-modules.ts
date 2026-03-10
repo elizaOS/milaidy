@@ -7,11 +7,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildDesktopRuntimeInventory,
+  type DesktopRuntimeCapabilityPack,
   discoverAlwaysBundledPackages,
   discoverRuntimePackages,
+  isDesktopRuntimeCapabilityPack,
+  shouldBundleDesktopRuntimePackage,
 } from "./runtime-package-manifest";
 
 type Options = {
+  excludedCapabilityPacks: DesktopRuntimeCapabilityPack[];
   scanDir: string;
   targetDist: string;
 };
@@ -50,6 +55,7 @@ const TRACKED_PACKAGE_CACHE = path.join(
   os.tmpdir(),
   "milady-tracked-package-cache",
 );
+const DESKTOP_RUNTIME_INVENTORY_PATH = "desktop-runtime-manifest.json";
 const DEP_SKIP = new Set(["typescript", "@types/node", "lucide-react"]);
 const ALWAYS_HOISTED_PACKAGES = new Set(["@elizaos/core"]);
 const PLATFORM_ALIASES = new Map<string, string>([
@@ -96,19 +102,40 @@ const trackedPackageIndex = new Map<string, ResolvedPackage>();
 
 function parseArgs(argv: string[]): Options {
   const opts: Record<string, string> = {};
+  const excludedCapabilityPacks = new Set<DesktopRuntimeCapabilityPack>();
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (!arg.startsWith("--")) continue;
     const [rawKey, inlineValue] = arg.slice(2).split("=", 2);
     const key = rawKey.trim();
-    const value = inlineValue ?? argv[i + 1];
-    if (!inlineValue) i += 1;
+    const nextValue = argv[i + 1];
+    const value =
+      inlineValue ??
+      (nextValue && !nextValue.startsWith("--") ? nextValue : undefined);
+    if (!inlineValue && value === nextValue) i += 1;
+    if (key === "exclude-optional-pack") {
+      if (!value) {
+        throw new Error("--exclude-optional-pack requires a value");
+      }
+      if (!isDesktopRuntimeCapabilityPack(value)) {
+        throw new Error(`unknown capability pack: ${value}`);
+      }
+      excludedCapabilityPacks.add(value);
+      continue;
+    }
+    if (!value) {
+      throw new Error(`--${key} requires a value`);
+    }
     opts[key] = value;
   }
 
   const scanDir = path.resolve(ROOT, opts["scan-dir"] ?? "dist");
   const targetDist = path.resolve(ROOT, opts["target-dist"] ?? scanDir);
-  return { scanDir, targetDist };
+  return {
+    excludedCapabilityPacks: [...excludedCapabilityPacks].sort(),
+    scanDir,
+    targetDist,
+  };
 }
 
 function readJson<T>(filePath: string): T {
@@ -805,8 +832,11 @@ function copyPgliteCompatibilityAssets(targetDist: string): void {
 }
 
 function main(): void {
-  const { scanDir, targetDist } = parseArgs(process.argv.slice(2));
+  const { excludedCapabilityPacks, scanDir, targetDist } = parseArgs(
+    process.argv.slice(2),
+  );
   const targetNodeModules = path.join(targetDist, "node_modules");
+  const excludedCapabilityPackSet = new Set(excludedCapabilityPacks);
 
   if (!fs.existsSync(scanDir)) {
     throw new Error(`scan dir does not exist: ${scanDir}`);
@@ -851,6 +881,11 @@ function main(): void {
 
     const { name, spec, requesterDir, requesterDestDir } = request;
     if (!name || DEP_SKIP.has(name)) continue;
+    if (!shouldBundleDesktopRuntimePackage(name, excludedCapabilityPackSet)) {
+      missingAlwaysBundled.delete(name);
+      missingDiscovered.delete(name);
+      continue;
+    }
 
     const resolved = resolvePackage(name, spec, requesterDir);
     if (!resolved) {
@@ -915,9 +950,33 @@ function main(): void {
 
   copyPgliteCompatibilityAssets(targetDist);
 
+  const inventory = buildDesktopRuntimeInventory({
+    alwaysBundledPackages: alwaysBundled,
+    bundledPackages: copiedNames,
+    discoveredPackages: discovered,
+    excludedCapabilityPacks,
+    missingPackages: [...missingAlwaysBundled, ...missingDiscovered],
+    scanDir,
+    targetDist,
+  });
+  const inventoryPath = path.join(targetDist, DESKTOP_RUNTIME_INVENTORY_PATH);
+  fs.writeFileSync(
+    `${inventoryPath}`,
+    `${JSON.stringify(inventory, null, 2)}\n`,
+  );
+
   console.log(
     `[runtime-copy] bundled ${copiedNames.size} package(s) into ${targetNodeModules}`,
   );
+  console.log(
+    `[runtime-copy] inventory: ${inventory.summary.baseBundledPackages} base, ${inventory.summary.lazyBaseBundledPackages} lazy-base, ${inventory.summary.optionalPackBundledPackages} optional-pack`,
+  );
+  if (excludedCapabilityPacks.length > 0) {
+    console.log(
+      `[runtime-copy] excluded optional capability packs: ${excludedCapabilityPacks.join(", ")}`,
+    );
+  }
+  console.log(`[runtime-copy] wrote ${inventoryPath}`);
   for (const name of [...copiedNames].sort()) {
     console.log(`  copied ${name}`);
   }

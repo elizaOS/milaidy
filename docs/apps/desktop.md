@@ -1,10 +1,12 @@
 ---
-title: Desktop App (Electron)
+title: Desktop App (Electrobun)
 sidebarTitle: Desktop App
-description: Install and use the Milady desktop application on macOS, Windows, and Linux with embedded agent runtime and native features.
+description: Install and use the Milady desktop application on macOS, Windows, and Linux with the Electrobun shell, embedded agent runtime, and native features.
 ---
 
-The Milady desktop app wraps the web dashboard in a native Electron shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
+> Note: the current desktop implementation lives in `apps/app/electrobun/`. Some sections below still use older Electron terminology, but the runtime, packaging flow, and native bridge are now Electrobun-based.
+
+The Milady desktop app wraps the web dashboard in a native Electrobun shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
 
 ## Download and Install
 
@@ -35,15 +37,16 @@ Download the `.AppImage` or `.deb` package from the releases page.
 
 ```bash
 git clone https://github.com/milady-ai/milady.git && cd milady
-bun install && bun run build
-cd apps/app && bun run electron:dev
+bun install
+bun run build:desktop
+cd apps/app/electrobun && bun run dev
 ```
 
-In development mode, the Electron app resolves the milady distribution from the repository root's `dist/` directory. In packaged builds, assets are copied to `Resources/milady-dist/` via `extraResources`.
+In development mode, the Electrobun app resolves the milady distribution from the repository root's `dist/` directory. In packaged builds, assets are copied into the wrapper bundle under `Resources/app/milady-dist/`.
 
 ## Embedded Agent Runtime
 
-The desktop app embeds the full Milady agent runtime directly in the Electron main process. No separate server or CLI is needed.
+The desktop app embeds the full Milady agent runtime directly in the Electrobun main process. No separate server or CLI is needed.
 
 ### Startup Sequence
 

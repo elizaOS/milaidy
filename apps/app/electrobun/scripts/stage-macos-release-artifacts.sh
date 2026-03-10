@@ -3,8 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ELECTROBUN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ARTIFACTS_DIR="${1:-apps/app/electrobun/artifacts}"
+BUILD_ROOT="${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"
 SKIP_SIGNATURE_CHECK="${ELECTROBUN_SKIP_CODESIGN:-0}"
+SKIP_DMG="${MILADY_STAGE_MACOS_SKIP_DMG:-0}"
+SKIP_APP_ZIP="${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "stage-macos-release-artifacts: macOS only"
@@ -31,6 +35,31 @@ trap cleanup EXIT
 
 mkdir -p "$EXTRACT_DIR" "$DMG_STAGING_DIR"
 
+find_newest_path() {
+  local search_root="$1"
+  shift
+
+  if [[ ! -d "$search_root" ]]; then
+    return 0
+  fi
+
+  local newest_path=""
+  local newest_mtime=-1
+  local candidate candidate_mtime
+  while IFS= read -r candidate; do
+    [[ -z "$candidate" ]] && continue
+    candidate_mtime="$(stat -f '%m' "$candidate")"
+    if (( candidate_mtime > newest_mtime )); then
+      newest_mtime="$candidate_mtime"
+      newest_path="$candidate"
+    fi
+  done < <(find "$search_root" "$@")
+
+  if [[ -n "$newest_path" ]]; then
+    printf '%s\n' "$newest_path"
+  fi
+}
+
 retry_command() {
   local attempts="$1"
   local delay_seconds="$2"
@@ -52,19 +81,56 @@ retry_command() {
   return "$command_status"
 }
 
-TARBALL_PATH="$(find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst" | sort | head -1)"
-if [[ -z "$TARBALL_PATH" ]]; then
-  echo "stage-macos-release-artifacts: no macOS updater tarball found in $ARTIFACTS_DIR"
-  exit 1
+DIRECT_APP_PATH="$(find_newest_path "$BUILD_ROOT" -maxdepth 2 -type d -name "*.app")"
+TARBALL_PATH="$(find_newest_path "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst")"
+APP_BUNDLE_PATH=""
+FINAL_APP_ZIP_NAME=""
+FINAL_DMG_NAME=""
+
+if [[ -n "$DIRECT_APP_PATH" ]]; then
+  BUILD_PREFIX="$(basename "$(dirname "$DIRECT_APP_PATH")")"
+  APP_BUNDLE_NAME="$(basename "$DIRECT_APP_PATH" .app)"
+  FINAL_APP_ZIP_NAME="$BUILD_PREFIX-$APP_BUNDLE_NAME.app.zip"
+  FINAL_DMG_NAME="$BUILD_PREFIX-$APP_BUNDLE_NAME.dmg"
+
+  if [[ -e "$DIRECT_APP_PATH/Contents/MacOS/libwebgpu_dawn.dylib" && -e "$DIRECT_APP_PATH/Contents/Resources/version.json" && -d "$DIRECT_APP_PATH/Contents/Resources/app/milady-dist" ]]; then
+    echo "Using direct build app: $DIRECT_APP_PATH"
+    APP_BUNDLE_PATH="$DIRECT_APP_PATH"
+  else
+    BUILD_APP_ARCHIVE="$(find_newest_path "$DIRECT_APP_PATH/Contents/Resources" -maxdepth 1 -type f -name "*.tar.zst")"
+    if [[ -n "$BUILD_APP_ARCHIVE" ]]; then
+      echo "Using build app wrapper: $DIRECT_APP_PATH"
+      echo "Extracting app payload from build app archive: $BUILD_APP_ARCHIVE"
+      tar --zstd -xf "$BUILD_APP_ARCHIVE" -C "$EXTRACT_DIR"
+      APP_BUNDLE_PATH="$(find_newest_path "$EXTRACT_DIR" -maxdepth 2 -type d -name "*.app")"
+      if [[ -z "$APP_BUNDLE_PATH" ]]; then
+        echo "stage-macos-release-artifacts: extracted build app archive did not contain a .app bundle"
+        exit 1
+      fi
+    else
+      echo "stage-macos-release-artifacts: no usable app payload found inside $DIRECT_APP_PATH; falling back to updater tarball"
+    fi
+  fi
 fi
 
-echo "Using updater tarball: $TARBALL_PATH"
-tar --zstd -xf "$TARBALL_PATH" -C "$EXTRACT_DIR"
-
-APP_BUNDLE_PATH="$(find "$EXTRACT_DIR" -maxdepth 2 -type d -name "*.app" | sort | head -1)"
 if [[ -z "$APP_BUNDLE_PATH" ]]; then
-  echo "stage-macos-release-artifacts: extracted tarball did not contain a .app bundle"
-  exit 1
+  echo "stage-macos-release-artifacts: no usable macOS build app found under $BUILD_ROOT; falling back to updater tarball"
+  if [[ -z "$TARBALL_PATH" ]]; then
+    echo "stage-macos-release-artifacts: no macOS updater tarball found in $ARTIFACTS_DIR"
+    exit 1
+  fi
+
+  echo "Using updater tarball: $TARBALL_PATH"
+  tar --zstd -xf "$TARBALL_PATH" -C "$EXTRACT_DIR"
+
+  APP_BUNDLE_PATH="$(find_newest_path "$EXTRACT_DIR" -maxdepth 2 -type d -name "*.app")"
+  if [[ -z "$APP_BUNDLE_PATH" ]]; then
+    echo "stage-macos-release-artifacts: extracted tarball did not contain a .app bundle"
+    exit 1
+  fi
+
+  FINAL_DMG_NAME="$(basename "${TARBALL_PATH%.app.tar.zst}.dmg")"
+  FINAL_APP_ZIP_NAME="$(basename "${TARBALL_PATH%.tar.zst}.zip")"
 fi
 
 STAGED_APP_PATH="$ARTIFACTS_DIR/$(basename "$APP_BUNDLE_PATH")"
@@ -79,7 +145,7 @@ DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"
 
 for required_path in "$LAUNCHER_PATH" "$WGPU_PATH" "$VERSION_JSON_PATH" "$RUNTIME_DIR"; do
   if [[ ! -e "$required_path" ]]; then
-    echo "stage-macos-release-artifacts: expected extracted app content is missing: $required_path"
+    echo "stage-macos-release-artifacts: expected staged app content is missing: $required_path"
     exit 1
   fi
 done
@@ -128,7 +194,44 @@ else
   echo "Skipping staged app signature verification (unsigned/local build)."
 fi
 
-FINAL_DMG_NAME="$(basename "${TARBALL_PATH%.app.tar.zst}.dmg")"
+create_app_zip() {
+  local source_app="$1"
+  local output_zip="$2"
+  rm -f "$output_zip"
+  ditto -c -k --sequesterRsrc --keepParent "$source_app" "$output_zip"
+}
+
+FINAL_APP_ZIP_PATH="$ARTIFACTS_DIR/$FINAL_APP_ZIP_NAME"
+TEMP_NOTARY_APP_ZIP_PATH="$TMP_ROOT/$FINAL_APP_ZIP_NAME"
+rm -f "$FINAL_APP_ZIP_PATH"
+
+if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_APPLEID:-}" && -n "${ELECTROBUN_APPLEIDPASS:-}" && -n "${ELECTROBUN_TEAMID:-}" ]]; then
+  create_app_zip "$STAGED_APP_PATH" "$TEMP_NOTARY_APP_ZIP_PATH"
+  retry_command 3 20 xcrun notarytool submit \
+    --apple-id "$ELECTROBUN_APPLEID" \
+    --password "$ELECTROBUN_APPLEIDPASS" \
+    --team-id "$ELECTROBUN_TEAMID" \
+    --wait \
+    "$TEMP_NOTARY_APP_ZIP_PATH"
+  retry_command 5 15 xcrun stapler staple "$STAGED_APP_PATH"
+fi
+
+if [[ "$SKIP_APP_ZIP" != "1" ]]; then
+  create_app_zip "$STAGED_APP_PATH" "$FINAL_APP_ZIP_PATH"
+fi
+
+echo "Standard macOS installer ready:"
+echo "  app: $STAGED_APP_PATH"
+if [[ "$SKIP_APP_ZIP" == "1" ]]; then
+  echo "  app zip: skipped (MILADY_STAGE_MACOS_SKIP_APP_ZIP=1)"
+else
+  echo "  app zip: $FINAL_APP_ZIP_PATH"
+fi
+if [[ "$SKIP_DMG" == "1" ]]; then
+  echo "  dmg: skipped (MILADY_STAGE_MACOS_SKIP_DMG=1)"
+  exit 0
+fi
+
 FINAL_DMG_PATH="$ARTIFACTS_DIR/$FINAL_DMG_NAME"
 TEMP_DMG_PATH="$TMP_ROOT/$FINAL_DMG_NAME"
 VOLUME_NAME="$(basename "$STAGED_APP_PATH" .app)"
@@ -160,6 +263,4 @@ fi
 
 mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"
 
-echo "Standard macOS installer ready:"
-echo "  app: $STAGED_APP_PATH"
 echo "  dmg: $FINAL_DMG_PATH"

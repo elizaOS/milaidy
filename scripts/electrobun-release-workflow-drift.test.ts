@@ -25,12 +25,12 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
 );
 
 describe("Electrobun release workflow drift", () => {
-  it("stages the built renderer before packaging", () => {
+  it("uses the shared desktop build entrypoint to stage bundle inputs", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Stage renderer for Electrobun bundle");
+    expect(workflow).toContain("name: Stage desktop bundle inputs");
     expect(workflow).toContain(
-      "cp -r apps/app/dist apps/app/electrobun/renderer",
+      "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
     );
   });
 
@@ -60,11 +60,12 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
-    expect(workflow).toContain("arch -x86_64 bunx tsdown");
-    expect(workflow).toContain("arch -x86_64 npx vite build");
-    expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
-      `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper',
+    );
+    expect(workflow).toContain(
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=$' +
+        "{{ needs.prepare.outputs.env }}",
     );
     expect(workflow).not.toContain(
       "name: Setup Node.js (macOS Intel via Rosetta)",
@@ -109,6 +110,7 @@ describe("Electrobun release workflow drift", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(workflow).toContain("name: Collect public release files");
+    expect(workflow).toContain(' -name "*.app.zip" -o \\');
     expect(workflow).toContain(' -name "*.dmg" -o \\');
     expect(workflow).toContain(' -name "*Setup*.zip" -o \\');
     expect(workflow).toContain(' -name "*Setup*.tar.gz" \\');
@@ -121,9 +123,52 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("update-channel/");
   });
 
-  it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
+  it("ships wrapper diagnostics with the build artifacts", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Upload build artifacts");
+    expect(workflow).toContain("apps/app/electrobun/artifacts/*.app/**");
+    expect(workflow).toContain("apps/app/electrobun/artifacts/*.app.zip");
+    expect(workflow).toContain(
+      "apps/app/electrobun/build/**/wrapper-diagnostics.json",
+    );
+  });
+
+  it("requires the staged macOS app for signature verification instead of mounting the DMG", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "No staged .app bundle found in apps/app/electrobun/artifacts",
+    );
+    expect(workflow).toContain(
+      'zipinfo -1 "$app_zip" | grep -q "\\.app/" || {',
+    );
+    expect(workflow).toContain(
+      "No staged .app.zip found in apps/app/electrobun/artifacts",
+    );
+    expect(workflow).not.toContain(
+      "No .app bundle found in artifacts; mounting DMG",
+    );
+    expect(workflow).not.toContain("Failed to determine mounted DMG volume");
+  });
+
+  it("stages a notarized direct macOS app zip alongside the DMG", () => {
     const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
 
+    expect(stageScript).toContain(
+      'BUILD_ROOT="${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"',
+    );
+    expect(stageScript).toContain("Using direct build app:");
+    expect(stageScript).toContain("Using build app wrapper:");
+    expect(stageScript).toContain(
+      "Extracting app payload from build app archive:",
+    );
+    expect(stageScript).toContain(
+      "no usable macOS build app found under $BUILD_ROOT; falling back to updater tarball",
+    );
+    expect(stageScript).toContain(
+      'SKIP_APP_ZIP="${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"',
+    );
     expect(stageScript).toContain(
       "electrobun. Re-sign only what changed and keep the original entitlements",
     );
@@ -139,6 +184,13 @@ describe("Electrobun release workflow drift", () => {
     expect(stageScript).toContain(
       'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     );
+    expect(stageScript).toContain("create_app_zip() {");
+    expect(stageScript).toContain(
+      'ditto -c -k --sequesterRsrc --keepParent "$source_app" "$output_zip"',
+    );
+    expect(stageScript).toContain(
+      'TEMP_NOTARY_APP_ZIP_PATH="$TMP_ROOT/$FINAL_APP_ZIP_NAME"',
+    );
     expect(stageScript).toContain("command_status=$?");
     expect(stageScript).not.toContain(
       'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
@@ -147,6 +199,7 @@ describe("Electrobun release workflow drift", () => {
       'spctl -a -vv --type exec "$STAGED_APP_PATH"',
     );
     expect(stageScript).toContain("xcrun notarytool submit \\");
+    expect(stageScript).toContain('xcrun stapler staple "$STAGED_APP_PATH"');
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
   });
 

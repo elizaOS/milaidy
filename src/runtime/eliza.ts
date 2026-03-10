@@ -118,6 +118,13 @@ import { SandboxAuditLog } from "../security/audit-log";
 import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
+import { getExcludedDesktopRuntimePackages } from "./desktop-runtime-manifest";
+
+interface CollectPluginNamesOptions {
+  desktopRuntimeManifestPath?: string;
+  runtimeModuleUrl?: string;
+}
+
 import { createMiladyPlugin } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
@@ -728,7 +735,10 @@ export function findRuntimePluginExport(mod: PluginModuleShape): Plugin | null {
  * based on config, environment variables, and feature flags.
  */
 /** @internal Exported for testing. */
-export function collectPluginNames(config: MiladyConfig): Set<string> {
+export function collectPluginNames(
+  config: MiladyConfig,
+  options: CollectPluginNamesOptions = {},
+): Set<string> {
   const shellPluginDisabled = config.features?.shellEnabled === false;
   const cloudMode = config.cloud?.enabled;
   const cloudHasApiKey = Boolean(config.cloud?.apiKey);
@@ -993,6 +1003,16 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   }
   if (isPluginExplicitlyDisabled("@elizaos/plugin-agent-orchestrator")) {
     pluginsToLoad.delete("@elizaos/plugin-agent-orchestrator");
+  }
+
+  const excludedDesktopPackages = getExcludedDesktopRuntimePackages({
+    manifestPath: options.desktopRuntimeManifestPath,
+    moduleUrl: options.runtimeModuleUrl ?? import.meta.url,
+  });
+  if (excludedDesktopPackages.size > 0) {
+    for (const packageName of excludedDesktopPackages) {
+      pluginsToLoad.delete(packageName);
+    }
   }
 
   return pluginsToLoad;

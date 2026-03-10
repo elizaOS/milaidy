@@ -45,7 +45,7 @@ export function DecorativeElements({
           </div>
         </>
       )}
-      {f.isAdvancedOverlay && !f.isLifo && !f.isStream && (
+      {f.isAdvancedOverlay && !f.isStream && (
         <>
           <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
           <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
@@ -53,17 +53,6 @@ export function DecorativeElements({
           <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-white/15" />
           <div className="absolute bottom-3 right-4 text-white/15 text-[9px] font-mono tracking-widest">
             ADV.PANEL_V1
-          </div>
-        </>
-      )}
-      {f.isLifo && (
-        <>
-          <div className="absolute top-[12%] right-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#8b5cf6]/25 to-transparent" />
-          <div className="absolute bottom-[12%] left-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#8b5cf6]/25 to-transparent" />
-          <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-[#8b5cf6]/15" />
-          <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-[#8b5cf6]/15" />
-          <div className="absolute bottom-3 right-4 text-[#8b5cf6]/20 text-[9px] font-mono tracking-widest">
-            LIFO.SANDBOX_V1
           </div>
         </>
       )}

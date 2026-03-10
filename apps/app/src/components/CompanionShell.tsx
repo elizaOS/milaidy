@@ -28,7 +28,6 @@ import {
 } from "./companion-shell-styles";
 import { InventoryView } from "./InventoryView";
 import { KnowledgeView } from "./KnowledgeView";
-import { LifoSandboxView } from "./LifoSandboxView";
 import { PluginsView } from "./PluginsView";
 import { SettingsView } from "./SettingsView";
 import { SkillsView } from "./SkillsView";
@@ -63,7 +62,6 @@ export function CompanionShell({ tab }: CompanionShellProps) {
     f.isApps ||
     f.isConnectors ||
     f.isKnowledge ||
-    f.isLifo ||
     f.isStream ||
     f.isWallets;
 
@@ -142,7 +140,6 @@ export function CompanionShell({ tab }: CompanionShellProps) {
                 {f.isApps && <AppsPageView inModal />}
                 {f.isConnectors && <ConnectorsPageView inModal />}
                 {f.isKnowledge && <KnowledgeView inModal />}
-                {f.isLifo && <LifoSandboxView inModal />}
                 {f.isStream && <StreamView inModal />}
                 {f.isWallets && <InventoryView inModal />}
               </div>

@@ -16,7 +16,6 @@ export const COMPANION_OVERLAY_TABS = new Set<Tab>([
   "plugins",
   "advanced",
   "actions",
-  "workflows",
   "triggers",
   "fine-tuning",
   "trajectories",
@@ -27,7 +26,6 @@ export const COMPANION_OVERLAY_TABS = new Set<Tab>([
   "apps",
   "connectors",
   "knowledge",
-  "lifo",
   "stream",
   "wallets",
 ]);
@@ -42,13 +40,11 @@ export const ACCENT_COLORS: Record<string, string> = {
   knowledge: "#a78bfa",
   wallets: "#f0b90b",
   stream: "#ef4444",
-  lifo: "#8b5cf6",
 };
 
 export const TOP_BAR_COLORS: Record<string, string> = {
   skills: "#00e1ff",
   wallets: "rgba(240, 185, 11, 0.7)",
-  lifo: "rgba(139, 92, 246, 0.7)",
   stream: "rgba(239, 68, 68, 0.7)",
   plugins: "#f0b232",
   connectors: "#f0b232",
@@ -62,7 +58,6 @@ export function tabFlags(tab: Tab) {
   const isSkills = tab === "skills";
   const isSettings = tab === "settings";
   const isPlugins = tab === "plugins";
-  const isLifo = tab === "lifo";
   const isStream = tab === "stream";
   const isWallets = tab === "wallets";
   const isApps = tab === "apps";
@@ -71,15 +66,13 @@ export function tabFlags(tab: Tab) {
   const isAdvancedOverlay =
     tab === "advanced" ||
     tab === "actions" ||
-    tab === "workflows" ||
     tab === "triggers" ||
     tab === "fine-tuning" ||
     tab === "trajectories" ||
     tab === "runtime" ||
     tab === "database" ||
     tab === "logs" ||
-    tab === "security" ||
-    isLifo;
+    tab === "security";
   const isPluginsLike = isPlugins || isConnectors;
   const isCentered =
     isSkills ||
@@ -89,7 +82,6 @@ export function tabFlags(tab: Tab) {
     isApps ||
     isConnectors ||
     isKnowledge ||
-    isLifo ||
     isStream ||
     isWallets;
   const isCharacter = tab === "character" || tab === "character-select";
@@ -98,7 +90,6 @@ export function tabFlags(tab: Tab) {
     isSkills,
     isSettings,
     isPlugins,
-    isLifo,
     isStream,
     isWallets,
     isApps,
@@ -117,19 +108,18 @@ export type TabFlags = ReturnType<typeof tabFlags>;
 
 export function overlayBackdropClass(f: TabFlags) {
   if (f.isSkills)
-    return "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto";
+    return "opacity-100 backdrop-blur-2xl bg-black/60 pointer-events-auto";
   if (f.isPluginsLike)
-    return "opacity-100 backdrop-blur-xl bg-black/35 pointer-events-auto";
+    return "opacity-100 backdrop-blur-xl bg-black/55 pointer-events-auto";
   if (
     f.isSettings ||
     f.isAdvancedOverlay ||
     f.isApps ||
     f.isKnowledge ||
-    f.isLifo ||
     f.isStream ||
     f.isWallets
   )
-    return "opacity-100 backdrop-blur-2xl bg-black/50 pointer-events-auto";
+    return "opacity-100 backdrop-blur-2xl bg-black/65 pointer-events-auto";
   if (f.isCharacter) return "opacity-100";
   return "opacity-0";
 }
@@ -147,7 +137,7 @@ export function cardSizeClass(f: TabFlags) {
 }
 
 export function cardBackground(f: TabFlags) {
-  if (f.isSkills) return "rgba(20, 24, 38, 0.85)";
+  if (f.isSkills) return "rgba(16, 20, 30, 0.95)";
   if (f.isPluginsLike) return "transparent";
   if (
     f.isSettings ||
@@ -156,8 +146,8 @@ export function cardBackground(f: TabFlags) {
     f.isKnowledge ||
     f.isWallets
   )
-    return "rgba(18, 22, 32, 0.92)";
-  return "linear-gradient(to left, rgba(6, 8, 12, 0.95) 40%, rgba(6, 8, 12, 0.7) 80%, rgba(6, 8, 12, 0.2) 100%)";
+    return "rgba(12, 16, 26, 0.97)";
+  return "linear-gradient(to left, rgba(5, 7, 12, 0.98) 42%, rgba(5, 7, 12, 0.9) 78%, rgba(5, 7, 12, 0.72) 100%)";
 }
 
 export function cardBorderColor(f: TabFlags) {
@@ -195,7 +185,6 @@ export function accentVar(f: TabFlags) {
   if (f.isApps) return "#10b981";
   if (f.isKnowledge) return "#a78bfa";
   if (f.isWallets) return "#f0b90b";
-  if (f.isLifo) return "#8b5cf6";
   if (f.isStream) return "#ef4444";
   return "#7b8fb5";
 }
@@ -205,7 +194,6 @@ export function accentSubtleVar(f: TabFlags) {
   if (f.isApps) return "rgba(16, 185, 129, 0.12)";
   if (f.isKnowledge) return "rgba(167, 139, 250, 0.12)";
   if (f.isWallets) return "rgba(240, 185, 11, 0.12)";
-  if (f.isLifo) return "rgba(139, 92, 246, 0.12)";
   if (f.isStream) return "rgba(239, 68, 68, 0.12)";
   return "rgba(123, 143, 181, 0.12)";
 }
@@ -215,7 +203,6 @@ export function accentRgbVar(f: TabFlags) {
   if (f.isApps) return "16, 185, 129";
   if (f.isKnowledge) return "167, 139, 250";
   if (f.isWallets) return "240, 185, 11";
-  if (f.isLifo) return "139, 92, 246";
   if (f.isStream) return "239, 68, 68";
   return "123, 143, 181";
 }
@@ -265,22 +252,22 @@ export function viewWrapperStyle(
   ) {
     return {
       "--bg": "transparent",
-      "--card": "rgba(255, 255, 255, 0.05)",
-      "--border": "rgba(255, 255, 255, 0.08)",
+      "--card": "rgba(12, 16, 26, 0.88)",
+      "--border": "rgba(255, 255, 255, 0.12)",
       "--accent": accentVar(f),
       "--accent-foreground": "#ffffff",
       "--accent-subtle": accentSubtleVar(f),
       "--accent-rgb": accentRgbVar(f),
-      "--muted": "rgba(255, 255, 255, 0.45)",
+      "--muted": "rgba(255, 255, 255, 0.58)",
       "--txt": "rgba(240, 238, 250, 0.92)",
       "--text": "rgba(240, 238, 250, 0.92)",
       "--danger": "#ef4444",
       "--ok": "#22c55e",
       "--warning": "#f59e0b",
-      "--surface": "rgba(255, 255, 255, 0.06)",
-      "--bg-hover": "rgba(255, 255, 255, 0.04)",
-      "--bg-muted": "rgba(255, 255, 255, 0.03)",
-      "--border-hover": "rgba(255, 255, 255, 0.15)",
+      "--surface": "rgba(15, 20, 32, 0.94)",
+      "--bg-hover": "rgba(255, 255, 255, 0.08)",
+      "--bg-muted": "rgba(18, 24, 36, 0.78)",
+      "--border-hover": "rgba(255, 255, 255, 0.2)",
     } as React.CSSProperties;
   }
   return {
