@@ -60,19 +60,27 @@ import type { Tab } from "../navigation";
 export type UiShellMode = "companion" | "native";
 
 export type OnboardingStep =
-  | "welcome"
-  | "language"
-  | "setupMode"
-  | "mint"
-  | "runMode"
-  | "dockerSetup"
-  | "cloudProvider"
-  | "modelSelection"
-  | "cloudLogin"
-  | "llmProvider"
-  | "inventorySetup"
-  | "connectors"
-  | "permissions";
+    | "wakeUp"
+    | "language"
+    | "identity"
+    | "connection"
+    | "senses"
+    | "activate";
+
+export interface OnboardingStepMeta {
+    id: OnboardingStep;
+    name: string;
+    subtitle: string;
+}
+
+export const ONBOARDING_STEPS: OnboardingStepMeta[] = [
+    { id: "wakeUp", name: "Wake Up", subtitle: "Activation" },
+    { id: "language", name: "Language", subtitle: "Communication" },
+    { id: "identity", name: "Identity", subtitle: "Designation" },
+    { id: "connection", name: "Connection", subtitle: "Neural Link" },
+    { id: "senses", name: "Senses", subtitle: "Permissions" },
+    { id: "activate", name: "Activate", subtitle: "Complete" },
+];
 
 export interface OnboardingNextOptions {
   allowPermissionBypass?: boolean;
@@ -409,6 +417,7 @@ export interface AppState {
   importError: string | null;
   importSuccess: string | null;
 
+<<<<<<< HEAD
   // Onboarding
   onboardingStep: OnboardingStep;
   onboardingOptions: OnboardingOptions | null;
@@ -440,6 +449,38 @@ export interface AppState {
   onboardingRpcKeys: Record<string, string>;
   onboardingAvatar: number;
   onboardingRestarting: boolean;
+=======
+    // Onboarding
+    onboardingStep: OnboardingStep;
+    onboardingOptions: OnboardingOptions | null;
+    onboardingName: string;
+    onboardingOwnerName: string;
+    onboardingStyle: string;
+    onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
+    onboardingCloudProvider: string;
+    onboardingSmallModel: string;
+    onboardingLargeModel: string;
+    onboardingProvider: string;
+    onboardingApiKey: string;
+    onboardingOpenRouterModel: string;
+    onboardingPrimaryModel: string;
+    onboardingTelegramToken: string;
+    onboardingDiscordToken: string;
+    onboardingWhatsAppSessionPath: string;
+    onboardingTwilioAccountSid: string;
+    onboardingTwilioAuthToken: string;
+    onboardingTwilioPhoneNumber: string;
+    onboardingBlooioApiKey: string;
+    onboardingBlooioPhoneNumber: string;
+    onboardingGithubToken: string;
+    onboardingSubscriptionTab: "token" | "oauth";
+    onboardingMiladyCloudTab: "login" | "apikey";
+    onboardingSelectedChains: Set<string>;
+    onboardingRpcSelections: Record<string, string>;
+    onboardingRpcKeys: Record<string, string>;
+    onboardingAvatar: number;
+    onboardingRestarting: boolean;
+>>>>>>> 0752a652 (refactor: update OnboardingStep type to 6-step game flow)
 
   // Command palette
   commandPaletteOpen: boolean;
