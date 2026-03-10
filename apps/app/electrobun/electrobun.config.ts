@@ -4,7 +4,7 @@ export default {
   app: {
     name: "Milady",
     identifier: "com.miladyai.milady",
-    version: "2.0.0-alpha.83",
+    version: "2.0.0-alpha.84",
     urlSchemes: ["milady"],
   },
   runtime: {
@@ -12,7 +12,8 @@ export default {
   },
   scripts: {
     // Sign native code inside milady-dist/node_modules on the inner app bundle
-    // before Electrobun runs the platform signing/notarization flow.
+    // before Electrobun runs platform signing and the staged artifact flow
+    // performs the final notarization/stapling pass.
     postBuild: "scripts/postwrap-sign-runtime-macos.ts",
     // Capture wrapper-bundle binary metadata after the self-extractor is created.
     postWrap: "scripts/postwrap-diagnostics.ts",
@@ -45,7 +46,9 @@ export default {
     mac: {
       bundleWGPU: true,
       codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
-      notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
+      notarize:
+        process.env.ELECTROBUN_SKIP_CODESIGN !== "1" &&
+        process.env.MILADY_ELECTROBUN_NOTARIZE !== "0",
       defaultRenderer: "native",
       icons: "assets/appIcon.iconset",
       entitlements: {

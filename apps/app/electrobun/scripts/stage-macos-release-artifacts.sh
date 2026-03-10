@@ -181,9 +181,10 @@ install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"
 
 echo "Staged app bundle: $STAGED_APP_PATH"
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
-  # The extracted updater app bundle is already correctly signed/notarized by
-  # electrobun. Re-sign only what changed and keep the original entitlements so
-  # we do not rewrite valid nested signatures with a blanket --deep pass.
+  # The extracted app bundle is already signed by electrobun's platform pass.
+  # Re-sign only what changed and keep the original entitlements so we do not
+  # rewrite valid nested signatures with a blanket --deep pass. The final
+  # notarization/stapling pass happens below on the staged app and DMG.
   if ! codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$LAUNCHER_PATH"; then
     echo "stage-macos-release-artifacts: launcher runtime signing failed, retrying without hardened runtime" >&2
     codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "${entitlement_args[@]}" "$LAUNCHER_PATH"

@@ -49,6 +49,7 @@ describe("desktop-build.mjs", () => {
     expect(script).toContain(
       "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
     );
+    expect(script).toContain('MILADY_ELECTROBUN_NOTARIZE: "0"');
     expect(script).toContain("MILADY_STAGE_MACOS_SKIP_DMG");
     expect(script).toContain(
       "--stage-macos-release-app        Stage a direct macOS .app + DMG from the Electrobun build output",

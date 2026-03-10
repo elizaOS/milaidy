@@ -284,8 +284,16 @@ function packageDesktopBuild() {
     electrobunArgs.push(`--env=${buildEnv}`);
   }
 
+  const packageEnv = {
+    ...process.env,
+    ...(stageMacosReleaseApp && process.platform === "darwin"
+      ? { MILADY_ELECTROBUN_NOTARIZE: "0" }
+      : {}),
+  };
+
   runElectrobun(electrobunArgs, {
     cwd: ELECTROBUN_DIR,
+    env: packageEnv,
     label: buildEnv
       ? `Packaging Electrobun app (env=${buildEnv})`
       : "Packaging Electrobun app",
@@ -298,7 +306,7 @@ function packageDesktopBuild() {
       {
         cwd: ROOT,
         env: {
-          ...process.env,
+          ...packageEnv,
           ELECTROBUN_SKIP_CODESIGN: process.env.ELECTROBUN_SKIP_CODESIGN ?? "1",
           MILADY_STAGE_MACOS_SKIP_DMG:
             process.env.MILADY_STAGE_MACOS_SKIP_DMG ?? "1",

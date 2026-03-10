@@ -74,6 +74,13 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).not.toContain("bun-darwin-x64.zip");
   });
 
+  it("defers macOS notarization to the staged artifact flow", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("MILADY_ELECTROBUN_NOTARIZE: 0");
+    expect(workflow).toContain("Stage standard macOS release app");
+  });
+
   it("pins Bun and runs release-check before the desktop matrix", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateJobIndex = workflow.indexOf("name: Validate Release Inputs");
@@ -156,7 +163,7 @@ describe("Electrobun release workflow drift", () => {
     const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
 
     expect(stageScript).toContain(
-      'BUILD_ROOT="${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"',
+      `BUILD_ROOT="\${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"`,
     );
     expect(stageScript).toContain("Using direct build app:");
     expect(stageScript).toContain("Using build app wrapper:");
@@ -167,10 +174,10 @@ describe("Electrobun release workflow drift", () => {
       "no usable macOS build app found under $BUILD_ROOT; falling back to updater tarball",
     );
     expect(stageScript).toContain(
-      'SKIP_APP_ZIP="${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"',
+      `SKIP_APP_ZIP="\${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"`,
     );
     expect(stageScript).toContain(
-      "electrobun. Re-sign only what changed and keep the original entitlements",
+      "The extracted app bundle is already signed by electrobun's platform pass.",
     );
     expect(stageScript).toContain(
       'codesign -d --entitlements :- "$STAGED_APP_PATH"',

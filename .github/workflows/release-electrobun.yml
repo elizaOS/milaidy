@@ -423,6 +423,10 @@ jobs:
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+          # Electrobun still performs the platform signing pass here, but
+          # notarization is centralized in stage-macos-release-artifacts.sh so
+          # the staged .app/.app.zip/.dmg artifacts all come from one retryable path.
+          MILADY_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
 

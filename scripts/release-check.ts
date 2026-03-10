@@ -23,6 +23,7 @@ const requiredWorkflowSnippets = [
   "apps/app/electrobun/scripts/zip-wrapper.sh",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
+  "MILADY_ELECTROBUN_NOTARIZE: 0",
   "Stage desktop bundle inputs",
   "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
   "Inject version.json into bundle (Windows)",
@@ -68,6 +69,7 @@ const forbiddenWorkflowSnippets = [
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
+  'process.env.MILADY_ELECTROBUN_NOTARIZE !== "0"',
 ];
 
 function runPackDry(): PackResult[] {
@@ -139,7 +141,7 @@ function assertMacArtifactStagerLooksCorrect() {
     "utf8",
   );
   const requiredSnippets = [
-    'BUILD_ROOT="${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"',
+    `BUILD_ROOT="\${MILADY_STAGE_MACOS_BUILD_ROOT:-$ELECTROBUN_DIR/build}"`,
     'DIRECT_APP_PATH="$(find_newest_path "$BUILD_ROOT" -maxdepth 2 -type d -name "*.app")"',
     'TARBALL_PATH="$(find_newest_path "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst")"',
     "Using direct build app:",
@@ -154,11 +156,11 @@ function assertMacArtifactStagerLooksCorrect() {
     `--options runtime "\${entitlement_args[@]}" "$LAUNCHER_PATH"`,
     `--options runtime "\${entitlement_args[@]}" "$STAGED_APP_PATH"`,
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
-    'SKIP_APP_ZIP="${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"',
+    `SKIP_APP_ZIP="\${MILADY_STAGE_MACOS_SKIP_APP_ZIP:-$SKIP_DMG}"`,
     "create_app_zip() {",
     'ditto -c -k --sequesterRsrc --keepParent "$source_app" "$output_zip"',
     'TEMP_NOTARY_APP_ZIP_PATH="$TMP_ROOT/$FINAL_APP_ZIP_NAME"',
-    'retry_command 3 20 xcrun notarytool submit \\',
+    "retry_command 3 20 xcrun notarytool submit \\",
     'retry_command 5 15 xcrun stapler staple "$STAGED_APP_PATH"',
     'echo "  app zip: $FINAL_APP_ZIP_PATH"',
     "hdiutil create \\",
