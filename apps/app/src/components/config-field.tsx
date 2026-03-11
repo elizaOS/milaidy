@@ -201,7 +201,7 @@ function NumberFieldInner({ fp: props }: { fp: FieldRenderProps }) {
         {!props.readonly && (
           <button
             type="button"
-            className="px-2 py-1.5 border border-[var(--border)] bg-[var(--bg-hover)] text-sm text-[var(--muted)] cursor-pointer transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)] h-[36px] rounded-sm font-mono select-none"
+            className="px-2 py-1.5 border border-[var(--border)] bg-transparent text-sm text-[var(--muted)] cursor-pointer transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)] h-[36px] rounded-sm font-mono select-none"
             onClick={() => step(-1)}
           >
             −
@@ -229,7 +229,7 @@ function NumberFieldInner({ fp: props }: { fp: FieldRenderProps }) {
         {!props.readonly && (
           <button
             type="button"
-            className="px-2 py-1.5 border border-[var(--border)] bg-[var(--bg-hover)] text-sm text-[var(--muted)] cursor-pointer transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)] h-[36px] rounded-sm font-mono select-none"
+            className="px-2 py-1.5 border border-[var(--border)] bg-transparent text-sm text-[var(--muted)] cursor-pointer transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)] h-[36px] rounded-sm font-mono select-none"
             onClick={() => step(1)}
           >
             +

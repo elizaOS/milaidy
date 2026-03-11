@@ -11,7 +11,7 @@ interface CharacterGenerateContext {
   postExamples?: string[];
 }
 
-type CharacterGenerateField = "bio" | "style" | "chatExamples" | "postExamples";
+type CharacterGenerateField = "bio" | "system" | "style" | "chatExamples" | "postExamples";
 type CharacterGenerateMode = "append" | "replace";
 
 export interface CharacterRouteState {
@@ -44,6 +44,10 @@ function buildGeneratePrompt(
 
   if (field === "bio") {
     return `Given this character:\n${charSummary}\n\nWrite a concise, compelling bio for this character (3-4 short paragraphs, one per line). Just output the bio lines, nothing else. Match the character's voice and personality.`;
+  }
+
+  if (field === "system") {
+    return `Given this character:\n${charSummary}\n\nWrite a system prompt that defines how this AI agent should behave. The system prompt should be written in first person, describing the agent's personality, communication style, and core behaviors. Include specific guidelines about tone, language style (formal/casual), and any unique quirks. Keep it concise but comprehensive (2-4 paragraphs). Just output the system prompt text, nothing else.`;
   }
 
   if (field === "style") {
@@ -248,6 +252,7 @@ export async function handleCharacterRoutes(
 
     if (
       body.field !== "bio" &&
+      body.field !== "system" &&
       body.field !== "style" &&
       body.field !== "chatExamples" &&
       body.field !== "postExamples"

@@ -9,6 +9,7 @@ import {
 } from "@milady/app-core/events";
 import { Bot, Check, Cpu, Settings2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../../AppContext";
 
 export interface AgentModeDropdownProps {
@@ -226,18 +227,29 @@ export function AgentModeDropdown({
     divider: isCompanion ? "border-white/10" : "border-border",
   };
 
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (moreOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [moreOpen]);
+
   const triggerClass =
     variant === "native"
       ? `inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95 rounded-md ${moreOpen ? "bg-accent/10 border-accent text-accent shadow-sm" : ""}`
       : `flex items-center justify-center w-8 h-8 rounded-full bg-white/5 text-white/80 hover:text-white hover:bg-white/20 border border-transparent hover:border-white/30 transition-all cursor-pointer ${moreOpen ? "bg-white/20 text-white border-white/30 shadow-sm" : ""}`;
 
   return (
-    <div
-      className="relative inline-flex shrink-0 z-50 text-left"
-      ref={moreMenuRef}
-    >
+    <div className="relative inline-flex shrink-0 text-left" ref={moreMenuRef}>
       <button
         type="button"
+        ref={triggerRef}
         className={triggerClass}
         onClick={() => setMoreOpen(!moreOpen)}
         title={t("chat.modal.agentMode")}
@@ -249,15 +261,13 @@ export function AgentModeDropdown({
         )}
       </button>
 
-      {moreOpen && (
+      {moreOpen && dropdownPos && createPortal(
         <div
-          className={`absolute top-full right-0 mt-2 w-[340px] border rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col ${theme.panelBg}`}
+          className={`fixed w-[340px] border rounded-xl shadow-2xl overflow-hidden flex flex-col ${theme.panelBg}`}
+          style={{ top: dropdownPos.top, right: dropdownPos.right, zIndex: 99999 }}
           role="menu"
         >
-          <div
-            className="p-4 space-y-4"
-            data-testid="chat-game-agent-mode-controls"
-          >
+          <div className="p-4 space-y-4" data-testid="chat-game-agent-mode-controls">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Bot className={`w-4 h-4 ${theme.textAccent}`} />
@@ -274,9 +284,7 @@ export function AgentModeDropdown({
 
             <div className="space-y-3">
               <div className="space-y-2">
-                <span
-                  className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}
-                >
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
                   {t("chat.modal.responseMode")}
                 </span>
                 <div className={`flex p-1 rounded-lg border ${theme.cardBg}`}>
@@ -305,21 +313,15 @@ export function AgentModeDropdown({
               </div>
 
               <div className="space-y-2">
-                <span
-                  className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}
-                >
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
                   {t("permissions.automationMode")}
                 </span>
-                <div
-                  className={`flex p-1 rounded-lg border gap-1 ${theme.cardBg}`}
-                >
+                <div className={`flex p-1 rounded-lg border gap-1 ${theme.cardBg}`}>
                   <button
                     type="button"
                     className={`${theme.btnCardBase} ${automationMode === "connectors-only" ? theme.btnCardActive : theme.btnCardInactive}`}
                     disabled={modeLoading || automationSaving}
-                    onClick={() => {
-                      void handleAutomationModeChange("connectors-only");
-                    }}
+                    onClick={() => void handleAutomationModeChange("connectors-only")}
                     data-testid="chat-game-automation-connectors"
                   >
                     <span className="mb-0.5">{t("permissions.mode.semi")}</span>
@@ -328,9 +330,7 @@ export function AgentModeDropdown({
                     type="button"
                     className={`${theme.btnCardBase} ${automationMode === "full" ? theme.btnCardActive : theme.btnCardInactive}`}
                     disabled={modeLoading || automationSaving}
-                    onClick={() => {
-                      void handleAutomationModeChange("full");
-                    }}
+                    onClick={() => void handleAutomationModeChange("full")}
                     data-testid="chat-game-automation-full"
                   >
                     <span className="mb-0.5">{t("permissions.mode.full")}</span>
@@ -339,67 +339,50 @@ export function AgentModeDropdown({
               </div>
 
               <div className="space-y-2">
-                <span
-                  className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}
-                >
+                <span className={`text-xs font-medium ${isCompanion ? "text-white/80" : "text-txt"}`}>
                   {t("permissions.tradeMode")}
                 </span>
-                <div
-                  className={`flex flex-col p-1 rounded-lg border gap-1 ${theme.cardBg}`}
-                >
+                <div className={`flex flex-col p-1 rounded-lg border gap-1 ${theme.cardBg}`}>
                   <button
                     type="button"
                     className={`${theme.listBtnBase} ${tradeMode === "user-sign-only" ? theme.btnActive : theme.btnInactive}`}
                     disabled={modeLoading || tradeSaving}
-                    onClick={() => {
-                      void handleTradeModeChange("user-sign-only");
-                    }}
+                    onClick={() => void handleTradeModeChange("user-sign-only")}
                     data-testid="chat-game-trade-user-sign"
                   >
                     {t("permissions.trade.userSign")}
-                    {tradeMode === "user-sign-only" && (
-                      <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />
-                    )}
+                    {tradeMode === "user-sign-only" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
                   </button>
                   <button
                     type="button"
                     className={`${theme.listBtnBase} ${tradeMode === "manual-local-key" ? theme.btnActive : theme.btnInactive}`}
                     disabled={modeLoading || tradeSaving}
-                    onClick={() => {
-                      void handleTradeModeChange("manual-local-key");
-                    }}
+                    onClick={() => void handleTradeModeChange("manual-local-key")}
                     data-testid="chat-game-trade-manual"
                   >
                     {t("permissions.trade.manual")}
-                    {tradeMode === "manual-local-key" && (
-                      <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />
-                    )}
+                    {tradeMode === "manual-local-key" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
                   </button>
                   <button
                     type="button"
                     className={`${theme.listBtnBase} ${tradeMode === "agent-auto" ? theme.btnCardActive : theme.btnInactive}`}
                     disabled={modeLoading || tradeSaving}
-                    onClick={() => {
-                      void handleTradeModeChange("agent-auto");
-                    }}
+                    onClick={() => void handleTradeModeChange("agent-auto")}
                     data-testid="chat-game-trade-agent"
                   >
                     {t("permissions.trade.agent")}
-                    {tradeMode === "agent-auto" && (
-                      <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />
-                    )}
+                    {tradeMode === "agent-auto" && <Check className={`w-3.5 h-3.5 ${theme.textAccent}`} />}
                   </button>
                 </div>
               </div>
             </div>
 
-            <p
-              className={`text-[10px] text-center pt-2 border-t ${theme.textMuted} ${theme.divider}`}
-            >
+            <p className={`text-[10px] text-center pt-2 border-t ${theme.textMuted} ${theme.divider}`}>
               {t("chat.modal.tradeModeHint")}
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

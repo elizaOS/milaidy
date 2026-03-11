@@ -143,7 +143,7 @@ export function CompanionView() {
           <div className="w-full h-full" />
 
           {/* Right Panel: Actions + Game HUD Menu */}
-          <aside className="fixed top-1/2 -translate-y-1/2 right-6 flex flex-col items-end gap-4 z-[60]">
+          <aside className="fixed top-1/2 -translate-y-1/2 right-6 flex flex-col items-end gap-4 z-40">
             {/* Game HUD Icon Menu */}
             <CompanionHubNav setTab={setTab} t={t} />
           </aside>

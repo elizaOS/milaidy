@@ -257,6 +257,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
   /* ── Character generation state ─────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null);
 
+  /* ── Avatar loading state ───────────────────────────────────────── */
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
   /* ── Voice config state ─────────────────────────────────────────── */
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({});
   const [voiceLoading, setVoiceLoading] = useState(false);
@@ -407,6 +410,8 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
         );
         if (field === "bio") {
           handleFieldEdit("bio", generated.trim());
+        } else if (field === "system") {
+          handleFieldEdit("system", generated.trim());
         } else if (field === "style") {
           try {
             const parsed = JSON.parse(generated);
@@ -623,7 +628,7 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
       <div className={sectionCls}>
         {/* Header row: title + action buttons */}
         <div className="flex items-center justify-between mb-5 border-b border-border/40 pb-3">
-          <div className="font-bold text-sm tracking-wide text-txt">
+          <div className="font-bold text-sm tracking-wide text-white">
             {t("characterview.IdentityPersonali")}
           </div>
           <div className="flex items-center gap-2">
@@ -688,8 +693,17 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
             <div className="w-full">
               <AvatarSelector
                 selected={selectedVrmIndex}
-                onSelect={(i) => setState("selectedVrmIndex", i)}
+                loading={avatarLoading}
+                onSelect={(i) => {
+                  if (avatarLoading) return;
+                  setAvatarLoading(true);
+                  setState("selectedVrmIndex", i);
+                  // Allow time for VRM to load before enabling selection again
+                  setTimeout(() => setAvatarLoading(false), 1500);
+                }}
                 onUpload={(file) => {
+                  if (avatarLoading) return;
+                  setAvatarLoading(true);
                   const previousIndex = selectedVrmIndex;
                   const url = URL.createObjectURL(file);
                   setState("customVrmUrl", url);
@@ -706,6 +720,9 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
                     .catch(() => {
                       setState("selectedVrmIndex", previousIndex);
                       URL.revokeObjectURL(url);
+                    })
+                    .finally(() => {
+                      setTimeout(() => setAvatarLoading(false), 1500);
                     });
                 }}
                 showUpload
