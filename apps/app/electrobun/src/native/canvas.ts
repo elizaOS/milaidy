@@ -368,11 +368,30 @@ $bmp.Dispose()`;
    *
    * canvasEval() is intentionally NOT available on game windows — they are
    * opened for display/interaction only, not agent computer-use.
+   *
+   * Security: only http: and https: are permitted. file:, javascript:, data:,
+   * and other schemes are blocked to prevent local file access and code injection.
    */
   async openGameWindow(options: {
     url: string;
     title?: string;
   }): Promise<{ id: string }> {
+    // Validate protocol before passing the URL to the native layer.
+    // file: would grant access to local filesystem; javascript:/data: could inject code.
+    try {
+      const parsed = new URL(options.url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error(
+          `openGameWindow blocked — only http/https URLs are permitted, got: ${parsed.protocol}`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw new Error(`openGameWindow blocked — invalid URL: ${options.url}`);
+      }
+      throw err;
+    }
+
     const id = `game_${++canvasCounter}`;
 
     const win = new BrowserWindow({
