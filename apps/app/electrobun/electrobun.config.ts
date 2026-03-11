@@ -5,6 +5,7 @@ export default {
     name: "Milady",
     identifier: "com.miladyai.milady",
     version: "2.0.0-alpha.76",
+    description: "Cute AI agents for the desktop",
     urlSchemes: ["milady"],
   },
   runtime: {
@@ -22,6 +23,11 @@ export default {
       entrypoint: "src/index.ts",
     },
     views: {},
+    // Watch these extra dirs in dev --watch mode so changes to the Vite
+    // renderer build or shared types trigger a bun-side rebuild + relaunch.
+    watch: ["../dist", "src/shared/"],
+    // Ignore test files and build artifacts from watch triggers.
+    watchIgnore: ["src/**/*.test.ts", "src/**/*.spec.ts", "artifacts/", "build/"],
     // Milady intentionally supports both desktop WebGPU paths:
     // 1. renderer-webview WebGPU (`three/webgpu` via browser `navigator.gpu`)
     // 2. Electrobun-native Dawn for Bun-side GpuWindow / <electrobun-wgpu>

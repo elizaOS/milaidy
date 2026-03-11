@@ -8,6 +8,7 @@
  * Called once during app startup after the BrowserView is created.
  */
 
+import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
@@ -130,6 +131,7 @@ export function registerRpcHandlers(
       params: Parameters<typeof desktop.setWindowBounds>[0],
     ) => desktop.setWindowBounds(params),
     desktopMinimizeWindow: async () => desktop.minimizeWindow(),
+    desktopUnminimizeWindow: async () => desktop.unminimizeWindow(),
     desktopMaximizeWindow: async () => desktop.maximizeWindow(),
     desktopUnmaximizeWindow: async () => desktop.unmaximizeWindow(),
     desktopCloseWindow: async () => desktop.closeWindow(),
@@ -164,11 +166,24 @@ export function registerRpcHandlers(
     // ---- Desktop: App ----
     desktopQuit: async () => desktop.quit(),
     desktopRelaunch: async () => desktop.relaunch(),
+    desktopApplyUpdate: async () => {
+      Updater.applyUpdate();
+    },
     desktopGetVersion: async () => desktop.getVersion(),
     desktopIsPackaged: async () => desktop.isPackaged(),
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
+
+    // ---- Desktop: Screen ----
+    desktopGetPrimaryDisplay: async () => desktop.getPrimaryDisplay(),
+    desktopGetAllDisplays: async () => desktop.getAllDisplays(),
+    desktopGetCursorPosition: async () => desktop.getCursorPosition(),
+
+    // ---- Desktop: Message Box ----
+    desktopShowMessageBox: async (
+      params: Parameters<typeof desktop.showMessageBox>[0],
+    ) => desktop.showMessageBox(params),
 
     // ---- Desktop: Clipboard ----
     desktopWriteToClipboard: async (
@@ -176,6 +191,8 @@ export function registerRpcHandlers(
     ) => desktop.writeToClipboard(params),
     desktopReadFromClipboard: async () => desktop.readFromClipboard(),
     desktopClearClipboard: async () => desktop.clearClipboard(),
+    desktopClipboardAvailableFormats: async () =>
+      desktop.clipboardAvailableFormats(),
 
     // ---- Desktop: Shell ----
     desktopOpenExternal: async (
@@ -184,6 +201,16 @@ export function registerRpcHandlers(
     desktopShowItemInFolder: async (
       params: Parameters<typeof desktop.showItemInFolder>[0],
     ) => desktop.showItemInFolder(params),
+    desktopOpenPath: async (params: Parameters<typeof desktop.openPath>[0]) =>
+      desktop.openPath(params),
+
+    // ---- Desktop: File Dialogs ----
+    desktopShowOpenDialog: async (
+      params: Parameters<typeof desktop.showOpenDialog>[0],
+    ) => desktop.showOpenDialog(params),
+    desktopShowSaveDialog: async (
+      params: Parameters<typeof desktop.showSaveDialog>[0],
+    ) => desktop.showSaveDialog(params),
 
     // ---- Gateway ----
     gatewayStartDiscovery: async (

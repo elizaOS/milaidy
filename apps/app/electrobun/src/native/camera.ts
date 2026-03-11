@@ -43,12 +43,23 @@ export class CameraManager {
     return { recording: false, duration: 0 };
   }
 
-  async checkPermissions() {
-    return { status: "prompt" };
+  async checkPermissions(): Promise<{ status: string }> {
+    if (process.platform === "darwin") {
+      const { getPermissionManager } = await import("./permissions");
+      const state = await getPermissionManager().checkPermission("camera");
+      return { status: state.status };
+    }
+    // Non-macOS: renderer's getUserMedia handles permission natively
+    return { status: "granted" };
   }
 
-  async requestPermissions() {
-    return { status: "prompt" };
+  async requestPermissions(): Promise<{ status: string }> {
+    if (process.platform === "darwin") {
+      const { getPermissionManager } = await import("./permissions");
+      const state = await getPermissionManager().requestPermission("camera");
+      return { status: state.status };
+    }
+    return { status: "granted" };
   }
 
   dispose(): void {}

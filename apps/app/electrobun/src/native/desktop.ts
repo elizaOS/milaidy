@@ -14,12 +14,11 @@
  * Key differences from Electron version:
  * - No ipcMain — methods are called directly from rpc-handlers.ts
  * - Uses sendToWebview callback instead of mainWindow.webContents.send()
- * - No powerMonitor — returns stubs
+ * - No powerMonitor — power state read via platform CLI tools
  * - No nativeImage — tray icons use file paths directly
  * - No setOpacity on BrowserWindow — no-op
  * - No hide() on BrowserWindow — uses minimize() as fallback
  * - No app.setLoginItemSettings — stubbed
- * - No shell.beep — no-op
  */
 
 import * as fs from "node:fs";
@@ -29,6 +28,7 @@ import Electrobun, {
   type BrowserWindow,
   GlobalShortcut,
   type MenuItemConfig,
+  Screen,
   Tray,
   Updater,
   Utils,
@@ -36,6 +36,12 @@ import Electrobun, {
 import type {
   ClipboardReadResult,
   ClipboardWriteOptions,
+  CursorPosition,
+  DisplayInfo,
+  FileDialogOptions,
+  FileDialogResult,
+  MessageBoxOptions,
+  MessageBoxResult,
   NotificationOptions,
   PowerState,
   ShortcutOptions,
@@ -636,6 +642,10 @@ X-GNOME-Autostart-enabled=true
     this.getWindow().minimize();
   }
 
+  async unminimizeWindow(): Promise<void> {
+    this.getWindow().unminimize();
+  }
+
   async maximizeWindow(): Promise<void> {
     this.getWindow().maximize();
   }
@@ -808,12 +818,52 @@ X-GNOME-Autostart-enabled=true
   // MARK: - Power Monitor
 
   async getPowerState(): Promise<PowerState> {
-    // No powerMonitor equivalent in Electrobun — return stub
-    return {
-      onBattery: false,
-      idleState: "unknown",
-      idleTime: 0,
-    };
+    try {
+      if (process.platform === "darwin") {
+        const proc = Bun.spawn(["pmset", "-g", "batt"], {
+          stdout: "pipe",
+          stderr: "ignore",
+        });
+        const text = await new Response(proc.stdout).text();
+        await proc.exited;
+        const onBattery = text.includes("Battery Power");
+        return { onBattery, idleState: "unknown", idleTime: 0 };
+      }
+      if (process.platform === "linux") {
+        const batteryDir = "/sys/class/power_supply";
+        const entries = fs.readdirSync(batteryDir);
+        const bat = entries.find((e) => e.startsWith("BAT"));
+        if (bat) {
+          const statusText = fs
+            .readFileSync(path.join(batteryDir, bat, "status"), "utf8")
+            .trim();
+          return {
+            onBattery: statusText === "Discharging",
+            idleState: "unknown",
+            idleTime: 0,
+          };
+        }
+      }
+      if (process.platform === "win32") {
+        const proc = Bun.spawn(
+          [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "(Get-WmiObject -Class Win32_Battery).BatteryStatus",
+          ],
+          { stdout: "pipe", stderr: "ignore" },
+        );
+        const text = await new Response(proc.stdout).text();
+        await proc.exited;
+        // BatteryStatus 1 = Discharging (on battery), 2 = AC, 6 = Charging
+        const status = Number.parseInt(text.trim(), 10);
+        return { onBattery: status === 1, idleState: "unknown", idleTime: 0 };
+      }
+    } catch {
+      // Fall through to stub below
+    }
+    return { onBattery: false, idleState: "unknown", idleTime: 0 };
   }
 
   // MARK: - App
@@ -823,11 +873,21 @@ X-GNOME-Autostart-enabled=true
   }
 
   async relaunch(): Promise<void> {
-    // Electrobun does not have a built-in relaunch.
-    // Quit and let the OS or process manager restart.
-    console.warn(
-      "[DesktopManager] relaunch is not natively supported — calling quit()",
-    );
+    try {
+      const child = Bun.spawn([process.execPath, ...process.argv.slice(1)], {
+        detached: true,
+        stdout: "ignore",
+        stderr: "ignore",
+        stdin: "ignore",
+      });
+      // Detach so the new instance survives the parent quitting
+      child.unref?.();
+    } catch (err) {
+      console.error(
+        "[DesktopManager] relaunch: failed to spawn new instance:",
+        err,
+      );
+    }
     Utils.quit();
   }
 
@@ -877,9 +937,9 @@ X-GNOME-Autostart-enabled=true
     if (options.text) {
       Utils.clipboardWriteText(options.text);
     } else if (options.image) {
-      // Electrobun clipboardWriteImage expects image data
-      // @ts-expect-error — image is base64 string; clipboardWriteImage accepts Uint8Array at runtime
-      Utils.clipboardWriteImage(options.image);
+      // clipboardWriteImage expects a Uint8Array — decode base64 before passing.
+      const bytes = Buffer.from(options.image, "base64");
+      Utils.clipboardWriteImage(new Uint8Array(bytes));
     }
     // html/rtf not supported by Electrobun clipboard — drop silently
   }
@@ -903,6 +963,11 @@ X-GNOME-Autostart-enabled=true
 
   async clearClipboard(): Promise<void> {
     Utils.clipboardClear();
+  }
+
+  async clipboardAvailableFormats(): Promise<{ formats: string[] }> {
+    const formats = Utils.clipboardAvailableFormats?.() ?? [];
+    return { formats: Array.isArray(formats) ? formats : [] };
   }
 
   // MARK: - Shell
@@ -941,8 +1006,122 @@ X-GNOME-Autostart-enabled=true
     Utils.showItemInFolder(p);
   }
 
+  async openPath(options: { path: string }): Promise<void> {
+    const p = typeof options.path === "string" ? options.path.trim() : "";
+    if (!p) {
+      throw new Error("openPath requires a non-empty path");
+    }
+    Utils.openPath(p);
+  }
+
   async beep(): Promise<void> {
-    // No shell.beep() equivalent in Electrobun — no-op
+    try {
+      if (process.platform === "darwin") {
+        Bun.spawn(["afplay", "/System/Library/Sounds/Funk.aiff"], {
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+      } else if (process.platform === "linux") {
+        // Try paplay (PulseAudio), fall back to terminal bell
+        try {
+          const proc = Bun.spawn(
+            ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"],
+            { stdout: "ignore", stderr: "ignore" },
+          );
+          await proc.exited;
+        } catch {
+          process.stdout.write("\x07");
+        }
+      } else if (process.platform === "win32") {
+        const proc = Bun.spawn(
+          ["powershell", "-NoProfile", "-Command", "[Console]::Beep(800, 200)"],
+          { stdout: "ignore", stderr: "ignore" },
+        );
+        await proc.exited;
+      }
+    } catch {
+      // beep is best-effort — never throw
+    }
+  }
+
+  // MARK: - Screen / Display
+
+  async getPrimaryDisplay(): Promise<DisplayInfo> {
+    const display = Screen.getPrimaryDisplay();
+    return {
+      id: display.id ?? 0,
+      bounds: display.bounds,
+      workArea: display.workArea,
+      scaleFactor: display.scaleFactor ?? 1,
+      isPrimary: display.isPrimary ?? true,
+    };
+  }
+
+  async getAllDisplays(): Promise<{ displays: DisplayInfo[] }> {
+    const displays = Screen.getAllDisplays();
+    return {
+      displays: displays.map((d) => ({
+        id: d.id ?? 0,
+        bounds: d.bounds,
+        workArea: d.workArea,
+        scaleFactor: d.scaleFactor ?? 1,
+        isPrimary: d.isPrimary ?? false,
+      })),
+    };
+  }
+
+  async getCursorPosition(): Promise<CursorPosition> {
+    return Screen.getCursorScreenPoint();
+  }
+
+  // MARK: - Message Box
+
+  async showMessageBox(options: MessageBoxOptions): Promise<MessageBoxResult> {
+    const result = await Utils.showMessageBox({
+      type: options.type ?? "info",
+      title: options.title,
+      message: options.message,
+      detail: options.detail,
+      buttons: options.buttons ?? ["OK"],
+      defaultId: options.defaultId ?? 0,
+      cancelId: options.cancelId,
+    });
+    return { response: result.response ?? result };
+  }
+
+  // MARK: - File Dialogs
+
+  /**
+   * Show a native file/directory open picker.
+   * Maps to Electrobun's Utils.openFileDialog.
+   */
+  async showOpenDialog(options: FileDialogOptions): Promise<FileDialogResult> {
+    const filePaths = await Utils.openFileDialog({
+      startingFolder: options.defaultPath,
+      allowedFileTypes: options.allowedFileTypes,
+      canChooseFiles: options.canChooseFiles ?? true,
+      canChooseDirectory: options.canChooseDirectory ?? false,
+      allowsMultipleSelection: options.allowsMultipleSelection ?? false,
+    });
+    const canceled = filePaths.length === 0 || filePaths[0] === "";
+    return { canceled, filePaths: canceled ? [] : filePaths };
+  }
+
+  /**
+   * Show a native directory picker for save operations.
+   * Electrobun has no separate save dialog — we pick a directory and the
+   * caller appends the filename. Returns the chosen directory path.
+   */
+  async showSaveDialog(options: FileDialogOptions): Promise<FileDialogResult> {
+    const filePaths = await Utils.openFileDialog({
+      startingFolder: options.defaultPath,
+      allowedFileTypes: options.allowedFileTypes,
+      canChooseFiles: false,
+      canChooseDirectory: true,
+      allowsMultipleSelection: false,
+    });
+    const canceled = filePaths.length === 0 || filePaths[0] === "";
+    return { canceled, filePaths: canceled ? [] : filePaths };
   }
 
   // MARK: - Helpers

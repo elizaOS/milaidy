@@ -32,6 +32,10 @@ export class TalkModeManager {
   private _audioBuffer: Buffer[] = [];
   private _audioBufferSize = 0;
   private _processing = false;
+  /** In-flight system TTS process — killed by stopSpeaking(). */
+  private _speakProc: ReturnType<typeof Bun.spawn> | null = null;
+  /** AbortController for in-flight ElevenLabs fetch — aborted by stopSpeaking(). */
+  private _speakAbort: AbortController | null = null;
 
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
@@ -108,12 +112,14 @@ export class TalkModeManager {
           },
         );
       }
+      this._speakProc = proc;
       await proc.exited;
       this.sendToWebview?.("talkmodeSpeakComplete");
     } catch (err) {
       console.error("[TalkMode] System TTS error:", err);
       this.setState("error");
     } finally {
+      this._speakProc = null;
       this.speaking = false;
       if (this.state !== "error") {
         this.setState("idle");
@@ -133,6 +139,9 @@ export class TalkModeManager {
     this.speaking = true;
     this.setState("speaking");
 
+    const abort = new AbortController();
+    this._speakAbort = abort;
+
     try {
       const voiceId =
         (options.directive?.voiceId as string) ??
@@ -143,6 +152,7 @@ export class TalkModeManager {
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
         {
           method: "POST",
+          signal: abort.signal,
           headers: {
             "xi-api-key": apiKey,
             "Content-Type": "application/json",
@@ -179,9 +189,15 @@ export class TalkModeManager {
 
       this.sendToWebview?.("talkmodeSpeakComplete");
     } catch (err) {
-      console.error("[TalkMode] ElevenLabs TTS error:", err);
-      this.setState("error");
+      // AbortError is expected when stopSpeaking() cancels the fetch — not an error.
+      if (err instanceof Error && err.name === "AbortError") {
+        console.log("[TalkMode] ElevenLabs TTS aborted by stopSpeaking()");
+      } else {
+        console.error("[TalkMode] ElevenLabs TTS error:", err);
+        this.setState("error");
+      }
     } finally {
+      this._speakAbort = null;
       this.speaking = false;
       if (this.state !== "error") {
         this.setState("idle");
@@ -190,6 +206,20 @@ export class TalkModeManager {
   }
 
   async stopSpeaking(): Promise<void> {
+    // Kill in-flight system TTS process (say / espeak / PowerShell).
+    if (this._speakProc) {
+      try {
+        this._speakProc.kill();
+      } catch {
+        /* already exited */
+      }
+      this._speakProc = null;
+    }
+    // Abort in-flight ElevenLabs fetch/stream.
+    if (this._speakAbort) {
+      this._speakAbort.abort();
+      this._speakAbort = null;
+    }
     this.speaking = false;
     this.setState("idle");
   }

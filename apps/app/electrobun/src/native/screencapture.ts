@@ -100,6 +100,10 @@ export class ScreenCaptureManager {
   private frameCaptureActive = false;
   private frameCaptureTimer: ReturnType<typeof setInterval> | null = null;
   private frameCaptureWindow: BrowserWindow | null = null;
+  private recordingProc: ReturnType<typeof Bun.spawn> | null = null;
+  private recordingPath: string | null = null;
+  private recordingStart: number | null = null;
+  private recordingPaused = false;
 
   setSendToWebview(_fn: SendToWebview): void {
     // Screen capture posts directly to the HTTP endpoint; no webview push needed.
@@ -133,35 +137,230 @@ export class ScreenCaptureManager {
     };
   }
 
-  async takeScreenshot() {
-    return { available: false, reason: "Use startFrameCapture for streaming" };
+  async takeScreenshot(): Promise<{ available: boolean; data?: string }> {
+    const tmpPath = path.join(
+      os.tmpdir(),
+      `milady-screenshot-${Date.now()}.png`,
+    );
+    try {
+      let proc: ReturnType<typeof Bun.spawn>;
+      if (process.platform === "darwin") {
+        proc = Bun.spawn(["screencapture", "-x", "-t", "png", tmpPath], {
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+      } else if (process.platform === "win32") {
+        const psScript = `
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+$gfx = [System.Drawing.Graphics]::FromImage($bmp)
+$gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+$gfx.Dispose()
+$bmp.Save('${tmpPath.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Dispose()`;
+        proc = Bun.spawn(["powershell", "-NoProfile", "-Command", psScript], {
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+      } else {
+        try {
+          proc = Bun.spawn(["scrot", tmpPath], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
+          await proc.exited;
+          if (!fs.existsSync(tmpPath)) {
+            proc = Bun.spawn(["import", "-window", "root", tmpPath], {
+              stdout: "ignore",
+              stderr: "ignore",
+            });
+          }
+        } catch {
+          proc = Bun.spawn(["import", "-window", "root", tmpPath], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
+        }
+      }
+
+      await proc.exited;
+
+      const actualPath = fs.existsSync(tmpPath)
+        ? tmpPath
+        : fs.existsSync(`${tmpPath}.png`)
+          ? `${tmpPath}.png`
+          : null;
+
+      if (!actualPath) return { available: false };
+
+      const data = fs.readFileSync(actualPath).toString("base64");
+      return { available: true, data: `data:image/png;base64,${data}` };
+    } catch {
+      return { available: false };
+    } finally {
+      for (const p of [tmpPath, `${tmpPath}.png`]) {
+        try {
+          if (fs.existsSync(p)) fs.unlinkSync(p);
+        } catch {}
+      }
+    }
   }
 
-  async captureWindow(_options?: { windowId?: string }) {
-    return { available: false, reason: "Use startFrameCapture for streaming" };
+  async captureWindow(options?: {
+    windowId?: string;
+  }): Promise<{ available: boolean; data?: string }> {
+    // macOS: use screencapture -l <windowId> if a windowId is provided.
+    // Other platforms: fall back to full-screen capture.
+    if (process.platform === "darwin" && options?.windowId) {
+      const tmpPath = path.join(os.tmpdir(), `milady-window-${Date.now()}.png`);
+      try {
+        const proc = Bun.spawn(
+          ["screencapture", "-x", "-t", "png", "-l", options.windowId, tmpPath],
+          { stdout: "ignore", stderr: "ignore" },
+        );
+        await proc.exited;
+        const actualPath = fs.existsSync(tmpPath)
+          ? tmpPath
+          : fs.existsSync(`${tmpPath}.png`)
+            ? `${tmpPath}.png`
+            : null;
+        if (actualPath) {
+          const data = fs.readFileSync(actualPath).toString("base64");
+          return { available: true, data: `data:image/png;base64,${data}` };
+        }
+      } catch {
+        // Fall through to full-screen capture
+      } finally {
+        for (const p of [tmpPath, `${tmpPath}.png`]) {
+          try {
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+          } catch {}
+        }
+      }
+    }
+    // Fall back to full-screen capture
+    return this.takeScreenshot();
   }
 
-  async startRecording() {
-    return {
-      available: false,
-      reason: "Screen recording requires platform-specific integration",
-    };
+  async startRecording(): Promise<{ available: boolean; reason?: string }> {
+    if (this.recordingProc) return { available: true };
+
+    const outputPath = path.join(
+      os.tmpdir(),
+      `milady-recording-${Date.now()}.mp4`,
+    );
+    this.recordingPath = outputPath;
+    this.recordingStart = Date.now();
+    this.recordingPaused = false;
+
+    try {
+      if (process.platform === "darwin") {
+        this.recordingProc = Bun.spawn(
+          [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "avfoundation",
+            "-capture_cursor",
+            "1",
+            "-i",
+            "1",
+            outputPath,
+          ],
+          { stdout: "ignore", stderr: "ignore" },
+        );
+      } else if (process.platform === "linux") {
+        this.recordingProc = Bun.spawn(
+          ["ffmpeg", "-y", "-f", "x11grab", "-i", ":0.0", outputPath],
+          { stdout: "ignore", stderr: "ignore" },
+        );
+      } else if (process.platform === "win32") {
+        this.recordingProc = Bun.spawn(
+          ["ffmpeg", "-y", "-f", "gdigrab", "-i", "desktop", outputPath],
+          { stdout: "ignore", stderr: "ignore" },
+        );
+      } else {
+        this.recordingPath = null;
+        this.recordingStart = null;
+        return {
+          available: false,
+          reason: "Screen recording not supported on this platform",
+        };
+      }
+      return { available: true };
+    } catch {
+      this.recordingProc = null;
+      this.recordingPath = null;
+      this.recordingStart = null;
+      return {
+        available: false,
+        reason: "ffmpeg not found — install ffmpeg to enable screen recording",
+      };
+    }
   }
 
-  async stopRecording() {
+  async stopRecording(): Promise<{ available: boolean; path?: string }> {
+    if (!this.recordingProc) return { available: false };
+
+    try {
+      this.recordingProc.kill("SIGTERM");
+      await this.recordingProc.exited;
+    } catch {}
+
+    this.recordingProc = null;
+    this.recordingPaused = false;
+    const savedPath = this.recordingPath;
+    const duration = this.recordingStart
+      ? Math.floor((Date.now() - this.recordingStart) / 1000)
+      : 0;
+    this.recordingPath = null;
+    this.recordingStart = null;
+
+    if (savedPath && fs.existsSync(savedPath) && duration > 0) {
+      return { available: true, path: savedPath };
+    }
     return { available: false };
   }
 
-  async pauseRecording() {
-    return { available: false };
+  async pauseRecording(): Promise<{ available: boolean }> {
+    if (!this.recordingProc || this.recordingPaused) {
+      return { available: false };
+    }
+    try {
+      this.recordingProc.kill("SIGSTOP");
+      this.recordingPaused = true;
+      return { available: true };
+    } catch {
+      return { available: false };
+    }
   }
 
-  async resumeRecording() {
-    return { available: false };
+  async resumeRecording(): Promise<{ available: boolean }> {
+    if (!this.recordingProc || !this.recordingPaused) {
+      return { available: false };
+    }
+    try {
+      this.recordingProc.kill("SIGCONT");
+      this.recordingPaused = false;
+      return { available: true };
+    } catch {
+      return { available: false };
+    }
   }
 
-  async getRecordingState() {
-    return { recording: false, duration: 0, paused: false };
+  async getRecordingState(): Promise<{
+    recording: boolean;
+    duration: number;
+    paused: boolean;
+  }> {
+    const recording = !!this.recordingProc;
+    const duration =
+      recording && this.recordingStart
+        ? Math.floor((Date.now() - this.recordingStart) / 1000)
+        : 0;
+    return { recording, duration, paused: this.recordingPaused };
   }
 
   /**
@@ -461,11 +660,30 @@ $bmp.Dispose()`;
     }
   }
 
-  async switchSource(_options: { sourceId: string }) {
-    return { available: false };
+  async switchSource(options: {
+    sourceId: string;
+  }): Promise<{ available: boolean }> {
+    // Restart recording with the new source (stop current, start fresh).
+    // For native CLI tools, sourceId is informational only — we always
+    // capture the primary display. Specific source selection requires
+    // platform-level window enumeration beyond current scope.
+    if (this.recordingProc) {
+      await this.stopRecording();
+      return this.startRecording();
+    }
+    // If not recording, just acknowledge the source switch
+    return { available: true };
   }
 
   dispose(): void {
+    if (this.recordingProc) {
+      try {
+        this.recordingProc.kill("SIGTERM");
+      } catch {}
+      this.recordingProc = null;
+      this.recordingPath = null;
+      this.recordingStart = null;
+    }
     this.stopFrameCapture();
   }
 }
