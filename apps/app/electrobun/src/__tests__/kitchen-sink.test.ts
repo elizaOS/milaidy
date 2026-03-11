@@ -24,6 +24,7 @@ vi.mock("electrobun/bun", () => {
     on: vi.fn(),
   };
   // Use regular function (not arrow) so vi.fn() can be called with `new`.
+  // biome-ignore lint/complexity/useArrowFunction: constructor mock requires regular function
   const MockTray = vi.fn(function (_opts?: unknown) {
     return mockTrayInstance;
   });
@@ -50,6 +51,7 @@ vi.mock("electrobun/bun", () => {
     on: vi.fn(),
     ptr: Symbol("window"),
   };
+  // biome-ignore lint/complexity/useArrowFunction: constructor mock requires regular function
   const MockBrowserWindow = vi.fn(function () {
     return mockWinInstance;
   });
@@ -408,7 +410,7 @@ vi.mock("../native/location", () => {
     async getLastKnownLocation() {
       return this.lastLocation;
     }
-    async watchPosition(options?: { interval?: number }) {
+    async watchPosition(_options?: { interval?: number }) {
       const watchId = `watch-${++this.watchCounter}`;
       return { watchId };
     }
@@ -1098,8 +1100,8 @@ describe("Channel mapping — push events", () => {
   });
 
   it("misc push events", () => {
-    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["apiBaseUpdate"]).toBe("apiBaseUpdate");
-    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["shareTargetReceived"]).toBe(
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE.apiBaseUpdate).toBe("apiBaseUpdate");
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE.shareTargetReceived).toBe(
       "shareTargetReceived",
     );
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["location:update"]).toBe(
@@ -1134,19 +1136,17 @@ describe("Reverse mapping consistency", () => {
   });
 
   it("resolves specific reverse lookups", () => {
-    expect(RPC_MESSAGE_TO_PUSH_CHANNEL["agentStatusUpdate"]).toBe(
-      "agent:status",
-    );
-    expect(RPC_MESSAGE_TO_PUSH_CHANNEL["gatewayDiscovery"]).toBe(
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.agentStatusUpdate).toBe("agent:status");
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.gatewayDiscovery).toBe(
       "gateway:discovery",
     );
-    expect(RPC_MESSAGE_TO_PUSH_CHANNEL["canvasWindowEvent"]).toBe(
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.canvasWindowEvent).toBe(
       "canvas:windowEvent",
     );
-    expect(RPC_MESSAGE_TO_PUSH_CHANNEL["desktopWindowFocus"]).toBe(
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.desktopWindowFocus).toBe(
       "desktop:windowFocus",
     );
-    expect(RPC_MESSAGE_TO_PUSH_CHANNEL["swabbleWakeWord"]).toBe(
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.swabbleWakeWord).toBe(
       "swabble:wakeWord",
     );
   });
