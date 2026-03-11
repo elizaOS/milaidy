@@ -43,6 +43,7 @@ export class GpuWindowManager {
   private sendToWebview: SendToWebview | null = null;
   private gpuWindows: Map<string, GpuWindow> = new Map();
   private gpuViews: Map<string, WGPUView> = new Map();
+  private destroyingWindows: Set<string> = new Set();
 
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
@@ -57,13 +58,7 @@ export class GpuWindowManager {
    * The window is always-on-top and transparent by default so it can float
    * the avatar above other applications without a background fill.
    */
-  async createWindow(
-    options: Parameters<typeof this._createWindow>[0],
-  ): Promise<GpuWindowInfo> {
-    return this._createWindow(options);
-  }
-
-  private _createWindow(options: {
+  async createWindow(options: {
     id?: string;
     title?: string;
     x?: number;
@@ -73,7 +68,7 @@ export class GpuWindowManager {
     transparent?: boolean;
     alwaysOnTop?: boolean;
     titleBarStyle?: "hidden" | "hiddenInset" | "default";
-  }): GpuWindowInfo {
+  }): Promise<GpuWindowInfo> {
     const id = options.id ?? `gpu_win_${Date.now()}`;
 
     const existingWin = this.gpuWindows.get(id);
@@ -107,7 +102,7 @@ export class GpuWindowManager {
     // closed by the user (not programmatically via destroyWindow).
     win.on("close", () => {
       this.gpuWindows.delete(id);
-      if (!(win as GpuWindow & { _destroying?: boolean })._destroying) {
+      if (!this.destroyingWindows.has(id)) {
         this.sendToWebview?.("gpuWindowClosed", { id });
       }
     });
@@ -124,9 +119,10 @@ export class GpuWindowManager {
     if (!win) return;
     // Mark as programmatically destroyed so the close event handler skips
     // firing gpuWindowClosed — the caller already knows it destroyed the window.
-    (win as GpuWindow & { _destroying?: boolean })._destroying = true;
+    this.destroyingWindows.add(options.id);
     win.close();
     this.gpuWindows.delete(options.id);
+    this.destroyingWindows.delete(options.id);
   }
 
   async showWindow(options: { id: string }): Promise<void> {
@@ -141,6 +137,8 @@ export class GpuWindowManager {
     // GpuWindow.hide() makes the window invisible without sending it to the
     // dock (unlike minimize). Fall back to minimize() if not available yet in
     // this Electrobun build.
+    // TODO: remove minimize() fallback once electrobun/bun types GpuWindow.hide()
+    // (targeting Electrobun ≥ 1.16.0)
     if (typeof (win as GpuWindow & { hide?: () => void }).hide === "function") {
       (win as GpuWindow & { hide: () => void }).hide();
     } else {
@@ -161,7 +159,7 @@ export class GpuWindowManager {
     if (!win) return null;
     return {
       id: options.id,
-      frame: win.getFrame(),
+      frame: win.frame,
       wgpuViewId: win.wgpuViewId,
     };
   }
@@ -201,6 +199,7 @@ export class GpuWindowManager {
       return { id, frame: existingView.frame, viewId: existingView.id };
     }
 
+    // Trust boundary: windowId comes from the renderer (a local trusted origin).
     const view = new WGPUView({
       frame: {
         x: options.x ?? 0,
@@ -249,6 +248,8 @@ export class GpuWindowManager {
   }): Promise<{ handle: unknown } | null> {
     const view = this.gpuViews.get(options.id);
     if (!view) return null;
+    // Safety: returning a raw native handle to the renderer is acceptable because
+    // the renderer is a trusted local-origin webview, not an external site.
     const handle = view.getNativeHandle();
     return { handle };
   }
@@ -273,7 +274,8 @@ export class GpuWindowManager {
   // --------------------------------------------------------------------------
 
   dispose(): void {
-    for (const [, win] of this.gpuWindows.entries()) {
+    for (const [id, win] of this.gpuWindows.entries()) {
+      this.destroyingWindows.add(id);
       try {
         win.close();
       } catch {
@@ -281,6 +283,7 @@ export class GpuWindowManager {
       }
     }
     this.gpuWindows.clear();
+    this.destroyingWindows.clear();
 
     for (const [, view] of this.gpuViews.entries()) {
       try {
