@@ -98,8 +98,18 @@ export class CanvasManager {
       },
       transparent: options.transparent ?? false,
       sandbox: true,
-      // @ts-expect-error — partition is a valid Electrobun option not yet typed
       partition: "canvas-isolated",
+      // @ts-expect-error — navigationRules is a valid Electrobun option not yet typed
+      navigationRules: {
+        allowedUrls: [
+          "http://localhost:*",
+          "https://localhost:*",
+          "http://127.0.0.1:*",
+          "https://127.0.0.1:*",
+          "file://*",
+        ],
+        deniedUrls: ["*"],
+      },
     });
 
     const canvas: CanvasWindow = {
@@ -416,6 +426,13 @@ $bmp.Dispose()`;
     });
 
     return { id };
+  }
+
+  async openDevTools(options: { id: string }): Promise<void> {
+    const canvas = this.windows.get(options.id);
+    if (canvas) {
+      canvas.window.webview.openDevTools();
+    }
   }
 
   async listWindows(): Promise<{ windows: CanvasWindowInfo[] }> {

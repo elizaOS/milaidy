@@ -142,6 +142,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "canvas:getBounds": "canvasGetBounds",
   "canvas:setBounds": "canvasSetBounds",
   "canvas:listWindows": "canvasListWindows",
+  "canvas:openDevTools": "canvasOpenDevTools",
 
   // Game
   "game:openWindow": "gameOpenWindow",

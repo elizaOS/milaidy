@@ -387,6 +387,10 @@ async function createMainWindow(): Promise<BrowserWindow> {
       x: state.x,
       y: state.y,
     },
+    // Prevent the window from being crushed below a usable companion size.
+    // @ts-expect-error — minWidth/minHeight are valid Electrobun options not yet typed
+    minWidth: 800,
+    minHeight: 600,
     // hiddenInset hides the title bar and insets traffic lights — macOS only.
     // On Windows/Linux use the default title bar so the window remains draggable.
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
@@ -412,6 +416,9 @@ function attachMainWindow(win: BrowserWindow): BrowserWindow {
 
   win.webview.on("dom-ready", () => {
     injectApiBase(win);
+    if (process.env.NODE_ENV === "development") {
+      win.webview.openDevTools();
+    }
   });
 
   win.on("close", () => {

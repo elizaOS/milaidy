@@ -290,6 +290,9 @@ export function registerRpcHandlers(
     canvasSetBounds: async (params: Parameters<typeof canvas.setBounds>[0]) =>
       canvas.setBounds(params),
     canvasListWindows: async () => canvas.listWindows(),
+    canvasOpenDevTools: async (
+      params: Parameters<typeof canvas.openDevTools>[0],
+    ) => canvas.openDevTools(params),
 
     // ---- Game ----
     gameOpenWindow: async (

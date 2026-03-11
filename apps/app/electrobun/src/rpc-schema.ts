@@ -498,6 +498,7 @@ export type MiladyRPCSchema = {
         params: undefined;
         response: { windows: CanvasWindowInfo[] };
       };
+      canvasOpenDevTools: { params: { id: string }; response: undefined };
 
       // ---- Game ----
       /** Opens a game client URL in a dedicated isolated BrowserWindow. */
@@ -890,6 +891,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "canvas:getBounds": "canvasGetBounds",
   "canvas:setBounds": "canvasSetBounds",
   "canvas:listWindows": "canvasListWindows",
+  "canvas:openDevTools": "canvasOpenDevTools",
 
   // Game
   "game:openWindow": "gameOpenWindow",
