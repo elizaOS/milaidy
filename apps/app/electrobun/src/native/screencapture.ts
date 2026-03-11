@@ -660,7 +660,7 @@ $bmp.Dispose()`;
     }
   }
 
-  async switchSource(options: {
+  async switchSource(_options: {
     sourceId: string;
   }): Promise<{ available: boolean }> {
     // Restart recording with the new source (stop current, start fresh).

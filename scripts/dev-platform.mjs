@@ -82,11 +82,19 @@ for (const service of services) {
 function cleanup() {
   console.log("\n[milady] Shutting down desktop dev environment...");
   for (const child of children) {
-    try { child.kill("SIGTERM"); } catch { /* ignore */ }
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
   }
   setTimeout(() => {
     for (const child of children) {
-      try { child.kill("SIGKILL"); } catch { /* ignore */ }
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
     }
     process.exit(0);
   }, 3000);
