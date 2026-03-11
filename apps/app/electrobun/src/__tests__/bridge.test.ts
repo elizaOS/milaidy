@@ -119,7 +119,6 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
   it("maps game window channel correctly", () => {
     expect(CHANNEL_TO_RPC_METHOD["game:openWindow"]).toBe("gameOpenWindow");
   });
-
   it("returns undefined for unknown channels", () => {
     expect(CHANNEL_TO_RPC_METHOD["unknown:channel"]).toBeUndefined();
     expect(CHANNEL_TO_RPC_METHOD[""]).toBeUndefined();
