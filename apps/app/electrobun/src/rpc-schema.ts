@@ -14,213 +14,69 @@
 
 import type { RPCSchema } from "electrobun/bun";
 
-// ============================================================================
-// Shared Types
-// ============================================================================
+export type {
+  AgentStatus,
+  AllPermissionsState,
+  CameraDevice,
+  CanvasWindowInfo,
+  CanvasWindowOptions,
+  ClipboardReadResult,
+  ClipboardWriteOptions,
+  DiscoveryOptions,
+  DiscoveryResult,
+  GatewayEndpoint,
+  NotificationOptions,
+  PermissionState,
+  PermissionStatus,
+  PipState,
+  PowerState,
+  ScreenSource,
+  ShortcutOptions,
+  SystemPermissionId,
+  TalkModeConfig,
+  TalkModeState,
+  TrayClickEvent,
+  TrayMenuItem,
+  TrayOptions,
+  VersionInfo,
+  WindowBounds,
+  WindowOptions,
+} from "./shared/types";
 
-// -- Agent --
-export interface AgentStatus {
-  state: "not_started" | "starting" | "running" | "stopped" | "error";
-  agentName: string | null;
-  port: number | null;
-  startedAt: number | null;
-  error: string | null;
-}
+import type {
+  AgentStatus,
+  AllPermissionsState,
+  CameraDevice,
+  CanvasWindowInfo,
+  CanvasWindowOptions,
+  ClipboardReadResult,
+  ClipboardWriteOptions,
+  DiscoveryOptions,
+  DiscoveryResult,
+  GatewayEndpoint,
+  NotificationOptions,
+  PermissionState,
+  PermissionStatus,
+  PipState,
+  PowerState,
+  ScreenSource,
+  ShortcutOptions,
+  SystemPermissionId,
+  TalkModeConfig,
+  TalkModeState,
+  TrayClickEvent,
+  TrayMenuItem,
+  TrayOptions,
+  VersionInfo,
+  WindowBounds,
+  WindowOptions,
+} from "./shared/types";
 
-// -- Desktop --
-export interface TrayMenuItem {
-  id: string;
-  label?: string;
-  type?: "normal" | "separator" | "checkbox" | "radio";
-  checked?: boolean;
-  enabled?: boolean;
-  visible?: boolean;
-  icon?: string;
-  accelerator?: string;
-  submenu?: TrayMenuItem[];
-}
-
-export interface TrayOptions {
-  icon: string;
-  tooltip?: string;
-  title?: string;
-  menu?: TrayMenuItem[];
-}
-
-export interface ShortcutOptions {
-  id: string;
-  accelerator: string;
-  enabled?: boolean;
-}
-
-export interface NotificationOptions {
-  title: string;
-  body?: string;
-  icon?: string;
-  silent?: boolean;
-  urgency?: "normal" | "critical" | "low";
-}
-
-export interface WindowBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface WindowOptions {
-  width?: number;
-  height?: number;
-  x?: number;
-  y?: number;
-  minWidth?: number;
-  minHeight?: number;
-  maxWidth?: number;
-  maxHeight?: number;
-  resizable?: boolean;
-  alwaysOnTop?: boolean;
-  fullscreen?: boolean;
-  opacity?: number;
-  title?: string;
-}
-
-export interface ClipboardWriteOptions {
-  text?: string;
-  html?: string;
-  image?: string;
-  rtf?: string;
-}
-
-export interface ClipboardReadResult {
-  text?: string;
-  html?: string;
-  rtf?: string;
-  hasImage: boolean;
-}
-
-export interface VersionInfo {
-  version: string;
-  name: string;
-  runtime: string;
-}
-
-export interface PowerState {
-  onBattery: boolean;
-  idleState: "active" | "idle" | "locked" | "unknown";
-  idleTime: number;
-}
-
-export interface TrayClickEvent {
-  x: number;
-  y: number;
-  button: string;
-  modifiers: { alt: boolean; shift: boolean; ctrl: boolean; meta: boolean };
-}
-
-// -- Gateway --
-export interface GatewayEndpoint {
-  stableId: string;
-  name: string;
-  host: string;
-  port: number;
-  lanHost?: string;
-  tailnetDns?: string;
-  gatewayPort?: number;
-  canvasPort?: number;
-  tlsEnabled: boolean;
-  tlsFingerprintSha256?: string;
-  isLocal: boolean;
-}
-
-export interface DiscoveryOptions {
-  serviceType?: string;
-  timeout?: number;
-}
-
-export interface DiscoveryResult {
-  gateways: GatewayEndpoint[];
-  status: string;
-}
-
-// -- Permissions --
-export type SystemPermissionId =
-  | "accessibility"
-  | "screen-recording"
-  | "microphone"
-  | "camera"
-  | "shell";
-
-export type PermissionStatus =
-  | "granted"
-  | "denied"
-  | "not-determined"
-  | "restricted"
-  | "not-applicable";
-
-export interface PermissionState {
-  id: SystemPermissionId;
-  status: PermissionStatus;
-  lastChecked: number;
-  canRequest: boolean;
-}
-
-export interface AllPermissionsState {
-  [key: string]: PermissionState;
-}
-
-// -- Canvas --
-export interface CanvasWindowOptions {
-  url?: string;
-  width?: number;
-  height?: number;
-  x?: number;
-  y?: number;
-  title?: string;
-  transparent?: boolean;
-}
-
-export interface CanvasWindowInfo {
-  id: string;
-  url: string;
-  bounds: WindowBounds;
-  title: string;
-}
-
-// -- Camera --
-export interface CameraDevice {
-  deviceId: string;
-  label: string;
-  kind: string;
-}
-
-// -- Screencapture --
-export interface ScreenSource {
-  id: string;
-  name: string;
-  thumbnail: string;
-  appIcon?: string;
-}
-
-// -- TalkMode --
-export type TalkModeState =
-  | "idle"
-  | "listening"
-  | "processing"
-  | "speaking"
-  | "error";
-
-export interface TalkModeConfig {
-  engine?: "whisper" | "web";
-  modelSize?: string;
-  language?: string;
-  voiceId?: string;
-}
-
-// -- LIFO (PiP) --
-export interface PipState {
-  enabled: boolean;
-  windowId?: string;
-}
+export {
+  CHANNEL_TO_RPC_METHOD,
+  PUSH_CHANNEL_TO_RPC_MESSAGE,
+  RPC_MESSAGE_TO_PUSH_CHANNEL,
+} from "./shared/channels";
 
 // ============================================================================
 // RPC Schema
@@ -756,230 +612,6 @@ export type MiladyRPCSchema = {
   }>;
 };
 
-// ============================================================================
-// Channel ↔ RPC Method Mapping
-// ============================================================================
-
-/**
- * Maps Electron-style colon-separated IPC channel names to camelCase RPC
- * method names. Used by the renderer bridge for backward compatibility.
- */
-export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
-  // Agent
-  "agent:start": "agentStart",
-  "agent:stop": "agentStop",
-  "agent:restart": "agentRestart",
-  "agent:status": "agentStatus",
-
-  // Desktop: Tray
-  "desktop:createTray": "desktopCreateTray",
-  "desktop:updateTray": "desktopUpdateTray",
-  "desktop:destroyTray": "desktopDestroyTray",
-  "desktop:setTrayMenu": "desktopSetTrayMenu",
-
-  // Desktop: Shortcuts
-  "desktop:registerShortcut": "desktopRegisterShortcut",
-  "desktop:unregisterShortcut": "desktopUnregisterShortcut",
-  "desktop:unregisterAllShortcuts": "desktopUnregisterAllShortcuts",
-  "desktop:isShortcutRegistered": "desktopIsShortcutRegistered",
-
-  // Desktop: Auto Launch
-  "desktop:setAutoLaunch": "desktopSetAutoLaunch",
-  "desktop:getAutoLaunchStatus": "desktopGetAutoLaunchStatus",
-
-  // Desktop: Window
-  "desktop:setWindowOptions": "desktopSetWindowOptions",
-  "desktop:getWindowBounds": "desktopGetWindowBounds",
-  "desktop:setWindowBounds": "desktopSetWindowBounds",
-  "desktop:minimizeWindow": "desktopMinimizeWindow",
-  "desktop:maximizeWindow": "desktopMaximizeWindow",
-  "desktop:unmaximizeWindow": "desktopUnmaximizeWindow",
-  "desktop:closeWindow": "desktopCloseWindow",
-  "desktop:showWindow": "desktopShowWindow",
-  "desktop:hideWindow": "desktopHideWindow",
-  "desktop:focusWindow": "desktopFocusWindow",
-  "desktop:isWindowMaximized": "desktopIsWindowMaximized",
-  "desktop:isWindowMinimized": "desktopIsWindowMinimized",
-  "desktop:isWindowVisible": "desktopIsWindowVisible",
-  "desktop:isWindowFocused": "desktopIsWindowFocused",
-  "desktop:setAlwaysOnTop": "desktopSetAlwaysOnTop",
-  "desktop:setFullscreen": "desktopSetFullscreen",
-  "desktop:setOpacity": "desktopSetOpacity",
-
-  // Desktop: Notifications
-  "desktop:showNotification": "desktopShowNotification",
-  "desktop:closeNotification": "desktopCloseNotification",
-
-  // Desktop: Power
-  "desktop:getPowerState": "desktopGetPowerState",
-
-  // Desktop: App
-  "desktop:quit": "desktopQuit",
-  "desktop:relaunch": "desktopRelaunch",
-  "desktop:getVersion": "desktopGetVersion",
-  "desktop:isPackaged": "desktopIsPackaged",
-  "desktop:getPath": "desktopGetPath",
-  "desktop:beep": "desktopBeep",
-
-  // Desktop: Clipboard
-  "desktop:writeToClipboard": "desktopWriteToClipboard",
-  "desktop:readFromClipboard": "desktopReadFromClipboard",
-  "desktop:clearClipboard": "desktopClearClipboard",
-
-  // Desktop: Shell
-  "desktop:openExternal": "desktopOpenExternal",
-  "desktop:showItemInFolder": "desktopShowItemInFolder",
-
-  // Gateway
-  "gateway:startDiscovery": "gatewayStartDiscovery",
-  "gateway:stopDiscovery": "gatewayStopDiscovery",
-  "gateway:isDiscovering": "gatewayIsDiscovering",
-  "gateway:getDiscoveredGateways": "gatewayGetDiscoveredGateways",
-
-  // Permissions
-  "permissions:check": "permissionsCheck",
-  "permissions:checkFeature": "permissionsCheckFeature",
-  "permissions:request": "permissionsRequest",
-  "permissions:getAll": "permissionsGetAll",
-  "permissions:getPlatform": "permissionsGetPlatform",
-  "permissions:isShellEnabled": "permissionsIsShellEnabled",
-  "permissions:setShellEnabled": "permissionsSetShellEnabled",
-  "permissions:clearCache": "permissionsClearCache",
-  "permissions:openSettings": "permissionsOpenSettings",
-
-  // Location
-  "location:getCurrentPosition": "locationGetCurrentPosition",
-  "location:watchPosition": "locationWatchPosition",
-  "location:clearWatch": "locationClearWatch",
-  "location:getLastKnownLocation": "locationGetLastKnownLocation",
-
-  // Camera
-  "camera:getDevices": "cameraGetDevices",
-  "camera:startPreview": "cameraStartPreview",
-  "camera:stopPreview": "cameraStopPreview",
-  "camera:switchCamera": "cameraSwitchCamera",
-  "camera:capturePhoto": "cameraCapturePhoto",
-  "camera:startRecording": "cameraStartRecording",
-  "camera:stopRecording": "cameraStopRecording",
-  "camera:getRecordingState": "cameraGetRecordingState",
-  "camera:checkPermissions": "cameraCheckPermissions",
-  "camera:requestPermissions": "cameraRequestPermissions",
-
-  // Canvas
-  "canvas:createWindow": "canvasCreateWindow",
-  "canvas:destroyWindow": "canvasDestroyWindow",
-  "canvas:navigate": "canvasNavigate",
-  "canvas:eval": "canvasEval",
-  "canvas:snapshot": "canvasSnapshot",
-  "canvas:a2uiPush": "canvasA2uiPush",
-  "canvas:a2uiReset": "canvasA2uiReset",
-  "canvas:show": "canvasShow",
-  "canvas:hide": "canvasHide",
-  "canvas:resize": "canvasResize",
-  "canvas:focus": "canvasFocus",
-  "canvas:getBounds": "canvasGetBounds",
-  "canvas:setBounds": "canvasSetBounds",
-  "canvas:listWindows": "canvasListWindows",
-
-  // Screencapture
-  "screencapture:getSources": "screencaptureGetSources",
-  "screencapture:takeScreenshot": "screencaptureTakeScreenshot",
-  "screencapture:captureWindow": "screencaptureCaptureWindow",
-  "screencapture:startRecording": "screencaptureStartRecording",
-  "screencapture:stopRecording": "screencaptureStopRecording",
-  "screencapture:pauseRecording": "screencapturePauseRecording",
-  "screencapture:resumeRecording": "screencaptureResumeRecording",
-  "screencapture:getRecordingState": "screencaptureGetRecordingState",
-  "screencapture:startFrameCapture": "screencaptureStartFrameCapture",
-  "screencapture:stopFrameCapture": "screencaptureStopFrameCapture",
-  "screencapture:isFrameCaptureActive": "screencaptureIsFrameCaptureActive",
-  "screencapture:saveScreenshot": "screencaptureSaveScreenshot",
-  "screencapture:switchSource": "screencaptureSwitchSource",
-  "screencapture:setCaptureTarget": "screencaptureSetCaptureTarget",
-
-  // Swabble
-  "swabble:start": "swabbleStart",
-  "swabble:stop": "swabbleStop",
-  "swabble:isListening": "swabbleIsListening",
-  "swabble:getConfig": "swabbleGetConfig",
-  "swabble:updateConfig": "swabbleUpdateConfig",
-  "swabble:isWhisperAvailable": "swabbleIsWhisperAvailable",
-  "swabble:audioChunk": "swabbleAudioChunk",
-
-  // TalkMode
-  "talkmode:start": "talkmodeStart",
-  "talkmode:stop": "talkmodeStop",
-  "talkmode:speak": "talkmodeSpeak",
-  "talkmode:stopSpeaking": "talkmodeStopSpeaking",
-  "talkmode:getState": "talkmodeGetState",
-  "talkmode:isEnabled": "talkmodeIsEnabled",
-  "talkmode:isSpeaking": "talkmodeIsSpeaking",
-  "talkmode:getWhisperInfo": "talkmodeGetWhisperInfo",
-  "talkmode:isWhisperAvailable": "talkmodeIsWhisperAvailable",
-  "talkmode:updateConfig": "talkmodeUpdateConfig",
-  "talkmode:audioChunk": "talkmodeAudioChunk",
-
-  // Context Menu
-  "contextMenu:askAgent": "contextMenuAskAgent",
-  "contextMenu:createSkill": "contextMenuCreateSkill",
-  "contextMenu:quoteInChat": "contextMenuQuoteInChat",
-  "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
-
-  // LIFO
-  "lifo:getPipState": "lifoGetPipState",
-  "lifo:setPip": "lifoSetPip",
-};
-
-/**
- * Maps Electron-style push event channel names to RPC message names.
- * Used by the renderer bridge to subscribe to push events.
- */
-export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
-  "agent:status": "agentStatusUpdate",
-  "gateway:discovery": "gatewayDiscovery",
-  "permissions:changed": "permissionsChanged",
-  "desktop:trayMenuClick": "desktopTrayMenuClick",
-  "desktop:trayClick": "desktopTrayClick",
-  "desktop:trayDoubleClick": "desktopTrayDoubleClick",
-  "desktop:trayRightClick": "desktopTrayRightClick",
-  "desktop:shortcutPressed": "desktopShortcutPressed",
-  "desktop:windowFocus": "desktopWindowFocus",
-  "desktop:windowBlur": "desktopWindowBlur",
-  "desktop:windowMaximize": "desktopWindowMaximize",
-  "desktop:windowUnmaximize": "desktopWindowUnmaximize",
-  "desktop:windowMinimize": "desktopWindowMinimize",
-  "desktop:windowRestore": "desktopWindowRestore",
-  "desktop:windowClose": "desktopWindowClose",
-  "desktop:notificationClick": "desktopNotificationClick",
-  "desktop:notificationAction": "desktopNotificationAction",
-  "desktop:notificationReply": "desktopNotificationReply",
-  "desktop:powerSuspend": "desktopPowerSuspend",
-  "desktop:powerResume": "desktopPowerResume",
-  "desktop:powerOnAC": "desktopPowerOnAC",
-  "desktop:powerOnBattery": "desktopPowerOnBattery",
-  "canvas:windowEvent": "canvasWindowEvent",
-  "talkmode:audioChunkPush": "talkmodeAudioChunkPush",
-  "talkmode:stateChanged": "talkmodeStateChanged",
-  "talkmode:speakComplete": "talkmodeSpeakComplete",
-  "talkmode:transcript": "talkmodeTranscript",
-  "swabble:wakeWord": "swabbleWakeWord",
-  "swabble:stateChange": "swabbleStateChanged",
-  "swabble:audioChunkPush": "swabbleAudioChunkPush",
-  "contextMenu:askAgent": "contextMenuAskAgent",
-  "contextMenu:createSkill": "contextMenuCreateSkill",
-  "contextMenu:quoteInChat": "contextMenuQuoteInChat",
-  "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
-  apiBaseUpdate: "apiBaseUpdate",
-  shareTargetReceived: "shareTargetReceived",
-  "location:update": "locationUpdate",
-  "desktop:updateAvailable": "desktopUpdateAvailable",
-  "desktop:updateReady": "desktopUpdateReady",
-};
-
-/**
- * Reverse mapping: RPC message name → Electron push channel name.
- */
-export const RPC_MESSAGE_TO_PUSH_CHANNEL: Record<string, string> =
-  Object.fromEntries(
-    Object.entries(PUSH_CHANNEL_TO_RPC_MESSAGE).map(([k, v]) => [v, k]),
-  );
+// Channel maps (CHANNEL_TO_RPC_METHOD, PUSH_CHANNEL_TO_RPC_MESSAGE,
+// RPC_MESSAGE_TO_PUSH_CHANNEL) are defined in src/shared/channels.ts
+// and re-exported at the top of this file.
