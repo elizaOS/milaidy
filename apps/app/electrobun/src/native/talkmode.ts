@@ -280,7 +280,7 @@ export class TalkModeManager {
       if (!result || !result.text.trim()) return;
 
       // Emit transcript to renderer
-      this.sendToWebview?.("talkmode:transcript", {
+      this.sendToWebview?.("talkmodeTranscript", {
         text: result.text,
         segments: result.segments.map((s) => ({
           text: s.text,

@@ -190,12 +190,20 @@ export type MiladyRPCSchema = {
         response: ClipboardReadResult;
       };
       desktopClearClipboard: { params: undefined; response: undefined };
+      desktopClipboardAvailableFormats: {
+        params: Record<string, never>;
+        response: { formats: string[] };
+      };
 
       // ---- Desktop: Shell ----
       desktopOpenExternal: { params: { url: string }; response: undefined };
       desktopShowItemInFolder: {
         params: { path: string };
         response: undefined;
+      };
+      desktopOpenPath: {
+        params: { path: string };
+        response: { success: boolean; error?: string };
       };
 
       // ---- Gateway ----
@@ -533,7 +541,9 @@ export type MiladyRPCSchema = {
       // Desktop: Tray events
       desktopTrayMenuClick: { itemId: string; checked?: boolean };
       desktopTrayClick: TrayClickEvent;
+      // PLATFORM_LIMITATION: Electrobun Tray only has a single click event; double-click never fires
       desktopTrayDoubleClick: TrayClickEvent;
+      // PLATFORM_LIMITATION: Electrobun Tray only has a single click event; right-click never fires
       desktopTrayRightClick: TrayClickEvent;
 
       // Desktop: Shortcut events
@@ -544,19 +554,28 @@ export type MiladyRPCSchema = {
       desktopWindowBlur: undefined;
       desktopWindowMaximize: undefined;
       desktopWindowUnmaximize: undefined;
+      // PLATFORM_LIMITATION: Electrobun has no minimize window event; this push never fires
       desktopWindowMinimize: undefined;
+      // PLATFORM_LIMITATION: Electrobun has no restore window event; this push never fires
       desktopWindowRestore: undefined;
       desktopWindowClose: undefined;
 
       // Desktop: Notification events
+      // PLATFORM_LIMITATION: Electrobun notifications are fire-and-forget; click callback not possible
       desktopNotificationClick: { id: string };
+      // PLATFORM_LIMITATION: Electrobun notifications are fire-and-forget; action callback not possible
       desktopNotificationAction: { id: string; action?: string };
+      // PLATFORM_LIMITATION: Electrobun notifications are fire-and-forget; reply callback not possible
       desktopNotificationReply: { id: string; reply: string };
 
       // Desktop: Power events
+      // PLATFORM_LIMITATION: No Electrobun power monitor API; this push never fires
       desktopPowerSuspend: undefined;
+      // PLATFORM_LIMITATION: No Electrobun power monitor API; this push never fires
       desktopPowerResume: undefined;
+      // PLATFORM_LIMITATION: No Electrobun power monitor API; this push never fires
       desktopPowerOnAC: undefined;
+      // PLATFORM_LIMITATION: No Electrobun power monitor API; this push never fires
       desktopPowerOnBattery: undefined;
 
       // Canvas: Window events
@@ -608,6 +627,36 @@ export type MiladyRPCSchema = {
       // Desktop: Update events
       desktopUpdateAvailable: { version: string; releaseNotes?: string };
       desktopUpdateReady: { version: string };
+
+      // ── Webview Downloads ──────────────────────────────────────────────────────
+      downloadStarted: {
+        url: string;
+        filename: string;
+        totalBytes: number;
+        downloadId: string;
+      };
+      downloadProgress: {
+        downloadId: string;
+        receivedBytes: number;
+        totalBytes: number;
+        percentComplete: number;
+      };
+      downloadCompleted: {
+        downloadId: string;
+        filename: string;
+        savePath: string;
+      };
+      downloadFailed: {
+        downloadId: string;
+        filename: string;
+        error: string;
+      };
+
+      // ── Webview Navigation ─────────────────────────────────────────────────────
+      webviewWillNavigate: { url: string };
+      webviewDidNavigate: { url: string };
+      webviewDidNavigateInPage: { url: string };
+      webviewDidCommitNavigation: { url: string };
     };
   }>;
 };

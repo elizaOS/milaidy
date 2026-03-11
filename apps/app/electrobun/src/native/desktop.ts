@@ -707,7 +707,8 @@ X-GNOME-Autostart-enabled=true
   }
 
   async setOpacity(_options: SetOpacityOptions): Promise<void> {
-    // No-op: Electrobun BrowserWindow does not support setOpacity
+    // TODO(electrobun): needs Electrobun window opacity API (e.g. win.setOpacity()).
+    // No-op: Electrobun BrowserWindow does not currently support setOpacity.
   }
 
   private setupWindowEvents(): void {
@@ -801,14 +802,15 @@ X-GNOME-Autostart-enabled=true
   }
 
   async closeNotification(_options: { id: string }): Promise<void> {
-    // Electrobun does not support programmatic notification dismissal.
-    // No-op.
+    // TODO(electrobun): needs Electrobun notification management API to dismiss by id.
+    // No-op: Electrobun does not support programmatic notification dismissal.
   }
 
   // MARK: - Power Monitor
 
   async getPowerState(): Promise<PowerState> {
-    // No powerMonitor equivalent in Electrobun — return stub
+    // TODO(electrobun): needs Electrobun power monitor API (e.g. Electrobun.powerMonitor).
+    // No powerMonitor equivalent in Electrobun — returning a stub with conservative defaults.
     return {
       onBattery: false,
       idleState: "unknown",
@@ -823,8 +825,8 @@ X-GNOME-Autostart-enabled=true
   }
 
   async relaunch(): Promise<void> {
-    // Electrobun does not have a built-in relaunch.
-    // Quit and let the OS or process manager restart.
+    // TODO(electrobun): needs Electrobun relaunch API (e.g. Electrobun.relaunch()).
+    // Currently falls back to quit(); the OS or process manager must restart the app.
     console.warn(
       "[DesktopManager] relaunch is not natively supported — calling quit()",
     );
@@ -905,6 +907,11 @@ X-GNOME-Autostart-enabled=true
     Utils.clipboardClear();
   }
 
+  async clipboardAvailableFormats(): Promise<{ formats: string[] }> {
+    const formats = Utils.clipboardAvailableFormats();
+    return { formats };
+  }
+
   // MARK: - Shell
 
   /**
@@ -941,8 +948,20 @@ X-GNOME-Autostart-enabled=true
     Utils.showItemInFolder(p);
   }
 
+  async openPath(options: {
+    path: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      Utils.openPath(options.path);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }
+
   async beep(): Promise<void> {
-    // No shell.beep() equivalent in Electrobun — no-op
+    // TODO(electrobun): needs Electrobun system beep API (e.g. Utils.beep()).
+    // No-op: no shell.beep() equivalent in Electrobun.
   }
 
   // MARK: - Helpers

@@ -176,6 +176,8 @@ export function registerRpcHandlers(
     ) => desktop.writeToClipboard(params),
     desktopReadFromClipboard: async () => desktop.readFromClipboard(),
     desktopClearClipboard: async () => desktop.clearClipboard(),
+    desktopClipboardAvailableFormats: async () =>
+      desktop.clipboardAvailableFormats(),
 
     // ---- Desktop: Shell ----
     desktopOpenExternal: async (
@@ -184,6 +186,8 @@ export function registerRpcHandlers(
     desktopShowItemInFolder: async (
       params: Parameters<typeof desktop.showItemInFolder>[0],
     ) => desktop.showItemInFolder(params),
+    desktopOpenPath: async (params: Parameters<typeof desktop.openPath>[0]) =>
+      desktop.openPath(params),
 
     // ---- Gateway ----
     gatewayStartDiscovery: async (

@@ -414,6 +414,75 @@ function attachMainWindow(win: BrowserWindow): BrowserWindow {
     injectApiBase(win);
   });
 
+  // ── Navigation events ──────────────────────────────────────────────────────
+  win.webview.on("will-navigate", (e: unknown) => {
+    const ev = e as { data?: { url?: string } };
+    sendToWebview("webviewWillNavigate", { url: ev.data?.url ?? "" });
+  });
+  win.webview.on("did-navigate", (e: unknown) => {
+    const ev = e as { data?: { url?: string } };
+    sendToWebview("webviewDidNavigate", { url: ev.data?.url ?? "" });
+  });
+  win.webview.on("did-navigate-in-page", (e: unknown) => {
+    const ev = e as { data?: { url?: string } };
+    sendToWebview("webviewDidNavigateInPage", { url: ev.data?.url ?? "" });
+  });
+  win.webview.on("did-commit-navigation", (e: unknown) => {
+    const ev = e as { data?: { url?: string } };
+    sendToWebview("webviewDidCommitNavigation", { url: ev.data?.url ?? "" });
+  });
+
+  // ── Download events ────────────────────────────────────────────────────────
+  win.webview.on("download-started", (e: unknown) => {
+    const ev = e as {
+      data?: { url?: string; filename?: string; totalBytes?: number };
+    };
+    const downloadId = crypto.randomUUID();
+    sendToWebview("downloadStarted", {
+      downloadId,
+      url: ev.data?.url ?? "",
+      filename: ev.data?.filename ?? "",
+      totalBytes: ev.data?.totalBytes ?? 0,
+    });
+  });
+  win.webview.on("download-progress", (e: unknown) => {
+    const ev = e as {
+      data?: {
+        downloadId?: string;
+        receivedBytes?: number;
+        totalBytes?: number;
+      };
+    };
+    const received = ev.data?.receivedBytes ?? 0;
+    const total = ev.data?.totalBytes ?? 0;
+    sendToWebview("downloadProgress", {
+      downloadId: ev.data?.downloadId ?? "",
+      receivedBytes: received,
+      totalBytes: total,
+      percentComplete: total > 0 ? Math.round((received / total) * 100) : 0,
+    });
+  });
+  win.webview.on("download-completed", (e: unknown) => {
+    const ev = e as {
+      data?: { downloadId?: string; filename?: string; savePath?: string };
+    };
+    sendToWebview("downloadCompleted", {
+      downloadId: ev.data?.downloadId ?? "",
+      filename: ev.data?.filename ?? "",
+      savePath: ev.data?.savePath ?? "",
+    });
+  });
+  win.webview.on("download-failed", (e: unknown) => {
+    const ev = e as {
+      data?: { downloadId?: string; filename?: string; error?: string };
+    };
+    sendToWebview("downloadFailed", {
+      downloadId: ev.data?.downloadId ?? "",
+      filename: ev.data?.filename ?? "",
+      error: ev.data?.error ?? "Unknown error",
+    });
+  });
+
   win.on("close", () => {
     if (currentWindow?.id === win.id) {
       currentWindow = null;

@@ -303,10 +303,9 @@ export class SwabbleManager {
       const match = this.wakeGate.match(result);
       if (match) {
         this.sendToWebview?.("swabble:wakeWord", {
-          wakeWord: match.trigger,
+          trigger: match.trigger,
           command: match.command,
           transcript: match.transcript,
-          postGap: match.postGap,
         });
       }
     } catch (err) {
