@@ -14,6 +14,7 @@ import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
+import { getGpuWindowManager } from "./native/gpu-window";
 import { getLocationManager } from "./native/location";
 import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
@@ -76,6 +77,7 @@ export function registerRpcHandlers(
   const canvas = getCanvasManager();
   const desktop = getDesktopManager();
   const gateway = getGatewayDiscovery();
+  const gpuWindow = getGpuWindowManager();
   const location = getLocationManager();
   const permissions = getPermissionManager();
   const screencapture = getScreenCaptureManager();
@@ -404,6 +406,44 @@ export function registerRpcHandlers(
         desktop.setAlwaysOnTop({ flag: false });
       }
     },
+
+    // ---- GPU Window ----
+    gpuWindowCreate: async (
+      params: Parameters<typeof gpuWindow.createWindow>[0],
+    ) => gpuWindow.createWindow(params),
+    gpuWindowDestroy: async (
+      params: Parameters<typeof gpuWindow.destroyWindow>[0],
+    ) => gpuWindow.destroyWindow(params),
+    gpuWindowShow: async (params: Parameters<typeof gpuWindow.showWindow>[0]) =>
+      gpuWindow.showWindow(params),
+    gpuWindowHide: async (params: Parameters<typeof gpuWindow.hideWindow>[0]) =>
+      gpuWindow.hideWindow(params),
+    gpuWindowSetBounds: async (
+      params: Parameters<typeof gpuWindow.setBounds>[0],
+    ) => gpuWindow.setBounds(params),
+    gpuWindowGetInfo: async (params: Parameters<typeof gpuWindow.getInfo>[0]) =>
+      gpuWindow.getInfo(params),
+    gpuWindowList: async () => gpuWindow.listWindows(),
+
+    // ---- GPU View ----
+    gpuViewCreate: async (params: Parameters<typeof gpuWindow.createView>[0]) =>
+      gpuWindow.createView(params),
+    gpuViewDestroy: async (
+      params: Parameters<typeof gpuWindow.destroyView>[0],
+    ) => gpuWindow.destroyView(params),
+    gpuViewSetFrame: async (
+      params: Parameters<typeof gpuWindow.setViewFrame>[0],
+    ) => gpuWindow.setViewFrame(params),
+    gpuViewSetTransparent: async (
+      params: Parameters<typeof gpuWindow.setViewTransparent>[0],
+    ) => gpuWindow.setViewTransparent(params),
+    gpuViewSetHidden: async (
+      params: Parameters<typeof gpuWindow.setViewHidden>[0],
+    ) => gpuWindow.setViewHidden(params),
+    gpuViewGetNativeHandle: async (
+      params: Parameters<typeof gpuWindow.getViewNativeHandle>[0],
+    ) => gpuWindow.getViewNativeHandle(params),
+    gpuViewList: async () => gpuWindow.listViews(),
   });
 
   console.log("[RPC] All handlers registered");

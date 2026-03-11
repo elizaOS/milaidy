@@ -90,6 +90,32 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
     expect(CHANNEL_TO_RPC_METHOD["lifo:setPip"]).toBe("lifoSetPip");
   });
 
+  it("maps all GPU window channels correctly", () => {
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:create"]).toBe("gpuWindowCreate");
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:destroy"]).toBe("gpuWindowDestroy");
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:show"]).toBe("gpuWindowShow");
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:hide"]).toBe("gpuWindowHide");
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:setBounds"]).toBe(
+      "gpuWindowSetBounds",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:getInfo"]).toBe("gpuWindowGetInfo");
+    expect(CHANNEL_TO_RPC_METHOD["gpuWindow:list"]).toBe("gpuWindowList");
+  });
+
+  it("maps all GPU view channels correctly", () => {
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:create"]).toBe("gpuViewCreate");
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:destroy"]).toBe("gpuViewDestroy");
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:setFrame"]).toBe("gpuViewSetFrame");
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:setTransparent"]).toBe(
+      "gpuViewSetTransparent",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:setHidden"]).toBe("gpuViewSetHidden");
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:getNativeHandle"]).toBe(
+      "gpuViewGetNativeHandle",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["gpuView:list"]).toBe("gpuViewList");
+  });
+
   it("returns undefined for unknown channels", () => {
     expect(CHANNEL_TO_RPC_METHOD["unknown:channel"]).toBeUndefined();
     expect(CHANNEL_TO_RPC_METHOD[""]).toBeUndefined();
@@ -154,6 +180,12 @@ describe("PUSH_CHANNEL_TO_RPC_MESSAGE mapping", () => {
     );
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:stateChange"]).toBe(
       "swabbleStateChanged",
+    );
+  });
+
+  it("maps GPU window push events", () => {
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["gpuWindow:closed"]).toBe(
+      "gpuWindowClosed",
     );
   });
 });

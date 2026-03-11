@@ -186,6 +186,21 @@ export interface CanvasWindowInfo {
   title: string;
 }
 
+// -- GPU Window / GPU View --
+export interface GpuWindowInfo {
+  id: string;
+  frame: WindowBounds;
+  /** Native numeric id of the embedded WGPUView (GpuWindow.wgpuViewId). */
+  wgpuViewId?: number | null;
+}
+
+export interface GpuViewInfo {
+  id: string;
+  frame: WindowBounds;
+  /** Native numeric id of the WGPUView (WGPUView.id). */
+  viewId?: number | null;
+}
+
 // -- Camera --
 export interface CameraDevice {
   deviceId: string;
@@ -728,6 +743,74 @@ export type MiladyRPCSchema = {
         response: undefined;
       };
 
+      // ---- GPU Window ----
+      gpuWindowCreate: {
+        params: {
+          id?: string;
+          title?: string;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          transparent?: boolean;
+          alwaysOnTop?: boolean;
+          titleBarStyle?: "hidden" | "hiddenInset" | "default";
+        };
+        response: GpuWindowInfo;
+      };
+      gpuWindowDestroy: { params: { id: string }; response: undefined };
+      gpuWindowShow: { params: { id: string }; response: undefined };
+      gpuWindowHide: { params: { id: string }; response: undefined };
+      gpuWindowSetBounds: {
+        params: { id: string } & WindowBounds;
+        response: undefined;
+      };
+      gpuWindowGetInfo: {
+        params: { id: string };
+        response: GpuWindowInfo | null;
+      };
+      gpuWindowList: {
+        params: undefined;
+        response: { windows: GpuWindowInfo[] };
+      };
+
+      // ---- GPU View ----
+      gpuViewCreate: {
+        params: {
+          id?: string;
+          windowId: number;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          autoResize?: boolean;
+          transparent?: boolean;
+          passthrough?: boolean;
+        };
+        response: GpuViewInfo;
+      };
+      gpuViewDestroy: { params: { id: string }; response: undefined };
+      gpuViewSetFrame: {
+        params: { id: string } & WindowBounds;
+        response: undefined;
+      };
+      gpuViewSetTransparent: {
+        params: { id: string; transparent: boolean };
+        response: undefined;
+      };
+      gpuViewSetHidden: {
+        params: { id: string; hidden: boolean };
+        response: undefined;
+      };
+      gpuViewGetNativeHandle: {
+        params: { id: string };
+        response: { handle: unknown } | null;
+      };
+      gpuViewList: {
+        params: undefined;
+        response: { views: GpuViewInfo[] };
+      };
+
       // ---- LIFO (PiP) ----
       lifoGetPipState: { params: undefined; response: PipState };
       lifoSetPip: { params: PipState; response: undefined };
@@ -821,6 +904,9 @@ export type MiladyRPCSchema = {
       // Desktop: Update events
       desktopUpdateAvailable: { version: string; releaseNotes?: string };
       desktopUpdateReady: { version: string };
+
+      // GPU Window push events
+      gpuWindowClosed: { id: string };
     };
   }>;
 };
@@ -1013,6 +1099,24 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   // LIFO
   "lifo:getPipState": "lifoGetPipState",
   "lifo:setPip": "lifoSetPip",
+
+  // GPU Window
+  "gpuWindow:create": "gpuWindowCreate",
+  "gpuWindow:destroy": "gpuWindowDestroy",
+  "gpuWindow:show": "gpuWindowShow",
+  "gpuWindow:hide": "gpuWindowHide",
+  "gpuWindow:setBounds": "gpuWindowSetBounds",
+  "gpuWindow:getInfo": "gpuWindowGetInfo",
+  "gpuWindow:list": "gpuWindowList",
+
+  // GPU View
+  "gpuView:create": "gpuViewCreate",
+  "gpuView:destroy": "gpuViewDestroy",
+  "gpuView:setFrame": "gpuViewSetFrame",
+  "gpuView:setTransparent": "gpuViewSetTransparent",
+  "gpuView:setHidden": "gpuViewSetHidden",
+  "gpuView:getNativeHandle": "gpuViewGetNativeHandle",
+  "gpuView:list": "gpuViewList",
 };
 
 /**
@@ -1048,6 +1152,9 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "location:update": "locationUpdate",
   "desktop:updateAvailable": "desktopUpdateAvailable",
   "desktop:updateReady": "desktopUpdateReady",
+
+  // GPU Window push events
+  "gpuWindow:closed": "gpuWindowClosed",
 };
 
 /**
