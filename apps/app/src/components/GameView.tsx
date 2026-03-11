@@ -55,6 +55,7 @@ export function GameView() {
     setActionNotice,
     t,
   } = useApp();
+  const isElectrobun = !!window.electron;
   const [stopping, setStopping] = useState(false);
   const [showLogsPanel, setShowLogsPanel] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
@@ -63,6 +64,8 @@ export function GameView() {
   const [chatInput, setChatInput] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
   const [retakeCapture, setRetakeCapture] = useState(false);
+  const [gameWindowId, setGameWindowId] = useState<string | null>(null);
+  const gameWindowIdRef = useRef<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
   const viewerSessionRef = useRef<string>("");
@@ -164,7 +167,7 @@ export function GameView() {
   }, [showLogsPanel, loadLogs]);
 
   // Open the game URL in an isolated Electrobun BrowserWindow.
-  // Runs whenever the viewer URL changes and we're inside the desktop app.
+  // Runs whenever the viewer URL or game title changes and we're inside the desktop app.
   useEffect(() => {
     if (!isElectrobun || !activeGameViewerUrl) return;
 
@@ -179,6 +182,7 @@ export function GameView() {
         if (cancelled) return;
         const res = result as { id: string } | null;
         if (res?.id) {
+          gameWindowIdRef.current = res.id;
           setGameWindowId(res.id);
           setConnectionStatus("connected");
         }
@@ -191,15 +195,15 @@ export function GameView() {
     return () => {
       cancelled = true;
       // Close the game window when GameView unmounts or the URL changes
-      if (gameWindowId) {
+      if (gameWindowIdRef.current) {
         window.electron.ipcRenderer
-          .invoke("canvas:destroyWindow", { id: gameWindowId })
+          .invoke("canvas:destroyWindow", { id: gameWindowIdRef.current })
           .catch(() => {});
+        gameWindowIdRef.current = null;
         setGameWindowId(null);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isElectrobun, activeGameViewerUrl]);
+  }, [activeGameViewerUrl, activeGameApp, activeGameDisplayName, isElectrobun]);
 
   // Reset auth handshake state when the active viewer session changes.
   useEffect(() => {
