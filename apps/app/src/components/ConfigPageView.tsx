@@ -264,7 +264,7 @@ function renderRpcProviderButtons<T extends string>(
           <button
             type="button"
             key={provider.id}
-            className={`text-center px-2 py-2 border cursor-pointer transition-colors ${
+            className={`flex items-center justify-center text-center px-2 py-2 border cursor-pointer transition-colors min-h-[44px] ${
               active
                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
                 : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]"
@@ -272,7 +272,7 @@ function renderRpcProviderButtons<T extends string>(
             onClick={() => onSelect(provider.id)}
           >
             <div
-              className={`text-xs font-bold whitespace-nowrap ${active ? "" : "text-[var(--text)]"}`}
+              className={`text-[10px] font-bold leading-tight ${active ? "" : "text-[var(--text)]"}`}
             >
               {provider.id === "eliza-cloud" && tFallback
                 ? "Milady Cloud"
