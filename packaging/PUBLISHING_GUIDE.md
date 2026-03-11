@@ -11,8 +11,9 @@ This guide covers the **human steps** required to publish Milady across all five
 3. [apt (Debian/Ubuntu)](#3-apt-debianubuntu)
 4. [Snap](#4-snap)
 5. [Flatpak](#5-flatpak)
-6. [CI/CD Automation](#6-cicd-automation)
-7. [Version Bumping Checklist](#7-version-bumping-checklist)
+6. [Google Play Store (Android)](#6-google-play-store-android)
+7. [CI/CD Automation](#7-cicd-automation)
+8. [Version Bumping Checklist](#8-version-bumping-checklist)
 
 ---
 
@@ -434,7 +435,117 @@ flatpak run ai.milady.Milady start
 
 ---
 
-## 6. CI/CD Automation
+
+## 6. Google Play Store (Android)
+
+### 6.1 Account Setup (one-time)
+
+1. **Create a Google Play Developer account** at https://play.google.com/console/signup
+   - One-time $25 registration fee
+   - Requires identity verification
+
+2. **Create the app listing**:
+   - Go to Google Play Console → "Create app"
+   - App name: "Milady"
+   - Default language: English (United States)
+   - App type: App
+   - Free / Paid: Free
+
+3. **Set up Google Play App Signing**:
+   - Go to Release → Setup → App signing
+   - Choose "Let Google manage and protect your app signing key" (recommended)
+   - Generate an **upload keystore** for CI:
+
+```bash
+keytool -genkeypair   -alias milady-upload   -keyalg RSA -keysize 2048   -validity 10000   -keystore milady-upload.jks   -storepass YOUR_STORE_PASSWORD   -dname "CN=Milady AI, O=milady-ai, L=Internet, C=US"
+```
+
+4. **Upload the upload key certificate** to Play Console:
+
+```bash
+keytool -export -alias milady-upload   -keystore milady-upload.jks   -rfc > milady-upload-cert.pem
+```
+
+Upload `milady-upload-cert.pem` in Play Console → App signing.
+
+5. **Create a service account for CI**:
+   - Go to Play Console → Setup → API access
+   - Link to Google Cloud project
+   - Create a service account with "Release manager" role
+   - Download the JSON key file
+
+### 6.2 Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 milady-upload.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | `milady-upload` |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | `base64 -w0 play-store-key.json` |
+
+### 6.3 Build the AAB Locally
+
+```bash
+cd apps/app
+
+# Build web assets
+bun run build
+
+# Sync to Android
+npx cap sync android
+
+# Build signed AAB
+cd android
+MILADY_KEYSTORE_PATH=/path/to/milady-upload.jks MILADY_KEYSTORE_PASSWORD=yourpass MILADY_KEY_ALIAS=milady-upload MILADY_KEY_PASSWORD=yourpass ./gradlew bundleRelease
+
+# AAB is at app/build/outputs/bundle/release/app-release.aab
+```
+
+### 6.4 Publish via Fastlane
+
+```bash
+cd apps/app/android
+
+# Install Fastlane
+bundle install
+
+# Upload to internal testing
+PLAY_STORE_JSON_KEY=/path/to/play-store-key.json MILADY_KEYSTORE_PATH=/path/to/milady-upload.jks MILADY_KEYSTORE_PASSWORD=yourpass MILADY_KEY_ALIAS=milady-upload MILADY_KEY_PASSWORD=yourpass bundle exec fastlane internal
+
+# Promote to beta
+bundle exec fastlane beta
+
+# Promote to production
+bundle exec fastlane production
+```
+
+### 6.5 Store Listing Checklist
+
+Complete these in Play Console before first release:
+
+- [ ] App name and description (`fastlane/metadata/android/en-US/`)
+- [ ] Feature graphic (1024x500px)
+- [ ] App icon (512x512px)
+- [ ] Phone screenshots (minimum 2, 16:9 or 9:16)
+- [ ] Privacy policy URL
+- [ ] Data safety section (declare: network access, API keys stored locally)
+- [ ] Content rating (IARC questionnaire)
+- [ ] Target audience declaration
+- [ ] App category: Tools → Productivity
+
+### 6.6 Data Safety Declarations
+
+| Question | Answer |
+|---|---|
+| Does the app collect data? | Yes (user-provided API keys, chat messages) |
+| Is data shared with third parties? | Yes (AI providers: Anthropic, OpenAI, etc. — user-selected) |
+| Is data encrypted in transit? | Yes (HTTPS to all AI providers) |
+| Can users request data deletion? | Yes (local data, users delete the app or clear data) |
+| Data stored on device | API keys, chat history, agent configuration |
+| Data sent to servers | Chat messages to user-selected AI provider |
+
+## 7. CI/CD Automation
 
 ### GitHub Actions Workflow
 
@@ -526,6 +637,8 @@ jobs:
 | `SNAP_TOKEN` | `snapcraft export-login --snaps=milady --acls=package_push -` | Snap publishing |
 | `HOMEBREW_TAP_TOKEN` | GitHub PAT with `repo` scope for `milady-ai/homebrew-tap` | Homebrew formula updates |
 | `PYPI_API_TOKEN` | https://pypi.org/manage/account/token/ (or use trusted publishing) | PyPI uploads |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 milady-upload.jks` | Android AAB signing |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Google Cloud Console service account JSON (base64) | Play Store uploads |
 
 ### PyPI Trusted Publishing (recommended)
 
@@ -541,7 +654,7 @@ This eliminates the need for `PYPI_API_TOKEN` — GitHub Actions authenticates d
 
 ---
 
-## 7. Version Bumping Checklist
+## 8. Version Bumping Checklist
 
 When releasing a new version, update these files:
 
@@ -554,6 +667,7 @@ When releasing a new version, update these files:
 | `packaging/debian/changelog` | Add new entry at top |
 | `packaging/homebrew/milady.rb` | `url` + `sha256` (after npm publish) |
 | `packaging/flatpak/ai.milady.Milady.metainfo.xml` | Add new `<release>` entry |
+| `apps/app/android/app/build.gradle` | `versionCode` + `versionName` (via env vars in CI) |
 
 ### Version Format Mapping
 
@@ -578,5 +692,6 @@ When releasing a new version, update these files:
 | **apt** | `sudo apt install milady` (after adding repo) |
 | **Snap** | `sudo snap install milady --classic` |
 | **Flatpak** | `flatpak install flathub ai.milady.Milady` |
+| **Google Play** | Search "Milady" on Play Store |
 | **npx** | `npx miladyai` (no install) |
 | **pipx** | `pipx install milady` |
