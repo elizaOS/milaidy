@@ -186,6 +186,21 @@ export interface CanvasWindowInfo {
   title: string;
 }
 
+// -- GPU Window / GPU View --
+export interface GpuWindowInfo {
+  id: string;
+  frame: WindowBounds;
+  /** Native numeric id of the embedded WGPUView (GpuWindow.wgpuViewId). */
+  wgpuViewId?: number | null;
+}
+
+export interface GpuViewInfo {
+  id: string;
+  frame: WindowBounds;
+  /** Native numeric id of the WGPUView (WGPUView.id). */
+  viewId?: number | null;
+}
+
 // -- Camera --
 export interface CameraDevice {
   deviceId: string;
@@ -650,6 +665,74 @@ export type MiladyRPCSchema = {
       contextMenuSaveAsCommand: {
         params: { text: string };
         response: undefined;
+      };
+
+      // ---- GPU Window ----
+      gpuWindowCreate: {
+        params: {
+          id?: string;
+          title?: string;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          transparent?: boolean;
+          alwaysOnTop?: boolean;
+          titleBarStyle?: "hidden" | "hiddenInset" | "default";
+        };
+        response: GpuWindowInfo;
+      };
+      gpuWindowDestroy: { params: { id: string }; response: undefined };
+      gpuWindowShow: { params: { id: string }; response: undefined };
+      gpuWindowHide: { params: { id: string }; response: undefined };
+      gpuWindowSetBounds: {
+        params: { id: string } & WindowBounds;
+        response: undefined;
+      };
+      gpuWindowGetInfo: {
+        params: { id: string };
+        response: GpuWindowInfo | null;
+      };
+      gpuWindowList: {
+        params: undefined;
+        response: { windows: GpuWindowInfo[] };
+      };
+
+      // ---- GPU View ----
+      gpuViewCreate: {
+        params: {
+          id?: string;
+          windowId: number;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          autoResize?: boolean;
+          transparent?: boolean;
+          passthrough?: boolean;
+        };
+        response: GpuViewInfo;
+      };
+      gpuViewDestroy: { params: { id: string }; response: undefined };
+      gpuViewSetFrame: {
+        params: { id: string } & WindowBounds;
+        response: undefined;
+      };
+      gpuViewSetTransparent: {
+        params: { id: string; transparent: boolean };
+        response: undefined;
+      };
+      gpuViewSetHidden: {
+        params: { id: string; hidden: boolean };
+        response: undefined;
+      };
+      gpuViewGetNativeHandle: {
+        params: { id: string };
+        response: { handle: unknown } | null;
+      };
+      gpuViewList: {
+        params: undefined;
+        response: { views: GpuViewInfo[] };
       };
 
       // ---- LIFO (PiP) ----

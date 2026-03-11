@@ -103,10 +103,13 @@ export class GpuWindowManager {
 
     this.gpuWindows.set(id, win);
 
-    // Forward close events to the renderer
+    // Forward close events to the renderer, but only when the window was
+    // closed by the user (not programmatically via destroyWindow).
     win.on("close", () => {
       this.gpuWindows.delete(id);
-      this.sendToWebview?.("gpuWindowClosed", { id });
+      if (!(win as GpuWindow & { _destroying?: boolean })._destroying) {
+        this.sendToWebview?.("gpuWindowClosed", { id });
+      }
     });
 
     return {
@@ -119,6 +122,9 @@ export class GpuWindowManager {
   async destroyWindow(options: { id: string }): Promise<void> {
     const win = this.gpuWindows.get(options.id);
     if (!win) return;
+    // Mark as programmatically destroyed so the close event handler skips
+    // firing gpuWindowClosed — the caller already knows it destroyed the window.
+    (win as GpuWindow & { _destroying?: boolean })._destroying = true;
     win.close();
     this.gpuWindows.delete(options.id);
   }
@@ -132,7 +138,14 @@ export class GpuWindowManager {
   async hideWindow(options: { id: string }): Promise<void> {
     const win = this.gpuWindows.get(options.id);
     if (!win) return;
-    win.minimize();
+    // GpuWindow.hide() makes the window invisible without sending it to the
+    // dock (unlike minimize). Fall back to minimize() if not available yet in
+    // this Electrobun build.
+    if (typeof (win as GpuWindow & { hide?: () => void }).hide === "function") {
+      (win as GpuWindow & { hide: () => void }).hide();
+    } else {
+      win.minimize();
+    }
   }
 
   async setBounds(options: { id: string } & WindowBounds): Promise<void> {
