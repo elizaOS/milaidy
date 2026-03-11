@@ -1,12 +1,11 @@
 /**
- * BSC quick-trade panel — token address input, amount presets, buy/sell,
+ * Quick-trade panel — token address input, amount presets, buy/sell,
  * quote display, execution confirmation, and tx status tracking.
  *
  * Extracted from InventoryView to keep that component focused on
  * portfolio display and chain navigation.
  */
 
-import { useCallback, useState } from "react";
 import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
@@ -14,11 +13,15 @@ import type {
   BscTradeQuoteRequest,
   BscTradeQuoteResponse,
   BscTradeTxStatusResponse,
-} from "../api-client";
+} from "@milady/app-core/api";
+import { Button, Input } from "@milady/ui";
+import { useCallback, useState } from "react";
+import { useApp } from "../AppContext";
+import { HEX_ADDRESS_RE } from "./companion/walletUtils";
+import { formatBalance } from "./inventory/constants";
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 
-const BSC_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const AMOUNT_PRESETS = [0.05, 0.1, 0.2, 0.5];
 const DEFAULT_QUICK_AMOUNT = "0.1";
 
@@ -30,17 +33,10 @@ export interface TrackedToken {
   addedAt: number;
 }
 
-export interface BscTradePanelProps {
+export interface TradePanelProps {
   tradeReady: boolean;
   bnbBalance: number;
-  trackedTokens: TrackedToken[];
   onAddToken: (token: TrackedToken) => void;
-  copyToClipboard: (text: string) => Promise<void>;
-  setActionNotice: (
-    text: string,
-    tone?: "info" | "success" | "error",
-    ttlMs?: number,
-  ) => void;
   getBscTradePreflight?: (
     tokenAddress?: string,
   ) => Promise<BscTradePreflightResponse>;
@@ -53,32 +49,18 @@ export interface BscTradePanelProps {
   getBscTradeTxStatus?: (hash: string) => Promise<BscTradeTxStatusResponse>;
 }
 
-/* ── Balance formatter (shared) ────────────────────────────────────── */
-
-function formatBalance(balance: string): string {
-  const num = Number.parseFloat(balance);
-  if (Number.isNaN(num)) return balance;
-  if (num === 0) return "0";
-  if (num < 0.0001) return "<0.0001";
-  if (num < 1) return num.toFixed(6);
-  if (num < 1000) return num.toFixed(4);
-  return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
-
 /* ── Component ─────────────────────────────────────────────────────── */
 
-export function BscTradePanel({
+export function TradePanel({
   tradeReady,
   bnbBalance,
-  trackedTokens: _trackedTokens,
   onAddToken,
-  copyToClipboard,
-  setActionNotice,
   getBscTradePreflight,
   getBscTradeQuote,
   executeBscTrade,
   getBscTradeTxStatus,
-}: BscTradePanelProps) {
+}: TradePanelProps) {
+  const { t, copyToClipboard, setActionNotice } = useApp();
   const [quickTokenAddress, setQuickTokenAddress] = useState("");
   const [quickAmount, setQuickAmount] = useState(DEFAULT_QUICK_AMOUNT);
   const [latestQuote, setLatestQuote] = useState<BscTradeQuoteResponse | null>(
@@ -106,7 +88,7 @@ export function BscTradePanel({
     async (side: "buy" | "sell") => {
       if (!getBscTradeQuote) return;
       const tokenAddress = quickTokenAddress.trim();
-      if (!BSC_ADDRESS_RE.test(tokenAddress)) {
+      if (!HEX_ADDRESS_RE.test(tokenAddress)) {
         setActionNotice(
           "Enter a valid token contract address first.",
           "error",
@@ -190,7 +172,7 @@ export function BscTradePanel({
   const handlePreflight = useCallback(async () => {
     if (!getBscTradePreflight) return;
     const tokenAddress = quickTokenAddress.trim();
-    if (tokenAddress && !BSC_ADDRESS_RE.test(tokenAddress)) {
+    if (tokenAddress && !HEX_ADDRESS_RE.test(tokenAddress)) {
       setActionNotice(
         "Enter a valid token contract address first.",
         "error",
@@ -298,7 +280,7 @@ export function BscTradePanel({
   }, [getBscTradeTxStatus, latestExecution]);
 
   const handleAddToken = useCallback(() => {
-    if (!BSC_ADDRESS_RE.test(quickTokenAddress)) return;
+    if (!HEX_ADDRESS_RE.test(quickTokenAddress)) return;
     const newToken: TrackedToken = {
       address: quickTokenAddress,
       symbol: `TKN-${quickTokenAddress.slice(2, 6)}`,
@@ -326,25 +308,28 @@ export function BscTradePanel({
               rel="noopener noreferrer"
               className="text-accent"
             >
-              View tx {shortHash}
+              {t("bsctradepanel.ViewTx")} {shortHash}
             </a>
           </div>
           {status === "pending" && (
             <div className="flex items-center gap-2">
-              <span className="text-yellow-500">Pending...</span>
-              <button
-                type="button"
+              <span className="text-yellow-500">
+                {t("bsctradepanel.Pending")}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
                 data-testid="wallet-tx-refresh"
-                className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+                className="h-6 px-2 py-0.5 text-[10px] font-mono shadow-sm hover:border-accent"
                 onClick={handleRefreshTxStatus}
               >
-                Refresh Status
-              </button>
+                {t("bsctradepanel.RefreshStatus")}
+              </Button>
             </div>
           )}
           {txStatus && (
             <div className="text-muted">
-              Confirmations: {txStatus.confirmations ?? 0}
+              {t("bsctradepanel.Confirmations")} {txStatus.confirmations ?? 0}
             </div>
           )}
         </div>
@@ -355,33 +340,35 @@ export function BscTradePanel({
       return (
         <div className="border border-border p-2 text-xs space-y-1">
           <div className="text-yellow-500">
-            Requires wallet signature to complete.
+            {t("bsctradepanel.RequiresWalletSign")}
           </div>
           {latestExecution.unsignedApprovalTx && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               data-testid="wallet-copy-approve-tx"
-              className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+              className="h-6 px-2 py-0.5 text-[10px] font-mono shadow-sm hover:border-accent"
               onClick={() =>
                 copyToClipboard(
                   JSON.stringify(latestExecution.unsignedApprovalTx),
                 )
               }
             >
-              Copy Approval TX
-            </button>
+              {t("bsctradepanel.CopyApprovalTX")}
+            </Button>
           )}
           {latestExecution.unsignedTx && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               data-testid="wallet-copy-swap-tx"
-              className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+              className="h-6 px-2 py-0.5 text-[10px] font-mono shadow-sm hover:border-accent"
               onClick={() =>
                 copyToClipboard(JSON.stringify(latestExecution.unsignedTx))
               }
             >
-              Copy Swap TX
-            </button>
+              {t("bsctradepanel.CopySwapTX")}
+            </Button>
           )}
         </div>
       );
@@ -400,31 +387,33 @@ export function BscTradePanel({
           {tradeReady ? "Trade Ready" : "Trade Not Ready"}
         </span>
         <span className="text-muted">
-          BNB: {formatBalance(String(bnbBalance))}
+          {t("bsctradepanel.BNB")} {formatBalance(String(bnbBalance))}
         </span>
         {getBscTradePreflight && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             data-testid="wallet-token-preflight"
-            className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+            className="h-6 px-2 py-0.5 text-[10px] font-mono shadow-sm hover:border-accent"
             onClick={() => {
               void handlePreflight();
             }}
           >
-            Preflight
-          </button>
+            {t("bsctradepanel.Preflight")}
+          </Button>
         )}
         {getBscTradeQuote && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             data-testid="wallet-token-quote"
-            className="px-2 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+            className="h-6 px-2 py-0.5 text-[10px] font-mono shadow-sm hover:border-accent"
             onClick={() => {
               void handleToolbarQuote();
             }}
           >
-            Quote
-          </button>
+            {t("bsctradepanel.Quote")}
+          </Button>
         )}
       </div>
 
@@ -446,22 +435,22 @@ export function BscTradePanel({
       {/* Quick trade panel */}
       <div className="border border-border bg-card p-3 space-y-2">
         <div className="flex items-center gap-2">
-          <input
-            type="text"
+          <Input
             data-testid="wallet-quick-token-input"
-            placeholder="Token contract address (0x...)"
+            placeholder={t("bsctradepanel.TokenContractAddre")}
             value={quickTokenAddress}
             onChange={(e) => setQuickTokenAddress(e.target.value)}
-            className="flex-1 px-2 py-1 border border-border bg-bg text-xs font-mono"
+            className="flex-1 h-8 px-2 py-1 text-xs font-mono bg-bg border-border shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
           />
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             data-testid="wallet-quick-add-token"
-            className="px-2 py-1 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent"
+            className="h-8 px-2 py-1 text-[10px] font-mono shadow-sm hover:border-accent"
             onClick={handleAddToken}
           >
-            Add
-          </button>
+            {t("bsctradepanel.Add")}
+          </Button>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -477,38 +466,42 @@ export function BscTradePanel({
               }`}
               onClick={() => setQuickAmount(String(amt))}
             >
-              {amt} BNB
+              {amt} {t("bsctradepanel.BNB1")}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             data-testid="wallet-quick-buy"
-            className="px-3 py-1 border border-green-500 text-green-500 text-xs font-mono cursor-pointer hover:bg-green-500 hover:text-white"
+            className="h-8 px-3 py-1 text-xs font-mono text-green-500 border-green-500 hover:bg-green-500 hover:text-white shadow-sm"
             onClick={() => {
               void handleQuickBuy();
             }}
           >
-            Buy
-          </button>
-          <button
-            type="button"
+            {t("bsctradepanel.Buy")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             data-testid="wallet-quick-sell"
-            className="px-3 py-1 border border-red-500 text-red-500 text-xs font-mono cursor-pointer hover:bg-red-500 hover:text-white"
+            className="h-8 px-3 py-1 text-xs font-mono text-red-500 border-red-500 hover:bg-red-500 hover:text-white shadow-sm"
             onClick={() => {
               void handleQuickSell();
             }}
           >
-            Sell
-          </button>
+            {t("bsctradepanel.Sell")}
+          </Button>
         </div>
 
         {/* Latest quote display */}
         {latestQuote && (
           <div className="border border-border p-2 text-xs">
-            <div className="font-bold mb-1">Latest quote</div>
+            <div className="font-bold mb-1">
+              {t("bsctradepanel.LatestQuote")}
+            </div>
             <div className="text-muted">
               {latestQuote.side === "buy" ? "Buy" : "Sell"}{" "}
               {latestQuote.quoteOut?.amount ?? ""}{" "}
@@ -517,34 +510,38 @@ export function BscTradePanel({
             {pendingTrade ? (
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-yellow-500 font-bold">
-                  Confirm {pendingTrade.side} trade?
+                  {t("bsctradepanel.Confirm")} {pendingTrade.side}{" "}
+                  {t("bsctradepanel.trade")}
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   data-testid="wallet-quote-confirm"
-                  className="px-3 py-1 border border-green-500 text-green-500 text-[10px] font-mono cursor-pointer hover:bg-green-500 hover:text-white"
+                  className="h-7 px-3 py-1 text-[10px] font-mono text-green-500 border-green-500 hover:bg-green-500 hover:text-white shadow-sm"
                   onClick={handleConfirmExecute}
                 >
-                  Confirm
-                </button>
-                <button
-                  type="button"
+                  {t("bsctradepanel.Confirm")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   data-testid="wallet-quote-cancel"
-                  className="px-3 py-1 border border-border text-muted text-[10px] font-mono cursor-pointer hover:border-danger hover:text-danger"
+                  className="h-7 px-3 py-1 text-[10px] font-mono text-muted border-border hover:border-danger hover:text-danger shadow-sm"
                   onClick={handleCancelExecute}
                 >
-                  Cancel
-                </button>
+                  {t("bsctradepanel.Cancel")}
+                </Button>
               </div>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="sm"
                 data-testid="wallet-quote-execute"
-                className="mt-1 px-3 py-1 border border-accent bg-accent text-accent-fg text-[10px] font-mono cursor-pointer"
+                className="mt-1 h-7 px-3 py-1 text-[10px] font-mono shadow-sm"
                 onClick={handleRequestExecute}
               >
-                Execute Trade
-              </button>
+                {t("bsctradepanel.ExecuteTrade")}
+              </Button>
             )}
           </div>
         )}
@@ -555,3 +552,8 @@ export function BscTradePanel({
     </>
   );
 }
+
+/** @deprecated Use TradePanel instead */
+export const BscTradePanel = TradePanel;
+/** @deprecated Use TradePanelProps instead */
+export type BscTradePanelProps = TradePanelProps;

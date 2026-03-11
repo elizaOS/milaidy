@@ -2,7 +2,7 @@ import type { VRM } from "@pixiv/three-vrm";
 import * as THREE from "three";
 import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-export type CameraProfile = "chat" | "companion";
+export type CameraProfile = "chat" | "companion" | "companion_close";
 export type InteractionMode = "free" | "orbitZoom";
 
 export type CameraAnimationConfig = {
@@ -32,7 +32,7 @@ export class VrmCameraManager {
     baseCameraPosition: THREE.Vector3,
     applyInteractionMode: (controls: OrbitControls) => void,
   ): void {
-    if (cameraProfile === "companion") {
+    if (cameraProfile === "companion" || cameraProfile === "companion_close") {
       vrm.scene.scale.set(1.78, 1.78, 1.78);
       vrm.scene.position.set(0, -0.84, 0);
       lookAtTarget.set(0, 0.64, 0);
@@ -73,7 +73,8 @@ export class VrmCameraManager {
     cameraProfile: CameraProfile,
     lookAtTarget: THREE.Vector3,
   ): void {
-    if (cameraProfile !== "companion") return;
+    if (cameraProfile !== "companion" && cameraProfile !== "companion_close")
+      return;
 
     const bounds = new THREE.Box3().setFromObject(vrm.scene);
     if (bounds.isEmpty()) return;
@@ -105,10 +106,17 @@ export class VrmCameraManager {
     const distanceByWidth =
       halfWidth / Math.max(1e-4, Math.tan(horizontalFov / 2));
     const fitDistance = Math.max(distanceByHeight, distanceByWidth, 4.62);
-    const distance = Math.min(fitDistance, 7.4);
+    let distance = Math.min(fitDistance, 7.4);
 
-    const lookAtLift = Math.min(size.y * 0.03, 0.12);
-    const cameraLift = Math.min(size.y * 0.08, 0.26);
+    let lookAtLift = Math.min(size.y * 0.03, 0.12);
+    let cameraLift = Math.min(size.y * 0.08, 0.26);
+
+    if (cameraProfile === "companion_close") {
+      distance = distance * 0.35; // Closer camera
+      lookAtLift = size.y * 0.28; // Look at neck/upper chest height
+      cameraLift = 0; // Point straight on, no downward angle
+    }
+
     lookAtTarget.set(center.x, center.y + lookAtLift, center.z);
     camera.position.set(
       center.x,
@@ -117,7 +125,7 @@ export class VrmCameraManager {
     );
 
     if (controls) {
-      controls.minDistance = Math.max(2.8, distance * 0.72);
+      controls.minDistance = Math.max(1.0, distance * 0.72);
       controls.maxDistance = Math.max(7.2, distance * 1.75);
     }
   }
@@ -131,11 +139,11 @@ export class VrmCameraManager {
     controls: OrbitControls | null,
     cameraProfile: CameraProfile,
   ): void {
-    if (cameraProfile === "companion") {
+    if (cameraProfile === "companion" || cameraProfile === "companion_close") {
       camera.position.set(0, 1.34, 4.62);
-      camera.fov = 28;
+      camera.fov = cameraProfile === "companion_close" ? 22 : 28;
       if (controls) {
-        controls.minDistance = 2.5;
+        controls.minDistance = 1.0;
         controls.maxDistance = 7.0;
         controls.minPolarAngle = Math.PI * 0.16;
         controls.maxPolarAngle = Math.PI * 0.86;

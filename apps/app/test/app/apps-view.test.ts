@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import React from "react";
-import TestRenderer, { act } from "react-test-renderer";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type {
   AppLaunchResult,
   AppViewerAuthMessage,
   RegistryAppInfo,
-} from "../../src/api-client";
+} from "@milady/app-core/api";
+import React from "react";
+import TestRenderer, { act } from "react-test-renderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface AppsContextStub {
   setState: (
@@ -37,7 +38,7 @@ const { mockClientFns, mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClientFns,
 }));
 vi.mock("../../src/AppContext", () => ({
@@ -198,6 +199,8 @@ describe("AppsView", () => {
     mockClientFns.listInstalledApps.mockResolvedValue([]);
   });
 
+  const tStub = (k: string) => k;
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -235,7 +238,21 @@ describe("AppsView", () => {
   it("loads apps and launches iframe viewer flow", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    const t = (k: string) => {
+      if (k === "appsview.Active") return "Active";
+      if (k === "appsview.Back") return "Back";
+      if (k === "appsview.Refresh") return "Refresh";
+      if (k === "appsview.ActiveOnly") return "Active Only";
+      if (k === "appsview.SaySomethingToSel")
+        return "Say something to selected agent...";
+      return k;
+    };
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t,
+      setState,
+      setActionNotice,
+    });
     const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp.mockResolvedValue(
@@ -284,7 +301,12 @@ describe("AppsView", () => {
   it("shows auth warning when postMessage auth payload is missing", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp.mockResolvedValue(
@@ -320,7 +342,12 @@ describe("AppsView", () => {
   it("opens non-viewer launches in a new tab and resets active game state", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const app = createApp("@elizaos/app-babylon", "Babylon", "Wallet app");
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp.mockResolvedValue(
@@ -360,7 +387,12 @@ describe("AppsView", () => {
   it("reports popup-blocked errors and launch failures", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const app = createApp("@elizaos/app-babylon", "Babylon", "Wallet app");
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp
@@ -403,7 +435,12 @@ describe("AppsView", () => {
   it("refreshes list and applies search filtering", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const appOne = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
     const appTwo = createApp("@elizaos/app-babylon", "Babylon", "Wallet");
     mockClientFns.listApps.mockResolvedValue([appOne, appTwo]);
@@ -427,7 +464,9 @@ describe("AppsView", () => {
     const root = tree?.root;
     expect(root.findAll((node) => text(node) === "Hyperscape").length).toBe(1);
     expect(root.findAll((node) => text(node) === "Babylon").length).toBe(1);
-    expect(root.findAll((node) => text(node) === "Active").length).toBe(1);
+    expect(
+      root.findAll((node) => text(node) === "appsview.Active").length,
+    ).toBe(1);
     expect(root.findAll((node) => text(node) === ">").length).toBe(2);
 
     const searchInput = root.findByType("input");
@@ -438,7 +477,7 @@ describe("AppsView", () => {
     expect(root.findAll((node) => text(node) === "Babylon").length).toBe(0);
 
     await act(async () => {
-      await findButtonByText(root, "Refresh").props.onClick();
+      await findButtonByText(root, "appsview.Refresh").props.onClick();
     });
     expect(mockClientFns.listApps).toHaveBeenCalledTimes(2);
 
@@ -452,7 +491,12 @@ describe("AppsView", () => {
   it("wires Hyperscape controls for message + command + telemetry routes", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.listHyperscapeEmbeddedAgents.mockResolvedValue({
@@ -527,7 +571,7 @@ describe("AppsView", () => {
 
     const messageInput = findTextareaByPlaceholder(
       tree?.root,
-      "Say something to selected agent...",
+      "appsview.SaySomethingToSel",
     );
     await act(async () => {
       messageInput.props.onChange({ target: { value: "hello there" } });
@@ -542,7 +586,7 @@ describe("AppsView", () => {
 
     const commandDataInput = findTextareaByPlaceholder(
       tree?.root,
-      '{"target":[0,0,0]}',
+      "appsview.Target000",
     );
     await act(async () => {
       commandDataInput.props.onChange({
@@ -560,7 +604,12 @@ describe("AppsView", () => {
   it("opens app details and can return to the app list", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    mockUseApp.mockReturnValue({ setState, setActionNotice });
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
     const appOne = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
     const appTwo = createApp("@elizaos/app-babylon", "Babylon", "Wallet");
     mockClientFns.listApps.mockResolvedValue([appOne, appTwo]);
@@ -574,7 +623,9 @@ describe("AppsView", () => {
     await act(async () => {
       findButtonByTitle(tree?.root, "Open Babylon").props.onClick();
     });
-    expect(tree?.root.findAll((node) => text(node) === "Back").length).toBe(1);
+    expect(
+      tree?.root.findAll((node) => text(node) === "appsview.Back").length,
+    ).toBe(1);
     expect(
       tree?.root.findAll((node) => text(node) === "Hyperscape").length,
     ).toBe(0);
@@ -583,7 +634,7 @@ describe("AppsView", () => {
     );
 
     await act(async () => {
-      findButtonByText(tree?.root, "Back").props.onClick();
+      findButtonByText(tree?.root, "appsview.Back").props.onClick();
     });
     expect(
       tree?.root.findAll((node) => text(node) === "Hyperscape").length,

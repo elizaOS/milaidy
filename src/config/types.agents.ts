@@ -50,7 +50,8 @@ export type AgentConfig = {
   topics?: string[];
   /** Example social media posts demonstrating the agent's voice. */
   postExamples?: string[];
-  /** Example message conversations demonstrating the agent's voice. */
+  /** Example social media posts in Chinese (zh-CN) demonstrating the agent's voice. */
+  postExamples_zhCN?: string[];
   messageExamples?: Array<Array<{ user: string; content: { text: string } }>>;
   subagents?: {
     /** Allow spawning sub-agents under other agent ids. Use "*" to allow any. */

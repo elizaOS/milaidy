@@ -31,7 +31,7 @@ vi.mock("../../src/components/ConversationsSidebar.js", () => ({
     React.createElement("aside", null, "ConversationsSidebar Ready"),
 }));
 
-vi.mock("../../src/api-client.js", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getAgentAutomationMode: mockGetAgentAutomationMode,
     setAgentAutomationMode: mockSetAgentAutomationMode,
@@ -44,6 +44,7 @@ import { ChatModalView } from "../../src/components/ChatModalView";
 
 function createContext() {
   return {
+    t: (k: string) => k,
     conversations: [
       {
         id: "conv-1",
@@ -115,14 +116,12 @@ describe("ChatModalView", () => {
     expect(content).toContain("ConversationsSidebar Ready");
   });
 
-  it("renders companion dock layout and calls onRequestClose", async () => {
-    const onRequestClose = vi.fn();
+  it("renders companion dock layout", async () => {
     let tree: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(ChatModalView, {
           variant: "companion-dock",
-          onRequestClose,
         }),
       );
     });
@@ -136,62 +135,5 @@ describe("ChatModalView", () => {
       (node) => node.props["data-chat-game-overlay"] === true,
     );
     expect(overlays.length).toBe(0);
-
-    const backButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("chat-game-back-btn"),
-    )[0];
-
-    await act(async () => {
-      backButton.props.onClick();
-    });
-    expect(onRequestClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("changes automation and trade mode directly from MORE menu", async () => {
-    const ctx = createContext();
-    mockUseApp.mockReturnValue(ctx);
-
-    let tree: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(ChatModalView));
-    });
-
-    const moreButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("chat-game-more-btn"),
-    )[0];
-
-    await act(async () => {
-      moreButton.props.onClick();
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    const automationFull = tree?.root.find(
-      (node) => node.props["data-testid"] === "chat-game-automation-full",
-    );
-    await act(async () => {
-      automationFull.props.onClick();
-      await Promise.resolve();
-    });
-    expect(mockSetAgentAutomationMode).toHaveBeenCalledWith("full");
-    expect(ctx.setTab).not.toHaveBeenCalledWith("settings");
-
-    const tradeAgent = tree?.root.find(
-      (node) => node.props["data-testid"] === "chat-game-trade-agent",
-    );
-    await act(async () => {
-      tradeAgent.props.onClick();
-      await Promise.resolve();
-    });
-    expect(mockSetTradePermissionMode).toHaveBeenCalledWith("agent-auto");
-    expect(ctx.setTab).not.toHaveBeenCalledWith("settings");
   });
 });

@@ -30,6 +30,9 @@ override_dh_auto_install:
 		> debian/milady/usr/bin/milady
 	chmod 755 debian/milady/usr/bin/milady
 
+	# Install systemd user service
+	install -m 644 packaging/debian/milady.service debian/milady/usr/lib/milady/milady.service
+
 override_dh_auto_test:
 	# Skip tests during package build
 	true

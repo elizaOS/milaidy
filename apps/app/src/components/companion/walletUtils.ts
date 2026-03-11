@@ -1,4 +1,5 @@
-import type { BscTradeTxStatusResponse } from "../../api-client";
+import type { BscTradeTxStatusResponse } from "@milady/app-core/api";
+import { getExplorerTokenUrl } from "../chainConfig";
 
 export type TranslatorFn = (
   key: string,
@@ -27,7 +28,6 @@ export function mapWalletTradeError(
 export const BSC_GAS_READY_THRESHOLD = 0.005;
 export const BSC_SWAP_GAS_RESERVE = 0.002;
 export const HEX_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 export const MILADY_BSC_TOKEN_ADDRESS =
   "0xc20e45e49e0e79f0fc81e71f05fd2772d6587777";
 export const BSC_USDT_TOKEN_ADDRESS =
@@ -38,10 +38,18 @@ export const BSC_NATIVE_LOGO_URL =
   "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png";
 export const SOL_NATIVE_LOGO_URL =
   "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png";
+export const AVAX_NATIVE_LOGO_URL =
+  "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/avalanchec/info/logo.png";
 export const WALLET_RECENT_TRADES_KEY = "anime_wallet_recent_trades";
 export const MAX_WALLET_RECENT_TRADES = 10;
 
-export type WalletPortfolioChainFilter = "all" | "bsc" | "evm" | "solana";
+export type WalletPortfolioChainFilter =
+  | "all"
+  | "bsc"
+  | "evm"
+  | "solana"
+  | "avax"
+  | (string & {});
 
 export type WalletTokenRow = {
   key: string;
@@ -97,11 +105,22 @@ export function isBscChainName(chain: string): boolean {
   );
 }
 
+export function isAvaxChainName(chain: string): boolean {
+  const normalized = chain.trim().toLowerCase();
+  return (
+    normalized === "avax" ||
+    normalized === "avalanche" ||
+    normalized === "c-chain" ||
+    normalized === "avalanche c-chain"
+  );
+}
+
 export function resolvePortfolioChainKey(
   chain: string,
 ): Exclude<WalletPortfolioChainFilter, "all"> {
   const normalized = chain.trim().toLowerCase();
   if (isBscChainName(chain)) return "bsc";
+  if (isAvaxChainName(chain)) return "avax";
   if (normalized.includes("solana") || normalized === "sol") return "solana";
   return "evm";
 }
@@ -114,22 +133,8 @@ export function formatRouteAddress(address: string): string {
 
 export function getTokenExplorerUrl(row: WalletTokenRow): string | null {
   if (!row.assetAddress) return null;
-  const addr = row.assetAddress.trim();
-  if (row.chainKey === "solana") {
-    if (!SOLANA_ADDRESS_RE.test(addr)) return null;
-    return `https://solscan.io/token/${addr}`;
-  }
-  if (!HEX_ADDRESS_RE.test(addr)) return null;
-  const chain = row.chain.trim().toLowerCase();
-  if (isBscChainName(row.chain)) return `https://bscscan.com/token/${addr}`;
-  if (chain === "ethereum" || chain === "mainnet")
-    return `https://etherscan.io/token/${addr}`;
-  if (chain === "base") return `https://basescan.org/token/${addr}`;
-  if (chain === "arbitrum") return `https://arbiscan.io/token/${addr}`;
-  if (chain === "optimism")
-    return `https://optimistic.etherscan.io/token/${addr}`;
-  if (chain === "polygon") return `https://polygonscan.com/token/${addr}`;
-  return null;
+  // Delegate to the central chain config registry
+  return getExplorerTokenUrl(row.chain, row.assetAddress);
 }
 
 export function loadRecentTrades(): WalletRecentTrade[] {
@@ -168,14 +173,16 @@ export function persistRecentTrades(rows: WalletRecentTrade[]): void {
 }
 
 /**
- * Returns a safe explorer URL, falling back to bscscan if the provided URL
- * does not use an https/http scheme (prevents javascript: URI injection).
+ * Returns a safe explorer URL, falling back to a configurable explorer
+ * (defaults to bscscan) if the provided URL does not use an https/http
+ * scheme (prevents javascript: URI injection).
  */
 export function safeExplorerHref(
   explorerUrl: string | undefined | null,
   hash: string,
+  fallbackBaseUrl = "https://bscscan.com",
 ): string {
-  const fallback = `https://bscscan.com/tx/${hash}`;
+  const fallback = `${fallbackBaseUrl}/tx/${hash}`;
   if (!explorerUrl) return fallback;
   return /^https?:\/\//i.test(explorerUrl) ? explorerUrl : fallback;
 }
@@ -227,8 +234,13 @@ export type DexScreenerTokenResponse = {
   pairs?: DexScreenerPair[];
 };
 
-export async function fetchBscTokenMetadata(
+/**
+ * Fetch token metadata from DexScreener for any supported chain.
+ * Falls back to `fetchBscTokenMetadata` signature when no chainId given.
+ */
+export async function fetchTokenMetadata(
   contractAddress: string,
+  dexScreenerChainId = "bsc",
 ): Promise<TokenMetadata | null> {
   if (typeof fetch !== "function") return null;
   const trimmed = contractAddress.trim();
@@ -236,6 +248,7 @@ export async function fetchBscTokenMetadata(
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), 3500);
   const normalized = trimmed.toLowerCase();
+  const targetChainId = dexScreenerChainId.toLowerCase();
 
   try {
     const response = await fetch(
@@ -248,7 +261,7 @@ export async function fetchBscTokenMetadata(
     const payload = (await response.json()) as DexScreenerTokenResponse;
     const pairs = Array.isArray(payload.pairs) ? payload.pairs : [];
     const pair = pairs.find(
-      (item) => (item.chainId ?? "").toLowerCase() === "bsc",
+      (item) => (item.chainId ?? "").toLowerCase() === targetChainId,
     );
     if (!pair) return null;
     const baseAddr = pair.baseToken?.address?.trim().toLowerCase();
@@ -260,8 +273,8 @@ export async function fetchBscTokenMetadata(
           ? pair.quoteToken
           : pair.baseToken;
     return {
-      symbol: tokenRef?.symbol?.trim() || "MILADY",
-      name: tokenRef?.name?.trim() || "Milady",
+      symbol: tokenRef?.symbol?.trim() || "TOKEN",
+      name: tokenRef?.name?.trim() || "Unknown Token",
       logoUrl: pair.info?.imageUrl?.trim() || null,
     };
   } catch {
@@ -270,3 +283,8 @@ export async function fetchBscTokenMetadata(
     clearTimeout(timeout);
   }
 }
+
+/** @deprecated Use `fetchTokenMetadata(address, "bsc")` instead. */
+export const fetchBscTokenMetadata = (
+  contractAddress: string,
+): Promise<TokenMetadata | null> => fetchTokenMetadata(contractAddress, "bsc");

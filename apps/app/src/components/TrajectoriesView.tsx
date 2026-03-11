@@ -5,14 +5,28 @@
  * Supports filtering, search, export, and clearing trajectories.
  */
 
-import { useCallback, useEffect, useState } from "react";
 import {
   client,
   type TrajectoryConfig,
   type TrajectoryListResult,
   type TrajectoryRecord,
   type TrajectoryStats,
-} from "../api-client";
+} from "@milady/app-core/api";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@milady/ui";
+import { useCallback, useEffect, useState } from "react";
+import { useApp } from "../AppContext";
 import {
   formatTrajectoryDuration,
   formatTrajectoryTimestamp,
@@ -33,6 +47,7 @@ const SOURCE_COLORS: Record<string, { bg: string; fg: string }> = {
   telegram: { bg: "rgba(34, 197, 94, 0.15)", fg: "rgb(34, 197, 94)" },
   discord: { bg: "rgba(88, 101, 242, 0.15)", fg: "rgb(88, 101, 242)" },
   api: { bg: "rgba(156, 163, 175, 0.15)", fg: "rgb(156, 163, 175)" },
+  orchestrator: { bg: "rgba(168, 85, 247, 0.15)", fg: "rgb(168, 85, 247)" },
 };
 
 interface TrajectoriesViewProps {
@@ -42,6 +57,7 @@ interface TrajectoriesViewProps {
 export function TrajectoriesView({
   onSelectTrajectory,
 }: TrajectoriesViewProps) {
+  const { t } = useApp();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<TrajectoryListResult | null>(null);
   const [stats, setStats] = useState<TrajectoryStats | null>(null);
@@ -161,19 +177,19 @@ export function TrajectoriesView({
       {stats && (
         <div className="flex flex-wrap gap-4 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Total:</span>
+            <span className="text-muted">{t("trajectoriesview.Total")}</span>
             <span className="font-semibold">
               {stats.totalTrajectories.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">LLM Calls:</span>
+            <span className="text-muted">{t("trajectoriesview.LLMCalls")}</span>
             <span className="font-semibold">
               {stats.totalLlmCalls.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Tokens:</span>
+            <span className="text-muted">{t("trajectoriesview.Tokens")}</span>
             <span className="font-semibold text-accent">
               {formatTrajectoryTokenCount(
                 stats.totalPromptTokens + stats.totalCompletionTokens,
@@ -193,26 +209,32 @@ export function TrajectoriesView({
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted">Avg Duration:</span>
+            <span className="text-muted">
+              {t("trajectoriesview.AvgDuration")}
+            </span>
             <span className="font-semibold">
               {formatTrajectoryDuration(stats.averageDurationMs)}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Custom <Button> component inside <label> */}
             <label className="flex items-center gap-1.5">
-              <span className="text-muted">Logging:</span>
-              <button
-                type="button"
-                className={`px-2 py-0.5 text-[11px] border rounded ${
+              <span className="text-muted">
+                {t("trajectoriesview.Logging")}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`h-6 px-2 py-0.5 text-[11px] shadow-sm ${
                   config?.enabled
-                    ? "bg-success/20 border-success text-success"
-                    : "bg-warn/20 border-warn text-warn"
+                    ? "bg-success/20 border-success text-success hover:bg-success/30"
+                    : "bg-warn/20 border-warn text-warn hover:bg-warn/30"
                 }`}
                 onClick={handleEnableLogging}
                 disabled={config?.enabled}
               >
                 {config?.enabled ? "ON" : "ENABLE"}
-              </button>
+              </Button>
             </label>
           </div>
         </div>
@@ -220,10 +242,10 @@ export function TrajectoriesView({
 
       {/* Filters row */}
       <div className="flex flex-wrap gap-1.5 items-center">
-        <input
+        <Input
           type="text"
-          placeholder="Search..."
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt w-48"
+          placeholder={t("trajectoriesview.Search")}
+          className="h-8 px-3 py-1.5 text-xs bg-card border-border w-48 shadow-sm"
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -231,106 +253,118 @@ export function TrajectoriesView({
           }}
         />
 
-        <select
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as StatusFilter);
+        <Select
+          value={statusFilter === "" ? "all" : statusFilter}
+          onValueChange={(val) => {
+            setStatusFilter(val === "all" ? "" : (val as StatusFilter));
             setPage(0);
           }}
         >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-          <option value="error">Error</option>
-        </select>
+          <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+            <SelectValue placeholder={t("trajectoriesview.AllStatuses")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {t("trajectoriesview.AllStatuses")}
+            </SelectItem>
+            <SelectItem value="active">
+              {t("trajectoriesview.Active")}
+            </SelectItem>
+            <SelectItem value="completed">
+              {t("trajectoriesview.Completed")}
+            </SelectItem>
+            <SelectItem value="error">{t("trajectoriesview.Error")}</SelectItem>
+          </SelectContent>
+        </Select>
 
         {sources.length > 0 && (
-          <select
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
+          <Select
+            value={sourceFilter === "" ? "all" : sourceFilter}
+            onValueChange={(val) => {
+              setSourceFilter(val === "all" ? "" : val);
               setPage(0);
             }}
           >
-            <option value="">All sources</option>
-            {sources.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+              <SelectValue placeholder={t("trajectoriesview.AllSources")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {t("trajectoriesview.AllSources")}
+              </SelectItem>
+              {sources.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {hasActiveFilters && (
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
             onClick={handleClearFilters}
           >
-            Clear filters
-          </button>
+            {t("trajectoriesview.ClearFilters")}
+          </Button>
         )}
 
         <div className="ml-auto flex gap-1.5">
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
             onClick={() => void loadTrajectories()}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+            {loading
+              ? t("common.loading", { defaultValue: "Loading..." })
+              : t("common.refresh", { defaultValue: "Refresh" })}
+          </Button>
 
-          <div className="relative group">
-            <button
-              type="button"
-              className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
-              disabled={exporting || trajectories.length === 0}
-            >
-              {exporting ? "Exporting..." : "Export"}
-            </button>
-            <div className="absolute right-0 mt-1 hidden group-hover:block bg-card border border-border shadow-lg z-10">
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", true)}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
+                disabled={exporting || trajectories.length === 0}
               >
-                JSON (with prompts)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", false)}
-              >
-                JSON (redacted)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("csv", false)}
-              >
-                CSV (summary only)
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("zip", true)}
-              >
-                ZIP (folders)
-              </button>
-            </div>
-          </div>
+                {exporting
+                  ? t("common.exporting", { defaultValue: "Exporting..." })
+                  : t("common.export", { defaultValue: "Export" })}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleExport("json", true)}>
+                {t("trajectoriesview.JSONWithPrompts")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("json", false)}>
+                {t("trajectoriesview.JSONRedacted")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("csv", false)}>
+                {t("trajectoriesview.CSVSummaryOnly")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("zip", true)}>
+                {t("trajectoriesview.ZIPFolders")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-danger/50 bg-card text-danger cursor-pointer hover:border-danger hover:bg-danger/10"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-danger border-danger/50 hover:bg-danger/10 hover:border-danger shadow-sm text-left"
             onClick={handleClearAll}
             disabled={clearing || stats?.totalTrajectories === 0}
           >
-            {clearing ? "Clearing..." : "Clear All"}
-          </button>
+            {clearing
+              ? t("common.clearing", { defaultValue: "Clearing..." })
+              : t("common.clearAll", { defaultValue: "Clear All" })}
+          </Button>
         </div>
       </div>
 
@@ -345,15 +379,15 @@ export function TrajectoriesView({
       <div className="flex-1 min-h-0 overflow-y-auto border border-border bg-card">
         {loading && trajectories.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            Loading trajectories...
+            {t("trajectoriesview.LoadingTrajectories")}
           </div>
         ) : trajectories.length === 0 ? (
           <div className="text-center py-8 text-muted">
-            No trajectories {hasActiveFilters ? "matching filters" : "yet"}.
+            {t("trajectoriesview.NoTrajectories")}{" "}
+            {hasActiveFilters ? "matching filters" : "yet"}.
             {!config?.enabled && (
               <div className="mt-2 text-warn text-[11px]">
-                Trajectory logging should auto-enable; click ENABLE if startup
-                is still settling.
+                {t("trajectoriesview.TrajectoryLoggingS")}
               </div>
             )}
           </div>
@@ -361,12 +395,24 @@ export function TrajectoriesView({
           <table className="w-full text-xs">
             <thead className="bg-muted/10 sticky top-0">
               <tr>
-                <th className="text-left px-2 py-1.5 font-medium">Time</th>
-                <th className="text-left px-2 py-1.5 font-medium">Source</th>
-                <th className="text-left px-2 py-1.5 font-medium">Status</th>
-                <th className="text-right px-2 py-1.5 font-medium">Calls</th>
-                <th className="text-right px-2 py-1.5 font-medium">Tokens</th>
-                <th className="text-right px-2 py-1.5 font-medium">Duration</th>
+                <th className="text-left px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Time")}
+                </th>
+                <th className="text-left px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Source")}
+                </th>
+                <th className="text-left px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Status")}
+                </th>
+                <th className="text-right px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Calls")}
+                </th>
+                <th className="text-right px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Tokens1")}
+                </th>
+                <th className="text-right px-2 py-1.5 font-medium">
+                  {t("trajectoriesview.Duration")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -432,26 +478,28 @@ export function TrajectoriesView({
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted">
-            Showing {page * pageSize + 1}–
+            {t("trajectoriesview.Showing")} {page * pageSize + 1}–
             {Math.min((page + 1) * pageSize, total)} of {total}
           </span>
           <div className="flex gap-1">
-            <button
-              type="button"
-              className="px-2 py-1 border border-border bg-card disabled:opacity-50"
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-auto min-h-[1.75rem] px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
-              Prev
-            </button>
-            <button
-              type="button"
-              className="px-2 py-1 border border-border bg-card disabled:opacity-50"
+              {t("trajectoriesview.Prev")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-auto min-h-[1.75rem] px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= totalPages - 1}
             >
-              Next
-            </button>
+              {t("trajectoriesview.Next")}
+            </Button>
           </div>
         </div>
       )}

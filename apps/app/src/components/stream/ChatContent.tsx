@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from "react";
 import type {
   ConversationMessage,
   StreamEventEnvelope,
-} from "../../api-client";
+} from "@milady/app-core/api";
+import { useEffect, useMemo, useRef } from "react";
+import { useApp } from "../../AppContext";
 import { CHANNEL_COLORS, getEventSource, getEventText } from "./helpers";
 
 export function ChatContent({
@@ -12,6 +13,7 @@ export function ChatContent({
   events: StreamEventEnvelope[];
   messages: ConversationMessage[];
 }) {
+  const { t } = useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const recentExchanges = useMemo(() => {
@@ -76,7 +78,7 @@ export function ChatContent({
     >
       {recentExchanges.length === 0 ? (
         <div className="flex items-center justify-center h-full text-muted text-sm">
-          Waiting for messages...
+          {t("chatcontent.WaitingForMessages")}
         </div>
       ) : (
         recentExchanges.map((exchange) => {

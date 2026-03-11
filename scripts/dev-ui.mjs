@@ -144,39 +144,6 @@ async function installFoundry() {
 }
 
 // ---------------------------------------------------------------------------
-// ASCII banner — printed once at startup in cyber green (#00FF41).
-// Keep in sync with src/ascii.ts.
-// ---------------------------------------------------------------------------
-
-const ASCII_ART = `\
-        miladym                        iladym      
-    iladymil                                ady    
-    mil                                         ad   
-ymi                                   ladymila     
-dym                                    ila dymila    
-dy       miladymil                     ady   milady   
-    miladymilad                     ymila dymilady  
-    mi    ladymila                   dymiladymil     
-adymiladymiladymi                  l  adymila d    
-ym   iladymiladymil                 ad ymilad  y    
-m  il  adymiladym  i                  l   ad   y     
-    mi  ladymila  dy                    mi           
-    la          dy                         mil      
-        ad      ym                                   
-        iladym`;
-
-function printBanner() {
-  if (supportsColor) {
-    const colored = ASCII_ART.split("\n")
-      .map((line) => green(line))
-      .join("\n");
-    console.log(`\n${colored}\n`);
-  } else {
-    console.log(`\n${ASCII_ART}\n`);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Runtime detection — prefer bun when available, fall back to node/npx.
 // ---------------------------------------------------------------------------
 
@@ -969,6 +936,16 @@ function killOrphanedWorkspaceProcesses() {
 
 killOrphanedWorkspaceProcesses();
 killPort(UI_PORT);
+
+// Ensure vision dependencies are installed
+try {
+  execSync("node scripts/ensure-vision-deps.mjs", { stdio: "inherit" });
+} catch (_err) {
+  console.warn(
+    `\n  ${orange("[milady]")} ${dim("Failed to auto-install vision dependencies")}`,
+  );
+}
+
 if (!uiOnly) {
   killPort(API_PORT);
   // ANVIL_PORT is killed after on-chain preference is determined (in main block).
@@ -1054,7 +1031,6 @@ if (uiOnly) {
   startVite();
 } else {
   console.log(`${orange("\nmilady dev mode")}\n`);
-  printBanner();
   console.log(`  ${green("[milady]")} ${green("Starting dev server...")}\n`);
   console.log(
     `  ${green("[milady]")} ${dim(

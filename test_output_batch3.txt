@@ -1,0 +1,31 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+ [32m✓[39m apps/app/test/app/secrets-view.test.tsx[2m > [22mSecretsView picker keyboard behavior[2m > [22mkeeps picker open on Enter/Space and closes on Escape[32m 29[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/save-command-modal.test.tsx[2m > [22mSaveCommandModal keyboard behavior[2m > [22mcloses only on Escape from dialog keydown[32m 18[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/save-command-modal.test.tsx[2m > [22mSaveCommandModal keyboard behavior[2m > [22mdoes not submit on Enter during IME composition[32m 6[2mms[22m[39m
+ [31m×[39m apps/app/test/app/save-command-modal.test.tsx[2m > [22mSaveCommandModal keyboard behavior[2m > [22mwires validation error state to input aria attributes[32m 5[2mms[22m[39m
+[31m   → No instances found matching custom predicate: (node) => node.type === "p" && node.props.children === "savecommandmodal.NameIsRequired"[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/save-command-modal.test.tsx[2m > [22mSaveCommandModal keyboard behavior[2m > [22mwires validation error state to input aria attributes
+[31m[1mError[22m: No instances found matching custom predicate: (node) => node.type === "p" && node.props.children === "savecommandmodal.NameIsRequired"[39m
+[90m [2m❯[22m expectOne node_modules/.bun/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:[2m15161:13[22m[39m
+[90m [2m❯[22m ReactTestInstance.process.env.NODE_ENV._proto.find node_modules/.bun/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:[2m17205:18[22m[39m
+[36m [2m❯[22m apps/app/test/app/save-command-modal.test.tsx:[2m101:33[22m[39m
+    [90m 99| [39m
+    [90m100| [39m    [35mconst[39m input [33m=[39m tree[33m.[39mroot[33m.[39m[34mfind[39m((node) [33m=>[39m node[33m.[39mtype [33m===[39m [32m"input"[39m)[33m;[39m
+    [90m101| [39m    [35mconst[39m errorText [33m=[39m tree[33m.[39mroot[33m.[39m[34mfind[39m(
+    [90m   | [39m                                [31m^[39m
+    [90m102| [39m      (node) [33m=>[39m
+    [90m103| [39m        node.type === "p" && node.props.children === "savecommandmodal…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 04:51:52
+[2m   Duration [22m 2.87s[2m (transform 3.17s, setup 107ms, import 5.23s, tests 62ms, environment 0ms)[22m
+

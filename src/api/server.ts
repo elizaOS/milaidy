@@ -119,26 +119,6 @@ import {
   taskToTriggerSummary,
 } from "../triggers/runtime";
 import { parseClampedInteger } from "../utils/number-parsing";
-import {
-  cancelWorkflowRun,
-  getWorkflowRun,
-  listPendingHooks,
-  listWorkflowRuns,
-  resolveHook,
-  startWorkflow,
-} from "../workflows/runtime";
-import {
-  createWorkflow as createWorkflowDef,
-  deleteWorkflow as deleteWorkflowDef,
-  getWorkflow,
-  loadWorkflows,
-  updateWorkflow as updateWorkflowDef,
-} from "../workflows/storage";
-import type { WorkflowDef } from "../workflows/types";
-import {
-  validateTransformWorkflowSecurity,
-  validateWorkflow,
-} from "../workflows/validation";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
 import { handleAgentLifecycleRoutes } from "./agent-lifecycle-routes";
 import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
@@ -157,6 +137,7 @@ import {
 } from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
+import { handleCloudCompatRoute } from "./cloud-compat-routes";
 import { type CloudRouteState, handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
@@ -4689,7 +4670,7 @@ export function resolveMcpTerminalAuthorizationRejection(
 const LOCAL_ORIGIN_RE =
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|\[0:0:0:0:0:0:0:1\])(:\d+)?$/i;
 const APP_ORIGIN_RE =
-  /^(capacitor|capacitor-electron|app):\/\/(localhost|-)?$/i;
+  /^(capacitor|capacitor-electron|app|tauri|file|electrobun):\/\/.*$/i;
 
 /**
  * Hostname allowlist for DNS rebinding protection.
@@ -4779,8 +4760,11 @@ export function resolveCorsOrigin(origin?: string): string | null {
 
   if (LOCAL_ORIGIN_RE.test(trimmed)) return trimmed;
   if (APP_ORIGIN_RE.test(trimmed)) return trimmed;
-  if (trimmed === "null" && process.env.MILADY_ALLOW_NULL_ORIGIN === "1")
-    return "null";
+  if (trimmed === "null" || trimmed === "file://") {
+    if (process.env.MILADY_ALLOW_NULL_ORIGIN === "1") {
+      return "null";
+    }
+  }
   return null;
 }
 
@@ -5165,33 +5149,6 @@ export function resolveTerminalRunRejection(
   }
 
   return null;
-}
-
-function workflowHasTransformNode(
-  workflow: Pick<WorkflowDef, "nodes"> | null | undefined,
-): boolean {
-  return workflow?.nodes.some((node) => node.type === "transform") ?? false;
-}
-
-export function resolveWorkflowTransformRejection(
-  req: http.IncomingMessage,
-  body: TerminalRunRequestBody,
-  workflow: Pick<WorkflowDef, "nodes"> | null | undefined,
-): TerminalRunRejection | null {
-  if (!workflowHasTransformNode(workflow)) {
-    return null;
-  }
-  return resolveTerminalRunRejection(req, body);
-}
-
-function getTransformWorkflowSecurityError(
-  workflow: WorkflowDef,
-): string | null {
-  return (
-    validateTransformWorkflowSecurity(workflow).find(
-      (issue) => issue.severity === "error",
-    )?.message ?? null
-  );
 }
 
 function extractWsQueryToken(url: URL): string | null {
@@ -6092,7 +6049,10 @@ export async function handleSwarmSynthesis(
 }
 
 // ── Parse Action Block from Milaidy's Response ─────────────────────────
-import { parseActionBlock } from "./parse-action-block";
+import {
+  parseActionBlock,
+  stripActionBlockFromDisplay,
+} from "./parse-action-block";
 
 // ── Coordinator Event Routing ───────────────────────────────────────────
 
@@ -6203,13 +6163,10 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
           }
 
           // WS broadcast the natural language portion (strip JSON action block).
+          // Both fenced (```json ... ```) and bare JSON must be removed since
+          // the LLM may return either format.
           if (result.text && result.text !== "(no response)") {
-            const displayText = result.text
-              .replace(
-                /```(?:json)?\s*\n?\{[\s\S]*?"action"[\s\S]*?\}\s*\n?```/g,
-                "",
-              )
-              .trim();
+            const displayText = stripActionBlockFromDisplay(result.text);
             if (displayText && displayText.length > 2) {
               const conv = st.activeConversationId
                 ? st.conversations.get(st.activeConversationId)
@@ -6943,6 +6900,7 @@ async function handleRequest(
       state: state.agentState,
       agentName: state.agentName,
       model: state.model,
+      startedAt: state.startedAt,
       uptime,
       startup: state.startup,
       cloud: cloudStatus,
@@ -10288,6 +10246,18 @@ async function handleRequest(
     if (!state.whatsappPairingSessions) {
       state.whatsappPairingSessions = new Map();
     }
+    // Clean up disconnected or timed-out sessions
+    for (const [id, session] of state.whatsappPairingSessions) {
+      const status = session.getStatus();
+      if (
+        status === "disconnected" ||
+        status === "timeout" ||
+        status === "error"
+      ) {
+        session.stop();
+        state.whatsappPairingSessions.delete(id);
+      }
+    }
     const handled = await handleWhatsAppRoute(req, res, pathname, method, {
       whatsappPairingSessions: state.whatsappPairingSessions,
       broadcastWs: state.broadcastWs ?? undefined,
@@ -11789,6 +11759,16 @@ async function handleRequest(
 
   // ── Cloud routes (/api/cloud/*) ─────────────────────────────────────────
   if (pathname.startsWith("/api/cloud/")) {
+    // Compat proxy routes — transparent proxy to Eliza Cloud v2 /api/compat/*
+    const compatHandled = await handleCloudCompatRoute(
+      req,
+      res,
+      pathname,
+      method,
+      { config: state.config },
+    );
+    if (compatHandled) return;
+
     const cloudState: CloudRouteState = {
       config: state.config,
       cloudManager: state.cloudManager,
@@ -12961,8 +12941,19 @@ async function handleRequest(
     }
     const charName = runtime.character.name ?? state.agentName ?? "Milady";
 
-    // Collect post examples from the character
-    const postExamples = runtime.character.postExamples ?? [];
+    // Collect post examples from the character, with language support
+    const url = new URL(req.url ?? "", `http://${req.headers.host}`);
+    const lang = url.searchParams.get("lang") ?? "en";
+    const localizedExamples =
+      lang === "zh-CN"
+        ? ((runtime.character as Record<string, unknown>).postExamples_zhCN as
+            | string[]
+            | undefined)
+        : undefined;
+    const postExamples =
+      localizedExamples && localizedExamples.length > 0
+        ? localizedExamples
+        : (runtime.character.postExamples ?? []);
     const greeting =
       postExamples[Math.floor(Math.random() * postExamples.length)];
 
@@ -14889,313 +14880,6 @@ async function handleRequest(
     return;
   }
 
-  // ── Workflow Builder CRUD + Execution ──────────────────────────────────
-
-  if (method === "GET" && pathname === "/api/workflows") {
-    json(res, { workflows: loadWorkflows() });
-    return;
-  }
-
-  if (method === "POST" && pathname === "/api/workflows") {
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) {
-      error(res, "name is required", 400);
-      return;
-    }
-
-    const draftWorkflow: WorkflowDef = {
-      id: "draft-workflow",
-      name,
-      description: typeof body.description === "string" ? body.description : "",
-      nodes: Array.isArray(body.nodes)
-        ? (body.nodes as WorkflowDef["nodes"])
-        : [],
-      edges: Array.isArray(body.edges)
-        ? (body.edges as WorkflowDef["edges"])
-        : [],
-      enabled: typeof body.enabled === "boolean" ? body.enabled : false,
-      version: 1,
-      createdAt: "",
-      updatedAt: "",
-    };
-    const transformSecurityError =
-      getTransformWorkflowSecurityError(draftWorkflow);
-    if (transformSecurityError) {
-      error(res, transformSecurityError, 400);
-      return;
-    }
-
-    const terminalRejection = resolveWorkflowTransformRejection(
-      req,
-      body as TerminalRunRequestBody,
-      draftWorkflow,
-    );
-    if (terminalRejection) {
-      error(
-        res,
-        `Creating workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
-        terminalRejection.status,
-      );
-      return;
-    }
-
-    const workflow = createWorkflowDef({
-      name,
-      description:
-        typeof body.description === "string" ? body.description : undefined,
-      nodes: Array.isArray(body.nodes) ? body.nodes : undefined,
-      edges: Array.isArray(body.edges) ? body.edges : undefined,
-      enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
-    });
-    json(res, { ok: true, workflow }, 201);
-    return;
-  }
-
-  const workflowIdMatch = pathname.match(/^\/api\/workflows\/([^/]+)$/);
-  const workflowRunsMatch = pathname.match(/^\/api\/workflows\/([^/]+)\/runs$/);
-  const workflowStartMatch = pathname.match(
-    /^\/api\/workflows\/([^/]+)\/start$/,
-  );
-  const workflowValidateMatch = pathname.match(
-    /^\/api\/workflows\/([^/]+)\/validate$/,
-  );
-  const workflowRunMatch = pathname.match(/^\/api\/workflow-runs\/([^/]+)$/);
-  const workflowRunCancelMatch = pathname.match(
-    /^\/api\/workflow-runs\/([^/]+)\/cancel$/,
-  );
-  const workflowHookMatch = pathname.match(
-    /^\/api\/workflow-hooks\/([^/]+)\/resolve$/,
-  );
-
-  if (method === "GET" && workflowIdMatch) {
-    const wfId = decodeURIComponent(workflowIdMatch[1]);
-    const workflow = getWorkflow(wfId);
-    if (!workflow) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-    json(res, { workflow });
-    return;
-  }
-
-  if (method === "PUT" && workflowIdMatch) {
-    const wfId = decodeURIComponent(workflowIdMatch[1]);
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const existing = getWorkflow(wfId);
-    if (!existing) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-
-    const updatedDraft: WorkflowDef = {
-      ...existing,
-      name: typeof body.name === "string" ? body.name : existing.name,
-      description:
-        typeof body.description === "string"
-          ? body.description
-          : existing.description,
-      nodes: Array.isArray(body.nodes)
-        ? (body.nodes as WorkflowDef["nodes"])
-        : existing.nodes,
-      edges: Array.isArray(body.edges)
-        ? (body.edges as WorkflowDef["edges"])
-        : existing.edges,
-      enabled:
-        typeof body.enabled === "boolean" ? body.enabled : existing.enabled,
-      updatedAt: existing.updatedAt,
-    };
-    const transformSecurityError =
-      getTransformWorkflowSecurityError(updatedDraft);
-    if (transformSecurityError) {
-      error(res, transformSecurityError, 400);
-      return;
-    }
-
-    const terminalRejection = resolveWorkflowTransformRejection(
-      req,
-      body as TerminalRunRequestBody,
-      updatedDraft,
-    );
-    if (terminalRejection) {
-      error(
-        res,
-        `Updating workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
-        terminalRejection.status,
-      );
-      return;
-    }
-
-    const updated = updateWorkflowDef(wfId, {
-      name: typeof body.name === "string" ? body.name : undefined,
-      description:
-        typeof body.description === "string" ? body.description : undefined,
-      nodes: Array.isArray(body.nodes) ? body.nodes : undefined,
-      edges: Array.isArray(body.edges) ? body.edges : undefined,
-      enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
-    });
-    if (!updated) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-    json(res, { ok: true, workflow: updated });
-    return;
-  }
-
-  if (method === "DELETE" && workflowIdMatch) {
-    const wfId = decodeURIComponent(workflowIdMatch[1]);
-    if (!deleteWorkflowDef(wfId)) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-    json(res, { ok: true });
-    return;
-  }
-
-  if (method === "POST" && workflowValidateMatch) {
-    const wfId = decodeURIComponent(workflowValidateMatch[1]);
-    const workflow = getWorkflow(wfId);
-    if (!workflow) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-    const result = validateWorkflow(workflow, {
-      workflows: loadWorkflows(),
-    });
-    json(res, result);
-    return;
-  }
-
-  if (method === "POST" && workflowStartMatch) {
-    const wfId = decodeURIComponent(workflowStartMatch[1]);
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const wfDef = getWorkflow(wfId);
-    if (!wfDef) {
-      error(res, "Workflow not found", 404);
-      return;
-    }
-
-    const transformSecurityError = getTransformWorkflowSecurityError(wfDef);
-    if (transformSecurityError) {
-      error(res, transformSecurityError, 400);
-      return;
-    }
-
-    const terminalRejection = resolveWorkflowTransformRejection(
-      req,
-      body as TerminalRunRequestBody,
-      wfDef,
-    );
-    if (terminalRejection) {
-      error(
-        res,
-        `Starting workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
-        terminalRejection.status,
-      );
-      return;
-    }
-
-    try {
-      const run = await startWorkflow(
-        wfId,
-        (body.input as Record<string, unknown>) ?? {},
-      );
-      json(res, { ok: true, run }, 201);
-    } catch (err) {
-      error(res, err instanceof Error ? err.message : String(err), 400);
-    }
-    return;
-  }
-
-  if (method === "GET" && workflowRunsMatch) {
-    const wfId = decodeURIComponent(workflowRunsMatch[1]);
-    json(res, { runs: listWorkflowRuns(wfId) });
-    return;
-  }
-
-  if (method === "GET" && workflowRunMatch) {
-    const runId = decodeURIComponent(workflowRunMatch[1]);
-    const run = getWorkflowRun(runId);
-    if (!run) {
-      error(res, "Run not found", 404);
-      return;
-    }
-    json(res, { run });
-    return;
-  }
-
-  if (method === "POST" && workflowRunCancelMatch) {
-    const runId = decodeURIComponent(workflowRunCancelMatch[1]);
-    if (!cancelWorkflowRun(runId)) {
-      error(res, "Run not found or already finished", 404);
-      return;
-    }
-    json(res, { ok: true });
-    return;
-  }
-
-  if (method === "POST" && workflowHookMatch) {
-    const hookId = decodeURIComponent(workflowHookMatch[1]);
-    const body = await readJsonBody<Record<string, unknown>>(req, res);
-    if (!body) return;
-
-    const {
-      runId: requestedRunIdValue,
-      terminalToken: _terminalToken,
-      ...hookPayloadBody
-    } = body;
-    const requestedRunId =
-      typeof requestedRunIdValue === "string" ? requestedRunIdValue : undefined;
-
-    const pendingHook = listPendingHooks().find(
-      (hook) =>
-        hook.hookId === hookId &&
-        (requestedRunId === undefined || hook.runId === requestedRunId),
-    );
-    const pendingRun = pendingHook ? getWorkflowRun(pendingHook.runId) : null;
-    const pendingWorkflow = pendingRun
-      ? getWorkflow(pendingRun.workflowId)
-      : null;
-    const terminalRejection = resolveWorkflowTransformRejection(
-      req,
-      body as TerminalRunRequestBody,
-      pendingWorkflow,
-    );
-    if (terminalRejection) {
-      error(
-        res,
-        `Resolving hooks for workflows with transform nodes requires terminal authorization. ${terminalRejection.reason}`,
-        terminalRejection.status,
-      );
-      return;
-    }
-
-    // Sanitize: only allow plain JSON-serializable values in the payload
-    // to prevent prototype pollution or injected objects.
-    const sanitized = JSON.parse(JSON.stringify(hookPayloadBody)) as Record<
-      string,
-      unknown
-    >;
-
-    if (!resolveHook(hookId, sanitized, requestedRunId)) {
-      error(res, "No pending hook with that ID", 404);
-      return;
-    }
-    json(res, { ok: true });
-    return;
-  }
-
-  if (method === "GET" && pathname === "/api/workflow-hooks") {
-    json(res, { hooks: listPendingHooks() });
-    return;
-  }
-
   // ── Stream Manager routes ──────────────────────────────────────────────
   // Handled by handleStreamRoute() in stream-routes.ts (registered via
   // connectorRouteHandlers below). Endpoints: /api/stream/*
@@ -15907,7 +15591,7 @@ export async function startApiServer(opts?: {
         // Retake (API-driven, full integration)
         if (isConnectorConfigured("retake", connectors.retake)) {
           try {
-            const retakeMod = "@milady/plugin-retake";
+            const retakeMod = "@elizaos/plugin-retake";
             const { createRetakeDestination } = await import(retakeMod);
             destinations.set(
               "retake",
@@ -15951,7 +15635,7 @@ export async function startApiServer(opts?: {
         // Twitch
         if (isStreamingDestinationConfigured("twitch", streaming?.twitch)) {
           try {
-            const twitchMod = "@milady/plugin-twitch-streaming";
+            const twitchMod = "@elizaos/plugin-twitch-streaming";
             const { createTwitchDestination } = await import(twitchMod);
             destinations.set(
               "twitch",
@@ -15969,7 +15653,7 @@ export async function startApiServer(opts?: {
         // YouTube
         if (isStreamingDestinationConfigured("youtube", streaming?.youtube)) {
           try {
-            const youtubeMod = "@milady/plugin-youtube-streaming";
+            const youtubeMod = "@elizaos/plugin-youtube-streaming";
             const { createYoutubeDestination } = await import(youtubeMod);
             destinations.set(
               "youtube",
@@ -15987,7 +15671,7 @@ export async function startApiServer(opts?: {
         // pump.fun
         if (isStreamingDestinationConfigured("pumpfun", streaming?.pumpfun)) {
           try {
-            const pumpfunMod = "@milady/plugin-pumpfun-streaming";
+            const pumpfunMod = "@elizaos/plugin-pumpfun-streaming";
             const { createPumpfunDestination } = await import(pumpfunMod);
             destinations.set(
               "pumpfun",
@@ -16005,7 +15689,7 @@ export async function startApiServer(opts?: {
         // X (Twitter)
         if (isStreamingDestinationConfigured("x", streaming?.x)) {
           try {
-            const xMod = "@milady/plugin-x-streaming";
+            const xMod = "@elizaos/plugin-x-streaming";
             const { createXStreamDestination } = await import(xMod);
             destinations.set(
               "x",

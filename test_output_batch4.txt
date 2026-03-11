@@ -1,0 +1,742 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mnormalizes supported language tags[32m 2[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mfalls back to english for unknown language input[32m 0[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mfalls back to english message when key is missing in selected locale[32m 0[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22minterpolates template variables[32m 1[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mcreates stable translator for a target language[32m 0[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mkeeps locale keys in sync between en and zh-CN[32m 1[2mms[22m[39m
+ [31m×[39m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mkeeps production UI source files free of hardcoded Chinese text[32m 151[2mms[22m[39m
+[31m   → expected [ Array(1) ] to deeply equal [][39m
+ [31m×[39m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mrenders english labels by default[32m 28[2mms[22m[39m
+[31m   → expected ' nav.chat nav.character nav.wallets n…' to contain 'Chat'[39m
+ [31m×[39m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mrenders chinese labels when uiLanguage is zh-CN[32m 43[2mms[22m[39m
+[31m   → expected ' nav.chat nav.character nav.wallets n…' to contain '聊天'[39m
+ [31m×[39m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mshows companion tab in native shell mode[32m 10[2mms[22m[39m
+[31m   → expected ' nav.chat nav.character nav.wallets n…' to contain 'Companion'[39m
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+ [32m✓[39m apps/app/test/app/cloud-login-lock.test.ts[2m > [22mcloud login locking[2m > [22mallows only one same-tick cloud login start[32m 33[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/cloud-login-lock.test.ts[2m > [22mcloud login locking[2m > [22mreleases lock after failed cloud login so retry can run[32m 6[2mms[22m[39m
+ [31m×[39m apps/app/test/app/cloud-login-lock.test.ts[2m > [22mcloud login locking[2m > [22mreleases lock when onboarding backs out of cloud login step[32m 7[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mallows only one same-tick chat send request[32m 41[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mreleases lock when active-conversation sync throws before stream send[32m 26[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mkeeps optimistic user message and updates assistant text as stream chunks arrive[32m 149[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mde-duplicates cumulative stream token updates[32m 234[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mpreserves repeated characters in incremental token streams[32m 17[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mdoes not block stream completion on conversation list refresh[32m 17[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mexecutes custom actions via slash commands without persisting chat[32m 19[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mhandles #remember by storing memory and skipping conversation send[32m 22[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mrejects $ with trailing text and requires bare $[32m 15[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [31m×[39m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mhandles bare $ as quick context shortcut[32m 10[2mms[22m[39m
+[31m   → setOnboardingElizaCloudTab is not defined[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22muses an exact clawbal allowlist in production[32m 1[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mdoes not restrict the apps list by clawbal in development[32m 0[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mloads apps and launches iframe viewer flow[32m 118[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mshows auth warning when postMessage auth payload is missing[32m 13[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mopens non-viewer launches in a new tab and resets active game state[32m 11[2mms[22m[39m
+ [32m✓[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mreports popup-blocked errors and launch failures[32m 15[2mms[22m[39m
+ [31m×[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mrefreshes list and applies search filtering[32m 26[2mms[22m[39m
+[31m   → expected +0 to be 1 // Object.is equality[39m
+ [31m×[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mwires Hyperscape controls for message + command + telemetry routes[32m 46[2mms[22m[39m
+[31m   → Textarea "Say something to selected agent..." not found[39m
+ [31m×[39m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mopens app details and can return to the app list[32m 6[2mms[22m[39m
+[31m   → expected +0 to be 1 // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 18 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mrefreshes list and applies search filtering
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m apps/app/test/app/apps-view.test.ts:[2m455:68[22m[39m
+    [90m453| [39m    expect(root.findAll((node) => text(node) === "Hyperscape").length)…
+    [90m454| [39m    expect(root.findAll((node) => text(node) === "Babylon").length).to…
+    [90m455| [39m    expect(root.findAll((node) => text(node) === "Active").length).toB…
+    [90m   | [39m                                                                   [31m^[39m
+    [90m456| [39m    [34mexpect[39m(root[33m.[39m[34mfindAll[39m((node) [33m=>[39m [34mtext[39m(node) [33m===[39m [32m">"[39m)[33m.[39mlength)[33m.[39m[34mtoBe[39m([34m2[39m)[33m;[39m
+    [90m457| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mwires Hyperscape controls for message + command + telemetry routes
+[31m[1mError[22m: Textarea "Say something to selected agent..." not found[39m
+[36m [2m❯[22m findTextareaByPlaceholder apps/app/test/app/apps-view.test.ts:[2m139:11[22m[39m
+    [90m137| [39m  )[33m;[39m
+    [90m138| [39m  [35mif[39m ([33m![39mmatches[[34m0[39m]) {
+    [90m139| [39m    [35mthrow[39m [35mnew[39m [33mError[39m([32m`Textarea "[39m[36m${[39mplaceholder[36m}[39m[32m" not found`[39m)[33m;[39m
+    [90m   | [39m          [31m^[39m
+    [90m140| [39m  }
+    [90m141| [39m  [35mreturn[39m matches[[34m0[39m][33m;[39m
+[90m [2m❯[22m apps/app/test/app/apps-view.test.ts:[2m558:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/apps-view.test.ts[2m > [22mAppsView[2m > [22mopens app details and can return to the app list
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m apps/app/test/app/apps-view.test.ts:[2m612:72[22m[39m
+    [90m610| [39m      [34mfindButtonByTitle[39m(tree[33m?.[39mroot[33m,[39m [32m"Open Babylon"[39m)[33m.[39mprops[33m.[39m[34monClick[39m()[33m;[39m
+    [90m611| [39m    })[33m;[39m
+    [90m612| [39m    expect(tree?.root.findAll((node) => text(node) === "Back").length)…
+    [90m   | [39m                                                                       [31m^[39m
+    [90m613| [39m    [34mexpect[39m(
+    [90m614| [39m      tree[33m?.[39mroot[33m.[39m[34mfindAll[39m((node) [33m=>[39m [34mtext[39m(node) [33m===[39m [32m"Hyperscape"[39m)[33m.[39mlength[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mallows only one same-tick chat send request
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m310:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mreleases lock when active-conversation sync throws before stream send
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m352:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mkeeps optimistic user message and updates assistant text as stream chunks arrive
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m409:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mde-duplicates cumulative stream token updates
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m487:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mpreserves repeated characters in incremental token streams
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m556:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mdoes not block stream completion on conversation list refresh
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m636:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mexecutes custom actions via slash commands without persisting chat
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m711:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mhandles #remember by storing memory and skipping conversation send
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m752:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mrejects $ with trailing text and requires bare $
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m807:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/chat-send-lock.test.ts[2m > [22mchat send locking[2m > [22mhandles bare $ as quick context shortcut
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setChatInput apps/app/test/app/chat-send-lock.test.ts:[2m145:43[22m[39m
+[90m [2m❯[22m apps/app/test/app/chat-send-lock.test.ts:[2m853:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/cloud-login-lock.test.ts[2m > [22mcloud login locking[2m > [22mreleases lock when onboarding backs out of cloud login step
+[31m[1mReferenceError[22m: setOnboardingElizaCloudTab is not defined[39m
+[36m [2m❯[22m Object.setState apps/app/src/AppContext.tsx:[2m3801:34[22m[39m
+    [90m3799| [39m        onboardingGithubToken: setOnboardingGithubToken,
+    [90m3800| [39m        onboardingSubscriptionTab: setOnboardingSubscriptionTab,
+    [90m3801| [39m        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+    [90m   | [39m                                 [31m^[39m
+    [90m3802| [39m        onboardingRpcKeys: setOnboardingRpcKeys,
+    [90m3803| [39m        onboardingAvatar: setOnboardingAvatar,
+[90m [2m❯[22m Object.setState apps/app/test/app/cloud-login-lock.test.ts:[2m100:37[22m[39m
+[90m [2m❯[22m apps/app/test/app/cloud-login-lock.test.ts:[2m304:12[22m[39m
+[90m [2m❯[22m Proxy.process.env.NODE_ENV.exports.act node_modules/.bun/react@19.2.4/node_modules/react/cjs/react.development.js:[2m814:22[22m[39m
+[90m [2m❯[22m apps/app/test/app/cloud-login-lock.test.ts:[2m303:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/i18n.test.ts[2m > [22mi18n helpers[2m > [22mkeeps production UI source files free of hardcoded Chinese text
+[31m[1mAssertionError[22m: expected [ Array(1) ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "src/onboarding-presets.ts: L299: \"嗨~\",",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m apps/app/test/app/i18n.test.ts:[2m122:30[22m[39m
+    [90m120| [39m    [34mvisit[39m(sourceDir)[33m;[39m
+    [90m121| [39m
+    [90m122| [39m    [34mexpect[39m(filesWithChinese)[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m   | [39m                             [31m^[39m
+    [90m123| [39m  })[33m;[39m
+    [90m124| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mrenders english labels by default
+[31m[1mAssertionError[22m: expected ' nav.chat nav.character nav.wallets n…' to contain 'Chat'[39m
+
+Expected: [32m"Chat"[39m
+Received: [31m" nav.chat nav.character nav.wallets nav.knowledge nav.social nav.apps nav.settings nav.advanced"[39m
+
+[36m [2m❯[22m apps/app/test/app/navigation-language.test.tsx:[2m45:18[22m[39m
+    [90m 43| [39m      [33m.[39m[34mmap[39m((node) [33m=>[39m [34mtextOf[39m(node))
+    [90m 44| [39m      [33m.[39m[34mjoin[39m([32m" "[39m)[33m;[39m
+    [90m 45| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"Chat"[39m)[33m;[39m
+    [90m   | [39m                 [31m^[39m
+    [90m 46| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"Wallets"[39m)[33m;[39m
+    [90m 47| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"Settings"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mrenders chinese labels when uiLanguage is zh-CN
+[31m[1mAssertionError[22m: expected ' nav.chat nav.character nav.wallets n…' to contain '聊天'[39m
+
+Expected: [32m"聊天"[39m
+Received: [31m" nav.chat nav.character nav.wallets nav.knowledge nav.social nav.apps nav.settings nav.advanced"[39m
+
+[36m [2m❯[22m apps/app/test/app/navigation-language.test.tsx:[2m68:18[22m[39m
+    [90m 66| [39m      [33m.[39m[34mmap[39m((node) [33m=>[39m [34mtextOf[39m(node))
+    [90m 67| [39m      [33m.[39m[34mjoin[39m([32m" "[39m)[33m;[39m
+    [90m 68| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"聊天"[39m)[33m;[39m
+    [90m   | [39m                 [31m^[39m
+    [90m 69| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"钱包"[39m)[33m;[39m
+    [90m 70| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"设置"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/navigation-language.test.tsx[2m > [22mNav language switching[2m > [22mshows companion tab in native shell mode
+[31m[1mAssertionError[22m: expected ' nav.chat nav.character nav.wallets n…' to contain 'Companion'[39m
+
+Expected: [32m"Companion"[39m
+Received: [31m" nav.chat nav.character nav.wallets nav.knowledge nav.social nav.apps nav.settings nav.advanced"[39m
+
+[36m [2m❯[22m apps/app/test/app/navigation-language.test.tsx:[2m92:18[22m[39m
+    [90m 90| [39m      [33m.[39m[34mmap[39m((node) [33m=>[39m [34mtextOf[39m(node))
+    [90m 91| [39m      [33m.[39m[34mjoin[39m([32m" "[39m)[33m;[39m
+    [90m 92| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"Companion"[39m)[33m;[39m
+    [90m   | [39m                 [31m^[39m
+    [90m 93| [39m    [34mexpect[39m(text)[33m.[39m[34mtoContain[39m([32m"Chat"[39m)[33m;[39m
+    [90m 94| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/18]⎯[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Unhandled Errors [49m[22m[31m⎯⎯⎯⎯⎯⎯[39m
+[31m[1m
+Vitest caught 26 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.[22m[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+[90m [2m❯[22m processTicksAndRejections node:internal/process/task_queues:[2m105:5[22m[39m
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mallows only one same-tick cloud login start[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+[90m [2m❯[22m processTicksAndRejections node:internal/process/task_queues:[2m105:5[22m[39m
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mallows only one same-tick cloud login start[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+[90m [2m❯[22m processTicksAndRejections node:internal/process/task_queues:[2m105:5[22m[39m
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mallows only one same-tick chat send request[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+[90m [2m❯[22m processTicksAndRejections node:internal/process/task_queues:[2m105:5[22m[39m
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mallows only one same-tick chat send request[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock after failed cloud login so retry can run[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock after failed cloud login so retry can run[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock when onboarding backs out of cloud login step[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/cloud-login-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock when onboarding backs out of cloud login step[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock when active-conversation sync throws before stream send[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mreleases lock when active-conversation sync throws before stream send[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mkeeps optimistic user message and updates assistant text as stream chunks arrive[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mkeeps optimistic user message and updates assistant text as stream chunks arrive[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mde-duplicates cumulative stream token updates[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mde-duplicates cumulative stream token updates[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mpreserves repeated characters in incremental token streams[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mpreserves repeated characters in incremental token streams[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mdoes not block stream completion on conversation list refresh[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mdoes not block stream completion on conversation list refresh[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mexecutes custom actions via slash commands without persisting chat[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mexecutes custom actions via slash commands without persisting chat[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mhandles #remember by storing memory and skipping conversation send[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mhandles #remember by storing memory and skipping conversation send[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mrejects $ with trailing text and requires bare $[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mrejects $ with trailing text and requires bare $[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: cloudPollInterval is not defined[39m
+[36m [2m❯[22m initApp apps/app/src/AppContext.tsx:[2m4675:7[22m[39m
+    [90m4673| [39m      // Cloud polling
+    [90m4674| [39m      pollCloudCredits();
+    [90m4675| [39m      cloudPollInterval.current = window.setInterval(
+    [90m   | [39m      [31m^[39m
+    [90m4676| [39m        () => pollCloudCredits(),
+    [90m4677| [39m        60_000,
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mhandles bare $ as quick context shortcut[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: setCloudCredits is not defined[39m
+[36m [2m❯[22m apps/app/src/AppContext.tsx:[2m1362:7[22m[39m
+    [90m1360| [39m      }
+    [90m1361| [39m    } else {
+    [90m1362| [39m      setCloudCredits(null);
+    [90m   | [39m      [31m^[39m
+    [90m1363| [39m      setCloudCreditsLow(false);
+    [90m1364| [39m      setCloudCreditsCritical(false);
+
+[31mThis error originated in "[1mapps/app/test/app/chat-send-lock.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mhandles bare $ as quick context shortcut[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+[31m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39m
+
+
+[2m Test Files [22m [1m[31m5 failed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[31m18 failed[39m[22m[2m | [22m[1m[32m14 passed[39m[22m[90m (32)[39m
+[2m     Errors [22m [1m[31m26 errors[39m[22m
+[2m   Start at [22m 04:54:20
+[2m   Duration [22m 7.92s[2m (transform 6.83s, setup 317ms, import 13.20s, tests 1.08s, environment 10.54s)[22m
+

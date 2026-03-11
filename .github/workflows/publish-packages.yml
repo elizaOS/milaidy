@@ -230,7 +230,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snapcraft.outputs.snap }}
-          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge' || 'stable' }}
+          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge,beta' || 'stable,candidate' }}
 
   # ── Debian / apt ───────────────────────────────────────────────────────
   build-deb:
@@ -312,15 +312,31 @@ jobs:
           done
 
       - name: Trigger APT repository update
-        if: github.event_name == 'release'
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.APT_REPO_TOKEN }}
         run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          DEB_VERSION="${{ needs.prepare.outputs.deb_version }}"
+
+          # Find the actual .deb filename
+          DEB_FILE=$(ls deb-output/*.deb | head -1)
+          DEB_BASENAME=$(basename "$DEB_FILE")
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="v${VERSION}"
+          fi
+
+          DEB_URL="https://github.com/milady-ai/milady/releases/download/${TAG}/${DEB_BASENAME}"
+
+          echo "Dispatching APT update: version=$VERSION, deb_url=$DEB_URL"
           gh api repos/milady-ai/apt/dispatches \
             --method POST \
             -f event_type=update-apt \
-            -f "client_payload[version]=${{ needs.prepare.outputs.version }}" \
-            -f "client_payload[deb_url]=https://github.com/milady-ai/milady/releases/download/${{ github.event.release.tag_name }}/milady_${{ needs.prepare.outputs.deb_version }}_all.deb"
+            -f "client_payload[version]=$VERSION" \
+            -f "client_payload[deb_url]=$DEB_URL"
 
   # ── Flatpak ────────────────────────────────────────────────────────────
   build-flatpak:
@@ -341,8 +357,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub org.freedesktop.Platform//23.08
-          flatpak install -y --user flathub org.freedesktop.Sdk//23.08
+          flatpak install -y --user flathub org.freedesktop.Platform//24.08
+          flatpak install -y --user flathub org.freedesktop.Sdk//24.08
 
       - name: Build Flatpak
         working-directory: packaging/flatpak

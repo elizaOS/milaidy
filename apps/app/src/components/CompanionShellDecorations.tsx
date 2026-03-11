@@ -2,7 +2,8 @@
  * Decorative elements and close button for the companion shell overlay.
  */
 
-import type { Tab } from "../navigation";
+import type { Tab } from "@milady/app-core/navigation";
+import { useApp } from "../AppContext";
 import type { TabFlags } from "./companion-shell-styles";
 
 /* ── Decorative elements per tab ───────────────────────────────────── */
@@ -15,6 +16,7 @@ export function DecorativeElements({
   f: TabFlags;
   accentColor: string;
 }) {
+  const { t } = useApp();
   return (
     <div
       className={`pointer-events-none absolute inset-0 overflow-hidden ${f.isPluginsLike ? "" : "rounded-[16px]"}`}
@@ -24,7 +26,7 @@ export function DecorativeElements({
           <div
             className={`absolute bottom-4 left-4 text-[${accentColor}]/30 text-[9px] font-mono tracking-widest transform -rotate-90 origin-bottom-left`}
           >
-            V.1.0.4_NEURAL_UPLINK
+            {t("companionshelldecorations.V104NEURALUPLIN")}
           </div>
           <div
             className={`absolute top-[20%] right-0 w-[2px] h-[100px] bg-gradient-to-b from-transparent via-[${accentColor}] to-transparent opacity-50`}
@@ -41,7 +43,7 @@ export function DecorativeElements({
           <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-white/15" />
           <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-white/15" />
           <div className="absolute bottom-3 right-4 text-white/15 text-[9px] font-mono tracking-widest">
-            CFG.PANEL_V2
+            {t("companionshelldecorations.CFGPANELV2")}
           </div>
         </>
       )}
@@ -52,7 +54,7 @@ export function DecorativeElements({
           <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-white/15" />
           <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-white/15" />
           <div className="absolute bottom-3 right-4 text-white/15 text-[9px] font-mono tracking-widest">
-            ADV.PANEL_V1
+            {t("companionshelldecorations.ADVPANELV1")}
           </div>
         </>
       )}
@@ -63,7 +65,7 @@ export function DecorativeElements({
           <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-[#8b5cf6]/15" />
           <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-[#8b5cf6]/15" />
           <div className="absolute bottom-3 right-4 text-[#8b5cf6]/20 text-[9px] font-mono tracking-widest">
-            LIFO.SANDBOX_V1
+            {t("companionshelldecorations.LIFOSANDBOXV1")}
           </div>
         </>
       )}
@@ -72,7 +74,7 @@ export function DecorativeElements({
           <div className="absolute top-[12%] right-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#ef4444]/25 to-transparent" />
           <div className="absolute bottom-[12%] left-0 w-[1.5px] h-[100px] bg-gradient-to-b from-transparent via-[#ef4444]/25 to-transparent" />
           <div className="absolute top-3 right-4 text-[#ef4444]/20 text-[9px] font-mono tracking-widest">
-            STREAM.LIVE_V1
+            {t("companionshelldecorations.STREAMLIVEV1")}
           </div>
         </>
       )}
@@ -81,7 +83,7 @@ export function DecorativeElements({
           <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#a78bfa]/20 to-transparent" />
           <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#a78bfa]/20 to-transparent" />
           <div className="absolute bottom-3 right-4 text-[#a78bfa]/20 text-[9px] font-mono tracking-widest">
-            KNOW.BASE_V1
+            {t("companionshelldecorations.KNOWBASEV1")}
           </div>
         </>
       )}
@@ -92,7 +94,7 @@ export function DecorativeElements({
           <div className="absolute bottom-3 left-3 w-[20px] h-[1px] bg-[#f0b90b]/15" />
           <div className="absolute bottom-3 left-3 w-[1px] h-[20px] bg-[#f0b90b]/15" />
           <div className="absolute bottom-3 right-4 text-[#f0b90b]/20 text-[9px] font-mono tracking-widest">
-            WALLET.BSC_V1
+            {t("companionshelldecorations.WALLETBSCV1")}
           </div>
         </>
       )}
@@ -101,7 +103,7 @@ export function DecorativeElements({
           <div className="absolute top-[15%] right-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#10b981]/20 to-transparent" />
           <div className="absolute bottom-[15%] left-0 w-[1.5px] h-[80px] bg-gradient-to-b from-transparent via-[#10b981]/20 to-transparent" />
           <div className="absolute bottom-3 right-4 text-[#10b981]/20 text-[9px] font-mono tracking-widest">
-            APP.PANEL_V1
+            {t("companionshelldecorations.APPPANELV1")}
           </div>
         </>
       )}
@@ -110,7 +112,8 @@ export function DecorativeElements({
           <div className="absolute top-6 left-10 flex flex-col">
             <div className="text-white text-2xl font-semibold tracking-wide flex items-center gap-3">
               <div className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />
-              Agent Details
+
+              {t("companionshelldecorations.AgentDetails")}
             </div>
           </div>
           <div className="absolute top-[-10%] right-[-5%] w-[40vw] h-[40vw] rounded-full border border-white/5 opacity-50 pointer-events-none" />

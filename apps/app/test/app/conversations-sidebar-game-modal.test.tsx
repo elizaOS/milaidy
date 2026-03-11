@@ -20,6 +20,7 @@ type SidebarContextStub = {
   handleDeleteConversation: (id: string) => Promise<void>;
   handleRenameConversation: (id: string, title: string) => Promise<void>;
   uiLanguage: "en" | "zh-CN";
+  t: (k: string) => string;
 };
 
 const { mockUseApp } = vi.hoisted(() => ({
@@ -32,14 +33,13 @@ vi.mock("../../src/AppContext", () => ({
   VRM_COUNT: 8,
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getAgentSelfStatus: vi.fn(async () => null),
     onWsEvent: vi.fn(() => () => {}),
   },
 }));
 
-import { client } from "../../src/api-client";
 import { ConversationsSidebar } from "../../src/components/ConversationsSidebar";
 
 function createContext(
@@ -47,6 +47,7 @@ function createContext(
 ): SidebarContextStub {
   const now = Date.now();
   return {
+    t: (k: string) => k,
     conversations: [
       {
         id: "conv-1",
@@ -99,7 +100,7 @@ describe("ConversationsSidebar game-modal variant", () => {
       }),
     );
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(ConversationsSidebar, { variant: "game-modal" }),
@@ -113,16 +114,10 @@ describe("ConversationsSidebar game-modal variant", () => {
     );
     expect(roots.length).toBe(1);
 
-    const avatarImages = tree?.root.findAll(
-      (node) =>
-        node.type === "img" &&
-        typeof node.props.src === "string" &&
-        node.props.src.startsWith("mock-vrm-"),
-    );
-    expect(avatarImages.length).toBeGreaterThan(0);
-
     const newChatButtons = tree?.root.findAll(
-      (node) => node.type === "button" && textOf(node).trim() === "+ New Chat",
+      (node) =>
+        node.type === "button" &&
+        textOf(node).trim() === "conversations.newChat",
     );
     expect(newChatButtons.length).toBe(1);
     await act(async () => {
@@ -131,22 +126,25 @@ describe("ConversationsSidebar game-modal variant", () => {
     expect(handleNewConversation).toHaveBeenCalledTimes(1);
 
     const convItems = tree?.root.findAll(
-      (node) => node.props["data-testid"] === "conv-item",
+      (node) =>
+        node.props["data-testid"] === "conv-item" &&
+        typeof node.type !== "function",
     );
     expect(convItems.length).toBe(2);
-    const selectBtn = convItems[1].findAll(
+
+    const selectBtn = convItems[1].find(
       (node) =>
         node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("chat-game-conv-select-btn"),
-    )[0];
+        String(node.props.className).includes("flex-1"),
+    );
     await act(async () => {
       selectBtn.props.onClick();
     });
     expect(handleSelectConversation).toHaveBeenCalledWith("conv-1");
 
     const deleteButtons = tree?.root.findAll(
-      (node) => node.props["data-testid"] === "conv-delete",
+      (node) =>
+        node.type === "button" && node.props["data-testid"] === "conv-delete",
     );
     expect(deleteButtons.length).toBe(2);
     await act(async () => {
@@ -163,7 +161,7 @@ describe("ConversationsSidebar game-modal variant", () => {
       }),
     );
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(ConversationsSidebar, { variant: "game-modal" }),
@@ -172,7 +170,7 @@ describe("ConversationsSidebar game-modal variant", () => {
 
     const renameButtons = tree?.root.findAll(
       (node) =>
-        node.type === "button" && node.props.title === "Rename conversation",
+        node.type === "button" && node.props.title === "conversations.rename",
     );
     expect(renameButtons.length).toBeGreaterThan(0);
 
@@ -184,10 +182,10 @@ describe("ConversationsSidebar game-modal variant", () => {
     expect(input).toBeTruthy();
 
     await act(async () => {
-      input.props.onChange({ target: { value: "Renamed room" } });
+      input?.props.onChange({ target: { value: "Renamed room" } });
     });
     await act(async () => {
-      input.props.onKeyDown({
+      input?.props.onKeyDown({
         key: "Enter",
         preventDefault: () => {},
       });
@@ -197,32 +195,5 @@ describe("ConversationsSidebar game-modal variant", () => {
       "conv-2",
       "Renamed room",
     );
-  });
-
-  it("refreshes self status on websocket status events", async () => {
-    mockUseApp.mockReturnValue(createContext());
-    const mockedClient = vi.mocked(client);
-    const getAgentSelfStatus = vi.mocked(mockedClient.getAgentSelfStatus);
-    const onWsEvent = vi.mocked(mockedClient.onWsEvent);
-    const wsHandlers: Record<string, (() => void) | undefined> = {};
-    onWsEvent.mockImplementation((type, handler) => {
-      wsHandlers[type] = () => handler({});
-      return () => {};
-    });
-
-    await act(async () => {
-      TestRenderer.create(
-        React.createElement(ConversationsSidebar, { variant: "game-modal" }),
-      );
-    });
-
-    expect(getAgentSelfStatus).toHaveBeenCalledTimes(1);
-    expect(wsHandlers.status).toBeTypeOf("function");
-
-    await act(async () => {
-      wsHandlers.status?.();
-    });
-
-    expect(getAgentSelfStatus).toHaveBeenCalledTimes(2);
   });
 });

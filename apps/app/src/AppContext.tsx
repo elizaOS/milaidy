@@ -5,18 +5,8 @@
  */
 
 import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import {
   type AgentStartupDiagnostics,
   type AgentStatus,
-  type AppViewerAuthMessage,
   type BscTradeExecuteRequest,
   type BscTradeExecuteResponse,
   type BscTradePreflightResponse,
@@ -27,7 +17,6 @@ import {
   type BscTransferExecuteResponse,
   type CatalogSkill,
   type CharacterData,
-  type ChatTokenUsage,
   type CodingAgentSession,
   type Conversation,
   type ConversationChannelType,
@@ -55,7 +44,6 @@ import {
   type SkillScanReportSummary,
   type StreamEventEnvelope,
   type StylePreset,
-  type SystemPermissionId,
   type TriggerHealthSnapshot,
   type TriggerRunRecord,
   type TriggerSummary,
@@ -71,8 +59,68 @@ import {
   type WalletTradingProfileWindow,
   type WhitelistStatus,
   type WorkbenchOverview,
-} from "./api-client";
-import { resolveApiUrl, resolveAppAssetUrl } from "./asset-url";
+} from "@milady/app-core/api";
+import { getBackendStartupTimeoutMs } from "@milady/app-core/bridge";
+import {
+  createTranslator,
+  normalizeLanguage,
+  t as translateText,
+  type UiLanguage,
+} from "@milady/app-core/i18n";
+import { pathForTab, type Tab, tabFromPath } from "@milady/app-core/navigation";
+import {
+  type ActionNotice,
+  AGENT_READY_TIMEOUT_MS,
+  AGENT_TRANSFER_MIN_PASSWORD_LENGTH,
+  AppContext,
+  type AppContextValue,
+  type AppState,
+  asApiLikeError,
+  type ChatTurnUsage,
+  computeStreamingDelta,
+  formatSearchBullet,
+  formatStartupErrorDetail,
+  type GamePostMessageAuthPayload,
+  LIFECYCLE_MESSAGES,
+  type LifecycleAction,
+  type LoadConversationMessagesResult,
+  loadAvatarIndex,
+  loadChatAvatarVisible,
+  loadChatMode,
+  loadChatVoiceMuted,
+  loadUiLanguage,
+  loadUiShellMode,
+  normalizeAvatarIndex,
+  normalizeCustomActionName,
+  normalizeUiShellMode,
+  ONBOARDING_PERMISSION_LABELS,
+  type OnboardingNextOptions,
+  type OnboardingStep,
+  parseAgentStatusEvent,
+  parseCustomActionParams,
+  parseProactiveMessageEvent,
+  parseSlashCommandInput,
+  parseStreamEventEnvelopeEvent,
+  type StartupErrorState,
+  type StartupPhase,
+  saveAvatarIndex,
+  saveChatAvatarVisible,
+  saveChatMode,
+  saveChatVoiceMuted,
+  saveUiLanguage,
+  saveUiShellMode,
+  shouldApplyFinalStreamText,
+  type UiShellMode,
+} from "@milady/app-core/state";
+import { resolveApiUrl } from "@milady/app-core/utils";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type AutonomyEventStore,
   type AutonomyRunHealthMap,
@@ -81,1222 +129,75 @@ import {
   markPendingAutonomyGapsPartial,
   mergeAutonomyEvents,
 } from "./autonomy-events";
-import { getBackendStartupTimeoutMs } from "./bridge/electrobun-runtime";
 import {
   expandSavedCustomCommand,
   loadSavedCustomCommands,
   normalizeSlashCommandName,
-  splitCommandArgs,
 } from "./chat-commands";
-import {
-  DEFAULT_UI_LANGUAGE,
-  normalizeLanguage,
-  t as translateText,
-  type UiLanguage,
-} from "./i18n";
 import { isLifoPopoutMode } from "./lifo-popout";
-import { pathForTab, type Tab, tabFromPath } from "./navigation";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 import { mapServerTasksToSessions } from "./pty-session-hydrate";
 
-// ── VRM helpers ─────────────────────────────────────────────────────────
-
-/** Number of bundled VRM avatars shipped with the app. */
-const BASE_VRM_COUNT = 24;
-const OFFICIAL_VRM_COUNT = 8;
-
-/** Named VRM avatars that don't follow the milady-N convention.
- *  flip: true  → model's eye-bone convention differs from milady; needs an
- *               explicit 180° Y rotation instead of auto-detection.
- */
-const NAMED_VRMS: {
-  file: string;
-  preview: string;
-  label: string;
-  flip?: boolean;
-}[] = [{ file: "shaw.vrm", preview: "shaw.jpg", label: "Shaw", flip: true }];
-
-export const VRM_COUNT =
-  BASE_VRM_COUNT + OFFICIAL_VRM_COUNT + NAMED_VRMS.length;
-
-function normalizeAvatarIndex(index: number): number {
-  if (!Number.isFinite(index)) return 1;
-  const n = Math.trunc(index);
-  if (n === 0) return 0;
-  if (n < 1 || n > VRM_COUNT) return 1;
-  return n;
-}
-
-/** Resolve a bundled VRM index (1–N) to its public asset URL. */
-export function getVrmUrl(index: number): string {
-  const normalized = normalizeAvatarIndex(index);
-  const safeIndex = normalized > 0 ? normalized : 1;
-  if (safeIndex <= BASE_VRM_COUNT) {
-    return resolveAppAssetUrl(`vrms/milady-${safeIndex}.vrm`);
-  }
-  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-    const officialIndex = safeIndex - BASE_VRM_COUNT;
-    return resolveAppAssetUrl(`vrms/milady-official-${officialIndex}.vrm`);
-  }
-  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
-  return resolveAppAssetUrl(`vrms/${named.file}`);
-}
-
-/** Resolve a bundled VRM index (1–N) to its preview thumbnail URL. */
-export function getVrmPreviewUrl(index: number): string {
-  const normalized = normalizeAvatarIndex(index);
-  const safeIndex = normalized > 0 ? normalized : 1;
-  if (safeIndex <= BASE_VRM_COUNT) {
-    return resolveAppAssetUrl(`vrms/previews/milady-${safeIndex}.png`);
-  }
-  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-    const officialIndex = safeIndex - BASE_VRM_COUNT;
-    return resolveAppAssetUrl(
-      `vrms/previews/milady-official-${officialIndex}.png`,
-    );
-  }
-  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
-  return resolveAppAssetUrl(`vrms/previews/${named.preview}`);
-}
-
-/** Resolve a bundled VRM index (1-N) to its custom background URL. */
-export function getVrmBackgroundUrl(index: number): string {
-  const normalized = normalizeAvatarIndex(index);
-  const safeIndex = normalized > 0 ? normalized : 1;
-  const EXT = "png";
-
-  if (safeIndex <= BASE_VRM_COUNT) {
-    return resolveAppAssetUrl(`vrms/backgrounds/milady-${safeIndex}.${EXT}`);
-  }
-  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-    const officialIndex = safeIndex - BASE_VRM_COUNT;
-    return resolveAppAssetUrl(
-      `vrms/backgrounds/milady-official-${officialIndex}.${EXT}`,
-    );
-  }
-  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
-  const baseName = named.preview.split(".")[0];
-  return resolveAppAssetUrl(`vrms/backgrounds/${baseName}.${EXT}`);
-}
-
-/** Human-readable roster title for bundled avatars. */
-export function getVrmTitle(index: number): string {
-  const normalized = normalizeAvatarIndex(index);
-  const safeIndex = normalized > 0 ? normalized : 1;
-  if (safeIndex <= BASE_VRM_COUNT) {
-    return `MILADY-${String(safeIndex).padStart(2, "0")}`;
-  }
-  if (safeIndex <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) {
-    const officialIndex = safeIndex - BASE_VRM_COUNT;
-    return `OFFICIAL-${String(officialIndex).padStart(2, "0")}`;
-  }
-  const named = NAMED_VRMS[safeIndex - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
-  return named.label.toUpperCase();
-}
-
-/** Whether a bundled index points to the official Milady avatar set. */
-export function isOfficialVrmIndex(index: number): boolean {
-  const normalized = normalizeAvatarIndex(index);
-  return (
-    normalized > BASE_VRM_COUNT &&
-    normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT
-  );
-}
-
-/** Whether a VRM index requires an explicit 180° face-camera flip instead of auto-detection. */
-export function getVrmNeedsFlip(index: number): boolean {
-  const normalized = normalizeAvatarIndex(index);
-  if (normalized <= BASE_VRM_COUNT + OFFICIAL_VRM_COUNT) return false;
-  const named =
-    NAMED_VRMS[normalized - BASE_VRM_COUNT - OFFICIAL_VRM_COUNT - 1];
-  return named?.flip ?? false;
-}
-
-// ── Theme ──────────────────────────────────────────────────────────────
-
-const THEME_STORAGE_KEY = "milady:theme";
-const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
-const UI_SHELL_MODE_STORAGE_KEY = "milady:ui-shell-mode";
-
-export type UiShellMode = "companion" | "native";
-
-export type ThemeName =
-  | "milady"
-  | "milady-classic"
-  | "qt314"
-  | "web2000"
-  | "programmer"
-  | "haxor"
-  | "psycho"
-  | "dark";
-
-export const THEMES: ReadonlyArray<{
-  id: ThemeName;
-  label: string;
-  hint: string;
-}> = [
-  { id: "milady", label: "milady", hint: "BSC yellow default" },
-  { id: "milady-classic", label: "milady classic", hint: "sage green retro" },
-  { id: "qt314", label: "qt3.14", hint: "soft pastels" },
-  { id: "web2000", label: "web2000", hint: "green hacker vibes" },
-  { id: "programmer", label: "programmer", hint: "vscode dark" },
-  { id: "haxor", label: "haxor", hint: "terminal green" },
-  { id: "psycho", label: "psycho", hint: "pure chaos" },
-  { id: "dark", label: "dark", hint: "clean dark mode" },
-];
-
-const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
-const AGENT_TRANSFER_MIN_PASSWORD_LENGTH = 4;
-
-function loadTheme(): ThemeName {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored && VALID_THEMES.has(stored)) return stored as ThemeName;
-  } catch {
-    /* ignore */
-  }
-  return "milady";
-}
-
-function applyTheme(name: ThemeName) {
-  document.documentElement.setAttribute("data-theme", name);
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, name);
-  } catch {
-    /* ignore */
-  }
-}
-
-function loadUiLanguage(): UiLanguage {
-  try {
-    const stored = localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
-    return normalizeLanguage(stored ?? DEFAULT_UI_LANGUAGE);
-  } catch {
-    return DEFAULT_UI_LANGUAGE;
-  }
-}
-
-function saveUiLanguage(language: UiLanguage): void {
-  try {
-    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, normalizeLanguage(language));
-  } catch {
-    // ignore
-  }
-}
-
-function normalizeUiShellMode(mode: unknown): UiShellMode {
-  return mode === "native" ? "native" : "companion";
-}
-
-function loadUiShellMode(): UiShellMode {
-  try {
-    return normalizeUiShellMode(
-      localStorage.getItem(UI_SHELL_MODE_STORAGE_KEY),
-    );
-  } catch {
-    return "companion";
-  }
-}
-
-function saveUiShellMode(mode: UiShellMode): void {
-  try {
-    localStorage.setItem(UI_SHELL_MODE_STORAGE_KEY, normalizeUiShellMode(mode));
-  } catch {
-    // ignore
-  }
-}
-
-/* ── Avatar persistence ───────────────────────────────────────────────── */
-const AVATAR_INDEX_KEY = "milady_avatar_index";
-
-function loadAvatarIndex(): number {
-  try {
-    const stored = localStorage.getItem(AVATAR_INDEX_KEY);
-    if (stored) {
-      const n = parseInt(stored, 10);
-      return normalizeAvatarIndex(n);
-    }
-  } catch {
-    /* ignore */
-  }
-  return 1;
-}
-
-function saveAvatarIndex(index: number) {
-  try {
-    localStorage.setItem(AVATAR_INDEX_KEY, String(normalizeAvatarIndex(index)));
-  } catch {
-    /* ignore */
-  }
-}
-
-/* ── Chat UI persistence ──────────────────────────────────────────────── */
-const CHAT_AVATAR_VISIBLE_KEY = "milady:chat:avatarVisible";
-const CHAT_VOICE_MUTED_KEY = "milady:chat:voiceMuted";
-
-function loadChatAvatarVisible(): boolean {
-  try {
-    const stored = localStorage.getItem(CHAT_AVATAR_VISIBLE_KEY);
-    return stored === null ? true : stored === "true";
-  } catch {
-    return true;
-  }
-}
-
-function loadChatVoiceMuted(): boolean {
-  try {
-    const stored = localStorage.getItem(CHAT_VOICE_MUTED_KEY);
-    return stored === null ? true : stored === "true";
-  } catch {
-    return true;
-  }
-}
-
-function saveChatAvatarVisible(value: boolean): void {
-  try {
-    localStorage.setItem(CHAT_AVATAR_VISIBLE_KEY, String(value));
-  } catch {
-    /* ignore */
-  }
-}
-
-function saveChatVoiceMuted(value: boolean): void {
-  try {
-    localStorage.setItem(CHAT_VOICE_MUTED_KEY, String(value));
-  } catch {
-    /* ignore */
-  }
-}
-
-/* ── Chat mode persistence ─────────────────────────────────────────────── */
-const CHAT_MODE_KEY = "milady:chat:mode";
-
-function loadChatMode(): ConversationMode {
-  try {
-    const stored = localStorage.getItem(CHAT_MODE_KEY);
-    return stored === "power" ? "power" : "simple";
-  } catch {
-    return "simple";
-  }
-}
-
-function saveChatMode(value: ConversationMode): void {
-  try {
-    localStorage.setItem(CHAT_MODE_KEY, value);
-  } catch {
-    /* ignore */
-  }
-}
-
-// ── Onboarding step type ───────────────────────────────────────────────
-
-export type OnboardingStep =
-  | "welcome"
-  | "name"
-  | "ownerName"
-  | "avatar"
-  | "style"
-  | "theme"
-  | "setupMode"
-  | "mint"
-  | "runMode"
-  | "dockerSetup"
-  | "cloudProvider"
-  | "modelSelection"
-  | "cloudLogin"
-  | "llmProvider"
-  | "inventorySetup"
-  | "connectors"
-  | "permissions";
-
-interface OnboardingNextOptions {
-  allowPermissionBypass?: boolean;
-}
-
-const ONBOARDING_PERMISSION_LABELS: Record<SystemPermissionId, string> = {
-  accessibility: "Accessibility",
-  "screen-recording": "Screen Recording",
-  microphone: "Microphone",
-  camera: "Camera",
-  shell: "Shell Access",
-};
-
-// ── Action notice ──────────────────────────────────────────────────────
-
-interface ActionNotice {
-  tone: string;
-  text: string;
-}
-
-type LifecycleAction =
-  | "start"
-  | "stop"
-  | "pause"
-  | "resume"
-  | "restart"
-  | "reset";
-
-const LIFECYCLE_MESSAGES: Record<
-  LifecycleAction,
-  {
-    inProgress: string;
-    progress: string;
-    success: string;
-    verb: string;
-  }
-> = {
-  start: {
-    inProgress: "starting",
-    progress: "Starting agent...",
-    success: "Agent started.",
-    verb: "start",
-  },
-  stop: {
-    inProgress: "stopping",
-    progress: "Stopping agent...",
-    success: "Agent stopped.",
-    verb: "stop",
-  },
-  pause: {
-    inProgress: "pausing",
-    progress: "Pausing agent...",
-    success: "Agent paused.",
-    verb: "pause",
-  },
-  resume: {
-    inProgress: "resuming",
-    progress: "Resuming agent...",
-    success: "Agent resumed.",
-    verb: "resume",
-  },
-  restart: {
-    inProgress: "restarting",
-    progress: "Restarting agent...",
-    success: "Agent restarted.",
-    verb: "restart",
-  },
-  reset: {
-    inProgress: "resetting",
-    progress: "Resetting agent...",
-    success: "Agent reset. Returning to onboarding.",
-    verb: "reset",
-  },
-};
-
-type GamePostMessageAuthPayload = AppViewerAuthMessage;
-
-const AGENT_STATES: ReadonlySet<AgentStatus["state"]> = new Set([
-  "not_started",
-  "starting",
-  "running",
-  "paused",
-  "stopped",
-  "restarting",
-  "error",
-]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseAgentStatusEvent(
-  data: Record<string, unknown>,
-): AgentStatus | null {
-  const state = data.state;
-  const agentName = data.agentName;
-  if (
-    typeof state !== "string" ||
-    !AGENT_STATES.has(state as AgentStatus["state"])
-  ) {
-    return null;
-  }
-  if (typeof agentName !== "string") return null;
-  const model = typeof data.model === "string" ? data.model : undefined;
-  const startedAt =
-    typeof data.startedAt === "number" ? data.startedAt : undefined;
-  const uptime = typeof data.uptime === "number" ? data.uptime : undefined;
-  const startup = parseAgentStartupDiagnostics(data.startup);
-  return {
-    state: state as AgentStatus["state"],
-    agentName,
-    model,
-    startedAt,
-    uptime,
-    startup,
-  };
-}
-
-function parseAgentStartupDiagnostics(
-  value: unknown,
-): AgentStartupDiagnostics | undefined {
-  if (!isRecord(value)) return undefined;
-  const phase = value.phase;
-  const attempt = value.attempt;
-  if (typeof phase !== "string" || typeof attempt !== "number") {
-    return undefined;
-  }
-  const startup: AgentStartupDiagnostics = { phase, attempt };
-  if (typeof value.lastError === "string") startup.lastError = value.lastError;
-  if (typeof value.lastErrorAt === "number")
-    startup.lastErrorAt = value.lastErrorAt;
-  if (typeof value.nextRetryAt === "number")
-    startup.nextRetryAt = value.nextRetryAt;
-  return startup;
-}
-
-function parseStreamEventEnvelopeEvent(
-  data: Record<string, unknown>,
-): StreamEventEnvelope | null {
-  const type = data.type;
-  const eventId = data.eventId;
-  const ts = data.ts;
-  const payload = data.payload;
-  if (
-    (type !== "agent_event" &&
-      type !== "heartbeat_event" &&
-      type !== "training_event") ||
-    typeof eventId !== "string" ||
-    typeof ts !== "number" ||
-    !isRecord(payload)
-  ) {
-    return null;
-  }
-
-  const envelope: StreamEventEnvelope = {
-    type,
-    version: 1,
-    eventId,
-    ts,
-    payload,
-  };
-  if (typeof data.runId === "string") envelope.runId = data.runId;
-  if (typeof data.seq === "number") envelope.seq = data.seq;
-  if (typeof data.stream === "string") envelope.stream = data.stream;
-  if (typeof data.sessionKey === "string")
-    envelope.sessionKey = data.sessionKey;
-  if (typeof data.agentId === "string") envelope.agentId = data.agentId;
-  if (typeof data.roomId === "string") envelope.roomId = data.roomId;
-  return envelope;
-}
-
-function parseConversationMessageEvent(
-  value: unknown,
-): ConversationMessage | null {
-  if (!isRecord(value)) return null;
-  const id = value.id;
-  const role = value.role;
-  const text = value.text;
-  const timestamp = value.timestamp;
-  const source = value.source;
-  const from = value.from;
-  if (
-    typeof id !== "string" ||
-    (role !== "user" && role !== "assistant") ||
-    typeof text !== "string" ||
-    typeof timestamp !== "number"
-  ) {
-    return null;
-  }
-  const parsed: ConversationMessage = { id, role, text, timestamp };
-  if (typeof source === "string" && source.length > 0) {
-    parsed.source = source;
-  }
-  if (typeof from === "string" && from.length > 0) {
-    parsed.from = from;
-  }
-  return parsed;
-}
-
-function parseProactiveMessageEvent(
-  data: Record<string, unknown>,
-): { conversationId: string; message: ConversationMessage } | null {
-  const conversationId = data.conversationId;
-  if (typeof conversationId !== "string") return null;
-  const message = parseConversationMessageEvent(data.message);
-  if (!message) return null;
-  return { conversationId, message };
-}
-
-function computeStreamingDelta(existing: string, incoming: string): string {
-  if (!incoming) return "";
-  if (!existing) return incoming;
-  if (incoming === existing) return "";
-  if (incoming.startsWith(existing)) return incoming.slice(existing.length);
-  if (existing.startsWith(incoming)) return "";
-
-  // Small chunks are usually raw token deltas; keep them even if they
-  // duplicate suffix characters (e.g., "l" + "l" in "Hello").
-  if (incoming.length <= 3) return incoming;
-
-  const maxOverlap = Math.min(existing.length, incoming.length);
-  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-    if (existing.endsWith(incoming.slice(0, overlap))) {
-      const delta = incoming.slice(overlap);
-      if (!delta && overlap === incoming.length) return "";
-      return delta;
-    }
-  }
-  return incoming;
-}
-
-function normalizeStreamComparisonText(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function shouldApplyFinalStreamText(
-  streamed: string,
-  finalText: string,
-): boolean {
-  if (!finalText.trim()) return false;
-  if (!streamed) return true;
-  if (streamed === finalText) return false;
-  return (
-    normalizeStreamComparisonText(streamed) !==
-    normalizeStreamComparisonText(finalText)
-  );
-}
-
-type SlashCommandInput = {
-  name: string;
-  argsRaw: string;
-};
-
-function parseSlashCommandInput(text: string): SlashCommandInput | null {
-  if (!text.startsWith("/")) return null;
-  const body = text.slice(1).trim();
-  if (!body) return null;
-  const firstSpace = body.search(/\s/);
-  if (firstSpace === -1) {
-    return { name: normalizeSlashCommandName(body), argsRaw: "" };
-  }
-  return {
-    name: normalizeSlashCommandName(body.slice(0, firstSpace)),
-    argsRaw: body.slice(firstSpace + 1).trim(),
-  };
-}
-
-function normalizeCustomActionName(value: string): string {
-  return value
-    .trim()
-    .replace(/[\s-]+/g, "_")
-    .toUpperCase();
-}
-
-function parseCustomActionParams(
-  action: CustomActionDef,
-  argsRaw: string,
-): {
-  params: Record<string, string>;
-  missingRequired: string[];
-} {
-  const tokens = splitCommandArgs(argsRaw);
-  const named = new Map<string, string>();
-  const positional: string[] = [];
-
-  for (const token of tokens) {
-    const eq = token.indexOf("=");
-    if (eq > 0) {
-      const key = token.slice(0, eq).trim().toLowerCase();
-      const value = token.slice(eq + 1).trim();
-      if (key) {
-        named.set(key, value);
-        continue;
-      }
-    }
-    positional.push(token);
-  }
-
-  const params: Record<string, string> = {};
-  const defs = Array.isArray(action.parameters) ? action.parameters : [];
-  const defsByLower = new Map(
-    defs.map((def) => [def.name.trim().toLowerCase(), def.name]),
-  );
-
-  for (const [key, value] of named) {
-    const canonical = defsByLower.get(key);
-    if (canonical) {
-      params[canonical] = value;
-    } else {
-      params[key] = value;
-    }
-  }
-
-  for (const def of defs) {
-    if (params[def.name] == null && positional.length > 0) {
-      params[def.name] = positional.shift() as string;
-    }
-  }
-
-  if (positional.length > 0) {
-    const sink = defs.find((def) =>
-      ["input", "text", "query", "message", "prompt"].includes(
-        def.name.toLowerCase(),
-      ),
-    );
-    if (sink) {
-      const existing = params[sink.name];
-      params[sink.name] = existing
-        ? `${existing} ${positional.join(" ")}`
-        : positional.join(" ");
-    }
-  }
-
-  const missingRequired = defs
-    .filter((def) => def.required)
-    .map((def) => def.name)
-    .filter((name) => !(params[name] ?? "").trim());
-
-  return { params, missingRequired };
-}
-
-function formatSearchBullet(label: string, items: string[]): string {
-  if (items.length === 0) return `${label}: none`;
-  return `${label}:\n${items.map((item) => `- ${item}`).join("\n")}`;
-}
-
-type LoadConversationMessagesResult =
-  | { ok: true }
-  | { ok: false; status?: number; message: string };
-
-export type StartupPhase = "starting-backend" | "initializing-agent" | "ready";
-
-export type StartupErrorReason =
-  | "backend-timeout"
-  | "backend-unreachable"
-  | "agent-timeout"
-  | "agent-error";
-
-export interface StartupErrorState {
-  reason: StartupErrorReason;
-  phase: StartupPhase;
-  message: string;
-  detail?: string;
-  status?: number;
-  path?: string;
-}
-
-const AGENT_READY_TIMEOUT_MS = 90_000;
-
-interface ApiLikeError {
-  kind?: string;
-  status?: number;
-  path?: string;
-  message?: string;
-}
-
-function asApiLikeError(err: unknown): ApiLikeError | null {
-  if (!isRecord(err)) return null;
-  const kind = err.kind;
-  const status = err.status;
-  const path = err.path;
-  const message = err.message;
-  const hasApiShape =
-    typeof kind === "string" ||
-    typeof status === "number" ||
-    typeof path === "string";
-  if (!hasApiShape) return null;
-  return {
-    kind: typeof kind === "string" ? kind : undefined,
-    status: typeof status === "number" ? status : undefined,
-    path: typeof path === "string" ? path : undefined,
-    message: typeof message === "string" ? message : undefined,
-  };
-}
-
-function formatStartupErrorDetail(err: unknown): string | undefined {
-  const apiErr = asApiLikeError(err);
-  if (apiErr) {
-    const parts: string[] = [];
-    if (apiErr.path) parts.push(apiErr.path);
-    if (typeof apiErr.status === "number") parts.push(`HTTP ${apiErr.status}`);
-    if (apiErr.message) parts.push(apiErr.message);
-    return parts.filter(Boolean).join(" - ");
-  }
-  if (err instanceof Error && err.message.trim()) {
-    return err.message.trim();
-  }
-  return undefined;
-}
-
-export interface ChatTurnUsage extends ChatTokenUsage {
-  updatedAt: number;
-}
-
-// ── Context value type ─────────────────────────────────────────────────
-
-export interface AppState {
-  // Core
-  tab: Tab;
-  uiShellMode: UiShellMode;
-  currentTheme: ThemeName;
-  uiLanguage: UiLanguage;
-  connected: boolean;
-  agentStatus: AgentStatus | null;
-  onboardingComplete: boolean;
-  onboardingLoading: boolean;
-  startupPhase: StartupPhase;
-  startupError: StartupErrorState | null;
-  authRequired: boolean;
-  actionNotice: ActionNotice | null;
-  lifecycleBusy: boolean;
-  lifecycleAction: LifecycleAction | null;
-
-  // Deferred restart
-  pendingRestart: boolean;
-  pendingRestartReasons: string[];
-  restartBannerDismissed: boolean;
-
-  // Backend connection state (for crash handling)
-  backendConnection: {
-    state: "connected" | "disconnected" | "reconnecting" | "failed";
-    reconnectAttempt: number;
-    maxReconnectAttempts: number;
-    showDisconnectedUI: boolean;
-  };
-  backendDisconnectedBannerDismissed: boolean;
-
-  // System warnings
-  systemWarnings: string[];
-
-  // Pairing
-  pairingEnabled: boolean;
-  pairingExpiresAt: number | null;
-  pairingCodeInput: string;
-  pairingError: string | null;
-  pairingBusy: boolean;
-
-  // Chat
-  chatInput: string;
-  chatSending: boolean;
-  chatFirstTokenReceived: boolean;
-  chatLastUsage: ChatTurnUsage | null;
-  chatAvatarVisible: boolean;
-  chatAgentVoiceMuted: boolean;
-  chatMode: ConversationMode;
-  chatAvatarSpeaking: boolean;
-  conversations: Conversation[];
-  activeConversationId: string | null;
-  conversationMessages: ConversationMessage[];
-  autonomousEvents: StreamEventEnvelope[];
-  autonomousLatestEventId: string | null;
-  autonomousRunHealthByRunId: AutonomyRunHealthMap;
-  /** Active PTY coding agent sessions from the SwarmCoordinator. */
-  ptySessions: CodingAgentSession[];
-  /** Conversation IDs with unread proactive messages from the agent. */
-  unreadConversations: Set<string>;
-
-  // Triggers
-  triggers: TriggerSummary[];
-  triggersLoading: boolean;
-  triggersSaving: boolean;
-  triggerRunsById: Record<string, TriggerRunRecord[]>;
-  triggerHealth: TriggerHealthSnapshot | null;
-  triggerError: string | null;
-
-  // Plugins
-  plugins: PluginInfo[];
-  pluginFilter: "all" | "ai-provider" | "connector" | "feature" | "streaming";
-  pluginStatusFilter: "all" | "enabled" | "disabled";
-  pluginSearch: string;
-  pluginSettingsOpen: Set<string>;
-  pluginAdvancedOpen: Set<string>;
-  pluginSaving: Set<string>;
-  pluginSaveSuccess: Set<string>;
-
-  // Skills
-  skills: SkillInfo[];
-  skillsSubTab: "my" | "browse";
-  skillCreateFormOpen: boolean;
-  skillCreateName: string;
-  skillCreateDescription: string;
-  skillCreating: boolean;
-  skillReviewReport: SkillScanReportSummary | null;
-  skillReviewId: string;
-  skillReviewLoading: boolean;
-  skillToggleAction: string;
-  skillsMarketplaceQuery: string;
-  skillsMarketplaceResults: SkillMarketplaceResult[];
-  skillsMarketplaceError: string;
-  skillsMarketplaceLoading: boolean;
-  skillsMarketplaceAction: string;
-  skillsMarketplaceManualGithubUrl: string;
-
-  // Logs
-  logs: LogEntry[];
-  logSources: string[];
-  logTags: string[];
-  logTagFilter: string;
-  logLevelFilter: string;
-  logSourceFilter: string;
-
-  // Wallet / Inventory
-  walletAddresses: WalletAddresses | null;
-  walletConfig: WalletConfigStatus | null;
-  walletBalances: WalletBalancesResponse | null;
-  walletNfts: WalletNftsResponse | null;
-  walletLoading: boolean;
-  walletNftsLoading: boolean;
-  inventoryView: "tokens" | "nfts";
-  walletExportData: WalletExportResult | null;
-  walletExportVisible: boolean;
-  walletApiKeySaving: boolean;
-  inventorySort: "chain" | "symbol" | "value";
-  inventoryChainFocus: "bsc" | "all";
-  walletError: string | null;
-
-  // ERC-8004 Registry
-  registryStatus: RegistryStatus | null;
-  registryLoading: boolean;
-  registryRegistering: boolean;
-  registryError: string | null;
-
-  // Drop / Mint
-  dropStatus: DropStatus | null;
-  dropLoading: boolean;
-  mintInProgress: boolean;
-  mintResult: MintResult | null;
-  mintError: string | null;
-  mintShiny: boolean;
-
-  // Whitelist
-  whitelistStatus: WhitelistStatus | null;
-  whitelistLoading: boolean;
-  twitterVerifyMessage: string | null;
-  twitterVerifyUrl: string;
-  twitterVerifying: boolean;
-
-  // Character
-  characterData: CharacterData | null;
-  characterLoading: boolean;
-  characterSaving: boolean;
-  characterSaveSuccess: string | null;
-  characterSaveError: string | null;
-  characterDraft: CharacterData;
-  selectedVrmIndex: number;
-  customVrmUrl: string;
-  customBackgroundUrl: string;
-
-  // Cloud
-  cloudEnabled: boolean;
-  cloudConnected: boolean;
-  cloudCredits: number | null;
-  cloudCreditsLow: boolean;
-  cloudCreditsCritical: boolean;
-  cloudTopUpUrl: string;
-  cloudUserId: string | null;
-  cloudLoginBusy: boolean;
-  cloudLoginError: string | null;
-  cloudDisconnecting: boolean;
-
-  // Updates
-  updateStatus: UpdateStatus | null;
-  updateLoading: boolean;
-  updateChannelSaving: boolean;
-
-  // Extension
-  extensionStatus: ExtensionStatus | null;
-  extensionChecking: boolean;
-
-  // Store
-  storePlugins: RegistryPlugin[];
-  storeSearch: string;
-  storeFilter: "all" | "installed" | "ai-provider" | "connector" | "feature";
-  storeLoading: boolean;
-  storeInstalling: Set<string>;
-  storeUninstalling: Set<string>;
-  storeError: string | null;
-  storeDetailPlugin: RegistryPlugin | null;
-  storeSubTab: "plugins" | "skills";
-
-  // Catalog
-  catalogSkills: CatalogSkill[];
-  catalogTotal: number;
-  catalogPage: number;
-  catalogTotalPages: number;
-  catalogSort: "downloads" | "stars" | "updated" | "name";
-  catalogSearch: string;
-  catalogLoading: boolean;
-  catalogError: string | null;
-  catalogDetailSkill: CatalogSkill | null;
-  catalogInstalling: Set<string>;
-  catalogUninstalling: Set<string>;
-
-  // Workbench
-  workbenchLoading: boolean;
-  workbench: WorkbenchOverview | null;
-  workbenchTasksAvailable: boolean;
-  workbenchTriggersAvailable: boolean;
-  workbenchTodosAvailable: boolean;
-
-  // Agent export/import
-  exportBusy: boolean;
-  exportPassword: string;
-  exportIncludeLogs: boolean;
-  exportError: string | null;
-  exportSuccess: string | null;
-  importBusy: boolean;
-  importPassword: string;
-  importFile: File | null;
-  importError: string | null;
-  importSuccess: string | null;
-
-  // Onboarding
-  onboardingStep: OnboardingStep;
-  onboardingOptions: OnboardingOptions | null;
-  onboardingName: string;
-  onboardingOwnerName: string;
-  onboardingSetupMode: "" | "quick" | "advanced";
-  onboardingStyle: string;
-  onboardingTheme: ThemeName;
-  onboardingRunMode: "local-rawdog" | "local-sandbox" | "cloud" | "";
-  onboardingCloudProvider: string;
-  onboardingSmallModel: string;
-  onboardingLargeModel: string;
-  onboardingProvider: string;
-  onboardingApiKey: string;
-  onboardingOpenRouterModel: string;
-  onboardingPrimaryModel: string;
-  onboardingTelegramToken: string;
-  onboardingDiscordToken: string;
-  onboardingWhatsAppSessionPath: string;
-  onboardingTwilioAccountSid: string;
-  onboardingTwilioAuthToken: string;
-  onboardingTwilioPhoneNumber: string;
-  onboardingBlooioApiKey: string;
-  onboardingBlooioPhoneNumber: string;
-  onboardingGithubToken: string;
-  onboardingSubscriptionTab: "token" | "oauth";
-  onboardingElizaCloudTab: "login" | "apikey";
-  onboardingSelectedChains: Set<string>;
-  onboardingRpcSelections: Record<string, string>;
-  onboardingRpcKeys: Record<string, string>;
-  onboardingAvatar: number;
-  onboardingRestarting: boolean;
-
-  // Command palette
-  commandPaletteOpen: boolean;
-  commandQuery: string;
-  commandActiveIndex: number;
-  closeCommandPalette: () => void;
-
-  // Emote picker
-  emotePickerOpen: boolean;
-
-  // MCP
-  mcpConfiguredServers: Record<string, McpServerConfig>;
-  mcpServerStatuses: McpServerStatus[];
-  mcpMarketplaceQuery: string;
-  mcpMarketplaceResults: McpMarketplaceResult[];
-  mcpMarketplaceLoading: boolean;
-  mcpAction: string;
-  mcpAddingServer: McpRegistryServerDetail | null;
-  mcpAddingResult: McpMarketplaceResult | null;
-  mcpEnvInputs: Record<string, string>;
-  mcpHeaderInputs: Record<string, string>;
-
-  // Share ingest
-  droppedFiles: string[];
-  shareIngestNotice: string;
-
-  // Chat image attachments queued for the next message
-  chatPendingImages: ImageAttachment[];
-
-  // Game
-  activeGameApp: string;
-  activeGameDisplayName: string;
-  activeGameViewerUrl: string;
-  activeGameSandbox: string;
-  activeGamePostMessageAuth: boolean;
-  activeGamePostMessagePayload: GamePostMessageAuthPayload | null;
-
-  /** When true, the game iframe persists as a floating overlay across all tabs. */
-  gameOverlayEnabled: boolean;
-
-  // Sub-tabs
-  appsSubTab: "browse" | "games";
-  agentSubTab: "character" | "inventory" | "knowledge";
-  pluginsSubTab: "features" | "connectors" | "plugins";
-  databaseSubTab: "tables" | "media" | "vectors";
-
-  // Config text
-  configRaw: Record<string, unknown>;
-  configText: string;
-}
-
-export interface AppActions {
-  // Navigation
-  setTab: (tab: Tab) => void;
-  setUiShellMode: (mode: UiShellMode) => void;
-  setTheme: (theme: ThemeName) => void;
-  setUiLanguage: (language: UiLanguage) => void;
-
-  // Lifecycle
-  handleStart: () => Promise<void>;
-  handleStop: () => Promise<void>;
-  handlePauseResume: () => Promise<void>;
-  handleRestart: () => Promise<void>;
-  handleReset: () => Promise<void>;
-  retryStartup: () => void;
-  dismissRestartBanner: () => void;
-  triggerRestart: () => Promise<void>;
-  dismissBackendDisconnectedBanner: () => void;
-  retryBackendConnection: () => void;
-  restartBackend: () => Promise<void>;
-  dismissSystemWarning: (message: string) => void;
-
-  // Chat
-  handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
-  handleChatStop: () => void;
-  handleChatRetry: (assistantMsgId: string) => void;
-  handleChatClear: () => Promise<void>;
-  handleNewConversation: () => Promise<void>;
-  setChatPendingImages: React.Dispatch<React.SetStateAction<ImageAttachment[]>>;
-  handleSelectConversation: (id: string) => Promise<void>;
-  handleDeleteConversation: (id: string) => Promise<void>;
-  handleRenameConversation: (id: string, title: string) => Promise<void>;
-  /** Send a programmatic message (e.g. from a UiSpec action) without touching chatInput. */
-  sendActionMessage: (text: string) => Promise<void>;
-
-  // Triggers
-  loadTriggers: () => Promise<void>;
-  createTrigger: (
-    request: CreateTriggerRequest,
-  ) => Promise<TriggerSummary | null>;
-  updateTrigger: (
-    id: string,
-    request: UpdateTriggerRequest,
-  ) => Promise<TriggerSummary | null>;
-  deleteTrigger: (id: string) => Promise<boolean>;
-  runTriggerNow: (id: string) => Promise<boolean>;
-  loadTriggerRuns: (id: string) => Promise<void>;
-  loadTriggerHealth: () => Promise<void>;
-
-  // Pairing
-  handlePairingSubmit: () => Promise<void>;
-
-  // Plugins
-  loadPlugins: () => Promise<void>;
-  handlePluginToggle: (pluginId: string, enabled: boolean) => Promise<void>;
-  handlePluginConfigSave: (
-    pluginId: string,
-    config: Record<string, string>,
-  ) => Promise<void>;
-
-  // Skills
-  loadSkills: () => Promise<void>;
-  refreshSkills: () => Promise<void>;
-  handleSkillToggle: (skillId: string, enabled: boolean) => Promise<void>;
-  handleCreateSkill: () => Promise<void>;
-  handleOpenSkill: (skillId: string) => Promise<void>;
-  handleDeleteSkill: (skillId: string, name: string) => Promise<void>;
-  handleReviewSkill: (skillId: string) => Promise<void>;
-  handleAcknowledgeSkill: (skillId: string) => Promise<void>;
-  searchSkillsMarketplace: () => Promise<void>;
-  installSkillFromMarketplace: (item: SkillMarketplaceResult) => Promise<void>;
-  uninstallMarketplaceSkill: (skillId: string, name: string) => Promise<void>;
-  installSkillFromGithubUrl: () => Promise<void>;
-
-  // Logs
-  loadLogs: () => Promise<void>;
-
-  // Inventory
-  loadInventory: () => Promise<void>;
-  loadBalances: () => Promise<void>;
-  loadNfts: () => Promise<void>;
-  executeBscTrade: (
-    request: BscTradeExecuteRequest,
-  ) => Promise<BscTradeExecuteResponse>;
-  executeBscTransfer: (
-    request: BscTransferExecuteRequest,
-  ) => Promise<BscTransferExecuteResponse>;
-  getBscTradePreflight: (
-    tokenAddress?: string,
-  ) => Promise<BscTradePreflightResponse>;
-  getBscTradeQuote: (
-    request: BscTradeQuoteRequest,
-  ) => Promise<BscTradeQuoteResponse>;
-  getBscTradeTxStatus: (hash: string) => Promise<BscTradeTxStatusResponse>;
-  loadWalletTradingProfile: (
-    window?: WalletTradingProfileWindow,
-    source?: WalletTradingProfileSourceFilter,
-  ) => Promise<WalletTradingProfileResponse>;
-  handleWalletApiKeySave: (config: Record<string, string>) => Promise<void>;
-  handleExportKeys: () => Promise<void>;
-
-  // Registry / Drop
-  loadRegistryStatus: () => Promise<void>;
-  registerOnChain: () => Promise<void>;
-  syncRegistryProfile: () => Promise<void>;
-  loadDropStatus: () => Promise<void>;
-  mintFromDrop: (shiny: boolean) => Promise<void>;
-  loadWhitelistStatus: () => Promise<void>;
-
-  // Character
-  loadCharacter: () => Promise<void>;
-  handleSaveCharacter: () => Promise<void>;
-  handleCharacterFieldInput: <K extends keyof CharacterData>(
-    field: K,
-    value: CharacterData[K],
-  ) => void;
-  handleCharacterArrayInput: (
-    field: "adjectives" | "topics" | "postExamples",
-    value: string,
-  ) => void;
-  handleCharacterStyleInput: (
-    subfield: "all" | "chat" | "post",
-    value: string,
-  ) => void;
-  handleCharacterMessageExamplesInput: (value: string) => void;
-
-  // Onboarding
-  handleOnboardingNext: (options?: OnboardingNextOptions) => Promise<void>;
-  handleOnboardingBack: () => void;
-
-  // Cloud
-  handleCloudLogin: () => Promise<void>;
-  handleCloudDisconnect: () => Promise<void>;
-
-  // Updates
-  loadUpdateStatus: (force?: boolean) => Promise<void>;
-  handleChannelChange: (channel: ReleaseChannel) => Promise<void>;
-
-  // Extension
-  checkExtensionStatus: () => Promise<void>;
-
-  // Emote picker
-  openEmotePicker: () => void;
-  closeEmotePicker: () => void;
-
-  // Workbench
-  loadWorkbench: () => Promise<void>;
-
-  // Agent export/import
-  handleAgentExport: () => Promise<void>;
-  handleAgentImport: () => Promise<void>;
-
-  // Action notice
-  setActionNotice: (
-    text: string,
-    tone?: "info" | "success" | "error",
-    ttlMs?: number,
-  ) => void;
-
-  // Generic state setter
-  setState: <K extends keyof AppState>(key: K, value: AppState[K]) => void;
-
-  // Clipboard
-  copyToClipboard: (text: string) => Promise<void>;
-}
-
-type AppContextValue = AppState & AppActions;
-
-const AppContext = createContext<AppContextValue | null>(null);
-
-export function useApp(): AppContextValue {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used within AppProvider");
-  return ctx;
-}
+export {
+  type ActionNotice,
+  AGENT_READY_TIMEOUT_MS,
+  AGENT_STATES,
+  AGENT_TRANSFER_MIN_PASSWORD_LENGTH,
+  type AppActions,
+  AppContext,
+  type AppContextValue,
+  type AppState,
+  asApiLikeError,
+  type ChatTurnUsage,
+  computeStreamingDelta,
+  formatSearchBullet,
+  formatStartupErrorDetail,
+  type GamePostMessageAuthPayload,
+  getVrmBackgroundUrl,
+  getVrmPreviewUrl,
+  getVrmTitle,
+  getVrmUrl,
+  isOfficialVrmIndex,
+  LIFECYCLE_MESSAGES,
+  type LifecycleAction,
+  type LoadConversationMessagesResult,
+  loadAvatarIndex,
+  loadChatAvatarVisible,
+  loadChatMode,
+  loadChatVoiceMuted,
+  loadUiLanguage,
+  loadUiShellMode,
+  normalizeAvatarIndex,
+  normalizeCustomActionName,
+  normalizeStreamComparisonText,
+  normalizeUiShellMode,
+  ONBOARDING_PERMISSION_LABELS,
+  type OnboardingNextOptions,
+  type OnboardingStep,
+  parseAgentStartupDiagnostics,
+  parseAgentStatusEvent,
+  parseConversationMessageEvent,
+  parseCustomActionParams,
+  parseProactiveMessageEvent,
+  parseSlashCommandInput,
+  parseStreamEventEnvelopeEvent,
+  type SlashCommandInput,
+  type StartupErrorReason,
+  type StartupErrorState,
+  type StartupPhase,
+  saveAvatarIndex,
+  saveChatAvatarVisible,
+  saveChatMode,
+  saveChatVoiceMuted,
+  saveUiLanguage,
+  saveUiShellMode,
+  shouldApplyFinalStreamText,
+  type UiShellMode,
+  useApp,
+  VRM_COUNT,
+} from "@milady/app-core/state";
+
+import { ConfirmModal, useConfirm } from "@milady/app-core/components";
 
 // ── Provider ───────────────────────────────────────────────────────────
 
@@ -1305,7 +206,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tab, setTabRaw] = useState<Tab>("chat");
   const [uiShellMode, setUiShellModeState] =
     useState<UiShellMode>(loadUiShellMode);
-  const [currentTheme, setCurrentTheme] = useState<ThemeName>(loadTheme);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -1516,9 +416,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [inventorySort, setInventorySort] = useState<
     "chain" | "symbol" | "value"
   >("value");
-  const [inventoryChainFocus, setInventoryChainFocus] = useState<"bsc" | "all">(
-    "bsc",
-  );
+  const [inventoryChainFocus, setInventoryChainFocus] = useState<string>("bsc");
   const [walletError, setWalletError] = useState<string | null>(null);
 
   // --- ERC-8004 Registry ---
@@ -1571,19 +469,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     client.saveStreamSettings({ avatarIndex: normalized }).catch(() => {});
   }, []);
 
-  // --- Cloud ---
-  const [cloudEnabled, setCloudEnabled] = useState(false);
-  const [cloudConnected, setCloudConnected] = useState(false);
-  const [cloudCredits, setCloudCredits] = useState<number | null>(null);
-  const [cloudCreditsLow, setCloudCreditsLow] = useState(false);
-  const [cloudCreditsCritical, setCloudCreditsCritical] = useState(false);
-  const [cloudTopUpUrl, setCloudTopUpUrl] = useState(
-    "https://www.elizacloud.ai/dashboard/settings?tab=billing",
+  // --- Milady Cloud ---
+  const [miladyCloudEnabled, setMiladyCloudEnabled] = useState(false);
+  const [miladyCloudConnected, setMiladyCloudConnected] = useState(false);
+  const [miladyCloudCredits, setMiladyCloudCredits] = useState<number | null>(
+    null,
   );
-  const [cloudUserId, setCloudUserId] = useState<string | null>(null);
-  const [cloudLoginBusy, setCloudLoginBusy] = useState(false);
-  const [cloudLoginError, setCloudLoginError] = useState<string | null>(null);
-  const [cloudDisconnecting, setCloudDisconnecting] = useState(false);
+  const [miladyCloudCreditsLow, setMiladyCloudCreditsLow] = useState(false);
+  const [miladyCloudCreditsCritical, setMiladyCloudCreditsCritical] =
+    useState(false);
+  const [miladyCloudTopUpUrl, setMiladyCloudTopUpUrl] =
+    useState("/cloud/billing");
+  const [miladyCloudUserId, setMiladyCloudUserId] = useState<string | null>(
+    null,
+  );
+  const [miladyCloudLoginBusy, setMiladyCloudLoginBusy] = useState(false);
+  const [miladyCloudLoginError, setMiladyCloudLoginError] = useState<
+    string | null
+  >(null);
+  const [miladyCloudDisconnecting, setMiladyCloudDisconnecting] =
+    useState(false);
 
   // --- Updates ---
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -1660,13 +565,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<OnboardingStep>("welcome");
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
-  const [onboardingName, setOnboardingName] = useState("");
+  const [onboardingName, setOnboardingName] = useState("Eliza");
   const [onboardingOwnerName, setOnboardingOwnerName] = useState("anon");
   const [onboardingSetupMode, setOnboardingSetupMode] = useState<
     "" | "quick" | "advanced"
   >("");
   const [onboardingStyle, setOnboardingStyle] = useState("");
-  const [onboardingTheme, setOnboardingTheme] = useState<ThemeName>(loadTheme);
   const [onboardingRunMode, setOnboardingRunMode] = useState<
     "local-rawdog" | "local-sandbox" | "cloud" | ""
   >("");
@@ -1699,7 +603,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingSubscriptionTab, setOnboardingSubscriptionTab] = useState<
     "token" | "oauth"
   >("token");
-  const [onboardingElizaCloudTab, setOnboardingElizaCloudTab] = useState<
+  const [onboardingMiladyCloudTab, setOnboardingMiladyCloudTab] = useState<
     "login" | "apikey"
   >("login");
   const [onboardingSelectedChains, setOnboardingSelectedChains] = useState<
@@ -1784,8 +688,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Refs for timers ---
   const actionNoticeTimer = useRef<number | null>(null);
-  const cloudPollInterval = useRef<number | null>(null);
-  const cloudLoginPollTimer = useRef<number | null>(null);
+  const miladyCloudPollInterval = useRef<number | null>(null);
+  const miladyCloudLoginPollTimer = useRef<number | null>(null);
   const prevAgentStateRef = useRef<string | null>(null);
   const lifecycleBusyRef = useRef(false);
   const lifecycleActionRef = useRef<LifecycleAction | null>(null);
@@ -1804,11 +708,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Synchronous lock for wallet API key save to prevent duplicate clicks in the same tick. */
   const walletApiKeySavingRef = useRef(false);
   /** Synchronous lock for cloud login action to prevent duplicate clicks in the same tick. */
-  const cloudLoginBusyRef = useRef(false);
+  const miladyCloudLoginBusyRef = useRef(false);
   /** Synchronous lock for update channel changes to prevent duplicate submits. */
   const updateChannelSavingRef = useRef(false);
   /** Synchronous lock for onboarding completion submit to prevent duplicate clicks. */
   const onboardingFinishSavingRef = useRef(false);
+
+  // --- Confirm Modal ---
+  const { confirm: confirmModal, modalProps } = useConfirm();
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -1847,14 +754,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ── Theme ──────────────────────────────────────────────────────────
-
-  const setTheme = useCallback((name: ThemeName) => {
-    setCurrentTheme(name);
-    applyTheme(name);
-    // Sync to server so headless stream capture uses the same theme
-    client.saveStreamSettings({ theme: name }).catch(() => {});
-  }, []);
+  // ── Language ────────────────────────────────────────────────────────
 
   const setUiLanguage = useCallback(
     (language: UiLanguage) => {
@@ -2435,40 +1335,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setExtensionChecking(false);
   }, []);
 
-  const pollCloudCredits = useCallback(async () => {
+  const pollCloudCredits = useCallback(async (): Promise<boolean> => {
     const cloudStatus = await client.getCloudStatus().catch(() => null);
     if (!cloudStatus) {
-      setCloudConnected(false);
-      setCloudCredits(null);
-      setCloudCreditsLow(false);
-      setCloudCreditsCritical(false);
-      return;
+      setMiladyCloudConnected(false);
+      setMiladyCloudCredits(null);
+      setMiladyCloudCreditsLow(false);
+      setMiladyCloudCreditsCritical(false);
+      return false;
     }
     // A cached cloud API key represents a completed login and should be shared
     // across all views, even before runtime CLOUD_AUTH fully initializes.
     const isConnected = Boolean(cloudStatus.connected || cloudStatus.hasApiKey);
-    setCloudEnabled(Boolean(cloudStatus.enabled ?? false));
-    setCloudConnected(Boolean(isConnected));
-    setCloudUserId(cloudStatus.userId ?? null);
-    if (cloudStatus.topUpUrl) setCloudTopUpUrl(cloudStatus.topUpUrl);
+    setMiladyCloudEnabled(Boolean(cloudStatus.enabled ?? false));
+    setMiladyCloudConnected(isConnected);
+    setMiladyCloudUserId(cloudStatus.userId ?? null);
+    if (cloudStatus.topUpUrl) setMiladyCloudTopUpUrl(cloudStatus.topUpUrl);
     if (isConnected) {
       const credits = await client.getCloudCredits().catch(() => null);
       if (credits && typeof credits.balance === "number") {
-        setCloudCredits(credits.balance);
-        setCloudCreditsLow(credits.low ?? false);
-        setCloudCreditsCritical(credits.critical ?? false);
-        if (credits.topUpUrl) setCloudTopUpUrl(credits.topUpUrl);
+        setMiladyCloudCredits(credits.balance);
+        setMiladyCloudCreditsLow(credits.low ?? false);
+        setMiladyCloudCreditsCritical(credits.critical ?? false);
+        if (credits.topUpUrl) setMiladyCloudTopUpUrl(credits.topUpUrl);
       } else {
-        setCloudCredits(null);
-        setCloudCreditsLow(false);
-        setCloudCreditsCritical(false);
-        if (credits?.topUpUrl) setCloudTopUpUrl(credits.topUpUrl);
+        setMiladyCloudCredits(null);
+        setMiladyCloudCreditsLow(false);
+        setMiladyCloudCreditsCritical(false);
+        if (credits?.topUpUrl) setMiladyCloudTopUpUrl(credits.topUpUrl);
       }
     } else {
-      setCloudCredits(null);
-      setCloudCreditsLow(false);
-      setCloudCreditsCritical(false);
+      setMiladyCloudCredits(null);
+      setMiladyCloudCreditsLow(false);
+      setMiladyCloudCreditsCritical(false);
     }
+    return isConnected;
   }, []);
 
   // ── Lifecycle actions ──────────────────────────────────────────────
@@ -2550,6 +1451,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ? "resume"
           : null;
     if (!action) return;
+    if (action === "resume") {
+      const confirmed = await confirmModal({
+        title: "Enable Autonomous Mode",
+        message:
+          "Are you sure you want to enable autonomous mode? Auto mode runs the agent continuously and can be expensive.",
+        confirmLabel: "Enable",
+      });
+      if (!confirmed) return;
+    }
     if (!beginLifecycleAction(action)) return;
     setActionNotice(LIFECYCLE_MESSAGES[action].progress, "info", 3000);
     try {
@@ -2573,6 +1483,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [
     agentStatus,
     beginLifecycleAction,
+    confirmModal,
     finishLifecycleAction,
     setActionNotice,
   ]);
@@ -2741,46 +1652,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Chat ───────────────────────────────────────────────────────────
 
   /** Request an agent greeting for a conversation and add it to messages. */
-  const fetchGreeting = useCallback(async (convId: string) => {
-    setChatSending(true);
-    try {
-      const data = await client.requestGreeting(convId);
-      if (data.text) {
-        setConversationMessages((prev: ConversationMessage[]) => [
-          ...prev,
-          {
-            id: `greeting-${Date.now()}`,
-            role: "assistant",
-            text: data.text,
-            timestamp: Date.now(),
-          },
-        ]);
+  const fetchGreeting = useCallback(
+    async (convId: string) => {
+      setChatSending(true);
+      try {
+        const data = await client.requestGreeting(convId, uiLanguage);
+        if (data.text) {
+          setConversationMessages((prev: ConversationMessage[]) => [
+            ...prev,
+            {
+              id: `greeting-${Date.now()}`,
+              role: "assistant",
+              text: data.text,
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+      } catch {
+        /* greeting failed silently — user can still chat */
+      } finally {
+        setChatSending(false);
       }
-    } catch {
-      /* greeting failed silently — user can still chat */
-    } finally {
-      setChatSending(false);
-    }
-  }, []);
+    },
+    [uiLanguage],
+  );
 
-  const handleNewConversation = useCallback(async () => {
-    try {
-      const { conversation } = await client.createConversation();
-      setConversations((prev) => [conversation, ...prev]);
-      setActiveConversationId(conversation.id);
-      activeConversationIdRef.current = conversation.id;
-      setConversationMessages([]);
-      // Agent sends the first message
-      greetingFiredRef.current = true;
-      void fetchGreeting(conversation.id);
-      client.sendWsMessage({
-        type: "active-conversation",
-        conversationId: conversation.id,
-      });
-    } catch {
-      /* ignore */
-    }
-  }, [fetchGreeting]);
+  const handleNewConversation = useCallback(
+    async (title?: string) => {
+      try {
+        const { conversation } = await client.createConversation(title);
+        setConversations((prev) => [conversation, ...prev]);
+        setActiveConversationId(conversation.id);
+        activeConversationIdRef.current = conversation.id;
+        setConversationMessages([]);
+        // Agent sends the first message
+        greetingFiredRef.current = true;
+        void fetchGreeting(conversation.id);
+        client.sendWsMessage({
+          type: "active-conversation",
+          conversationId: conversation.id,
+        });
+      } catch {
+        /* ignore */
+      }
+    },
+    [fetchGreeting],
+  );
 
   const appendLocalCommandTurn = useCallback(
     (userText: string, assistantText: string) => {
@@ -2862,7 +1779,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const customAction = customActions.find(
           (action) =>
-            normalizeCustomActionName(action.name).toLowerCase() === slash.name,
+            `/${normalizeCustomActionName(action.name).toLowerCase()}` ===
+            slash.name,
         );
         if (customAction) {
           const { params, missingRequired } = parseCustomActionParams(
@@ -3230,6 +2148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: t is stable but defined later
   const sendActionMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -3241,7 +2160,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         let convId: string = activeConversationId ?? "";
         if (!convId) {
           try {
-            const { conversation } = await client.createConversation();
+            const { conversation } = await client.createConversation(
+              t("conversations.newChatTitle"),
+            );
             setConversations((prev) => [conversation, ...prev]);
             setActiveConversationId(conversation.id);
             activeConversationIdRef.current = conversation.id;
@@ -4289,7 +3210,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }> = [];
     if (isLocalMode) {
       for (const chain of onboardingSelectedChains) {
-        const rpcProvider = onboardingRpcSelections[chain] || "elizacloud";
+        const rpcProvider = onboardingRpcSelections[chain] || "miladycloud";
         const rpcApiKey =
           onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
         inventoryProviders.push({ chain, rpcProvider, rpcApiKey });
@@ -4308,7 +3229,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await client.submitOnboarding({
         name: onboardingName,
-        theme: onboardingTheme,
         runMode: apiRunMode as "local" | "cloud",
         sandboxMode:
           onboardingRunMode === "local-sandbox"
@@ -4368,7 +3288,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingOptions,
     onboardingStyle,
     onboardingName,
-    onboardingTheme,
     onboardingRunMode,
     onboardingCloudProvider,
     onboardingSmallModel,
@@ -4391,28 +3310,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTab,
   ]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: t is stable but defined later
   const handleOnboardingNext = useCallback(
     async (options?: OnboardingNextOptions) => {
       const opts = onboardingOptions;
       switch (onboardingStep) {
         case "welcome":
-          setOnboardingStep("name");
-          break;
-        case "name":
-          setOnboardingStep("ownerName");
-          break;
-        case "ownerName":
-          setOnboardingStep("avatar");
-          break;
-        case "avatar":
-          setOnboardingStep("style");
-          break;
-        case "style":
-          setOnboardingStep("theme");
-          break;
-        case "theme": {
-          setTheme(onboardingTheme);
-          // If drop is enabled and user hasn't minted, go to mint step
+        case "language":
+          // Auto-select first style if none chosen
+          if (!onboardingStyle && onboardingOptions?.styles?.length) {
+            setState(
+              "onboardingStyle",
+              onboardingOptions.styles[0].catchphrase,
+            );
+          }
           if (
             dropStatus?.dropEnabled &&
             !dropStatus.userHasMinted &&
@@ -4423,7 +3334,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setOnboardingStep("setupMode");
           }
           break;
-        }
+
         case "mint":
           setOnboardingStep("setupMode");
           break;
@@ -4456,11 +3367,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setOnboardingStep("modelSelection");
           break;
         case "modelSelection":
-          if (cloudConnected) {
-            setOnboardingStep("connectors");
-          } else {
-            setOnboardingStep("cloudLogin");
+          if (miladyCloudConnected) {
+            setTab("chat");
+            break;
           }
+          setOnboardingStep("cloudLogin");
           break;
         case "cloudLogin":
           setOnboardingStep("connectors");
@@ -4515,37 +3426,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onboardingStep,
       onboardingOptions,
       onboardingRunMode,
-      onboardingTheme,
       onboardingSetupMode,
-      setTheme,
-      cloudConnected,
+      miladyCloudConnected,
       setActionNotice,
       handleOnboardingFinish,
       dropStatus?.dropEnabled,
       dropStatus?.userHasMinted,
       dropStatus?.mintedOut,
+      setTab,
     ],
   );
 
   const handleOnboardingBack = useCallback(() => {
+    if (onboardingRunMode === "cloud") {
+      if (miladyCloudLoginPollTimer.current) {
+        clearInterval(miladyCloudLoginPollTimer.current);
+        miladyCloudLoginPollTimer.current = null;
+      }
+      miladyCloudLoginBusyRef.current = false;
+      setMiladyCloudLoginBusy(false);
+      setMiladyCloudLoginError(null);
+    }
+
     switch (onboardingStep) {
-      case "name":
-        setOnboardingStep("welcome");
-        break;
-      case "ownerName":
-        setOnboardingStep("name");
-        break;
-      case "avatar":
-        setOnboardingStep("ownerName");
-        break;
-      case "style":
-        setOnboardingStep("avatar");
-        break;
-      case "theme":
-        setOnboardingStep("style");
-        break;
       case "mint":
-        setOnboardingStep("theme");
+        setOnboardingStep("welcome"); // or "language" if enabled
         break;
       case "setupMode":
         if (
@@ -4555,7 +3460,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ) {
           setOnboardingStep("mint");
         } else {
-          setOnboardingStep("theme");
+          setOnboardingStep("welcome");
         }
         break;
       case "runMode":
@@ -4569,13 +3474,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         break;
       case "cloudLogin":
         setOnboardingStep("modelSelection");
-        if (cloudLoginPollTimer.current) {
-          clearInterval(cloudLoginPollTimer.current);
-          cloudLoginPollTimer.current = null;
-        }
-        cloudLoginBusyRef.current = false;
-        setCloudLoginBusy(false);
-        setCloudLoginError(null);
         break;
       case "dockerSetup":
         setOnboardingStep("runMode");
@@ -4595,7 +3493,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       case "connectors":
         // Go back to whichever path we came from
         if (onboardingRunMode === "cloud") {
-          setOnboardingStep("modelSelection");
+          setOnboardingStep("cloudLogin");
         } else {
           setOnboardingStep("inventorySetup");
         }
@@ -4620,56 +3518,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Cloud ──────────────────────────────────────────────────────────
 
   const handleCloudLogin = useCallback(async () => {
-    if (cloudLoginBusyRef.current || cloudLoginBusy) return;
-    cloudLoginBusyRef.current = true;
-    setCloudLoginBusy(true);
-    setCloudLoginError(null);
+    if (miladyCloudLoginBusyRef.current || miladyCloudLoginBusy) return;
+    miladyCloudLoginBusyRef.current = true;
+    setMiladyCloudLoginBusy(true);
+    setMiladyCloudLoginError(null);
     try {
       const resp = await client.cloudLogin();
-      if (!resp.ok) throw new Error("Failed to start login session");
-      // Use desktop IPC to open in the system browser — window.open() is
-      // a no-op in WKWebView (Electrobun) for external URLs.
-      const electronApi = (
-        window as {
-          electron?: {
-            ipcRenderer: {
-              invoke: (ch: string, p?: unknown) => Promise<unknown>;
-            };
-          };
-        }
-      ).electron;
-      if (electronApi?.ipcRenderer) {
-        await electronApi.ipcRenderer.invoke("desktop:openExternal", {
-          url: resp.browserUrl,
-        });
-      } else {
-        window.open(resp.browserUrl, "_blank");
+      if (!resp.ok) {
+        setMiladyCloudLoginError(
+          resp.error || "Failed to start Milady Cloud login",
+        );
+        miladyCloudLoginBusyRef.current = false;
+        setMiladyCloudLoginBusy(false);
+        return;
       }
-      // Poll for completion
-      let attempts = 0;
-      cloudLoginPollTimer.current = window.setInterval(async () => {
-        attempts++;
-        if (attempts > 120) {
-          if (cloudLoginPollTimer.current)
-            clearInterval(cloudLoginPollTimer.current);
-          setCloudLoginError("Login timed out. Please try again.");
-          cloudLoginBusyRef.current = false;
-          setCloudLoginBusy(false);
-          return;
+
+      // Open login in browser
+      if (resp.browserUrl) {
+        // Use desktop IPC to open in the system browser — window.open() is
+        // a no-op in WKWebView (Electrobun) for external URLs.
+        const electronApi = (
+          window as {
+            electron?: {
+              ipcRenderer: {
+                invoke: (ch: string, p?: unknown) => Promise<unknown>;
+              };
+            };
+          }
+        ).electron;
+        if (electronApi?.ipcRenderer) {
+          await electronApi.ipcRenderer.invoke("desktop:openExternal", {
+            url: resp.browserUrl,
+          });
+        } else {
+          window.open(resp.browserUrl, "_blank");
         }
+      }
+
+      // Start polling
+      miladyCloudLoginPollTimer.current = window.setInterval(async () => {
         try {
+          if (!miladyCloudLoginPollTimer.current) return;
           const poll = await client.cloudLoginPoll(resp.sessionId);
           if (poll.status === "authenticated") {
-            if (cloudLoginPollTimer.current)
-              clearInterval(cloudLoginPollTimer.current);
-            cloudLoginBusyRef.current = false;
-            setCloudLoginBusy(false);
-            // Immediately reflect the login in the UI — don't wait for the
-            // background poll which may race with the config save.
-            setCloudConnected(true);
-            setCloudEnabled(true);
+            if (miladyCloudLoginPollTimer.current)
+              clearInterval(miladyCloudLoginPollTimer.current);
+            miladyCloudLoginPollTimer.current = null;
+            miladyCloudLoginBusyRef.current = false;
+            setMiladyCloudLoginBusy(false);
+            setMiladyCloudConnected(true);
+            setMiladyCloudEnabled(true);
             setActionNotice(
-              "Logged in to Eliza Cloud successfully.",
+              "Logged in to Milady Cloud successfully.",
               "success",
               6000,
             );
@@ -4678,47 +3578,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // persist the API key before we query cloud status / credits.
             setTimeout(() => void pollCloudCredits(), 2000);
           } else if (poll.status === "expired" || poll.status === "error") {
-            if (cloudLoginPollTimer.current)
-              clearInterval(cloudLoginPollTimer.current);
-            setCloudLoginError(
-              poll.error ?? "Session expired. Please try again.",
+            if (miladyCloudLoginPollTimer.current)
+              clearInterval(miladyCloudLoginPollTimer.current);
+            miladyCloudLoginPollTimer.current = null;
+            setMiladyCloudLoginError(
+              poll.error ?? "Login session expired. Please try again.",
             );
-            cloudLoginBusyRef.current = false;
-            setCloudLoginBusy(false);
+            miladyCloudLoginBusyRef.current = false;
+            setMiladyCloudLoginBusy(false);
           }
-        } catch {
-          /* keep trying */
+        } catch (pollErr) {
+          // Keep polling unless explicit failure
+          console.error("Milady Cloud login poll error:", pollErr);
         }
       }, 1000);
     } catch (err) {
-      setCloudLoginError(err instanceof Error ? err.message : "Login failed");
-      cloudLoginBusyRef.current = false;
-      setCloudLoginBusy(false);
+      setMiladyCloudLoginError(
+        err instanceof Error ? err.message : "Milady Cloud login failed",
+      );
+      miladyCloudLoginBusyRef.current = false;
+      setMiladyCloudLoginBusy(false);
     }
-  }, [cloudLoginBusy, setActionNotice, pollCloudCredits, loadWalletConfig]);
+  }, [
+    miladyCloudLoginBusy,
+    setActionNotice,
+    pollCloudCredits,
+    loadWalletConfig,
+  ]);
 
   const handleCloudDisconnect = useCallback(async () => {
     if (
       !confirm(
-        "Disconnect from Eliza Cloud? The agent will need a local AI provider to continue working.",
+        "Disconnect from Milady Cloud? The agent will need a local AI provider to continue working.",
       )
     )
       return;
-    setCloudDisconnecting(true);
+    setMiladyCloudDisconnecting(true);
     try {
       await client.cloudDisconnect();
-      setCloudEnabled(false);
-      setCloudConnected(false);
-      setCloudCredits(null);
-      setCloudUserId(null);
-      setActionNotice("Disconnected from Eliza Cloud.", "success");
+      setMiladyCloudEnabled(false);
+      setMiladyCloudConnected(false);
+      setMiladyCloudCredits(null);
+      setMiladyCloudUserId(null);
+      setActionNotice("Disconnected from Milady Cloud.", "success");
     } catch (err) {
       setActionNotice(
-        `Disconnect failed: ${err instanceof Error ? err.message : "error"}`,
+        `Failed to disconnect: ${err instanceof Error ? err.message : err}`,
         "error",
       );
     } finally {
-      setCloudDisconnecting(false);
+      setMiladyCloudDisconnecting(false);
     }
   }, [setActionNotice]);
 
@@ -4900,7 +3809,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingOwnerName: setOnboardingOwnerName,
         onboardingSetupMode: setOnboardingSetupMode,
         onboardingStyle: setOnboardingStyle,
-        onboardingTheme: setOnboardingTheme,
         onboardingRunMode: setOnboardingRunMode,
         onboardingCloudProvider: setOnboardingCloudProvider,
         onboardingSmallModel: setOnboardingSmallModel,
@@ -4921,11 +3829,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingBlooioPhoneNumber: setOnboardingBlooioPhoneNumber,
         onboardingGithubToken: setOnboardingGithubToken,
         onboardingSubscriptionTab: setOnboardingSubscriptionTab,
-        onboardingElizaCloudTab: setOnboardingElizaCloudTab,
+        onboardingMiladyCloudTab: setOnboardingMiladyCloudTab,
         onboardingRpcKeys: setOnboardingRpcKeys,
         onboardingAvatar: setOnboardingAvatar,
         onboardingRestarting: setOnboardingRestarting,
-        cloudEnabled: setCloudEnabled,
+        miladyCloudEnabled: setMiladyCloudEnabled,
         selectedVrmIndex: setSelectedVrmIndex,
         customVrmUrl: setCustomVrmUrl,
         customBackgroundUrl: setCustomBackgroundUrl,
@@ -4988,8 +3896,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Initialization ─────────────────────────────────────────────────
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: t is stable but defined later
   useEffect(() => {
-    applyTheme(currentTheme);
     const startupRunId = startupRetryNonce;
     let unbindStatus: (() => void) | null = null;
     let unbindAgentEvents: (() => void) | null = null;
@@ -4997,6 +3905,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let unbindProactiveMessages: (() => void) | null = null;
     let handleVisibilityRef: (() => void) | null = null;
     let unbindWsReconnect: (() => void) | null = null;
+    let unbindSystemWarnings: (() => void) | null = null;
+    let unbindRestartRequired: (() => void) | null = null;
     let cancelled = false;
     const describeBackendFailure = (
       err: unknown,
@@ -5360,7 +4270,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           // First launch — create a conversation and greet
           try {
-            const { conversation } = await client.createConversation();
+            const { conversation } = await client.createConversation(
+              t("conversations.newChatTitle"),
+            );
             setConversations([conversation]);
             setActiveConversationId(conversation.id);
             activeConversationIdRef.current = conversation.id;
@@ -5388,7 +4300,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             greetingFiredRef.current = true;
             setChatSending(true);
             try {
-              const data = await client.requestGreeting(greetConvId);
+              const data = await client.requestGreeting(
+                greetConvId,
+                uiLanguage,
+              );
               if (data.text) {
                 setConversationMessages((prev: ConversationMessage[]) => [
                   ...prev,
@@ -5440,14 +4355,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       // Surface system-level warnings (connector failures, wiring exhaustion, etc.)
-      client.onWsEvent("system-warning", (data: Record<string, unknown>) => {
-        const message = typeof data.message === "string" ? data.message : "";
-        if (message) {
-          setSystemWarnings((prev) =>
-            prev.includes(message) ? prev : [...prev, message],
-          );
-        }
-      });
+      unbindSystemWarnings = client.onWsEvent(
+        "system-warning",
+        (data: Record<string, unknown>) => {
+          const message = typeof data.message === "string" ? data.message : "";
+          if (message) {
+            setSystemWarnings((prev) => {
+              if (prev.includes(message)) return prev;
+              const next = [...prev, message];
+              if (next.length > 50) next.splice(0, next.length - 50);
+              return next;
+            });
+          }
+        },
+      );
 
       // Re-hydrate when the tab becomes visible — browsers may throttle
       // or drop WS messages for background tabs.
@@ -5492,15 +4413,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         },
       );
-      client.onWsEvent("restart-required", (data: Record<string, unknown>) => {
-        if (Array.isArray(data.reasons)) {
-          setPendingRestartReasons(
-            data.reasons.filter((el): el is string => typeof el === "string"),
-          );
-          setPendingRestart(true);
-          setRestartBannerDismissed(false);
-        }
-      });
+      unbindRestartRequired = client.onWsEvent(
+        "restart-required",
+        (data: Record<string, unknown>) => {
+          if (Array.isArray(data.reasons)) {
+            setPendingRestartReasons(
+              data.reasons.filter((el): el is string => typeof el === "string"),
+            );
+            setPendingRestart(true);
+            setRestartBannerDismissed(false);
+          }
+        },
+      );
       unbindAgentEvents = client.onWsEvent(
         "agent_event",
         (data: Record<string, unknown>) => {
@@ -5783,12 +4707,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Cloud polling
-      pollCloudCredits();
-      cloudPollInterval.current = window.setInterval(
-        () => pollCloudCredits(),
-        60_000,
-      );
+      // Cloud polling — always run the initial poll unconditionally so we can
+      // discover a pre-existing API key / connection. If connected, start the
+      // recurring interval too.
+      pollCloudCredits().then((connected) => {
+        if (connected) {
+          miladyCloudPollInterval.current = window.setInterval(
+            () => pollCloudCredits(),
+            60_000,
+          );
+        }
+      });
 
       // Load tab from URL — use hash in file:// mode (Electron packaged builds)
       const navPath =
@@ -5837,14 +4766,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       window.removeEventListener(navEvent, handleNavChange);
-      if (cloudPollInterval.current) clearInterval(cloudPollInterval.current);
-      if (cloudLoginPollTimer.current)
-        clearInterval(cloudLoginPollTimer.current);
+      if (miladyCloudPollInterval.current)
+        clearInterval(miladyCloudPollInterval.current);
+      if (miladyCloudLoginPollTimer.current)
+        clearInterval(miladyCloudLoginPollTimer.current);
       unbindStatus?.();
       unbindAgentEvents?.();
       unbindHeartbeatEvents?.();
       unbindProactiveMessages?.();
       unbindWsReconnect?.();
+      unbindSystemWarnings?.();
+      unbindRestartRequired?.();
       if (handleVisibilityRef)
         document.removeEventListener("visibilitychange", handleVisibilityRef);
       client.disconnectWs();
@@ -5853,7 +4785,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [
     appendAutonomousEvent,
     checkExtensionStatus,
-    currentTheme,
     fetchAutonomyReplay,
     loadCharacter,
     loadInventory,
@@ -5865,6 +4796,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pollCloudCredits,
     setSelectedVrmIndex,
     startupRetryNonce,
+    uiLanguage,
   ]);
 
   // When agent transitions to "running", send a greeting if conversation is empty
@@ -5900,11 +4832,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Context value ──────────────────────────────────────────────────
 
+  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+
   const value: AppContextValue = {
+    // Translations
+    t,
     // State
     tab,
     uiShellMode,
-    currentTheme,
     uiLanguage,
     connected,
     agentStatus,
@@ -6015,16 +4950,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectedVrmIndex,
     customVrmUrl,
     customBackgroundUrl,
-    cloudEnabled,
-    cloudConnected,
-    cloudCredits,
-    cloudCreditsLow,
-    cloudCreditsCritical,
-    cloudTopUpUrl,
-    cloudUserId,
-    cloudLoginBusy,
-    cloudLoginError,
-    cloudDisconnecting,
+    miladyCloudEnabled,
+    miladyCloudConnected,
+    miladyCloudCredits,
+    miladyCloudCreditsLow,
+    miladyCloudCreditsCritical,
+    miladyCloudTopUpUrl,
+    miladyCloudUserId,
+    miladyCloudLoginBusy,
+    miladyCloudLoginError,
+    miladyCloudDisconnecting,
     updateStatus,
     updateLoading,
     updateChannelSaving,
@@ -6071,7 +5006,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingOwnerName,
     onboardingSetupMode,
     onboardingStyle,
-    onboardingTheme,
     onboardingRunMode,
     onboardingCloudProvider,
     onboardingSmallModel,
@@ -6090,7 +5024,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingBlooioPhoneNumber,
     onboardingGithubToken,
     onboardingSubscriptionTab,
-    onboardingElizaCloudTab,
+    onboardingMiladyCloudTab,
     onboardingSelectedChains,
     onboardingRpcSelections,
     onboardingRpcKeys,
@@ -6131,7 +5065,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Actions
     setTab,
     setUiShellMode,
-    setTheme,
     setUiLanguage,
     handleStart,
     handleStop,
@@ -6220,5 +5153,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     copyToClipboard,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <ConfirmModal {...modalProps} />
+    </AppContext.Provider>
+  );
 }

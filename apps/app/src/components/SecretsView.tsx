@@ -6,10 +6,12 @@
  * available secrets from plugins and pick which ones to manage here.
  */
 
+import type { SecretInfo } from "@milady/app-core/api";
+import { client } from "@milady/app-core/api";
+import { Button, Input } from "@milady/ui";
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SecretInfo } from "../api-client";
-import { client } from "../api-client";
+import { useApp } from "../AppContext";
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
@@ -80,6 +82,7 @@ function savePinnedKeys(keys: Set<string>) {
 /* ── Component ──────────────────────────────────────────────────────── */
 
 export function SecretsView() {
+  const { t } = useApp();
   const [allSecrets, setAllSecrets] = useState<SecretInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +211,7 @@ export function SecretsView() {
   if (loading) {
     return (
       <div className="text-[var(--muted)] text-[13px] italic py-8 text-center">
-        Loading secrets...
+        {t("secretsview.LoadingSecrets")}
       </div>
     );
   }
@@ -222,7 +225,7 @@ export function SecretsView() {
           className="text-[13px] text-[var(--accent)] bg-transparent border-0 cursor-pointer underline"
           onClick={load}
         >
-          Retry
+          {t("secretsview.Retry")}
         </button>
       </div>
     );
@@ -232,19 +235,19 @@ export function SecretsView() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <p className="text-[13px] text-[var(--muted)] m-0">
-          Manage API keys and credentials. Add secrets from your plugins, set
-          them once.
+          {t("secretsview.ManageAPIKeysAnd")}
         </p>
-        <button
-          type="button"
-          className="px-3 py-1.5 text-[13px] bg-[var(--accent)] text-white border-0 cursor-pointer hover:opacity-90 flex-shrink-0"
+        <Button
+          variant="default"
+          size="sm"
+          className="px-3 py-1.5 h-8 text-[13px] shadow-sm flex-shrink-0"
           onClick={() => {
             setPickerOpen(true);
             setPickerSearch("");
           }}
         >
-          + Add Secret
-        </button>
+          {t("secretsview.AddSecret")}
+        </Button>
       </div>
 
       {/* Picker modal */}
@@ -263,8 +266,7 @@ export function SecretsView() {
       {/* Empty state */}
       {vaultSecrets.length === 0 && (
         <div className="text-[var(--muted)] text-[13px] italic py-8 text-center border border-dashed border-[var(--border)]">
-          Your vault is empty. Click "Add Secret" to choose which API keys to
-          manage here.
+          {t("secretsview.YourVaultIsEmpty")}
         </div>
       )}
 
@@ -316,20 +318,17 @@ export function SecretsView() {
       {/* Save bar */}
       {vaultSecrets.length > 0 && (
         <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[var(--border)]">
-          <button
-            type="button"
-            className={`px-4 py-2 text-[13px] font-medium border-0 cursor-pointer transition-colors ${
-              dirtyKeys.length > 0
-                ? "bg-[var(--accent)] text-white"
-                : "bg-[var(--bg-card)] text-[var(--muted)] cursor-not-allowed"
-            }`}
+          <Button
+            variant="default"
+            size="sm"
+            className="px-4 py-2 h-9 text-[13px] font-medium shadow-sm transition-colors"
             disabled={dirtyKeys.length === 0 || saving}
             onClick={handleSave}
           >
             {saving
               ? "Saving..."
               : `Save${dirtyKeys.length > 0 ? ` (${dirtyKeys.length})` : ""}`}
-          </button>
+          </Button>
           {saveResult && (
             <span
               className={`text-[13px] ${saveResult.ok ? "text-[var(--ok)]" : "text-[var(--danger)]"}`}
@@ -358,6 +357,7 @@ function SecretPicker({
   onAdd: (key: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useApp();
   // Group available by category
   const grouped = useMemo(() => {
     return groupSecretsByCategory(available);
@@ -381,7 +381,7 @@ function SecretPicker({
       <div className="bg-[var(--bg)] border border-[var(--border)] w-[560px] max-h-[480px] flex flex-col shadow-2xl">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
           <span className="text-[14px] font-semibold text-[var(--txt)]">
-            Add Secrets to Vault
+            {t("secretsview.AddSecretsToVault")}
           </span>
           <button
             type="button"
@@ -391,10 +391,10 @@ function SecretPicker({
             x
           </button>
         </div>
-        <input
+        <Input
           type="text"
-          className="w-full px-4 py-2.5 border-b border-[var(--border)] bg-transparent text-[13px] text-[var(--txt)] outline-none font-body"
-          placeholder="Search by key, description, or plugin name..."
+          className="w-full px-4 py-2.5 h-12 border-0 border-b border-[var(--border)] bg-transparent text-[13px] text-[var(--txt)] shadow-none rounded-none focus-visible:ring-0 font-body"
+          placeholder={t("secretsview.SearchByKeyDescr")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -440,13 +440,14 @@ function SecretPicker({
                           )}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="px-2.5 py-1 text-[12px] bg-[var(--accent)] text-white border-0 cursor-pointer hover:opacity-90 flex-shrink-0"
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="px-2.5 py-1 h-7 text-[12px] shadow-sm flex-shrink-0"
                         onClick={() => onAdd(s.key)}
                       >
-                        Add
-                      </button>
+                        {t("secretsview.Add")}
+                      </Button>
                     </div>
                   );
                 })}
@@ -478,6 +479,7 @@ function SecretCard({
   onDraftChange: (val: string) => void;
   onRemove: () => void;
 }) {
+  const { t } = useApp();
   const enabledPlugins = secret.usedBy.filter((u) => u.enabled);
   const pluginList = secret.usedBy
     .map((u) => u.pluginName || u.pluginId)
@@ -510,7 +512,7 @@ function SecretCard({
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {showRequired && (
             <span className="text-[10px] text-[var(--danger)] font-medium px-1.5 py-0.5 border border-[var(--danger)] rounded">
-              Required
+              {t("secretsview.Required")}
             </span>
           )}
           {/* Remove from vault — only if not set (set secrets always show) or if explicitly pinned */}
@@ -519,7 +521,7 @@ function SecretCard({
               type="button"
               className="text-[11px] text-[var(--muted)] bg-transparent border-0 cursor-pointer hover:text-[var(--danger)]"
               onClick={onRemove}
-              title="Remove from vault"
+              title={t("secretsview.RemoveFromVault")}
             >
               x
             </button>
@@ -543,23 +545,24 @@ function SecretCard({
 
       {/* Input */}
       <div className="flex gap-1.5 items-center">
-        <input
+        <Input
           type={isVisible ? "text" : "password"}
-          className="flex-1 px-2.5 py-1.5 text-[13px] font-mono bg-[var(--bg)] border border-[var(--border)] text-[var(--txt)] outline-none focus:border-[var(--accent)]"
+          className="flex-1 px-2.5 py-1.5 h-8 text-[13px] font-mono bg-[var(--bg)] border border-[var(--border)] text-[var(--txt)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
           placeholder={
             secret.isSet ? "Enter new value to update" : "Enter value"
           }
           value={draftValue}
           onChange={(e) => onDraftChange(e.target.value)}
         />
-        <button
-          type="button"
-          className="px-2 py-1.5 text-[12px] bg-[var(--bg)] border border-[var(--border)] text-[var(--muted)] cursor-pointer hover:text-[var(--txt)]"
+        <Button
+          variant="outline"
+          size="sm"
+          className="px-2 py-1.5 h-8 text-[12px] bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--txt)] shadow-sm"
           onClick={onToggleVisible}
           title={isVisible ? "Hide" : "Show"}
         >
           {isVisible ? "Hide" : "Show"}
-        </button>
+        </Button>
       </div>
     </div>
   );

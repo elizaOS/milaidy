@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  createTranslator,
+  MESSAGES,
+  normalizeLanguage,
+  t,
+} from "@milady/app-core/i18n";
 import { describe, expect, it } from "vitest";
-import { createTranslator, normalizeLanguage, t } from "../../src/i18n";
-import { MESSAGES } from "../../src/i18n/messages";
 
 describe("i18n helpers", () => {
   it("normalizes supported language tags", () => {
@@ -72,6 +76,7 @@ describe("i18n helpers", () => {
     const exclusions = [
       path.join(sourceDir, "i18n", "messages.ts"),
       path.join(sourceDir, "components", "BubbleEmote.tsx"),
+      path.join(sourceDir, "onboarding-presets.ts"),
     ];
 
     const hasChinese = /[\u4e00-\u9fff]/;

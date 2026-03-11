@@ -316,6 +316,8 @@ function buildViewerConfig(
 function getWalletAddressesFromRuntime(
   runtime: IAgentRuntime | null | undefined,
 ): { evmAddress: string | null; solanaAddress: string | null } {
+  const PLACEHOLDER_RE =
+    /^\[?\s*(REDACTED|PLACEHOLDER|TODO|CHANGEME|EMPTY)\s*]?$/i;
   let evmAddress: string | null = null;
   let solanaAddress: string | null = null;
 
@@ -324,7 +326,7 @@ function getWalletAddressesFromRuntime(
     (runtime?.getSetting?.("EVM_PRIVATE_KEY") as string | undefined)?.trim() ||
     process.env.EVM_PRIVATE_KEY?.trim();
 
-  if (evmKey) {
+  if (evmKey && !PLACEHOLDER_RE.test(evmKey)) {
     try {
       evmAddress = deriveEvmAddress(evmKey);
     } catch (e) {
@@ -337,7 +339,7 @@ function getWalletAddressesFromRuntime(
       runtime?.getSetting?.("SOLANA_PRIVATE_KEY") as string | undefined
     )?.trim() || process.env.SOLANA_PRIVATE_KEY?.trim();
 
-  if (solKey) {
+  if (solKey && !PLACEHOLDER_RE.test(solKey)) {
     try {
       solanaAddress = deriveSolanaAddress(solKey);
     } catch (e) {

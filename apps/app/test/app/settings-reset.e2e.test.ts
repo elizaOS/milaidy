@@ -340,15 +340,15 @@ function createUIHarnessState(): AppHarnessState {
     skills: [],
     logs: [],
     currentTheme: "milady",
-    cloudEnabled: false,
-    cloudConnected: false,
-    cloudCredits: 0,
-    cloudCreditsLow: false,
-    cloudCreditsCritical: false,
-    cloudTopUpUrl: "",
-    cloudUserId: "",
-    cloudLoginBusy: false,
-    cloudLoginError: "",
+    miladyCloudEnabled: false,
+    miladyCloudConnected: false,
+    miladyCloudCredits: 0,
+    miladyCloudCreditsLow: false,
+    miladyCloudCreditsCritical: false,
+    miladyCloudTopUpUrl: "",
+    miladyCloudUserId: "",
+    miladyCloudLoginBusy: false,
+    miladyCloudLoginError: "",
     cloudDisconnecting: false,
     pluginSaving: false,
     pluginSaveSuccess: false,
@@ -374,11 +374,7 @@ describe("Settings Reset UI", () => {
 
     const handleReset = async () => {
       // Simulate the actual handleReset behavior
-      const confirmed = window.confirm(
-        "This will completely reset the agent — wiping all config, memory, and data.\n\n" +
-          "You will be taken back to the onboarding wizard.\n\n" +
-          "Are you sure?",
-      );
+      const confirmed = window.confirm("settings.resetConfirmMessage");
       if (!confirmed) return;
 
       handleResetCalled = true;
@@ -394,6 +390,7 @@ describe("Settings Reset UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       setState: (key: string, value: unknown) => {
         state[key] = value;
@@ -426,7 +423,8 @@ describe("Settings Reset UI", () => {
 
     // Find the Danger Zone text
     const dangerZoneText = renderedTree.root.findAll(
-      (node) => node.type === "span" && node.children.includes("Danger Zone"),
+      (node) =>
+        node.type === "span" && node.children.includes("settings.dangerZone"),
     );
     expect(dangerZoneText.length).toBeGreaterThan(0);
   });
@@ -445,7 +443,9 @@ describe("Settings Reset UI", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     );
     expect(resetButtons.length).toBeGreaterThan(0);
@@ -465,7 +465,9 @@ describe("Settings Reset UI", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     )[0];
 
@@ -498,7 +500,9 @@ describe("Settings Reset UI", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     )[0];
 
@@ -538,7 +542,9 @@ describe("Settings Reset UI", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     )[0];
 
@@ -585,6 +591,7 @@ describe("Reset to Onboarding Flow Integration", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       setState: (key: string, value: unknown) => {
         state[key] = value;
@@ -617,7 +624,9 @@ describe("Reset to Onboarding Flow Integration", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     )[0];
 
@@ -654,7 +663,9 @@ describe("Reset to Onboarding Flow Integration", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child.includes("Reset"),
+          (child) =>
+            typeof child === "string" &&
+            child.includes("settings.resetEverything"),
         ),
     )[0];
 

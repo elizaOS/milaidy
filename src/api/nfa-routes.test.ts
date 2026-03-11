@@ -5,7 +5,7 @@ import { handleNfaRoutes } from "./nfa-routes.js";
 
 // ── optional plugin mock (so tests pass when workspace package is missing) ───
 
-vi.mock("@milady/plugin-bnb-identity", () => {
+vi.mock("@elizaos/plugin-bnb-identity", () => {
   const { createHash } = require("node:crypto");
   function sha256(data: string): string {
     return createHash("sha256").update(data, "utf8").digest("hex");

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+
+import type { CustomActionDef } from "@milady/app-core/api";
 import React, { useEffect, useState } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CustomActionDef } from "../../src/api-client";
 
 const { mockClient, mockUseApp, mockUseVoiceChat } = vi.hoisted(() => ({
   mockClient: {
@@ -36,7 +37,7 @@ vi.mock("../../src/components/MessageContent", () => ({
     React.createElement("span", null, message.text),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClient,
 }));
 
@@ -78,6 +79,8 @@ function createContext(
     selectedVrmIndex: 0,
     chatPendingImages: [],
     ...overrides,
+    uiLanguage: "en" as const,
+    t: (k: string) => k,
   };
 }
 
@@ -109,8 +112,10 @@ function findInputByPlaceholder(
   placeholder: string,
 ): TestRenderer.ReactTestInstance {
   const found = root.root.findAll(
-    (n: TestRenderer.ReactTestInstance) =>
-      n.type === "input" && n.props.placeholder === placeholder,
+    (n) =>
+      n.type === "input" &&
+      typeof n.props.placeholder === "string" &&
+      n.props.placeholder.includes(placeholder),
   );
   expect(found.length).toBeGreaterThan(0);
   return found[0];
@@ -277,11 +282,14 @@ describe("custom actions smoke flow", () => {
 
     const title = tree?.root.findAll(
       (node: TestRenderer.ReactTestInstance) =>
-        node.type === "h2" && text(node) === "Custom Actions",
+        node.type === "h2" && text(node) === "customactionspanel.CustomActions",
     );
     expect(title.length).toBe(1);
 
-    const createButton = findButtonByText(tree, "+ New Custom Action");
+    const createButton = findButtonByText(
+      tree,
+      "customactionspanel.NewCustomAction",
+    );
     await act(async () => {
       createButton.props.onClick();
     });
@@ -295,7 +303,7 @@ describe("custom actions smoke flow", () => {
 
     const promptInput = findInputByPlaceholder(
       tree,
-      "e.g. Check if a website is up and return status",
+      "customactioneditor.eGCheckIfAWebs",
     );
     await act(async () => {
       promptInput.props.onChange({
@@ -314,13 +322,16 @@ describe("custom actions smoke flow", () => {
       "Build a URL health check action",
     );
 
-    const nameInput = findInputByPlaceholder(tree, "MY_ACTION");
+    const nameInput = findInputByPlaceholder(
+      tree,
+      "customactioneditor.MYACTION",
+    );
     expect(nameInput.props.value).toBe("CHECK_SITE");
 
     const descriptionArea = tree?.root.findAll(
       (node: TestRenderer.ReactTestInstance) =>
         node.type === "textarea" &&
-        node.props.placeholder === "What does this action do?",
+        node.props.placeholder === "customactioneditor.WhatDoesThisActio",
     )[0];
     expect(descriptionArea.props.value).toBe("Checks if a URL responds.");
 

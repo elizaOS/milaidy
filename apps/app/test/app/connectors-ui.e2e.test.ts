@@ -385,6 +385,8 @@ describe("ConnectorsPageView UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadPlugins: vi.fn(),
       handlePluginToggle: vi.fn().mockImplementation((name: string) => {
@@ -531,6 +533,8 @@ describe("Connector Toggle Integration", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadPlugins: vi.fn(),
       handlePluginToggle: (name: string) => {

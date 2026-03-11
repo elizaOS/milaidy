@@ -6,6 +6,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useApp } from "../AppContext";
 import { COMMON_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 
 function formatKey(s: (typeof COMMON_SHORTCUTS)[number]): string {
@@ -21,6 +22,7 @@ function formatKey(s: (typeof COMMON_SHORTCUTS)[number]): string {
 }
 
 export function ShortcutsOverlay() {
+  const { t } = useApp();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function ShortcutsOverlay() {
       <div className="bg-bg border border-border rounded-lg shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-base font-bold text-txt-strong">
-            Keyboard Shortcuts
+            {t("shortcutsoverlay.KeyboardShortcuts")}
           </h2>
           <button
             type="button"

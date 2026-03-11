@@ -4,8 +4,11 @@
  * Extracted from SettingsView.tsx for decomposition (P2 §10).
  */
 
+import { client } from "@milady/app-core/api";
+import { Button, Input } from "@milady/ui";
 import { useCallback, useRef, useState } from "react";
-import { client } from "../api-client";
+import { useApp } from "../AppContext";
+import { useTimeout } from "../hooks/useTimeout";
 
 function formatRequestError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -93,6 +96,9 @@ export function SubscriptionStatus({
   handleSelectSubscription,
   loadSubscriptionStatus,
 }: SubscriptionStatusProps) {
+  const { setTimeout } = useTimeout();
+
+  const { t } = useApp();
   const [subscriptionTab, setSubscriptionTab] = useState<"token" | "oauth">(
     "token",
   );
@@ -155,7 +161,7 @@ export function SubscriptionStatus({
     } finally {
       setSetupTokenSaving(false);
     }
-  }, [handleSelectSubscription, loadSubscriptionStatus]);
+  }, [handleSelectSubscription, loadSubscriptionStatus, setTimeout]);
 
   const handleDisconnectSubscription = useCallback(
     async (providerId: string) => {
@@ -312,9 +318,10 @@ export function SubscriptionStatus({
               </span>
             </div>
             {anthropicConnected && (
-              <button
-                type="button"
-                className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
+              <Button
+                variant="outline"
+                size="sm"
+                className="!mt-0"
                 onClick={() =>
                   void handleDisconnectSubscription("anthropic-subscription")
                 }
@@ -325,14 +332,13 @@ export function SubscriptionStatus({
                 {subscriptionDisconnecting === "anthropic-subscription"
                   ? "Disconnecting..."
                   : "Disconnect"}
-              </button>
+              </Button>
             )}
           </div>
 
           {anthropicStatus?.configured && !anthropicStatus.valid && (
             <div className="text-xs text-[var(--warning,#f39c12)] mb-3">
-              Claude subscription credentials are expired or invalid. Reconnect
-              to continue.
+              {t("subscriptionstatus.ClaudeSubscription")}
             </div>
           )}
 
@@ -346,7 +352,7 @@ export function SubscriptionStatus({
               }`}
               onClick={() => setSubscriptionTab("token")}
             >
-              Setup Token
+              {t("subscriptionstatus.SetupToken")}
             </button>
             <button
               type="button"
@@ -357,7 +363,7 @@ export function SubscriptionStatus({
               }`}
               onClick={() => setSubscriptionTab("oauth")}
             >
-              OAuth Login
+              {t("subscriptionstatus.OAuthLogin")}
             </button>
           </div>
 
@@ -367,19 +373,19 @@ export function SubscriptionStatus({
                 htmlFor="subscription-setup-token-input"
                 className="text-xs font-semibold mb-1.5 block"
               >
-                Setup Token
+                {t("subscriptionstatus.SetupToken")}
               </label>
-              <input
+              <Input
                 id="subscription-setup-token-input"
                 type="password"
-                placeholder="sk-ant-oat01-..."
+                placeholder={t("subscriptionstatus.skAntOat01")}
                 value={setupTokenValue}
                 onChange={(e) => {
                   setSetupTokenValue(e.target.value);
                   setSetupTokenSuccess(false);
                   setAnthropicError("");
                 }}
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs font-[var(--mono)] focus:border-[var(--accent)] focus:outline-none"
+                className="bg-card text-xs font-mono"
               />
               <div className="text-[11px] text-[var(--muted)] mt-2 whitespace-pre-line">
                 {
@@ -392,23 +398,24 @@ export function SubscriptionStatus({
                 </div>
               )}
               <div className="flex items-center justify-between mt-3">
-                <button
-                  type="button"
-                  className="btn text-xs py-[5px] px-3.5 !mt-0"
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="!mt-0"
                   disabled={setupTokenSaving || !setupTokenValue.trim()}
                   onClick={() => void handleSaveSetupToken()}
                 >
                   {setupTokenSaving ? "Saving..." : "Save Token"}
-                </button>
+                </Button>
                 <div className="flex items-center gap-2">
                   {setupTokenSaving && (
                     <span className="text-[11px] text-[var(--muted)]">
-                      Saving &amp; restarting...
+                      {t("subscriptionstatus.SavingAmpRestart")}
                     </span>
                   )}
                   {setupTokenSuccess && (
                     <span className="text-[11px] text-[var(--ok,#16a34a)]">
-                      Saved
+                      {t("subscriptionstatus.Saved")}
                     </span>
                   )}
                 </div>
@@ -416,19 +423,20 @@ export function SubscriptionStatus({
             </div>
           ) : anthropicConnected ? (
             <div className="text-xs text-[var(--muted)]">
-              Your Claude subscription is linked. Disconnect to switch accounts.
+              {t("subscriptionstatus.YourClaudeSubscrip")}
             </div>
           ) : !anthropicOAuthStarted ? (
             <div>
-              <button
-                type="button"
-                className="btn text-xs py-[5px] px-3.5 !mt-0"
+              <Button
+                variant="default"
+                size="sm"
+                className="!mt-0"
                 onClick={() => void handleAnthropicStart()}
               >
-                Login with Anthropic
-              </button>
+                {t("subscriptionstatus.LoginWithAnthropic")}
+              </Button>
               <div className="text-[11px] text-[var(--muted)] mt-1.5">
-                Requires Claude Pro ($20/mo) or Max ($100/mo).
+                {t("subscriptionstatus.RequiresClaudePro")}
               </div>
               {anthropicError && (
                 <div className="text-[11px] text-[var(--danger,#e74c3c)] mt-2">
@@ -439,18 +447,17 @@ export function SubscriptionStatus({
           ) : (
             <div>
               <div className="text-xs text-[var(--muted)] mb-2">
-                After logging in, copy the authorization code from Anthropic and
-                paste it below.
+                {t("subscriptionstatus.AfterLoggingInCo")}
               </div>
-              <input
+              <Input
                 type="text"
-                placeholder="Paste the authorization code here..."
+                placeholder={t("subscriptionstatus.PasteTheAuthorizat")}
                 value={anthropicCode}
                 onChange={(e) => {
                   setAnthropicCode(e.target.value);
                   setAnthropicError("");
                 }}
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="bg-card text-xs"
               />
               {anthropicError && (
                 <div className="text-[11px] text-[var(--danger,#e74c3c)] mt-2">
@@ -458,24 +465,26 @@ export function SubscriptionStatus({
                 </div>
               )}
               <div className="flex items-center gap-2 mt-2">
-                <button
-                  type="button"
-                  className="btn text-xs py-[5px] px-3.5 !mt-0"
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="!mt-0"
                   disabled={anthropicExchangeBusy || !anthropicCode.trim()}
                   onClick={() => void handleAnthropicExchange()}
                 >
                   {anthropicExchangeBusy ? "Connecting..." : "Connect"}
-                </button>
-                <button
-                  type="button"
-                  className="btn text-xs py-[5px] px-3.5 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!mt-0"
                   onClick={() => {
                     setAnthropicOAuthStarted(false);
                     setAnthropicCode("");
                   }}
                 >
-                  Start Over
-                </button>
+                  {t("subscriptionstatus.StartOver")}
+                </Button>
               </div>
             </div>
           )}
@@ -501,9 +510,10 @@ export function SubscriptionStatus({
               </span>
             </div>
             {openaiConnected && (
-              <button
-                type="button"
-                className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
+              <Button
+                variant="outline"
+                size="sm"
+                className="!mt-0"
                 onClick={() =>
                   void handleDisconnectSubscription("openai-subscription")
                 }
@@ -512,49 +522,47 @@ export function SubscriptionStatus({
                 {subscriptionDisconnecting === "openai-subscription"
                   ? "Disconnecting..."
                   : "Disconnect"}
-              </button>
+              </Button>
             )}
           </div>
 
           {openaiStatus?.configured && !openaiStatus.valid && (
             <div className="text-xs text-[var(--warning,#f39c12)] mb-3">
-              ChatGPT subscription credentials are expired or invalid. Reconnect
-              to continue.
+              {t("subscriptionstatus.ChatGPTSubscription")}
             </div>
           )}
 
           {openaiConnected ? (
             <div className="text-xs text-[var(--muted)]">
-              Your ChatGPT subscription is linked. Disconnect to switch
-              accounts.
+              {t("subscriptionstatus.YourChatGPTSubscri")}
             </div>
           ) : !openaiOAuthStarted ? (
             <div>
-              <button
-                type="button"
-                className="btn text-xs py-[5px] px-3.5 !mt-0"
+              <Button
+                variant="default"
+                size="sm"
+                className="!mt-0"
                 onClick={() => void handleOpenAIStart()}
               >
-                Login with OpenAI
-              </button>
+                {t("subscriptionstatus.LoginWithOpenAI")}
+              </Button>
               <div className="text-[11px] text-[var(--muted)] mt-1.5">
-                Requires ChatGPT Plus ($20/mo) or Pro ($200/mo).
+                {t("subscriptionstatus.RequiresChatGPTPlu")}
               </div>
             </div>
           ) : (
             <div>
               <div className="p-2.5 border border-[var(--border)] bg-[var(--bg-muted)] text-[11px] text-[var(--muted)] leading-relaxed">
-                After logging in, you'll be redirected to a page that won't load
-                (starts with{" "}
+                {t("subscriptionstatus.AfterLoggingInYo")}{" "}
                 <code className="text-[10px] px-1 border border-[var(--border)] bg-[var(--card)]">
-                  localhost:1455
+                  {t("subscriptionstatus.localhost1455")}
                 </code>
-                ). Copy the entire URL and paste it below.
+                {t("subscriptionstatus.CopyTheEntireU")}
               </div>
-              <input
+              <Input
                 type="text"
-                className="w-full mt-2 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
-                placeholder="http://localhost:1455/auth/callback?code=..."
+                className="mt-2 bg-card text-xs"
+                placeholder={t("subscriptionstatus.httpLocalhost145")}
                 value={openaiCallbackUrl}
                 onChange={(e) => {
                   setOpenaiCallbackUrl(e.target.value);
@@ -567,24 +575,26 @@ export function SubscriptionStatus({
                 </div>
               )}
               <div className="flex items-center gap-2 mt-2">
-                <button
-                  type="button"
-                  className="btn text-xs py-[5px] px-3.5 !mt-0"
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="!mt-0"
                   disabled={openaiExchangeBusy || !openaiCallbackUrl.trim()}
                   onClick={() => void handleOpenAIExchange()}
                 >
                   {openaiExchangeBusy ? "Completing..." : "Complete Login"}
-                </button>
-                <button
-                  type="button"
-                  className="btn text-xs py-[5px] px-3.5 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!mt-0"
                   onClick={() => {
                     setOpenaiOAuthStarted(false);
                     setOpenaiCallbackUrl("");
                   }}
                 >
-                  Start Over
-                </button>
+                  {t("subscriptionstatus.StartOver")}
+                </Button>
               </div>
             </div>
           )}

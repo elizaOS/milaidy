@@ -573,11 +573,6 @@ describe("VrmEngine", () => {
       ).not.toThrow();
     });
 
-    it("setForceFaceCameraFlip toggles without throwing", () => {
-      expect(() => engine.setForceFaceCameraFlip(true)).not.toThrow();
-      expect(() => engine.setForceFaceCameraFlip(false)).not.toThrow();
-    });
-
     it("resize() handles zero or negative dimensions gracefully", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());

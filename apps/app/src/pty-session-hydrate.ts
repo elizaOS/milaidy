@@ -1,4 +1,4 @@
-import type { CodingAgentSession } from "./api-client";
+import type { CodingAgentSession } from "@milady/app-core/api";
 
 /** Statuses that represent a finished session — excluded from hydration. */
 export const TERMINAL_STATUSES = new Set(["completed", "stopped", "error"]);

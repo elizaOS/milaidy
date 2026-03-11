@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+
+import type { PluginInfo } from "@milady/app-core/api";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PluginInfo } from "../../src/api-client";
 
 const mockUseApp = vi.fn();
 const mockOnWsEvent = vi.fn(() => () => {});
@@ -66,7 +67,7 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     onWsEvent: (...args: unknown[]) => mockOnWsEvent(...args),
     installRegistryPlugin: vi.fn(),
@@ -132,6 +133,7 @@ function createPlugin(
 
 function baseContext(plugins?: PluginInfo[]) {
   return {
+    t: (k: string) => k,
     plugins: plugins ?? [
       createPlugin("test-plugin", "Test Plugin", "feature"),
       createPlugin("second-plugin", "Second Plugin", "feature"),
@@ -334,7 +336,7 @@ describe("PluginsView game modal", () => {
         node.type === "button" &&
         typeof node.props.className === "string" &&
         node.props.className.includes("plugins-game-action-btn") &&
-        text(node).includes("Test Connection"),
+        node.children.some((c) => c === "pluginsview.TestConnection"),
     )[0];
     await act(async () => {
       await testConnectionBtn.props.onClick();
@@ -401,7 +403,11 @@ describe("PluginsView game modal", () => {
     });
 
     expect(
-      tree?.root.findAll((node) => hasClass(node, "plugins-link-btn")).length,
+      tree?.root.findAll(
+        (node) =>
+          node.type === "a" ||
+          (node.type === "button" && text(node).includes("Setup guide")),
+      ).length,
     ).toBeGreaterThan(0);
 
     await act(async () => {

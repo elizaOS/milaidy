@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseActionBlock } from "./parse-action-block";
+import {
+  parseActionBlock,
+  stripActionBlockFromDisplay,
+} from "./parse-action-block";
 
 describe("parseActionBlock", () => {
   it("returns null for empty/falsy input", () => {
@@ -167,5 +170,41 @@ That should resolve the blocking prompt.`;
       action: "ignore",
       reasoning: "test",
     });
+  });
+});
+
+describe("stripActionBlockFromDisplay", () => {
+  it("strips fenced json action blocks", () => {
+    const input = `Here is my reasoning.\n\n\`\`\`json\n{"action": "respond", "response": "y", "reasoning": "approve"}\n\`\`\``;
+    expect(stripActionBlockFromDisplay(input)).toBe("Here is my reasoning.");
+  });
+
+  it("strips bare JSON action blocks at end of text", () => {
+    const input = `The agent needs to continue.\n\n{"action": "respond", "response": "proceed", "reasoning": "not done"}`;
+    expect(stripActionBlockFromDisplay(input)).toBe(
+      "The agent needs to continue.",
+    );
+  });
+
+  it("leaves text intact when no action block present", () => {
+    const input = "Just some regular chat text with no JSON.";
+    expect(stripActionBlockFromDisplay(input)).toBe(input);
+  });
+
+  it("leaves non-action JSON intact", () => {
+    const input = `Config is {"port": 3000, "debug": true}`;
+    expect(stripActionBlockFromDisplay(input)).toBe(input);
+  });
+
+  it("handles text with only an action block", () => {
+    const input = `{"action": "complete", "reasoning": "done"}`;
+    expect(stripActionBlockFromDisplay(input)).toBe("");
+  });
+
+  it("strips both fenced and bare blocks in same text", () => {
+    const input = `First part.\n\n\`\`\`json\n{"action": "respond", "response": "y"}\n\`\`\`\n\nSecond part.\n\n{"action": "complete", "reasoning": "done"}`;
+    expect(stripActionBlockFromDisplay(input)).toBe(
+      "First part.\n\n\n\nSecond part.",
+    );
   });
 });

@@ -312,6 +312,8 @@ describe("InventoryView UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadWalletBalances: vi.fn(),
       loadWalletNfts: vi.fn(),
@@ -401,6 +403,8 @@ describe("Wallet Balance Integration", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadWalletBalances: vi.fn(),
       loadWalletNfts: vi.fn(),
@@ -437,6 +441,8 @@ describe("Inventory View Toggle", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadWalletBalances: vi.fn(),
       loadWalletNfts: vi.fn(),
@@ -482,6 +488,8 @@ describe("Chain Selection", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadWalletBalances: vi.fn(),
       loadWalletNfts: vi.fn(),
@@ -525,6 +533,8 @@ describe("Address Copy Functionality", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
       ...state,
       loadWalletBalances: vi.fn(),
       loadWalletNfts: vi.fn(),

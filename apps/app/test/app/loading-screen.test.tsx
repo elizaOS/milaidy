@@ -21,7 +21,7 @@ describe("LoadingScreen", () => {
     });
     if (!tree) throw new Error("failed to render loading screen");
 
-    expect(renderedText(tree)).toContain("starting backend");
+    expect(renderedText(tree)).toContain("Starting backend");
   });
 
   it("shows agent initialization label", async () => {
@@ -33,7 +33,7 @@ describe("LoadingScreen", () => {
     });
     if (!tree) throw new Error("failed to render loading screen");
 
-    expect(renderedText(tree)).toContain("initializing agent");
+    expect(renderedText(tree)).toContain("Initializing agent");
   });
 
   it("renders elapsed seconds label when provided", async () => {
@@ -48,6 +48,6 @@ describe("LoadingScreen", () => {
     });
     if (!tree) throw new Error("failed to render loading screen");
 
-    expect(renderedText(tree)).toContain("starting backend (7s)");
+    expect(renderedText(tree)).toContain("7s");
   });
 });

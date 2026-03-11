@@ -61,7 +61,7 @@ describe("Electrobun release workflow drift", () => {
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
     expect(workflow).toContain("arch -x86_64 bunx tsdown");
-    expect(workflow).toContain("arch -x86_64 npx vite build");
+    expect(workflow).toContain("arch -x86_64 bunx vite build");
     expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
       `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
@@ -111,11 +111,13 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("name: Collect public release files");
     expect(workflow).toContain(' -name "*.dmg" -o \\');
     expect(workflow).toContain(' -name "*Setup*.zip" -o \\');
-    expect(workflow).toContain(' -name "*Setup*.tar.gz" \\');
+    expect(workflow).toContain(' -name "*Setup*.tar.gz" -o \\');
+    expect(workflow).toContain(' -name "*.msix" \\');
     expect(workflow).not.toContain(' -name "*.exe" -o \\');
 
     expect(workflow).toContain("name: Collect update channel files");
     expect(workflow).toContain(' -name "*.tar.zst" -o \\');
+    expect(workflow).toContain(' -name "*.patch" -o \\');
     expect(workflow).toContain(' -name "*-update.json" \\');
     expect(workflow).toContain("files: release-files/*");
     expect(workflow).toContain("update-channel/");

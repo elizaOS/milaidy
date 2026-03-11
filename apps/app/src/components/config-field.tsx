@@ -9,9 +9,10 @@
  *  - ConfigField wrapper component (label + renderer + help + errors)
  */
 
+import type { DynamicValue } from "@milady/app-core/types";
 import { ChevronDown, X } from "lucide-react";
 import React, { useCallback, useRef, useState } from "react";
-import type { DynamicValue } from "../types";
+import { useApp } from "../AppContext";
 import type { FieldRenderer, FieldRenderProps } from "./config-catalog";
 import { resolveDynamic } from "./config-catalog";
 
@@ -341,7 +342,8 @@ export function renderUrlField(props: FieldRenderProps) {
 // ── 6. Select ───────────────────────────────────────────────────────────
 
 /** Dropdown select. Options from hint.options or schema.enum. */
-export function renderSelectField(props: FieldRenderProps) {
+export function RenderSelectField(props: FieldRenderProps) {
+  const { t } = useApp();
   const enhancedOptions = (props.hint as Record<string, unknown>).options as
     | Array<{ value: string; label: string; description?: string }>
     | undefined;
@@ -366,15 +368,12 @@ export function renderSelectField(props: FieldRenderProps) {
   const value = props.isSet ? String(props.value ?? "") : "";
   const effectiveValue = value || String(props.schema.default ?? "");
   const useSearch = allOptions.length >= 5;
-  const listId = `dl-${props.key}`;
-
   if (useSearch) {
     return (
       <SearchableSelectInner
         fp={props}
         options={allOptions}
         effectiveValue={effectiveValue}
-        listId={listId}
       />
     );
   }
@@ -393,7 +392,7 @@ export function renderSelectField(props: FieldRenderProps) {
       onBlur={() => fireAction(props, "blur")}
       onClick={() => fireAction(props, "click")}
     >
-      {!props.required && <option value="">-- none --</option>}
+      {!props.required && <option value="">{t("config-field.None")}</option>}
       {allOptions.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
@@ -412,8 +411,8 @@ function SearchableSelectInner({
   fp: FieldRenderProps;
   options: Array<{ value: string; label: string; description?: string }>;
   effectiveValue: string;
-  listId: string;
 }) {
+  const { t } = useApp();
   const matchingOpt = options.find((o) => o.value === effectiveValue);
   const [inputVal, setInputVal] = useState(
     matchingOpt?.label ?? effectiveValue,
@@ -516,12 +515,12 @@ function SearchableSelectInner({
                   fireAction(props, "change");
                 }}
               >
-                -- none --
+                {t("config-field.None")}
               </button>
             )}
             {filtered.length === 0 && (
               <div className="px-3 py-3 text-[12px] text-[var(--muted)] text-center">
-                No matches
+                {t("config-field.NoMatches")}
               </div>
             )}
             {filtered.map((opt) => (
@@ -545,7 +544,7 @@ function SearchableSelectInner({
             ))}
           </div>
           <div className="px-3 py-1 border-t border-[var(--border)] text-[10px] text-[var(--muted)]">
-            {filtered.length} of {options.length} models
+            {filtered.length} of {options.length} {t("config-field.models")}
           </div>
         </div>
       )}
@@ -872,6 +871,7 @@ export function renderJsonField(props: FieldRenderProps) {
 }
 
 function JsonFieldInner({ fp: props }: { fp: FieldRenderProps }) {
+  const { t } = useApp();
   const initial = props.isSet ? String(props.value ?? "") : "";
   const [jsonError, setJsonError] = useState<string | null>(null);
 
@@ -904,7 +904,7 @@ function JsonFieldInner({ fp: props }: { fp: FieldRenderProps }) {
             : "border-[var(--border)]"
         } bg-[var(--card)] text-[13px] font-mono transition-all focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] box-border min-h-[100px] resize-y rounded-sm`}
         defaultValue={initial}
-        placeholder='{"key": "value"}'
+        placeholder={t("config-field.KeyValue")}
         rows={6}
         data-config-key={props.key}
         data-field-type="json"
@@ -986,6 +986,7 @@ function ArrayItem({
   onMoveDown: () => void;
   onBlur: () => void;
 }) {
+  const { t } = useApp();
   return (
     <div className="flex items-center gap-1">
       {!readonly && (
@@ -995,7 +996,7 @@ function ArrayItem({
             className="px-1 py-0 text-[10px] leading-tight text-[var(--muted)] cursor-pointer hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed"
             onClick={onMoveUp}
             disabled={index === 0}
-            title="Move up"
+            title={t("config-field.MoveUp")}
           >
             ▲
           </button>
@@ -1004,7 +1005,7 @@ function ArrayItem({
             className="px-1 py-0 text-[10px] leading-tight text-[var(--muted)] cursor-pointer hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed"
             onClick={onMoveDown}
             disabled={index === total - 1}
-            title="Move down"
+            title={t("config-field.MoveDown")}
           >
             <ChevronDown className="w-3 h-3" />
           </button>
@@ -1033,6 +1034,7 @@ function ArrayItem({
 }
 
 function ArrayFieldInner({ fp: props }: { fp: FieldRenderProps }) {
+  const { t } = useApp();
   const rawVal = props.isSet ? props.value : [];
   const initialItems: string[] = Array.isArray(rawVal)
     ? rawVal.map(String)
@@ -1101,7 +1103,7 @@ function ArrayFieldInner({ fp: props }: { fp: FieldRenderProps }) {
             fireAction(props, "click");
           }}
         >
-          + Add item
+          {t("config-field.AddItem")}
         </button>
       )}
     </div>
@@ -1116,6 +1118,7 @@ export function renderKeyValueField(props: FieldRenderProps) {
 }
 
 function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
+  const { t } = useApp();
   const rawVal = props.isSet ? props.value : {};
   const initialPairs: Array<{ key: string; value: string }> =
     rawVal && typeof rawVal === "object" && !Array.isArray(rawVal)
@@ -1167,7 +1170,7 @@ function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
             className={`${inputCls(!!props.errors?.length)} flex-1`}
             type="text"
             value={pair.key}
-            placeholder="Key"
+            placeholder={t("config-field.Key")}
             disabled={props.readonly}
             onChange={(e) => updateRow(index, "key", e.target.value)}
             onBlur={() => fireAction(props, "blur")}
@@ -1176,7 +1179,7 @@ function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
             className={`${inputCls(!!props.errors?.length)} flex-1`}
             type="text"
             value={pair.value}
-            placeholder="Value"
+            placeholder={t("config-field.Value")}
             disabled={props.readonly}
             onChange={(e) => updateRow(index, "value", e.target.value)}
             onBlur={() => fireAction(props, "blur")}
@@ -1204,7 +1207,7 @@ function KeyValueFieldInner({ fp: props }: { fp: FieldRenderProps }) {
             fireAction(props, "click");
           }}
         >
-          + Add row
+          {t("config-field.AddRow")}
         </button>
       )}
     </div>
@@ -1238,7 +1241,8 @@ export function renderDatetimeField(props: FieldRenderProps) {
 // ── 18. File ────────────────────────────────────────────────────────────
 
 /** File path text input with path traversal guard. */
-export function renderFileField(props: FieldRenderProps) {
+export function RenderFileField(props: FieldRenderProps) {
+  const { t } = useApp();
   const value = props.isSet ? String(props.value ?? "") : "";
   const placeholder =
     (props.hint.placeholder as string | undefined) ?? "/path/to/file";
@@ -1263,7 +1267,7 @@ export function renderFileField(props: FieldRenderProps) {
         onClick={() => fireAction(props, "click")}
       />
       <div className="text-[11px] text-[var(--muted)] mt-0.5">
-        Enter a file path or browse to select
+        {t("config-field.EnterAFilePathOr")}
       </div>
     </div>
   );
@@ -1272,7 +1276,8 @@ export function renderFileField(props: FieldRenderProps) {
 // ── 19. Custom ──────────────────────────────────────────────────────────
 
 /** Placeholder for plugin-provided custom React components. */
-export function renderCustomField(props: FieldRenderProps) {
+export function RenderCustomField(props: FieldRenderProps) {
+  const { t } = useApp();
   const componentName = (props.hint as Record<string, unknown>).component as
     | string
     | undefined;
@@ -1283,7 +1288,7 @@ export function renderCustomField(props: FieldRenderProps) {
       data-config-key={props.key}
       data-field-type="custom"
     >
-      Custom component: {componentName ?? props.fieldType}
+      {t("config-field.CustomComponent")} {componentName ?? props.fieldType}
     </div>
   );
 }
@@ -1453,6 +1458,7 @@ function processSimpleInline(text: string, key: number): React.ReactNode {
 }
 
 function MarkdownFieldInner(props: FieldRenderProps) {
+  const { t } = useApp();
   const [preview, setPreview] = useState(false);
   const value = typeof props.value === "string" ? props.value : "";
 
@@ -1468,7 +1474,7 @@ function MarkdownFieldInner(props: FieldRenderProps) {
           }`}
           onClick={() => setPreview(false)}
         >
-          Edit
+          {t("config-field.Edit")}
         </button>
         <button
           type="button"
@@ -1479,7 +1485,7 @@ function MarkdownFieldInner(props: FieldRenderProps) {
           }`}
           onClick={() => setPreview(true)}
         >
-          Preview
+          {t("config-field.Preview")}
         </button>
       </div>
       {preview ? (
@@ -1492,7 +1498,7 @@ function MarkdownFieldInner(props: FieldRenderProps) {
             renderMarkdown(value)
           ) : (
             <span className="text-[var(--muted)] italic">
-              Nothing to preview
+              {t("config-field.NothingToPreview")}
             </span>
           )}
         </div>
@@ -1522,6 +1528,7 @@ export const renderMarkdownField: FieldRenderer = (props) => (
 // ── 21. Checkbox Group ───────────────────────────────────────────────────
 
 function CheckboxGroupInner(props: FieldRenderProps) {
+  const { t } = useApp();
   const selected = new Set(
     Array.isArray(props.value)
       ? (props.value as string[])
@@ -1584,7 +1591,7 @@ function CheckboxGroupInner(props: FieldRenderProps) {
       ))}
       {options.length === 0 && (
         <span className="text-[11px] text-[var(--muted)] italic">
-          No options defined
+          {t("config-field.NoOptionsDefined")}
         </span>
       )}
     </div>
@@ -1627,6 +1634,7 @@ export const renderGroupField: FieldRenderer = (props) => {
 // ── 23. Table ────────────────────────────────────────────────────────────
 
 function TableFieldInner(props: FieldRenderProps) {
+  const { t } = useApp();
   const MAX_TABLE_ROWS = 50;
   const columns: Array<{ key: string; label: string }> = ((
     props.hint as Record<string, unknown>
@@ -1711,9 +1719,9 @@ function TableFieldInner(props: FieldRenderProps) {
                       type="button"
                       className="text-[var(--muted)] hover:text-[var(--destructive)] text-[14px] px-1"
                       onClick={() => removeRow(ri)}
-                      title="Remove row"
+                      title={t("config-field.RemoveRow")}
                     >
-                      &times;
+                      {t("config-field.Times")}
                     </button>
                   )}
                 </td>
@@ -1728,7 +1736,7 @@ function TableFieldInner(props: FieldRenderProps) {
           className="self-start text-[11px] text-[var(--accent)] hover:underline"
           onClick={addRow}
         >
-          + Add row
+          {t("config-field.AddRow")}
         </button>
       )}
     </div>
@@ -1747,7 +1755,7 @@ export const defaultRenderers: Record<string, FieldRenderer> = {
   number: renderNumberField,
   boolean: renderBooleanField,
   url: renderUrlField,
-  select: renderSelectField,
+  select: RenderSelectField,
   textarea: renderTextareaField,
   email: renderEmailField,
   color: renderColorField,
@@ -1759,8 +1767,8 @@ export const defaultRenderers: Record<string, FieldRenderer> = {
   array: renderArrayField,
   keyvalue: renderKeyValueField,
   datetime: renderDatetimeField,
-  file: renderFileField,
-  custom: renderCustomField,
+  file: RenderFileField,
+  custom: RenderCustomField,
   markdown: renderMarkdownField,
   "checkbox-group": renderCheckboxGroupField,
   group: renderGroupField,
@@ -1782,6 +1790,7 @@ export function ConfigField({
   renderer: FieldRenderer;
   pluginId?: string;
 }) {
+  const { t } = useApp();
   const label = renderProps.hint.label ?? renderProps.key;
   const envKey = renderProps.key;
   const labelDiffersFromKey = label !== envKey;
@@ -1824,13 +1833,14 @@ export function ConfigField({
           </span>
           {renderProps.required && !renderProps.isSet && (
             <span className="text-[10px] text-[var(--destructive)] font-semibold px-1.5 py-px bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] rounded-sm shrink-0">
-              Required
+              {t("config-field.Required")}
             </span>
           )}
           {renderProps.isSet && (
             <span className="inline-flex items-center gap-1 text-[10px] text-[var(--ok)] font-medium shrink-0">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--ok)]" />
-              Configured
+
+              {t("config-field.Configured")}
             </span>
           )}
           {/* Env key — right-aligned, subtle, only when label differs */}
@@ -1856,7 +1866,9 @@ export function ConfigField({
                   color: "var(--plugin-error)",
                 }}
               >
-                <span className="shrink-0 mt-px">&times;</span>
+                <span className="shrink-0 mt-px">
+                  {t("config-field.Times")}
+                </span>
                 <span>{err}</span>
               </div>
             ))}
@@ -1876,7 +1888,8 @@ export function ConfigField({
             {renderProps.schema.default != null && (
               <span className="opacity-70">
                 {" "}
-                (default: {String(renderProps.schema.default)})
+                {t("config-field.Default")} {String(renderProps.schema.default)}
+                )
               </span>
             )}
           </div>

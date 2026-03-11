@@ -17,6 +17,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useApp } from "../AppContext";
 import { getByPath, setByPath } from "./config-catalog";
 import type {
   AuthState,
@@ -28,8 +29,6 @@ import type {
   ValidationCheck,
   VisibilityCondition,
 } from "./ui-spec";
-
-// ── Context ─────────────────────────────────────────────────────────
 
 const UiContext = createContext<UiRenderContext | null>(null);
 
@@ -825,6 +824,7 @@ const TableComponent: ComponentFn = (props) => {
 };
 
 const CarouselComponent: ComponentFn = (props) => {
+  const { t } = useApp();
   const items =
     (props.items as Array<{ title: string; description: string }>) ?? [];
   const [current, setCurrent] = useState(0);
@@ -847,7 +847,7 @@ const CarouselComponent: ComponentFn = (props) => {
           onClick={() => setCurrent((p) => Math.max(0, p - 1))}
           disabled={current === 0}
         >
-          &larr;
+          {t("ui-renderer.Larr")}
         </button>
         <span className="text-[10px] text-[var(--muted)] self-center">
           {current + 1} / {items.length}
@@ -858,7 +858,7 @@ const CarouselComponent: ComponentFn = (props) => {
           onClick={() => setCurrent((p) => Math.min(items.length - 1, p + 1))}
           disabled={current === items.length - 1}
         >
-          &rarr;
+          {t("ui-renderer.Rarr")}
         </button>
       </div>
     </div>
@@ -1173,7 +1173,7 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
         disabled={current <= 1}
         onClick={() => setValue(current - 1)}
       >
-        &larr;
+        ←
       </button>
       {Array.from({ length: total }, (_, i) => i + 1).map((page) => (
         <button
@@ -1195,7 +1195,7 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
         disabled={current >= total}
         onClick={() => setValue(current + 1)}
       >
-        &rarr;
+        →
       </button>
     </div>
   );
@@ -1478,7 +1478,7 @@ const DialogComponent: ComponentFn = (props, children, ctx) => {
             className="text-[var(--muted)] hover:text-[var(--text)] text-lg leading-none px-1 cursor-pointer"
             onClick={close}
           >
-            &times;
+            ×
           </button>
         </div>
         {children}
@@ -1584,6 +1584,7 @@ const COMPONENTS: Record<string, ComponentFn> = {
 // ══════════════════════════════════════════════════════════════════════
 
 function ElementRenderer({ elementId }: { elementId: string }) {
+  const { t } = useApp();
   const ctx = useUiCtx();
   const el = ctx.spec.elements[elementId];
   if (!el) return null;
@@ -1597,7 +1598,7 @@ function ElementRenderer({ elementId }: { elementId: string }) {
   if (!component) {
     return (
       <div className="text-[10px] text-[var(--destructive)] border border-dashed border-[var(--destructive)] p-2">
-        Unknown component: {el.type}
+        {t("ui-renderer.UnknownComponent")} {el.type}
       </div>
     );
   }

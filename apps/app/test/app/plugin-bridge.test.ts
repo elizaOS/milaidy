@@ -23,7 +23,7 @@ import {
   isNative,
   isWeb,
   platform,
-} from "../../src/bridge/plugin-bridge";
+} from "@milady/app-core/bridge";
 
 describe("plugin-bridge", () => {
   // -- Platform --

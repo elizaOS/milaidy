@@ -1,5 +1,5 @@
+import { client } from "@milady/app-core/api";
 import { useEffect, useRef } from "react";
-import { client } from "../api-client";
 import {
   buildLifoPopoutUrl,
   isLifoPopoutMode,

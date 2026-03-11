@@ -1,7 +1,10 @@
+import { client } from "@milady/app-core/api";
+import { Button, Input } from "@milady/ui";
 import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { client } from "../api-client";
+import { useApp } from "../AppContext";
 import { useBugReport } from "../hooks/useBugReport";
+import { useTimeout } from "../hooks/useTimeout";
 
 const ENV_OPTIONS = ["macOS", "Windows", "Linux", "Other"] as const;
 const GITHUB_NEW_ISSUE_URL =
@@ -39,6 +42,9 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 export function BugReportModal() {
+  const { setTimeout } = useTimeout();
+
+  const { t } = useApp();
   const { isOpen, close } = useBugReport();
   const [form, setForm] = useState<BugReportForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +91,7 @@ export function BugReportModal() {
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [isOpen, setTimeout]);
 
   const updateField = useCallback(
     <K extends keyof BugReportForm>(key: K, value: BugReportForm[K]) => {
@@ -174,8 +180,9 @@ export function BugReportModal() {
 
   const labelClass = "block text-[11px] font-bold text-muted mb-1";
   const inputClass =
-    "w-full px-3 py-2 border border-border bg-bg text-sm text-txt outline-none focus:border-accent transition-colors font-body";
-  const textareaClass = `${inputClass} resize-y min-h-[60px]`;
+    "w-full h-9 px-3 py-2 bg-bg text-sm text-txt shadow-sm transition-colors font-body";
+  const textareaClass =
+    "w-full px-3 py-2 border border-border bg-bg text-sm text-txt shadow-sm focus-visible:ring-1 focus-visible:ring-accent transition-colors font-body resize-y min-h-[60px]";
   const canSubmit =
     form.description.trim() && form.stepsToReproduce.trim() && !submitting;
 
@@ -200,19 +207,20 @@ export function BugReportModal() {
         <div className="w-full max-w-md border border-border bg-card shadow-lg flex flex-col">
           <div className="flex items-center px-5 py-3 border-b border-border">
             <span className="font-bold text-sm flex-1">
-              Bug Report Submitted
+              {t("bugreportmodal.BugReportSubmitted")}
             </span>
-            <button
-              type="button"
-              className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted hover:text-txt h-6 w-6"
               onClick={close}
             >
-              &times;
-            </button>
+              {t("bugreportmodal.Times")}
+            </Button>
           </div>
           <div className="px-5 py-6 text-center">
             <p className="text-sm text-txt mb-3">
-              Your bug report has been submitted successfully.
+              {t("bugreportmodal.YourBugReportHas")}
             </p>
             <a
               href={resultUrl}
@@ -224,13 +232,14 @@ export function BugReportModal() {
             </a>
           </div>
           <div className="flex justify-end px-5 py-3 border-t border-border">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={close}
-              className="px-4 py-1.5 border border-border text-sm text-muted hover:text-txt cursor-pointer"
+              className="px-4 py-1.5 shadow-sm"
             >
-              Close
-            </button>
+              {t("bugreportmodal.Close")}
+            </Button>
           </div>
         </div>
       </div>
@@ -242,14 +251,17 @@ export function BugReportModal() {
       <div className="w-full max-w-lg border border-border bg-card shadow-lg flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center px-5 py-3 border-b border-border shrink-0">
-          <span className="font-bold text-sm flex-1">Report a Bug</span>
-          <button
-            type="button"
-            className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
+          <span className="font-bold text-sm flex-1">
+            {t("bugreportmodal.ReportABug")}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted hover:text-txt h-6 w-6"
             onClick={close}
           >
-            &times;
-          </button>
+            {t("bugreportmodal.Times")}
+          </Button>
         </div>
 
         {/* Body */}
@@ -261,11 +273,12 @@ export function BugReportModal() {
           )}
 
           <label className={labelClass}>
-            Description <span className="text-danger">*</span>
+            {t("bugreportmodal.Description")}{" "}
+            <span className="text-danger">*</span>
             <textarea
               ref={descRef}
               className={textareaClass}
-              placeholder="Describe the issue you encountered."
+              placeholder={t("bugreportmodal.DescribeTheIssueY")}
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               rows={3}
@@ -273,7 +286,8 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Steps to Reproduce <span className="text-danger">*</span>
+            {t("bugreportmodal.StepsToReproduce")}{" "}
+            <span className="text-danger">*</span>
             <textarea
               className={textareaClass}
               placeholder={"1. Go to ...\n2. Click on ...\n3. Observe ..."}
@@ -284,10 +298,10 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Expected Behavior
+            {t("bugreportmodal.ExpectedBehavior")}
             <textarea
               className={textareaClass}
-              placeholder="Describe the expected result."
+              placeholder={t("bugreportmodal.DescribeTheExpecte")}
               value={form.expectedBehavior}
               onChange={(e) => updateField("expectedBehavior", e.target.value)}
               rows={2}
@@ -295,10 +309,10 @@ export function BugReportModal() {
           </label>
 
           <label className={labelClass}>
-            Actual Behavior
+            {t("bugreportmodal.ActualBehavior")}
             <textarea
               className={textareaClass}
-              placeholder="Describe the actual result."
+              placeholder={t("bugreportmodal.DescribeTheActual")}
               value={form.actualBehavior}
               onChange={(e) => updateField("actualBehavior", e.target.value)}
               rows={2}
@@ -307,13 +321,13 @@ export function BugReportModal() {
 
           <div className="flex gap-3">
             <label className={`${labelClass} flex-1`}>
-              Environment
+              {t("bugreportmodal.Environment")}
               <select
-                className={inputClass}
+                className={`${inputClass} border border-border focus-visible:ring-1 focus-visible:ring-accent`}
                 value={form.environment}
                 onChange={(e) => updateField("environment", e.target.value)}
               >
-                <option value="">Select...</option>
+                <option value="">{t("bugreportmodal.Select")}</option>
                 {ENV_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
@@ -321,24 +335,24 @@ export function BugReportModal() {
                 ))}
               </select>
             </label>
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Custom <Input> component is inside <label> */}
             <label className={`${labelClass} flex-1`}>
-              Node Version
-              <input
-                type="text"
+              {t("bugreportmodal.NodeVersion")}
+              <Input
                 className={inputClass}
-                placeholder="22.x"
+                placeholder={t("bugreportmodal.22X")}
                 value={form.nodeVersion}
                 onChange={(e) => updateField("nodeVersion", e.target.value)}
               />
             </label>
           </div>
 
+          {/* biome-ignore lint/a11y/noLabelWithoutControl: Custom <Input> component is inside <label> */}
           <label className={labelClass}>
-            Model Provider
-            <input
-              type="text"
+            {t("bugreportmodal.ModelProvider")}
+            <Input
               className={inputClass}
-              placeholder="Anthropic / OpenAI / Ollama"
+              placeholder={t("bugreportmodal.AnthropicOpenAI")}
               value={form.modelProvider}
               onChange={(e) => updateField("modelProvider", e.target.value)}
             />
@@ -346,21 +360,23 @@ export function BugReportModal() {
 
           {/* Collapsible Logs */}
           <div>
-            <button
-              type="button"
-              className="text-[11px] font-bold text-muted hover:text-txt cursor-pointer flex items-center gap-1"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0 text-[11px] font-bold text-muted hover:text-txt hover:bg-transparent cursor-pointer flex items-center gap-1"
               onClick={() => setShowLogs(!showLogs)}
             >
               <ChevronRight
                 className="w-3 h-3 inline-block transition-transform"
                 style={{ transform: showLogs ? "rotate(90deg)" : "none" }}
               />
-              Logs
-            </button>
+
+              {t("bugreportmodal.Logs")}
+            </Button>
             {showLogs && (
               <textarea
                 className={`${textareaClass} mt-1 font-mono text-xs`}
-                placeholder="Paste relevant error output or logs"
+                placeholder={t("bugreportmodal.PasteRelevantError")}
                 value={form.logs}
                 onChange={(e) => updateField("logs", e.target.value)}
                 rows={4}
@@ -371,30 +387,33 @@ export function BugReportModal() {
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-border shrink-0">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={close}
-            className="px-3 py-1.5 border border-border text-sm text-muted hover:text-txt cursor-pointer"
+            className="px-3 py-1.5 shadow-sm"
           >
-            Cancel
-          </button>
+            {t("bugreportmodal.Cancel")}
+          </Button>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCopyAndOpen}
               disabled={!canSubmit}
-              className="px-3 py-1.5 border border-border text-sm text-muted hover:text-txt cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 shadow-sm"
             >
               {copied ? "Copied!" : "Copy & Open GitHub"}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="px-3 py-1.5 border border-accent bg-accent text-white text-sm cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 shadow-sm"
             >
               {submitting ? "Submitting..." : "Submit"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

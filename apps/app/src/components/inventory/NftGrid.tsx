@@ -2,7 +2,7 @@
  * NFT gallery grid with lazy-loaded images.
  */
 
-import type { createTranslator } from "../../i18n";
+import type { createTranslator } from "@milady/app-core/i18n";
 import { chainIcon, type NftItem } from "./constants";
 
 export interface NftGridProps {

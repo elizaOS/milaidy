@@ -204,7 +204,7 @@ describe("core-eject", () => {
 
       expect(result.success).toBe(true);
       expect(result.upstreamCommit).toBe("head123");
-      await expect(fs.access(result.ejectedPath)).resolves.toBeUndefined();
+      await fs.access(result.ejectedPath);
 
       const upstreamRaw = await fs.readFile(
         path.join(mockedStateDir, "core", ".upstream.json"),

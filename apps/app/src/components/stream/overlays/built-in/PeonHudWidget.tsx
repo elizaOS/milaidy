@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
+import { useApp } from "../../../../AppContext";
 import { registerWidget } from "../registry";
 import type { WidgetDefinition, WidgetRenderProps } from "../types";
 
@@ -88,6 +89,7 @@ function PeonHud({
   agentMode,
   agentName,
 }: WidgetRenderProps) {
+  const { t } = useApp();
   const accentColor = (instance.config.accentColor as string) ?? "#00e5ff";
   const showLabel = (instance.config.showLabel as boolean) ?? true;
   const showEventCount = (instance.config.showEventCount as boolean) ?? true;
@@ -197,7 +199,7 @@ function PeonHud({
             letterSpacing: "0.1em",
           }}
         >
-          {events.length} events
+          {events.length} {t("peonhudwidget.events")}
         </div>
       )}
     </div>

@@ -1,9 +1,11 @@
+import type { StreamEventEnvelope } from "@milady/app-core/api";
+import { formatTime } from "@milady/app-core/components";
 import { useMemo } from "react";
-import type { StreamEventEnvelope } from "../../api-client";
-import { formatTime } from "../shared/format";
+import { useApp } from "../../AppContext";
 import { getEventText } from "./helpers";
 
 export function IdleContent({ events }: { events: StreamEventEnvelope[] }) {
+  const { t } = useApp();
   const latestThought = useMemo(
     () =>
       [...events]
@@ -29,20 +31,22 @@ export function IdleContent({ events }: { events: StreamEventEnvelope[] }) {
     <div className="h-full w-full flex flex-col justify-center px-8 py-6">
       {latestThought ? (
         <div className="mb-5">
-          <div className="text-[10px] uppercase text-muted mb-1">Thought</div>
+          <div className="text-[10px] uppercase text-muted mb-1">
+            {t("idlecontent.Thought")}
+          </div>
           <div className="text-base text-txt italic leading-relaxed">
             "{getEventText(latestThought).slice(0, 250)}"
           </div>
         </div>
       ) : (
         <div className="text-muted text-base mb-5">
-          Agent is idle — awaiting activity...
+          {t("idlecontent.AgentIsIdleAwai")}
         </div>
       )}
       {recentActions.length > 0 && (
         <div>
           <div className="text-[10px] uppercase text-muted mb-2">
-            Recent Actions
+            {t("idlecontent.RecentActions")}
           </div>
           <div className="space-y-1.5">
             {recentActions.map((a) => (

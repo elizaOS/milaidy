@@ -135,6 +135,18 @@ export default defineConfig({
         ),
       },
       {
+        // workspace plugin not built in CI (--ignore-scripts); resolve from
+        // source so vi.mock() and dynamic import() don't fail on missing dist/.
+        find: "@milady/plugin-bnb-identity",
+        replacement: path.join(
+          repoRoot,
+          "packages",
+          "plugin-bnb-identity",
+          "src",
+          "index.ts",
+        ),
+      },
+      {
         // @elizaos/skills has a broken package.json entry; the code handles the
 
         // missing module gracefully (try/catch), so redirect to an empty stub.
@@ -184,6 +196,9 @@ export default defineConfig({
     hookTimeout: isWindows ? 180_000 : 120_000,
     pool: "forks",
     maxWorkers: isCI ? ciWorkers : localWorkers,
+    // Increase V8 heap for worker forks to prevent OOM during GC
+    // teardown, especially for jsdom-heavy test files.
+    execArgv: ["--max-old-space-size=4096"],
     include: [
       "src/**/*.test.ts",
       "scripts/**/*.test.ts",
@@ -232,7 +247,7 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: ["@elizaos/core"],
+        inline: ["@elizaos/core", "zod"],
       },
     },
   },

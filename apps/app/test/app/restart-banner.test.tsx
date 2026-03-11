@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 interface RestartBannerContextStub {
+  t: (key: string) => string;
   pendingRestart: boolean;
   pendingRestartReasons: string[];
   restartBannerDismissed: boolean;
@@ -28,6 +29,7 @@ function makeContext(
   overrides: Partial<RestartBannerContextStub> = {},
 ): RestartBannerContextStub {
   return {
+    t: (k: string) => k,
     pendingRestart: false,
     pendingRestartReasons: [],
     restartBannerDismissed: false,

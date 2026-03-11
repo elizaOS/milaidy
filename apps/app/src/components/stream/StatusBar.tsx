@@ -1,4 +1,15 @@
+import { Button, Input, Slider } from "@milady/ui";
+import {
+  ChevronDown,
+  ExternalLink,
+  PictureInPicture,
+  Pin,
+  Settings,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { useApp } from "../../AppContext";
 import {
   type AgentMode,
   IS_POPOUT,
@@ -64,6 +75,7 @@ export function StatusBar({
   onSourceChange: (sourceType: StreamSourceType, customUrl?: string) => void;
   onOpenSettings?: () => void;
 }) {
+  const { t } = useApp();
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -153,10 +165,11 @@ export function StatusBar({
         {/* Stream source picker — always visible */}
         {!isPip && (
           <span ref={sourceDropdownRef} className="relative flex items-center">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={!streamAvailable}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer text-[11px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-2 py-0.5 h-6 rounded bg-bg-muted hover:bg-accent/20 transition-colors text-[11px] font-normal"
               onClick={() => setSourceOpen((o) => !o)}
               title={
                 streamAvailable
@@ -164,22 +177,12 @@ export function StatusBar({
                   : "Install and enable the streaming plugin to change sources"
               }
             >
-              <span className="text-muted">Src:</span>
+              <span className="text-muted">{t("statusbar.Src")}</span>
               <span className="text-txt font-medium">
                 {STREAM_SOURCE_LABELS[streamSource.type]}
               </span>
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <title>Toggle source picker</title>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+              <ChevronDown className="w-2.5 h-2.5" />
+            </Button>
             {sourceOpen && (
               <div className="absolute top-full left-0 mt-1 z-50 bg-bg border border-border rounded shadow-lg min-w-[180px]">
                 {(
@@ -189,16 +192,17 @@ export function StatusBar({
                   const disabled =
                     !streamAvailable || (isGame && !activeGameViewerUrl.trim());
                   return (
-                    <button
+                    <Button
                       key={st}
-                      type="button"
+                      variant="ghost"
+                      size="sm"
                       disabled={disabled}
-                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                      className={`w-full justify-start px-3 py-1.5 h-auto text-xs transition-colors rounded-none ${
                         streamSource.type === st
-                          ? "bg-accent/20 text-accent"
+                          ? "bg-accent/20 text-accent hover:bg-accent/30"
                           : disabled
-                            ? "text-muted/40 cursor-not-allowed"
-                            : "text-txt hover:bg-bg-muted cursor-pointer"
+                            ? "text-muted/40 opacity-50"
+                            : "text-txt hover:bg-bg-muted"
                       }`}
                       onClick={() => {
                         if (st === "custom-url") return; // handled by input below
@@ -212,21 +216,20 @@ export function StatusBar({
                       {STREAM_SOURCE_LABELS[st]}
                       {isGame && activeGameViewerUrl.trim() && (
                         <span className="ml-1 text-muted text-[10px]">
-                          (active)
+                          {t("statusbar.Active")}
                         </span>
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
                 {/* Custom URL input */}
-                <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border">
-                  <input
-                    type="text"
-                    placeholder="https://..."
+                <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border bg-bg">
+                  <Input
+                    placeholder={t("statusbar.https")}
                     value={customUrlInput}
                     onChange={(e) => setCustomUrlInput(e.target.value)}
                     disabled={!streamAvailable}
-                    className={`flex-1 bg-bg-muted text-txt text-[11px] rounded px-2 py-1 border outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`flex-1 h-7 bg-bg-muted text-txt text-[11px] rounded px-2 border outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-50 ${
                       trimmedCustomUrl && !customUrlValid
                         ? "border-danger"
                         : "border-border"
@@ -238,10 +241,11 @@ export function StatusBar({
                       }
                     }}
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     disabled={!streamAvailable || !customUrlValid}
-                    className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-2 py-1 h-7 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30 transition-colors disabled:opacity-40"
                     onClick={() => {
                       if (customUrlValid) {
                         onSourceChange("custom-url", trimmedCustomUrl);
@@ -255,7 +259,7 @@ export function StatusBar({
                     }
                   >
                     Go
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -279,50 +283,33 @@ export function StatusBar({
 
         {/* Volume controls */}
         {!isPip && (
-          <span className="flex items-center gap-1">
-            <button
-              type="button"
+          <span className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={!streamAvailable}
-              className="p-1 rounded bg-bg-muted hover:bg-accent/20 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1 h-6 w-6 rounded bg-bg-muted hover:bg-accent/20 transition-colors disabled:opacity-50"
               title={muted ? "Unmute" : "Mute"}
               onClick={onToggleMute}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <title>{muted ? "Unmute" : "Mute"}</title>
-                {muted ? (
-                  <>
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <line x1="23" y1="9" x2="17" y2="15" />
-                    <line x1="17" y1="9" x2="23" y2="15" />
-                  </>
-                ) : (
-                  <>
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                  </>
-                )}
-              </svg>
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={muted ? 0 : volume}
-              disabled={!streamAvailable}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              className="w-16 accent-[var(--accent)]"
-              title={`Volume: ${muted ? 0 : volume}%`}
-            />
+              {muted ? (
+                <VolumeX className="w-3.5 h-3.5" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </Button>
+            <div className="w-16">
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={[muted ? 0 : volume]}
+                disabled={!streamAvailable}
+                onValueChange={([vol]) => onVolumeChange(vol)}
+                title={`Volume: ${muted ? 0 : volume}%`}
+                className="cursor-pointer"
+              />
+            </div>
           </span>
         )}
 
@@ -351,10 +338,11 @@ export function StatusBar({
 
         {/* Settings gear */}
         {!isPip && onOpenSettings && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             disabled={!streamAvailable}
-            className="px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 hover:text-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-2 py-0.5 h-6 rounded bg-bg-muted hover:bg-accent/20 hover:text-accent transition-colors disabled:opacity-50"
             title={
               streamAvailable
                 ? "Stream settings"
@@ -362,28 +350,15 @@ export function StatusBar({
             }
             onClick={onOpenSettings}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Settings</title>
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
+            <Settings className="w-3.5 h-3.5" />
+          </Button>
         )}
 
         {!isPip && (
-          <button
-            type="button"
+          <Button
+            size="sm"
             disabled={!streamAvailable || streamLoading}
-            className={`px-3 py-0.5 rounded font-semibold text-[11px] uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
+            className={`px-3 py-0.5 h-6 rounded font-semibold text-[11px] uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-wait ${
               isLive
                 ? "bg-danger/20 text-danger hover:bg-danger/30"
                 : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
@@ -396,13 +371,14 @@ export function StatusBar({
             }
           >
             {streamLoading ? "..." : isLive ? "Stop Stream" : "Go Live"}
-          </button>
+          </Button>
         )}
         {IS_POPOUT ? (
           <>
-            <button
-              type="button"
-              className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`px-2 py-0.5 h-6 rounded transition-colors ${
                 isPip
                   ? "bg-purple-500/20 text-purple-400"
                   : "bg-bg-muted hover:bg-purple-500/20 hover:text-purple-400"
@@ -414,41 +390,12 @@ export function StatusBar({
               }
               onClick={onTogglePip}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <title>{isPip ? "Exit PIP" : "PIP"}</title>
-                {isPip ? (
-                  <>
-                    <rect x="2" y="3" width="20" height="14" rx="2" />
-                    <rect
-                      x="10"
-                      y="9"
-                      width="10"
-                      height="7"
-                      rx="1"
-                      fill="currentColor"
-                      opacity="0.3"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <rect x="2" y="3" width="20" height="14" rx="2" />
-                    <rect x="11" y="9" width="9" height="6" rx="1" />
-                  </>
-                )}
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+              <PictureInPicture className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`px-2 py-0.5 h-6 rounded transition-colors ${
                 pinned
                   ? "bg-accent/20 text-accent"
                   : "bg-bg-muted hover:bg-accent/20 hover:text-accent"
@@ -461,27 +408,15 @@ export function StatusBar({
                 });
               }}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <title>{pinned ? "Unpin" : "Pin"}</title>
-                <path d="M12 17v5" />
-                <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-              </svg>
-            </button>
+              <Pin className="w-3.5 h-3.5" />
+            </Button>
           </>
         ) : (
-          <button
-            type="button"
-            className="px-2 py-0.5 rounded bg-bg-muted hover:bg-accent/20 hover:text-accent transition-colors cursor-pointer"
-            title="Pop out stream view"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 py-0.5 h-6 rounded bg-bg-muted hover:bg-accent/20 hover:text-accent transition-colors"
+            title={t("statusbar.PopOutStreamView")}
             onClick={() => {
               const apiBase = (window as unknown as Record<string, unknown>)
                 .__MILADY_API_BASE__ as string | undefined;
@@ -523,22 +458,8 @@ export function StatusBar({
               }
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Pop Out</title>
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-              <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-            </svg>
-          </button>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Button>
         )}
       </div>
     </div>

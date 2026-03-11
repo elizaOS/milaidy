@@ -1,16 +1,16 @@
 PODS:
-  - Capacitor (8.0.2):
+  - Capacitor (8.1.0):
     - CapacitorCordova
-  - CapacitorApp (8.0.0):
+  - CapacitorApp (8.0.1):
     - Capacitor
-  - CapacitorCordova (8.0.2)
+  - CapacitorCordova (8.1.0)
   - CapacitorHaptics (8.0.0):
     - Capacitor
   - CapacitorKeyboard (8.0.0):
     - Capacitor
-  - CapacitorPreferences (8.0.0):
+  - CapacitorPreferences (8.0.1):
     - Capacitor
-  - CapacitorStatusBar (8.0.0):
+  - CapacitorStatusBar (8.0.1):
     - Capacitor
   - MiladyCapacitorAgent (1.0.0):
     - Capacitor
@@ -30,13 +30,13 @@ PODS:
     - Capacitor
 
 DEPENDENCIES:
-  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
-  - "CapacitorApp (from `../../node_modules/@capacitor/app`)"
-  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
-  - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
-  - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
-  - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
-  - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
+  - "Capacitor (from `../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios`)"
+  - "CapacitorApp (from `../../../../node_modules/.bun/@capacitor+app@8.0.1+15945e198350fa93/node_modules/@capacitor/app`)"
+  - "CapacitorCordova (from `../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios`)"
+  - "CapacitorHaptics (from `../../../../node_modules/.bun/@capacitor+haptics@8.0.0+15945e198350fa93/node_modules/@capacitor/haptics`)"
+  - "CapacitorKeyboard (from `../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+15945e198350fa93/node_modules/@capacitor/keyboard`)"
+  - "CapacitorPreferences (from `../../../../node_modules/.bun/@capacitor+preferences@8.0.1+15945e198350fa93/node_modules/@capacitor/preferences`)"
+  - "CapacitorStatusBar (from `../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+15945e198350fa93/node_modules/@capacitor/status-bar`)"
   - MiladyCapacitorAgent (from `../../plugins/agent`)
   - MiladyCapacitorCamera (from `../../plugins/camera`)
   - MiladyCapacitorCanvas (from `../../plugins/canvas`)
@@ -48,19 +48,19 @@ DEPENDENCIES:
 
 EXTERNAL SOURCES:
   Capacitor:
-    :path: "../../node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios"
   CapacitorApp:
-    :path: "../../node_modules/@capacitor/app"
+    :path: "../../../../node_modules/.bun/@capacitor+app@8.0.1+15945e198350fa93/node_modules/@capacitor/app"
   CapacitorCordova:
-    :path: "../../node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios"
   CapacitorHaptics:
-    :path: "../../node_modules/@capacitor/haptics"
+    :path: "../../../../node_modules/.bun/@capacitor+haptics@8.0.0+15945e198350fa93/node_modules/@capacitor/haptics"
   CapacitorKeyboard:
-    :path: "../../node_modules/@capacitor/keyboard"
+    :path: "../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+15945e198350fa93/node_modules/@capacitor/keyboard"
   CapacitorPreferences:
-    :path: "../../node_modules/@capacitor/preferences"
+    :path: "../../../../node_modules/.bun/@capacitor+preferences@8.0.1+15945e198350fa93/node_modules/@capacitor/preferences"
   CapacitorStatusBar:
-    :path: "../../node_modules/@capacitor/status-bar"
+    :path: "../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+15945e198350fa93/node_modules/@capacitor/status-bar"
   MiladyCapacitorAgent:
     :path: "../../plugins/agent"
   MiladyCapacitorCamera:
@@ -79,22 +79,22 @@ EXTERNAL SOURCES:
     :path: "../../plugins/talkmode"
 
 SPEC CHECKSUMS:
-  Capacitor: 2b79172ad27f3be2d103cce88b8eb9803fdcc744
-  CapacitorApp: 3963a84197280757b84f126afd1520a85ae3b092
-  CapacitorCordova: 921bdb690ebe82421b24fce45552fd3dea2ae43a
+  Capacitor: 47b825120c6b8b6d6f9f053e9350a8960d436710
+  CapacitorApp: 942306cd1acf7774a00e89a3986af3a67c8cad7a
+  CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
   CapacitorHaptics: 2079d9fa04c5a71e18663b4722323c304c58245c
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
-  CapacitorPreferences: 443fabe9670226200e595658a87ef0b1566716d4
-  CapacitorStatusBar: 312e2e67928dfe9514c4a8916a1fd610552f5f35
-  MiladyCapacitorAgent: e3ee4366987dab9475b39ddf5efc0677b078bc5c
-  MiladyCapacitorCamera: 8e229fe3bf1ac181c39d91d7ce3f19f39508bec4
-  MiladyCapacitorCanvas: f82b0c51c6a5747fad559bd02865115699ddc35c
-  MiladyCapacitorGateway: 1d6d7693508c91ed2d650cf9e07ef26d3f7184c7
-  MiladyCapacitorLocation: aecdcbe744a2b2d81bf8fb72fcd8269ce760f131
-  MiladyCapacitorScreencapture: e521ed8daf52d57cad263bfeb0ccd9af46280464
-  MiladyCapacitorSwabble: 0fc4ec22f9f404cd745c3ddfdda46938e89d5a32
-  MiladyCapacitorTalkmode: 8428b459472d5319912afa91b832992b92ed2afe
+  CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
+  CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
+  MiladyCapacitorAgent: 8cee8d946a02612a981108afc505feb4b6e31345
+  MiladyCapacitorCamera: 26c6971783a3d2b7a00e7df2ee92765b8a5eecf6
+  MiladyCapacitorCanvas: 9b9c3e8e7703270f880b859aeb9f7f76a322135e
+  MiladyCapacitorGateway: 44e0190f0f55d79216b1c3bdf6621fd43e3cbb6d
+  MiladyCapacitorLocation: 05b0a488d8a693a720a6fb84dab5aa01f62b83da
+  MiladyCapacitorScreencapture: e08a3ee59dc3d9b23aac3fc78f68a74cde4fb8f0
+  MiladyCapacitorSwabble: bb15013437ab2da54c10106c59feb1b4cfcaa7f5
+  MiladyCapacitorTalkmode: 226beee5fc130d19fcfb967a6021bd2a6c68cd64
 
-PODFILE CHECKSUM: e86a758223ad487d96c83fddc1a02c7786bf4652
+PODFILE CHECKSUM: a1949ade4519fcd9b9c1000786b0148838a8f366
 
 COCOAPODS: 1.16.2

@@ -6,7 +6,7 @@ import type {
   AllPermissionsState,
   PermissionStatus,
   SystemPermissionId,
-} from "./api-client";
+} from "@milady/app-core/api";
 
 export const REQUIRED_ONBOARDING_PERMISSION_IDS: ReadonlyArray<SystemPermissionId> =
   ["accessibility", "screen-recording", "microphone"];

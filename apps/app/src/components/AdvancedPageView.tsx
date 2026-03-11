@@ -13,9 +13,9 @@
  *   - Logs: Runtime log viewer
  */
 
+import type { Tab } from "@milady/app-core/navigation";
 import React, { type ReactNode, useState } from "react";
 import { useApp } from "../AppContext";
-import type { Tab } from "../navigation";
 import { CustomActionsView } from "./CustomActionsView";
 import { DatabasePageView } from "./DatabasePageView";
 import { FineTuningView } from "./FineTuningView";
@@ -23,18 +23,15 @@ import { LifoSandboxView } from "./LifoSandboxView";
 import { LogsPageView } from "./LogsPageView";
 import { PluginsPageView } from "./PluginsPageView";
 import { RuntimeView } from "./RuntimeView";
-import { SecurityAuditPageView } from "./SecurityAuditPageView";
 import { SkillsView } from "./SkillsView";
 import { TrajectoriesView } from "./TrajectoriesView";
 import { TrajectoryDetailView } from "./TrajectoryDetailView";
 import { TriggersView } from "./TriggersView";
-import { WorkflowBuilderView } from "./WorkflowBuilderView";
 
 type SubTab =
   | "plugins"
   | "skills"
   | "actions"
-  | "workflows"
   | "triggers"
   | "fine-tuning"
   | "trajectories"
@@ -49,20 +46,15 @@ const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
   { id: "skills", label: "Skills", description: "Custom agent skills" },
   { id: "actions", label: "Actions", description: "Custom agent actions" },
   {
-    id: "workflows",
-    label: "Workflows",
-    description: "Visual workflow builder and automations",
-  },
-  {
     id: "triggers",
     label: "Triggers",
     description: "Scheduled and event-based automations",
   },
-  {
-    id: "fine-tuning",
-    label: "Fine-Tuning",
-    description: "Dataset and model training workflows",
-  },
+  // {
+  //   id: "fine-tuning",
+  //   label: "Fine-Tuning",
+  //   description: "Dataset and model training workflows",
+  // },
   {
     id: "trajectories",
     label: "Trajectories",
@@ -75,20 +67,15 @@ const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
   },
   {
     id: "database",
-    label: "Databases",
+    label: "Database",
     description: "Tables, media, and vector browser",
   },
-  {
-    id: "lifo",
-    label: "Lifo",
-    description: "Browser-native shell sandbox and file explorer",
-  },
+  // {
+  //   id: "lifo",
+  //   label: "Lifo",
+  //   description: "Browser-native shell sandbox and file explorer",
+  // },
   { id: "logs", label: "Logs", description: "Runtime and service logs" },
-  {
-    id: "security",
-    label: "Security",
-    description: "Sandbox and policy audit feed",
-  },
 ];
 
 const MODAL_SUB_TABS = SUB_TABS.filter(
@@ -109,26 +96,6 @@ const SUBTAB_ICONS: Record<string, ReactNode> = {
       aria-hidden="true"
     >
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  ),
-  workflows: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="6" height="6" rx="1" />
-      <rect x="15" y="3" width="6" height="6" rx="1" />
-      <rect x="9" y="15" width="6" height="6" rx="1" />
-      <path d="M6 9v3a1 1 0 0 0 1 1h4" />
-      <path d="M18 9v3a1 1 0 0 1-1 1h-4" />
-      <line x1="12" y1="13" x2="12" y2="15" />
     </svg>
   ),
   triggers: (
@@ -281,8 +248,6 @@ function mapTabToSubTab(tab: Tab, inModal?: boolean): SubTab {
       return "skills";
     case "actions":
       return "actions";
-    case "workflows":
-      return "workflows";
     case "triggers":
       return "triggers";
     case "fine-tuning":
@@ -326,8 +291,6 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         return <SkillsView />;
       case "actions":
         return <CustomActionsView />;
-      case "workflows":
-        return <WorkflowBuilderView />;
       case "triggers":
         return <TriggersView />;
       case "fine-tuning":
@@ -352,8 +315,6 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         return <LifoSandboxView />;
       case "logs":
         return <LogsPageView />;
-      case "security":
-        return <SecurityAuditPageView />;
       default:
         return inModal ? <CustomActionsView /> : <PluginsPageView />;
     }
@@ -425,14 +386,7 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         }
       >
         {inModal ? (
-          currentSubTab === "workflows" ? (
-            // Workflow builder manages its own layout — skip settings-section-pane padding/scroll
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              {renderContent()}
-            </div>
-          ) : (
-            <div className="settings-section-pane pt-4">{renderContent()}</div>
-          )
+          <div className="settings-section-pane pt-4">{renderContent()}</div>
         ) : (
           renderContent()
         )}

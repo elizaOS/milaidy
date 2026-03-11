@@ -5,8 +5,12 @@
  * provider + API key status, and a test button to speak sample text.
  */
 
+import { client } from "@milady/app-core/api";
+import { Button } from "@milady/ui";
+import { Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { client } from "../../api-client";
+import { useApp } from "../../AppContext";
+import { useTimeout } from "../../hooks/useTimeout";
 
 interface VoiceStatus {
   enabled: boolean;
@@ -19,6 +23,9 @@ interface VoiceStatus {
 }
 
 export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
+  const { setTimeout } = useTimeout();
+
+  const { t } = useApp();
   const [status, setStatus] = useState<VoiceStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -74,7 +81,10 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
       // Poll will update speaking state
       setTimeout(() => setSpeaking(false), 3000);
     }
-  }, [speaking]);
+  }, [
+    speaking, // Poll will update speaking state
+    setTimeout,
+  ]);
 
   if (!status) return null;
 
@@ -85,11 +95,12 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       {/* Toggle */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={toggleEnabled}
         disabled={loading}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+        className={`flex items-center gap-1.5 px-2 py-1 h-7 rounded text-xs font-medium transition-colors ${
           status.enabled
             ? "bg-accent/20 text-accent hover:bg-accent/30"
             : "bg-surface text-muted hover:bg-surface-hover"
@@ -100,35 +111,13 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
             : "Voice on stream: OFF (click to enable)"
         }
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-label={status.enabled ? "Voice enabled" : "Voice disabled"}
-          role="img"
-        >
-          <title>{status.enabled ? "Voice enabled" : "Voice disabled"}</title>
-          {status.enabled ? (
-            <>
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </>
-          ) : (
-            <>
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <line x1="23" y1="9" x2="17" y2="15" />
-              <line x1="17" y1="9" x2="23" y2="15" />
-            </>
-          )}
-        </svg>
-        <span>Voice</span>
-      </button>
+        {status.enabled ? (
+          <Volume2 className="w-3.5 h-3.5" />
+        ) : (
+          <VolumeX className="w-3.5 h-3.5" />
+        )}
+        <span>{t("streamvoiceconfig.Voice")}</span>
+      </Button>
 
       {/* Status indicators (when enabled) */}
       {status.enabled && (
@@ -136,27 +125,33 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
           <span className="text-muted">
             {providerLabel}
             {!status.hasApiKey && status.provider !== "edge" && (
-              <span className="text-warning ml-1" title="No API key configured">
-                (no key)
+              <span
+                className="text-warning ml-1"
+                title={t("streamvoiceconfig.NoAPIKeyConfigure")}
+              >
+                {t("streamvoiceconfig.NoKey")}
               </span>
             )}
           </span>
 
           {speaking && (
-            <span className="text-accent animate-pulse">Speaking...</span>
+            <span className="text-accent animate-pulse">
+              {t("streamvoiceconfig.Speaking")}
+            </span>
           )}
 
           {/* Test button — only when stream is live and bridge attached */}
           {streamLive && status.isAttached && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={testSpeak}
               disabled={speaking}
-              className="px-1.5 py-0.5 rounded bg-surface text-muted hover:bg-surface-hover hover:text-txt text-xs transition-colors"
-              title="Test TTS on stream"
+              className="px-1.5 py-0.5 h-6 rounded bg-surface text-muted hover:bg-surface-hover hover:text-txt text-[10px] transition-colors"
+              title={t("streamvoiceconfig.TestTTSOnStream")}
             >
-              Test
-            </button>
+              {t("streamvoiceconfig.Test")}
+            </Button>
           )}
         </>
       )}

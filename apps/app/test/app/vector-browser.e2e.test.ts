@@ -358,14 +358,14 @@ vi.mock("three", () => {
 });
 
 // Mock api-client
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getDatabaseTables: vi.fn(),
     executeDatabaseQuery: vi.fn(),
   },
 }));
 
-import { client } from "../../src/api-client";
+import { client } from "@milady/app-core/api";
 import { VectorBrowserView } from "../../src/components/VectorBrowserView";
 
 // ── Component Tests ────────────────────────────────────────────────────
@@ -399,6 +399,7 @@ async function flush(): Promise<void> {
 describe("VectorBrowserView Component", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
+    mockUseApp.mockReturnValue({ uiLanguage: "en", t: (k: string) => k });
     vi.mocked(client.getDatabaseTables).mockReset();
     vi.mocked(client.executeDatabaseQuery).mockReset();
   });
@@ -422,12 +423,15 @@ describe("VectorBrowserView Component", () => {
     const errorText = root.findAll(
       (node) =>
         typeof node.children[0] === "string" &&
-        node.children[0].includes("agent"),
+        node.children[0].includes("vectorbrowserview.DatabaseNotAvailab"),
     );
     expect(errorText.length).toBeGreaterThan(0);
 
     // Should show retry button
-    const retryButton = findButtonByText(root, "Retry Connection");
+    const retryButton = findButtonByText(
+      root,
+      "vectorbrowserview.RetryConnection",
+    );
     expect(retryButton).not.toBeNull();
   });
 
@@ -453,7 +457,7 @@ describe("VectorBrowserView Component", () => {
     const root = tree?.root;
 
     // Should have List, 2D, and 3D buttons
-    const listButton = findButtonByText(root, "List");
+    const listButton = findButtonByText(root, "vectorbrowserview.List");
     const graph2DButton = findButtonByText(root, "2D");
     const graph3DButton = findButtonByText(root, "3D");
 
@@ -495,9 +499,9 @@ describe("VectorBrowserView Component", () => {
     });
     await flush();
 
-    // 3D button should now be active (has accent styling)
+    // 3D button should now be active (has default variant styling, bg-primary)
     const updatedButton = findButtonByText(root, "3D");
-    expect(updatedButton?.props.className).toContain("accent");
+    expect(updatedButton?.props.className).toContain("bg-primary");
   });
 
   it("displays empty state when no memories found", async () => {
@@ -523,7 +527,7 @@ describe("VectorBrowserView Component", () => {
     const noMemoriesText = root.findAll(
       (node) =>
         typeof node.children[0] === "string" &&
-        node.children[0].includes("No memories found"),
+        node.children[0].includes("vectorbrowserview.NoMemoriesFound"),
     );
     expect(noMemoriesText.length).toBeGreaterThan(0);
   });

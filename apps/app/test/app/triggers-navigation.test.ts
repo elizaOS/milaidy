@@ -1,10 +1,10 @@
-import { describe, expect, test } from "vitest";
 import {
   ALL_TAB_GROUPS,
   pathForTab,
   tabFromPath,
   titleForTab,
-} from "../../src/navigation";
+} from "@milady/app-core/navigation";
+import { describe, expect, test } from "vitest";
 
 describe("navigation", () => {
   test("resolves path and title for advanced tabs and triggers", () => {

@@ -387,15 +387,15 @@ type ExportImportState = {
   plugins: unknown[];
   pluginSaving: boolean;
   pluginSaveSuccess: boolean;
-  cloudEnabled: boolean;
-  cloudConnected: boolean;
-  cloudCredits: number;
-  cloudCreditsLow: boolean;
-  cloudCreditsCritical: boolean;
-  cloudTopUpUrl: string;
-  cloudUserId: string;
-  cloudLoginBusy: boolean;
-  cloudLoginError: string;
+  miladyCloudEnabled: boolean;
+  miladyCloudConnected: boolean;
+  miladyCloudCredits: number;
+  miladyCloudCreditsLow: boolean;
+  miladyCloudCreditsCritical: boolean;
+  miladyCloudTopUpUrl: string;
+  miladyCloudUserId: string;
+  miladyCloudLoginBusy: boolean;
+  miladyCloudLoginError: string;
   cloudDisconnecting: boolean;
 };
 
@@ -405,15 +405,15 @@ function createExportImportUIState(): ExportImportState {
     plugins: [],
     pluginSaving: false,
     pluginSaveSuccess: false,
-    cloudEnabled: false,
-    cloudConnected: false,
-    cloudCredits: 0,
-    cloudCreditsLow: false,
-    cloudCreditsCritical: false,
-    cloudTopUpUrl: "",
-    cloudUserId: "",
-    cloudLoginBusy: false,
-    cloudLoginError: "",
+    miladyCloudEnabled: false,
+    miladyCloudConnected: false,
+    miladyCloudCredits: 0,
+    miladyCloudCreditsLow: false,
+    miladyCloudCreditsCritical: false,
+    miladyCloudTopUpUrl: "",
+    miladyCloudUserId: "",
+    miladyCloudLoginBusy: false,
+    miladyCloudLoginError: "",
     cloudDisconnecting: false,
   };
 }
@@ -432,6 +432,7 @@ describe("Export/Import UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       loadPlugins: vi.fn(),
       handlePluginToggle: vi.fn(),
@@ -460,9 +461,9 @@ describe("Export/Import UI", () => {
       tree = TestRenderer.create(React.createElement(SettingsView));
     });
 
-    // Look for Export text
+    // Look for Export key
     const allText = JSON.stringify(tree?.toJSON());
-    expect(allText).toContain("Export");
+    expect(allText).toContain("settings.exportAgent");
   });
 
   it("renders import button in advanced section", async () => {
@@ -473,7 +474,7 @@ describe("Export/Import UI", () => {
     });
 
     const allText = JSON.stringify(tree?.toJSON());
-    expect(allText).toContain("Import");
+    expect(allText).toContain("settings.importAgent");
   });
 });
 

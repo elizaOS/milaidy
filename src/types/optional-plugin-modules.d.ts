@@ -1,5 +1,5 @@
 /** Optional: used by NFA routes when present. WHY: allows typecheck without resolving packages/ (excluded from tsconfig). */
-declare module "@milady/plugin-bnb-identity" {
+declare module "@elizaos/plugin-bnb-identity" {
   export function buildMerkleRoot(leafHashes: string[]): string;
   export function parseLearnings(
     markdown: string,
@@ -26,6 +26,12 @@ declare module "@elizaos/plugin-obsidian" {
 }
 
 declare module "@elizaos/plugin-code" {
+  const plugin: import("@elizaos/core").Plugin;
+  export default plugin;
+  export { plugin };
+}
+
+declare module "@elizaos/plugin-agent-orchestrator" {
   const plugin: import("@elizaos/core").Plugin;
   export default plugin;
   export { plugin };

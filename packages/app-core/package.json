@@ -1,0 +1,44 @@
+{
+  "name": "@milady/app-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/index.ts",
+    "./types": "./src/types/index.ts",
+    "./events": "./src/events/index.ts",
+    "./i18n": "./src/i18n/index.ts",
+    "./navigation": "./src/navigation/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./bridge": "./src/bridge/index.ts",
+    "./state": "./src/state/index.ts",
+    "./components": "./src/components/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./voice": "./src/voice/index.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.0.2",
+    "@capacitor/haptics": "8.0.0",
+    "@capacitor/preferences": "^8.0.1",
+    "@milady/capacitor-camera": "workspace:*",
+    "@milady/capacitor-canvas": "workspace:*",
+    "@milady/capacitor-desktop": "workspace:*",
+    "@milady/capacitor-gateway": "workspace:*",
+    "@milady/capacitor-location": "workspace:*",
+    "@milady/capacitor-screencapture": "workspace:*",
+    "@milady/capacitor-swabble": "workspace:*",
+    "@milady/capacitor-talkmode": "workspace:*",
+    "lucide-react": "^0.575.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.9.3"
+  }
+}

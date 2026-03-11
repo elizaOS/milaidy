@@ -2,7 +2,9 @@
  * Truncated wallet address with a copy button.
  */
 
+import { Button } from "@milady/ui";
 import { useState } from "react";
+import { useTimeout } from "../../hooks/useTimeout";
 
 export function CopyableAddress({
   address,
@@ -11,6 +13,7 @@ export function CopyableAddress({
   address: string;
   onCopy: (text: string) => Promise<void>;
 }) {
+  const { setTimeout } = useTimeout();
   const [copied, setCopied] = useState(false);
   const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
@@ -25,13 +28,14 @@ export function CopyableAddress({
       <code className="font-mono text-xs text-muted select-all" title={address}>
         {short}
       </code>
-      <button
-        type="button"
+      <Button
+        variant="outline"
+        size="sm"
         onClick={handleCopy}
-        className="px-1.5 py-0.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors"
+        className="h-6 px-1.5 py-0.5 border-border bg-bg text-[10px] font-mono shadow-sm hover:border-accent hover:text-accent"
       >
         {copied ? "copied" : "copy"}
-      </button>
+      </Button>
     </div>
   );
 }

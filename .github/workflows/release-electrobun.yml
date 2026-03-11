@@ -259,10 +259,10 @@ jobs:
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
             arch -x86_64 bun install --ignore-scripts
-            arch -x86_64 npx vite build
+            arch -x86_64 bunx vite build
           else
             bun install --ignore-scripts
-            npx vite build
+            bunx vite build
           fi
         working-directory: apps/app
 
@@ -559,6 +559,25 @@ jobs:
         if: matrix.platform.os == 'windows'
         run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
 
+      - name: Install Playwright Chromium (Windows)
+        if: matrix.platform.os == 'windows'
+        run: bunx playwright install chromium --with-deps
+
+      - name: Run Windows UI Playwright Tests
+        if: matrix.platform.os == 'windows'
+        run: |
+          cd apps/app
+          bunx playwright test --config playwright.electron.packaged.config.ts test/electron-packaged/electrobun-windows-startup.e2e.spec.ts
+
+      - name: Upload Windows Playwright UI diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-windows-ui-playwright-diagnostics
+          path: apps/app/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Stage Windows setup executables
         if: matrix.platform.os == 'windows'
         shell: pwsh
@@ -574,6 +593,59 @@ jobs:
             Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
             Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
           }
+
+
+      - name: Sign Windows executables
+        if: matrix.platform.os == 'windows'
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
+
+      - name: Verify Windows code signature
+        if: matrix.platform.os == 'windows' && env.WINDOWS_SIGN_CERT_BASE64 != ''
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter "signtool.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "x64" } |
+            Sort-Object { [version]($_.FullName -replace '.*\\(\d+\.\d+\.\d+\.\d+)\\.*', '$1') } -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
+          $signed = 0
+          $failed = 0
+
+          Get-ChildItem -Path $artifactsDir -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "Verifying: $($_.FullName)"
+            & $signtool verify /pa /v $_.FullName
+            if ($LASTEXITCODE -eq 0) {
+              $signed++
+            } else {
+              Write-Host "::error::Signature verification failed: $($_.Name)"
+              $failed++
+            }
+          }
+
+          Write-Host "Verification complete: $signed signed, $failed failed"
+          if ($failed -gt 0) {
+            exit 1
+          }
+
+      - name: Build MSIX package
+        if: matrix.platform.os == 'windows'
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
+        run: |
+          pwsh -File packaging/msix/build-msix.ps1 `
+            -BuildDir (Join-Path $PWD "apps/app/electrobun/build") `
+            -OutputDir (Join-Path $PWD "apps/app/electrobun/artifacts") `
+            -Version "${{ needs.prepare.outputs.version }}"
 
       - name: Verify macOS signature and notarization
         if: matrix.platform.os == 'macos'
@@ -737,6 +809,7 @@ jobs:
             apps/app/electrobun/artifacts/*.tar.gz
             apps/app/electrobun/artifacts/*-update.json
             apps/app/electrobun/artifacts/*.patch
+            apps/app/electrobun/artifacts/*.msix
           if-no-files-found: error
           retention-days: 30
 
@@ -769,7 +842,8 @@ jobs:
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
             -name "*Setup*.zip" -o \
-            -name "*Setup*.tar.gz" \
+            -name "*Setup*.tar.gz" -o \
+            -name "*.msix" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
           echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"

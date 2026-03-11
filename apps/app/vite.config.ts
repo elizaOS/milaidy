@@ -64,9 +64,9 @@ export default defineConfig({
         find: /^@milady\/capacitor-(.*)/,
         replacement: path.resolve(here, "plugins/$1/src/index.ts"),
       },
-      // Allow importing from the milady src (but NOT @milady/capacitor-* plugin packages)
+      // Allow importing from the milady src (but NOT workspace packages)
       {
-        find: /^@milady(?!\/capacitor-)/,
+        find: /^@milady(?!\/(capacitor-|app-core|ui))/,
         replacement: path.resolve(miladyRoot, "src"),
       },
     ],

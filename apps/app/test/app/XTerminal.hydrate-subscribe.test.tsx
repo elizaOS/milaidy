@@ -73,7 +73,7 @@ const mockOnWsEvent = vi.fn(
 const mockSendPtyInput = vi.fn();
 const mockResizePty = vi.fn();
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getPtyBufferedOutput: mockGetPtyBufferedOutput,
     subscribePtyOutput: mockSubscribePtyOutput,
@@ -120,7 +120,7 @@ describe("XTerminal hydrate-then-subscribe", () => {
   it("hydrates from REST before subscribing to WS", async () => {
     // We test the ordering logic directly since the component uses
     // async dynamic imports making React Testing Library flaky
-    const { client } = await import("../../src/api-client");
+    const { client } = await import("@milady/app-core/api");
 
     const sessionId = "test-session";
 
@@ -136,7 +136,7 @@ describe("XTerminal hydrate-then-subscribe", () => {
   });
 
   it("cleans up WS subscription on unmount", async () => {
-    const { client } = await import("../../src/api-client");
+    const { client } = await import("@milady/app-core/api");
     const sessionId = "test-session";
 
     // Subscribe
@@ -151,7 +151,7 @@ describe("XTerminal hydrate-then-subscribe", () => {
   });
 
   it("only writes data for the matching sessionId", async () => {
-    const { client } = await import("../../src/api-client");
+    const { client } = await import("@milady/app-core/api");
 
     let capturedHandler: ((msg: WsMessage) => void) | null = null;
     mockOnWsEvent.mockImplementation((_event, handler) => {

@@ -1,24 +1,15 @@
-import { useEffect } from "react";
-import type { Tab } from "../navigation";
+/**
+ * Re-exported from @milady/app-core.
+ * @see packages/app-core/src/hooks/useStreamPopoutNavigation.ts
+ *
+ * The wrapper casts `string` to `Tab` so the app-specific setter type is
+ * compatible with the generic hook signature.
+ */
+import { useStreamPopoutNavigation as _useStreamPopoutNavigation } from "@milady/app-core/hooks";
+import type { Tab } from "@milady/app-core/navigation";
 
-export function getNextTabForStreamPopoutEvent(_detail: unknown): Tab | null {
-  return null;
-}
+export { getNextTabForStreamPopoutEvent } from "@milady/app-core/hooks";
 
 export function useStreamPopoutNavigation(setTab: (tab: Tab) => void): void {
-  useEffect(() => {
-    const target =
-      typeof window !== "undefined" ? window : (globalThis as EventTarget);
-    const handler = (event: Event) => {
-      const nextTab = getNextTabForStreamPopoutEvent(
-        (event as CustomEvent).detail,
-      );
-      if (nextTab) {
-        setTab(nextTab);
-      }
-    };
-
-    target.addEventListener("stream-popout", handler);
-    return () => target.removeEventListener("stream-popout", handler);
-  }, [setTab]);
+  _useStreamPopoutNavigation(setTab as (tab: string) => void);
 }

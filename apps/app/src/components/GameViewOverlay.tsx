@@ -14,6 +14,7 @@ export function GameViewOverlay() {
     activeGameViewerUrl,
     activeGameSandbox,
     setState,
+    t,
   } = useApp();
 
   // --- Drag state ---
@@ -84,17 +85,17 @@ export function GameViewOverlay() {
             type="button"
             className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-accent hover:text-accent"
             onClick={handleExpand}
-            title="Expand back to Apps tab"
+            title={t("gameviewoverlay.ExpandBackToApps")}
           >
-            Expand
+            {t("gameviewoverlay.Expand")}
           </button>
           <button
             type="button"
             className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-danger hover:text-danger"
             onClick={handleClose}
-            title="Close overlay"
+            title={t("gameviewoverlay.CloseOverlay")}
           >
-            Close
+            {t("gameviewoverlay.Close")}
           </button>
         </div>
         {/* Iframe */}

@@ -87,50 +87,61 @@ bun run dev
 
 ---
 
-## Project Structure
+## Monorepo Structure
+
+Milady is a monorepo managed with Turborepo and Bun workspaces.
 
 ```
 milady/
+├── packages/                # Shared packages
+│   ├── typescript/          # @elizaos/core — Core TypeScript SDK
+│   ├── elizaos/             # CLI tool (milady command)
+│   ├── skills/              # Skills system and bundled skills
+│   ├── docs/                # Documentation site (Mintlify)
+│   ├── schemas/             # Protobuf schemas
+│   └── tui/                 # Terminal UI
+├── plugins/                 # Official plugins (100+)
+│   ├── plugin-anthropic/    # Anthropic model provider
+│   ├── plugin-telegram/     # Telegram connector
+│   ├── plugin-discord/      # Discord connector
+│   └── ...
 ├── apps/
 │   ├── app/                 # Desktop/mobile app (Capacitor + React)
-│   │   ├── electron/        # Electron desktop wrapper
-│   │   ├── src/             # React UI components
-│   │   └── test/            # App tests
 │   └── chrome-extension/    # Browser extension
-├── deploy/                  # Docker deployment configs
-├── docs/                    # Documentation
-│   └── guides/              # Developer guides (you are here)
-├── packages/
-│   ├── mldy/                # MLDY package
-│   ├── plugin-ui/           # UI plugin system
-│   └── psyop/               # PSYOP package
-├── scripts/                 # Build and dev tooling
-├── skills/                  # Skill cache
-├── src/                     # Core source code
-│   ├── actions/             # Agent actions
-│   ├── api/                 # HTTP API routes
-│   ├── cli/                 # CLI commands
-│   ├── config/              # Configuration handling
-│   ├── emotes/              # Avatar emote system
-│   ├── hooks/               # Runtime hooks
-│   ├── permissions/         # Permission system
-│   ├── plugins/             # Built-in plugins
-│   ├── providers/           # Context providers
-│   ├── runtime/             # elizaOS runtime wrapper
-│   ├── security/            # Security utilities
-│   ├── services/            # Background services
-│   ├── shared/              # Shared utilities
-│   ├── terminal/            # Terminal integration
-│   ├── triggers/            # Trigger system
-│   ├── tui/                 # Terminal UI
-│   └── utils/               # Helper utilities
+├── src/                     # Milady runtime
+│   ├── runtime/             # ElizaOS runtime bootstrap
+│   ├── plugins/             # Built-in Milady plugins
+│   ├── config/              # Configuration loading
+│   ├── services/            # Registry client, plugin manager
+│   └── api/                 # REST API server
+├── skills/                  # Workspace skills
+├── docs/                    # Documentation (this site)
+├── scripts/                 # Build and utility scripts
 ├── test/                    # Test setup, helpers, e2e
 ├── AGENTS.md                # Repository guidelines
-├── README.md                # Project overview
-├── package.json             # Root package config
 ├── plugins.json             # Plugin registry manifest
-├── tsconfig.json            # TypeScript config
 └── tsdown.config.ts         # Build config
+```
+
+### Turbo Build System
+
+Turborepo orchestrates builds across all packages with dependency-aware caching:
+
+```bash
+# Build everything (with caching)
+turbo run build
+
+# Build a specific package
+turbo run build --filter=@elizaos/core
+
+# Build a package and all its dependencies
+turbo run build --filter=@elizaos/plugin-telegram...
+
+# Run tests across all packages
+turbo run test
+
+# Lint all packages
+turbo run lint
 ```
 
 ### Key Entry Points
@@ -313,10 +324,11 @@ try {
 
 ### Branch Strategy
 
-| Branch | Purpose | Deploys to |
-|--------|---------|------------|
-| `main` | Stable releases | Production (npm) |
-| `develop` | Integration branch | Alpha/staging |
+| Branch | Purpose | Publishes to |
+|--------|---------|-------------|
+| `develop` | Active development, PRs merge here | Alpha releases |
+| `main` | Stable releases | Beta releases |
+| GitHub Releases | Tagged versions | Production (npm, PyPI, Snap, APT, Homebrew) |
 | `feature/*` | New features | — |
 | `fix/*` | Bug fixes | — |
 

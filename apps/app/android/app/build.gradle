@@ -4,11 +4,11 @@ android {
     namespace "ai.milady.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.miladyai.milady"
+        applicationId "ai.milady.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode System.getenv("MILADY_VERSION_CODE")?.toInteger() ?: 1
+        versionName System.getenv("MILADY_VERSION_NAME") ?: "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,11 +16,46 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        release {
+            // For Google Play App Signing: use an upload keystore.
+            // CI provides these via environment variables; local builds fall back to debug signing.
+            if (System.getenv("MILADY_KEYSTORE_PATH")) {
+                storeFile file(System.getenv("MILADY_KEYSTORE_PATH"))
+                storePassword System.getenv("MILADY_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("MILADY_KEY_ALIAS")
+                keyPassword System.getenv("MILADY_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile) {
+                signingConfig signingConfigs.release
+            }
         }
+    }
+
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
 }
 

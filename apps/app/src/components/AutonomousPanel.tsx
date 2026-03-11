@@ -1,15 +1,15 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useApp } from "../AppContext";
 import type {
   StreamEventEnvelope,
   TriggerSummary,
   WorkbenchTask,
   WorkbenchTodo,
-} from "../api-client";
-import { ChatControlsPanel } from "./ChatControlsPanel";
+} from "@milady/app-core/api";
+import { formatTime } from "@milady/app-core/components";
+import { Button } from "@milady/ui";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useApp } from "../AppContext";
 import { CodingAgentsSection } from "./CodingAgentsSection";
-import { formatTime } from "./shared/format";
 
 function getEventText(event: StreamEventEnvelope): string {
   const payload = event.payload as Record<
@@ -88,6 +88,7 @@ export function AutonomousPanel({
   onClose,
 }: AutonomousPanelProps) {
   const {
+    t,
     agentStatus,
     autonomousEvents,
     autonomousRunHealthByRunId,
@@ -97,10 +98,6 @@ export function AutonomousPanel({
     workbenchTasksAvailable,
     workbenchTriggersAvailable,
     workbenchTodosAvailable,
-    chatAvatarVisible,
-    chatAgentVoiceMuted,
-    chatAvatarSpeaking,
-    setState,
   } = useApp();
 
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
@@ -167,20 +164,21 @@ export function AutonomousPanel({
           </div>
         </div>
         {mobile && (
-          <button
-            type="button"
-            className="inline-flex items-center justify-center w-7 h-7 border border-border bg-card text-sm text-muted cursor-pointer hover:border-accent hover:text-accent transition-colors shrink-0"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-7 h-7 text-muted hover:text-accent border border-border bg-card shrink-0"
             onClick={onClose}
             aria-label="Close autonomous panel"
           >
-            &times;
-          </button>
+            {t("autonomouspanel.Times")}
+          </Button>
         )}
       </div>
 
       {isAgentStopped ? (
         <div className="flex items-center justify-center flex-1">
-          <p className="text-muted">Agent not running</p>
+          <p className="text-muted">{t("autonomouspanel.AgentNotRunning")}</p>
         </div>
       ) : (
         <div
@@ -189,11 +187,13 @@ export function AutonomousPanel({
         >
           <div className="border-b border-border px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-muted mb-2">
-              Current
+              {t("autonomouspanel.Current")}
             </div>
             <div className="space-y-2">
               <div>
-                <div className="text-[11px] text-muted uppercase">Thought</div>
+                <div className="text-[11px] text-muted uppercase">
+                  {t("autonomouspanel.Thought")}
+                </div>
                 <div className="text-txt">
                   {latestThought
                     ? getEventText(latestThought)
@@ -201,7 +201,9 @@ export function AutonomousPanel({
                 </div>
               </div>
               <div>
-                <div className="text-[11px] text-muted uppercase">Action</div>
+                <div className="text-[11px] text-muted uppercase">
+                  {t("autonomouspanel.Action")}
+                </div>
                 <div className="text-txt">
                   {latestAction
                     ? getEventText(latestAction)
@@ -212,7 +214,7 @@ export function AutonomousPanel({
             <div className="mt-3 border border-border rounded bg-card/60 px-2 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-[11px] text-muted uppercase">
-                  Replay Health
+                  {t("autonomouspanel.ReplayHealth")}
                 </div>
                 <span
                   className={`px-1.5 py-0.5 text-[10px] border ${unresolvedRunCount > 0 ? "border-danger text-danger" : "border-ok text-ok"}`}
@@ -224,7 +226,7 @@ export function AutonomousPanel({
               </div>
               {runHealthRows.length === 0 ? (
                 <div className="mt-1 text-[11px] text-muted">
-                  No replay diagnostics yet
+                  {t("autonomouspanel.NoReplayDiagnostic")}
                 </div>
               ) : (
                 <div className="mt-2 flex flex-col gap-1 max-h-[120px] overflow-y-auto">
@@ -239,12 +241,13 @@ export function AutonomousPanel({
                       <div className="flex items-center gap-1">
                         {row.lastSeq !== null && (
                           <span className="px-1.5 py-0.5 border border-border text-muted">
-                            seq {row.lastSeq}
+                            {t("autonomouspanel.seq")} {row.lastSeq}
                           </span>
                         )}
                         {row.missingSeqs.length > 0 && (
                           <span className="px-1.5 py-0.5 border border-danger text-danger">
-                            missing {row.missingSeqs.slice(0, 3).join(",")}
+                            {t("autonomouspanel.missing")}{" "}
+                            {row.missingSeqs.slice(0, 3).join(",")}
                             {row.missingSeqs.length > 3 ? ",…" : ""}
                           </span>
                         )}
@@ -266,12 +269,15 @@ export function AutonomousPanel({
           )}
 
           <div className="border-b border-border">
-            <button
-              type="button"
-              className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
+            <Button
+              variant="ghost"
+              className="flex justify-between items-center px-3 py-2 h-auto rounded-none hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
               onClick={() => setEventsCollapsed(!eventsCollapsed)}
             >
-              <span>Event Stream ({events.length})</span>
+              <span>
+                {t("autonomouspanel.EventStream")}
+                {events.length})
+              </span>
               <span>
                 {eventsCollapsed ? (
                   <ChevronRight className="w-3 h-3" />
@@ -279,11 +285,13 @@ export function AutonomousPanel({
                   <ChevronDown className="w-3 h-3" />
                 )}
               </span>
-            </button>
+            </Button>
             {!eventsCollapsed && (
               <div className="px-3 pb-2 max-h-[320px] overflow-y-auto space-y-2">
                 {events.length === 0 ? (
-                  <div className="text-muted text-sm py-2">No events yet</div>
+                  <div className="text-muted text-sm py-2">
+                    {t("autonomouspanel.NoEventsYet")}
+                  </div>
                 ) : (
                   events.map((event) => (
                     <div
@@ -303,13 +311,14 @@ export function AutonomousPanel({
                       <div className="mt-1 flex items-center gap-1 flex-wrap">
                         {typeof event.runId === "string" && event.runId && (
                           <span className="px-1.5 py-0.5 text-[10px] border border-border text-muted font-mono">
-                            run {formatRunId(event.runId)}
+                            {t("autonomouspanel.run")}{" "}
+                            {formatRunId(event.runId)}
                           </span>
                         )}
                         {typeof event.seq === "number" &&
                           Number.isFinite(event.seq) && (
                             <span className="px-1.5 py-0.5 text-[10px] border border-border text-muted">
-                              seq {Math.trunc(event.seq)}
+                              {t("autonomouspanel.seq")} {Math.trunc(event.seq)}
                             </span>
                           )}
                         {typeof event.runId === "string" &&
@@ -337,18 +346,23 @@ export function AutonomousPanel({
 
           {workbenchLoading ? (
             <div className="flex items-center justify-center py-5">
-              <p className="text-muted">Loading workbench&hellip;</p>
+              <p className="text-muted">
+                {t("autonomouspanel.LoadingWorkbenchHe")}
+              </p>
             </div>
           ) : (
             <>
               {workbenchTasksAvailable && (
                 <div className="border-b border-border">
-                  <button
-                    type="button"
-                    className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
+                  <Button
+                    variant="ghost"
+                    className="flex justify-between items-center px-3 py-2 h-auto rounded-none hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
                     onClick={() => setTasksCollapsed(!tasksCollapsed)}
                   >
-                    <span>Tasks ({tasks.length})</span>
+                    <span>
+                      {t("autonomouspanel.Tasks")}
+                      {tasks.length})
+                    </span>
                     <span>
                       {tasksCollapsed ? (
                         <ChevronRight className="w-3 h-3" />
@@ -356,11 +370,13 @@ export function AutonomousPanel({
                         <ChevronDown className="w-3 h-3" />
                       )}
                     </span>
-                  </button>
+                  </Button>
                   {!tasksCollapsed && (
                     <div className="px-3 py-2">
                       {tasks.length === 0 ? (
-                        <div className="text-muted text-sm py-2">No tasks</div>
+                        <div className="text-muted text-sm py-2">
+                          {t("autonomouspanel.NoTasks")}
+                        </div>
                       ) : (
                         tasks.map((task: WorkbenchTask) => (
                           <div key={task.id} className="flex gap-2 py-2">
@@ -403,12 +419,15 @@ export function AutonomousPanel({
 
               {workbenchTriggersAvailable && (
                 <div className="border-b border-border">
-                  <button
-                    type="button"
-                    className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
+                  <Button
+                    variant="ghost"
+                    className="flex justify-between items-center px-3 py-2 h-auto rounded-none hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
                     onClick={() => setTriggersCollapsed(!triggersCollapsed)}
                   >
-                    <span>Triggers ({triggers.length})</span>
+                    <span>
+                      {t("autonomouspanel.Triggers")}
+                      {triggers.length})
+                    </span>
                     <span>
                       {triggersCollapsed ? (
                         <ChevronRight className="w-3 h-3" />
@@ -416,12 +435,12 @@ export function AutonomousPanel({
                         <ChevronDown className="w-3 h-3" />
                       )}
                     </span>
-                  </button>
+                  </Button>
                   {!triggersCollapsed && (
                     <div className="px-3 py-2">
                       {triggers.length === 0 ? (
                         <div className="text-muted text-sm py-2">
-                          No triggers
+                          {t("autonomouspanel.NoTriggers")}
                         </div>
                       ) : (
                         triggers.map((trigger: TriggerSummary) => (
@@ -431,8 +450,8 @@ export function AutonomousPanel({
                             </div>
                             <div className="text-[11px] text-muted mt-1">
                               {trigger.triggerType} ·{" "}
-                              {trigger.enabled ? "enabled" : "disabled"} · runs{" "}
-                              {trigger.runCount}
+                              {trigger.enabled ? "enabled" : "disabled"}{" "}
+                              {t("autonomouspanel.Runs")} {trigger.runCount}
                             </div>
                           </div>
                         ))
@@ -444,12 +463,15 @@ export function AutonomousPanel({
 
               {workbenchTodosAvailable && (
                 <div className="border-b border-border">
-                  <button
-                    type="button"
-                    className="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
+                  <Button
+                    variant="ghost"
+                    className="flex justify-between items-center px-3 py-2 h-auto rounded-none hover:bg-bg-hover text-xs font-semibold uppercase tracking-wide text-muted w-full"
                     onClick={() => setTodosCollapsed(!todosCollapsed)}
                   >
-                    <span>Todos ({todos.length})</span>
+                    <span>
+                      {t("autonomouspanel.Todos")}
+                      {todos.length})
+                    </span>
                     <span>
                       {todosCollapsed ? (
                         <ChevronRight className="w-3 h-3" />
@@ -457,11 +479,13 @@ export function AutonomousPanel({
                         <ChevronDown className="w-3 h-3" />
                       )}
                     </span>
-                  </button>
+                  </Button>
                   {!todosCollapsed && (
                     <div className="px-3 py-2">
                       {todos.length === 0 ? (
-                        <div className="text-muted text-sm py-2">No todos</div>
+                        <div className="text-muted text-sm py-2">
+                          {t("autonomouspanel.NoTodos")}
+                        </div>
                       ) : (
                         todos.map((todo: WorkbenchTodo) => (
                           <div
@@ -494,14 +518,6 @@ export function AutonomousPanel({
           )}
         </div>
       )}
-
-      <ChatControlsPanel
-        mobile={mobile}
-        chatAvatarVisible={chatAvatarVisible}
-        chatAvatarSpeaking={chatAvatarSpeaking}
-        chatAgentVoiceMuted={chatAgentVoiceMuted}
-        setState={setState}
-      />
     </aside>
   );
 }

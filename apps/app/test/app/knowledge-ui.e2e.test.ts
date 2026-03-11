@@ -331,7 +331,7 @@ vi.mock("../../src/AppContext", async () => {
   };
 });
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getKnowledgeStats: vi.fn().mockResolvedValue({
       documentCount: 5,
@@ -430,6 +430,7 @@ describe("KnowledgeView UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       loadKnowledgeStats: vi.fn(),
       loadKnowledgeDocuments: vi.fn(),

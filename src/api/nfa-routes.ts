@@ -4,7 +4,7 @@
  *   GET /api/nfa/status    — NFA state composed with ERC-8004 identity
  *   GET /api/nfa/learnings — Parsed LEARNINGS.md with Merkle root
  *
- * Uses @milady/plugin-bnb-identity when available (workspace or installed).
+ * Uses @elizaos/plugin-bnb-identity when available (workspace or installed).
  * If the plugin is missing, /api/nfa/status still works; /api/nfa/learnings
  * returns empty entries and a fallback empty Merkle root.
  *
@@ -34,14 +34,19 @@ type NfaPlugin = {
 let nfaPlugin: NfaPlugin | null | undefined;
 
 /**
- * Load @milady/plugin-bnb-identity once and cache. Returns null if the package
+ * Load @elizaos/plugin-bnb-identity once and cache. Returns null if the package
  * is missing or doesn't export the required functions. WHY dynamic import:
  * keeps the dependency optional so core works without the plugin installed.
  */
 async function getNfaPlugin(): Promise<NfaPlugin | null> {
   if (nfaPlugin !== undefined) return nfaPlugin;
   try {
-    const mod = await import("@milady/plugin-bnb-identity");
+    // WHY variable: Vite's import-analysis plugin resolves string-literal
+    // dynamic imports at transform time, failing if the package's dist/
+    // isn't built. Using a variable makes the specifier opaque to Vite so
+    // the try/catch can handle a missing module at runtime.
+    const pkgName = "@elizaos/plugin-bnb-identity";
+    const mod = await import(/* @vite-ignore */ pkgName);
     nfaPlugin =
       typeof mod?.buildMerkleRoot === "function" &&
       typeof mod?.parseLearnings === "function" &&

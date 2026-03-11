@@ -326,8 +326,7 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
 
-    expect(names.has("@milady/plugin-streaming-base")).toBe(true);
-    expect(names.has("@elizaos/plugin-streaming-base")).toBe(false);
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
   });
 
   it("normalizes cua short IDs in plugins.allow", () => {
@@ -434,8 +433,7 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
 
-    expect(names.has("@milady/plugin-streaming-base")).toBe(true);
-    expect(names.has("@elizaos/plugin-streaming-base")).toBe(false);
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
   });
 
   it("uses the Milady x-streaming package when enabled via plugins.entries", () => {
@@ -446,8 +444,7 @@ describe("collectPluginNames", () => {
     } as unknown as MiladyConfig;
     const names = collectPluginNames(config);
 
-    expect(names.has("@milady/plugin-x-streaming")).toBe(true);
-    expect(names.has("@elizaos/plugin-x-streaming")).toBe(false);
+    expect(names.has("@elizaos/plugin-x-streaming")).toBe(true);
   });
 
   it("uses @elizaos/plugin-telegram from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
@@ -994,6 +991,22 @@ describe("applyCloudConfigToEnv", () => {
     const config = { cloud: { apiKey: "new-key" } } as MiladyConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("new-key");
+  });
+
+  it("does NOT enable cloud when apiKey present but enabled is not explicitly true", () => {
+    const config = { cloud: { apiKey: "ck-123" } } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
+  });
+
+  it("clears ELIZAOS_CLOUD_ENABLED when enabled is explicitly false", () => {
+    process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    const config = {
+      cloud: { enabled: false, apiKey: "ck-123" },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 
   it("handles missing cloud config gracefully", () => {
@@ -1917,12 +1930,12 @@ describe("resolveMiladyPluginImportSpecifier", () => {
 describe("shouldIgnoreMissingPluginExport", () => {
   it("ignores helper-only streaming-base package exports", () => {
     expect(
-      shouldIgnoreMissingPluginExport("@milady/plugin-streaming-base"),
+      shouldIgnoreMissingPluginExport("@elizaos/plugin-streaming-base"),
     ).toBe(true);
   });
 
   it("does not ignore real plugins", () => {
-    expect(shouldIgnoreMissingPluginExport("@milady/plugin-x-streaming")).toBe(
+    expect(shouldIgnoreMissingPluginExport("@elizaos/plugin-x-streaming")).toBe(
       false,
     );
   });

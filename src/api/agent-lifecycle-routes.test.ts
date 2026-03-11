@@ -68,21 +68,21 @@ describe("agent lifecycle routes", () => {
     expect(result.handled).toBe(false);
   });
 
-  test("starts the agent and enables autonomy", async () => {
+  test("starts the agent but does not enable autonomy automatically", async () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/agent/start",
     });
 
     expect(result.status).toBe(200);
-    expect(state.agentState).toBe("running");
+    expect(state.agentState).toBe("paused");
     expect(state.model).toBe("openai-main");
     expect(state.startedAt).toBeTypeOf("number");
-    expect(enableAutonomy).toHaveBeenCalledTimes(1);
+    expect(enableAutonomy).toHaveBeenCalledTimes(0);
     expect(result.payload).toMatchObject({
       ok: true,
       status: {
-        state: "running",
+        state: "paused",
         agentName: "Milady",
         model: "openai-main",
       },

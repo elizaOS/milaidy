@@ -1,4 +1,4 @@
-import type { CodingAgentSession } from "../api-client";
+import type { CodingAgentSession } from "@milady/app-core/api";
 
 /** Status dot color classes — mirrors CodingAgentsSection. */
 const STATUS_DOT: Record<string, string> = {

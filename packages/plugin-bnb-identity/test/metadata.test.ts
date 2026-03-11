@@ -105,9 +105,7 @@ describe("metadataToHostedUri", () => {
   });
 
   it("strips trailing slash before appending", () => {
-    const uri = metadataToHostedUri(
-      "https://milady-ai.github.io/milady/",
-    );
+    const uri = metadataToHostedUri("https://milady-ai.github.io/milady/");
     expect(uri).toBe("https://milady-ai.github.io/milady/agent-metadata.json");
   });
 });

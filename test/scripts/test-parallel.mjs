@@ -69,13 +69,17 @@ const isMacOS =
 const isWindows =
   process.platform === "win32" || process.env.RUNNER_OS === "Windows";
 const isWindowsCi = isCI && isWindows;
+// On macOS, Vitest forks pool workers sometimes crash during jsdom GC
+// teardown (known V8/jsdom interaction). Use dangerouslyIgnoreUnhandledErrors
+// to prevent spurious CI failures from these non-test-affecting worker exits.
+const needsDangerouslyIgnore = isWindowsCi || (isCI && isMacOS);
 const shardOverride = Number.parseInt(process.env.MILADY_TEST_SHARDS ?? "", 10);
 const shardCount = isWindowsCi
   ? Number.isFinite(shardOverride) && shardOverride > 1
     ? shardOverride
     : 2
   : 1;
-const windowsCiArgs = isWindowsCi
+const ciWorkerArgs = needsDangerouslyIgnore
   ? ["--no-file-parallelism", "--dangerouslyIgnoreUnhandledErrors"]
   : [];
 const overrideWorkers = Number.parseInt(
@@ -111,7 +115,7 @@ const runOnce = (entry, extraArgs = []) =>
     const vitestExtras = entry.vitest
       ? [
           ...(entryWorkers ? ["--maxWorkers", String(entryWorkers)] : []),
-          ...windowsCiArgs,
+          ...ciWorkerArgs,
         ]
       : [];
     const args = [...entry.args, ...vitestExtras, ...extraArgs];

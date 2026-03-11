@@ -2,9 +2,12 @@
  * Enhanced chat message component with actions and better UX.
  */
 
+import type { ConversationMessage } from "@milady/app-core/api";
+import { Button } from "@milady/ui";
 import { Check, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
-import type { ConversationMessage } from "../api-client";
+import { useApp } from "../AppContext";
+import { useTimeout } from "../hooks/useTimeout";
 import { MessageContent } from "./MessageContent";
 
 interface ChatMessageProps {
@@ -36,6 +39,9 @@ export function ChatMessage({
   onRetry,
   onDelete,
 }: ChatMessageProps) {
+  const { setTimeout } = useTimeout();
+
+  const { t } = useApp();
   const [copied, setCopied] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const isUser = message.role === "user";
@@ -50,7 +56,7 @@ export function ChatMessage({
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [message.text, onCopy]);
+  }, [message.text, onCopy, setTimeout]);
 
   return (
     <article
@@ -101,7 +107,7 @@ export function ChatMessage({
               message.source &&
               message.source !== "client_chat" && (
                 <span className="text-[10px] text-muted opacity-60">
-                  via {message.source}
+                  {t("chatmessage.via")} {message.source}
                 </span>
               )}
           </div>
@@ -109,11 +115,12 @@ export function ChatMessage({
 
         {/* Message Content */}
         <div
-          className={`relative group px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
+          className={`relative group px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap break-words rounded-2xl ${
             isUser
               ? "bg-accent text-accent-fg rounded-br-md"
               : "bg-bg-accent border border-border text-txt rounded-bl-md"
           }`}
+          style={{ fontFamily: "var(--font-chat)" }}
         >
           <MessageContent message={message} />
 
@@ -121,17 +128,19 @@ export function ChatMessage({
           {!isUser && message.interrupted && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-danger/30">
               <span className="text-xs text-danger">
-                (Response interrupted)
+                {t("chatmessage.ResponseInterrupte")}
               </span>
               {onRetry && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => onRetry(message.id)}
-                  className="flex items-center gap-1 px-2 py-0.5 text-xs text-danger border border-danger/40 rounded hover:bg-danger/10 transition-colors"
+                  className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs text-danger border-danger/40 rounded hover:bg-danger/10 hover:text-danger transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  Retry
-                </button>
+
+                  {t("chatmessage.Retry")}
+                </Button>
               )}
             </div>
           )}
@@ -140,10 +149,11 @@ export function ChatMessage({
           <div
             className={`absolute ${isUser ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 flex items-center gap-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${showActions ? "opacity-100" : ""}`}
           >
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleCopy}
-              className="p-1.5 rounded-md text-muted hover:text-txt hover:bg-bg-hover transition-colors"
+              className="w-7 h-7 rounded-md text-muted hover:text-txt hover:bg-bg-hover transition-colors"
               title={copied ? "Copied!" : "Copy message"}
               aria-label={copied ? "Copied to clipboard" : "Copy message"}
             >
@@ -152,30 +162,32 @@ export function ChatMessage({
               ) : (
                 <Copy className="w-3.5 h-3.5" />
               )}
-            </button>
+            </Button>
 
             {!isUser && onRetry && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onRetry(message.id)}
-                className="p-1.5 rounded-md text-muted hover:text-accent hover:bg-bg-hover transition-colors"
-                title="Retry message"
+                className="w-7 h-7 rounded-md text-muted hover:text-accent hover:bg-bg-hover transition-colors"
+                title={t("chatmessage.RetryMessage")}
                 aria-label="Retry message"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             )}
 
             {onDelete && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onDelete(message.id)}
-                className="p-1.5 rounded-md text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                title="Delete message"
+                className="w-7 h-7 rounded-md text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                title={t("chatmessage.DeleteMessage")}
                 aria-label="Delete message"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -239,6 +251,7 @@ export function TypingIndicator({
 /* ── Empty State ─────────────────────────────────────────────────────── */
 
 export function ChatEmptyState({ agentName }: { agentName: string }) {
+  const { t } = useApp();
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
       <div className="w-16 h-16 rounded-2xl bg-accent-subtle flex items-center justify-center mb-4">
@@ -254,27 +267,31 @@ export function ChatEmptyState({ agentName }: { agentName: string }) {
           className="text-accent"
           aria-label="Chat icon"
         >
-          <title>Chat</title>
+          <title>{t("chatmessage.Chat")}</title>
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       </div>
       <h3 className="text-lg font-semibold text-txt-strong mb-2">
-        Start a conversation
+        {t("chatmessage.StartAConversation")}
       </h3>
-      <p className="text-sm text-muted max-w-sm mb-6">
-        Send a message to {agentName} to begin chatting. You can also drag and
-        drop images or use voice input.
+      <p
+        className="text-sm text-muted max-w-sm mb-6"
+        style={{ fontFamily: "var(--font-chat)" }}
+      >
+        {t("chatmessage.SendAMessageTo")} {agentName}{" "}
+        {t("chatmessage.toBeginChattingY")}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
         {["Hello!", "How are you?", "Tell me a joke", "Help me with..."].map(
           (suggestion) => (
-            <button
+            <Button
               key={suggestion}
-              type="button"
-              className="px-3 py-1.5 text-sm border border-border bg-bg rounded-full text-muted hover:border-accent hover:text-accent transition-colors"
+              variant="outline"
+              size="sm"
+              className="px-3 py-1.5 h-7 text-xs rounded-full text-muted border-border bg-bg hover:border-accent hover:text-accent transition-colors"
             >
               {suggestion}
-            </button>
+            </Button>
           ),
         )}
       </div>

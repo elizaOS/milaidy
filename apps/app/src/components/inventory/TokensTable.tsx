@@ -2,8 +2,8 @@
  * Token balance table with per-chain error notices.
  */
 
-import type { EvmChainBalance } from "../../api-client";
-import type { createTranslator } from "../../i18n";
+import type { EvmChainBalance } from "@milady/app-core/api";
+import type { createTranslator } from "@milady/app-core/i18n";
 import { chainIcon, formatBalance, type TokenRow } from "./constants";
 import { TokenLogo } from "./TokenLogo";
 
@@ -87,7 +87,9 @@ export function TokensTable({
                       </div>
                       <div className="text-[10px] text-muted leading-tight mt-0.5">
                         {row.isNative ? (
-                          <span className="wt__native-badge">native gas</span>
+                          <span className="wt__native-badge">
+                            {t("tokenstable.nativeGas")}
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
                             <span className="truncate max-w-[160px] inline-block">
@@ -141,7 +143,7 @@ export function TokensTable({
 
       {visibleChainErrors.length > 0 && (
         <div className="mt-1 text-[11px] text-muted px-3 pb-2">
-          {visibleChainErrors.map((chain) => {
+          {visibleChainErrors.map((chain: EvmChainBalance) => {
             const icon = chainIcon(chain.chain);
             return (
               <div key={chain.chain} className="py-0.5">

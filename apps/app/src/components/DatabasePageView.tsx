@@ -14,13 +14,16 @@ const DB_TABS = [
 ];
 
 export function DatabasePageView() {
+  const { t } = useApp();
   const { databaseSubTab, setState } = useApp();
 
   return (
     <div className="flex flex-col h-full">
-      <h2 className="text-lg font-bold mb-1">Databases</h2>
+      <h2 className="text-lg font-bold mb-1">
+        {t("databasepageview.Databases")}
+      </h2>
       <p className="text-[13px] text-[var(--muted)] mb-4">
-        Browse and query agent data.
+        {t("databasepageview.BrowseAndQueryAge")}
       </p>
 
       {/* Sub-tab bar */}

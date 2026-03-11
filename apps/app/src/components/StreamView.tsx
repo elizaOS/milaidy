@@ -11,6 +11,7 @@
  * Activity feed runs along the right sidebar. Chat ticker at the bottom.
  */
 
+import { client, isApiError } from "@milady/app-core/api";
 import {
   type CSSProperties,
   useCallback,
@@ -20,7 +21,6 @@ import {
   useState,
 } from "react";
 import { useApp } from "../AppContext";
-import { client, isApiError } from "../api-client";
 import { ActivityFeed } from "./stream/ActivityFeed";
 import { AvatarPip } from "./stream/AvatarPip";
 import { ChatContent } from "./stream/ChatContent";
@@ -54,6 +54,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
     activeGameViewerUrl,
     activeGameSandbox,
     chatAvatarSpeaking,
+    t,
   } = useApp();
 
   const agentName = agentStatus?.agentName ?? "Milady";
@@ -405,26 +406,25 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
             <div className="h-full flex items-center justify-center p-6">
               <div className="max-w-md rounded-2xl border border-border bg-bg-muted/50 p-6 text-center shadow-lg">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted">
-                  Streaming unavailable
+                  {t("streamview.StreamingUnavailabl")}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-txt">
-                  Enable the streaming plugin to go live
+                  {t("streamview.EnableTheStreaming")}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted">
-                  Milady could not reach the local streaming routes for this
-                  view. Install and enable the <code>streaming-base</code>{" "}
-                  plugin, then reload the Stream tab.
+                  {t("streamview.MiladyCouldNotRea")}{" "}
+                  <code>{t("streamview.streamingBase")}</code>{" "}
+                  {t("streamview.pluginThenReload")}
                 </p>
                 <p className="mt-4 text-xs text-muted">
-                  If the plugin is already installed, restart the desktop app or
-                  API server and try again.
+                  {t("streamview.IfThePluginIsAlr")}
                 </p>
               </div>
             </div>
           ) : mode === "gaming" ? (
             <iframe
               src={activeGameViewerUrl}
-              title="Game"
+              title={t("streamview.Game")}
               className="w-full h-full border-0"
               sandbox={
                 activeGameSandbox ||

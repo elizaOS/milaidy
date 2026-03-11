@@ -21,7 +21,7 @@ const { wsHandlers, mockClient } = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClient,
 }));
 

@@ -1,5 +1,5 @@
 import type { AgentRuntime } from "@elizaos/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { detectRuntimeModel } from "./agent-model";
 
 function makeRuntime(overrides: Partial<AgentRuntime>): AgentRuntime {
@@ -10,6 +10,24 @@ function makeRuntime(overrides: Partial<AgentRuntime>): AgentRuntime {
 }
 
 describe("detectRuntimeModel", () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    // Clear API keys that might be set in the local environment and cause false positives
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
   it("returns undefined when runtime is null", () => {
     expect(detectRuntimeModel(null)).toBeUndefined();
   });

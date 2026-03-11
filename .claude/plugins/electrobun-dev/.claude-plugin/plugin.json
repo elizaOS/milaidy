@@ -1,0 +1,8 @@
+{
+  "name": "electrobun-dev",
+  "version": "1.0.0",
+  "description": "Agentic development companion for Electrobun desktop apps — skills, commands, agents, and hooks for the full development lifecycle",
+  "author": {
+    "name": "electrobun-dev"
+  }
+}

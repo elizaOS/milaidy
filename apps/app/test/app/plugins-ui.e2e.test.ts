@@ -304,7 +304,7 @@ vi.mock("../../src/AppContext", async () => {
   };
 });
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getPlugins: vi.fn().mockResolvedValue([]),
     togglePlugin: vi.fn().mockResolvedValue({ ok: true }),
@@ -388,6 +388,7 @@ describe("PluginsView UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       loadPlugins: vi.fn(),
       handlePluginToggle: vi.fn().mockImplementation((name: string) => {

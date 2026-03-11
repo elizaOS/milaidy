@@ -3,11 +3,22 @@ set -e
 
 case "$1" in
     configure)
+        # Install systemd user service
+        if [ -d /usr/lib/systemd/user ]; then
+            cp /usr/lib/milady/milady.service /usr/lib/systemd/user/milady.service 2>/dev/null || true
+            systemctl --global daemon-reload 2>/dev/null || true
+        fi
+
         echo ""
         echo "  Milady installed! Get started:"
-        echo "    milady start       — Start the agent runtime"
-        echo "    milady setup       — Initialize workspace"
-        echo "    milady --help      — Show all commands"
+        echo ""
+        echo "    milady start            — Start interactively"
+        echo "    milady setup            — Initialize workspace"
+        echo "    milady --help           — Show all commands"
+        echo ""
+        echo "  To run as a background service:"
+        echo ""
+        echo "    systemctl --user enable --now milady"
         echo ""
         ;;
 esac

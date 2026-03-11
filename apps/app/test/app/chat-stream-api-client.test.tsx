@@ -1,5 +1,5 @@
+import { ApiError, MiladyClient } from "@milady/app-core/api";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ApiError, MiladyClient } from "../../src/api-client";
 
 function buildSseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();

@@ -10,11 +10,12 @@
  *   3. Everything else → plain text
  */
 
+import type { ConversationMessage, PluginInfo } from "@milady/app-core/api";
+import { client } from "@milady/app-core/api";
+import type { ConfigUiHint } from "@milady/app-core/types";
+import { Button } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import type { ConversationMessage, PluginInfo } from "../api-client";
-import { client } from "../api-client";
-import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { paramsToSchema } from "./PluginsView";
@@ -51,7 +52,7 @@ function isSafeNormalizedPluginId(id: string): boolean {
   return !BLOCKED_IDS.has(id) && SAFE_PLUGIN_ID_RE.test(id);
 }
 
-export interface MessageContentProps {
+interface MessageContentProps {
   message: ConversationMessage;
 }
 
@@ -368,7 +369,7 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   const [dismissed, setDismissed] = useState(false);
   const mountedRef = useRef(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { setActionNotice, loadPlugins } = useApp();
+  const { setActionNotice, loadPlugins, t } = useApp();
 
   // Track mount state — reset to true on each mount (needed for StrictMode
   // which unmounts/remounts and would leave the ref false otherwise).
@@ -524,7 +525,7 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (dismissed) {
     return (
       <div className="my-2 px-3 py-2 border border-ok/30 bg-ok/5 text-xs text-ok">
-        {plugin?.name ?? pluginId} — enabled
+        {plugin?.name ?? pluginId} {t("messagecontent.Enabled")}
       </div>
     );
   }
@@ -532,7 +533,8 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (loading) {
     return (
       <div className="my-2 px-3 py-2 border border-border bg-card text-xs text-muted italic">
-        Loading {pluginId} configuration...
+        {t("messagecontent.Loading")} {pluginId}{" "}
+        {t("messagecontent.configuration")}
       </div>
     );
   }
@@ -540,7 +542,9 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   if (!plugin) {
     return (
       <div className="my-2 px-3 py-2 border border-border bg-card text-xs text-muted italic">
-        Plugin "{pluginId}" not found.
+        {t("messagecontent.Plugin")}
+        {pluginId}
+        {t("messagecontent.NotFound")}
       </div>
     );
   }
@@ -557,11 +561,15 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
           ) : (
             <span className="text-[13px] opacity-60">{"\u2699\uFE0F"}</span>
           )}
-          <span>{plugin.name} Configuration</span>
+          <span>
+            {plugin.name} {t("messagecontent.Configuration")}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {plugin.configured && (
-            <span className="text-[10px] text-ok font-medium">Configured</span>
+            <span className="text-[10px] text-ok font-medium">
+              {t("messagecontent.Configured")}
+            </span>
           )}
           <span
             className={`text-[10px] font-medium ${isEnabled ? "text-ok" : "text-muted"}`}
@@ -586,44 +594,49 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
         </div>
       ) : (
         <div className="px-3 py-2 text-xs text-muted italic">
-          No configurable parameters.
+          {t("messagecontent.NoConfigurablePara")}
         </div>
       )}
 
       {/* Footer */}
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border flex-wrap">
         {schema && plugin.parameters.length > 0 && (
-          <button
-            type="button"
-            className="px-4 py-1.5 text-xs border border-accent bg-accent text-accent-fg cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+          <Button
+            variant="default"
+            size="sm"
+            className="px-4 py-1.5 h-7 text-xs shadow-sm bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40"
             onClick={handleSave}
             disabled={saving || enabling || Object.keys(values).length === 0}
           >
             {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
         )}
 
         {!isEnabled ? (
-          <button
-            type="button"
-            className="px-4 py-1.5 text-xs border border-ok bg-ok/10 text-ok cursor-pointer hover:bg-ok/20 disabled:opacity-40 disabled:cursor-not-allowed"
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-4 py-1.5 h-7 text-xs border-ok/50 text-ok bg-ok/5 hover:bg-ok/10 hover:text-ok disabled:opacity-40"
             onClick={() => void handleToggle(true)}
             disabled={enabling || saving}
           >
             {enabling ? "Enabling..." : "Enable Plugin"}
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
-            className="px-4 py-1.5 text-xs border border-border text-muted cursor-pointer hover:border-danger hover:text-danger disabled:opacity-40 disabled:cursor-not-allowed"
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-4 py-1.5 h-7 text-xs text-muted hover:border-danger hover:text-danger disabled:opacity-40"
             onClick={() => void handleToggle(false)}
             disabled={enabling || saving}
           >
             {enabling ? "Disabling..." : "Disable"}
-          </button>
+          </Button>
         )}
 
-        {saved && <span className="text-xs text-ok">Saved</span>}
+        {saved && (
+          <span className="text-xs text-ok">{t("messagecontent.Saved")}</span>
+        )}
         {error && <span className="text-xs text-danger">{error}</span>}
       </div>
     </div>
@@ -633,8 +646,9 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
 // ── UiSpec block ────────────────────────────────────────────────────
 
 function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
-  const [showRaw, setShowRaw] = useState(false);
+  const { t } = useApp();
   const { sendActionMessage } = useApp();
+  const [showRaw, setShowRaw] = useState(false);
 
   const handleAction = useCallback(
     (action: string, params?: Record<string, unknown>) => {
@@ -648,15 +662,16 @@ function UiSpecBlock({ spec, raw }: { spec: UiSpec; raw: string }) {
     <div className="my-2 border border-border overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-hover border-b border-border">
         <span className="text-[10px] font-semibold text-muted uppercase tracking-wider">
-          Interactive UI
+          {t("messagecontent.InteractiveUI")}
         </span>
-        <button
-          type="button"
-          className="text-[10px] text-accent cursor-pointer hover:underline"
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-[10px] text-accent hover:underline decoration-accent/50 underline-offset-2"
           onClick={() => setShowRaw((v) => !v)}
         >
           {showRaw ? "Hide JSON" : "View JSON"}
-        </button>
+        </Button>
       </div>
       {showRaw && (
         <div className="px-3 py-2 bg-card border-b border-border overflow-x-auto">

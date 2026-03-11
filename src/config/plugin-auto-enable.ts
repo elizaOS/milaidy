@@ -29,18 +29,18 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   feishu: "@elizaos/plugin-feishu",
   matrix: "@elizaos/plugin-matrix",
   nostr: "@elizaos/plugin-nostr",
-  retake: "@milady/plugin-retake",
+  retake: "@elizaos/plugin-retake",
   blooio: "@elizaos/plugin-blooio",
   twitch: "@elizaos/plugin-twitch",
 };
 
 export const STREAMING_PLUGINS: Record<string, string> = {
-  retake: "@milady/plugin-retake",
-  twitch: "@milady/plugin-twitch-streaming",
-  youtube: "@milady/plugin-youtube-streaming",
+  retake: "@elizaos/plugin-retake",
+  twitch: "@elizaos/plugin-twitch-streaming",
+  youtube: "@elizaos/plugin-youtube-streaming",
   customRtmp: "@milady/plugin-custom-rtmp",
-  pumpfun: "@milady/plugin-pumpfun-streaming",
-  x: "@milady/plugin-x-streaming",
+  pumpfun: "@elizaos/plugin-pumpfun-streaming",
+  x: "@elizaos/plugin-x-streaming",
 };
 
 const PROVIDER_PLUGINS: Record<string, string> = {
@@ -105,7 +105,7 @@ const FEATURE_PLUGINS: Record<string, string> = {
   tts: "@elizaos/plugin-tts",
   stt: "@elizaos/plugin-stt",
   agentSkills: "@elizaos/plugin-agent-skills",
-  directives: "@elizaos/plugin-directives",
+  // directives: "@elizaos/plugin-directives", // not yet ready — package doesn't exist
   commands: "@elizaos/plugin-commands",
   diagnosticsOtel: "@elizaos/plugin-diagnostics-otel",
   webhooks: "@elizaos/plugin-webhooks",
@@ -298,7 +298,7 @@ export function applyPluginAutoEnable(
       const pluginName = STREAMING_PLUGINS[destName];
       if (!pluginName) continue;
       if (!isStreamingDestinationConfigured(destName, destConfig)) continue;
-      // Derive short ID from the package name (e.g. "@milady/plugin-twitch-streaming" → "twitch-streaming")
+      // Derive short ID from the package name (e.g. "@elizaos/plugin-twitch-streaming" → "twitch-streaming")
       const shortId = pluginName.includes("/plugin-")
         ? pluginName.slice(
             pluginName.lastIndexOf("/plugin-") + "/plugin-".length,

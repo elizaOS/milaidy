@@ -12,10 +12,21 @@
  *   8. Advanced — export/import, extension, danger zone
  */
 
+import { LANGUAGES } from "@milady/app-core/components";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  SectionCard,
+} from "@milady/ui";
 import {
   AlertTriangle,
   Bot,
   ChevronRight,
+  Cloud,
   Download,
   Image,
   Loader2,
@@ -32,11 +43,11 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { THEMES, useApp } from "../AppContext";
-import { createTranslator } from "../i18n";
+import { useApp } from "../AppContext";
 import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { ConfigPageView } from "./ConfigPageView";
 import { MediaSettingsSection } from "./MediaSettingsSection";
+import { CloudDashboard } from "./MiladyCloudDashboard";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import { VoiceConfigView } from "./VoiceConfigView";
@@ -51,146 +62,78 @@ interface SettingsSectionDef {
 const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "appearance",
-    label: "Appearance",
+    label: "settings.sections.appearance.label",
     icon: Palette,
-    description: "Themes and visual preferences",
+    description: "settings.sections.appearance.desc",
   },
   {
     id: "ai-model",
-    label: "AI Model",
+    label: "settings.sections.aimodel.label",
     icon: Bot,
-    description: "Provider and model settings",
+    description: "settings.sections.aimodel.desc",
+  },
+  {
+    id: "cloud",
+    label: "settings.sections.cloud.label",
+    icon: Cloud,
+    description: "settings.sections.cloud.desc",
   },
   {
     id: "coding-agents",
-    label: "Coding Agents",
+    label: "settings.sections.codingagents.label",
     icon: Terminal,
-    description: "Agent preferences, models, and permissions",
+    description: "settings.sections.codingagents.desc",
   },
   {
     id: "wallet-rpc",
-    label: "Wallet & RPC",
+    label: "settings.sections.walletrpc.label",
     icon: Wallet,
-    description: "Chain RPC providers and API keys",
+    description: "settings.sections.walletrpc.desc",
   },
   {
     id: "media",
-    label: "Media",
+    label: "settings.sections.media.label",
     icon: Image,
-    description: "Image, video, and vision providers",
+    description: "settings.sections.media.desc",
   },
   {
     id: "voice",
-    label: "Voice",
+    label: "settings.sections.voice.label",
     icon: Mic,
-    description: "Text-to-speech and transcription",
+    description: "settings.sections.voice.desc",
   },
   {
     id: "permissions",
-    label: "Permissions",
+    label: "settings.sections.permissions.label",
     icon: Shield,
-    description: "Capabilities and access control",
+    description: "settings.sections.permissions.desc",
   },
   {
     id: "updates",
-    label: "Updates",
+    label: "settings.sections.updates.label",
     icon: RefreshCw,
-    description: "Software update settings",
+    description: "settings.sections.updates.desc",
   },
   {
     id: "advanced",
-    label: "Advanced",
+    label: "settings.sections.advanced.label",
     icon: Sliders,
-    description: "Export, import, and dangerous actions",
+    description: "settings.sections.advanced.desc",
   },
 ];
 
 function matchesSettingsSection(
   section: SettingsSectionDef,
   query: string,
+  t: (key: string) => string,
 ): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
   return (
-    section.label.toLowerCase().includes(normalized) ||
-    section.description?.toLowerCase().includes(normalized) === true
-  );
-}
-
-/* ── Modal shell ─────────────────────────────────────────────────────── */
-
-export function Modal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-md border border-border bg-card p-5 shadow-2xl rounded-lg">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-bold text-sm">{title}</div>
-          <button
-            type="button"
-            className="text-muted hover:text-txt text-lg leading-none px-2 py-1 rounded-md hover:bg-bg-hover transition-colors"
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/* ── Section Card Component ──────────────────────────────────────────── */
-
-function SectionCard({
-  id,
-  title,
-  description,
-  children,
-  className = "",
-}: {
-  id: string;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      id={id}
-      className={`p-5 border border-border bg-card rounded-xl shadow-sm transition-all duration-200 ${className}`}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-1 h-6 bg-accent rounded-full" />
-        <h3 className="font-bold text-base text-txt-strong">{title}</h3>
-      </div>
-      {description && <p className="text-sm text-muted mb-4">{description}</p>}
-      {children}
-    </section>
+    t(section.label).toLowerCase().includes(normalized) ||
+    (section.description
+      ? t(section.description).toLowerCase().includes(normalized)
+      : false)
   );
 }
 
@@ -207,18 +150,17 @@ function SettingsSidebar({
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }) {
-  const { uiLanguage } = useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+  const { t } = useApp();
 
   const filteredSections = SETTINGS_SECTIONS.filter((section) =>
-    matchesSettingsSection(section, searchQuery),
+    matchesSettingsSection(section, searchQuery, t),
   );
 
   return (
-    <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-bg-accent/30">
+    <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border/50 bg-bg/50 backdrop-blur-xl">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(var(--accent),0.3)]">
             <Sliders className="w-5 h-5 text-accent-fg" />
           </div>
           <div>
@@ -234,12 +176,12 @@ function SettingsSidebar({
         {/* Search - Desktop */}
         <div className="relative mb-4 hidden lg:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-          <input
+          <Input
             type="text"
             placeholder={t("settings.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 text-sm border border-border bg-bg rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-muted transition-all"
+            className="w-full pl-10 rounded-xl bg-bg/50 border-border/50 h-10 text-sm shadow-inner"
           />
         </div>
 
@@ -253,10 +195,10 @@ function SettingsSidebar({
                 key={section.id}
                 type="button"
                 onClick={() => onSectionChange(section.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all duration-300 min-w-fit lg:min-w-0 whitespace-normal break-words h-auto group ${
                   isActive
-                    ? "bg-accent text-accent-fg shadow-md"
-                    : "text-txt hover:bg-bg-hover hover:shadow-sm"
+                    ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.2)] scale-[1.01]"
+                    : "text-txt hover:bg-bg-hover hover:border-border/50 border border-transparent"
                 }`}
               >
                 <span
@@ -267,10 +209,12 @@ function SettingsSidebar({
                   <Icon className="w-4 h-4" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-semibold`}>{section.label}</div>
+                  <div className={`text-sm font-semibold`}>
+                    {t(section.label)}
+                  </div>
                   {section.description && (
                     <div className="text-[11px] opacity-80 hidden lg:block mt-0.5 truncate">
-                      {section.description}
+                      {t(section.description)}
                     </div>
                   )}
                 </div>
@@ -289,9 +233,8 @@ function SettingsSidebar({
 /* ── Updates Section ─────────────────────────────────────────────────── */
 
 function UpdatesSection() {
-  const { updateStatus, updateLoading, loadUpdateStatus, uiLanguage } =
-    useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+  const { t } = useApp();
+  const { updateStatus, updateLoading, loadUpdateStatus } = useApp();
 
   useEffect(() => {
     void loadUpdateStatus();
@@ -299,7 +242,7 @@ function UpdatesSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between p-4 bg-bg-accent rounded-lg">
+      <div className="flex items-center justify-between p-5 bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
         <div>
           <div className="font-medium text-sm">
             {t("settings.versionPrefix")}
@@ -308,24 +251,26 @@ function UpdatesSection() {
             {updateStatus?.currentVersion || `${t("common.loading")}...`}
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="default"
+          size="sm"
+          className="rounded-xl shadow-sm h-auto whitespace-normal break-words text-left"
           onClick={() => void loadUpdateStatus(true)}
           disabled={updateLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-fg rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
           {updateLoading ? t("settings.checking") : t("settings.checkNow")}
-        </button>
+        </Button>
       </div>
 
       {updateStatus?.updateAvailable && (
-        <div className="p-4 bg-ok/10 border border-ok/30 rounded-lg">
-          <div className="font-medium text-ok mb-1">
+        <div className="p-4 bg-ok/10 border border-ok/30 rounded-2xl">
+          <div className="font-bold text-ok mb-1">
             {t("settings.updateAvailable")}
           </div>
-          <p className="text-sm text-muted">
-            {updateStatus.currentVersion} &rarr; {updateStatus.latestVersion}
+          <p className="text-sm text-txt-strong">
+            {updateStatus.currentVersion} {t("settingsview.Rarr")}{" "}
+            {updateStatus.latestVersion}
           </p>
         </div>
       )}
@@ -343,9 +288,9 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
+  const { t } = useApp();
   const {
     handleReset,
-    uiLanguage,
     exportBusy,
     exportPassword,
     exportIncludeLogs,
@@ -360,7 +305,6 @@ function AdvancedSection() {
     handleAgentImport,
     setState,
   } = useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement>(null);
@@ -410,11 +354,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openExportModal}
-            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
-            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-              <Download className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
+              <Download className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -429,11 +373,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openImportModal}
-            className="flex items-center gap-3 p-4 border border-border bg-bg rounded-lg hover:border-accent hover:bg-accent-subtle/50 transition-all text-left group"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
-            <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center group-hover:bg-accent group-hover:text-accent-fg transition-colors">
-              <Upload className="w-5 h-5 text-accent group-hover:text-accent-fg" />
+            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
+              <Upload className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -447,10 +391,10 @@ function AdvancedSection() {
         </div>
 
         {/* Danger Zone */}
-        <div className="border border-danger/30 rounded-lg overflow-hidden">
-          <div className="bg-danger/5 px-4 py-3 border-b border-danger/30 flex items-center gap-2">
+        <div className="border border-danger/30 rounded-2xl overflow-hidden bg-bg/40 backdrop-blur-sm">
+          <div className="bg-danger/10 px-5 py-3 border-b border-danger/20 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-danger" />
-            <span className="font-medium text-sm text-danger">
+            <span className="font-bold text-sm text-danger tracking-wide uppercase">
               {t("settings.dangerZone")}
             </span>
           </div>
@@ -464,170 +408,190 @@ function AdvancedSection() {
                   {t("settings.resetAgentHint")}
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="destructive"
+                size="sm"
+                className="rounded-xl shadow-sm h-auto whitespace-normal break-words text-left"
                 onClick={() => {
                   const confirmed = window.confirm(
                     t("settings.resetConfirmMessage"),
                   );
                   if (confirmed) void handleReset();
                 }}
-                className="px-4 py-2 border border-danger text-danger rounded-lg text-sm font-medium hover:bg-danger hover:text-danger-foreground transition-colors"
               >
                 {t("settings.resetEverything")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <Modal
+      <Dialog
         open={exportModalOpen}
-        onClose={closeExportModal}
-        title={t("settings.exportAgent")}
+        onOpenChange={(open) => {
+          if (!open) closeExportModal();
+        }}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label
-              htmlFor="settings-export-password"
-              className="text-sm font-medium text-txt-strong"
-            >
-              Password
-            </label>
-            <input
-              id="settings-export-password"
-              type="password"
-              value={exportPassword}
-              onChange={(e) => setState("exportPassword", e.target.value)}
-              placeholder="Enter export password"
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={exportIncludeLogs}
-                onChange={(e) =>
-                  setState("exportIncludeLogs", e.target.checked)
-                }
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("settings.exportAgent")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="settings-export-password"
+                className="text-sm font-medium text-txt-strong"
+              >
+                {t("settingsview.Password")}
+              </label>
+              <Input
+                id="settings-export-password"
+                type="password"
+                value={exportPassword}
+                onChange={(e) => setState("exportPassword", e.target.value)}
+                placeholder={t("settingsview.EnterExportPasswor")}
+                className="rounded-lg bg-bg"
               />
-              Include recent logs in the backup
-            </label>
-          </div>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={exportIncludeLogs}
+                  onChange={(e) =>
+                    setState("exportIncludeLogs", e.target.checked)
+                  }
+                />
 
-          {exportError && (
-            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {exportError}
+                {t("settingsview.IncludeRecentLogs")}
+              </label>
             </div>
-          )}
-          {exportSuccess && (
-            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
-              {exportSuccess}
+
+            {exportError && (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {exportError}
+              </div>
+            )}
+            {exportSuccess && (
+              <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+                {exportSuccess}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={closeExportModal}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="rounded-lg"
+                disabled={exportBusy}
+                onClick={() => void handleAgentExport()}
+              >
+                {exportBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("settings.export")}
+              </Button>
             </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
-              onClick={closeExportModal}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-              disabled={exportBusy}
-              onClick={() => void handleAgentExport()}
-            >
-              {exportBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("settings.export")}
-            </button>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
-      <Modal
+      <Dialog
         open={importModalOpen}
-        onClose={closeImportModal}
-        title={t("settings.importAgent")}
+        onOpenChange={(open) => {
+          if (!open) closeImportModal();
+        }}
       >
-        <div className="space-y-4">
-          <input
-            ref={importFileInputRef}
-            type="file"
-            className="hidden"
-            accept=".eliza-agent,.agent,application/octet-stream"
-            onChange={(e) =>
-              setState("importFile", e.target.files?.[0] ?? null)
-            }
-          />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-txt-strong">
-              Backup file
-            </div>
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
-              onClick={() => importFileInputRef.current?.click()}
-            >
-              <span className="min-w-0 flex-1 truncate text-sm text-txt">
-                {importFile?.name ?? "Choose an exported backup file"}
-              </span>
-              <span className="shrink-0 text-xs font-medium text-accent">
-                {importFile ? "Change" : "Browse"}
-              </span>
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="settings-import-password"
-              className="text-sm font-medium text-txt-strong"
-            >
-              Password
-            </label>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("settings.importAgent")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <input
-              id="settings-import-password"
-              type="password"
-              value={importPassword}
-              onChange={(e) => setState("importPassword", e.target.value)}
-              placeholder="Enter import password"
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/50"
+              ref={importFileInputRef}
+              type="file"
+              className="hidden"
+              accept=".eliza-agent,.agent,application/octet-stream"
+              onChange={(e) =>
+                setState("importFile", e.target.files?.[0] ?? null)
+              }
             />
-          </div>
 
-          {importError && (
-            <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {importError}
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-txt-strong">
+                {t("settingsview.BackupFile")}
+              </div>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover h-auto min-h-[3rem] whitespace-normal break-words"
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-txt">
+                  {importFile?.name ?? t("settingsview.ChooseAnExportedBack")}
+                </span>
+                <span className="shrink-0 text-xs font-medium text-accent">
+                  {importFile
+                    ? t("settings.change", { defaultValue: "Change" })
+                    : t("settings.browse", { defaultValue: "Browse" })}
+                </span>
+              </button>
             </div>
-          )}
-          {importSuccess && (
-            <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
-              {importSuccess}
-            </div>
-          )}
 
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
-              onClick={closeImportModal}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-              disabled={importBusy}
-              onClick={() => void handleAgentImport()}
-            >
-              {importBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("settings.import")}
-            </button>
+            <div className="space-y-2">
+              <label
+                htmlFor="settings-import-password"
+                className="text-sm font-medium text-txt-strong"
+              >
+                {t("settingsview.Password")}
+              </label>
+              <Input
+                id="settings-import-password"
+                type="password"
+                value={importPassword}
+                onChange={(e) => setState("importPassword", e.target.value)}
+                placeholder={t("settingsview.EnterImportPasswor")}
+                className="rounded-lg bg-bg"
+              />
+            </div>
+
+            {importError && (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {importError}
+              </div>
+            )}
+            {importSuccess && (
+              <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
+                {importSuccess}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={closeImportModal}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="rounded-lg"
+                disabled={importBusy}
+                onClick={() => void handleAgentImport()}
+              >
+                {importBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("settings.import")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -641,33 +605,32 @@ export function SettingsView({
   inModal?: boolean;
   onClose?: () => void;
 } = {}) {
+  const { t } = useApp();
   const [activeSection, setActiveSection] = useState("appearance");
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
 
   const {
-    // Cloud
-    cloudEnabled,
-    cloudConnected,
-    cloudCredits,
-    cloudCreditsLow,
-    cloudCreditsCritical,
-    cloudTopUpUrl,
-    cloudUserId,
-    cloudLoginBusy,
-    cloudLoginError,
-    cloudDisconnecting,
+    // Milady Cloud
+    miladyCloudEnabled,
+    miladyCloudConnected,
+    miladyCloudCredits,
+    miladyCloudCreditsLow,
+    miladyCloudCreditsCritical,
+    miladyCloudTopUpUrl,
+    miladyCloudUserId,
+    miladyCloudLoginBusy,
+    miladyCloudLoginError,
+    miladyCloudDisconnecting,
     // Plugins
     plugins,
     pluginSaving,
     pluginSaveSuccess,
     // Theme
-    currentTheme,
     uiLanguage,
     // Actions
     loadPlugins,
     handlePluginToggle,
-    setTheme,
     setUiLanguage,
     setTab,
     loadUpdateStatus: _loadUpdateStatus,
@@ -677,7 +640,6 @@ export function SettingsView({
     setState,
     setActionNotice,
   } = useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
   const handleClose = useCallback(
     () => onClose?.() ?? setTab(inModal ? "companion" : "chat"),
     [inModal, onClose, setTab],
@@ -685,9 +647,9 @@ export function SettingsView({
   const visibleSections = useMemo(
     () =>
       SETTINGS_SECTIONS.filter((section) =>
-        matchesSettingsSection(section, searchQuery),
+        matchesSettingsSection(section, searchQuery, t),
       ),
-    [searchQuery],
+    [searchQuery, t],
   );
   const visibleSectionIds = useMemo(
     () => new Set(visibleSections.map((section) => section.id)),
@@ -776,59 +738,30 @@ export function SettingsView({
             <div className="text-xs font-semibold text-txt-strong mb-2">
               {t("settings.language")}
             </div>
-            <div className="inline-flex gap-1.5 border border-border rounded-lg p-1">
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                  uiLanguage === "en"
-                    ? "bg-accent text-accent-fg shadow-sm"
-                    : "text-txt hover:bg-bg-hover"
-                }`}
-                onClick={() => {
-                  setUiLanguage("en");
-                  setActionNotice(t("settings.languageSaved"), "success", 2200);
-                }}
-              >
-                {t("settings.languageEnglish")}
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
-                  uiLanguage === "zh-CN"
-                    ? "bg-accent text-accent-fg shadow-sm"
-                    : "text-txt hover:bg-bg-hover"
-                }`}
-                onClick={() => {
-                  setUiLanguage("zh-CN");
-                  setActionNotice(t("settings.languageSaved"), "success", 2200);
-                }}
-              >
-                {t("settings.languageChineseSimplified")}
-              </button>
+            <div className="flex flex-wrap gap-1.5 border border-border rounded-lg p-1">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.id}
+                  type="button"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 h-auto whitespace-normal break-words text-left text-xs rounded-md font-medium transition-colors duration-200 ${
+                    uiLanguage === lang.id
+                      ? "bg-accent text-accent-fg shadow-sm"
+                      : "text-txt hover:bg-bg-hover"
+                  }`}
+                  onClick={() => {
+                    setUiLanguage(lang.id);
+                    setActionNotice(
+                      t("settings.languageSaved"),
+                      "success",
+                      2200,
+                    );
+                  }}
+                >
+                  <span className="text-sm">{lang.flag}</span>
+                  {lang.label}
+                </button>
+              ))}
             </div>
-          </div>
-
-          <div className="text-xs font-semibold text-txt-strong mb-2">
-            {t("settings.themeStyle")}
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {THEMES.map((th) => (
-              <button
-                key={th.id}
-                type="button"
-                className={`theme-btn p-4 border rounded-xl text-left transition-all duration-200 hover:border-accent hover:shadow-md hover:-translate-y-0.5 ${
-                  currentTheme === th.id
-                    ? "active border-accent bg-accent-subtle shadow-md"
-                    : "border-border bg-bg hover:bg-bg-hover"
-                }`}
-                onClick={() => setTheme(th.id)}
-              >
-                <div className="text-sm font-semibold text-txt-strong mb-1">
-                  {th.label}
-                </div>
-                <div className="text-[11px] text-muted">{th.hint}</div>
-              </button>
-            ))}
           </div>
         </SectionCard>
       )}
@@ -841,16 +774,16 @@ export function SettingsView({
           className="p-4 sm:p-5 lg:p-6"
         >
           <ProviderSwitcher
-            cloudEnabled={cloudEnabled}
-            cloudConnected={cloudConnected}
-            cloudCredits={cloudCredits}
-            cloudCreditsLow={cloudCreditsLow}
-            cloudCreditsCritical={cloudCreditsCritical}
-            cloudTopUpUrl={cloudTopUpUrl}
-            cloudUserId={cloudUserId}
-            cloudLoginBusy={cloudLoginBusy}
-            cloudLoginError={cloudLoginError}
-            cloudDisconnecting={cloudDisconnecting}
+            miladyCloudEnabled={miladyCloudEnabled}
+            miladyCloudConnected={miladyCloudConnected}
+            miladyCloudCredits={miladyCloudCredits}
+            miladyCloudCreditsLow={miladyCloudCreditsLow}
+            miladyCloudCreditsCritical={miladyCloudCreditsCritical}
+            miladyCloudTopUpUrl={miladyCloudTopUpUrl}
+            miladyCloudUserId={miladyCloudUserId}
+            miladyCloudLoginBusy={miladyCloudLoginBusy}
+            miladyCloudLoginError={miladyCloudLoginError}
+            miladyCloudDisconnecting={miladyCloudDisconnecting}
             plugins={plugins}
             pluginSaving={pluginSaving}
             pluginSaveSuccess={pluginSaveSuccess}
@@ -868,7 +801,7 @@ export function SettingsView({
       {visibleSectionIds.has("coding-agents") && (
         <SectionCard
           id="coding-agents"
-          title="Coding Agents"
+          title={t("settingsview.CodingAgents")}
           description="Configure AI coding agents for multi-agent task execution."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -876,10 +809,19 @@ export function SettingsView({
         </SectionCard>
       )}
 
+      {visibleSectionIds.has("cloud") && (
+        <section
+          id="cloud"
+          className="bg-bg rounded-2xl border border-border/50 overflow-hidden relative"
+        >
+          <CloudDashboard />
+        </section>
+      )}
+
       {visibleSectionIds.has("wallet-rpc") && (
         <SectionCard
           id="wallet-rpc"
-          title="Wallet & RPC"
+          title={t("settingsview.WalletRPC")}
           description="Configure chain RPC providers for trading and market data."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -945,7 +887,7 @@ export function SettingsView({
       {visibleSections.length === 0 && (
         <SectionCard
           id="settings-empty"
-          title="No matching settings"
+          title={t("settingsview.NoMatchingSettings")}
           description="Try a broader search or clear the current filter."
           className="p-4 sm:p-5 lg:p-6"
         >
@@ -954,7 +896,7 @@ export function SettingsView({
             className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
             onClick={() => setSearchQuery("")}
           >
-            Clear search
+            {t("settingsview.ClearSearch")}
           </button>
         </SectionCard>
       )}
@@ -990,7 +932,7 @@ export function SettingsView({
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
               onClick={handleClose}
               aria-label="Close settings"
-              title="Close settings"
+              title={t("settingsview.CloseSettings")}
             >
               <X className="w-4 h-4" />
             </button>

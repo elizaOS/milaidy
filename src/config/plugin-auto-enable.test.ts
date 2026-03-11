@@ -650,8 +650,8 @@ describe("CONNECTOR_PLUGINS", () => {
     expect(Object.keys(CONNECTOR_PLUGINS)).toHaveLength(19);
   });
 
-  it("maps retake to @milady/plugin-retake", () => {
-    expect(CONNECTOR_PLUGINS.retake).toBe("@milady/plugin-retake");
+  it("maps retake to @elizaos/plugin-retake", () => {
+    expect(CONNECTOR_PLUGINS.retake).toBe("@elizaos/plugin-retake");
   });
 
   it("has keys matching CONNECTOR_IDS from schema", () => {
@@ -891,9 +891,9 @@ describe("Blooio connector auto-enable", () => {
 
 describe("STREAMING_PLUGINS mapping", () => {
   it("maps known streaming destinations to plugin packages", () => {
-    expect(STREAMING_PLUGINS.retake).toBe("@milady/plugin-retake");
-    expect(STREAMING_PLUGINS.twitch).toBe("@milady/plugin-twitch-streaming");
-    expect(STREAMING_PLUGINS.youtube).toBe("@milady/plugin-youtube-streaming");
+    expect(STREAMING_PLUGINS.retake).toBe("@elizaos/plugin-retake");
+    expect(STREAMING_PLUGINS.twitch).toBe("@elizaos/plugin-twitch-streaming");
+    expect(STREAMING_PLUGINS.youtube).toBe("@elizaos/plugin-youtube-streaming");
     expect(STREAMING_PLUGINS.customRtmp).toBe("@milady/plugin-custom-rtmp");
   });
 });

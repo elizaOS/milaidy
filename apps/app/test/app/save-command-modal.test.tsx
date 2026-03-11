@@ -89,14 +89,16 @@ describe("SaveCommandModal keyboard behavior", () => {
     });
 
     const saveButton = tree.root.find(
-      (node) => node.type === "button" && node.props.children === "Save",
+      (node) =>
+        node.type === "button" &&
+        node.props.children === "savecommandmodal.Save",
     );
 
     act(() => {
       saveButton.props.onClick();
     });
 
-    const input = tree.root.findByType("input");
+    const input = tree.root.find((node) => node.type === "input");
     const errorText = tree.root.find(
       (node) => node.type === "p" && node.props.children === "Name is required",
     );

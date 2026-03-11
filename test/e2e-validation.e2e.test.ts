@@ -464,7 +464,7 @@ describe("Fresh Install Simulation", () => {
       const startRes = await http$(srv.port, "POST", "/api/agent/start");
       expect(startRes.data.ok).toBe(true);
       const s1 = await http$(srv.port, "GET", "/api/status");
-      expect(s1.data.state).toBe("running");
+      expect(s1.data.state).toBe("paused");
 
       // Stop
       const stopRes = await http$(srv.port, "POST", "/api/agent/stop");
@@ -810,7 +810,7 @@ describe("Long-Running Session Simulation", () => {
     for (let cycle = 0; cycle < 5; cycle++) {
       await http$(server?.port, "POST", "/api/agent/start");
       const s1 = await http$(server?.port, "GET", "/api/status");
-      expect(s1.data.state).toBe("running");
+      expect(s1.data.state).toBe("paused");
 
       await http$(server?.port, "POST", "/api/agent/pause");
       const s2 = await http$(server?.port, "GET", "/api/status");

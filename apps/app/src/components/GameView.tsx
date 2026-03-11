@@ -8,11 +8,12 @@
  * - Connection status indicator
  */
 
+import { client, type LogEntry } from "@milady/app-core/api";
+import { formatTime } from "@milady/app-core/components";
+import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import { client, type LogEntry } from "../api-client";
 import { useRetakeCapture } from "../hooks/useRetakeCapture";
-import { formatTime } from "./shared/format";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const READY_EVENT_BY_AUTH_TYPE: Record<string, string> = {
@@ -35,7 +36,10 @@ const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
   websocket: { bg: "rgba(20, 184, 166, 0.15)", fg: "rgb(20, 184, 166)" },
 };
 
+import { useTimeout } from "../hooks/useTimeout";
+
 export function GameView() {
+  const { setTimeout } = useTimeout();
   const {
     activeGameApp,
     activeGameDisplayName,
@@ -49,6 +53,7 @@ export function GameView() {
     loadLogs,
     setState,
     setActionNotice,
+    t,
   } = useApp();
   const [stopping, setStopping] = useState(false);
   const [showLogsPanel, setShowLogsPanel] = useState(false);
@@ -98,7 +103,12 @@ export function GameView() {
     } finally {
       setSendingChat(false);
     }
-  }, [chatInput, setActionNotice, loadLogs]);
+  }, [
+    chatInput,
+    setActionNotice,
+    loadLogs, // Refresh logs to show activity
+    setTimeout,
+  ]);
   const postMessageTargetOrigin = useMemo(
     () => resolvePostMessageTargetOrigin(activeGameViewerUrl),
     [activeGameViewerUrl],
@@ -254,17 +264,18 @@ export function GameView() {
   if (!activeGameViewerUrl) {
     return (
       <div className="flex items-center justify-center py-10 text-muted italic">
-        No active game session.{" "}
-        <button
-          type="button"
+        {t("game.noActiveSession")}{" "}
+        <Button
+          variant="default"
+          size="sm"
           onClick={() => {
             setState("tab", "apps");
             setState("appsSubTab", "browse");
           }}
-          className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40 ml-2"
+          className="ml-2 font-bold tracking-wide shadow-sm"
         >
-          Back to Apps
-        </button>
+          {t("game.backToApps")}
+        </Button>
       </div>
     );
   }
@@ -272,26 +283,28 @@ export function GameView() {
   const renderLogsPanel = () => (
     <div className="w-80 border-l border-border bg-card flex flex-col min-h-0">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-        <span className="font-bold text-xs">Agent Activity</span>
+        <span className="font-bold text-xs">{t("game.agentActivity")}</span>
         <span className="flex-1" />
-        <button
-          type="button"
-          className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-accent"
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 text-[10px] px-2 py-0 border-border bg-card hover:border-accent"
           onClick={() => void loadLogs()}
         >
-          Refresh
-        </button>
-        <button
-          type="button"
-          className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-accent"
+          {t("common.refresh")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 text-[10px] px-2 py-0 border-border bg-card hover:border-accent"
           onClick={() => setShowLogsPanel(false)}
         >
-          Hide
-        </button>
+          {t("common.hide")}
+        </Button>
       </div>
       {/* Chat input for sending commands to agent */}
       <div className="flex items-center gap-2 px-2 py-2 border-b border-border">
-        <input
+        <Input
           type="text"
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
@@ -301,23 +314,24 @@ export function GameView() {
               handleSendChat();
             }
           }}
-          placeholder="e.g. 'go chop wood' or 'attack the goblin'"
-          className="flex-1 px-2 py-1 text-xs border border-border bg-bg rounded-none focus:border-accent focus:outline-none"
+          placeholder={t("game.chatPlaceholder")}
+          className="flex-1 h-8 text-xs bg-bg focus-visible:ring-accent"
           disabled={sendingChat}
         />
-        <button
-          type="button"
+        <Button
+          variant="default"
+          size="sm"
           onClick={handleSendChat}
           disabled={sendingChat || !chatInput.trim()}
-          className="text-xs px-2 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+          className="h-8 shadow-sm font-bold tracking-wide"
         >
-          {sendingChat ? "..." : "Send"}
-        </button>
+          {sendingChat ? "..." : t("common.send")}
+        </Button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-2 text-[11px] font-mono">
         {gameLogs.length === 0 ? (
           <div className="text-center py-4 text-muted italic">
-            No agent activity yet.
+            {t("game.noAgentActivity")}
           </div>
         ) : (
           gameLogs.slice(0, 50).map((entry: LogEntry, idx) => (
@@ -382,84 +396,78 @@ export function GameView() {
           className={`text-[10px] px-1.5 py-0.5 border ${connectionStatusColor}`}
         >
           {connectionStatus === "connected"
-            ? "Connected"
+            ? t("game.connected")
             : connectionStatus === "connecting"
-              ? "Connecting..."
-              : "Disconnected"}
+              ? t("game.connecting")
+              : t("game.disconnected")}
         </span>
         {activeGamePostMessageAuth ? (
           <span className="text-[10px] px-1.5 py-0.5 border border-border text-muted">
-            postMessage auth
+            {t("gameview.postMessageAuth")}
           </span>
         ) : null}
         <span className="flex-1" />
         {/* Toggle logs panel */}
-        <button
-          type="button"
-          className={`text-xs px-3 py-1 border cursor-pointer hover:bg-accent-hover disabled:opacity-40 ${
-            showLogsPanel
-              ? "bg-accent text-accent-fg border-accent"
-              : "bg-card text-txt border-border hover:border-accent"
-          }`}
+        <Button
+          variant={showLogsPanel ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs shadow-sm hover:border-accent"
           onClick={() => setShowLogsPanel(!showLogsPanel)}
         >
-          {showLogsPanel ? "Hide Logs" : "Show Logs"}
-        </button>
+          {showLogsPanel ? t("game.hideLogs") : t("game.showLogs")}
+        </Button>
         {retakeEnabled && (
-          <button
-            type="button"
-            className={`text-xs px-3 py-1 border cursor-pointer hover:bg-accent-hover disabled:opacity-40 ${
-              retakeCapture
-                ? "bg-accent text-accent-fg border-accent"
-                : "bg-card text-txt border-border hover:border-accent"
-            }`}
+          <Button
+            variant={retakeCapture ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-xs shadow-sm hover:border-accent"
             onClick={() => setRetakeCapture(!retakeCapture)}
-            title="Stream this view to retake.tv (requires active retake stream)"
+            title={t("game.retakeTitle")}
           >
-            {retakeCapture ? "Stop Capture" : "Retake Capture"}
-          </button>
+            {retakeCapture ? t("game.stopCapture") : t("game.retakeCapture")}
+          </Button>
         )}
-        <button
-          type="button"
-          className={`text-xs px-3 py-1 border cursor-pointer hover:bg-accent-hover disabled:opacity-40 ${
-            gameOverlayEnabled
-              ? "bg-accent text-accent-fg border-accent"
-              : "bg-card text-txt border-border hover:border-accent"
-          }`}
+        <Button
+          variant={gameOverlayEnabled ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs shadow-sm hover:border-accent"
           onClick={() => setState("gameOverlayEnabled", !gameOverlayEnabled)}
           title={
             gameOverlayEnabled
-              ? "Disable floating overlay"
-              : "Keep game visible when switching tabs"
+              ? t("game.disableOverlay")
+              : t("game.keepVisible")
           }
         >
-          {gameOverlayEnabled ? "Unpin Overlay" : "Keep on Top"}
-        </button>
-        <button
-          type="button"
-          className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+          {gameOverlayEnabled ? t("game.unpinOverlay") : t("game.keepOnTop")}
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          className="h-7 text-xs shadow-sm"
           onClick={handleOpenInNewTab}
         >
-          Open in New Tab
-        </button>
-        <button
-          type="button"
-          className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+          {t("game.openInNewTab")}
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          className="h-7 text-xs shadow-sm"
           disabled={stopping}
           onClick={handleStop}
         >
-          {stopping ? "Stopping..." : "Stop"}
-        </button>
-        <button
-          type="button"
-          className="text-xs px-3 py-1 bg-accent text-accent-fg border border-accent cursor-pointer hover:bg-accent-hover disabled:opacity-40"
+          {stopping ? t("game.stopping") : t("game.stop")}
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          className="h-7 text-xs shadow-sm"
           onClick={() => {
             setState("tab", "apps");
             setState("appsSubTab", "browse");
           }}
         >
-          Back to Apps
-        </button>
+          {t("game.backToApps")}
+        </Button>
       </div>
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-h-0 relative">

@@ -1,4 +1,4 @@
-import type { StreamEventEnvelope } from "./api-client";
+import type { StreamEventEnvelope } from "@milady/app-core/api";
 
 export type AutonomyRunHealthStatus =
   | "ok"

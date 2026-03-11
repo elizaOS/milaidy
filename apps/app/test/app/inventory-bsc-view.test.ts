@@ -190,7 +190,7 @@ function createContext(
     inventoryChainFocus: "bsc" | "all";
     walletBalances: ReturnType<typeof createWalletBalances> | null;
     walletConfig: ReturnType<typeof createWalletConfig> | null;
-    cloudConnected: boolean;
+    miladyCloudConnected: boolean;
     walletError: string | null;
   }>,
 ) {
@@ -210,7 +210,7 @@ function createContext(
     inventoryCollapseOtherEvm: true,
     inventoryCollapseSolana: true,
     walletError: null,
-    cloudConnected: true,
+    miladyCloudConnected: true,
     loadBalances: vi.fn(async () => {}),
     loadNfts: vi.fn(async () => {}),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
@@ -234,6 +234,8 @@ function createContext(
     setTab: vi.fn(),
     setActionNotice: vi.fn(),
     copyToClipboard: vi.fn(async () => {}),
+    uiLanguage: "en",
+    t: (k: string) => k,
   };
 
   if (overrides) {
@@ -277,7 +279,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Portfolio");
+    expect(content).toContain("wallet.portfolio");
     expect(content).toContain("BSC");
     expect(content).not.toContain("Ethereum native");
   });
@@ -322,7 +324,7 @@ describe("InventoryView BSC-first", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
     let content = text(tree?.root);
-    expect(content).toContain("Trade Not Ready");
+    expect(content).toContain("wallet.status.tradeNotReady");
 
     const readyCtx = createContext({
       walletBalances: createWalletBalances("0.005"),
@@ -332,7 +334,7 @@ describe("InventoryView BSC-first", () => {
       tree?.update(React.createElement(InventoryView));
     });
     content = text(tree?.root);
-    expect(content).toContain("Trade Ready");
+    expect(content).toContain("wallet.status.tradeReady");
   });
 
   it("renders BSC chain errors and token preflight/quote actions", async () => {
@@ -347,7 +349,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Feed Offline");
+    expect(content).toContain("wallet.status.feedOffline");
 
     const normalCtx = createContext({
       walletBalances: createWalletBalances("0.006", null),
@@ -394,7 +396,7 @@ describe("InventoryView BSC-first", () => {
 
   it("shows managed RPC setup guidance when no providers are available", async () => {
     const ctx = createContext({
-      cloudConnected: false,
+      miladyCloudConnected: false,
       walletConfig: {
         ...createWalletConfig(),
         alchemyKeySet: false,
@@ -413,8 +415,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("Eliza Cloud");
-    expect(content).toContain("NodeReal / QuickNode");
+    expect(content).toContain("portfolioheader.ConnectViaElizaCl");
   });
 
   it("supports quick trade input and preset actions", async () => {
@@ -468,7 +469,7 @@ describe("InventoryView BSC-first", () => {
 
     expect(ctx.getBscTradeQuote).toHaveBeenCalled();
     const content = text(tree?.root);
-    expect(content).toContain("Latest quote");
+    expect(content).toContain("bsctradepanel.LatestQuote");
 
     await act(async () => {
       quickSell.props.onClick();
@@ -586,7 +587,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     // Inline confirmation should appear
-    expect(text(tree?.root)).toContain("Confirm buy trade?");
+    expect(text(tree?.root)).toContain("bsctradepanel.Confirm buy");
 
     // Click the Confirm button
     const confirmButton = tree?.root.findAll(
@@ -601,7 +602,7 @@ describe("InventoryView BSC-first", () => {
     });
 
     expect(ctx.executeBscTrade).toHaveBeenCalledTimes(1);
-    expect(text(tree?.root)).toContain("View tx 0xaaaaaaaa");
+    expect(text(tree?.root)).toContain("bsctradepanel.ViewTx 0xaaaaaaaa");
   });
 
   it("shows two-step notice for sell in user-sign mode", async () => {
@@ -765,6 +766,6 @@ describe("InventoryView BSC-first", () => {
     expect(ctx.getBscTradeTxStatus).toHaveBeenCalledWith(
       "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
-    expect(text(tree?.root)).toContain("Confirmations");
+    expect(text(tree?.root)).toContain("bsctradepanel.Confirmations");
   });
 });

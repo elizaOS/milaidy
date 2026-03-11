@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
 import {
+  autoLabel,
   formatByteSize,
   formatDateTime,
   formatDurationMs,
   formatShortDate,
   formatTime,
-} from "../../src/components/shared/format";
-import { autoLabel } from "../../src/components/shared/labels";
+} from "@milady/app-core/components";
+import { describe, expect, it } from "vitest";
 
 describe("shared format helpers", () => {
   it("formats bytes with readable units", () => {

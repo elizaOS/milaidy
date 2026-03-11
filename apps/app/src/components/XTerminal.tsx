@@ -1,6 +1,6 @@
 import "@xterm/xterm/css/xterm.css";
+import { client } from "@milady/app-core/api";
 import { useEffect, useRef } from "react";
-import { client } from "../api-client";
 
 /**
  * Regex to strip the "clear scrollback" ANSI escape (`\e[3J`) from terminal

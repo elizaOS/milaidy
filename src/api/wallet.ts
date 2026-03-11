@@ -239,8 +239,8 @@ function generateSolanaKeypair(): { privateKey: string; publicKey: string } {
   };
 }
 
-export function deriveSolanaAddress(privateKeyBase58: string): string {
-  const secretBytes = base58Decode(privateKeyBase58);
+export function deriveSolanaAddress(privateKeyString: string): string {
+  const secretBytes = decodeSolanaPrivateKey(privateKeyString);
   if (secretBytes.length === 64) return base58Encode(secretBytes.subarray(32));
   if (secretBytes.length === 32) {
     // Derive pubkey from 32-byte seed
@@ -296,6 +296,33 @@ function base58Decode(str: string): Buffer {
   return zeros > 0 ? Buffer.concat([Buffer.alloc(zeros), bytes]) : bytes;
 }
 
+/** Sentinel values that appear as env placeholders – skip without error. */
+const PLACEHOLDER_RE =
+  /^\[?\s*(REDACTED|PLACEHOLDER|TODO|CHANGEME|EMPTY)\s*]?$/i;
+
+function decodeSolanaPrivateKey(key: string): Buffer {
+  if (PLACEHOLDER_RE.test(key)) {
+    throw new Error("placeholder value");
+  }
+  // Only attempt JSON array parse when the content looks like a numeric array
+  // e.g. [1,2,3,...] — not [REDACTED] or other bracket-wrapped strings
+  if (key.startsWith("[") && key.endsWith("]") && /^\[\s*\d/.test(key)) {
+    try {
+      const parsed = JSON.parse(key) as unknown;
+      if (
+        !Array.isArray(parsed) ||
+        !parsed.every((v) => typeof v === "number")
+      ) {
+        throw new Error("not a numeric array");
+      }
+      return Buffer.from(parsed);
+    } catch {
+      throw new Error("Invalid JSON byte-array format");
+    }
+  }
+  return base58Decode(key);
+}
+
 // ── Key validation ────────────────────────────────────────────────────
 
 const HEX_RE = /^[0-9a-fA-F]+$/;
@@ -335,7 +362,7 @@ export function validateEvmPrivateKey(key: string): KeyValidationResult {
 
 export function validateSolanaPrivateKey(key: string): KeyValidationResult {
   try {
-    const bytes = base58Decode(key);
+    const bytes = decodeSolanaPrivateKey(key);
     if (bytes.length !== 64 && bytes.length !== 32) {
       return {
         valid: false,
@@ -433,7 +460,7 @@ export function getWalletAddresses(): WalletAddresses {
   let evmAddress: string | null = null;
   let solanaAddress: string | null = null;
   const evmKey = process.env.EVM_PRIVATE_KEY;
-  if (evmKey) {
+  if (evmKey && !PLACEHOLDER_RE.test(evmKey)) {
     try {
       evmAddress = deriveEvmAddress(evmKey);
     } catch (e) {
@@ -441,7 +468,7 @@ export function getWalletAddresses(): WalletAddresses {
     }
   }
   const solKey = process.env.SOLANA_PRIVATE_KEY;
-  if (solKey) {
+  if (solKey && !PLACEHOLDER_RE.test(solKey)) {
     try {
       solanaAddress = deriveSolanaAddress(solKey);
     } catch (e) {

@@ -8,9 +8,9 @@
  * STT: Web Speech API (SpeechRecognition) for user voice input.
  */
 
+import type { VoiceConfig } from "@milady/app-core/api";
+import { resolveApiUrl } from "@milady/app-core/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { VoiceConfig } from "../api-client";
-import { resolveApiUrl } from "../asset-url";
 
 // ── Speech Recognition types ──────────────────────────────────────────
 
@@ -365,6 +365,10 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setSupported(!!SpeechRecognitionAPI && !!window.speechSynthesis);
     synthRef.current = window.speechSynthesis ?? null;
+  }, []);
+
+  useEffect(() => {
+    elevenCacheRef.current.clear();
   }, []);
 
   // ── Mouth animation loop ──────────────────────────────────────────

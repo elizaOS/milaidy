@@ -5,8 +5,8 @@
  * the `mouthOpen` prop. Sized to fill its parent container.
  */
 
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { useEffect, useRef } from "react";
-import { resolveAppAssetUrl } from "../../asset-url";
 import {
   type CameraProfile,
   type InteractionMode,
@@ -24,8 +24,6 @@ export type VrmViewerProps = {
   isSpeaking?: boolean;
   /** Enable drag-rotate + wheel/pinch zoom camera controls */
   interactive?: boolean;
-  /** Force rotate model to face camera (used by specific avatar packs) */
-  forceFaceCameraFlip?: boolean;
   /** Camera profile preset (chat default, companion for hero-stage framing) */
   cameraProfile?: CameraProfile;
   /** Interaction behavior for camera controls */
@@ -40,9 +38,6 @@ export function VrmViewer(props: VrmViewerProps) {
   const mouthOpenRef = useRef<number>(props.mouthOpen);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
   const interactiveRef = useRef<boolean>(props.interactive ?? false);
-  const forceFaceCameraFlipRef = useRef<boolean>(
-    props.forceFaceCameraFlip ?? false,
-  );
   const cameraProfileRef = useRef<CameraProfile>(props.cameraProfile ?? "chat");
   const interactionModeRef = useRef<InteractionMode>(
     props.interactiveMode ?? "free",
@@ -56,7 +51,6 @@ export function VrmViewer(props: VrmViewerProps) {
   mouthOpenRef.current = props.mouthOpen;
   isSpeakingRef.current = props.isSpeaking ?? false;
   interactiveRef.current = props.interactive ?? false;
-  forceFaceCameraFlipRef.current = props.forceFaceCameraFlip ?? false;
   cameraProfileRef.current = props.cameraProfile ?? "chat";
   interactionModeRef.current = props.interactiveMode ?? "free";
   onEngineReadyRef.current = props.onEngineReady;
@@ -93,7 +87,6 @@ export function VrmViewer(props: VrmViewerProps) {
     engine.setCameraProfile(cameraProfileRef.current);
     engine.setInteractionMode(interactionModeRef.current);
     engine.setInteractionEnabled(interactiveRef.current);
-    engine.setForceFaceCameraFlip(forceFaceCameraFlipRef.current);
 
     const resize = () => {
       const el = canvasRef.current;
@@ -135,12 +128,6 @@ export function VrmViewer(props: VrmViewerProps) {
     if (!engine) return;
     engine.setInteractionEnabled(props.interactive ?? false);
   }, [props.interactive]);
-
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    engine.setForceFaceCameraFlip(props.forceFaceCameraFlip ?? false);
-  }, [props.forceFaceCameraFlip]);
 
   useEffect(() => {
     const engine = engineRef.current;

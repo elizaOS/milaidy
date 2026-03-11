@@ -4,6 +4,11 @@
  * Renders a unified plugin list with searchable/filterable cards and per-plugin settings.
  */
 
+import type { PluginInfo, PluginParamDef } from "@milady/app-core/api";
+import { client } from "@milady/app-core/api";
+import { autoLabel } from "@milady/app-core/components";
+import type { ConfigUiHint } from "@milady/app-core/types";
+import { Button, Input } from "@milady/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Binary,
@@ -81,494 +86,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import type { PluginInfo, PluginParamDef } from "../api-client";
-import { client } from "../api-client";
-import type { ConfigUiHint } from "../types";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
-import { autoLabel } from "./shared/labels";
+import { SHOWCASE_PLUGIN } from "./plugins/showcase-data";
 import { WhatsAppQrOverlay } from "./WhatsAppQrOverlay";
-
-/* ── UI Showcase Plugin ────────────────────────────────────────────── */
-
-/**
- * Synthetic plugin that demonstrates all 23 field renderers.
- * Appears in the plugin list as a reference/documentation plugin.
- */
-const SHOWCASE_PLUGIN: PluginInfo = {
-  id: "__ui-showcase__",
-  name: "UI Field Showcase",
-  description:
-    "Interactive reference of all 23 field renderers. Not a real plugin — expand to see every UI component in action.",
-  enabled: false,
-  configured: true,
-  envKey: null,
-  category: "feature",
-  source: "bundled",
-  validationErrors: [],
-  validationWarnings: [],
-  version: "1.0.0",
-  icon: "🧩",
-  parameters: [
-    // 1. text
-    {
-      key: "DISPLAY_NAME",
-      type: "string",
-      description: "A simple single-line text input for names or short values.",
-      required: true,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 2. password
-    {
-      key: "SECRET_TOKEN",
-      type: "string",
-      description:
-        "Masked password input with show/hide toggle and server-backed reveal.",
-      required: true,
-      sensitive: true,
-      currentValue: null,
-      isSet: false,
-    },
-    // 3. number
-    {
-      key: "SERVER_PORT",
-      type: "number",
-      description: "Numeric input with min/max range and step control.",
-      required: false,
-      sensitive: false,
-      default: "3000",
-      currentValue: null,
-      isSet: false,
-    },
-    // 4. boolean
-    {
-      key: "ENABLE_LOGGING",
-      type: "boolean",
-      description: "Toggle switch — on/off. Auto-detected from ENABLE_ prefix.",
-      required: false,
-      sensitive: false,
-      default: "true",
-      currentValue: null,
-      isSet: false,
-    },
-    // 5. url
-    {
-      key: "WEBHOOK_URL",
-      type: "string",
-      description:
-        "URL input with format validation. Auto-detected from _URL suffix.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 6. select
-    {
-      key: "DEPLOY_REGION",
-      type: "string",
-      description:
-        "Dropdown selector populated from hint.options. Auto-detected for region/zone keys.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 7. textarea
-    {
-      key: "SYSTEM_PROMPT",
-      type: "string",
-      description:
-        "Multi-line text input for long values like prompts or templates. Auto-detected from _PROMPT suffix.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 8. email
-    {
-      key: "CONTACT_EMAIL",
-      type: "string",
-      description: "Email input with format validation. Renders type=email.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 9. color
-    {
-      key: "THEME_COLOR",
-      type: "string",
-      description: "Color picker with hex value text input side-by-side.",
-      required: false,
-      sensitive: false,
-      default: "#4a90d9",
-      currentValue: null,
-      isSet: false,
-    },
-    // 10. radio
-    {
-      key: "AUTH_MODE",
-      type: "string",
-      description:
-        "Radio button group — best for 2-3 mutually exclusive options. Uses 'basic' or 'oauth'.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 11. multiselect
-    {
-      key: "ENABLED_FEATURES",
-      type: "string",
-      description:
-        "Checkbox group for selecting multiple values from a fixed set.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 12. date
-    {
-      key: "START_DATE",
-      type: "string",
-      description: "Date picker input. Auto-detected from _DATE suffix.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 13. datetime
-    {
-      key: "SCHEDULED_AT",
-      type: "string",
-      description: "Combined date and time picker for scheduling.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 14. json
-    {
-      key: "METADATA_CONFIG",
-      type: "string",
-      description:
-        "JSON editor with syntax validation. Shows parse errors inline.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 15. code
-    {
-      key: "RESPONSE_TEMPLATE",
-      type: "string",
-      description:
-        "Code editor with monospaced font for templates and snippets.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 16. array
-    {
-      key: "ALLOWED_ORIGINS",
-      type: "string",
-      description:
-        "Comma-separated list of origins with add/remove UI for each item.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 17. keyvalue
-    {
-      key: "CUSTOM_HEADERS",
-      type: "string",
-      description: "Key-value pair editor with add/remove rows.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 18. file
-    {
-      key: "CERT_FILE",
-      type: "string",
-      description: "File path input for certificates, configs, or data files.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 19. custom
-    {
-      key: "CUSTOM_COMPONENT",
-      type: "string",
-      description: "Placeholder for plugin-provided custom React components.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 20. markdown
-    {
-      key: "RELEASE_NOTES",
-      type: "string",
-      description:
-        "Markdown editor with Edit/Preview toggle for rich text content.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 21. checkbox-group
-    {
-      key: "NOTIFICATION_CHANNELS",
-      type: "string",
-      description:
-        "Checkbox group with per-option descriptions — similar to multiselect but with checkbox UX.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 22. group
-    {
-      key: "CONNECTION_GROUP",
-      type: "string",
-      description:
-        "Fieldset container for visually grouping related configuration fields.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-    // 23. table
-    {
-      key: "ROUTE_TABLE",
-      type: "string",
-      description:
-        "Tabular data editor with add/remove rows and column headers.",
-      required: false,
-      sensitive: false,
-      currentValue: null,
-      isSet: false,
-    },
-  ],
-  configUiHints: {
-    DISPLAY_NAME: {
-      label: "Display Name",
-      group: "Basic Fields",
-      width: "half",
-      help: "Renderer: text — single-line text input",
-    },
-    SECRET_TOKEN: {
-      label: "Secret Token",
-      group: "Basic Fields",
-      width: "half",
-      help: "Renderer: password — masked with show/hide toggle",
-    },
-    SERVER_PORT: {
-      label: "Server Port",
-      group: "Basic Fields",
-      width: "third",
-      min: 1,
-      max: 65535,
-      unit: "port",
-      help: "Renderer: number — with min/max range and unit label",
-    },
-    ENABLE_LOGGING: {
-      label: "Enable Logging",
-      group: "Basic Fields",
-      width: "third",
-      help: "Renderer: boolean — pill-shaped toggle switch",
-    },
-    WEBHOOK_URL: {
-      label: "Webhook URL",
-      group: "Basic Fields",
-      width: "full",
-      placeholder: "https://example.com/webhook",
-      help: "Renderer: url — URL input with format validation",
-    },
-    DEPLOY_REGION: {
-      label: "Deploy Region",
-      group: "Selection Fields",
-      width: "half",
-      type: "select",
-      options: [
-        { value: "us-east-1", label: "US East (Virginia)" },
-        { value: "us-west-2", label: "US West (Oregon)" },
-        { value: "eu-west-1", label: "EU (Ireland)" },
-        { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
-      ],
-      help: "Renderer: select — dropdown with enhanced option labels",
-    },
-    SYSTEM_PROMPT: {
-      label: "System Prompt",
-      group: "Text Fields",
-      width: "full",
-      help: "Renderer: textarea — multi-line text input for long content",
-    },
-    CONTACT_EMAIL: {
-      label: "Contact Email",
-      group: "Text Fields",
-      width: "half",
-      type: "email",
-      placeholder: "admin@example.com",
-      help: "Renderer: email — email input with format validation",
-    },
-    THEME_COLOR: {
-      label: "Theme Color",
-      group: "Selection Fields",
-      width: "third",
-      type: "color",
-      help: "Renderer: color — color picker swatch + hex input",
-    },
-    AUTH_MODE: {
-      label: "Auth Mode",
-      group: "Selection Fields",
-      width: "half",
-      type: "radio",
-      options: [
-        {
-          value: "basic",
-          label: "Basic Auth",
-          description: "Username and password",
-        },
-        {
-          value: "oauth",
-          label: "OAuth 2.0",
-          description: "Token-based authentication",
-        },
-        {
-          value: "apikey",
-          label: "API Key",
-          description: "Header-based API key",
-        },
-      ],
-      help: "Renderer: radio — radio button group with descriptions",
-    },
-    ENABLED_FEATURES: {
-      label: "Enabled Features",
-      group: "Selection Fields",
-      width: "full",
-      type: "multiselect",
-      options: [
-        { value: "auth", label: "Authentication" },
-        { value: "logging", label: "Logging" },
-        { value: "caching", label: "Caching" },
-        { value: "webhooks", label: "Webhooks" },
-        { value: "ratelimit", label: "Rate Limiting" },
-      ],
-      help: "Renderer: multiselect — checkbox group for multiple selections",
-    },
-    START_DATE: {
-      label: "Start Date",
-      group: "Date & Time",
-      width: "half",
-      type: "date",
-      help: "Renderer: date — native date picker",
-    },
-    SCHEDULED_AT: {
-      label: "Scheduled At",
-      group: "Date & Time",
-      width: "half",
-      type: "datetime",
-      help: "Renderer: datetime — date + time picker",
-    },
-    METADATA_CONFIG: {
-      label: "Metadata Config",
-      group: "Structured Data",
-      width: "full",
-      type: "json",
-      help: "Renderer: json — JSON editor with inline validation",
-    },
-    RESPONSE_TEMPLATE: {
-      label: "Response Template",
-      group: "Structured Data",
-      width: "full",
-      type: "code",
-      help: "Renderer: code — monospaced code editor",
-    },
-    ALLOWED_ORIGINS: {
-      label: "Allowed Origins",
-      group: "Structured Data",
-      width: "full",
-      type: "array",
-      help: "Renderer: array — add/remove items list",
-    },
-    CUSTOM_HEADERS: {
-      label: "Custom Headers",
-      group: "Structured Data",
-      width: "full",
-      type: "keyvalue",
-      help: "Renderer: keyvalue — key-value pair editor",
-    },
-    CERT_FILE: {
-      label: "Certificate File",
-      group: "File Paths",
-      width: "full",
-      type: "file",
-      help: "Renderer: file — file path input",
-    },
-    CUSTOM_COMPONENT: {
-      label: "Custom Component",
-      group: "File Paths",
-      width: "full",
-      type: "custom",
-      help: "Renderer: custom — placeholder for plugin-provided React components",
-      advanced: true,
-    },
-    RELEASE_NOTES: {
-      label: "Release Notes",
-      group: "Text Fields",
-      width: "full",
-      type: "markdown",
-      help: "Renderer: markdown — textarea with Edit/Preview toggle",
-    },
-    NOTIFICATION_CHANNELS: {
-      label: "Notification Channels",
-      group: "Selection Fields",
-      width: "full",
-      type: "checkbox-group",
-      options: [
-        {
-          value: "email",
-          label: "Email",
-          description: "Send notifications via email",
-        },
-        {
-          value: "slack",
-          label: "Slack",
-          description: "Post to Slack channels",
-        },
-        {
-          value: "webhook",
-          label: "Webhook",
-          description: "HTTP POST to configured URL",
-        },
-        { value: "sms", label: "SMS", description: "Text message alerts" },
-      ],
-      help: "Renderer: checkbox-group — vertical checkbox list with descriptions",
-    },
-    CONNECTION_GROUP: {
-      label: "Connection Settings",
-      group: "Structured Data",
-      width: "full",
-      type: "group",
-      help: "Renderer: group — fieldset container with legend",
-    },
-    ROUTE_TABLE: {
-      label: "Route Table",
-      group: "Structured Data",
-      width: "full",
-      type: "table",
-      help: "Renderer: table — tabular data editor with add/remove rows",
-    },
-  },
-};
 
 /* ── Always-on plugins (hidden from all views) ────────────────────────── */
 
@@ -602,7 +123,7 @@ const ALWAYS_ON_PLUGIN_IDS = new Set([
   "goals",
   "scheduling",
   // Internal / infrastructure
-  "elizacloud",
+  "miladycloud",
   "evm",
   "memory",
   "rolodex",
@@ -618,7 +139,7 @@ const ALWAYS_ON_PLUGIN_IDS = new Set([
 /* ── Helpers ────────────────────────────────────────────────────────── */
 
 /** Detect advanced / debug parameters that should be collapsed by default. */
-export function isAdvancedParam(param: PluginParamDef): boolean {
+function isAdvancedParam(param: PluginParamDef): boolean {
   const k = param.key.toUpperCase();
   const d = (param.description ?? "").toLowerCase();
   return (
@@ -1175,7 +696,7 @@ const DEFAULT_ICONS: Record<string, LucideIcon> = {
   tee: LockKeyhole,
   blooio: Circle,
   acp: Construction,
-  elizacloud: Cloud,
+  miladycloud: Cloud,
   twilio: Phone,
 };
 
@@ -1359,6 +880,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     handlePluginConfigSave,
     setActionNotice,
     setState,
+    t,
   } = useApp();
 
   const [pluginConfigs, setPluginConfigs] = useState<
@@ -1815,9 +1337,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         <div className="flex items-center gap-2 px-3 pt-3 pb-1">
           <span
             className="text-[10px] text-muted opacity-30 hover:opacity-70 cursor-grab active:cursor-grabbing shrink-0 select-none leading-none"
-            title="Drag to reorder"
+            title={t("pluginsview.DragToReorder")}
           >
-            &#x2807;
+            {t("pluginsview.X2807")}
           </span>
           <span className="font-bold text-sm flex items-center gap-1.5 min-w-0 truncate flex-1">
             {(() => {
@@ -1845,7 +1367,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           </span>
           {isShowcase ? (
             <span className="text-[10px] font-bold tracking-wider px-2.5 py-[2px] border border-accent text-accent bg-accent-subtle shrink-0">
-              DEMO
+              {t("pluginsview.DEMO")}
             </span>
           ) : (
             <button
@@ -1897,7 +1419,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           )}
           {isToggleBusy && (
             <span className="text-[10px] px-1.5 py-px border border-accent bg-accent-subtle text-accent lowercase tracking-wide whitespace-nowrap">
-              restarting...
+              {t("pluginsview.restarting")}
             </span>
           )}
         </div>
@@ -1918,10 +1440,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         {pluginLinks.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pb-2">
             {pluginLinks.map((link) => (
-              <button
+              <Button
                 key={`${p.id}:${link.key}`}
-                type="button"
-                className="plugins-link-btn text-[10px] px-2 py-[2px] border border-border text-muted hover:text-accent hover:border-accent bg-transparent transition-colors cursor-pointer"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] font-bold border-border/40 text-muted hover:text-accent hover:border-accent hover:bg-accent/5 backdrop-blur-sm transition-all"
                 onClick={(e) => {
                   e.stopPropagation();
                   void openPluginExternalUrl(link.url);
@@ -1929,31 +1452,33 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 title={`${link.label}: ${link.url}`}
               >
                 {link.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
 
         {/* Bottom bar: config status + settings button */}
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-border mt-auto">
+        <div className="flex items-center gap-3 px-4 py-3 border-t border-border/40 mt-auto bg-black/5">
           {hasParams && !isShowcase ? (
             <>
               <span
-                className={`inline-block w-[7px] h-[7px] rounded-full shrink-0 ${
-                  allParamsSet ? "bg-ok" : "bg-destructive"
+                className={`inline-block w-2 h-2 rounded-full shadow-[0_0_10px_currentColor] shrink-0 ${
+                  allParamsSet
+                    ? "bg-ok text-ok"
+                    : "bg-destructive text-destructive"
                 }`}
               />
-              <span className="text-[10px] text-muted">
-                {setCount}/{totalCount} configured
+              <span className="text-[11px] font-bold tracking-wide text-muted">
+                {setCount}/{totalCount} {t("pluginsview.configured")}
               </span>
             </>
           ) : !hasParams && !isShowcase ? (
-            <span className="text-[10px] text-muted opacity-50">
-              No config needed
+            <span className="text-[11px] font-bold tracking-wide text-muted/60">
+              {t("pluginsview.NoConfigNeeded")}
             </span>
           ) : (
-            <span className="text-[10px] text-muted opacity-50">
-              23 field demos
+            <span className="text-[11px] font-bold tracking-wide text-muted/60">
+              {t("pluginsview.23FieldDemos")}
             </span>
           )}
           <div className="flex-1" />
@@ -1962,9 +1487,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             p.npmName &&
             !isShowcase &&
             !p.loadError && (
-              <button
-                type="button"
-                className="text-[10px] px-2 py-[2px] border border-accent text-accent bg-transparent hover:bg-accent hover:text-accent-fg cursor-pointer transition-colors max-w-[180px] truncate"
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 px-3 text-[10px] font-bold tracking-wide shadow-sm max-w-[140px] truncate"
                 disabled={installingPlugins.has(p.id)}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1975,24 +1501,30 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                   ? installProgress.get(p.npmName ?? "")?.message ||
                     "Installing..."
                   : "Install"}
-              </button>
+              </Button>
             )}
           {hasParams && (
-            <button
-              type="button"
-              className={`text-[10px] text-muted hover:text-accent cursor-pointer transition-colors flex items-center gap-1 ${
-                isOpen ? "text-accent" : ""
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 px-2.5 text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                isOpen
+                  ? "text-accent bg-accent/10 hover:bg-accent/20"
+                  : "text-muted hover:text-txt hover:bg-white/5"
               }`}
-              onClick={() => toggleSettings(p.id)}
-              title="Settings"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSettings(p.id);
+              }}
+              title={t("pluginsview.Settings")}
             >
-              <span className="text-[11px]">&#9881;</span>
+              <span className="text-[14px] leading-none">&#9881;</span>
               <span
-                className={`inline-block text-[8px] transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}
+                className={`inline-block text-[10px] transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
               >
                 &#9654;
               </span>
-            </button>
+            </Button>
           )}
         </div>
 
@@ -2091,7 +1623,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           <div className="plugins-game-list-scroll">
             {gameVisiblePlugins.length === 0 ? (
               <div className="plugins-game-list-empty">
-                No {sectionTitle.toLowerCase()} found.
+                No {sectionTitle.toLowerCase()} {t("pluginsview.found")}
               </div>
             ) : (
               gameVisiblePlugins.map((p: PluginInfo) => (
@@ -2159,7 +1691,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     className="plugins-game-back-btn"
                     onClick={() => setGameMobileDetail(false)}
                   >
-                    ← Back
+                    {t("pluginsview.Back")}
                   </button>
                 )}
                 <div className="plugins-game-detail-title-row">
@@ -2269,7 +1801,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                   className="plugins-game-action-btn"
                   onClick={() => void handleTestConnection(selectedPlugin.id)}
                 >
-                  Test Connection
+                  {t("pluginsview.TestConnection")}
                 </button>
                 <button
                   type="button"
@@ -2291,8 +1823,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             <div className="plugins-game-detail-empty">
               <span className="plugins-game-detail-empty-icon">🧩</span>
               <span className="plugins-game-detail-empty-text">
-                Select a {mode === "connectors" ? "channel" : "plugin"} to
-                configure.
+                {t("pluginsview.SelectA")}{" "}
+                {mode === "connectors" ? "channel" : "plugin"}{" "}
+                {t("pluginsview.toC")}
               </span>
             </div>
           )}
@@ -2306,92 +1839,102 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   return (
     <div>
       {/* Toolbar: search + status toggle */}
-      <div className="flex items-center gap-2 mb-3.5 flex-wrap">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         {/* Search */}
-        <div className="relative flex-1 min-w-[180px]">
-          <input
+        <div className="relative flex-1 min-w-[220px]">
+          <Input
             type="text"
-            className="w-full py-[5px] px-3 pr-8 border border-border bg-card text-[13px] transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:italic"
+            className="w-full bg-card/60 backdrop-blur-md shadow-inner pr-8 h-9 rounded-xl focus-visible:ring-accent border-border/40"
             placeholder={`Search ${label.toLowerCase()}...`}
             value={pluginSearch}
             onChange={(e) => setState("pluginSearch", e.target.value)}
           />
           {pluginSearch && (
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-muted cursor-pointer text-sm px-1.5 py-px leading-none hover:text-txt"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 text-muted hover:text-txt rounded-full"
               onClick={() => setState("pluginSearch", "")}
-              title="Clear search"
+              title={t("pluginsview.ClearSearch")}
             >
-              &times;
-            </button>
+              ✕
+            </Button>
           )}
         </div>
 
         {/* Status toggle: All / Enabled */}
-        <div className="flex gap-1 shrink-0">
+        <div className="flex gap-1.5 shrink-0 bg-black/10 p-1 rounded-xl border border-white/5">
           {(["all", "enabled"] as const).map((s) => (
-            <button
+            <Button
               key={s}
-              type="button"
-              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${
+              variant={pluginStatusFilter === s ? "default" : "ghost"}
+              size="sm"
+              className={`h-7 px-3 text-[11px] font-bold tracking-wide rounded-lg transition-all ${
                 pluginStatusFilter === s
-                  ? "bg-accent text-accent-fg border-accent"
-                  : "bg-surface text-txt border-border hover:bg-bg-hover"
+                  ? "shadow-sm"
+                  : "text-muted hover:text-txt hover:bg-white/5"
               }`}
               onClick={() => setState("pluginStatusFilter", s as StatusFilter)}
             >
               {s === "all"
                 ? `All (${categoryPlugins.length})`
                 : `Enabled (${enabledCount})`}
-            </button>
+            </Button>
           ))}
         </div>
 
         {/* Reset order (only visible when custom order is set) */}
         {pluginOrder.length > 0 && (
-          <button
-            type="button"
-            className="px-2.5 py-[3px] border border-border bg-surface text-muted text-[11px] cursor-pointer shrink-0 hover:text-txt hover:bg-bg-hover"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-[11px] font-bold border-border/40 bg-card/40 backdrop-blur-md shadow-sm rounded-xl shrink-0"
             onClick={handleResetOrder}
-            title="Reset to default sort order"
+            title={t("pluginsview.ResetToDefaultSor")}
           >
-            Reset Order
-          </button>
+            {t("pluginsview.ResetOrder")}
+          </Button>
         )}
 
         {/* Add plugin button */}
-        <button
-          type="button"
-          className="px-2.5 py-[3px] border border-accent bg-accent text-accent-fg text-[11px] cursor-pointer shrink-0 hover:bg-accent-hover hover:border-accent-hover"
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-8 px-4 text-[11px] font-bold tracking-wide border border-accent/30 text-accent bg-accent/10 hover:bg-accent/20 hover:border-accent/50 shadow-sm rounded-xl shrink-0 transition-all"
           onClick={() => setAddDirOpen(true)}
         >
-          + Add Plugin
-        </button>
+          {t("pluginsview.AddPlugin")}
+        </Button>
       </div>
 
       {hasPluginToggleInFlight && (
         <div className="mb-3 px-3 py-2 border border-accent bg-accent-subtle text-[11px] text-accent">
-          Applying plugin change and waiting for agent restart...
+          {t("pluginsview.ApplyingPluginChan")}
         </div>
       )}
 
       {/* Tag filters */}
       {showSubgroupFilters && (
-        <div className="flex items-center gap-1.5 mb-3.5 flex-wrap">
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
           {subgroupTags.map((tag) => (
-            <button
+            <Button
               key={tag.id}
-              type="button"
-              className={`px-2.5 py-[3px] border text-[11px] cursor-pointer transition-colors duration-150 ${
+              variant={subgroupFilter === tag.id ? "default" : "outline"}
+              size="sm"
+              className={`h-7 px-3 text-[11px] font-bold tracking-wide rounded-lg transition-all ${
                 subgroupFilter === tag.id
-                  ? "bg-accent text-accent-fg border-accent"
-                  : "bg-surface text-txt border-border hover:bg-bg-hover"
+                  ? "shadow-[0_0_10px_rgba(var(--accent),0.2)] border-accent"
+                  : "bg-card/40 backdrop-blur-sm border-border/40 text-muted hover:text-txt shadow-sm hover:border-accent/30"
               }`}
               onClick={() => setSubgroupFilter(tag.id)}
             >
-              {tag.label} ({tag.count})
-            </button>
+              {tag.label}
+              <span
+                className={`ml-1.5 px-1.5 py-0.5 rounded border text-[9px] font-mono leading-none ${subgroupFilter === tag.id ? "bg-black/20 border-black/10" : "bg-black/10 border-white/5"}`}
+              >
+                {tag.count}
+              </span>
+            </Button>
           ))}
         </div>
       )}
@@ -2429,7 +1972,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               : p.category;
           return (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-in fade-in duration-200"
               onClick={(e) => {
                 if (e.target === e.currentTarget) toggleSettings(p.id);
               }}
@@ -2442,10 +1985,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               role="dialog"
               aria-modal="true"
             >
-              <div className="w-full max-w-2xl max-h-[85vh] border border-border bg-card shadow-lg flex flex-col overflow-hidden">
+              <div className="w-full max-w-2xl max-h-[85vh] border border-border/50 bg-card/90 shadow-2xl flex flex-col overflow-hidden rounded-2xl backdrop-blur-xl">
                 {/* Dialog header */}
-                <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-                  <span className="font-bold text-sm flex items-center gap-1.5 flex-1 min-w-0">
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-border/30 bg-black/10 shrink-0">
+                  <span className="font-bold text-base flex items-center gap-2 flex-1 min-w-0 tracking-wide text-txt">
                     {(() => {
                       const icon = resolveIcon(p);
                       if (!icon) return null;
@@ -2454,7 +1997,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           <img
                             src={icon}
                             alt=""
-                            className="w-5 h-5 rounded-sm object-contain"
+                            className="w-6 h-6 rounded-md object-contain"
                             onError={(e) => {
                               (
                                 e.currentTarget as HTMLImageElement
@@ -2462,38 +2005,39 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             }}
                           />
                         ) : (
-                          <span className="text-sm">{icon}</span>
+                          <span className="text-base">{icon}</span>
                         );
                       }
                       const IconComponent = icon;
-                      return <IconComponent className="w-5 h-5" />;
+                      return <IconComponent className="w-6 h-6 text-accent" />;
                     })()}
                     {p.name}
                   </span>
-                  <span className="text-[10px] px-1.5 py-px border border-border bg-surface text-muted lowercase tracking-wide">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-border/40 bg-black/20 text-muted lowercase tracking-widest font-bold">
                     {categoryLabel}
                   </span>
                   {p.version && (
-                    <span className="text-[10px] font-mono text-muted opacity-70">
+                    <span className="text-[10px] font-mono text-muted/70">
                       v{p.version}
                     </span>
                   )}
                   {isShowcase && (
-                    <span className="text-[10px] font-bold tracking-wider px-2.5 py-[2px] border border-accent text-accent bg-accent-subtle">
-                      DEMO
+                    <span className="text-[10px] font-bold tracking-widest px-2.5 py-[2px] border border-accent/30 text-accent bg-accent/10 rounded-full">
+                      {t("pluginsview.DEMO")}
                     </span>
                   )}
-                  <button
-                    type="button"
-                    className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted hover:bg-white/10 hover:text-txt rounded-full transition-all shrink-0 ml-2"
                     onClick={() => toggleSettings(p.id)}
                   >
-                    &times;
-                  </button>
+                    ✕
+                  </Button>
                 </div>
 
                 {/* Dialog body — scrollable */}
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   {/* Plugin details */}
                   <div className="px-5 pt-4 pb-1 flex items-center gap-3 flex-wrap text-xs text-muted">
                     {p.description && (
@@ -2512,7 +2056,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       {p.pluginDeps && p.pluginDeps.length > 0 && (
                         <span className="flex items-center gap-1 flex-wrap">
                           <span className="text-[10px] text-muted opacity-60">
-                            depends on:
+                            {t("pluginsview.dependsOn")}
                           </span>
                           {p.pluginDeps.map((dep: string) => (
                             <span
@@ -2541,11 +2085,12 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
                 {/* Dialog footer — actions (hidden for showcase) */}
                 {!isShowcase && (
-                  <div className="flex justify-end gap-2.5 px-5 py-3 border-t border-border shrink-0">
+                  <div className="flex justify-end gap-3 px-5 py-4 border-t border-border/30 shrink-0 bg-black/10">
                     {p.enabled && !p.isActive && p.npmName && !p.loadError && (
-                      <button
-                        type="button"
-                        className="px-3 py-1.5 text-[11px] border border-accent text-accent bg-transparent hover:bg-accent hover:text-accent-fg cursor-pointer rounded-sm transition-colors max-w-[260px] truncate"
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-8 px-4 text-[11px] font-bold tracking-wide shadow-sm"
                         disabled={installingPlugins.has(p.id)}
                         onClick={() =>
                           handleInstallPlugin(p.id, p.npmName ?? "")
@@ -2555,27 +2100,34 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           ? installProgress.get(p.npmName ?? "")?.message ||
                             "Installing..."
                           : "Install Plugin"}
-                      </button>
+                      </Button>
                     )}
                     {p.loadError && (
                       <span
-                        className="px-3 py-1.5 text-[11px] text-destructive"
+                        className="px-3 py-1.5 text-[11px] text-danger font-bold tracking-wide"
                         title={p.loadError}
                       >
-                        Package broken — missing compiled files
+                        {t("pluginsview.PackageBrokenMis")}
                       </span>
                     )}
                     {p.isActive && (
-                      <button
-                        type="button"
-                        className={`px-3 py-1.5 text-[11px] border rounded-sm transition-colors ${
+                      <Button
+                        variant={
+                          testResults.get(p.id)?.success
+                            ? "default"
+                            : testResults.get(p.id)?.error
+                              ? "destructive"
+                              : "outline"
+                        }
+                        size="sm"
+                        className={`h-8 px-4 text-[11px] font-bold tracking-wide transition-all ${
                           testResults.get(p.id)?.loading
-                            ? "border-[var(--border)] text-[var(--muted)] cursor-wait"
+                            ? "opacity-70 cursor-wait"
                             : testResults.get(p.id)?.success
-                              ? "border-[var(--ok)] text-[var(--ok)] bg-[color-mix(in_srgb,var(--ok)_5%,transparent)]"
+                              ? "bg-ok text-ok-fg border-ok hover:bg-ok/90"
                               : testResults.get(p.id)?.error
-                                ? "border-[var(--destructive)] text-[var(--destructive)]"
-                                : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] cursor-pointer"
+                                ? "bg-danger text-danger-fg border-danger hover:bg-danger/90"
+                                : "border-border/40 bg-card/40 backdrop-blur-md shadow-sm hover:border-accent/40"
                         }`}
                         disabled={testResults.get(p.id)?.loading}
                         onClick={() => handleTestConnection(p.id)}
@@ -2587,21 +2139,23 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             : testResults.get(p.id)?.error
                               ? `\u2715 ${testResults.get(p.id)?.error}`
                               : "Test Connection"}
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
-                      className="bg-transparent border border-border text-muted cursor-pointer text-[12px] px-4 py-1.5 rounded-sm hover:text-txt hover:bg-bg-hover transition-colors"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-4 text-[12px] font-bold text-muted hover:text-txt transition-all"
                       onClick={() => handleConfigReset(p.id)}
                     >
-                      Reset
-                    </button>
-                    <button
-                      type="button"
-                      className={`text-[12px] px-5 py-1.5 cursor-pointer border rounded-sm transition-all duration-200 font-medium ${
+                      {t("pluginsview.Reset")}
+                    </Button>
+                    <Button
+                      variant={saveSuccess ? "default" : "secondary"}
+                      size="sm"
+                      className={`h-8 px-5 text-[12px] font-bold tracking-wide transition-all ${
                         saveSuccess
-                          ? "!bg-ok !text-white !border-ok"
-                          : "bg-accent text-accent-fg border-accent hover:bg-accent-hover hover:shadow-sm"
+                          ? "bg-ok text-ok-fg hover:bg-ok/90"
+                          : "bg-accent text-accent-fg hover:bg-accent/90 shadow-lg shadow-accent/20"
                       }`}
                       onClick={() => handleConfigSave(p.id)}
                       disabled={isSaving}
@@ -2611,7 +2165,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         : saveSuccess
                           ? "\u2713 Saved"
                           : "Save Settings"}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -2622,7 +2176,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       {/* Add from directory modal */}
       {addDirOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 duration-200 animate-in fade-in"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setAddDirOpen(false);
@@ -2639,29 +2193,32 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md border border-border bg-card p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="font-bold text-sm">Add Plugin</div>
-              <button
-                type="button"
-                className="text-muted hover:text-txt text-lg leading-none px-1"
+          <div className="w-full max-w-md border border-border/50 bg-card/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <div className="font-bold text-base tracking-wide text-txt">
+                {t("pluginsview.AddPlugin1")}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted hover:bg-white/10 hover:text-txt rounded-full transition-all shrink-0 ml-2"
                 onClick={() => {
                   setAddDirOpen(false);
                   setAddDirPath("");
                 }}
               >
-                &times;
-              </button>
+                ✕
+              </Button>
             </div>
 
-            <p className="text-xs text-muted mb-3">
-              Enter the path to a local plugin directory or package name.
+            <p className="text-sm font-medium tracking-wide text-muted mb-4">
+              {t("pluginsview.EnterThePathToA")}
             </p>
 
-            <input
+            <Input
               type="text"
-              className="w-full py-2 px-3 border border-border bg-bg text-[13px] font-mono transition-colors duration-150 focus:border-accent focus:outline-none placeholder:text-muted placeholder:font-body placeholder:italic"
-              placeholder="/path/to/plugin or package-name"
+              className="w-full h-10 px-3 border border-border/40 bg-black/20 text-txt text-[13px] font-mono transition-all duration-150 focus-visible:ring-accent rounded-xl shadow-inner placeholder:text-muted/50"
+              placeholder={t("pluginsview.PathToPluginOrP")}
               value={addDirPath}
               onChange={(e) => setAddDirPath(e.target.value)}
               onKeyDown={(e) => {
@@ -2669,25 +2226,27 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               }}
             />
 
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                type="button"
-                className="px-4 py-[5px] border border-border bg-transparent text-muted text-xs cursor-pointer hover:text-txt hover:bg-bg-hover"
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-4 text-[12px] font-bold text-muted hover:text-txt transition-all"
                 onClick={() => {
                   setAddDirOpen(false);
                   setAddDirPath("");
                 }}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-[5px] border border-accent bg-accent text-accent-fg text-xs cursor-pointer hover:bg-accent-hover hover:border-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+                {t("pluginsview.Cancel")}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8 px-6 text-[12px] font-bold tracking-wide shadow-sm"
                 onClick={handleAddFromDirectory}
                 disabled={addDirLoading || !addDirPath.trim()}
               >
                 {addDirLoading ? "Adding..." : "Add"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
