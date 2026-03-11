@@ -12,6 +12,23 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Provide a minimal DOM-like mock for ref callbacks so react-test-renderer
+// doesn't crash with "createNodeMock is not a function" or
+// "parentInstance.children.indexOf is not a function".
+const createNodeMock = () => ({
+  children: [] as unknown[],
+  scrollIntoView: vi.fn(),
+  focus: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  getBoundingClientRect: vi.fn(() => ({
+    top: 0,
+    left: 0,
+    width: 100,
+    height: 20,
+  })),
+});
+
 const { mockUseApp, mockClientFns } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   mockClientFns: {
@@ -40,6 +57,156 @@ vi.mock("../../src/AppContext", () => ({
 vi.mock("@milady/app-core/api", () => ({
   client: mockClientFns,
 }));
+
+// Mock sub-views not under test — they transitively import Radix UI
+// components (Select, DropdownMenu) that call DOM methods like closest()
+// which react-test-renderer does not provide.
+// Each factory must inline require('react') because vi.mock is hoisted.
+vi.mock("../../src/components/CustomActionsView", () => {
+  const R = require("react");
+  return { CustomActionsView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/DatabasePageView", () => {
+  const R = require("react");
+  return { DatabasePageView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/FineTuningView", () => {
+  const R = require("react");
+  return { FineTuningView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/LifoSandboxView", () => {
+  const R = require("react");
+  return { LifoSandboxView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/LogsPageView", () => {
+  const R = require("react");
+  return { LogsPageView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/PluginsPageView", () => {
+  const R = require("react");
+  return { PluginsPageView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/RuntimeView", () => {
+  const R = require("react");
+  return { RuntimeView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/SkillsView", () => {
+  const R = require("react");
+  return { SkillsView: () => R.createElement("div", null, "stub") };
+});
+vi.mock("../../src/components/TriggersView", () => {
+  const R = require("react");
+  return { TriggersView: () => R.createElement("div", null, "stub") };
+});
+
+// Mock @milady/ui components that use React.forwardRef with DOM refs,
+// which are incompatible with react-test-renderer.
+// Fully explicit mock — do NOT use vi.importActual since it pulls in
+// Radix UI context providers that crash outside a real DOM.
+vi.mock("@milady/ui", () => {
+  // biome-ignore lint/suspicious/noExplicitAny: test mock factory
+  const p = (props: any) =>
+    React.createElement("div", { "data-testid": "ui-mock" }, props.children);
+  const noop = () => null;
+  return {
+    // Primitives
+    Button: p,
+    Input: p,
+    Textarea: p,
+    Label: p,
+    Checkbox: p,
+    Separator: p,
+    Skeleton: p,
+    Slider: p,
+    Spinner: p,
+    Switch: p,
+    // Select
+    Select: p,
+    SelectTrigger: p,
+    SelectContent: p,
+    SelectItem: p,
+    SelectValue: p,
+    // Dropdown
+    DropdownMenu: p,
+    DropdownMenuTrigger: p,
+    DropdownMenuContent: p,
+    DropdownMenuItem: p,
+    // Dialog
+    Dialog: p,
+    DialogTrigger: p,
+    DialogContent: p,
+    DialogHeader: p,
+    DialogTitle: p,
+    DialogDescription: p,
+    DialogFooter: p,
+    DialogClose: p,
+    DialogOverlay: p,
+    DialogPortal: p,
+    // Card
+    Card: p,
+    CardHeader: p,
+    CardTitle: p,
+    CardContent: p,
+    CardDescription: p,
+    CardFooter: p,
+    // Tabs
+    Tabs: p,
+    TabsList: p,
+    TabsTrigger: p,
+    TabsContent: p,
+    // Tooltip
+    Tooltip: p,
+    TooltipTrigger: p,
+    TooltipContent: p,
+    TooltipProvider: p,
+    // Popover
+    Popover: p,
+    PopoverTrigger: p,
+    PopoverContent: p,
+    // Badge / Status
+    Badge: p,
+    StatusBadge: p,
+    StatusDot: p,
+    // Layout
+    Stack: p,
+    Grid: p,
+    SectionCard: p,
+    // Composed
+    Banner: p,
+    CopyButton: p,
+    ConfirmDelete: p,
+    ConfirmDialog: p,
+    ConnectionStatus: p,
+    EmptyState: p,
+    ErrorBoundary: p,
+    SaveFooter: p,
+    SearchBar: p,
+    SearchInput: p,
+    TagEditor: p,
+    TagInput: p,
+    ThemedSelect: p,
+    ThemedSelectGroup: p,
+    ChatEmptyState: p,
+    TypingIndicator: p,
+    // Typography
+    Heading: p,
+    Text: p,
+    // HoverTooltip / IconTooltip
+    HoverTooltip: p,
+    IconTooltip: p,
+    Spotlight: p,
+    StatCard: p,
+    // Utilities
+    cn: (...args: string[]) => args.filter(Boolean).join(" "),
+    btnPrimary: "",
+    btnDanger: "",
+    btnGhost: "",
+    inputCls: "",
+    statusToneForBoolean: noop,
+    useConfirm: () => ({ confirm: noop }),
+    useGuidedTour: () => ({ start: noop, stop: noop }),
+  };
+});
 
 import { AdvancedPageView } from "../../src/components/AdvancedPageView";
 
@@ -209,13 +376,16 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     mockClientFns.onWsEvent.mockImplementation(() => () => undefined);
 
     _currentTab = "trajectories";
-    mockUseApp.mockImplementation(() => ({
-      t: (k: string) => k,
+    const handleRestart = vi.fn().mockResolvedValue(undefined);
+    const t = (k: string) => k;
+    const cachedMock = {
+      t,
       tab: _currentTab,
       setTab,
-      handleRestart: async () => undefined,
+      handleRestart,
       setActionNotice,
-    }));
+    };
+    mockUseApp.mockImplementation(() => cachedMock);
   });
 
   afterEach(() => {
@@ -229,7 +399,9 @@ describe("Advanced trajectories/fine-tuning integration", () => {
     let tree!: TestRenderer.ReactTestRenderer;
 
     await act(async () => {
-      tree = TestRenderer.create(React.createElement(AdvancedPageView));
+      tree = TestRenderer.create(React.createElement(AdvancedPageView), {
+        createNodeMock,
+      });
     });
     await flush();
 
