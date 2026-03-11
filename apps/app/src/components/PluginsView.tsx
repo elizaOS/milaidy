@@ -8,6 +8,7 @@ import type { PluginInfo, PluginParamDef } from "@milady/app-core/api";
 import { client } from "@milady/app-core/api";
 import { autoLabel } from "@milady/app-core/components";
 import type { ConfigUiHint } from "@milady/app-core/types";
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { Button, Input } from "@milady/ui";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -706,6 +707,19 @@ function resolveIcon(p: PluginInfo): LucideIcon | string | null {
   return DEFAULT_ICONS[p.id] ?? null;
 }
 
+function iconImageSource(icon: string): string | null {
+  const value = icon.trim();
+  if (!value) return null;
+  if (
+    /^(https?:|data:image\/|blob:|file:|capacitor:|capacitor-electron:|app:|\/|\.\/|\.\.\/)/i.test(
+      value,
+    )
+  ) {
+    return resolveAppAssetUrl(value);
+  }
+  return null;
+}
+
 function getPluginResourceLinks(
   plugin: Pick<PluginInfo, "setupGuideUrl" | "homepage" | "repository">,
 ): Array<{ key: string; label: string; url: string }> {
@@ -1346,9 +1360,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               const icon = resolveIcon(p);
               if (!icon) return null;
               if (typeof icon === "string") {
-                return icon.startsWith("http") ? (
+                const imageSrc = iconImageSource(icon);
+                return imageSrc ? (
                   <img
-                    src={icon}
+                    src={imageSrc}
                     alt=""
                     className="w-5 h-5 rounded-sm object-contain"
                     onError={(e) => {
@@ -1644,9 +1659,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         const icon = resolveIcon(p);
                         if (!icon) return "🧩";
                         if (typeof icon === "string") {
-                          return icon.startsWith("http") ? (
+                          const imageSrc = iconImageSource(icon);
+                          return imageSrc ? (
                             <img
-                              src={icon}
+                              src={imageSrc}
                               alt=""
                               className="plugins-game-card-icon"
                               style={{ objectFit: "contain" }}
@@ -1701,9 +1717,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         const icon = resolveIcon(selectedPlugin);
                         if (!icon) return "🧩";
                         if (typeof icon === "string") {
-                          return icon.startsWith("http") ? (
+                          const imageSrc = iconImageSource(icon);
+                          return imageSrc ? (
                             <img
-                              src={icon}
+                              src={imageSrc}
                               alt=""
                               className="plugins-game-detail-icon"
                             />
@@ -1993,9 +2010,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       const icon = resolveIcon(p);
                       if (!icon) return null;
                       if (typeof icon === "string") {
-                        return icon.startsWith("http") ? (
+                        const imageSrc = iconImageSource(icon);
+                        return imageSrc ? (
                           <img
-                            src={icon}
+                            src={imageSrc}
                             alt=""
                             className="w-6 h-6 rounded-md object-contain"
                             onError={(e) => {

@@ -283,7 +283,7 @@ export function viewWrapperStyle(
   }
   return {
     "--bg": "transparent",
-    "--card": f.isSkills ? "rgba(255, 255, 255, 0.05)" : "transparent",
+    "--card": "rgba(255, 255, 255, 0.05)",
     "--border": f.isSkills ? "rgba(0,225,255,0.3)" : "rgba(255,255,255,0.08)",
     "--accent": accentColor,
     "--accent-foreground": f.isSkills ? "#000000" : "#ffffff",

@@ -9,6 +9,7 @@ import {
   overlayBackdropClass,
   TOP_BAR_COLORS,
   tabFlags,
+  viewWrapperStyle,
 } from "./companion-shell-styles";
 
 describe("COMPANION_OVERLAY_TABS", () => {
@@ -120,6 +121,11 @@ describe("derived style helpers", () => {
   it("keeps special-case accents for stream and wallets", () => {
     expect(accentVar(tabFlags("stream"))).toBe("#ef4444");
     expect(accentVar(tabFlags("wallets"))).toBe("#f0b90b");
+  });
+
+  it("keeps card surfaces non-transparent in base chat shell", () => {
+    const style = viewWrapperStyle(tabFlags("chat"), "#7b8fb5");
+    expect(style["--card"]).toBe("rgba(255, 255, 255, 0.05)");
   });
 });
 
