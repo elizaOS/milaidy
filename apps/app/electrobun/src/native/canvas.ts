@@ -358,6 +358,66 @@ $bmp.Dispose()`;
     win.setSize(options.width, options.height);
   }
 
+  /**
+   * Opens a game client URL in a dedicated isolated BrowserWindow.
+   *
+   * Unlike createWindow(), this does NOT enforce a localhost-only navigation
+   * rule because game clients (Hyperscape, 2004scape) are external origins.
+   * The window uses its own "game-isolated" session partition so cookies and
+   * storage are separated from the main renderer and canvas windows.
+   *
+   * canvasEval() is intentionally NOT available on game windows — they are
+   * opened for display/interaction only, not agent computer-use.
+   */
+  async openGameWindow(options: {
+    url: string;
+    title?: string;
+  }): Promise<{ id: string }> {
+    const id = `game_${++canvasCounter}`;
+
+    const win = new BrowserWindow({
+      title: options.title ?? "Milady Game",
+      url: options.url,
+      frame: {
+        x: 100,
+        y: 100,
+        width: 1024,
+        height: 768,
+      },
+      transparent: false,
+      sandbox: true,
+      // @ts-expect-error — partition is a valid Electrobun option not yet typed
+      partition: "game-isolated",
+      // No navigationRules restriction — game sites navigate externally.
+    });
+
+    const canvas: CanvasWindow = {
+      id,
+      window: win,
+      url: options.url,
+      title: options.title ?? "Milady Game",
+    };
+
+    this.windows.set(id, canvas);
+
+    win.on("close", () => {
+      this.windows.delete(id);
+      this.sendToWebview?.("canvasWindowEvent", {
+        windowId: id,
+        event: "closed",
+      });
+    });
+
+    win.on("focus", () => {
+      this.sendToWebview?.("canvasWindowEvent", {
+        windowId: id,
+        event: "focus",
+      });
+    });
+
+    return { id };
+  }
+
   async listWindows(): Promise<{ windows: CanvasWindowInfo[] }> {
     const result: CanvasWindowInfo[] = [];
     for (const [id, canvas] of this.windows) {

@@ -291,6 +291,11 @@ export function registerRpcHandlers(
       canvas.setBounds(params),
     canvasListWindows: async () => canvas.listWindows(),
 
+    // ---- Game ----
+    gameOpenWindow: async (
+      params: Parameters<typeof canvas.openGameWindow>[0],
+    ) => canvas.openGameWindow(params),
+
     // ---- Screencapture ----
     screencaptureGetSources: async () => screencapture.getSources(),
     screencaptureTakeScreenshot: async () => screencapture.takeScreenshot(),
