@@ -198,7 +198,8 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-[9999] flex items-start justify-center pt-30"
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-30"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           closeCommandPalette();
@@ -215,20 +216,30 @@ export function CommandPalette() {
       tabIndex={-1}
     >
       <div
-        className="bg-bg border border-border w-[520px] max-h-[420px] flex flex-col shadow-2xl"
+        className="w-[520px] max-h-[420px] flex flex-col rounded-xl"
+        style={{
+          background: "rgba(18, 22, 32, 0.96)",
+          border: "1px solid rgba(240, 178, 50, 0.18)",
+          backdropFilter: "blur(24px)",
+          boxShadow: "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+        }}
         role="document"
       >
         <input
           ref={inputRef}
           type="text"
-          className="w-full px-4 py-3.5 border-b border-border bg-transparent text-[15px] text-txt outline-none font-body"
+          className="w-full px-4 py-3.5 bg-transparent text-[15px] outline-none font-body"
+          style={{
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            color: "rgba(240,238,250,0.92)",
+          }}
           placeholder={t("commandpalette.TypeToSearchComma")}
           value={commandQuery}
           onChange={(e) => setState("commandQuery", e.target.value)}
         />
         <div className="flex-1 overflow-y-auto py-1">
           {filteredCommands.length === 0 ? (
-            <div className="py-5 text-center text-muted text-[13px]">
+            <div className="py-5 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>
               {t("commandpalette.NoCommandsFound")}
             </div>
           ) : (
@@ -236,10 +247,11 @@ export function CommandPalette() {
               <button
                 type="button"
                 key={cmd.id}
-                className={`w-full px-4 py-2.5 cursor-pointer flex justify-between items-center text-left text-sm font-body ${idx === commandActiveIndex
-                    ? "bg-bg-hover"
-                    : "hover:bg-bg-hover"
-                  }`}
+                className="w-full px-4 py-2.5 cursor-pointer flex justify-between items-center text-left text-sm font-body border-0"
+                style={{
+                  background: idx === commandActiveIndex ? "rgba(255,255,255,0.06)" : "transparent",
+                  color: "rgba(240,238,250,0.92)",
+                }}
                 onClick={() => {
                   cmd.action();
                   closeCommandPalette();
@@ -248,7 +260,7 @@ export function CommandPalette() {
               >
                 <span>{cmd.label}</span>
                 {cmd.hint && (
-                  <span className="text-xs text-muted">{cmd.hint}</span>
+                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>{cmd.hint}</span>
                 )}
               </button>
             ))

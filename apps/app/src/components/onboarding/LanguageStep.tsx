@@ -10,7 +10,7 @@ const LANGUAGES = [
 ];
 
 export function LanguageStep() {
-  const { uiLanguage, handleOnboardingNext, handleOnboardingBack, setState, t } = useApp();
+  const { uiLanguage, handleOnboardingNext, handleOnboardingBack, setState } = useApp();
 
   function selectLanguage(langId: string) {
     setState("uiLanguage", normalizeLanguage(langId));
@@ -19,15 +19,11 @@ export function LanguageStep() {
 
   return (
     <>
-      <div className="onboarding-section-title">
-        {t("onboarding.languageTitle") || "Language"}
-      </div>
+      <div className="onboarding-section-title">Communication</div>
       <div className="onboarding-divider">
         <div className="onboarding-divider-diamond" />
       </div>
-      <div className="onboarding-question">
-        {t("onboarding.languageQuestion") || "What language should I speak?"}
-      </div>
+      <div className="onboarding-question">Select your language</div>
       <div className="onboarding-pill-row">
         {LANGUAGES.map((lang) => (
           <button

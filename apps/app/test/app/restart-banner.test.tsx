@@ -139,7 +139,7 @@ describe("RestartBanner", () => {
     );
 
     const markup = renderToStaticMarkup(React.createElement(RestartBanner));
-    expect(markup).toContain("bg-amber-600");
+    expect(markup).toContain("rgba(240, 178, 50, 0.15)");
     expect(markup).toContain("z-[9998]");
   });
 

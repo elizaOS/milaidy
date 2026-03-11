@@ -1,36 +1,68 @@
-export function AvatarLoader() {
+interface AvatarLoaderProps {
+  /** Sub-label text below the progress bar */
+  label?: string;
+  /** When true, renders as a full-screen loader instead of an overlay */
+  fullScreen?: boolean;
+}
+
+export function AvatarLoader({ label = "Initializing entity", fullScreen = false }: AvatarLoaderProps) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10 transition-opacity duration-500">
-      <div className="relative flex flex-col items-center">
-        {/* Outer glowing ring */}
-        <div className="absolute w-32 h-32 rounded-full border-2 border-white/20 animate-[spin_3s_linear_infinite]" />
-
-        {/* Inner fast ring */}
-        <div className="absolute w-24 h-24 rounded-full border-t-2 border-b-2 border-primary/80 animate-[spin_1.5s_ease-in-out_infinite]" />
-
-        {/* Core pulse */}
-        <div className="w-16 h-16 rounded-full bg-primary/20 backdrop-blur-md border border-primary/50 flex items-center justify-center animate-pulse">
-          <div className="w-8 h-8 rounded-full bg-primary/80 shadow-[0_0_15px_rgba(var(--primary),0.8)]" />
+    <div
+      style={{
+        position: fullScreen ? "fixed" : "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: fullScreen ? "#0c0e14" : "transparent",
+        zIndex: 10,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, width: 280 }}>
+        {/* LOADING label */}
+        <div
+          style={{
+            fontFamily: "var(--mono, monospace)",
+            fontSize: 12,
+            fontWeight: 400,
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            color: "rgba(255, 255, 255, 0.7)",
+            userSelect: "none",
+          }}
+        >
+          LOADING
+          <span className="loading-screen__dots" />
         </div>
 
-        <div className="mt-8 text-primary/90 font-mono text-sm tracking-[0.2em] uppercase animate-pulse">
-          Initializing Entity...
+        {/* Progress bar */}
+        <div style={{ width: "100%", height: 3, background: "rgba(255, 255, 255, 0.1)", overflow: "hidden" }}>
+          <div
+            style={{
+              width: "60%",
+              height: "100%",
+              background: "rgba(255, 255, 255, 0.85)",
+              boxShadow: "0 0 8px rgba(255, 255, 255, 0.3)",
+              animation: "avatar-loader-progress 2s ease-in-out infinite",
+            }}
+          />
         </div>
 
-        {/* Decorative scanning lines */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-          <div className="w-full h-1 bg-primary/40 absolute top-[-50%] animate-[scan_2s_linear_infinite] shadow-[0_0_8px_rgba(var(--primary),0.8)]" />
+        {/* Sub label */}
+        <div
+          style={{
+            fontFamily: "var(--mono, monospace)",
+            fontSize: 10,
+            fontWeight: 400,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(255, 255, 255, 0.3)",
+            userSelect: "none",
+          }}
+        >
+          {label}
         </div>
       </div>
-      {/* 
-      <style jsx>{`
-        @keyframes scan {
-          0% { top: -10%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 110%; opacity: 0; }
-        }
-      `}</style> */}
     </div>
   );
 }

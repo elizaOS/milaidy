@@ -37,15 +37,15 @@ export function WhatsAppQrOverlay({
   // ── Connected ────────────────────────────────────────────────────────
   if (status === "connected") {
     return (
-      <div className="border border-[var(--ok)] bg-[color-mix(in_srgb,var(--ok)_5%,transparent)] p-4 mt-3">
+      <div className="p-4 mt-3" style={{ border: "1px solid #22c55e", background: "rgba(34, 197, 94, 0.08)" }}>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok)]" />
-          <span className="text-xs font-medium text-[var(--ok)]">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#22c55e" }} />
+          <span className="text-xs font-medium" style={{ color: "#22c55e" }}>
             {t("whatsappqroverlay.Connected")}
             {phoneNumber ? ` (+${phoneNumber})` : ""}
           </span>
         </div>
-        <div className="text-[10px] text-[var(--muted)] mt-1">
+        <div className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
           {onConnected
             ? "Installing WhatsApp plugin and restarting agent..."
             : "WhatsApp is paired. Auth state is saved for automatic reconnection."}
@@ -53,7 +53,8 @@ export function WhatsAppQrOverlay({
         {!onConnected && (
           <button
             type="button"
-            className="mt-2 px-2.5 py-1 text-[10px] border border-[var(--destructive)] text-[var(--destructive)] bg-transparent hover:bg-[var(--destructive)] hover:text-white cursor-pointer transition-colors"
+            className="mt-2 px-2.5 py-1 text-[10px] bg-transparent cursor-pointer transition-colors"
+            style={{ border: "1px solid #ef4444", color: "#ef4444" }}
             onClick={() => void disconnect()}
           >
             {t("whatsappqroverlay.Disconnect")}
@@ -66,15 +67,16 @@ export function WhatsAppQrOverlay({
   // ── Error / Timeout ──────────────────────────────────────────────────
   if (status === "error" || status === "timeout") {
     return (
-      <div className="border border-[var(--destructive)] bg-[color-mix(in_srgb,var(--destructive)_5%,transparent)] p-4 mt-3">
-        <div className="text-xs text-[var(--destructive)] mb-2">
+      <div className="p-4 mt-3" style={{ border: "1px solid #ef4444", background: "rgba(239, 68, 68, 0.08)" }}>
+        <div className="text-xs mb-2" style={{ color: "#ef4444" }}>
           {status === "timeout"
             ? "QR code expired. Please try again."
             : (error ?? "An error occurred.")}
         </div>
         <button
           type="button"
-          className="px-3 py-1.5 text-[11px] border border-[var(--accent)] text-[var(--accent)] bg-transparent hover:bg-[var(--accent)] hover:text-[var(--accent-fg)] cursor-pointer transition-colors"
+          className="px-3 py-1.5 text-[11px] bg-transparent cursor-pointer transition-colors"
+          style={{ border: "1px solid #f0b232", color: "#f0b232" }}
           onClick={() => {
             firedRef.current = false;
             void startPairing();
@@ -89,16 +91,17 @@ export function WhatsAppQrOverlay({
   // ── Idle ──────────────────────────────────────────────────────────────
   if (status === "idle" || status === "disconnected") {
     return (
-      <div className="border border-[var(--border)] bg-[var(--surface)] p-4 mt-3">
-        <div className="text-xs text-[var(--muted)] mb-2">
+      <div className="p-4 mt-3" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}>
+        <div className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.45)" }}>
           {t("whatsappqroverlay.ScanAQRCodeWith")}
         </div>
-        <div className="text-[10px] text-[var(--muted)] mb-2 opacity-70">
+        <div className="text-[10px] mb-2 opacity-70" style={{ color: "rgba(255,255,255,0.45)" }}>
           {t("whatsappqroverlay.UsesAnUnofficialW")}
         </div>
         <button
           type="button"
-          className="px-3 py-1.5 text-[11px] border border-[var(--accent)] text-[var(--accent)] bg-transparent hover:bg-[var(--accent)] hover:text-[var(--accent-fg)] cursor-pointer transition-colors"
+          className="px-3 py-1.5 text-[11px] bg-transparent cursor-pointer transition-colors"
+          style={{ border: "1px solid #f0b232", color: "#f0b232" }}
           onClick={() => {
             firedRef.current = false;
             void startPairing();
@@ -112,7 +115,7 @@ export function WhatsAppQrOverlay({
 
   // ── Initializing / Waiting for QR ────────────────────────────────────
   return (
-    <div className="border border-[var(--border)] bg-[var(--surface)] p-4 mt-3">
+    <div className="p-4 mt-3" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}>
       <div className="flex items-start gap-4">
         {/* QR Code area */}
         <div className="shrink-0">
@@ -120,12 +123,15 @@ export function WhatsAppQrOverlay({
             <img
               src={qrDataUrl}
               alt="WhatsApp QR Code"
-              className="w-48 h-48 border border-[var(--border)] bg-white"
-              style={{ imageRendering: "pixelated" }}
+              className="w-48 h-48 bg-white"
+              style={{ imageRendering: "pixelated", border: "1px solid rgba(255,255,255,0.08)" }}
             />
           ) : (
-            <div className="w-48 h-48 border border-[var(--border)] bg-[var(--bg)] flex items-center justify-center">
-              <span className="text-xs text-[var(--muted)] animate-pulse">
+            <div
+              className="w-48 h-48 flex items-center justify-center"
+              style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+            >
+              <span className="text-xs animate-pulse" style={{ color: "rgba(255,255,255,0.45)" }}>
                 {t("whatsappqroverlay.GeneratingQR")}
               </span>
             </div>
@@ -134,10 +140,10 @@ export function WhatsAppQrOverlay({
 
         {/* Instructions */}
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium mb-2">
+          <div className="text-xs font-medium mb-2" style={{ color: "rgba(240,238,250,0.92)" }}>
             {t("whatsappqroverlay.ScanWithWhatsApp")}
           </div>
-          <ol className="text-[11px] text-[var(--muted)] space-y-1 list-decimal pl-4 m-0">
+          <ol className="text-[11px] space-y-1 list-decimal pl-4 m-0" style={{ color: "rgba(255,255,255,0.45)" }}>
             <li>{t("whatsappqroverlay.OpenWhatsAppOnYou")}</li>
             <li>
               {t("whatsappqroverlay.Tap")}{" "}
@@ -153,14 +159,15 @@ export function WhatsAppQrOverlay({
             <li>{t("whatsappqroverlay.PointYourPhoneAt")}</li>
           </ol>
           <div className="mt-3 flex items-center gap-2">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-            <span className="text-[10px] text-[var(--muted)]">
+            <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#f0b232" }} />
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.45)" }}>
               {t("whatsappqroverlay.QRRefreshesAutomat")}
             </span>
           </div>
           <button
             type="button"
-            className="mt-3 px-2.5 py-1 text-[10px] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--txt)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+            className="mt-3 px-2.5 py-1 text-[10px] cursor-pointer transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
             onClick={() => void stopPairing()}
           >
             {t("whatsappqroverlay.Cancel")}

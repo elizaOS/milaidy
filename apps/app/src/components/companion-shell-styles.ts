@@ -34,7 +34,7 @@ export const COMPANION_OVERLAY_TABS = new Set<Tab>([
 /* ── Per-tab accent / color config ─────────────────────────────────── */
 
 export const ACCENT_COLORS: Record<string, string> = {
-  skills: "#00e1ff",
+  skills: "#f0b232",
   apps: "#10b981",
   plugins: "#f0b232",
   connectors: "#f0b232",
@@ -45,7 +45,7 @@ export const ACCENT_COLORS: Record<string, string> = {
 };
 
 export const TOP_BAR_COLORS: Record<string, string> = {
-  skills: "#00e1ff",
+  skills: "#f0b232",
   wallets: "rgba(240, 185, 11, 0.7)",
   lifo: "rgba(139, 92, 246, 0.7)",
   stream: "rgba(239, 68, 68, 0.7)",
@@ -78,7 +78,7 @@ export function tabFlags(tab: Tab) {
     tab === "logs" ||
     tab === "security" ||
     isLifo;
-  const isPluginsLike = isPlugins || isConnectors;
+  const isPluginsLike = isPlugins || isConnectors || isSkills;
   const isCentered =
     isSkills ||
     isSettings ||
@@ -114,8 +114,6 @@ export type TabFlags = ReturnType<typeof tabFlags>;
 /* ── Layout helpers ────────────────────────────────────────────────── */
 
 export function overlayBackdropClass(f: TabFlags) {
-  if (f.isSkills)
-    return "opacity-100 backdrop-blur-2xl bg-black/40 pointer-events-auto";
   if (f.isPluginsLike)
     return "opacity-100 backdrop-blur-xl bg-black/35 pointer-events-auto";
   if (
@@ -133,8 +131,6 @@ export function overlayBackdropClass(f: TabFlags) {
 }
 
 export function cardSizeClass(f: TabFlags) {
-  if (f.isSkills)
-    return "w-[90vw] h-[90vh] max-w-5xl backdrop-blur-3xl border rounded-2xl";
   if (f.isPluginsLike)
     return "w-[97vw] h-[92vh] md:w-[88vw] md:h-[80vh] max-w-[1460px] overflow-visible";
   if (f.isAdvancedOverlay)
@@ -145,7 +141,6 @@ export function cardSizeClass(f: TabFlags) {
 }
 
 export function cardBackground(f: TabFlags) {
-  if (f.isSkills) return "rgba(20, 24, 38, 0.85)";
   if (f.isPluginsLike) return "transparent";
   if (
     f.isSettings ||
@@ -159,7 +154,6 @@ export function cardBackground(f: TabFlags) {
 }
 
 export function cardBorderColor(f: TabFlags) {
-  if (f.isSkills) return "rgba(0,225,255,0.2)";
   if (f.isPluginsLike) return "transparent";
   if (
     f.isSettings ||
@@ -173,7 +167,6 @@ export function cardBorderColor(f: TabFlags) {
 }
 
 export function cardBoxShadow(f: TabFlags, shadowFx: string) {
-  if (f.isSkills) return shadowFx;
   if (f.isPluginsLike) return "none";
   if (
     f.isSettings ||
@@ -234,7 +227,7 @@ export function viewWrapperOverflow(f: TabFlags) {
 }
 
 export function viewWrapperPadding(f: TabFlags) {
-  if (f.isSkills) return "px-10 pb-10 pt-4";
+  // Skills now uses isPluginsLike path (p-0)
   if (
     f.isSettings ||
     f.isAdvancedOverlay ||
@@ -255,6 +248,7 @@ export function viewWrapperStyle(
   if (
     f.isSettings ||
     f.isPlugins ||
+    f.isSkills ||
     f.isAdvancedOverlay ||
     f.isApps ||
     f.isConnectors ||

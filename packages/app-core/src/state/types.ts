@@ -74,12 +74,12 @@ export interface OnboardingStepMeta {
 }
 
 export const ONBOARDING_STEPS: OnboardingStepMeta[] = [
-    { id: "wakeUp", name: "Wake Up", subtitle: "Activation" },
+    { id: "wakeUp", name: "Initialize", subtitle: "System boot" },
     { id: "language", name: "Language", subtitle: "Communication" },
     { id: "identity", name: "Identity", subtitle: "Designation" },
-    { id: "connection", name: "Connection", subtitle: "Neural Link" },
-    { id: "senses", name: "Senses", subtitle: "Permissions" },
-    { id: "activate", name: "Activate", subtitle: "Complete" },
+    { id: "connection", name: "Connect", subtitle: "Neural link" },
+    { id: "senses", name: "Access", subtitle: "System permissions" },
+    { id: "activate", name: "Launch", subtitle: "Ready" },
 ];
 
 export interface OnboardingNextOptions {

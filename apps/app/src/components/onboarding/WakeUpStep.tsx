@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { useApp } from "../../AppContext";
 
 export function WakeUpStep() {
-  const { handleOnboardingNext, t } = useApp();
+  const { handleOnboardingNext } = useApp();
 
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -59,9 +59,7 @@ export function WakeUpStep() {
   if (showImport) {
     return (
       <>
-        <div className="onboarding-section-title">
-          {t("onboardingwizard.ImportAgent") || "Import Agent"}
-        </div>
+        <div className="onboarding-section-title">Import Agent</div>
         <div className="onboarding-divider">
           <div className="onboarding-divider-diamond" />
         </div>
@@ -85,7 +83,7 @@ export function WakeUpStep() {
 
         <input
           type="password"
-          placeholder={t("onboardingwizard.DecryptionPassword") || "Decryption password..."}
+          placeholder="Decryption password..."
           value={importPassword}
           onChange={(e) => {
             setImportPassword(e.target.value);
@@ -118,7 +116,7 @@ export function WakeUpStep() {
             }}
             type="button"
           >
-            {t("onboardingwizard.cancel") || "Cancel"}
+            Cancel
           </button>
           <button
             className="onboarding-confirm-btn"
@@ -144,8 +142,7 @@ export function WakeUpStep() {
         elizaOS
       </div>
       <p className="onboarding-desc">
-        {t("onboardingwizard.experienceTheNextG") ||
-          "Experience the next generation of autonomous orchestration."}
+        Your autonomous AI companion awaits.
       </p>
 
       <div className="onboarding-panel-footer">
@@ -154,7 +151,7 @@ export function WakeUpStep() {
           onClick={() => setShowImport(true)}
           type="button"
         >
-          {t("onboardingwizard.restoreFromBackup") || "Restore from Backup"}
+          Restore from Backup
         </button>
         <button
           className="onboarding-confirm-btn"

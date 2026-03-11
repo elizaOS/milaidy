@@ -65,17 +65,28 @@ export function GameViewOverlay() {
     <div className="fixed inset-0 z-50 pointer-events-none">
       <div
         ref={containerRef}
-        className="absolute w-[480px] h-[360px] pointer-events-auto rounded-lg overflow-hidden shadow-2xl border border-border bg-bg flex flex-col"
-        style={{ resize: "both", ...style }}
+        className="absolute w-[480px] h-[360px] pointer-events-auto rounded-xl overflow-hidden flex flex-col"
+        style={{
+          resize: "both",
+          background: "rgba(18, 22, 32, 0.96)",
+          border: "1px solid rgba(240, 178, 50, 0.18)",
+          boxShadow: "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+          ...style,
+        }}
       >
         {/* Drag handle / header */}
         <div
-          className="flex items-center gap-2 px-3 py-1.5 bg-card border-b border-border select-none"
-          style={{ cursor: dragging ? "grabbing" : "grab" }}
+          className="flex items-center gap-2 px-3 py-1.5 select-none"
+          style={{
+            cursor: dragging ? "grabbing" : "grab",
+            background: "rgba(255,255,255,0.04)",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+          }}
         >
           <button
             type="button"
-            className="font-bold text-[11px] truncate flex-1 text-left cursor-inherit"
+            className="font-bold text-[11px] truncate flex-1 text-left cursor-inherit bg-transparent border-0"
+            style={{ color: "rgba(240,238,250,0.92)" }}
             onMouseDown={handleDragStart}
             aria-label="Drag overlay"
           >
@@ -83,7 +94,8 @@ export function GameViewOverlay() {
           </button>
           <button
             type="button"
-            className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-accent hover:text-accent"
+            className="text-[10px] px-2 py-0.5 cursor-pointer transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(240,238,250,0.92)" }}
             onClick={handleExpand}
             title={t("gameviewoverlay.ExpandBackToApps")}
           >
@@ -91,7 +103,8 @@ export function GameViewOverlay() {
           </button>
           <button
             type="button"
-            className="text-[10px] px-2 py-0.5 border border-border bg-card cursor-pointer hover:border-danger hover:text-danger"
+            className="text-[10px] px-2 py-0.5 cursor-pointer transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(240,238,250,0.92)" }}
             onClick={handleClose}
             title={t("gameviewoverlay.CloseOverlay")}
           >

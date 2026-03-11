@@ -2,7 +2,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
 
-import { LoadingScreen } from "../../src/components/LoadingScreen";
+import { AvatarLoader } from "../../src/components/avatar/AvatarLoader";
 
 function renderedText(tree: TestRenderer.ReactTestRenderer): string {
   return tree.root
@@ -11,43 +11,36 @@ function renderedText(tree: TestRenderer.ReactTestRenderer): string {
     .join("\n");
 }
 
-describe("LoadingScreen", () => {
-  it("shows backend startup label", async () => {
+describe("AvatarLoader", () => {
+  it("shows default label", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
-      tree = TestRenderer.create(
-        React.createElement(LoadingScreen, { phase: "starting-backend" }),
-      );
+      tree = TestRenderer.create(React.createElement(AvatarLoader));
     });
-    if (!tree) throw new Error("failed to render loading screen");
+    if (!tree) throw new Error("failed to render");
 
-    expect(renderedText(tree)).toContain("Starting backend");
+    expect(renderedText(tree)).toContain("Initializing entity");
   });
 
-  it("shows agent initialization label", async () => {
+  it("shows custom label", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       tree = TestRenderer.create(
-        React.createElement(LoadingScreen, { phase: "initializing-agent" }),
+        React.createElement(AvatarLoader, { label: "Starting systems" }),
       );
     });
-    if (!tree) throw new Error("failed to render loading screen");
+    if (!tree) throw new Error("failed to render");
 
-    expect(renderedText(tree)).toContain("Initializing agent");
+    expect(renderedText(tree)).toContain("Starting systems");
   });
 
-  it("renders elapsed seconds label when provided", async () => {
+  it("shows LOADING text", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
-      tree = TestRenderer.create(
-        React.createElement(LoadingScreen, {
-          phase: "starting-backend",
-          elapsedSeconds: 7,
-        }),
-      );
+      tree = TestRenderer.create(React.createElement(AvatarLoader));
     });
-    if (!tree) throw new Error("failed to render loading screen");
+    if (!tree) throw new Error("failed to render");
 
-    expect(renderedText(tree)).toContain("7s");
+    expect(renderedText(tree)).toContain("LOADING");
   });
 });

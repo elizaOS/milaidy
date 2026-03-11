@@ -6,7 +6,7 @@ export function PermissionsStep() {
 
   return (
     <>
-      <div className="onboarding-section-title">Permissions</div>
+      <div className="onboarding-section-title">System Access</div>
       <div className="onboarding-divider">
         <div className="onboarding-divider-diamond" />
       </div>

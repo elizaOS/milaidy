@@ -1794,7 +1794,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 </button>
                 <button
                   type="button"
-                  className={`plugins-game-save-btn${pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
+                  className={`plugins-game-action-btn plugins-game-save-btn${pluginSaveSuccess.has(selectedPlugin.id) ? " is-saved" : ""
                     }`}
                   onClick={() => void handleConfigSave(selectedPlugin.id)}
                   disabled={pluginSaving.has(selectedPlugin.id)}

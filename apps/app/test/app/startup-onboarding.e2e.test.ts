@@ -181,8 +181,8 @@ vi.mock("../../src/components/PairingView", () => ({
 vi.mock("../../src/components/ChatView", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
-vi.mock("../../src/components/LoadingScreen", () => ({
-  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
+vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+  AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () => React.createElement("div", null, "CompanionView"),
@@ -435,7 +435,7 @@ describe("app startup onboarding flow (e2e)", () => {
       } else if (state.onboardingStep === "identity") {
         clickButton(renderedTree, "Confirm");
       } else if (state.onboardingStep === "connection") {
-        clickButton(renderedTree, "onboardingwizard.confirm");
+        clickButton(renderedTree, "Confirm");
       } else if (state.onboardingStep === "activate") {
         clickButton(renderedTree, "Enter");
       }

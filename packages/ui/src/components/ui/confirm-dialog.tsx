@@ -55,7 +55,8 @@ export function ConfirmDialog({
 
     return (
         <div
-            className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40"
+            className="fixed inset-0 flex items-center justify-center bg-black/40"
+            style={{ zIndex: 10001 }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) onCancel()
             }}

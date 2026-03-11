@@ -10,7 +10,7 @@ import {
   pathForTab,
 } from "@milady/app-core/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVrmUrl, useApp } from "./AppContext";
+import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
 import { AutonomousPanel } from "./components/AutonomousPanel";
@@ -31,7 +31,7 @@ import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { LifoSandboxView } from "./components/LifoSandboxView";
-import { LoadingScreen } from "./components/LoadingScreen";
+import { AvatarLoader } from "./components/avatar/AvatarLoader";
 import { CloudDashboard as MiladyCloudDashboard } from "./components/MiladyCloudDashboard";
 import { Nav } from "./components/Nav";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -130,16 +130,8 @@ export function App() {
     activeGameViewerUrl,
     gameOverlayEnabled,
     setActionNotice,
-    selectedVrmIndex,
-    customVrmUrl,
   } = useApp();
 
-  // Compute active VRM URL for preloading during the loading screen
-  const activeVrmUrl = useMemo(() => {
-    if (selectedVrmIndex === 0 && customVrmUrl) return customVrmUrl;
-    const safeIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
-    return getVrmUrl(safeIndex);
-  }, [selectedVrmIndex, customVrmUrl]);
   const isPopout = useIsPopout();
   const shellMode = uiShellMode ?? "companion";
   const effectiveTab: Tab =
@@ -345,12 +337,8 @@ export function App() {
   }
 
   if (onboardingLoading || agentStarting) {
-    return (
-      <LoadingScreen
-        phase={agentStarting ? "initializing-agent" : startupPhase}
-        vrmUrl={activeVrmUrl}
-      />
-    );
+    const loadingLabel = agentStarting ? "Initializing agent" : "Starting systems";
+    return <AvatarLoader label={loadingLabel} fullScreen />;
   }
 
   if (authRequired) return <PairingView />;
