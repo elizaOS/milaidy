@@ -72,6 +72,8 @@ interface CanvasWindow {
   window: BrowserWindow;
   url: string;
   title: string;
+  /** Position saved before hide() so show() can restore it. null = not hidden. */
+  savedPosition: { x: number; y: number } | null;
 }
 
 let canvasCounter = 0;
@@ -107,6 +109,7 @@ export class CanvasManager {
       window: win,
       url: options.url ?? "",
       title: options.title ?? "Milady Canvas",
+      savedPosition: null,
     };
 
     this.windows.set(id, canvas);
@@ -319,16 +322,26 @@ $bmp.Dispose()`;
   }
 
   async show(options: { id: string }): Promise<void> {
-    this.windows.get(options.id)?.window.show();
+    const canvas = this.windows.get(options.id);
+    if (!canvas) return;
+    // Restore saved position before making visible so the window isn't
+    // stuck at the off-screen coordinates set by hide().
+    if (canvas.savedPosition) {
+      canvas.window.setPosition(canvas.savedPosition.x, canvas.savedPosition.y);
+      canvas.savedPosition = null;
+    }
+    canvas.window.show();
   }
 
   async hide(options: { id: string }): Promise<void> {
     // Electrobun has no hide() API — move off-screen so the window
     // disappears without showing a dock bounce or taskbar entry.
-    const win = this.windows.get(options.id)?.window;
-    if (win) {
-      win.setPosition(-99999, -99999);
-    }
+    const canvas = this.windows.get(options.id);
+    if (!canvas) return;
+    // Save position so show() can restore it.
+    const pos = canvas.window.getPosition();
+    canvas.savedPosition = { x: pos.x, y: pos.y };
+    canvas.window.setPosition(-99999, -99999);
   }
 
   async resize(options: {

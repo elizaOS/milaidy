@@ -128,7 +128,9 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:stateChange",
       );
       expect(stateMsg).toBeDefined();
-      expect((stateMsg?.payload as { state: string }).state).toBe("listening");
+      expect((stateMsg?.payload as { listening: boolean }).listening).toBe(
+        true,
+      );
     });
 
     it("sets isListening to true after successful start", async () => {
@@ -167,7 +169,9 @@ describe("SwabbleManager", () => {
         (m) => m.message === "swabble:stateChange",
       );
       expect(stateMsg).toBeDefined();
-      expect((stateMsg?.payload as { state: string }).state).toBe("idle");
+      expect((stateMsg?.payload as { listening: boolean }).listening).toBe(
+        false,
+      );
     });
   });
 

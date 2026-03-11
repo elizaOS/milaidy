@@ -200,7 +200,7 @@ export class SwabbleManager {
     this.listening = true;
     this.audioBuffer = [];
     this.audioBufferSize = 0;
-    this.sendToWebview?.("swabble:stateChange", { state: "listening" });
+    this.sendToWebview?.("swabble:stateChange", { listening: true });
     return { started: true };
   }
 
@@ -208,7 +208,7 @@ export class SwabbleManager {
     this.listening = false;
     this.audioBuffer = [];
     this.audioBufferSize = 0;
-    this.sendToWebview?.("swabble:stateChange", { state: "idle" });
+    this.sendToWebview?.("swabble:stateChange", { listening: false });
   }
 
   async isListening() {

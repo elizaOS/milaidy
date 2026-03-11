@@ -54,6 +54,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "desktop:getWindowBounds": "desktopGetWindowBounds",
   "desktop:setWindowBounds": "desktopSetWindowBounds",
   "desktop:minimizeWindow": "desktopMinimizeWindow",
+  "desktop:unminimizeWindow": "desktopUnminimizeWindow",
   "desktop:maximizeWindow": "desktopMaximizeWindow",
   "desktop:unmaximizeWindow": "desktopUnmaximizeWindow",
   "desktop:closeWindow": "desktopCloseWindow",
@@ -83,14 +84,28 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
 
+  // Desktop: Screen
+  "desktop:getPrimaryDisplay": "desktopGetPrimaryDisplay",
+  "desktop:getAllDisplays": "desktopGetAllDisplays",
+  "desktop:getCursorPosition": "desktopGetCursorPosition",
+
+  // Desktop: Message Box
+  "desktop:showMessageBox": "desktopShowMessageBox",
+
   // Desktop: Clipboard
   "desktop:writeToClipboard": "desktopWriteToClipboard",
   "desktop:readFromClipboard": "desktopReadFromClipboard",
   "desktop:clearClipboard": "desktopClearClipboard",
+  "desktop:clipboardAvailableFormats": "desktopClipboardAvailableFormats",
 
   // Desktop: Shell
   "desktop:openExternal": "desktopOpenExternal",
   "desktop:showItemInFolder": "desktopShowItemInFolder",
+  "desktop:openPath": "desktopOpenPath",
+
+  // Desktop: File Dialogs
+  "desktop:showOpenDialog": "desktopShowOpenDialog",
+  "desktop:showSaveDialog": "desktopShowSaveDialog",
 
   // Gateway
   "gateway:startDiscovery": "gatewayStartDiscovery",
@@ -225,23 +240,12 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "permissions:changed": "permissionsChanged",
   "desktop:trayMenuClick": "desktopTrayMenuClick",
   "desktop:trayClick": "desktopTrayClick",
-  "desktop:trayDoubleClick": "desktopTrayDoubleClick",
-  "desktop:trayRightClick": "desktopTrayRightClick",
   "desktop:shortcutPressed": "desktopShortcutPressed",
   "desktop:windowFocus": "desktopWindowFocus",
   "desktop:windowBlur": "desktopWindowBlur",
   "desktop:windowMaximize": "desktopWindowMaximize",
   "desktop:windowUnmaximize": "desktopWindowUnmaximize",
-  "desktop:windowMinimize": "desktopWindowMinimize",
-  "desktop:windowRestore": "desktopWindowRestore",
   "desktop:windowClose": "desktopWindowClose",
-  "desktop:notificationClick": "desktopNotificationClick",
-  "desktop:notificationAction": "desktopNotificationAction",
-  "desktop:notificationReply": "desktopNotificationReply",
-  "desktop:powerSuspend": "desktopPowerSuspend",
-  "desktop:powerResume": "desktopPowerResume",
-  "desktop:powerOnAC": "desktopPowerOnAC",
-  "desktop:powerOnBattery": "desktopPowerOnBattery",
   "canvas:windowEvent": "canvasWindowEvent",
   "talkmode:audioChunkPush": "talkmodeAudioChunkPush",
   "talkmode:stateChanged": "talkmodeStateChanged",

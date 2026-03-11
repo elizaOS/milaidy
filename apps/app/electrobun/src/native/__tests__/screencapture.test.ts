@@ -7,7 +7,8 @@
  *
  * Covers:
  * - getSources — synthetic source list
- * - Stub methods that return available: false
+ * - takeScreenshot / captureWindow — real CLI capture (returns available boolean)
+ * - startRecording / stopRecording / pauseRecording / resumeRecording lifecycle
  * - getRecordingState default shape
  * - startFrameCapture state management and idempotency
  * - stopFrameCapture return shape + timer cleanup
@@ -141,30 +142,56 @@ describe("ScreenCaptureManager", () => {
     });
   });
 
-  // ── stub methods returning available: false ───────────────────────────────
+  // ── takeScreenshot / captureWindow ───────────────────────────────────────
 
-  describe("stub methods", () => {
-    it("takeScreenshot returns available: false", async () => {
-      expect((await manager.takeScreenshot()).available).toBe(false);
+  describe("takeScreenshot", () => {
+    it("returns an object with an available boolean", async () => {
+      const result = await manager.takeScreenshot();
+      expect(typeof result.available).toBe("boolean");
     });
 
-    it("captureWindow returns available: false", async () => {
-      expect((await manager.captureWindow()).available).toBe(false);
+    it("returns data as a base64 data URL when available", async () => {
+      const result = await manager.takeScreenshot();
+      if (result.available && result.data) {
+        expect(result.data).toMatch(/^data:image\/png;base64,/);
+      }
+    });
+  });
+
+  describe("captureWindow", () => {
+    it("returns an object with an available boolean", async () => {
+      const result = await manager.captureWindow();
+      expect(typeof result.available).toBe("boolean");
     });
 
-    it("startRecording returns available: false", async () => {
-      expect((await manager.startRecording()).available).toBe(false);
+    it("returns an object with an available boolean when windowId is provided", async () => {
+      const result = await manager.captureWindow({ windowId: "12345" });
+      expect(typeof result.available).toBe("boolean");
+    });
+  });
+
+  // ── recording lifecycle ───────────────────────────────────────────────────
+
+  describe("recording lifecycle", () => {
+    afterEach(async () => {
+      // Clean up any running recording after each test
+      await manager.stopRecording();
     });
 
-    it("stopRecording returns available: false", async () => {
+    it("startRecording returns an object with an available boolean", async () => {
+      const result = await manager.startRecording();
+      expect(typeof result.available).toBe("boolean");
+    });
+
+    it("stopRecording returns available: false when no recording is active", async () => {
       expect((await manager.stopRecording()).available).toBe(false);
     });
 
-    it("pauseRecording returns available: false", async () => {
+    it("pauseRecording returns available: false when no recording is active", async () => {
       expect((await manager.pauseRecording()).available).toBe(false);
     });
 
-    it("resumeRecording returns available: false", async () => {
+    it("resumeRecording returns available: false when no recording is active", async () => {
       expect((await manager.resumeRecording()).available).toBe(false);
     });
   });

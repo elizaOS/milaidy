@@ -237,6 +237,59 @@ export interface PipState {
   windowId?: string;
 }
 
+// -- File Dialog --
+export interface FileDialogOptions {
+  title?: string;
+  defaultPath?: string;
+  /** Comma-separated file extensions, e.g. "png,jpg" or "*" for all */
+  allowedFileTypes?: string;
+  canChooseFiles?: boolean;
+  canChooseDirectory?: boolean;
+  allowsMultipleSelection?: boolean;
+  buttonLabel?: string;
+}
+
+export interface FileDialogResult {
+  canceled: boolean;
+  filePaths: string[];
+}
+
+// -- Screen / Display --
+export interface DisplayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DisplayInfo {
+  id: number;
+  bounds: DisplayBounds;
+  workArea: DisplayBounds;
+  scaleFactor: number;
+  isPrimary: boolean;
+}
+
+export interface CursorPosition {
+  x: number;
+  y: number;
+}
+
+// -- Message Box (native alert/confirm/prompt) --
+export interface MessageBoxOptions {
+  type?: "info" | "warning" | "error" | "question";
+  title?: string;
+  message: string;
+  detail?: string;
+  buttons?: string[];
+  defaultId?: number;
+  cancelId?: number;
+}
+
+export interface MessageBoxResult {
+  response: number;
+}
+
 // ============================================================================
 // RPC Schema
 // ============================================================================
@@ -289,6 +342,7 @@ export type MiladyRPCSchema = {
       desktopGetWindowBounds: { params: undefined; response: WindowBounds };
       desktopSetWindowBounds: { params: WindowBounds; response: undefined };
       desktopMinimizeWindow: { params: undefined; response: undefined };
+      desktopUnminimizeWindow: { params: undefined; response: undefined };
       desktopMaximizeWindow: { params: undefined; response: undefined };
       desktopUnmaximizeWindow: { params: undefined; response: undefined };
       desktopCloseWindow: { params: undefined; response: undefined };
@@ -328,9 +382,24 @@ export type MiladyRPCSchema = {
       // ---- Desktop: Power ----
       desktopGetPowerState: { params: undefined; response: PowerState };
 
+      // ---- Screen ----
+      desktopGetPrimaryDisplay: { params: undefined; response: DisplayInfo };
+      desktopGetAllDisplays: {
+        params: undefined;
+        response: { displays: DisplayInfo[] };
+      };
+      desktopGetCursorPosition: { params: undefined; response: CursorPosition };
+
+      // ---- Desktop: Message Box ----
+      desktopShowMessageBox: {
+        params: MessageBoxOptions;
+        response: MessageBoxResult;
+      };
+
       // ---- Desktop: App ----
       desktopQuit: { params: undefined; response: undefined };
       desktopRelaunch: { params: undefined; response: undefined };
+      desktopApplyUpdate: { params: undefined; response: undefined };
       desktopGetVersion: { params: undefined; response: VersionInfo };
       desktopIsPackaged: { params: undefined; response: { packaged: boolean } };
       desktopGetPath: {
@@ -349,12 +418,27 @@ export type MiladyRPCSchema = {
         response: ClipboardReadResult;
       };
       desktopClearClipboard: { params: undefined; response: undefined };
+      desktopClipboardAvailableFormats: {
+        params: undefined;
+        response: { formats: string[] };
+      };
 
       // ---- Desktop: Shell ----
       desktopOpenExternal: { params: { url: string }; response: undefined };
       desktopShowItemInFolder: {
         params: { path: string };
         response: undefined;
+      };
+      desktopOpenPath: { params: { path: string }; response: undefined };
+
+      // ---- Desktop: File Dialogs ----
+      desktopShowOpenDialog: {
+        params: FileDialogOptions;
+        response: FileDialogResult;
+      };
+      desktopShowSaveDialog: {
+        params: FileDialogOptions;
+        response: FileDialogResult;
       };
 
       // ---- Gateway ----
@@ -767,8 +851,6 @@ export type MiladyRPCSchema = {
       // Desktop: Tray events
       desktopTrayMenuClick: { itemId: string; checked?: boolean };
       desktopTrayClick: TrayClickEvent;
-      desktopTrayDoubleClick: TrayClickEvent;
-      desktopTrayRightClick: TrayClickEvent;
 
       // Desktop: Shortcut events
       desktopShortcutPressed: { id: string; accelerator: string };
@@ -778,20 +860,7 @@ export type MiladyRPCSchema = {
       desktopWindowBlur: undefined;
       desktopWindowMaximize: undefined;
       desktopWindowUnmaximize: undefined;
-      desktopWindowMinimize: undefined;
-      desktopWindowRestore: undefined;
       desktopWindowClose: undefined;
-
-      // Desktop: Notification events
-      desktopNotificationClick: { id: string };
-      desktopNotificationAction: { id: string; action?: string };
-      desktopNotificationReply: { id: string; reply: string };
-
-      // Desktop: Power events
-      desktopPowerSuspend: undefined;
-      desktopPowerResume: undefined;
-      desktopPowerOnAC: undefined;
-      desktopPowerOnBattery: undefined;
 
       // Canvas: Window events
       canvasWindowEvent: {
@@ -885,6 +954,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:getWindowBounds": "desktopGetWindowBounds",
   "desktop:setWindowBounds": "desktopSetWindowBounds",
   "desktop:minimizeWindow": "desktopMinimizeWindow",
+  "desktop:unminimizeWindow": "desktopUnminimizeWindow",
   "desktop:maximizeWindow": "desktopMaximizeWindow",
   "desktop:unmaximizeWindow": "desktopUnmaximizeWindow",
   "desktop:closeWindow": "desktopCloseWindow",
@@ -906,9 +976,18 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   // Desktop: Power
   "desktop:getPowerState": "desktopGetPowerState",
 
+  // Desktop: Screen
+  "desktop:getPrimaryDisplay": "desktopGetPrimaryDisplay",
+  "desktop:getAllDisplays": "desktopGetAllDisplays",
+  "desktop:getCursorPosition": "desktopGetCursorPosition",
+
+  // Desktop: Message Box
+  "desktop:showMessageBox": "desktopShowMessageBox",
+
   // Desktop: App
   "desktop:quit": "desktopQuit",
   "desktop:relaunch": "desktopRelaunch",
+  "desktop:applyUpdate": "desktopApplyUpdate",
   "desktop:getVersion": "desktopGetVersion",
   "desktop:isPackaged": "desktopIsPackaged",
   "desktop:getPath": "desktopGetPath",
@@ -918,10 +997,16 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:writeToClipboard": "desktopWriteToClipboard",
   "desktop:readFromClipboard": "desktopReadFromClipboard",
   "desktop:clearClipboard": "desktopClearClipboard",
+  "desktop:clipboardAvailableFormats": "desktopClipboardAvailableFormats",
 
   // Desktop: Shell
   "desktop:openExternal": "desktopOpenExternal",
   "desktop:showItemInFolder": "desktopShowItemInFolder",
+  "desktop:openPath": "desktopOpenPath",
+
+  // Desktop: File Dialogs
+  "desktop:showOpenDialog": "desktopShowOpenDialog",
+  "desktop:showSaveDialog": "desktopShowSaveDialog",
 
   // Gateway
   "gateway:startDiscovery": "gatewayStartDiscovery",
@@ -1054,23 +1139,12 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "permissions:changed": "permissionsChanged",
   "desktop:trayMenuClick": "desktopTrayMenuClick",
   "desktop:trayClick": "desktopTrayClick",
-  "desktop:trayDoubleClick": "desktopTrayDoubleClick",
-  "desktop:trayRightClick": "desktopTrayRightClick",
   "desktop:shortcutPressed": "desktopShortcutPressed",
   "desktop:windowFocus": "desktopWindowFocus",
   "desktop:windowBlur": "desktopWindowBlur",
   "desktop:windowMaximize": "desktopWindowMaximize",
   "desktop:windowUnmaximize": "desktopWindowUnmaximize",
-  "desktop:windowMinimize": "desktopWindowMinimize",
-  "desktop:windowRestore": "desktopWindowRestore",
   "desktop:windowClose": "desktopWindowClose",
-  "desktop:notificationClick": "desktopNotificationClick",
-  "desktop:notificationAction": "desktopNotificationAction",
-  "desktop:notificationReply": "desktopNotificationReply",
-  "desktop:powerSuspend": "desktopPowerSuspend",
-  "desktop:powerResume": "desktopPowerResume",
-  "desktop:powerOnAC": "desktopPowerOnAC",
-  "desktop:powerOnBattery": "desktopPowerOnBattery",
   "canvas:windowEvent": "canvasWindowEvent",
   "talkmode:audioChunkPush": "talkmodeAudioChunkPush",
   "talkmode:stateChanged": "talkmodeStateChanged",

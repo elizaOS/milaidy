@@ -5,8 +5,6 @@
  * Port from Electron — same logic, no Electron-specific APIs used.
  */
 
-import * as darwin from "./permissions-darwin";
-import * as linux from "./permissions-linux";
 import type {
   AllPermissionsState,
   PermissionCheckResult,
@@ -17,7 +15,24 @@ import {
   isPermissionApplicable,
   SYSTEM_PERMISSIONS,
 } from "./permissions-shared";
-import * as win32 from "./permissions-win32";
+
+// Platform modules are loaded on demand so that the darwin module (which uses
+// bun:ffi) is never imported on Linux/Windows, and vice versa. This is
+// required for tests to run correctly on non-macOS CI environments.
+type PlatformModule = typeof import("./permissions-darwin");
+
+async function getPlatformModule(): Promise<PlatformModule | null> {
+  switch (process.platform) {
+    case "darwin":
+      return await import("./permissions-darwin");
+    case "win32":
+      return (await import("./permissions-win32")) as unknown as PlatformModule;
+    case "linux":
+      return (await import("./permissions-linux")) as unknown as PlatformModule;
+    default:
+      return null;
+  }
+}
 
 type SendToWebview = (message: string, payload?: unknown) => void;
 
@@ -86,20 +101,10 @@ export class PermissionManager {
       if (cached) return cached;
     }
 
-    let result: PermissionCheckResult;
-    switch (platform) {
-      case "darwin":
-        result = await darwin.checkPermission(id);
-        break;
-      case "win32":
-        result = await win32.checkPermission(id);
-        break;
-      case "linux":
-        result = await linux.checkPermission(id);
-        break;
-      default:
-        result = { status: "not-applicable", canRequest: false };
-    }
+    const mod = await getPlatformModule();
+    const result: PermissionCheckResult = mod
+      ? await mod.checkPermission(id)
+      : { status: "not-applicable", canRequest: false };
 
     const state: PermissionState = {
       id,
@@ -133,20 +138,10 @@ export class PermissionManager {
       };
     }
 
-    let result: PermissionCheckResult;
-    switch (platform) {
-      case "darwin":
-        result = await darwin.requestPermission(id);
-        break;
-      case "win32":
-        result = await win32.requestPermission(id);
-        break;
-      case "linux":
-        result = await linux.requestPermission(id);
-        break;
-      default:
-        result = { status: "not-applicable", canRequest: false };
-    }
+    const mod = await getPlatformModule();
+    const result: PermissionCheckResult = mod
+      ? await mod.requestPermission(id)
+      : { status: "not-applicable", canRequest: false };
 
     const state: PermissionState = {
       id,
@@ -160,17 +155,8 @@ export class PermissionManager {
   }
 
   async openSettings(id: SystemPermissionId): Promise<void> {
-    switch (platform) {
-      case "darwin":
-        await darwin.openPrivacySettings(id);
-        break;
-      case "win32":
-        await win32.openPrivacySettings(id);
-        break;
-      case "linux":
-        await linux.openPrivacySettings(id);
-        break;
-    }
+    const mod = await getPlatformModule();
+    await mod?.openPrivacySettings(id);
   }
 
   async checkFeaturePermissions(
