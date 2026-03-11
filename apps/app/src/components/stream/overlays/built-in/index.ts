@@ -11,3 +11,8 @@ import "./CustomHtmlWidget";
 import "./PeonHudWidget";
 import "./PeonGlassWidget";
 import "./PeonSakuraWidget";
+import "./TradingPnlWidget";
+import "./TradingPositionsWidget";
+import "./ChatOverlayWidget";
+import "./ClockWidget";
+import "./SocialLinksWidget";

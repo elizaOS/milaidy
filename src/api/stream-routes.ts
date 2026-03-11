@@ -22,16 +22,21 @@ import {
   sendJsonError,
 } from "./http-helpers";
 import {
+  getActiveScene,
   getHeadlessCaptureConfig,
   parseDestinationQuery,
   readOverlayLayout,
+  readSceneLayouts,
   readStreamSettings,
   seedOverlayDefaults,
+  setActiveScene,
   validateStreamSettings,
   writeOverlayLayout,
+  writeSceneLayouts,
   writeStreamSettings,
 } from "./stream-persistence";
 import { handleStreamVoiceRoute } from "./stream-voice-routes";
+import { ALL_SCENE_IDS } from "../shared/scene-ids";
 
 // Re-export onAgentMessage so existing consumers (server.ts) keep working.
 export { onAgentMessage } from "./stream-voice-routes";
@@ -886,6 +891,85 @@ export async function handleStreamRoute(
       error(
         res,
         err instanceof Error ? err.message : "Failed to save overlay layout",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── GET /api/stream/scene-layouts -- read per-scene layouts ───────────
+  if (method === "GET" && pathname === "/api/stream/scene-layouts") {
+    try {
+      const destId = parseDestinationQuery(req.url);
+      const layouts = readSceneLayouts(destId);
+      json(res, { ok: true, layouts, destinationId: destId ?? null });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Failed to read scene layouts",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── POST /api/stream/scene-layouts -- save per-scene layouts ──────────
+  if (method === "POST" && pathname === "/api/stream/scene-layouts") {
+    try {
+      const destId = parseDestinationQuery(req.url);
+      const body = await readRequestBody(req);
+      const parsed = typeof body === "string" ? JSON.parse(body) : body;
+      const layouts = parsed?.layouts;
+      if (!layouts || layouts.version !== 2 || !layouts.scenes) {
+        error(
+          res,
+          "Invalid scene layouts: must have { version: 2, scenes: {...} }",
+          400,
+        );
+        return true;
+      }
+      // Validate scene IDs
+      const invalidScenes = Object.keys(layouts.scenes).filter((id) => !(ALL_SCENE_IDS as readonly string[]).includes(id));
+      if (invalidScenes.length > 0) {
+        error(res, `Invalid scene IDs: ${invalidScenes.join(", ")}`, 400);
+        return true;
+      }
+      writeSceneLayouts(layouts, destId);
+      json(res, { ok: true, destinationId: destId ?? null });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Failed to save scene layouts",
+        500,
+      );
+    }
+    return true;
+  }
+
+  // ── GET /api/stream/active-scene -- current active scene ──────────────
+  if (method === "GET" && pathname === "/api/stream/active-scene") {
+    json(res, { ok: true, sceneId: getActiveScene() });
+    return true;
+  }
+
+  // ── POST /api/stream/active-scene -- set active scene ─────────────────
+  if (method === "POST" && pathname === "/api/stream/active-scene") {
+    try {
+      const body = await readRequestBody(req);
+      const parsed = typeof body === "string" ? JSON.parse(body) : body;
+      const sceneId =
+        typeof parsed?.sceneId === "string" ? parsed.sceneId.trim() : null;
+      // Validate sceneId against known scene IDs
+      if (sceneId && !(ALL_SCENE_IDS as readonly string[]).includes(sceneId)) {
+        error(res, `Invalid sceneId: must be one of ${ALL_SCENE_IDS.join(", ")} or null`, 400);
+        return true;
+      }
+      setActiveScene(sceneId || null);
+      json(res, { ok: true, sceneId: getActiveScene() });
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error ? err.message : "Failed to set active scene",
         500,
       );
     }

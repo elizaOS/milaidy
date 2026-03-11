@@ -28,6 +28,9 @@ package-lock.json
 bun.lockb
 !deploy/cloud-agent-template/package-lock.json
 
+# PM2 config (use ecosystem.config.example.cjs as template)
+ecosystem.config.cjs
+
 # Docker overrides
 docker-compose.extra.yml
 

@@ -409,41 +409,24 @@ describe("ConnectorsPageView UI", () => {
     expect(json).not.toBeNull();
   });
 
-  it("renders Platforms tab button", async () => {
+  it("renders Social heading when not in modal", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(ConnectorsPageView));
     });
 
-    const platformsButton = tree?.root.findAll(
+    const heading = tree?.root.findAll(
       (node) =>
-        node.type === "button" &&
+        node.type === "h2" &&
         node.children.some(
-          (c) => typeof c === "string" && c.includes("Platforms"),
+          (c) => typeof c === "string" && c.includes("Social"),
         ),
     );
-    expect(platformsButton.length).toBeGreaterThan(0);
+    expect(heading.length).toBeGreaterThan(0);
   });
 
-  it("renders Streaming tab button", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
-
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(ConnectorsPageView));
-    });
-
-    const streamingButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        node.children.some(
-          (c) => typeof c === "string" && c.includes("Streaming"),
-        ),
-    );
-    expect(streamingButton.length).toBeGreaterThan(0);
-  });
-
-  it("shows connectors PluginsView by default", async () => {
+  it("shows connectors PluginsView directly (no tabs)", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
@@ -454,70 +437,40 @@ describe("ConnectorsPageView UI", () => {
       (node) => node.props?.["data-testid"] === "plugins-view-connectors",
     );
     expect(connectorsView.length).toBe(1);
-  });
 
-  it("clicking Streaming tab shows streaming PluginsView", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
-
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(ConnectorsPageView));
-    });
-
-    const streamingButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        node.children.some(
-          (c) => typeof c === "string" && c.includes("Streaming"),
-        ),
-    )[0];
-
-    await act(async () => {
-      streamingButton.props.onClick();
-    });
-
+    // Streaming tab no longer exists — streaming plugins are in Stream UI
     const streamingView = tree?.root.findAll(
       (node) => node.props?.["data-testid"] === "plugins-view-streaming",
     );
-    expect(streamingView.length).toBe(1);
+    expect(streamingView.length).toBe(0);
   });
 
-  it("clicking Platforms tab switches back", async () => {
+  it("does not render tab buttons (streaming moved to Stream UI)", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(ConnectorsPageView));
     });
 
-    // Switch to streaming
-    const streamingButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        node.children.some(
-          (c) => typeof c === "string" && c.includes("Streaming"),
-        ),
-    )[0];
-
-    await act(async () => {
-      streamingButton.props.onClick();
-    });
-
-    // Switch back to platforms
-    const platformsButton = tree?.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        node.children.some(
-          (c) => typeof c === "string" && c.includes("Platforms"),
-        ),
-    )[0];
-
-    await act(async () => {
-      platformsButton.props.onClick();
-    });
-
-    const connectorsView = tree?.root.findAll(
-      (node) => node.props?.["data-testid"] === "plugins-view-connectors",
+    const buttons = tree?.root.findAll(
+      (node) => node.type === "button",
     );
-    expect(connectorsView.length).toBe(1);
+    expect(buttons.length).toBe(0);
+  });
+
+  it("hides heading in modal mode", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(ConnectorsPageView, { inModal: true }),
+      );
+    });
+
+    const heading = tree?.root.findAll(
+      (node) => node.type === "h2",
+    );
+    expect(heading.length).toBe(0);
   });
 });
 

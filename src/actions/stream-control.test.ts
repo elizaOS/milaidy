@@ -4,6 +4,7 @@ import {
   goLiveAction,
   goOfflineAction,
   manageOverlayWidgetAction,
+  setSceneAction,
   setStreamDestinationAction,
   speakOnStreamAction,
 } from "./stream-control";
@@ -254,5 +255,83 @@ describe("stream control actions", () => {
     expect(result.success).toBe(true);
     expect(result.text).toContain("already enabled");
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  // ── SET_SCENE ──────────────────────────────────────────────────────────
+  describe("setSceneAction", () => {
+    it("sets a valid scene via POST /api/stream/active-scene", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ ok: true, sceneId: "gaming" }),
+      );
+
+      const result = await callAction(setSceneAction, { sceneId: "gaming" });
+
+      expect(result.success).toBe(true);
+      expect(result.text).toContain("gaming");
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://127.0.0.1:2138/api/stream/active-scene",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ sceneId: "gaming" }),
+        }),
+      );
+    });
+
+    it("rejects invalid scene IDs", async () => {
+      const result = await callAction(setSceneAction, { sceneId: "nonexistent" });
+
+      expect(result.success).toBe(false);
+      expect(result.text).toContain("Invalid scene");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns to auto-detect with null/empty sceneId", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ ok: true, sceneId: null }),
+      );
+
+      const result = await callAction(setSceneAction, { sceneId: "" });
+
+      expect(result.success).toBe(true);
+      expect(result.text).toContain("auto-detect");
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://127.0.0.1:2138/api/stream/active-scene",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ sceneId: null }),
+        }),
+      );
+    });
+
+    it("handles API errors", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "server error" }, { ok: false, status: 500 }),
+      );
+
+      const result = await callAction(setSceneAction, { sceneId: "idle" });
+
+      expect(result.success).toBe(false);
+      expect(result.text).toContain("server error");
+    });
+
+    it("handles thrown errors", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("network down"));
+
+      const result = await callAction(setSceneAction, { sceneId: "idle" });
+
+      expect(result.success).toBe(false);
+      expect(result.text).toContain("network down");
+    });
+
+    it("accepts all valid scene IDs", async () => {
+      const validScenes = ["idle", "terminal", "chatting", "gaming", "starting-soon", "be-right-back", "ending"];
+      for (const sceneId of validScenes) {
+        mockFetch.mockResolvedValueOnce(
+          jsonResponse({ ok: true, sceneId }),
+        );
+        const result = await callAction(setSceneAction, { sceneId });
+        expect(result.success).toBe(true);
+      }
+    });
   });
 });
