@@ -6,28 +6,21 @@
  * throughout the app (--bg, --card, --border, --accent, --muted, --txt, etc.).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useApp } from "../AppContext";
 import type {
   SkillInfo,
   SkillMarketplaceResult,
   SkillScanReportSummary,
-} from "../api-client";
-import { client } from "../api-client";
-import { ConfirmDeleteControl } from "./shared/confirm-delete-control";
-import { StatusBadge } from "./shared/ui-badges";
-import { Switch } from "./shared/ui-switch";
-
-/* ── Shared style constants ─────────────────────────────────────────── */
-
-const inputCls =
-  "px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[var(--txt)] text-xs focus:border-[var(--accent)] focus:outline-none";
-const btnPrimary =
-  "px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default";
-const btnGhost =
-  "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default";
-const btnDanger =
-  "px-2 py-1 text-[11px] bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[#e74c3c] hover:border-[#e74c3c] transition-colors";
+} from "@milady/app-core/api";
+import { client } from "@milady/app-core/api";
+import {
+  ConfirmDeleteControl,
+  StatusBadge,
+  Switch,
+} from "@milady/app-core/components";
+import { Button, Input } from "@milady/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useApp } from "../AppContext";
+import { useTimeout } from "../hooks/useTimeout";
 
 /* ── Skill Card ─────────────────────────────────────────────────────── */
 
@@ -56,6 +49,7 @@ function SkillCard({
   onAcknowledge: (id: string) => void;
   onDismissReview: () => void;
 }) {
+  const { t } = useApp();
   const isQuarantined =
     skill.scanStatus === "warning" || skill.scanStatus === "critical";
   const isBlocked = skill.scanStatus === "blocked";
@@ -109,13 +103,14 @@ function SkillCard({
             />
           )}
           {isQuarantined && !isReviewing && (
-            <button
-              type="button"
-              className="px-2.5 py-1 text-[11px] font-medium bg-[#f39c12]/15 text-[#f39c12] border border-[#f39c12]/30 cursor-pointer hover:bg-[#f39c12]/25 transition-colors"
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px] font-bold bg-[#f39c12]/15 text-[#f39c12] border-[#f39c12]/30 hover:bg-[#f39c12]/25 hover:text-[#f39c12] transition-colors"
               onClick={() => onReview(skill.id)}
             >
-              Review Findings
-            </button>
+              {t("skillsview.ReviewFindings")}
+            </Button>
           )}
         </div>
 
@@ -132,18 +127,19 @@ function SkillCard({
       </div>
 
       {/* Footer actions */}
-      <div className="flex items-center gap-1.5 px-4 py-2.5 border-t border-[var(--border)] bg-[var(--bg)]">
-        <button
-          type="button"
-          className={btnGhost}
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-border/40 bg-black/5 mt-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-3 text-[11px] font-bold text-muted hover:text-txt transition-colors"
           onClick={() => onEdit(skill)}
         >
-          Edit
-        </button>
+          {t("skillsview.Edit")}
+        </Button>
         <ConfirmDeleteControl
-          triggerClassName={btnDanger}
-          confirmClassName="px-2 py-1 text-[11px] bg-[#e74c3c] text-white border border-[#e74c3c] cursor-pointer hover:opacity-90 transition-opacity"
-          cancelClassName={btnGhost}
+          triggerClassName="h-7 px-3 text-[11px] font-bold text-danger hover:bg-danger/10 hover:text-danger-foreground transition-colors rounded-md"
+          confirmClassName="px-3 py-1 text-[11px] font-bold bg-danger text-danger-foreground hover:bg-danger/90 transition-colors rounded-md shadow-sm"
+          cancelClassName="px-3 py-1 text-[11px] font-bold text-muted border border-border/40 hover:text-txt transition-colors rounded-md"
           confirmLabel="Yes"
           cancelLabel="No"
           onConfirm={() => onDelete(skill.id, skill.name)}
@@ -162,13 +158,13 @@ function SkillCard({
         <div className="border-t border-[var(--border)] p-4 bg-[var(--bg)]">
           <div className="flex items-center gap-3 mb-3">
             <span className="text-xs font-semibold text-[var(--txt)]">
-              Scan Report
+              {t("skillsview.ScanReport")}
             </span>
             <span className="text-[11px] text-[#e74c3c] font-mono">
-              {skillReviewReport.summary.critical} critical
+              {skillReviewReport.summary.critical} {t("skillsview.critical")}
             </span>
             <span className="text-[11px] text-[#f39c12] font-mono">
-              {skillReviewReport.summary.warn} warnings
+              {skillReviewReport.summary.warn} {t("skillsview.warnings")}
             </span>
           </div>
           {skillReviewReport.findings.length > 0 && (
@@ -204,26 +200,28 @@ function SkillCard({
               )}
             </div>
           )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
+          <div className="flex gap-2.5 mt-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 px-3 text-[11px] font-bold tracking-wide shadow-sm"
               onClick={() => onAcknowledge(skill.id)}
             >
-              Acknowledge &amp; Enable
-            </button>
-            <button
-              type="button"
-              className={btnGhost}
+              {t("skillsview.AcknowledgeAmpEn")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-3 text-[11px] font-bold text-muted hover:text-txt transition-colors"
               onClick={onDismissReview}
             >
-              Dismiss
-            </button>
+              {t("skillsview.Dismiss")}
+            </Button>
           </div>
         </div>
       ) : isReviewing && skillReviewLoading ? (
         <div className="border-t border-[var(--border)] p-4 text-xs text-[var(--muted)] italic">
-          Loading scan report...
+          {t("skillsview.LoadingScanReport")}
         </div>
       ) : null}
     </div>
@@ -245,6 +243,7 @@ function MarketplaceCard({
   onInstall: (item: SkillMarketplaceResult) => void;
   onUninstall: (skillId: string, name: string) => void;
 }) {
+  const { t } = useApp();
   const isInstalling = skillsMarketplaceAction === `install:${item.id}`;
   const isUninstalling = skillsMarketplaceAction === `uninstall:${item.id}`;
   const sourceLabel = item.repository || item.slug || item.id;
@@ -267,7 +266,9 @@ function MarketplaceCard({
           {item.score != null && (
             <>
               <span className="text-[var(--border)]">/</span>
-              <span>score: {item.score.toFixed(2)}</span>
+              <span>
+                {t("skillsview.score")} {item.score.toFixed(2)}
+              </span>
             </>
           )}
           {item.tags && item.tags.length > 0 && (
@@ -286,23 +287,25 @@ function MarketplaceCard({
         </div>
       </div>
       {isInstalled ? (
-        <button
-          type="button"
-          className={btnDanger}
+        <Button
+          variant="destructive"
+          size="sm"
+          className="h-8 px-4 text-[11px] font-bold tracking-wide shadow-sm shrink-0"
           onClick={() => onUninstall(item.id, item.name)}
           disabled={isUninstalling}
         >
           {isUninstalling ? "Removing..." : "Uninstall"}
-        </button>
+        </Button>
       ) : (
-        <button
-          type="button"
-          className={btnPrimary}
+        <Button
+          variant="default"
+          size="sm"
+          className="h-8 px-4 text-[11px] font-bold tracking-wide shadow-sm shrink-0"
           onClick={() => onInstall(item)}
           disabled={isInstalling}
         >
           {isInstalling ? "Installing..." : "Install"}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -341,6 +344,7 @@ function InstallModal({
   setState: ReturnType<typeof useApp>["setState"];
   onClose: () => void;
 }) {
+  const { t } = useApp();
   const [tab, setTab] = useState<InstallTab>("search");
 
   return (
@@ -363,10 +367,10 @@ function InstallModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div>
             <div className="text-sm font-semibold text-[var(--txt)]">
-              Install Skill
+              {t("skillsview.InstallSkill")}
             </div>
             <div className="text-[11px] text-[var(--muted)] mt-0.5">
-              Add skills from the marketplace or a GitHub repository.
+              {t("skillsview.AddSkillsFromThe")}
             </div>
           </div>
           <button
@@ -406,9 +410,9 @@ function InstallModal({
           {tab === "search" && (
             <>
               <div className="flex gap-2 items-center mb-4">
-                <input
-                  className={`${inputCls} flex-1 min-w-[200px]`}
-                  placeholder="Search skills by keyword..."
+                <Input
+                  className="flex-1 min-w-[200px] bg-bg/50 border-border/50 focus-visible:ring-accent"
+                  placeholder={t("skillsview.SearchSkillsByKey")}
                   value={skillsMarketplaceQuery}
                   onChange={(e) =>
                     setState("skillsMarketplaceQuery", e.target.value)
@@ -417,14 +421,15 @@ function InstallModal({
                     if (e.key === "Enter") void searchSkillsMarketplace();
                   }}
                 />
-                <button
-                  type="button"
-                  className={btnPrimary}
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-10 px-5 font-bold shadow-sm"
                   onClick={() => searchSkillsMarketplace()}
                   disabled={skillsMarketplaceLoading}
                 >
                   {skillsMarketplaceLoading ? "Searching..." : "Search"}
-                </button>
+                </Button>
               </div>
 
               {skillsMarketplaceError && (
@@ -436,16 +441,16 @@ function InstallModal({
               {skillsMarketplaceResults.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-[var(--muted)] text-sm mb-1">
-                    No results
+                    {t("skillsview.NoResults")}
                   </div>
                   <div className="text-[var(--muted)] text-[11px]">
-                    Search above to discover skills from the marketplace.
+                    {t("skillsview.SearchAboveToDisc")}
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   <div className="text-[11px] text-[var(--muted)] mb-1">
-                    {skillsMarketplaceResults.length} result
+                    {skillsMarketplaceResults.length} {t("skillsview.result")}
                     {skillsMarketplaceResults.length !== 1 ? "s" : ""}
                   </div>
                   {skillsMarketplaceResults.map((item) => (
@@ -466,16 +471,15 @@ function InstallModal({
           {tab === "url" && (
             <div>
               <div className="text-xs text-[var(--txt)] mb-1 font-medium">
-                GitHub Repository URL
+                {t("skillsview.GitHubRepositoryUR")}
               </div>
               <div className="text-[11px] text-[var(--muted)] mb-3">
-                Paste a full GitHub URL or a /tree/... path to install a skill
-                directly.
+                {t("skillsview.PasteAFullGitHub")}
               </div>
               <div className="flex gap-2 items-center">
-                <input
-                  className={`${inputCls} flex-1`}
-                  placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
+                <Input
+                  className="flex-1 bg-bg/50 border-border/50 focus-visible:ring-accent"
+                  placeholder={t("skillsview.httpsGithubComO")}
                   value={skillsMarketplaceManualGithubUrl}
                   onChange={(e) =>
                     setState("skillsMarketplaceManualGithubUrl", e.target.value)
@@ -484,9 +488,10 @@ function InstallModal({
                     if (e.key === "Enter") void installSkillFromGithubUrl();
                   }}
                 />
-                <button
-                  type="button"
-                  className={btnPrimary}
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-10 px-5 font-bold shadow-sm"
                   onClick={() => installSkillFromGithubUrl()}
                   disabled={
                     skillsMarketplaceAction === "install:manual" ||
@@ -496,7 +501,7 @@ function InstallModal({
                   {skillsMarketplaceAction === "install:manual"
                     ? "Installing..."
                     : "Install"}
-                </button>
+                </Button>
               </div>
 
               {skillsMarketplaceError && (
@@ -529,21 +534,23 @@ function CreateSkillForm({
   onCancel: () => void;
   onCreate: () => void;
 }) {
+  const { t } = useApp();
   return (
     <div className="border border-[var(--accent)]/40 bg-[var(--card)] mb-4">
       <div className="px-4 py-3 border-b border-[var(--border)]">
         <div className="text-xs font-semibold text-[var(--txt)]">
-          Create New Skill
+          {t("skillsview.CreateNewSkill")}
         </div>
       </div>
       <div className="p-4 flex flex-col gap-3">
         <div>
           <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
-            Skill Name <span className="text-[#e74c3c]">*</span>
+            {t("skillsview.SkillName")}{" "}
+            <span className="text-[#e74c3c]">*</span>
           </span>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="e.g. my-awesome-skill"
+          <Input
+            className="w-full bg-bg/50 border-border/50 focus-visible:ring-accent"
+            placeholder={t("skillsview.eGMyAwesomeSkil")}
             value={skillCreateName}
             onChange={(e) => setState("skillCreateName", e.target.value)}
             onKeyDown={(e) => {
@@ -553,11 +560,11 @@ function CreateSkillForm({
         </div>
         <div>
           <span className="block text-[11px] text-[var(--muted)] mb-1 font-medium">
-            Description
+            {t("skillsview.Description")}
           </span>
-          <input
-            className={`${inputCls} w-full`}
-            placeholder="Brief description of what this skill does (optional)"
+          <Input
+            className="w-full bg-bg/50 border-border/50 focus-visible:ring-accent"
+            placeholder={t("skillsview.BriefDescriptionOf")}
             value={skillCreateDescription}
             onChange={(e) => setState("skillCreateDescription", e.target.value)}
             onKeyDown={(e) => {
@@ -565,18 +572,18 @@ function CreateSkillForm({
             }}
           />
         </div>
-        <div className="flex gap-2 justify-end pt-1">
-          <button type="button" className={btnGhost} onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={btnPrimary}
+        <div className="flex gap-2 justify-end pt-2">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            {t("skillsview.Cancel")}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
             onClick={onCreate}
             disabled={skillCreating || !skillCreateName.trim()}
           >
             {skillCreating ? "Creating..." : "Create Skill"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -596,6 +603,7 @@ function EditSkillModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useApp();
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -682,17 +690,18 @@ function EditSkillModal({
               {skillName}
             </div>
             <span className="text-[10px] font-mono text-[var(--muted)] px-1.5 py-0.5 bg-[var(--card)] border border-[var(--border)]">
-              SKILL.md
+              {t("skillsview.SKILLMd")}
             </span>
             {hasChanges && (
               <span className="text-[10px] text-[var(--accent)] font-medium">
-                unsaved
+                {t("skillsview.unsaved")}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-[var(--muted)]">
-              {navigator.platform.includes("Mac") ? "⌘S" : "Ctrl+S"} to save
+              {navigator.platform.includes("Mac") ? "⌘S" : "Ctrl+S"}{" "}
+              {t("skillsview.toSave")}
             </span>
             <button
               type="button"
@@ -708,18 +717,14 @@ function EditSkillModal({
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full text-[var(--muted)] text-sm">
-              Loading skill source...
+              {t("skillsview.LoadingSkillSource")}
             </div>
           ) : error && !content ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
-              <div className="text-[#e74c3c] text-sm">{error}</div>
-              <button
-                type="button"
-                className={btnGhost}
-                onClick={() => loadSource()}
-              >
-                Retry
-              </button>
+              <div className="text-[#e74c3c] text-sm font-medium">{error}</div>
+              <Button variant="ghost" size="sm" onClick={() => loadSource()}>
+                {t("skillsview.Retry")}
+              </Button>
             </div>
           ) : (
             <textarea
@@ -741,17 +746,22 @@ function EditSkillModal({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" className={btnGhost} onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               {hasChanges ? "Discard" : "Close"}
-            </button>
-            <button
-              type="button"
-              className={`${btnPrimary} ${saveSuccess ? "!bg-[var(--ok,#16a34a)] !border-[var(--ok,#16a34a)]" : ""}`}
+            </Button>
+            <Button
+              variant={saveSuccess ? "default" : "default"}
+              size="sm"
+              className={
+                saveSuccess
+                  ? "bg-ok text-ok-fg hover:bg-ok/90"
+                  : "bg-accent text-accent-fg"
+              }
               onClick={() => handleSave()}
               disabled={saving || !hasChanges}
             >
               {saving ? "Saving..." : saveSuccess ? "Saved" : "Save"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -762,6 +772,8 @@ function EditSkillModal({
 /* ── Main Skills View ───────────────────────────────────────────────── */
 
 export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
+  useTimeout();
+
   const {
     skills,
     skillCreateFormOpen,
@@ -909,39 +921,46 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <input
+      <div className="flex flex-wrap items-center gap-3 mb-6 p-3 border border-border/40 bg-card/60 backdrop-blur-md rounded-2xl shadow-sm">
+        <Input
           type="text"
           placeholder="Filter skills..."
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
-          className={`${inputCls} w-[200px]`}
+          className="w-[240px] h-9 bg-bg/50 border-border/50 focus-visible:ring-accent rounded-xl text-xs"
         />
 
         <span className="flex-1" />
 
-        <button
-          type="button"
-          className={skillCreateFormOpen ? btnGhost : btnPrimary}
+        <Button
+          variant={skillCreateFormOpen ? "ghost" : "default"}
+          size="sm"
+          className={
+            skillCreateFormOpen
+              ? "h-9 px-4 font-bold text-muted hover:text-txt"
+              : "h-9 px-4 font-bold tracking-wide shadow-sm"
+          }
           onClick={() => setState("skillCreateFormOpen", !skillCreateFormOpen)}
         >
           {skillCreateFormOpen ? "Cancel" : "+ New Skill"}
-        </button>
-        <button
-          type="button"
-          className={btnPrimary}
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          className="h-9 px-4 font-bold tracking-wide shadow-sm"
           onClick={() => setInstallModalOpen(true)}
         >
           Browse Marketplace
-        </button>
-        <button
-          type="button"
-          className={btnGhost}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 px-4 font-bold text-muted hover:text-txt"
           onClick={() => refreshSkills()}
-          title="Refresh skills list"
+          title="Refresh Skills List"
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
       {/* Create form */}
@@ -960,31 +979,33 @@ export function SkillsView({ inModal: _inModal }: { inModal?: boolean } = {}) {
       {skills.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-[var(--muted)] text-sm mb-2">
-            No skills installed
+            No Skills Installed
           </div>
           <div className="text-[var(--muted)] text-[11px] mb-4">
-            Install skills from the marketplace or create a new one.
+            Install skills from the marketplace or create your own.
           </div>
-          <div className="flex justify-center gap-2">
-            <button
-              type="button"
-              className={btnPrimary}
+          <div className="flex justify-center gap-3">
+            <Button
+              variant="default"
+              size="sm"
+              className="h-10 px-6 font-bold tracking-wide shadow-sm"
               onClick={() => setInstallModalOpen(true)}
             >
               Browse Marketplace
-            </button>
-            <button
-              type="button"
-              className={btnGhost}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 px-6 font-bold text-muted hover:text-txt"
               onClick={() => setState("skillCreateFormOpen", true)}
             >
               Create Skill
-            </button>
+            </Button>
           </div>
         </div>
       ) : allVisible.length === 0 ? (
         <div className="text-center py-12 text-[var(--muted)] text-xs">
-          No skills match "{filterText}"
+          No skills match filtering "{filterText}"
         </div>
       ) : (
         <div>

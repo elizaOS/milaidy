@@ -139,14 +139,14 @@ vi.mock("three", () => {
   };
 });
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getDatabaseTables: getDatabaseTablesMock,
     executeDatabaseQuery: executeDatabaseQueryMock,
   },
 }));
 
-import { client } from "../../src/api-client";
+import { client } from "@milady/app-core/api";
 import { VectorBrowserView } from "../../src/components/VectorBrowserView";
 
 async function flush(times = 4): Promise<void> {

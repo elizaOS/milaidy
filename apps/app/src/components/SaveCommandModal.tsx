@@ -2,7 +2,9 @@
  * Modal for naming and saving a custom /command from selected text.
  */
 
+import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useApp } from "../AppContext";
 
 interface SaveCommandModalProps {
   open: boolean;
@@ -19,6 +21,7 @@ export function SaveCommandModal({
   onSave,
   onClose,
 }: SaveCommandModalProps) {
+  const { t } = useApp();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,16 +88,17 @@ export function SaveCommandModal({
         {/* Header */}
         <div className="flex items-center px-5 py-3 border-b border-border shrink-0">
           <span id={dialogTitleId} className="font-bold text-sm flex-1">
-            Save as /Command
+            {t("savecommandmodal.SaveAsCommand")}
           </span>
-          <button
-            type="button"
-            className="text-muted hover:text-txt text-lg leading-none px-1 cursor-pointer"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted hover:text-txt h-6 w-6"
             onClick={onClose}
             aria-label="Close dialog"
           >
-            &times;
-          </button>
+            {t("savecommandmodal.Times")}
+          </Button>
         </div>
 
         {/* Body */}
@@ -104,11 +108,11 @@ export function SaveCommandModal({
             htmlFor={inputId}
             className="text-xs text-muted"
           >
-            Command name
+            {t("savecommandmodal.CommandName")}
           </label>
           <div className="flex items-center gap-1">
             <span className="text-sm text-muted">/</span>
-            <input
+            <Input
               id={inputId}
               ref={inputRef}
               type="text"
@@ -118,11 +122,11 @@ export function SaveCommandModal({
                 setError("");
               }}
               onKeyDown={handleKeyDown}
-              placeholder="my-command"
+              placeholder={t("savecommandmodal.myCommand")}
               aria-labelledby={inputLabelId}
               aria-describedby={error ? inputErrorId : undefined}
               aria-invalid={error ? "true" : undefined}
-              className="flex-1 bg-surface border border-border px-2 py-1.5 text-sm text-txt placeholder:text-muted/50 outline-none focus:border-accent"
+              className="flex-1 h-8 bg-surface border-border text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
             />
           </div>
           {error && (
@@ -131,7 +135,9 @@ export function SaveCommandModal({
             </p>
           )}
 
-          <span className="text-xs text-muted mt-1">Preview</span>
+          <span className="text-xs text-muted mt-1">
+            {t("savecommandmodal.Preview")}
+          </span>
           <pre className="text-xs text-muted bg-surface border border-border px-3 py-2 whitespace-pre-wrap break-words max-h-24 overflow-y-auto">
             {preview}
           </pre>
@@ -139,20 +145,22 @@ export function SaveCommandModal({
 
         {/* Footer */}
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">
-          <button
-            type="button"
-            className="px-3 py-1.5 text-xs border border-border text-muted hover:text-txt cursor-pointer"
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-3 py-1.5 h-8 text-xs shadow-sm"
             onClick={onClose}
           >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="px-3 py-1.5 text-xs border border-accent bg-accent text-white hover:opacity-90 cursor-pointer"
+            {t("savecommandmodal.Cancel")}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            className="px-3 py-1.5 h-8 text-xs shadow-sm"
             onClick={handleSubmit}
           >
-            Save
-          </button>
+            {t("savecommandmodal.Save")}
+          </Button>
         </div>
       </div>
     </div>

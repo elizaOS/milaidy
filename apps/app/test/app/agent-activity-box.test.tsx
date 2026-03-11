@@ -1,7 +1,7 @@
+import type { CodingAgentSession } from "@milady/app-core/api";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
-import type { CodingAgentSession } from "../../src/api-client";
 import { AgentActivityBox } from "../../src/components/AgentActivityBox";
 
 function makeSession(

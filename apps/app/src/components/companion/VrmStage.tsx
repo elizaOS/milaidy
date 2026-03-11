@@ -1,8 +1,13 @@
+import { client } from "@milady/app-core/api";
+import { STOP_EMOTE_EVENT } from "@milady/app-core/events";
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { client } from "../../api-client";
-import { resolveAppAssetUrl } from "../../asset-url";
-import { STOP_EMOTE_EVENT } from "../../events";
-import type { VrmEngine, VrmEngineState } from "../avatar/VrmEngine";
+import { AvatarLoader } from "../avatar/AvatarLoader";
+import type {
+  CameraProfile,
+  VrmEngine,
+  VrmEngineState,
+} from "../avatar/VrmEngine";
 import { VrmViewer } from "../avatar/VrmViewer";
 import { BubbleEmote } from "../BubbleEmote";
 import type { TranslatorFn } from "./walletUtils";
@@ -10,14 +15,12 @@ import type { TranslatorFn } from "./walletUtils";
 export function VrmStage({
   vrmPath,
   fallbackPreviewUrl,
-  needsFlip,
-  chatDockOpen,
+  cameraProfile = "companion",
   t,
 }: {
   vrmPath: string;
   fallbackPreviewUrl: string;
-  needsFlip: boolean;
-  chatDockOpen: boolean;
+  cameraProfile?: CameraProfile;
   t: TranslatorFn;
 }) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
@@ -72,9 +75,7 @@ export function VrmStage({
   }, [vrmLoaded]);
 
   return (
-    <div
-      className={`anime-comp-model-layer ${chatDockOpen ? "chat-shifted" : ""}`}
-    >
+    <div className="absolute inset-0">
       <div
         className="absolute inset-0"
         style={{
@@ -87,9 +88,8 @@ export function VrmStage({
           mouthOpen={0}
           isSpeaking={false}
           interactive
-          cameraProfile="companion"
+          cameraProfile={cameraProfile}
           interactiveMode="orbitZoom"
-          forceFaceCameraFlip={needsFlip}
           onEngineReady={handleVrmEngineReady}
           onEngineState={handleVrmEngineState}
         />
@@ -98,10 +98,11 @@ export function VrmStage({
         <img
           src={fallbackPreviewUrl}
           alt={t("companion.avatarPreviewAlt")}
-          className="anime-vrm-fallback"
+          className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 h-[90%] object-contain opacity-70"
         />
       )}
-      <div className="anime-comp-bubble-wrap">
+      {!vrmLoaded && !showVrmFallback && <AvatarLoader />}
+      <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-[5] pointer-events-none">
         <BubbleEmote
           moodTier="neutral"
           activeAction={null}

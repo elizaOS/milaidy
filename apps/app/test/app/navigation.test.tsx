@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
 import {
   ALL_TAB_GROUPS,
   pathForTab,
   tabFromPath,
   titleForTab,
-} from "../../src/navigation";
+} from "@milady/app-core/navigation";
+import { describe, expect, it } from "vitest";
 
 describe("navigation", () => {
   it("maps security tab to path and title", () => {

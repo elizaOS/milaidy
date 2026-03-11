@@ -1,0 +1,211 @@
+name: Android Build & Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play Store track"
+        type: choice
+        options:
+          - internal
+          - beta
+          - production
+        default: internal
+      version_name:
+        description: "Version name (e.g. 2.0.0-alpha.82)"
+        required: false
+        type: string
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+
+jobs:
+  build-aab:
+    name: Build Signed AAB
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      version_name: ${{ steps.version.outputs.name }}
+      version_code: ${{ steps.version.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ -n "${{ inputs.version_name }}" ]]; then
+            VERSION_NAME="${{ inputs.version_name }}"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION_NAME="${{ github.event.release.tag_name }}"
+            VERSION_NAME="${VERSION_NAME#v}"
+          else
+            VERSION_NAME=$(node -p "require('./package.json').version")
+          fi
+
+          # Generate version code from version string
+          # 2.0.0-alpha.82 -> 2000082, 2.1.3 -> 2001003
+          MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d. -f2 | cut -d- -f1)
+          PATCH=$(echo "$VERSION_NAME" | cut -d. -f3 | cut -d- -f1)
+          PRE=$(echo "$VERSION_NAME" | grep -oP '(?<=\.)\d+$' || echo "0")
+
+          VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + PRE ))
+
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_NAME (code: $VERSION_CODE)"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build web assets
+        working-directory: apps/app
+        run: bun run build
+
+      - name: Sync Capacitor
+        working-directory: apps/app
+        run: npx cap sync android
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/milady-upload.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build signed AAB
+        working-directory: apps/app/android
+        env:
+          MILADY_VERSION_NAME: ${{ steps.version.outputs.name }}
+          MILADY_VERSION_CODE: ${{ steps.version.outputs.code }}
+          MILADY_KEYSTORE_PATH: /tmp/milady-upload.jks
+          MILADY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MILADY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MILADY_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+      - name: Verify AAB
+        run: |
+          AAB_PATH="apps/app/android/app/build/outputs/bundle/release/app-release.aab"
+          if [[ ! -f "$AAB_PATH" ]]; then
+            echo "ERROR: AAB not found at $AAB_PATH"
+            ls -la apps/app/android/app/build/outputs/bundle/release/ 2>/dev/null || echo "Release dir not found"
+            exit 1
+          fi
+          echo "AAB size: $(du -h "$AAB_PATH" | cut -f1)"
+          file "$AAB_PATH"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: milady-release-aab
+          path: apps/app/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 90
+
+      - name: Attach AAB to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.name }}"
+          cp apps/app/android/app/build/outputs/bundle/release/app-release.aab \
+             "Milady-${VERSION}.aab"
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "Milady-${VERSION}.aab" --clobber
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f /tmp/milady-upload.jks
+
+  publish-play-store:
+    name: Publish to Play Store
+    needs: build-aab
+    if: |
+      (github.event_name == 'release') ||
+      (github.event_name == 'workflow_dispatch')
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: milady-release-aab
+          path: aab/
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: apps/app/android
+
+      - name: Decode Play Store service account key
+        run: |
+          echo "${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}" | base64 -d > /tmp/play-store-key.json
+
+      - name: Determine track
+        id: track
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "track=${{ inputs.track }}" >> "$GITHUB_OUTPUT"
+          elif echo "${{ needs.build-aab.outputs.version_name }}" | grep -qE '(alpha|beta|rc)'; then
+            echo "track=internal" >> "$GITHUB_OUTPUT"
+          else
+            echo "track=production" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Play Store
+        working-directory: apps/app/android
+        env:
+          PLAY_STORE_JSON_KEY: /tmp/play-store-key.json
+        run: |
+          bundle exec fastlane supply \
+            --aab ../../../aab/app-release.aab \
+            --track "${{ steps.track.outputs.track }}" \
+            --json_key "$PLAY_STORE_JSON_KEY" \
+            --package_name "ai.milady.app"
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -f /tmp/play-store-key.json
+
+  summary:
+    name: Release Summary
+    needs: [build-aab, publish-play-store]
+    if: always()
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Summary
+        run: |
+          echo "## Android Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.build-aab.outputs.version_name }} (code: ${{ needs.build-aab.outputs.version_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build AAB | ${{ needs.build-aab.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Publish to Play Store | ${{ needs.publish-play-store.result }} |" >> $GITHUB_STEP_SUMMARY

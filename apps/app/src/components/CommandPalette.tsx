@@ -1,6 +1,6 @@
+import { COMMAND_PALETTE_EVENT } from "@milady/app-core/events";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useApp } from "../AppContext";
-import { COMMAND_PALETTE_EVENT } from "../events";
 import { useBugReport } from "../hooks/useBugReport";
 import {
   buildCommandPaletteCommands,
@@ -24,6 +24,7 @@ export function CommandPalette() {
     handleChatClear,
     activeGameViewerUrl,
     setState,
+    t,
   } = useApp();
   const { open: openBugReport } = useBugReport();
   const closeCommandPalette = useCallback(
@@ -221,14 +222,14 @@ export function CommandPalette() {
           ref={inputRef}
           type="text"
           className="w-full px-4 py-3.5 border-b border-border bg-transparent text-[15px] text-txt outline-none font-body"
-          placeholder="Type to search commands..."
+          placeholder={t("commandpalette.TypeToSearchComma")}
           value={commandQuery}
           onChange={(e) => setState("commandQuery", e.target.value)}
         />
         <div className="flex-1 overflow-y-auto py-1">
           {filteredCommands.length === 0 ? (
             <div className="py-5 text-center text-muted text-[13px]">
-              No commands found
+              {t("commandpalette.NoCommandsFound")}
             </div>
           ) : (
             filteredCommands.map((cmd, idx) => (

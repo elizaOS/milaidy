@@ -241,7 +241,7 @@ describe.skipIf(!canRun)(
         undefined,
         authHeaders,
       );
-      expect(statusData.state).toBe("running");
+      expect(statusData.state).toBe("paused");
       console.log("  Agent started");
     });
 

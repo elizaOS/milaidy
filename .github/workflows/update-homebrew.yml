@@ -1,0 +1,45 @@
+# Add this workflow to the main milady repo at:
+#   .github/workflows/update-homebrew.yml
+#
+# Triggers the homebrew tap repo to update formula + cask
+# when a new GitHub release is published.
+#
+# Required secret: HOMEBREW_TAP_TOKEN
+#   A GitHub PAT with repo scope for milady-ai/homebrew-milaidy
+
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to update to (e.g. 2.0.0-alpha.84)"
+        required: true
+        type: string
+
+jobs:
+  update-tap:
+    name: Trigger Homebrew tap update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine version
+        id: meta
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Triggering Homebrew update for version: $VERSION"
+
+      - name: Dispatch to homebrew-milaidy tap
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: milady-ai/homebrew-milaidy
+          event-type: update-homebrew
+          client-payload: '{"version": "${{ steps.meta.outputs.version }}"}'

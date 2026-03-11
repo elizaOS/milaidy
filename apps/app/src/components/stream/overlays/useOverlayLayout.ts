@@ -14,8 +14,8 @@
  * storage (both localStorage and server). Falls back to the global default.
  */
 
+import { client } from "@milady/app-core/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { client } from "../../../api-client";
 import { getAllWidgets } from "./registry";
 import type { OverlayLayout, WidgetInstance, WidgetPosition } from "./types";
 

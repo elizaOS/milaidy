@@ -3,11 +3,13 @@
  */
 
 import { useState } from "react";
+import { useApp } from "../AppContext";
 import { PluginsView } from "./PluginsView";
 
 type SubTab = "platforms" | "streaming";
 
 export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
+  const { t } = useApp();
   const [activeTab, setActiveTab] = useState<SubTab>("platforms");
 
   const tabBtnBase =
@@ -23,9 +25,11 @@ export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
     <div className="flex flex-col h-full">
       {!inModal && (
         <>
-          <h2 className="text-lg font-bold mb-1">Social</h2>
+          <h2 className="text-lg font-bold mb-1">
+            {t("connectorspageview.Social")}
+          </h2>
           <p className="text-[13px] text-[var(--muted)] mb-3">
-            Configure chat connectors and streaming destinations.
+            {t("connectorspageview.ConfigureChatConne")}
           </p>
         </>
       )}
@@ -39,7 +43,7 @@ export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
             activeTab === "platforms" ? tabBtnActive : tabBtnInactive
           }`}
         >
-          Platforms
+          {t("connectorspageview.Platforms")}
         </button>
         <button
           type="button"
@@ -48,7 +52,7 @@ export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
             activeTab === "streaming" ? tabBtnActive : tabBtnInactive
           }`}
         >
-          Streaming
+          {t("connectorspageview.Streaming")}
         </button>
       </div>
 

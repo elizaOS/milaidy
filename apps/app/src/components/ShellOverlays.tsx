@@ -1,7 +1,7 @@
 /**
  * Shared overlay layer rendered once regardless of shell mode.
  *
- * Extracts CommandPalette, EmotePicker, RestartBanner, MemoryDebugPanel,
+ * Extracts CommandPalette, EmotePicker, RestartBanner,
  * BugReportModal, and the ActionNotice toast that were previously duplicated
  * in both the companion-shell and native-shell branches of App.tsx.
  */
@@ -9,7 +9,6 @@
 import { BugReportModal } from "./BugReportModal";
 import { CommandPalette } from "./CommandPalette";
 import { EmotePicker } from "./EmotePicker";
-import { MemoryDebugPanel } from "./MemoryDebugPanel";
 import { RestartBanner } from "./RestartBanner";
 import { ShortcutsOverlay } from "./ShortcutsOverlay";
 
@@ -28,7 +27,6 @@ export function ShellOverlays({
       <CommandPalette />
       <EmotePicker />
       <RestartBanner />
-      <MemoryDebugPanel />
       <BugReportModal />
       <ShortcutsOverlay />
       {actionNotice && (

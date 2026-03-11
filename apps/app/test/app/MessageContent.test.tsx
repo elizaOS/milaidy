@@ -14,7 +14,7 @@ vi.mock("../../src/AppContext", () => ({
   getVrmPreviewUrl: () => null,
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getConfig: vi.fn(async () => ({})),
     getPluginList: vi.fn(async () => []),

@@ -1,0 +1,71 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/shawwalters/eliza-workspace/milady[39m
+
+[90mstderr[2m | apps/app/test/app/settings-language-switch.test.tsx[2m > [22m[2mSettings language switch[2m > [22m[2mcalls setUiLanguage and applies localized labels on rerender
+[22m[39m[milady] Failed to load subscription status TypeError: __vite_ssr_import_1__.client.getSubscriptionStatus is not a function
+    at [90m/Users/shawwalters/eliza-workspace/milady/[39mapps/app/src/components/ProviderSwitcher.tsx:123:32
+    at [90m/Users/shawwalters/eliza-workspace/milady/[39mapps/app/src/components/ProviderSwitcher.tsx:131:10
+    at Object.react_stack_bottom_frame [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:15755:20[90m)[39m
+    at runWithFiberInDEV [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:2315:13[90m)[39m
+    at commitHookEffectListMount [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:9530:29[90m)[39m
+    at commitHookPassiveMountEffects [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:9617:11[90m)[39m
+    at commitPassiveMountOnFiber [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:11205:13[90m)[39m
+    at recursivelyTraversePassiveMountEffects [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:11160:11[90m)[39m
+    at commitPassiveMountOnFiber [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:11439:11[90m)[39m
+    at recursivelyTraversePassiveMountEffects [90m(/Users/shawwalters/eliza-workspace/milady/[39mnode_modules/[4m.bun[24m/react-test-renderer@19.2.4+b1ab299f0a400331/node_modules/[4mreact-test-renderer[24m/cjs/react-test-renderer.development.js:11160:11[90m)[39m
+
+[90mstdout[2m | apps/app/test/app/settings-language-switch.test.tsx[2m > [22m[2mSettings language switch[2m > [22m[2mcalls setUiLanguage and applies localized labels on rerender
+[22m[39mFound zh buttons: [33m2[39m
+Button text: nav.settingssettings.customizeExperienceAppearanceVisual preferencesAI ModelProvider and model settingsCoding AgentsAgent preferences, models, and permissionsWallet & RPCChain RPC providers and API keysMediaImage, video, and vision providersVoiceText-to-speech and transcriptionPermissionsCapabilities and access controlUpdatesSoftware update settingsAdvancedExport, import, and dangerous actionsnav.settingssettings.customizeExperiencesettings.appearancesettings.languageHintsettings.language🇺🇸English🇨🇳中文🇰🇷한국어🇪🇸Español🇧🇷Portuguêssettings.aiModelsettings.aiModelDescriptionproviderswitcher.SelectAIProviderEliza CloudPi (pi-ai)Claude SubscriptionChatGPT Subscriptionproviderswitcher.ChooseYourPreferresettingsview.CodingAgentsConfigure AI coding agents for multi-agent task execution.codingagentsettingssection.AgentSelectionStracodingagentsettingssection.Fixedcodingagentsettingssection.RankedAutoSelectAlways use the selected default agent type when none is specified.codingagentsettingssection.DefaultAgentTypecodingagentsettingssection.Claudecodingagentsettingssection.Geminicodingagentsettingssection.Codexcodingagentsettingssection.Aidercodingagentsettingssection.AgentUsedWhenNoEcodingagentsettingssection.DefaultPermissionLRead OnlyStandardPermissiveAutonomousFile ops auto-approved, asks for shell — applies to all newly spawned agents unless overridden per-spawn.ClaudeGeminiCodexAidercodingagentsettingssection.PowerfulModelcodingagentsettingssection.DefaultClaude Opus 4.6Claude Sonnet 4.6Claude Haiku 4.5codingagentsettingssection.FastModelcodingagentsettingssection.DefaultClaude Opus 4.6Claude Sonnet 4.6Claude Haiku 4.5Using fallback model list — configure your API key to see all available models.settingsview.WalletRPCConfigure chain RPC providers for trading and market data.settings.mediaGenerationsettings.mediaDescriptionsettings.speechInterfacesettings.speechDescriptionsettings.permissionsCapabilitiessettings.permissionsDescriptionsettings.softwareUpdatessettings.updatesDescriptionsettings.versionPrefixcommon.loading...settings.checkNowsettings.advancedSettingssettings.advancedDescriptionsettings.exportAgentsettings.exportAgentShortsettings.importAgentsettings.importAgentShortsettings.dangerZonesettings.resetAgentsettings.resetAgentHintsettings.resetEverything
+Button text: 🇨🇳中文
+
+ [31m×[39m apps/app/test/app/settings-language-switch.test.tsx[2m > [22mSettings language switch[2m > [22mcalls setUiLanguage and applies localized labels on rerender[32m 25[2mms[22m[39m
+[31m   → zhButton.props.onClick is not a function[39m
+[90mstdout[2m | apps/app/test/app/conversations-sidebar-game-modal.test.tsx[2m > [22m[2mConversationsSidebar game-modal variant[2m > [22m[2mrenders game-modal list and keeps new/select/delete actions working
+[22m[39mFound buttons in conv-item: [33m1[39m
+
+ [31m×[39m apps/app/test/app/conversations-sidebar-game-modal.test.tsx[2m > [22mConversationsSidebar game-modal variant[2m > [22mrenders game-modal list and keeps new/select/delete actions working[32m 16[2mms[22m[39m
+[31m   → expected 4 to be 2 // Object.is equality[39m
+ [32m✓[39m apps/app/test/app/conversations-sidebar-game-modal.test.tsx[2m > [22mConversationsSidebar game-modal variant[2m > [22msupports inline rename in game-modal variant[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/conversations-sidebar-game-modal.test.tsx[2m > [22mConversationsSidebar game-modal variant[2m > [22mrenders game-modal list and keeps new/select/delete actions working
+[31m[1mAssertionError[22m: expected 4 to be 2 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 4[39m
+
+[36m [2m❯[22m apps/app/test/app/conversations-sidebar-game-modal.test.tsx:[2m149:34[22m[39m
+    [90m147| [39m      (node) [33m=>[39m node[33m.[39mprops[[32m"data-testid"[39m] [33m===[39m [32m"conv-delete"[39m[33m,[39m
+    [90m148| [39m    )[33m;[39m
+    [90m149| [39m    [34mexpect[39m(deleteButtons[33m.[39mlength)[33m.[39m[34mtoBe[39m([34m2[39m)[33m;[39m
+    [90m   | [39m                                 [31m^[39m
+    [90m150| [39m    [35mawait[39m [34mact[39m([35masync[39m () [33m=>[39m {
+    [90m151| [39m      deleteButtons[[34m0[39m][33m.[39mprops[33m.[39m[34monClick[39m({ stopPropagation[33m:[39m () [33m=>[39m { } })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m apps/app/test/app/settings-language-switch.test.tsx[2m > [22mSettings language switch[2m > [22mcalls setUiLanguage and applies localized labels on rerender
+[31m[1mTypeError[22m: zhButton.props.onClick is not a function[39m
+[36m [2m❯[22m apps/app/test/app/settings-language-switch.test.tsx:[2m187:22[22m[39m
+    [90m185| [39m
+    [90m186| [39m    [35mawait[39m [34mact[39m([35masync[39m () [33m=>[39m {
+    [90m187| [39m      zhButton[33m.[39mprops[33m.[39m[34monClick[39m()[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m188| [39m    })[33m;[39m
+    [90m189| [39m
+[90m [2m❯[22m Proxy.process.env.NODE_ENV.exports.act node_modules/.bun/react@19.2.4/node_modules/react/cjs/react.development.js:[2m814:22[22m[39m
+[90m [2m❯[22m apps/app/test/app/settings-language-switch.test.tsx:[2m186:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 04:47:39
+[2m   Duration [22m 1.12s[2m (transform 586ms, setup 46ms, import 954ms, tests 49ms, environment 577ms)[22m
+

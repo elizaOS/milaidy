@@ -1,13 +1,13 @@
+import type { CodingAgentSession } from "@milady/app-core/api";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CodingAgentSession } from "../../src/api-client";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     stopCodingAgent: vi.fn(async () => {}),
     subscribePtyOutput: vi.fn(),

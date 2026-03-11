@@ -1,55 +1,55 @@
 # frozen_string_literal: true
 
-# Homebrew Cask for Milaidy Desktop App
-# This cask installs the Electron desktop application.
+# Updated Homebrew Cask for the main milady repo's homebrew/ directory.
+# Replace homebrew/milaidy.cask.rb with this file.
 #
-# Usage:
-#   brew tap milady-ai/milaidy
-#   brew install --cask milaidy
-#
-# For the CLI only, use the formula instead:
-#   brew install milaidy
+# Key fixes from the original:
+#   - URL matches actual release asset naming (canary-macos-{arch}-Milady-canary.dmg)
+#   - App identifier uses com.miladyai.milady (from actual metadata)
+#   - SHA256 placeholders for both architectures
 
 cask "milaidy" do
   arch arm: "arm64", intel: "x64"
 
-  version "2.0.0-alpha.21"
+  version "2.0.0-alpha.84"
 
   on_arm do
-    sha256 "PLACEHOLDER_ARM64_SHA256"
-    url "https://github.com/milady-ai/milaidy/releases/download/v#{version}/Milaidy-#{version}-arm64.dmg"
+    sha256 "a348cc3c619e8445270e4a2ebfc07c14ec56384893c48452832dadb01d17448b"
   end
 
   on_intel do
-    sha256 "PLACEHOLDER_X64_SHA256"
-    url "https://github.com/milady-ai/milaidy/releases/download/v#{version}/Milaidy-#{version}.dmg"
+    sha256 "5a40d3a4f9e7a7302cf4f4102ed7dbd81c8cb57083d1ff8b94e167f214d4d9f6"
   end
 
-  name "Milaidy"
-  desc "Personal AI assistant built on elizaOS"
-  homepage "https://github.com/milady-ai/milaidy"
+  url "https://github.com/milady-ai/milady/releases/download/v#{version}/canary-macos-#{arch}-Milady-canary.dmg",
+      verified: "github.com/milady-ai/milady/"
+
+  name "Milady"
+  desc "Personal AI assistant — cute agents for the acceleration"
+  homepage "https://github.com/milady-ai/milady"
 
   livecheck do
-    url :url
+    url "https://github.com/milady-ai/milady/releases"
     strategy :github_latest
+    regex(/v?(\d+(?:\.\d+)+(?:-[a-z]+\.\d+)?)/i)
   end
 
   auto_updates true
   depends_on macos: ">= :monterey"
 
-  app "Milaidy.app"
+  app "Milady.app"
 
   zap trash: [
-    "~/Library/Application Support/Milaidy",
-    "~/Library/Caches/ai.milady.milaidy",
-    "~/Library/Caches/ai.milady.milaidy.ShipIt",
-    "~/Library/Preferences/ai.milady.milaidy.plist",
-    "~/Library/Saved Application State/ai.milady.milaidy.savedState",
-    "~/.milaidy",
+    "~/Library/Application Support/Milady",
+    "~/Library/Caches/com.miladyai.milady",
+    "~/Library/Caches/com.miladyai.milady.ShipIt",
+    "~/Library/Preferences/com.miladyai.milady.plist",
+    "~/Library/Saved Application State/com.miladyai.milady.savedState",
+    "~/.milady",
   ]
 
   caveats <<~EOS
-    Milaidy desktop app has been installed.
+    Milady desktop app has been installed.
 
     On first launch, you'll be guided through setup to:
     - Choose your agent's name and personality

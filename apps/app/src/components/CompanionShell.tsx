@@ -5,8 +5,8 @@
  * handles `uiShellMode === "native"`.
  */
 
+import type { Tab } from "@milady/app-core/navigation";
 import { useApp } from "../AppContext";
-import type { Tab } from "../navigation";
 import { AdvancedPageView } from "./AdvancedPageView";
 import { AppsPageView } from "./AppsPageView";
 import { CharacterView } from "./CharacterView";

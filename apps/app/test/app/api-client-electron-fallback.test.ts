@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MiladyClient } from "../../src/api-client";
+import { MiladyClient } from "@milady/app-core/api";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("MiladyClient Electron API fallback", () => {
   const originalFetch = globalThis.fetch;

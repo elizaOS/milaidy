@@ -4,11 +4,13 @@
  */
 
 import { useMemo } from "react";
+import { useApp } from "../../../../AppContext";
 import { getEventText } from "../../helpers";
 import { registerWidget } from "../registry";
 import type { WidgetDefinition, WidgetRenderProps } from "../types";
 
 function ActionTicker({ instance, events }: WidgetRenderProps) {
+  const { t } = useApp();
   const maxItems = (instance.config.maxItems as number) ?? 8;
 
   const items = useMemo(() => {
@@ -25,7 +27,7 @@ function ActionTicker({ instance, events }: WidgetRenderProps) {
     <div className="h-full flex items-center px-3 bg-bg/70 border-b border-border/30 backdrop-blur-sm overflow-hidden">
       <div className="flex items-center gap-4 text-[11px] text-muted overflow-x-auto whitespace-nowrap scrollbar-hide">
         <span className="text-[9px] uppercase tracking-wider text-muted/60 shrink-0 font-medium">
-          actions
+          {t("actiontickerwidget.actions")}
         </span>
         {items.map((item) => (
           <span key={item.id} className="shrink-0">

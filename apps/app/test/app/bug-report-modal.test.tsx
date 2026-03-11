@@ -13,11 +13,15 @@ const { mockUseBugReport, mockClient } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@milady/app-core/hooks", () => ({
+  useBugReport: () => mockUseBugReport(),
+}));
+
 vi.mock("../../src/hooks/useBugReport", () => ({
   useBugReport: () => mockUseBugReport(),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClient,
 }));
 
@@ -94,7 +98,7 @@ describe("BugReportModal", () => {
       tree = TestRenderer.create(React.createElement(BugReportModal));
       await vi.runAllTimersAsync();
     });
-    expect(getText(tree?.root)).toContain("Report a Bug");
+    expect(getText(tree?.root)).toContain("bugreportmodal.ReportABug");
   });
 
   it("renders required field markers", async () => {
@@ -245,7 +249,7 @@ describe("BugReportModal", () => {
       submitBtn?.props.onClick();
     });
 
-    expect(getText(tree?.root)).toContain("Bug Report Submitted");
+    expect(getText(tree?.root)).toContain("bugreportmodal.BugReportSubmitted");
     const link = tree?.root.findByType("a" as React.ElementType);
     expect(link?.props.href).toBe(issueUrl);
   });
@@ -299,7 +303,9 @@ describe("BugReportModal", () => {
     });
 
     // Fallback path does not transition to success URL view
-    expect(getText(tree?.root)).not.toContain("Bug Report Submitted");
+    expect(getText(tree?.root)).not.toContain(
+      "bugreportmodal.BugReportSubmitted",
+    );
     // Form should still be visible (not replaced by success state)
     expect(getTextareas(tree?.root).length).toBeGreaterThan(0);
   });
@@ -314,7 +320,7 @@ describe("BugReportModal", () => {
       await vi.runAllTimersAsync();
     });
 
-    const cancelBtn = findButton(tree?.root, "Cancel");
+    const cancelBtn = findButton(tree?.root, "bugreportmodal.Cancel");
     act(() => {
       cancelBtn?.props.onClick();
     });
@@ -335,7 +341,9 @@ describe("BugReportModal", () => {
     const before = getTextareas(tree?.root).length;
 
     const logsToggle = getButtons(tree?.root).find((b) =>
-      b.children.some((c) => typeof c === "string" && c.trim() === "Logs"),
+      b.children.some(
+        (c) => typeof c === "string" && c.trim() === "bugreportmodal.Logs",
+      ),
     );
     act(() => {
       logsToggle?.props.onClick();

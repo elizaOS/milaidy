@@ -5,13 +5,16 @@
  * Composes SubscriptionStatus and ApiKeyConfig sub-components.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   client,
   type OnboardingOptions,
   type PluginParamDef,
-} from "../api-client";
-import type { ConfigUiHint } from "../types";
+} from "@milady/app-core/api";
+import type { ConfigUiHint } from "@milady/app-core/types";
+import { Button, Input } from "@milady/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useApp } from "../AppContext";
+import { useTimeout } from "../hooks/useTimeout";
 import { ApiKeyConfig } from "./ApiKeyConfig";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
@@ -28,17 +31,17 @@ interface PluginInfo {
 }
 
 export interface ProviderSwitcherProps {
-  // Cloud state
-  cloudEnabled: boolean;
-  cloudConnected: boolean;
-  cloudCredits: number | null;
-  cloudCreditsLow: boolean;
-  cloudCreditsCritical: boolean;
-  cloudTopUpUrl: string;
-  cloudUserId: string | null;
-  cloudLoginBusy: boolean;
-  cloudLoginError: string | null;
-  cloudDisconnecting: boolean;
+  // Milady Cloud state
+  miladyCloudEnabled: boolean;
+  miladyCloudConnected: boolean;
+  miladyCloudCredits: number | null;
+  miladyCloudCreditsLow: boolean;
+  miladyCloudCreditsCritical: boolean;
+  miladyCloudTopUpUrl: string;
+  miladyCloudUserId: string | null;
+  miladyCloudLoginBusy: boolean;
+  miladyCloudLoginError: string | null;
+  miladyCloudDisconnecting: boolean;
   // Plugins
   plugins: PluginInfo[];
   pluginSaving: Set<string>;
@@ -52,21 +55,21 @@ export interface ProviderSwitcherProps {
   ) => void;
   handleCloudLogin: () => Promise<void>;
   handleCloudDisconnect: () => Promise<void>;
-  setState: (key: "cloudEnabled", value: boolean) => void;
+  setState: (key: "miladyCloudEnabled", value: boolean) => void;
   setTab: (tab: "plugins") => void;
 }
 
 export function ProviderSwitcher({
-  cloudEnabled,
-  cloudConnected,
-  cloudCredits,
-  cloudCreditsLow,
-  cloudCreditsCritical,
-  cloudTopUpUrl,
-  cloudUserId,
-  cloudLoginBusy,
-  cloudLoginError,
-  cloudDisconnecting,
+  miladyCloudEnabled,
+  miladyCloudConnected,
+  miladyCloudCredits,
+  miladyCloudCreditsLow,
+  miladyCloudCreditsCritical,
+  miladyCloudTopUpUrl,
+  miladyCloudUserId,
+  miladyCloudLoginBusy,
+  miladyCloudLoginError,
+  miladyCloudDisconnecting: cloudDisconnecting,
   plugins,
   pluginSaving,
   pluginSaveSuccess,
@@ -78,6 +81,9 @@ export function ProviderSwitcher({
   setState,
   setTab,
 }: ProviderSwitcherProps) {
+  const { setTimeout } = useTimeout();
+
+  const { t } = useApp();
   /* ── Model selection state ─────────────────────────────────────── */
   const [modelOptions, setModelOptions] = useState<
     OnboardingOptions["models"] | null
@@ -140,7 +146,7 @@ export function ProviderSwitcher({
         const cfg = await client.getConfig();
         const models = cfg.models as Record<string, string> | undefined;
         const cloud = cfg.cloud as Record<string, unknown> | undefined;
-        const cloudEnabledCfg = cloud?.enabled === true;
+        const miladyCloudEnabledCfg = cloud?.enabled === true;
         const defaultSmall = "moonshotai/kimi-k2-turbo";
         const defaultLarge = "moonshotai/kimi-k2-0905";
 
@@ -156,10 +162,14 @@ export function ProviderSwitcher({
         const envLarge =
           typeof vars.LARGE_MODEL === "string" ? vars.LARGE_MODEL : "";
         setCurrentSmallModel(
-          models?.small || envSmall || (cloudEnabledCfg ? defaultSmall : ""),
+          models?.small ||
+            envSmall ||
+            (miladyCloudEnabledCfg ? defaultSmall : ""),
         );
         setCurrentLargeModel(
-          models?.large || envLarge || (cloudEnabledCfg ? defaultLarge : ""),
+          models?.large ||
+            envLarge ||
+            (miladyCloudEnabledCfg ? defaultLarge : ""),
         );
         const rawPiAi =
           (typeof vars.MILADY_USE_PI_AI === "string"
@@ -183,7 +193,7 @@ export function ProviderSwitcher({
             : "cloud";
         const inferenceToggle = cloudServices?.inference !== false;
         setCloudHandlesInference(
-          cloudEnabledCfg && inferenceMode === "cloud" && inferenceToggle,
+          miladyCloudEnabledCfg && inferenceMode === "cloud" && inferenceToggle,
         );
 
         const agents = cfg.agents as Record<string, unknown> | undefined;
@@ -223,7 +233,7 @@ export function ProviderSwitcher({
     id === "anthropic-subscription" || id === "openai-subscription";
 
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
-    () => (cloudEnabled ? "__cloud__" : null),
+    () => (miladyCloudEnabled ? "__cloud__" : null),
   );
   const hasManualSelection = useRef(false);
 
@@ -280,11 +290,13 @@ export function ProviderSwitcher({
       // on enabling/disabling provider plugins + saving provider config.
       const willTogglePlugins =
         !target.enabled || enabledAiProviders.some((p) => p.id !== newId);
-      if (cloudEnabled || piAiEnabled) {
+      if (miladyCloudEnabled || piAiEnabled) {
         try {
-          // Disable cloud inference but keep cloud connected for RPC/services
+          // Disable cloud inference and explicitly mark cloud as disabled
+          // so the cloud-status check doesn't re-enable it on restart.
           await client.updateConfig({
             cloud: {
+              enabled: false,
               services: { inference: false },
               inferenceMode: "byok",
             },
@@ -315,7 +327,7 @@ export function ProviderSwitcher({
       allAiProviders,
       enabledAiProviders,
       handlePluginToggle,
-      cloudEnabled,
+      miladyCloudEnabled,
       piAiEnabled,
     ],
   );
@@ -379,7 +391,7 @@ export function ProviderSwitcher({
           large: currentLargeModel || "moonshotai/kimi-k2-0905",
         },
       });
-      setState("cloudEnabled", true);
+      setState("miladyCloudEnabled", true);
       setCloudHandlesInference(true);
       setPiAiEnabled(false);
       await client.restartAgent();
@@ -394,6 +406,7 @@ export function ProviderSwitcher({
     try {
       await client.updateConfig({
         cloud: {
+          enabled: false,
           services: { inference: false },
           inferenceMode: "byok",
         },
@@ -415,7 +428,7 @@ export function ProviderSwitcher({
     } finally {
       setPiAiSaving(false);
     }
-  }, [piAiModelSpec]);
+  }, [piAiModelSpec, setTimeout]);
 
   const handleSelectPiAi = useCallback(async () => {
     hasManualSelection.current = true;
@@ -442,7 +455,7 @@ export function ProviderSwitcher({
     resolvedSelectedId === "anthropic-subscription" ||
     resolvedSelectedId === "openai-subscription";
   const providerChoices = [
-    { id: "__cloud__", label: "Eliza Cloud", disabled: false },
+    { id: "__cloud__", label: "Milady Cloud", disabled: false },
     { id: "pi-ai", label: "Pi (pi-ai)", disabled: false },
     ...subscriptionProviders.map((provider) => ({
       id: provider.id,
@@ -460,17 +473,18 @@ export function ProviderSwitcher({
     return (
       <div className="p-4 border border-[var(--warning,#f39c12)] bg-[var(--card)]">
         <div className="text-xs text-[var(--warning,#f39c12)]">
-          No AI providers available. Install a provider plugin from the{" "}
-          <button
-            type="button"
-            className="text-[var(--accent)] underline"
+          {t("providerswitcher.NoAIProvidersAvai")}{" "}
+          <Button
+            variant="link"
+            size="sm"
+            className="text-accent underline p-0 h-auto"
             onClick={() => {
               setTab("plugins");
             }}
           >
-            Plugins
-          </button>{" "}
-          page.
+            {t("providerswitcher.Plugins")}
+          </Button>{" "}
+          {t("providerswitcher.page")}
         </div>
       </div>
     );
@@ -484,7 +498,7 @@ export function ProviderSwitcher({
           htmlFor="provider-switcher-select"
           className="block text-xs font-semibold mb-1.5 text-[var(--muted)]"
         >
-          Select AI Provider
+          {t("providerswitcher.SelectAIProvider")}
         </label>
         <select
           id="provider-switcher-select"
@@ -521,62 +535,64 @@ export function ProviderSwitcher({
           ))}
         </select>
         <p className="text-[11px] text-[var(--muted)] mt-1.5">
-          Choose your preferred AI provider. This affects how the agent
-          processes and responds to messages.
+          {t("providerswitcher.ChooseYourPreferre")}
         </p>
       </div>
 
       {/* Cloud settings */}
       {isCloudSelected && (
         <div className="mt-4 pt-4 border-t border-[var(--border)]">
-          {cloudConnected ? (
+          {miladyCloudConnected ? (
             <div>
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok,#16a34a)]" />
                   <span className="text-xs font-semibold">
-                    Logged into Eliza Cloud
+                    {t("providerswitcher.LoggedIntoMiladyC")}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="btn text-xs py-[3px] px-3 !mt-0 !bg-transparent !border-[var(--border)] !text-[var(--muted)]"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!mt-0"
                   onClick={() => void handleCloudDisconnect()}
                   disabled={cloudDisconnecting}
                 >
                   {cloudDisconnecting ? "Disconnecting..." : "Disconnect"}
-                </button>
+                </Button>
               </div>
 
               <div className="text-xs mb-4">
-                {cloudUserId && (
+                {miladyCloudUserId && (
                   <span className="text-[var(--muted)] mr-3">
                     <code className="font-[var(--mono)] text-[11px]">
-                      {cloudUserId}
+                      {miladyCloudUserId}
                     </code>
                   </span>
                 )}
-                {cloudCredits !== null && (
+                {miladyCloudCredits !== null && (
                   <span>
-                    <span className="text-[var(--muted)]">Credits:</span>{" "}
+                    <span className="text-[var(--muted)]">
+                      {t("providerswitcher.Credits")}
+                    </span>{" "}
                     <span
                       className={
-                        cloudCreditsCritical
+                        miladyCloudCreditsCritical
                           ? "text-[var(--danger,#e74c3c)] font-bold"
-                          : cloudCreditsLow
+                          : miladyCloudCreditsLow
                             ? "text-[#b8860b] font-bold"
                             : ""
                       }
                     >
-                      ${cloudCredits.toFixed(2)}
+                      ${miladyCloudCredits.toFixed(2)}
                     </span>
                     <a
-                      href={cloudTopUpUrl}
+                      href={miladyCloudTopUpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[11px] ml-2 text-[var(--accent)]"
                     >
-                      Top up
+                      {t("providerswitcher.TopUp")}
                     </a>
                   </span>
                 )}
@@ -653,39 +669,39 @@ export function ProviderSwitcher({
               <div className="flex items-center justify-end gap-2 mt-3">
                 {modelSaving && (
                   <span className="text-[11px] text-[var(--muted)]">
-                    Saving &amp; restarting...
+                    {t("providerswitcher.SavingAmpRestart")}
                   </span>
                 )}
                 {modelSaveSuccess && (
                   <span className="text-[11px] text-[var(--ok,#16a34a)]">
-                    Saved — restarting agent
+                    {t("providerswitcher.SavedRestartingA")}
                   </span>
                 )}
               </div>
             </div>
           ) : (
             <div>
-              {cloudLoginBusy ? (
+              {miladyCloudLoginBusy ? (
                 <div className="text-xs text-[var(--muted)]">
-                  Waiting for browser authentication... A new tab should have
-                  opened.
+                  {t("providerswitcher.WaitingForBrowser")}
                 </div>
               ) : (
                 <>
-                  {cloudLoginError && (
+                  {miladyCloudLoginError && (
                     <div className="text-xs text-[var(--danger,#e74c3c)] mb-2">
-                      {cloudLoginError}
+                      {miladyCloudLoginError}
                     </div>
                   )}
-                  <button
-                    type="button"
-                    className="btn text-xs py-[5px] px-3.5 font-bold !mt-0"
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="!mt-0 font-bold"
                     onClick={() => void handleCloudLogin()}
                   >
-                    Log in to Eliza Cloud
-                  </button>
+                    {t("providerswitcher.LogInToMiladyClo")}
+                  </Button>
                   <div className="text-[11px] text-[var(--muted)] mt-1.5">
-                    Opens a browser window to authenticate.
+                    {t("providerswitcher.OpensABrowserWind")}
                   </div>
                 </>
               )}
@@ -711,15 +727,17 @@ export function ProviderSwitcher({
       {/* pi-ai settings */}
       {!isCloudSelected && isPiAiSelected && (
         <div className="mt-4 pt-4 border-t border-[var(--border)]">
-          <div className="text-xs font-semibold mb-2">Pi (pi-ai) Settings</div>
+          <div className="text-xs font-semibold mb-2">
+            {t("providerswitcher.PiPiAiSettings")}
+          </div>
           <div className="text-[11px] text-[var(--muted)] mb-2">
-            Uses local credentials from ~/.pi/agent/auth.json.
+            {t("providerswitcher.UsesLocalCredentia")}
           </div>
           <label
             htmlFor="pi-ai-model-override"
             className="block text-[11px] text-[var(--muted)] mb-1"
           >
-            Primary model override (optional)
+            {t("providerswitcher.PrimaryModelOverri")}
           </label>
 
           {piAiModelOptions && piAiModelOptions.length > 0 ? (
@@ -740,7 +758,7 @@ export function ProviderSwitcher({
                 className="w-full px-2.5 py-[8px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
               >
                 <option value="">
-                  Use pi default model
+                  {t("providerswitcher.UsePiDefaultModel")}
                   {piAiDefaultModelSpec ? ` (${piAiDefaultModelSpec})` : ""}
                 </option>
                 {piAiModelOptions.map((model) => (
@@ -748,48 +766,51 @@ export function ProviderSwitcher({
                     {model.name} ({model.provider})
                   </option>
                 ))}
-                <option value="__custom__">Custom model spec…</option>
+                <option value="__custom__">
+                  {t("providerswitcher.CustomModelSpec")}
+                </option>
               </select>
 
               {piAiModelSelectValue === "__custom__" && (
-                <input
+                <Input
                   type="text"
                   value={piAiModelSpec}
                   onChange={(e) => setPiAiModelSpec(e.target.value)}
-                  placeholder="provider/model (e.g. anthropic/claude-sonnet-4.5)"
-                  className="w-full mt-2 px-2.5 py-[8px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
+                  placeholder={t("providerswitcher.providerModelEG")}
+                  className="mt-2 bg-card text-[13px]"
                 />
               )}
             </>
           ) : (
-            <input
+            <Input
               id="pi-ai-model-override"
               type="text"
               value={piAiModelSpec}
               onChange={(e) => setPiAiModelSpec(e.target.value)}
-              placeholder="provider/model (e.g. anthropic/claude-sonnet-4.5)"
-              className="w-full px-2.5 py-[8px] border border-[var(--border)] bg-[var(--card)] text-[13px] transition-colors focus:border-[var(--accent)] focus:outline-none"
+              placeholder={t("providerswitcher.providerModelEG")}
+              className="bg-card text-[13px]"
             />
           )}
           <div className="flex items-center justify-end gap-2 mt-3">
             {piAiSaving && (
               <span className="text-[11px] text-[var(--muted)]">
-                Saving &amp; restarting...
+                {t("providerswitcher.SavingAmpRestart")}
               </span>
             )}
             {piAiSaveSuccess && (
               <span className="text-[11px] text-[var(--ok,#16a34a)]">
-                Saved — restarting agent
+                {t("providerswitcher.SavedRestartingA")}
               </span>
             )}
-            <button
-              type="button"
-              className="btn text-xs py-[5px] px-3.5 !mt-0"
+            <Button
+              variant="default"
+              size="sm"
+              className="!mt-0"
               onClick={() => void handlePiAiSave()}
               disabled={piAiSaving}
             >
               {piAiSaving ? "Saving..." : "Save"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

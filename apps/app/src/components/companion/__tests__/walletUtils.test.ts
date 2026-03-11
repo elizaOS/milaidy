@@ -15,6 +15,7 @@ import {
   getTokenExplorerUrl,
   getWalletTxStatusLabel,
   HEX_ADDRESS_RE,
+  isAvaxChainName,
   isBscChainName,
   loadRecentTrades,
   MAX_WALLET_RECENT_TRADES,
@@ -190,7 +191,38 @@ describe("walletUtils", () => {
       expect(isBscChainName("ethereum")).toBe(false);
       expect(isBscChainName("solana")).toBe(false);
       expect(isBscChainName("polygon")).toBe(false);
+      expect(isBscChainName("avalanche")).toBe(false);
       expect(isBscChainName("")).toBe(false);
+    });
+  });
+
+  // ── isAvaxChainName ───────────────────────────────────────────────
+  describe("isAvaxChainName", () => {
+    it("recognizes 'avax' (case-insensitive)", () => {
+      expect(isAvaxChainName("avax")).toBe(true);
+      expect(isAvaxChainName("AVAX")).toBe(true);
+      expect(isAvaxChainName("Avax")).toBe(true);
+    });
+
+    it("recognizes 'avalanche' variants", () => {
+      expect(isAvaxChainName("avalanche")).toBe(true);
+      expect(isAvaxChainName("Avalanche")).toBe(true);
+    });
+
+    it("recognizes 'c-chain' variants", () => {
+      expect(isAvaxChainName("c-chain")).toBe(true);
+      expect(isAvaxChainName("avalanche c-chain")).toBe(true);
+    });
+
+    it("trims whitespace", () => {
+      expect(isAvaxChainName("  avax  ")).toBe(true);
+    });
+
+    it("rejects non-AVAX chains", () => {
+      expect(isAvaxChainName("ethereum")).toBe(false);
+      expect(isAvaxChainName("bsc")).toBe(false);
+      expect(isAvaxChainName("solana")).toBe(false);
+      expect(isAvaxChainName("")).toBe(false);
     });
   });
 
@@ -206,6 +238,12 @@ describe("walletUtils", () => {
       expect(resolvePortfolioChainKey("solana")).toBe("solana");
       expect(resolvePortfolioChainKey("Solana")).toBe("solana");
       expect(resolvePortfolioChainKey("sol")).toBe("solana");
+    });
+
+    it("returns 'avax' for Avalanche variants", () => {
+      expect(resolvePortfolioChainKey("avax")).toBe("avax");
+      expect(resolvePortfolioChainKey("Avalanche")).toBe("avax");
+      expect(resolvePortfolioChainKey("c-chain")).toBe("avax");
     });
 
     it("returns 'evm' for other chains", () => {
@@ -393,6 +431,28 @@ describe("walletUtils", () => {
         assetAddress: validAddr,
       });
       expect(getTokenExplorerUrl(row)).toBeNull();
+    });
+
+    it("returns snowtrace URL for Avalanche", () => {
+      const row = makeTokenRow({
+        chainKey: "avax",
+        chain: "avalanche",
+        assetAddress: validAddr,
+      });
+      expect(getTokenExplorerUrl(row)).toBe(
+        `https://snowtrace.io/token/${validAddr}`,
+      );
+    });
+
+    it("returns snowtrace URL for 'avax'", () => {
+      const row = makeTokenRow({
+        chainKey: "avax",
+        chain: "avax",
+        assetAddress: validAddr,
+      });
+      expect(getTokenExplorerUrl(row)).toBe(
+        `https://snowtrace.io/token/${validAddr}`,
+      );
     });
   });
 
@@ -647,8 +707,8 @@ describe("walletUtils", () => {
 
       const result = await fetchBscTokenMetadata(contractAddr);
       expect(result).toEqual({
-        symbol: "MILADY",
-        name: "Milady",
+        symbol: "TOKEN",
+        name: "Unknown Token",
         logoUrl: null,
       });
     });

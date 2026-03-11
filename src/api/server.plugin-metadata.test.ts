@@ -43,7 +43,7 @@ describe("plugin metadata discovery", () => {
       path.join(installPath, "package.json"),
       JSON.stringify(
         {
-          name: "@milady/plugin-retake",
+          name: "@elizaos/plugin-retake",
           description: "Retake.tv streaming plugin",
           homepage: "https://retake.tv",
           repository: {
@@ -70,7 +70,7 @@ describe("plugin metadata discovery", () => {
       {
         plugins: {
           installs: {
-            "@milady/plugin-retake": {
+            "@elizaos/plugin-retake": {
               installPath,
               version: "0.1.0",
             },

@@ -2,15 +2,11 @@
  * Conversations sidebar component — left sidebar with conversation list.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
-import { type AgentSelfStatusSnapshot, client } from "../api-client";
-import { SELF_STATUS_SYNC_EVENT } from "../events";
-import { createTranslator } from "../i18n";
 import { ConversationListItem } from "./conversations/ConversationListItem";
-import { GameModalFooter } from "./conversations/GameModalFooter";
 
-export type ConversationsSidebarVariant = "default" | "game-modal";
+type ConversationsSidebarVariant = "default" | "game-modal";
 
 interface ConversationsSidebarProps {
   mobile?: boolean;
@@ -27,24 +23,17 @@ export function ConversationsSidebar({
     conversations,
     activeConversationId,
     unreadConversations,
-    agentStatus,
-    chatLastUsage,
     handleNewConversation,
     handleSelectConversation,
     handleDeleteConversation,
     handleRenameConversation,
-    uiLanguage,
+    t,
   } = useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selfStatus, setSelfStatus] = useState<AgentSelfStatusSnapshot | null>(
-    null,
-  );
-  const [selfStatusLoading, setSelfStatusLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when editing starts
@@ -106,57 +95,11 @@ export function ConversationsSidebar({
 
   const isGameModal = variant === "game-modal";
 
-  // Self-status polling for game-modal variant
-  useEffect(() => {
-    if (!isGameModal) return;
-
-    let cancelled = false;
-    let firstLoad = true;
-
-    const syncSelfStatus = async () => {
-      if (firstLoad) {
-        setSelfStatusLoading(true);
-      }
-      try {
-        const snapshot = await client.getAgentSelfStatus();
-        if (cancelled) return;
-        setSelfStatus(snapshot);
-      } catch {
-        if (cancelled) return;
-        setSelfStatus(null);
-      } finally {
-        if (!cancelled && firstLoad) {
-          setSelfStatusLoading(false);
-        }
-        firstLoad = false;
-      }
-    };
-
-    void syncSelfStatus();
-    const onSelfStatusRefresh = () => {
-      void syncSelfStatus();
-    };
-    const unbindStatus = client.onWsEvent("status", () => {
-      void syncSelfStatus();
-    });
-    const unbindWsReconnected = client.onWsEvent("ws-reconnected", () => {
-      void syncSelfStatus();
-    });
-    window.addEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
-
-    return () => {
-      cancelled = true;
-      unbindStatus();
-      unbindWsReconnected();
-      window.removeEventListener(SELF_STATUS_SYNC_EVENT, onSelfStatusRefresh);
-    };
-  }, [isGameModal]);
-
   return (
     <aside
       className={
         isGameModal
-          ? "chat-game-sidebar-root"
+          ? "flex flex-col h-full bg-black/20 backdrop-blur-md"
           : `${mobile ? "w-full min-w-0 h-full" : "w-48 min-w-48 xl:w-60 xl:min-w-60 border-r"} border-border bg-bg flex flex-col overflow-y-auto text-[13px]`
       }
       data-testid="conversations-sidebar"
@@ -174,21 +117,23 @@ export function ConversationsSidebar({
             onClick={onClose}
             aria-label={t("conversations.closePanel")}
           >
-            &times;
+            {t("conversationssidebar.Times")}
           </button>
         </div>
       )}
 
       <div
         className={
-          isGameModal ? "chat-game-sidebar-head" : "p-3 border-b border-border"
+          isGameModal
+            ? "p-3 border-b border-white/10 shrink-0"
+            : "p-3 border-b border-border"
         }
       >
         <button
           type="button"
           className={
             isGameModal
-              ? "chat-game-new-chat-btn"
+              ? "w-full py-2 px-3 rounded-lg border border-accent/60 bg-accent/10 text-accent font-medium text-sm transition-all hover:bg-accent/20 hover:border-accent hover:shadow-[0_0_15px_rgba(240,178,50,0.15)] active:scale-[0.98]"
               : "w-full px-3 py-1.5 border border-accent rounded-md bg-transparent text-accent text-[12px] font-medium cursor-pointer transition-colors hover:bg-accent hover:text-accent-fg"
           }
           onClick={() => {
@@ -202,14 +147,16 @@ export function ConversationsSidebar({
 
       <div
         className={
-          isGameModal ? "chat-game-sidebar-list" : "flex-1 overflow-y-auto py-1"
+          isGameModal
+            ? "flex-1 overflow-y-auto p-2 space-y-1 min-h-0 custom-scrollbar"
+            : "flex-1 overflow-y-auto py-1"
         }
       >
         {sortedConversations.length === 0 ? (
           <div
             className={
               isGameModal
-                ? "chat-game-sidebar-empty"
+                ? "py-8 text-center text-white/40 text-sm font-medium italic"
                 : "px-3 py-6 text-center text-muted text-xs"
             }
           >
@@ -246,17 +193,6 @@ export function ConversationsSidebar({
           ))
         )}
       </div>
-
-      {/* Game-modal footer: AI provider, capabilities, token usage */}
-      {isGameModal && (
-        <GameModalFooter
-          selfStatus={selfStatus}
-          selfStatusLoading={selfStatusLoading}
-          agentStatusModel={agentStatus?.model}
-          chatLastUsage={chatLastUsage}
-          t={t}
-        />
-      )}
     </aside>
   );
 }

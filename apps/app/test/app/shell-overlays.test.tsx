@@ -37,7 +37,7 @@ describe("ShellOverlays", () => {
     expect(markup).toContain("CommandPalette");
     expect(markup).toContain("EmotePicker");
     expect(markup).toContain("RestartBanner");
-    expect(markup).toContain("MemoryDebugPanel");
+
     expect(markup).toContain("BugReportModal");
     expect(markup).toContain("ShortcutsOverlay");
   });

@@ -7,14 +7,15 @@
  * - Explicit load order metadata
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   client,
   type RuntimeDebugSnapshot,
   type RuntimeOrderItem,
   type RuntimeServiceOrderItem,
-} from "../api-client";
-import { formatDateTime } from "./shared/format";
+} from "@milady/app-core/api";
+import { formatDateTime } from "@milady/app-core/components";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useApp } from "../AppContext";
 
 type RuntimeSectionKey =
   | "runtime"
@@ -164,6 +165,7 @@ function TreeNode(props: {
 }
 
 function OrderCard(props: { title: string; entries: RuntimeOrderItem[] }) {
+  const { t } = useApp();
   const { title, entries } = props;
   return (
     <div className="border border-[var(--border)] bg-[var(--card)] rounded-md p-3 min-h-[150px]">
@@ -172,7 +174,7 @@ function OrderCard(props: { title: string; entries: RuntimeOrderItem[] }) {
       </div>
       <div className="max-h-[180px] overflow-auto text-[11px] font-mono leading-5">
         {entries.length === 0 ? (
-          <div className="text-[var(--muted)]">none</div>
+          <div className="text-[var(--muted)]">{t("runtimeview.none")}</div>
         ) : (
           entries.map((entry) => (
             <div key={`${title}-${entry.index}`} className="text-[var(--txt)]">
@@ -186,15 +188,17 @@ function OrderCard(props: { title: string; entries: RuntimeOrderItem[] }) {
 }
 
 function ServicesOrderCard(props: { entries: RuntimeServiceOrderItem[] }) {
+  const { t } = useApp();
   const { entries } = props;
   return (
     <div className="border border-[var(--border)] bg-[var(--card)] rounded-md p-3 min-h-[150px]">
       <div className="text-xs font-semibold mb-2">
-        Services ({entries.length} types)
+        {t("runtimeview.Services")}
+        {entries.length} {t("runtimeview.types")}
       </div>
       <div className="max-h-[180px] overflow-auto text-[11px] font-mono leading-5">
         {entries.length === 0 ? (
-          <div className="text-[var(--muted)]">none</div>
+          <div className="text-[var(--muted)]">{t("runtimeview.none")}</div>
         ) : (
           entries.map((serviceGroup) => (
             <div
@@ -222,6 +226,7 @@ function ServicesOrderCard(props: { entries: RuntimeServiceOrderItem[] }) {
 }
 
 export function RuntimeView() {
+  const { t } = useApp();
   const [snapshot, setSnapshot] = useState<RuntimeDebugSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -274,10 +279,14 @@ export function RuntimeView() {
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      <div className="border-b border-border bg-card p-2">
+        <div className="text-[13px] font-semibold mr-2">
+          {t("runtime.debug")}
+        </div>
+      </div>
       <div className="flex flex-wrap items-end gap-3 border border-[var(--border)] bg-[var(--card)] rounded-md p-3">
-        <div className="text-[13px] font-semibold mr-2">Runtime Debug</div>
         <label className="text-[11px] text-[var(--muted)] flex items-center gap-1">
-          depth
+          {t("runtimeview.depth")}
           <input
             type="number"
             min={1}
@@ -290,7 +299,7 @@ export function RuntimeView() {
           />
         </label>
         <label className="text-[11px] text-[var(--muted)] flex items-center gap-1">
-          array cap
+          {t("runtimeview.arrayCap")}
           <input
             type="number"
             min={1}
@@ -305,7 +314,7 @@ export function RuntimeView() {
           />
         </label>
         <label className="text-[11px] text-[var(--muted)] flex items-center gap-1">
-          object cap
+          {t("runtimeview.objectCap")}
           <input
             type="number"
             min={1}
@@ -332,7 +341,7 @@ export function RuntimeView() {
           onClick={() => setExpandedPaths(new Set([rootPath]))}
           className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)]"
         >
-          Collapse
+          {t("runtimeview.Collapse")}
         </button>
         <button
           type="button"
@@ -341,7 +350,7 @@ export function RuntimeView() {
           }
           className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-hover)]"
         >
-          Expand Top
+          {t("runtimeview.ExpandTop")}
         </button>
         <div className="text-[11px] text-[var(--muted)] ml-auto">
           {snapshot
@@ -352,25 +361,56 @@ export function RuntimeView() {
 
       {snapshot && (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <OrderCard title="Plugins" entries={snapshot.order.plugins} />
-          <OrderCard title="Actions" entries={snapshot.order.actions} />
-          <OrderCard title="Providers" entries={snapshot.order.providers} />
-          <OrderCard title="Evaluators" entries={snapshot.order.evaluators} />
+          <OrderCard
+            title={t("runtimeview.Plugins")}
+            entries={snapshot.order.plugins}
+          />
+          <OrderCard
+            title={t("runtimeview.Actions")}
+            entries={snapshot.order.actions}
+          />
+          <OrderCard
+            title={t("runtimeview.Providers")}
+            entries={snapshot.order.providers}
+          />
+          <OrderCard
+            title={t("runtimeview.Evaluators")}
+            entries={snapshot.order.evaluators}
+          />
           <ServicesOrderCard entries={snapshot.order.services} />
           <div className="border border-[var(--border)] bg-[var(--card)] rounded-md p-3">
-            <div className="text-xs font-semibold mb-2">Summary</div>
+            <div className="text-xs font-semibold mb-2">
+              {t("runtimeview.Summary")}
+            </div>
             <div className="text-[11px] font-mono leading-5">
               <div>
-                runtime: {snapshot.runtimeAvailable ? "available" : "offline"}
+                {t("runtimeview.runtime")}{" "}
+                {snapshot.runtimeAvailable ? "available" : "offline"}
               </div>
-              <div>agent: {snapshot.meta.agentName}</div>
-              <div>state: {snapshot.meta.agentState}</div>
-              <div>model: {snapshot.meta.model ?? "n/a"}</div>
-              <div>plugins: {snapshot.meta.pluginCount}</div>
-              <div>actions: {snapshot.meta.actionCount}</div>
-              <div>providers: {snapshot.meta.providerCount}</div>
-              <div>evaluators: {snapshot.meta.evaluatorCount}</div>
-              <div>services: {snapshot.meta.serviceCount}</div>
+              <div>
+                {t("runtimeview.agent")} {snapshot.meta.agentName}
+              </div>
+              <div>
+                {t("runtimeview.state")} {snapshot.meta.agentState}
+              </div>
+              <div>
+                {t("runtimeview.model")} {snapshot.meta.model ?? "n/a"}
+              </div>
+              <div>
+                {t("runtimeview.plugins")} {snapshot.meta.pluginCount}
+              </div>
+              <div>
+                {t("runtimeview.actions")} {snapshot.meta.actionCount}
+              </div>
+              <div>
+                {t("runtimeview.providers")} {snapshot.meta.providerCount}
+              </div>
+              <div>
+                {t("runtimeview.evaluators")} {snapshot.meta.evaluatorCount}
+              </div>
+              <div>
+                {t("runtimeview.services")} {snapshot.meta.serviceCount}
+              </div>
             </div>
           </div>
         </div>
@@ -407,7 +447,7 @@ export function RuntimeView() {
           </div>
         ) : !snapshot.runtimeAvailable ? (
           <div className="text-xs text-[var(--muted)] p-3">
-            Agent runtime is not running. Start the runtime and refresh.
+            {t("runtimeview.AgentRuntimeIsNot")}
           </div>
         ) : (
           <TreeNode

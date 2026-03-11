@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
+
+import { ConfirmModal, useConfirm } from "@milady/app-core/components";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import {
-  ConfirmModal,
-  useConfirm,
-} from "../../src/components/shared/ConfirmModal";
 
 function findButton(
   root: TestRenderer.ReactTestInstance,

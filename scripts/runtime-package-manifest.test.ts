@@ -50,8 +50,8 @@ describe("runtime-package-manifest", () => {
       expect.arrayContaining([
         "@elizaos/core",
         "@elizaos/plugin-agent-orchestrator",
-        "@milady/plugin-bnb-identity",
-        "@milady/plugin-streaming-base",
+        "@elizaos/plugin-bnb-identity",
+        "@elizaos/plugin-streaming-base",
       ]),
     );
   });

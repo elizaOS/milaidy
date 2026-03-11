@@ -56,7 +56,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --ignore-scripts
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
@@ -113,7 +113,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --ignore-scripts
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
@@ -256,7 +256,7 @@ jobs:
 
       - name: Setup Node.js (GitHub-hosted)
         if: runner.os != 'Linux'
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           check-latest: false
@@ -298,7 +298,7 @@ jobs:
       - name: Build renderer assets
         run: |
           cd apps/app
-          npx vite build
+          bunx vite build
 
       - name: Build native macOS effects dylib
         if: runner.os == 'macOS'
@@ -370,7 +370,7 @@ jobs:
 
       # WHY v3 + check-latest: false — v4 has slow post-action and nodejs.org timeouts; v3 uses toolcache.
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           check-latest: false
@@ -464,7 +464,7 @@ jobs:
         if: steps.cloud.outputs.enabled == 'true'
         run: |
           for i in 1 2 3 4 5; do
-            bun install --frozen-lockfile && break
+            bun install --frozen-lockfile --ignore-scripts && break
             echo "Attempt $i failed, retrying in $((i * 15))s..."
             sleep $((i * 15))
           done
@@ -507,7 +507,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --ignore-scripts
 
       - name: Run repository postinstall patches
         run: bun run postinstall

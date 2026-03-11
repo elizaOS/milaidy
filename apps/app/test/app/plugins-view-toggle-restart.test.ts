@@ -14,7 +14,7 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     onWsEvent: (...args: unknown[]) => mockOnWsEvent(...args),
     installRegistryPlugin: vi.fn(),
@@ -35,6 +35,7 @@ function createDeferred<T>() {
 
 function baseContext() {
   return {
+    t: (k: string) => k,
     plugins: [
       {
         id: "test-plugin",
@@ -109,7 +110,7 @@ describe("PluginsView restart-aware toggles", () => {
         (node) =>
           typeof node.props.className === "string" &&
           node.props.className.includes("border-accent") &&
-          node.children.join("").includes("Applying plugin change"),
+          node.children.join("").includes("pluginsview.ApplyingPluginChan"),
       ).length,
     ).toBeGreaterThan(0);
 

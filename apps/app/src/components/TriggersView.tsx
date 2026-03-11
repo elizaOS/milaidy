@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { parsePositiveInteger } from "../../../../src/utils/number-parsing";
-import { useApp } from "../AppContext";
 import type {
   CreateTriggerRequest,
   TriggerSummary,
   UpdateTriggerRequest,
-} from "../api-client";
-import { formatDateTime, formatDurationMs } from "./shared/format";
-import { StatCard, StatusBadge, StatusDot } from "./shared/ui-badges";
+} from "@milady/app-core/api";
+import {
+  formatDateTime,
+  formatDurationMs,
+  StatCard,
+  StatusBadge,
+  StatusDot,
+} from "@milady/app-core/components";
+import { Button, Input } from "@milady/ui";
+import { useEffect, useMemo, useState } from "react";
+import { parsePositiveInteger } from "../../../../src/utils/number-parsing";
+import { useApp } from "../AppContext";
 
 type TriggerType = "interval" | "once" | "cron";
 type TriggerWakeMode = "inject_now" | "next_autonomy_cycle";
@@ -142,6 +148,7 @@ export function TriggersView() {
     runTriggerNow,
     loadTriggerRuns,
     loadTriggerHealth,
+    t,
   } = useApp();
 
   const [form, setForm] = useState<TriggerFormState>(emptyForm);
@@ -202,44 +209,50 @@ export function TriggersView() {
     <div className="space-y-4 max-w-4xl mx-auto">
       <section className="border border-border bg-card p-4">
         <p className="text-xs text-muted">
-          Triggers schedule autonomous instructions for the agent. Each trigger
-          can run on an interval, a one-time timestamp, or a cron schedule; when
-          it fires, the instruction is injected into autonomy and the run
-          outcome is logged below.
+          {t("triggersview.TriggersScheduleAu")}
         </p>
       </section>
 
       {/* ── Health stats ──────────────────────────────────────────── */}
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="text-sm font-bold">Trigger Health</h2>
-          <button
-            type="button"
-            className="px-2.5 py-1 text-[11px] border border-accent bg-accent hover:bg-accent-hover cursor-pointer"
+          <h2 className="text-sm font-bold">
+            {t("triggersview.TriggerHealth")}
+          </h2>
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 px-2.5 py-1 text-[11px] shadow-sm"
             style={accentFg}
             onClick={() => {
               void loadTriggerHealth();
               void loadTriggers();
             }}
           >
-            Refresh
-          </button>
+            {t("triggersview.Refresh")}
+          </Button>
         </div>
         {triggerHealth ? (
           <div className="flex gap-2 flex-wrap">
             <StatCard
-              label="Active"
+              label={t("triggersview.Active")}
               value={triggerHealth.activeTriggers}
               accent
             />
-            <StatCard label="Disabled" value={triggerHealth.disabledTriggers} />
             <StatCard
-              label="Executions"
+              label={t("triggersview.Disabled")}
+              value={triggerHealth.disabledTriggers}
+            />
+            <StatCard
+              label={t("triggersview.Executions")}
               value={triggerHealth.totalExecutions}
             />
-            <StatCard label="Failures" value={triggerHealth.totalFailures} />
             <StatCard
-              label="Last Exec"
+              label={t("triggersview.Failures")}
+              value={triggerHealth.totalFailures}
+            />
+            <StatCard
+              label={t("triggersview.LastExec")}
               value={formatDateTime(triggerHealth.lastExecutionAt, {
                 fallback: "—",
               })}
@@ -247,8 +260,7 @@ export function TriggersView() {
           </div>
         ) : (
           <div className="text-xs text-muted py-2">
-            No health data yet — triggers will report here after first
-            execution.
+            {t("triggersview.NoHealthDataYet")}
           </div>
         )}
       </section>
@@ -260,30 +272,32 @@ export function TriggersView() {
         </h2>
         <div className="grid gap-3">
           <div>
-            <span className="block text-[11px] text-muted mb-1">Name</span>
-            <input
-              className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
+            <span className="block text-[11px] text-muted mb-1">
+              {t("triggersview.Name")}
+            </span>
+            <Input
+              className="w-full h-9 px-3 py-1.5 text-sm bg-bg border-border focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
               value={form.displayName}
               onChange={(e) => setField("displayName", e.target.value)}
-              placeholder="e.g. Daily Digest, Heartbeat Check"
+              placeholder={t("triggersview.eGDailyDigestH")}
             />
           </div>
           <div>
             <span className="block text-[11px] text-muted mb-1">
-              Instructions
+              {t("triggersview.Instructions")}
             </span>
             <textarea
               className="w-full px-3 py-1.5 border border-border bg-bg text-sm min-h-[80px] focus:border-accent outline-none resize-y"
               value={form.instructions}
               onChange={(e) => setField("instructions", e.target.value)}
-              placeholder="What should the agent do when this trigger fires?"
+              placeholder={t("triggersview.WhatShouldTheAgen")}
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Schedule Type
+                {t("triggersview.ScheduleType")}
               </span>
               <select
                 className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
@@ -292,14 +306,16 @@ export function TriggersView() {
                   setField("triggerType", e.target.value as TriggerType)
                 }
               >
-                <option value="interval">Repeating Interval</option>
-                <option value="once">One-time</option>
-                <option value="cron">Cron Schedule</option>
+                <option value="interval">
+                  {t("triggersview.RepeatingInterval")}
+                </option>
+                <option value="once">{t("triggersview.OneTime")}</option>
+                <option value="cron">{t("triggersview.CronSchedule")}</option>
               </select>
             </div>
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Wake Mode
+                {t("triggersview.WakeMode")}
               </span>
               <select
                 className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
@@ -309,19 +325,19 @@ export function TriggersView() {
                 }
               >
                 <option value="inject_now">
-                  Inject &amp; wake immediately
+                  {t("triggersview.InjectAmpWakeIm")}
                 </option>
                 <option value="next_autonomy_cycle">
-                  Queue for next cycle
+                  {t("triggersview.QueueForNextCycle")}
                 </option>
               </select>
             </div>
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Max Runs (optional)
+                {t("triggersview.MaxRunsOptional")}
               </span>
-              <input
-                className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
+              <Input
+                className="w-full h-9 px-3 py-1.5 text-sm bg-bg border-border focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
                 value={form.maxRuns}
                 onChange={(e) => setField("maxRuns", e.target.value)}
                 placeholder="∞"
@@ -332,11 +348,11 @@ export function TriggersView() {
           {form.triggerType === "interval" && (
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Interval (ms) —{" "}
+                {t("triggersview.IntervalMs")}{" "}
                 {formatDurationMs(parsePositiveInteger(form.intervalMs))}
               </span>
-              <input
-                className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
+              <Input
+                className="w-full h-9 px-3 py-1.5 text-sm bg-bg border-border focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
                 value={form.intervalMs}
                 onChange={(e) => setField("intervalMs", e.target.value)}
                 placeholder="3600000"
@@ -346,30 +362,29 @@ export function TriggersView() {
           {form.triggerType === "once" && (
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Scheduled Time (ISO)
+                {t("triggersview.ScheduledTimeISO")}
               </span>
-              <input
-                className="w-full px-3 py-1.5 border border-border bg-bg text-sm focus:border-accent outline-none"
+              <Input
+                className="w-full h-9 px-3 py-1.5 text-sm bg-bg border-border focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
                 value={form.scheduledAtIso}
                 onChange={(e) => setField("scheduledAtIso", e.target.value)}
-                placeholder="2026-02-15T10:00:00.000Z"
+                placeholder={t("triggersview.20260215T100000")}
               />
             </div>
           )}
           {form.triggerType === "cron" && (
             <div>
               <span className="block text-[11px] text-muted mb-1">
-                Cron Expression (5-field)
+                {t("triggersview.CronExpression5F")}
               </span>
-              <input
-                className="w-full px-3 py-1.5 border border-border bg-bg text-sm font-mono focus:border-accent outline-none"
+              <Input
+                className="w-full h-9 px-3 py-1.5 text-sm font-mono bg-bg border-border focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
                 value={form.cronExpression}
                 onChange={(e) => setField("cronExpression", e.target.value)}
                 placeholder="*/15 * * * *"
               />
               <div className="text-[10px] text-muted mt-1">
-                minute hour day month weekday — e.g. "0 9 * * 1-5" = weekdays at
-                9am
+                {t("triggersview.minuteHourDayMont")}
               </div>
             </div>
           )}
@@ -380,7 +395,8 @@ export function TriggersView() {
               checked={form.enabled}
               onChange={(e) => setField("enabled", e.target.checked)}
             />
-            Start enabled
+
+            {t("triggersview.StartEnabled")}
           </span>
 
           {(formError || triggerError) && (
@@ -390,9 +406,10 @@ export function TriggersView() {
           )}
 
           <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              className="px-4 py-1.5 text-sm border border-accent bg-accent hover:bg-accent-hover disabled:opacity-40 cursor-pointer"
+            <Button
+              variant="default"
+              size="sm"
+              className="px-4 py-1.5 h-9 text-sm shadow-sm"
               style={accentFg}
               disabled={triggersSaving}
               onClick={() => {
@@ -404,15 +421,16 @@ export function TriggersView() {
                 : editingId
                   ? "Save Changes"
                   : "Create Trigger"}
-            </button>
+            </Button>
             {editingId && (
-              <button
-                type="button"
-                className="px-4 py-1.5 text-sm border border-border hover:border-accent cursor-pointer"
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-4 py-1.5 h-9 text-sm shadow-sm hover:border-accent"
                 onClick={clearForm}
               >
-                Cancel
-              </button>
+                {t("triggersview.Cancel")}
+              </Button>
             )}
           </div>
         </div>
@@ -421,7 +439,7 @@ export function TriggersView() {
       {/* ── Trigger list ──────────────────────────────────────────── */}
       <section className="border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold">Triggers</h2>
+          <h2 className="text-sm font-bold">{t("triggersview.Triggers")}</h2>
           <span className="text-[11px] text-muted">
             {triggersLoading ? "Loading…" : `${triggers.length} configured`}
           </span>
@@ -430,9 +448,11 @@ export function TriggersView() {
         {triggers.length === 0 && !triggersLoading ? (
           <div className="py-8 text-center">
             <div className="text-2xl mb-2">⏰</div>
-            <div className="text-sm text-muted">No triggers configured yet</div>
+            <div className="text-sm text-muted">
+              {t("triggersview.NoTriggersConfigur")}
+            </div>
             <div className="text-xs text-muted mt-1">
-              Create one above to schedule autonomous agent tasks
+              {t("triggersview.CreateOneAboveTo")}
             </div>
           </div>
         ) : (
@@ -483,9 +503,10 @@ export function TriggersView() {
                     </div>
                     {/* Actions */}
                     <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
-                      <button
-                        type="button"
-                        className="px-2 py-1 text-[11px] border border-accent bg-accent hover:bg-accent-hover cursor-pointer"
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-7 px-2 py-1 text-[11px] shadow-sm"
                         style={accentFg}
                         onClick={() => {
                           setEditingId(trigger.id);
@@ -494,11 +515,12 @@ export function TriggersView() {
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                        {t("triggersview.Edit")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-accent"
                         onClick={() => {
                           void updateTrigger(trigger.id, {
                             enabled: !trigger.enabled,
@@ -506,19 +528,21 @@ export function TriggersView() {
                         }}
                       >
                         {trigger.enabled ? "Disable" : "Enable"}
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-accent"
                         onClick={() => {
                           void runTriggerNow(trigger.id);
                         }}
                       >
-                        Run now
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 text-[11px] border border-border hover:border-accent cursor-pointer"
+                        {t("triggersview.RunNow")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-accent"
                         onClick={() => {
                           if (selectedRunsId === trigger.id) {
                             setSelectedRunsId(null);
@@ -529,17 +553,18 @@ export function TriggersView() {
                         }}
                       >
                         {selectedRunsId === trigger.id ? "Hide runs" : "Runs"}
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 text-[11px] border border-border hover:border-danger text-danger cursor-pointer"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-danger text-danger"
                         onClick={() => {
                           if (confirm(`Delete "${trigger.displayName}"?`))
                             void deleteTrigger(trigger.id);
                         }}
                       >
-                        Delete
-                      </button>
+                        {t("triggersview.Delete")}
+                      </Button>
                     </div>
                   </div>
 
@@ -562,7 +587,7 @@ export function TriggersView() {
                     <div className="flex items-center gap-1.5 text-xs">
                       <StatusDot status={trigger.lastStatus} />
                       <span className="text-muted">
-                        Last run {trigger.lastStatus}{" "}
+                        {t("triggersview.LastRun")} {trigger.lastStatus}{" "}
                         {trigger.lastRunAtIso &&
                           `at ${formatDateTime(trigger.lastRunAtIso, { fallback: "—" })}`}
                       </span>
@@ -578,11 +603,11 @@ export function TriggersView() {
                   {selectedRunsId === trigger.id && (
                     <div className="border border-border bg-card p-3 mt-1">
                       <div className="text-[11px] font-bold mb-2 uppercase tracking-wide text-muted">
-                        Run History
+                        {t("triggersview.RunHistory")}
                       </div>
                       {selectedRuns.length === 0 ? (
                         <div className="text-xs text-muted py-2">
-                          No runs recorded yet.
+                          {t("triggersview.NoRunsRecordedYet")}
                         </div>
                       ) : (
                         <div className="space-y-1">

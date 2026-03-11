@@ -1,4 +1,9 @@
-import type { SandboxBrowserEndpoints, SandboxWindowInfo } from "../api-client";
+import type {
+  SandboxBrowserEndpoints,
+  SandboxWindowInfo,
+} from "@milady/app-core/api";
+import { Button } from "@milady/ui";
+import { useApp } from "../AppContext";
 
 interface LifoMonitorPanelProps {
   monitorOnline: boolean;
@@ -35,16 +40,17 @@ export function LifoMonitorPanel({
   setMonitorOnline,
   setMonitorError,
 }: LifoMonitorPanelProps) {
+  const { t } = useApp();
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-3">
       <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
         <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
           <div>
             <div className="text-xs font-semibold text-txt">
-              Lifo Computer-Use Surface
+              {t("lifomonitorpanel.LifoComputerUseSu")}
             </div>
             <div className="text-[11px] text-muted">
-              Watch-only desktop mirror of what the autonomous agent is doing.
+              {t("lifomonitorpanel.WatchOnlyDesktopM")}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -55,17 +61,18 @@ export function LifoMonitorPanel({
             >
               {monitorOnline ? "live" : "offline"}
             </span>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setNoVncFailed(false);
                 void refreshMonitorMeta();
                 void refreshScreenPreview();
               }}
-              className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] text-txt hover:border-accent hover:text-accent transition-colors"
+              className="h-7 px-2.5 py-1 text-[11px] shadow-sm hover:border-accent hover:text-accent"
             >
-              Refresh
-            </button>
+              {t("lifomonitorpanel.Refresh")}
+            </Button>
           </div>
         </div>
 
@@ -73,7 +80,7 @@ export function LifoMonitorPanel({
           {noVncActive && safeNoVncEndpoint ? (
             <iframe
               src={safeNoVncEndpoint}
-              title="Sandbox live noVNC surface"
+              title={t("lifomonitorpanel.SandboxLiveNoVNCS")}
               className="h-full w-full border-0"
               sandbox="allow-scripts allow-forms allow-pointer-lock"
               onLoad={() => {
@@ -96,7 +103,7 @@ export function LifoMonitorPanel({
             />
           ) : (
             <p className="px-4 text-center text-xs text-muted">
-              Waiting for sandbox screen frames...
+              {t("lifomonitorpanel.WaitingForSandbox")}
             </p>
           )}
         </div>
@@ -111,17 +118,17 @@ export function LifoMonitorPanel({
       <div className="rounded-xl border border-border overflow-hidden bg-panel min-h-[320px]">
         <div className="px-3 py-2 border-b border-border">
           <div className="text-xs font-semibold text-txt">
-            Browser + Sandbox Context
+            {t("lifomonitorpanel.BrowserSandboxCo")}
           </div>
           <div className="text-[11px] text-muted">
-            Agent controls browser/computer tools; this panel mirrors state.
+            {t("lifomonitorpanel.AgentControlsBrows")}
           </div>
         </div>
 
         <div className="p-3 space-y-3 text-[11px]">
           <div>
             <div className="text-muted uppercase tracking-wide text-[10px]">
-              Live Surface
+              {t("lifomonitorpanel.LiveSurface")}
             </div>
             <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
               {noVncEndpoint && !noVncFailed
@@ -134,7 +141,7 @@ export function LifoMonitorPanel({
 
           <div>
             <div className="text-muted uppercase tracking-wide text-[10px]">
-              CDP Endpoint
+              {t("lifomonitorpanel.CDPEndpoint")}
             </div>
             <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
               {browserEndpoints?.cdpEndpoint ?? "Unavailable"}
@@ -143,7 +150,7 @@ export function LifoMonitorPanel({
 
           <div>
             <div className="text-muted uppercase tracking-wide text-[10px]">
-              WS Endpoint
+              {t("lifomonitorpanel.WSEndpoint")}
             </div>
             <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
               {browserEndpoints?.wsEndpoint ?? "Unavailable"}
@@ -152,7 +159,7 @@ export function LifoMonitorPanel({
 
           <div>
             <div className="text-muted uppercase tracking-wide text-[10px]">
-              noVNC Endpoint
+              {t("lifomonitorpanel.noVNCEndpoint")}
             </div>
             <div className="mt-1 rounded border border-border bg-card px-2 py-1 text-txt break-all">
               {browserEndpoints?.noVncEndpoint ?? "Unavailable"}
@@ -161,7 +168,8 @@ export function LifoMonitorPanel({
 
           <div>
             <div className="text-muted uppercase tracking-wide text-[10px]">
-              Visible Windows ({sandboxWindows.length})
+              {t("lifomonitorpanel.VisibleWindows")}
+              {sandboxWindows.length})
             </div>
             <div className="mt-1 max-h-[154px] overflow-auto rounded border border-border bg-card p-2 space-y-1">
               {sandboxWindows.length > 0 ? (
@@ -172,7 +180,9 @@ export function LifoMonitorPanel({
                   </div>
                 ))
               ) : (
-                <div className="text-muted">No active windows reported.</div>
+                <div className="text-muted">
+                  {t("lifomonitorpanel.NoActiveWindowsRe")}
+                </div>
               )}
             </div>
           </div>

@@ -6,9 +6,8 @@
  * inside the ./inventory/ directory.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useApp } from "../AppContext";
-import { createTranslator } from "../i18n";
 import { BscTradePanel, type TrackedToken } from "./BscTradePanel";
 import {
   BSC_GAS_THRESHOLD,
@@ -41,18 +40,16 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     walletError,
     loadBalances,
     loadNfts,
-    cloudConnected,
+    miladyCloudConnected,
     setTab,
     setState,
     setActionNotice,
-    copyToClipboard,
     executeBscTrade,
     getBscTradePreflight,
     getBscTradeQuote,
     getBscTradeTxStatus,
-    uiLanguage,
+    t,
   } = useApp();
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
 
   // ── Tracked tokens state ──────────────────────────────────────────
   const [trackedTokens, setTrackedTokens] = useState<TrackedToken[]>(() =>
@@ -68,7 +65,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     cfg?.alchemyKeySet || cfg?.ankrKeySet || cfg?.infuraKeySet,
   );
   const hasWalletIdentity = Boolean(
-    cloudConnected ||
+    miladyCloudConnected ||
       walletAddresses?.evmAddress ||
       walletAddresses?.solanaAddress ||
       walletConfig?.evmAddress ||
@@ -175,10 +172,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           {t("wallet.setup.rpcNotConfigured")}
         </div>
         <p className="text-xs text-muted mb-4 leading-relaxed max-w-md mx-auto">
-          To view balances and trade on BSC you need RPC provider keys. Connect
-          to <strong>Eliza Cloud</strong> for managed RPC access, or configure{" "}
-          <strong>NodeReal / QuickNode</strong> endpoints manually in{" "}
-          <strong>Settings</strong>.
+          {t("wallet.setup.rpcHint")}
         </p>
         <button
           type="button"
@@ -189,7 +183,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           }`}
           onClick={goToRpcSettings}
         >
-          Configure RPC
+          {t("wallet.setup.configureRpc")}
         </button>
       </div>
     );
@@ -239,7 +233,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     return (
       <div className="space-y-2 mt-3">
         <PortfolioHeader
-          t={t}
           totalUsd={totalUsd}
           bscNativeBalance={bscNativeBalance}
           evmAddr={evmAddr ?? null}
@@ -248,8 +241,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           gasReady={gasReady}
           bscChainError={bscChainError}
           hasManagedBscRpc={hasManagedBscRpc}
-          copyToClipboard={copyToClipboard}
-          setActionNotice={setActionNotice}
           loadBalances={loadBalances}
           goToRpcSettings={goToRpcSettings}
         />
@@ -258,10 +249,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           <BscTradePanel
             tradeReady={tradeReady}
             bnbBalance={bnbBalance}
-            trackedTokens={trackedTokens}
             onAddToken={handleAddToken}
-            copyToClipboard={copyToClipboard}
-            setActionNotice={setActionNotice}
             getBscTradePreflight={getBscTradePreflight}
             getBscTradeQuote={getBscTradeQuote}
             executeBscTrade={executeBscTrade}

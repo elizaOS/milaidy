@@ -44,6 +44,7 @@ function createContext(
   overrides?: Partial<PaletteContext>,
 ): PaletteContext & Record<string, unknown> {
   return {
+    t: (k: string) => k,
     commandPaletteOpen: true,
     commandQuery: "",
     commandActiveIndex: 0,
@@ -64,6 +65,20 @@ function createContext(
     setTheme: vi.fn(),
     ...(overrides ?? {}),
   };
+}
+
+function nodeText(node: TestRenderer.ReactTestInstance): string {
+  if (typeof node.children[0] === "string") return node.children[0];
+  if (node.children) {
+    return node.children
+      .map((c) =>
+        typeof c === "string"
+          ? c
+          : nodeText(c as TestRenderer.ReactTestInstance),
+      )
+      .join("");
+  }
+  return "";
 }
 
 let addListenerSpy: ReturnType<typeof vi.spyOn>;
@@ -131,12 +146,12 @@ describe("CommandPalette keyboard behavior", () => {
       tree = TestRenderer.create(React.createElement(CommandPalette));
     });
 
+    const _input = tree.root.find((node) => node.type === "input");
     const commandButtons = tree.root.findAll(
       (node: TestRenderer.ReactTestInstance) =>
         node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("w-full") &&
-        node.props.className.includes("flex"),
+        nodeText(node).length > 0 &&
+        !node.props["aria-label"],
     );
 
     // Component should render at least one command button

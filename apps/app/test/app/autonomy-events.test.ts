@@ -1,5 +1,5 @@
+import type { StreamEventEnvelope } from "@milady/app-core/api";
 import { describe, expect, it } from "vitest";
-import type { StreamEventEnvelope } from "../../src/api-client";
 import {
   buildAutonomyGapReplayRequests,
   hasPendingAutonomyGaps,

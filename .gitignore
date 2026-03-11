@@ -2,6 +2,7 @@ node_modules
 **/node_modules/
 .env
 dist
+storybook-static
 coverage
 tmp/
 apps/app/electron/build/
@@ -117,3 +118,6 @@ elizaos-plugins/
 e2e-screenshots/
 data/
 .avatar-clone-tmp
+
+# Debug PTY captures from plugin-agent-orchestrator (PARALLAX_DEBUG_CAPTURE=1)
+.parallax/

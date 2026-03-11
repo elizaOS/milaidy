@@ -11,17 +11,12 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
-// Import the agent plugin
-import { Agent } from "@milady/capacitor-agent";
-import { Desktop } from "@milady/capacitor-desktop";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import { AppProvider } from "./AppContext";
 // Import Capacitor bridge utilities
-import { initializeCapacitorBridge } from "./bridge/capacitor-bridge";
-import { isElectrobunRuntime } from "./bridge/electrobun-runtime";
-import { initializeStorageBridge } from "./bridge/storage-bridge";
+import {
+  initializeCapacitorBridge,
+  initializeStorageBridge,
+  isElectrobunRuntime,
+} from "@milady/app-core/bridge";
 import {
   AGENT_READY_EVENT,
   APP_PAUSE_EVENT,
@@ -32,7 +27,14 @@ import {
   EMOTE_PICKER_EVENT,
   SHARE_TARGET_EVENT,
   TRAY_ACTION_EVENT,
-} from "./events";
+} from "@milady/app-core/events";
+// Import the agent plugin
+import { Agent } from "@milady/capacitor-agent";
+import { Desktop } from "@milady/capacitor-desktop";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import { AppProvider } from "./AppContext";
 
 /**
  * Platform detection utilities

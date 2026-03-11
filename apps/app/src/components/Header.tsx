@@ -1,103 +1,60 @@
+import { LanguageDropdown } from "@milady/app-core/components";
+import { getTabGroups, type TabGroup } from "@milady/app-core/navigation";
+import { IconTooltip as IconButtonTooltip } from "@milady/ui";
 import {
   AlertTriangle,
   Bug,
-  Check,
   CircleDollarSign,
-  Loader2,
-  Pause,
-  Play,
-  RotateCcw,
-  Search,
-  Wallet,
+  Menu,
+  Monitor,
+  Smartphone,
+  X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
-import { COMMAND_PALETTE_EVENT, dispatchMiladyEvent } from "../events";
 import { useBugReport } from "../hooks/useBugReport";
-import { createTranslator } from "../i18n";
-import { IconTooltip as IconButtonTooltip } from "./shared/tooltips";
+import { AgentModeDropdown } from "./shared/AgentModeDropdown";
 
-// Status indicator with icon
-function StatusIndicator({ state }: { state: string }) {
-  const getStatusConfig = () => {
-    switch (state) {
-      case "running":
-        return {
-          icon: Check,
-          colorClass: "text-ok border-ok bg-ok/10",
-          dotColor: "bg-ok",
-          label: "Running",
-        };
-      case "paused":
-        return {
-          icon: Pause,
-          colorClass: "text-warn border-warn bg-warn/10",
-          dotColor: "bg-warn",
-          label: "Paused",
-        };
-      case "error":
-        return {
-          icon: AlertTriangle,
-          colorClass: "text-danger border-danger bg-danger/10",
-          dotColor: "bg-danger",
-          label: "Error",
-        };
-      default:
-        return {
-          icon: Loader2,
-          colorClass: "text-muted border-muted bg-muted/10",
-          dotColor: "bg-muted",
-          label: state.replace(/_/g, " "),
-        };
-    }
-  };
+const NAV_LABEL_I18N_KEY: Record<string, string> = {
+  Chat: "nav.chat",
+  Companion: "nav.companion",
+  Stream: "nav.stream",
+  Character: "nav.character",
+  Wallets: "nav.wallets",
+  Knowledge: "nav.knowledge",
+  Social: "nav.social",
+  Apps: "nav.apps",
+  Settings: "nav.settings",
+  Advanced: "nav.advanced",
+};
 
-  const config = getStatusConfig();
-  const Icon = config.icon;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 border rounded-md font-medium text-[11px] sm:text-xs ${config.colorClass}`}
-      data-testid="status-pill"
-    >
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${config.dotColor} ${state === "running" ? "" : "animate-pulse"}`}
-      />
-      <span className="hidden sm:inline capitalize">{config.label}</span>
-      <span className="sm:hidden">
-        <Icon className="w-3.5 h-3.5" />
-      </span>
-    </span>
-  );
+interface HeaderProps {
+  mobileLeft?: ReactNode;
 }
 
-export function Header() {
+export function Header({ mobileLeft }: HeaderProps) {
   const {
     agentStatus,
-    cloudEnabled,
-    cloudConnected,
-    cloudCredits,
-    cloudCreditsCritical,
-    cloudCreditsLow,
-    cloudTopUpUrl,
-    walletAddresses,
-    lifecycleBusy,
-    lifecycleAction,
-    handlePauseResume,
-    handleRestart,
-    handleStart,
-    copyToClipboard,
+    miladyCloudEnabled,
+    miladyCloudConnected,
+    miladyCloudCredits,
+    miladyCloudCreditsCritical,
+    miladyCloudCreditsLow,
+    miladyCloudTopUpUrl,
+    tab,
     setTab,
-    dropStatus,
+    plugins,
     loadDropStatus,
-    registryStatus,
     uiShellMode,
     setUiShellMode,
     uiLanguage,
+    setUiLanguage,
+    t,
   } = useApp();
 
   const [copied, setCopied] = useState<string | null>(null);
-  const t = useMemo(() => createTranslator(uiLanguage), [uiLanguage]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     void loadDropStatus();
@@ -111,50 +68,52 @@ export function Header() {
     }
   }, [copied]);
 
+  // Close mobile menu on escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const streamingEnabled = useMemo(
+    () => plugins.some((p) => p.id === "streaming-base" && p.enabled),
+    [plugins],
+  );
+
+  const tabGroups = useMemo(
+    () => getTabGroups(streamingEnabled),
+    [streamingEnabled],
+  );
+
+  const activeGroup = useMemo(
+    () => tabGroups.find((group) => group.tabs.includes(tab)) ?? tabGroups[0],
+    [tab, tabGroups],
+  );
+
   const name = agentStatus?.agentName ?? "Milady";
-  const state = agentStatus?.state ?? "not_started";
 
-  const restartBusy = lifecycleBusy && lifecycleAction === "restart";
-  const pauseResumeBusy = lifecycleBusy;
-  const pauseResumeDisabled =
-    lifecycleBusy || state === "restarting" || state === "starting";
-
-  const creditColor = cloudCreditsCritical
+  const creditColor = miladyCloudCreditsCritical
     ? "border-danger text-danger bg-danger/10"
-    : cloudCreditsLow
+    : miladyCloudCreditsLow
       ? "border-warn text-warn bg-warn/10"
       : "border-ok text-ok bg-ok/10";
-
-  const evmShort = walletAddresses?.evmAddress
-    ? `${walletAddresses.evmAddress.slice(0, 6)}...${walletAddresses.evmAddress.slice(-4)}`
-    : null;
-  const solShort = walletAddresses?.solanaAddress
-    ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}`
-    : null;
 
   const { open: openBugReport } = useBugReport();
 
   // Minimum 44px touch targets for mobile
   const iconBtnBase =
-    "inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border bg-bg cursor-pointer text-sm leading-none hover:border-accent hover:text-accent transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95 rounded-md";
-
-  const handleCopy = (type: "evm" | "sol", address: string) => {
-    copyToClipboard(address);
-    setCopied(type);
-  };
+    "inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border/50 bg-bg/50 backdrop-blur-md cursor-pointer text-sm leading-none hover:border-accent hover:text-accent font-medium hover:-translate-y-0.5 transition-all duration-300 hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95 rounded-xl text-txt shadow-sm";
 
   // Shell mode toggle (companion vs native)
   const shellMode = uiShellMode ?? "companion";
   const isNativeShell = shellMode === "native";
-  const shellToggleStateLabel = isNativeShell
-    ? t("header.nativeMode")
-    : t("header.companionMode");
   const shellToggleActionLabel = isNativeShell
     ? t("header.switchToCompanion")
     : t("header.switchToNative");
-  const shellToggleClass = isNativeShell
-    ? "border-[#22c55e] text-[#22c55e] bg-[rgba(34,197,94,0.12)] hover:bg-[rgba(34,197,94,0.2)] shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_16px_rgba(34,197,94,0.22)]"
-    : "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_16px_rgba(212,175,55,0.2)]";
 
   const handleShellToggle = () => {
     const nextMode = shellMode === "companion" ? "native" : "companion";
@@ -163,294 +122,294 @@ export function Header() {
   };
 
   return (
-    <header className="border-b border-border bg-bg py-2 px-3 sm:py-3 sm:px-4">
-      <div className="flex items-center gap-3 min-w-0">
-        {/* Agent Name with Avatar */}
-        <div className="flex items-center gap-2 shrink-0 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
-            <span className="text-accent-fg font-bold text-sm">M</span>
+    <>
+      <header className="border-b border-border/50 bg-bg/80 backdrop-blur-xl py-2 px-3 sm:py-3 sm:px-4 z-20 sticky top-0 w-full transition-all">
+        <div className="flex items-center justify-between gap-3 min-w-0 w-full">
+          {/* Left: Agent Name or mobileLeft */}
+          <div className="flex items-center gap-2 shrink-0 min-w-0 lg:w-[260px]">
+            <div className="hidden md:block min-w-0">
+              <span
+                className="text-base font-bold text-txt-strong truncate block"
+                data-testid="agent-name"
+              >
+                {name}
+              </span>
+            </div>
+            <div className="md:hidden flex items-center gap-2 min-w-0">
+              {mobileLeft ? (
+                mobileLeft
+              ) : (
+                <div className="flex items-center gap-2">
+                  <activeGroup.icon className="w-4 h-4 text-accent" />
+                  <span className="text-[13px] font-semibold text-accent truncate">
+                    {t(
+                      NAV_LABEL_I18N_KEY[activeGroup.label] ??
+                        activeGroup.label,
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="min-w-0">
-            <span
-              className="text-base font-bold text-txt-strong truncate block"
-              data-testid="agent-name"
-            >
-              {name}
-            </span>
-            <span className="text-[10px] text-muted hidden sm:block">
-              {t("header.aiAgent")}
-            </span>
-          </div>
-        </div>
 
-        {/* Right side controls */}
-        <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-2 w-max ml-auto pr-0.5">
-            {/* Free Mint Banner */}
-            {dropStatus?.dropEnabled &&
-              dropStatus?.publicMintOpen &&
-              !dropStatus?.mintedOut &&
-              !dropStatus?.userHasMinted &&
-              !registryStatus?.registered && (
+          {/* Center: Desktop/Tablet Nav */}
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-1 overflow-x-auto whitespace-nowrap px-2 scrollbar-hide">
+            {tabGroups.map((group: TabGroup) => {
+              const primaryTab = group.tabs[0];
+              const isActive = group.tabs.includes(tab);
+              const Icon = group.icon;
+              return (
                 <button
                   type="button"
-                  onClick={() => setTab("character")}
-                  className="inline-flex shrink-0 items-center gap-1.5 px-3 py-2 h-9 border border-accent bg-accent-subtle text-[11px] sm:text-xs font-bold text-accent cursor-pointer hover:bg-accent/20 transition-colors animate-pulse rounded-md"
+                  key={group.label}
+                  className={`inline-flex items-center justify-center gap-1.5 shrink-0 px-3 lg:px-4 py-2 text-[12px] bg-transparent border border-transparent cursor-pointer transition-all duration-300 rounded-full ${
+                    isActive
+                      ? "text-accent-fg font-bold bg-accent shadow-[0_0_15px_rgba(var(--accent),0.4)] border-accent/50 scale-105"
+                      : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
+                  }`}
+                  onClick={() => setTab(primaryTab)}
+                  title={group.description}
                 >
-                  <span
-                    className="inline-block w-2 h-2 rounded-full bg-accent animate-ping"
-                    style={{ animationDuration: "1.5s" }}
-                  />
-                  <span className="hidden sm:inline">
-                    {t("header.freeMintLive")}
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden lg:inline">
+                    {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
                   </span>
-                  <span className="sm:hidden">Mint</span>
                 </button>
-              )}
+              );
+            })}
+          </nav>
 
-            {/* Cloud Credits */}
-            {(cloudEnabled || cloudConnected) &&
-              (cloudConnected ? (
-                <a
-                  href={cloudTopUpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-9 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-accent hover:shadow-sm ${cloudCredits === null ? "border-muted text-muted" : creditColor}`}
-                  title="Cloud credits balance"
+          {/* Right side controls */}
+          <div className="flex shrink-0 items-center justify-end gap-2 lg:w-[260px]">
+            {/* Scrollable controls */}
+            <div className="overflow-x-auto scrollbar-hide min-w-0 hidden sm:block">
+              <div className="flex items-center gap-2 w-max ml-auto pr-0.5">
+                {/* Cloud Credits */}
+                {(miladyCloudEnabled || miladyCloudConnected) &&
+                  (miladyCloudConnected ? (
+                    <a
+                      href={miladyCloudTopUpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-11 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-accent hover:shadow-sm ${miladyCloudCredits === null ? "border-muted text-muted" : creditColor}`}
+                      title={t("header.CloudCreditsBalanc")}
+                    >
+                      <CircleDollarSign className="w-3.5 h-3.5" />
+                      {miladyCloudCredits === null
+                        ? t("header.miladyCloudConnected")
+                        : `$${miladyCloudCredits.toFixed(2)}`}
+                    </a>
+                  ) : (
+                    <span className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 h-11 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">
+                        {t("header.cloudDisconnected")}
+                      </span>
+                      <span className="sm:hidden">{t("header.Cloud")}</span>
+                    </span>
+                  ))}
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              <IconButtonTooltip label={shellToggleActionLabel}>
+                <button
+                  type="button"
+                  onClick={handleShellToggle}
+                  className={iconBtnBase}
+                  aria-label={shellToggleActionLabel}
+                  data-testid="ui-shell-toggle"
                 >
-                  <CircleDollarSign className="w-3.5 h-3.5" />
-                  {cloudCredits === null
-                    ? t("header.cloudConnected")
-                    : `$${cloudCredits.toFixed(2)}`}
-                </a>
-              ) : (
-                <span className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 h-9 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">
-                    {t("header.cloudDisconnected")}
-                  </span>
-                  <span className="sm:hidden">Cloud</span>
-                </span>
-              ))}
+                  {isNativeShell ? (
+                    <Smartphone className="w-5 h-5" />
+                  ) : (
+                    <Monitor className="w-5 h-5" />
+                  )}
+                </button>
+              </IconButtonTooltip>
 
-            {/* Shell Mode Toggle */}
-            <button
-              type="button"
-              onClick={handleShellToggle}
-              className={`inline-flex shrink-0 items-center gap-2 h-9 px-3 border rounded-md font-mono cursor-pointer transition-all ${shellToggleClass}`}
-              title={shellToggleActionLabel}
-              data-testid="ui-shell-toggle"
-            >
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-current/50 text-[10px] leading-none">
-                &#x21C4;
-              </span>
-              <span className="hidden sm:flex flex-col items-start leading-[1.02]">
-                <span className="text-[9px] uppercase tracking-[0.08em] opacity-80">
-                  {shellToggleStateLabel}
-                </span>
-                <span className="text-[11px] font-semibold">
-                  {shellToggleActionLabel}
-                </span>
-              </span>
-            </button>
-
-            {/* Status & Controls Group */}
-            <div className="flex items-center gap-2 shrink-0 bg-bg-accent/50 rounded-lg p-1">
-              <StatusIndicator state={state} />
-
-              {/* Pause/Resume Button */}
-              {state === "restarting" || state === "starting" ? (
-                <span className="inline-flex items-center justify-center w-11 h-11 text-sm leading-none opacity-60">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                </span>
-              ) : state === "not_started" || state === "stopped" ? (
-                <IconButtonTooltip label={t("header.startAgent")}>
-                  <button
-                    type="button"
-                    onClick={() => void handleStart()}
-                    aria-label={t("header.startAgent")}
-                    className={`${iconBtnBase} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                    disabled={lifecycleBusy}
-                  >
-                    <Play className="w-5 h-5" />
-                  </button>
-                </IconButtonTooltip>
-              ) : (
-                <IconButtonTooltip
-                  label={
-                    state === "paused"
-                      ? t("header.resumeAutonomy")
-                      : t("header.pauseAutonomy")
-                  }
-                  shortcut="Space"
-                >
-                  <button
-                    type="button"
-                    onClick={handlePauseResume}
-                    aria-label={
-                      state === "paused"
-                        ? t("header.resumeAutonomy")
-                        : t("header.pauseAutonomy")
-                    }
-                    className={`${iconBtnBase} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
-                    disabled={pauseResumeDisabled}
-                  >
-                    {pauseResumeBusy ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : state === "paused" ? (
-                      <Play className="w-5 h-5" />
-                    ) : (
-                      <Pause className="w-5 h-5" />
-                    )}
-                  </button>
-                </IconButtonTooltip>
-              )}
-
-              {/* Restart Button */}
               <IconButtonTooltip
-                label={t("header.restartAgent")}
-                shortcut="Ctrl+R"
+                label={t("header.reportBug")}
+                shortcut="Shift+?"
               >
                 <button
                   type="button"
-                  onClick={handleRestart}
-                  aria-label={t("header.restartAgent")}
-                  disabled={lifecycleBusy || state === "restarting"}
-                  className="inline-flex items-center justify-center h-9 px-3 border border-border bg-bg text-[11px] sm:text-xs font-mono cursor-pointer hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                  onClick={openBugReport}
+                  aria-label={t("header.reportBug")}
+                  className={iconBtnBase}
                 >
-                  {restartBusy || state === "restarting" ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin sm:hidden" />
-                      <span className="hidden sm:inline">
-                        {t("header.restarting")}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="w-4 h-4 sm:hidden" />
-                      <span className="hidden sm:inline">
-                        {t("header.restart")}
-                      </span>
-                    </>
-                  )}
+                  <Bug className="w-5 h-5" />
                 </button>
               </IconButtonTooltip>
             </div>
 
-            {/* Command Palette */}
-            <IconButtonTooltip
-              label="Command Palette"
-              shortcut={
-                navigator.platform?.includes("Mac") ? "\u2318K" : "Ctrl+K"
-              }
+            <div className="hidden md:flex items-center gap-2 shrink-0">
+              {/* Agent Mode */}
+              <AgentModeDropdown />
+
+              {/* Language Selector */}
+              {!isNativeShell && (
+                <LanguageDropdown
+                  uiLanguage={uiLanguage}
+                  setUiLanguage={setUiLanguage}
+                  t={t}
+                />
+              )}
+            </div>
+
+            {/* Mobile Hamburger */}
+            <button
+              type="button"
+              className={`md:hidden ${iconBtnBase}`}
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              aria-expanded={mobileMenuOpen}
             >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-[140] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
+        >
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm w-full h-full border-0 cursor-pointer"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation menu"
+          />
+
+          {/* Menu Panel */}
+          <div className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-bg border-l border-border shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-accent">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+                  <activeGroup.icon className="w-4 h-4 text-accent-fg" />
+                </span>
+                <span className="text-sm font-semibold text-txt-strong">
+                  {t("nav.Menu")}
+                </span>
+              </div>
               <button
                 type="button"
-                onClick={() => dispatchMiladyEvent(COMMAND_PALETTE_EVENT)}
-                aria-label="Open command palette"
-                className={iconBtnBase}
+                className="inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border/50 bg-card/50 backdrop-blur-sm text-txt cursor-pointer hover:border-accent hover:text-accent transition-all duration-300 hover:shadow-[0_0_15px_rgba(var(--accent),0.3)] hover:-translate-y-0.5 active:scale-95 rounded-xl"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation menu"
               >
-                <Search className="w-5 h-5" />
+                <X className="w-5 h-5" />
               </button>
-            </IconButtonTooltip>
+            </div>
 
-            {/* Bug Report */}
-            <IconButtonTooltip label={t("header.reportBug")} shortcut="Shift+?">
-              <button
-                type="button"
-                onClick={openBugReport}
-                aria-label={t("header.reportBug")}
-                className={iconBtnBase}
-              >
-                <Bug className="w-5 h-5" />
-              </button>
-            </IconButtonTooltip>
-
-            {/* Wallet Dropdown */}
-            {(evmShort || solShort) && (
-              <div className="wallet-wrapper relative inline-flex shrink-0 group">
-                <IconButtonTooltip label={t("header.viewWallets")}>
-                  <button
-                    type="button"
-                    onClick={() => setTab("wallets")}
-                    aria-label={t("header.viewWallets")}
-                    className={iconBtnBase}
-                  >
-                    <Wallet className="w-5 h-5" />
-                  </button>
-                </IconButtonTooltip>
-
-                {/* Wallet Dropdown */}
-                <div className="wallet-tooltip hidden group-hover:block group-focus-within:block absolute top-full right-0 mt-2 p-3 border border-border bg-bg-elevated z-50 min-w-[300px] shadow-xl rounded-lg">
-                  <div className="text-[11px] text-muted uppercase tracking-wide mb-2 px-1">
-                    {t("header.walletAddresses")}
-                  </div>
-
-                  {evmShort && (
-                    <div className="flex items-center gap-2 text-xs py-2 px-1 rounded-md hover:bg-bg-hover transition-colors">
-                      <span className="font-bold font-mono min-w-[40px] text-muted">
-                        EVM
+            <div className="flex-1 overflow-y-auto py-3 px-3">
+              <div className="flex flex-col gap-1">
+                {tabGroups.map((group: TabGroup, index) => {
+                  const primaryTab = group.tabs[0];
+                  const isActive = group.tabs.includes(tab);
+                  const Icon = group.icon;
+                  return (
+                    <button
+                      key={group.label}
+                      type="button"
+                      className={`w-full flex items-center gap-3 px-3 py-3.5 border rounded-xl text-[14px] font-medium transition-all duration-300 cursor-pointer min-h-[48px] ${
+                        isActive
+                          ? "border-accent/50 bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.3)] scale-[1.02]"
+                          : "border-transparent bg-transparent text-txt hover:border-border/50 hover:bg-bg-hover"
+                      }`}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                      onClick={() => {
+                        setTab(primaryTab);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <span
+                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                          isActive ? "bg-accent/20" : "bg-bg-accent"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 ${isActive ? "text-accent" : "text-muted"}`}
+                        />
                       </span>
-                      <code className="font-mono flex-1 truncate text-txt-strong">
-                        {evmShort}
-                      </code>
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">
+                          {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
+                        </div>
+                        {group.description && (
+                          <div className="text-[11px] text-muted mt-0.5">
+                            {group.description}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Settings for Mobile */}
+              <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
+                <div className="flex flex-col gap-2 justify-between">
+                  <AgentModeDropdown />
+                  {!isNativeShell && (
+                    <LanguageDropdown
+                      uiLanguage={uiLanguage}
+                      setUiLanguage={setUiLanguage}
+                      t={t}
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    <IconButtonTooltip label={shellToggleActionLabel}>
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const evmAddress = walletAddresses?.evmAddress;
-                          if (evmAddress) {
-                            handleCopy("evm", evmAddress);
-                          }
-                        }}
-                        className="px-2 py-1.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent rounded transition-colors min-w-[60px]"
+                        onClick={handleShellToggle}
+                        className={iconBtnBase}
+                        aria-label={shellToggleActionLabel}
+                        data-testid="ui-shell-toggle"
                       >
-                        {copied === "evm" ? (
-                          <span className="text-ok">{t("header.copied")}</span>
+                        {isNativeShell ? (
+                          <Smartphone className="w-5 h-5" />
                         ) : (
-                          t("header.copy")
+                          <Monitor className="w-5 h-5" />
                         )}
                       </button>
-                    </div>
-                  )}
+                    </IconButtonTooltip>
 
-                  {solShort && (
-                    <div className="flex items-center gap-2 text-xs py-2 px-1 rounded-md hover:bg-bg-hover transition-colors border-t border-border">
-                      <span className="font-bold font-mono min-w-[40px] text-muted">
-                        SOL
-                      </span>
-                      <code className="font-mono flex-1 truncate text-txt-strong">
-                        {solShort}
-                      </code>
+                    <IconButtonTooltip
+                      label={t("header.reportBug")}
+                      shortcut="Shift+?"
+                    >
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const solanaAddress = walletAddresses?.solanaAddress;
-                          if (solanaAddress) {
-                            handleCopy("sol", solanaAddress);
-                          }
-                        }}
-                        className="px-2 py-1.5 border border-border bg-bg text-[10px] font-mono cursor-pointer hover:border-accent hover:text-accent rounded transition-colors min-w-[60px]"
+                        onClick={openBugReport}
+                        aria-label={t("header.reportBug")}
+                        className={iconBtnBase}
                       >
-                        {copied === "sol" ? (
-                          <span className="text-ok">{t("header.copied")}</span>
-                        ) : (
-                          t("header.copy")
-                        )}
+                        <Bug className="w-5 h-5" />
                       </button>
-                    </div>
-                  )}
-
-                  <div className="mt-2 pt-2 border-t border-border text-[10px] text-muted text-center">
-                    {t("header.manageWallets")}
+                    </IconButtonTooltip>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-border p-3 text-[11px] text-muted text-center">
+              {t("nav.Press")}{" "}
+              <kbd className="px-1.5 py-0.5 bg-bg-accent border border-border rounded text-[10px] font-mono">
+                {t("nav.ESC")}
+              </kbd>{" "}
+              {t("nav.toClose")}
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      )}
+    </>
   );
 }

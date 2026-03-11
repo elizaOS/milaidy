@@ -5,16 +5,12 @@
  * Autonomous Loop sidebar). Voice controls are managed externally.
  */
 
+import { client } from "@milady/app-core/api";
+import { STOP_EMOTE_EVENT } from "@milady/app-core/events";
+import { getVrmPreviewUrl, getVrmUrl, useApp } from "@milady/app-core/state";
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getVrmNeedsFlip,
-  getVrmPreviewUrl,
-  getVrmUrl,
-  useApp,
-} from "../AppContext";
-import { client } from "../api-client";
-import { resolveAppAssetUrl } from "../asset-url";
-import { STOP_EMOTE_EVENT } from "../events";
+import { AvatarLoader } from "./avatar/AvatarLoader";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";
 import { VrmViewer } from "./avatar/VrmViewer";
 
@@ -40,7 +36,6 @@ export function ChatAvatar({
     selectedVrmIndex > 0
       ? getVrmPreviewUrl(selectedVrmIndex)
       : getVrmPreviewUrl(1);
-  const needsFlip = selectedVrmIndex > 0 && getVrmNeedsFlip(selectedVrmIndex);
 
   const vrmEngineRef = useRef<VrmEngine | null>(null);
   const [engineReady, setEngineReady] = useState(false);
@@ -126,7 +121,6 @@ export function ChatAvatar({
               isSpeaking={isSpeaking}
               interactive
               interactiveMode="orbitZoom"
-              forceFaceCameraFlip={needsFlip}
               onEngineReady={handleEngineReady}
               onEngineState={handleEngineState}
             />
@@ -139,6 +133,8 @@ export function ChatAvatar({
               className="absolute left-1/2 -translate-x-1/2 bottom-[-2%] h-[122%] object-contain opacity-90"
             />
           )}
+
+          {!vrmLoaded && !showFallback && <AvatarLoader />}
         </div>
       </div>
     </div>

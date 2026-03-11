@@ -70,7 +70,7 @@ milady setup
 ### npm global alternative
 
 ```bash
-npm install -g milaidy
+npm install -g miladyai
 milady setup
 ```
 
@@ -142,7 +142,7 @@ Tip: Use `milady <command> --help` any time you feel stuck.
 - Good for active local usage
 - Includes terminal UI (status, activity, quick controls)
 
-### Headless mode (`milady start`)
+### Service mode (`milady start`)
 
 - Good for background services
 - Useful with process managers (systemd/pm2/docker)

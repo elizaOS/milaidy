@@ -53,5 +53,10 @@ export default defineConfig({
     include: ["test/**/*.e2e.test.ts"],
     setupFiles: ["test/setup.ts"],
     exclude: ["dist/**", "**/node_modules/**"],
+    server: {
+      deps: {
+        inline: ["@elizaos/core", "zod"],
+      },
+    },
   },
 });

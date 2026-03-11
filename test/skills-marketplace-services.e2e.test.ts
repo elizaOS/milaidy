@@ -35,9 +35,10 @@ vi.mock("../src/diagnostics/integration-observability", () => ({
 }));
 
 vi.mock("node:child_process", async () => {
-  const actual = await vi.importActual<typeof import("node:child_process")>(
-    "node:child_process",
-  );
+  const actual =
+    await vi.importActual<typeof import("node:child_process")>(
+      "node:child_process",
+    );
   const nodeFs = await import("node:fs");
   const nodePath = await import("node:path");
 

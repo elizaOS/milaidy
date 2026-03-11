@@ -5,7 +5,7 @@
  * Adding a command here makes it automatically available everywhere.
  */
 
-import type { Tab } from "./navigation";
+import type { Tab } from "@milady/app-core/navigation";
 
 // ── Types ────────────────────────────────────────────────────────────────
 

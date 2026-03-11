@@ -21,8 +21,6 @@
  * @module config-catalog
  */
 
-import type { ReactNode } from "react";
-import { z } from "zod";
 import type {
   ConfigUiHint,
   DynamicValue,
@@ -31,9 +29,11 @@ import type {
   ValidationCheck,
   ValidationConfig,
   VisibilityCondition,
-} from "../types";
+} from "@milady/app-core/types";
+import type { ReactNode } from "react";
+import { z } from "zod";
 
-export type { ActionBinding } from "../types";
+export type { ActionBinding } from "@milady/app-core/types";
 
 // ── JSON Schema types (subset we consume) ──────────────────────────────
 

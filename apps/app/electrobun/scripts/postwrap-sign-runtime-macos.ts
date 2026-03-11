@@ -307,9 +307,10 @@ function main(): void {
 
   const runtimeNodeModulesPath = resolveRuntimeNodeModulesPath();
   if (!fs.existsSync(runtimeNodeModulesPath)) {
-    throw new Error(
-      `runtime-sign: runtime node_modules not found at ${runtimeNodeModulesPath}`,
+    console.log(
+      `[runtime-sign] runtime node_modules not found at ${runtimeNodeModulesPath}, skipping nested native signing.`,
     );
+    return;
   }
 
   const developerId = resolveDeveloperId();

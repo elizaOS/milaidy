@@ -23,7 +23,7 @@ const mockOpenPermissionSettings = vi.fn();
 const mockRefreshPermissions = vi.fn();
 const mockSetShellEnabled = vi.fn();
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getPermissions: mockGetPermissions,
     isShellEnabled: mockIsShellEnabled,

@@ -48,12 +48,18 @@ export function chainIcon(chain: string): { code: string; cls: string } {
   if (c === "ethereum" || c === "mainnet")
     return { code: "E", cls: "bg-chain-eth" };
   if (c === "base") return { code: "B", cls: "bg-chain-base" };
-  if (c === "bsc") return { code: "B", cls: "bg-chain-bsc" };
+  if (c === "bsc" || c === "bnb chain" || c === "bnb smart chain")
+    return { code: "B", cls: "bg-chain-bsc" };
+  if (
+    c === "avax" ||
+    c === "avalanche" ||
+    c === "c-chain" ||
+    c === "avalanche c-chain"
+  )
+    return { code: "A", cls: "bg-chain-avax" };
   if (c === "arbitrum") return { code: "A", cls: "bg-chain-arb" };
   if (c === "optimism") return { code: "O", cls: "bg-chain-op" };
   if (c === "polygon") return { code: "P", cls: "bg-chain-pol" };
-  if (c === "bsc" || c === "bnb chain" || c === "bnb smart chain")
-    return { code: "B", cls: "bg-chain-bsc" };
   if (c === "solana") return { code: "S", cls: "bg-chain-sol" };
   return { code: chain.charAt(0).toUpperCase(), cls: "bg-bg-muted" };
 }
@@ -65,6 +71,16 @@ export function normalizeChainName(chain: string): string {
 export function isBscChainName(chain: string): boolean {
   const c = normalizeChainName(chain);
   return c === "bsc" || c === "bnb chain" || c === "bnb smart chain";
+}
+
+export function isAvaxChainName(chain: string): boolean {
+  const c = normalizeChainName(chain);
+  return (
+    c === "avax" ||
+    c === "avalanche" ||
+    c === "c-chain" ||
+    c === "avalanche c-chain"
+  );
 }
 
 /* ── Balance formatter ──────────────────────────────────────────────── */

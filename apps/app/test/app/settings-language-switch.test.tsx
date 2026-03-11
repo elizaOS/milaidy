@@ -18,7 +18,7 @@ vi.mock("../../src/AppContext", () => ({
   ],
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClient,
 }));
 
@@ -49,15 +49,16 @@ function createSettingsContext(
   overrides?: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
-    cloudEnabled: false,
-    cloudConnected: false,
-    cloudCredits: null,
-    cloudCreditsLow: false,
-    cloudCreditsCritical: false,
-    cloudTopUpUrl: "",
-    cloudUserId: "",
-    cloudLoginBusy: false,
-    cloudLoginError: "",
+    t: (k: string) => k,
+    miladyCloudEnabled: false,
+    miladyCloudConnected: false,
+    miladyCloudCredits: null,
+    miladyCloudCreditsLow: false,
+    miladyCloudCreditsCritical: false,
+    miladyCloudTopUpUrl: "",
+    miladyCloudUserId: "",
+    miladyCloudLoginBusy: false,
+    miladyCloudLoginError: "",
     cloudDisconnecting: false,
     plugins: [],
     pluginSaving: false,
@@ -166,14 +167,14 @@ describe("Settings language switch", () => {
     const ctxEn = createSettingsContext();
     mockUseApp.mockReturnValue(ctxEn);
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(SettingsView));
     });
 
-    const zhButton = tree?.root.findAll(
-      (node) => node.type === "button" && nodeText(node).trim() === "中",
-    )[0];
+    const zhButton = tree?.root.find(
+      (node) => node.type === "button" && nodeText(node).includes("中文"),
+    );
     expect(zhButton).toBeDefined();
 
     await act(async () => {
@@ -188,7 +189,7 @@ describe("Settings language switch", () => {
     });
 
     const allText = nodeText(tree?.root);
-    expect(allText).toContain("设置");
-    expect(allText).toContain("语言");
+    expect(allText).toContain("nav.settings");
+    expect(allText).toContain("settings.language");
   });
 });

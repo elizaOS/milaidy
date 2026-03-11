@@ -1,6 +1,7 @@
+import type { StreamEventEnvelope } from "@milady/app-core/api";
+import { formatTime } from "@milady/app-core/components";
 import { useEffect, useRef } from "react";
-import type { StreamEventEnvelope } from "../../api-client";
-import { formatTime } from "../shared/format";
+import { useApp } from "../../AppContext";
 import {
   CHANNEL_COLORS,
   getEventFrom,
@@ -9,6 +10,7 @@ import {
 } from "./helpers";
 
 export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
+  const { t } = useApp();
   const feedRef = useRef<HTMLDivElement>(null);
   const prevLenRef = useRef(0);
 
@@ -23,7 +25,7 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
     <div className="flex flex-col h-full border-l border-border bg-bg">
       <div className="px-3 py-2 border-b border-border shrink-0">
         <span className="text-xs font-bold uppercase tracking-wider text-muted">
-          Activity
+          {t("activityfeed.Activity")}
         </span>
       </div>
       <div
@@ -32,7 +34,7 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
       >
         {events.length === 0 ? (
           <div className="text-muted text-xs py-4 text-center">
-            No events yet
+            {t("activityfeed.NoEventsYet")}
           </div>
         ) : (
           events.map((event) => {

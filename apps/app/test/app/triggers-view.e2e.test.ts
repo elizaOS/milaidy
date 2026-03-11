@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 import crypto from "node:crypto";
+import {
+  type CreateTriggerRequest,
+  MiladyClient,
+  type TriggerHealthSnapshot,
+  type TriggerRunRecord,
+  type TriggerSummary,
+  type UpdateTriggerRequest,
+} from "@milady/app-core/api";
 import React, {
   type ReactElement,
   useCallback,
@@ -18,14 +26,6 @@ import {
   it,
   vi,
 } from "vitest";
-import {
-  type CreateTriggerRequest,
-  MiladyClient,
-  type TriggerHealthSnapshot,
-  type TriggerRunRecord,
-  type TriggerSummary,
-  type UpdateTriggerRequest,
-} from "../../src/api-client";
 
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
@@ -122,7 +122,7 @@ function createTriggerRuntimeHarness(): TriggerRuntimeHarness {
     character: { name: "TriggerUiE2E" },
     getSetting: (_key: string) => undefined,
     getService: (serviceType: string) => {
-      if (serviceType !== "AUTONOMY") return null;
+      if (serviceType.toUpperCase() !== "AUTONOMY") return null;
       return {
         getAutonomousRoomId: () => "00000000-0000-0000-0000-000000000201",
         injectAutonomousInstruction,
@@ -373,6 +373,7 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
 
   const appContext = useMemo<TriggerViewContextShape>(
     () => ({
+      t: (k: string) => k,
       triggers,
       triggersLoading,
       triggersSaving,
@@ -420,7 +421,7 @@ function findButtonByText(
   label: string,
 ): TestRenderer.ReactTestInstance {
   const matches = root.findAll(
-    (node) => node.type === "button" && nodeText(node) === label,
+    (node) => node.type === "button" && nodeText(node).includes(label),
   );
   if (!matches[0]) throw new Error(`Button "${label}" not found`);
   return matches[0];
@@ -462,10 +463,7 @@ describe("TriggersView UI E2E", () => {
   let server: { port: number; close: () => Promise<void> } | null = null;
   let runtimeHarness: TriggerRuntimeHarness;
   let startApiServerFn:
-    | ((options?: {
-        port?: number;
-        runtime?: object;
-      }) => Promise<{ port: number; close: () => Promise<void> }>)
+    | typeof import("../../../../src/api/server").startApiServer
     | null = null;
 
   beforeAll(async () => {
@@ -478,7 +476,8 @@ describe("TriggersView UI E2E", () => {
     runtimeHarness = createTriggerRuntimeHarness();
     server = await startApiServerFn({
       port: 0,
-      runtime: runtimeHarness.runtime,
+      // biome-ignore lint/suspicious/noExplicitAny: test mock
+      runtime: runtimeHarness.runtime as any,
     });
   });
 
@@ -513,7 +512,7 @@ describe("TriggersView UI E2E", () => {
     const client = new MiladyClient(`http://127.0.0.1:${server.port}`);
     const triggerDisplayName = "Trigger UI E2E";
 
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(
         React.createElement(TriggerUiHarness, { client }),
@@ -524,11 +523,11 @@ describe("TriggersView UI E2E", () => {
     const root = tree?.root;
     const displayNameInput = findInputByPlaceholder(
       root,
-      "e.g. Daily Digest, Heartbeat Check",
+      "triggersview.eGDailyDigestH",
     );
     const instructionsInput = findTextareaByPlaceholder(
       root,
-      "What should the agent do when this trigger fires?",
+      "triggersview.WhatShouldTheAgen",
     );
 
     await act(async () => {
@@ -553,7 +552,7 @@ describe("TriggersView UI E2E", () => {
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
-      await findButtonByText(root, "Edit").props.onClick();
+      await findButtonByText(root, "triggersview.Edit").props.onClick();
     });
     await flush();
 
@@ -576,7 +575,7 @@ describe("TriggersView UI E2E", () => {
     ).toBe(1);
 
     await act(async () => {
-      await findButtonByText(root, "Run now").props.onClick();
+      await findButtonByText(root, "triggersview.RunNow").props.onClick();
     });
     await flush();
 
@@ -593,7 +592,7 @@ describe("TriggersView UI E2E", () => {
     expect(successRows.length).toBeGreaterThan(0);
 
     await act(async () => {
-      await findButtonByText(root, "Delete").props.onClick();
+      await findButtonByText(root, "triggersview.Delete").props.onClick();
     });
     await flush();
 

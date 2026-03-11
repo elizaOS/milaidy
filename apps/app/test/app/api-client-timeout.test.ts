@@ -1,6 +1,5 @@
+import { ApiError, MiladyClient } from "@milady/app-core/api";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { ApiError, MiladyClient } from "../../src/api-client";
 
 describe("MiladyClient request timeout handling", () => {
   const originalFetch = globalThis.fetch;

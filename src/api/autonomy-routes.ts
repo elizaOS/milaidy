@@ -27,9 +27,7 @@ export function getAutonomyState(runtime: AgentRuntime | null): {
   const runtimeEnabled = runtime?.enableAutonomy === true;
   return {
     enabled:
-      typeof statusEnabled === "boolean"
-        ? statusEnabled
-        : runtimeEnabled || Boolean(svc),
+      typeof statusEnabled === "boolean" ? statusEnabled : runtimeEnabled,
     thinking: svc?.isLoopRunning() ?? false,
   };
 }

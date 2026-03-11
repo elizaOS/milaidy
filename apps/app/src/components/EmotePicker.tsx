@@ -1,12 +1,13 @@
-import { Menu, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApp } from "../AppContext";
-import { client } from "../api-client";
+import { client } from "@milady/app-core/api";
 import {
   dispatchMiladyEvent,
   EMOTE_PICKER_EVENT,
   STOP_EMOTE_EVENT,
-} from "../events";
+} from "@milady/app-core/events";
+import { Menu, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useApp } from "../AppContext";
+import { useTimeout } from "../hooks/useTimeout";
 
 // Types
 interface EmoteItem {
@@ -203,7 +204,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function EmotePicker() {
-  const { emotePickerOpen, openEmotePicker, closeEmotePicker } = useApp();
+  const { setTimeout } = useTimeout();
+
+  const { emotePickerOpen, openEmotePicker, closeEmotePicker, t } = useApp();
   const [search, setSearch] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -306,16 +309,19 @@ export function EmotePicker() {
   }, [search, activeCategory]);
 
   // Play emote
-  const playEmote = useCallback(async (emoteId: string) => {
-    setPlaying(emoteId);
-    try {
-      await client.playEmote(emoteId);
-    } catch (err) {
-      console.error("Failed to play emote:", err);
-    } finally {
-      setTimeout(() => setPlaying(null), 1000);
-    }
-  }, []);
+  const playEmote = useCallback(
+    async (emoteId: string) => {
+      setPlaying(emoteId);
+      try {
+        await client.playEmote(emoteId);
+      } catch (err) {
+        console.error("Failed to play emote:", err);
+      } finally {
+        setTimeout(() => setPlaying(null), 1000);
+      }
+    },
+    [setTimeout],
+  );
 
   // Stop emote
   const stopEmote = useCallback(() => {
@@ -382,7 +388,9 @@ export function EmotePicker() {
       >
         <div className="flex items-center gap-2">
           <Menu className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-semibold text-white">Emotes</span>
+          <span className="text-sm font-semibold text-white">
+            {t("emotepicker.Emotes")}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -392,7 +400,7 @@ export function EmotePicker() {
             onClick={stopEmote}
             className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
           >
-            Stop
+            {t("emotepicker.Stop")}
           </button>
 
           {/* Shortcut label */}
@@ -416,7 +424,7 @@ export function EmotePicker() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search emotes..."
+          placeholder={t("emotepicker.SearchEmotes")}
           className="w-full rounded bg-gray-800 px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
@@ -432,7 +440,7 @@ export function EmotePicker() {
               : "bg-gray-800 text-gray-300 hover:bg-gray-700"
           }`}
         >
-          All
+          {t("emotepicker.All")}
         </button>
         {CATEGORIES.map((cat) => (
           <button
@@ -474,7 +482,7 @@ export function EmotePicker() {
 
         {filteredEmotes.length === 0 && (
           <div className="py-8 text-center text-sm text-gray-500">
-            No emotes found
+            {t("emotepicker.NoEmotesFound")}
           </div>
         )}
       </div>

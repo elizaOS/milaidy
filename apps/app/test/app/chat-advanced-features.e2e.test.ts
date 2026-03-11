@@ -407,6 +407,7 @@ describe("ChatView UI", () => {
 
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => ({
+      t: (k: string) => k,
       ...state,
       sendMessage: vi.fn(),
       loadConversations: vi.fn(),

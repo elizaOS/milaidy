@@ -2,7 +2,7 @@
  * Shared helpers, constants, and types for StreamView sub-components.
  */
 
-import type { StreamEventEnvelope } from "../../api-client";
+import type { StreamEventEnvelope } from "@milady/app-core/api";
 
 // ---------------------------------------------------------------------------
 // Constants

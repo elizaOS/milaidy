@@ -5,6 +5,8 @@
  * a collapsible bottom panel with command output. Auto-opens when a command starts.
  */
 
+import { client } from "@milady/app-core/api";
+import { Button } from "@milady/ui";
 import {
   ChevronUp,
   Maximize2,
@@ -21,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { client } from "../api-client";
+import { useApp } from "../AppContext";
 
 export interface TerminalPanelHandle {
   /** Programmatically run a command via the API. */
@@ -40,6 +42,7 @@ interface TerminalLine {
 
 export const TerminalPanel = forwardRef<TerminalPanelHandle>(
   function TerminalPanel(_props, ref) {
+    const { t } = useApp();
     const [open, setOpen] = useState(false);
     const [minimized, setMinimized] = useState(false);
     const [lines, setLines] = useState<TerminalLine[]>([]);
@@ -162,22 +165,24 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
     if (minimized && open) {
       return (
         <div className="border-t border-border bg-bg-elevated">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            className="w-full flex items-center justify-between px-4 py-2 h-auto rounded-none hover:bg-bg-hover"
             onClick={handleToggleMinimize}
-            className="w-full flex items-center justify-between px-4 py-2 hover:bg-bg-hover transition-colors"
           >
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-accent" />
-              <span className="text-xs font-mono text-muted">Terminal</span>
+              <span className="text-xs font-mono text-muted">
+                {t("terminalpanel.Terminal")}
+              </span>
               {unreadCount > 0 && (
                 <span className="ml-2 px-1.5 py-0.5 bg-accent text-accent-fg text-[10px] rounded-full">
-                  {unreadCount} new
+                  {unreadCount} {t("terminalpanel.new")}
                 </span>
               )}
             </div>
             <ChevronUp className="w-4 h-4 text-muted" />
-          </button>
+          </Button>
         </div>
       );
     }
@@ -186,20 +191,22 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
     if (!open) {
       return (
         <div className="border-t border-border bg-bg">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            className="w-full flex items-center justify-center gap-2 px-4 py-1.5 h-auto rounded-none hover:bg-bg-hover text-[11px] text-muted"
             onClick={() => setOpen(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-1.5 hover:bg-bg-hover transition-colors text-[11px] text-muted"
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>Show Terminal</span>
+            <span>{t("terminalpanel.ShowTerminal")}</span>
             {unreadCount > 0 && (
               <span className="ml-1 px-1.5 py-0.5 bg-accent text-accent-fg text-[10px] rounded-full">
                 {unreadCount}
               </span>
             )}
-            <span className="ml-1 text-[10px] opacity-60">(Ctrl+Shift+T)</span>
-          </button>
+            <span className="ml-1 text-[10px] opacity-60">
+              {t("terminalpanel.CtrlShiftT")}
+            </span>
+          </Button>
         </div>
       );
     }
@@ -214,26 +221,28 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-accent" />
             <span className="text-[11px] font-mono text-muted-strong tracking-wide">
-              TERMINAL
+              {t("terminalpanel.TERMINAL")}
             </span>
           </div>
           <div className="flex-1" />
 
           {/* Action buttons */}
           <div className="flex items-center gap-1">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleClear}
-              className="p-1.5 text-muted hover:text-txt hover:bg-bg-hover rounded transition-colors"
-              title="Clear terminal"
+              className="h-7 w-7 text-muted hover:text-txt hover:bg-bg-hover"
+              title={t("terminalpanel.ClearTerminal")}
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleToggleMinimize}
-              className="p-1.5 text-muted hover:text-txt hover:bg-bg-hover rounded transition-colors"
+              className="h-7 w-7 text-muted hover:text-txt hover:bg-bg-hover"
               title={minimized ? "Maximize" : "Minimize"}
             >
               {minimized ? (
@@ -241,16 +250,17 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
               ) : (
                 <Minimize2 className="w-3.5 h-3.5" />
               )}
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleClose}
-              className="p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
-              title="Close terminal"
+              className="h-7 w-7 text-muted hover:text-danger hover:bg-danger/10"
+              title={t("terminalpanel.CloseTerminal")}
             >
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -263,9 +273,10 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Terminal className="w-8 h-8 text-muted opacity-30 mb-2" />
               <span className="text-muted opacity-60 text-[11px]">
-                Terminal output will appear here
+                {t("terminalpanel.TerminalOutputWill")}
                 <br />
-                when the agent runs commands.
+
+                {t("terminalpanel.whenTheAgentRuns")}
               </span>
             </div>
           ) : (
@@ -290,8 +301,10 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle>(
 
         {/* Status bar */}
         <div className="flex items-center justify-between px-3 py-1 border-t border-border bg-bg-accent text-[10px] text-muted">
-          <span>{lines.length} lines</span>
-          <span>Ctrl+Shift+T to toggle</span>
+          <span>
+            {lines.length} {t("terminalpanel.lines")}
+          </span>
+          <span>{t("terminalpanel.CtrlShiftTToTogg")}</span>
         </div>
       </div>
     );

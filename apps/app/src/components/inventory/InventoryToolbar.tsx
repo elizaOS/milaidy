@@ -2,8 +2,10 @@
  * Toolbar: tokens/NFTs tabs, chain-focus chips, sort controls, refresh.
  */
 
+import type { createTranslator } from "@milady/app-core/i18n";
+import { Button } from "@milady/ui";
 import type { AppState } from "../../AppContext";
-import type { createTranslator } from "../../i18n";
+import { CHAIN_CONFIGS, PRIMARY_CHAIN_KEYS } from "../chainConfig";
 
 type InventoryToolbarStateKey =
   | "inventoryView"
@@ -38,85 +40,99 @@ export function InventoryToolbar({
 }: InventoryToolbarProps) {
   return (
     <div className="wt__toolbar">
-      <button
-        type="button"
-        className={`wt__tab ${inventoryView === "tokens" ? "is-active" : ""}`}
+      <Button
+        variant={inventoryView === "tokens" ? "default" : "ghost"}
+        size="sm"
+        className={`wt__tab h-9 px-4 rounded-none ${inventoryView === "tokens" ? "is-active" : ""}`}
         onClick={() => {
           setState("inventoryView", "tokens");
           if (!walletBalances) void loadBalances();
         }}
       >
         {t("wallet.tokens")}
-      </button>
-      <button
-        type="button"
-        className={`wt__tab ${inventoryView === "nfts" ? "is-active" : ""}`}
+      </Button>
+      <Button
+        variant={inventoryView === "nfts" ? "default" : "ghost"}
+        size="sm"
+        className={`wt__tab h-9 px-4 rounded-none ${inventoryView === "nfts" ? "is-active" : ""}`}
         onClick={() => {
           setState("inventoryView", "nfts");
           if (!walletNfts) void loadNfts();
         }}
       >
         {t("wallet.nfts")}
-      </button>
+      </Button>
 
       {inventoryView === "tokens" && (
         <>
           <span className="wt__sep" />
-          <button
-            type="button"
-            data-testid="wallet-focus-bsc"
-            className={`wt__chip ${inventoryChainFocus === "bsc" ? "is-active" : ""}`}
-            onClick={() => setState("inventoryChainFocus", "bsc")}
-          >
-            BSC
-          </button>
-          <button
-            type="button"
+          {PRIMARY_CHAIN_KEYS.map((key) => {
+            const config = CHAIN_CONFIGS[key];
+            return (
+              <Button
+                key={key}
+                variant={inventoryChainFocus === key ? "default" : "outline"}
+                size="sm"
+                data-testid={`wallet-focus-${key}`}
+                className={`wt__chip h-7 px-2.5 py-0.5 text-xs shadow-sm ${inventoryChainFocus === key ? "is-active" : ""}`}
+                onClick={() => setState("inventoryChainFocus", key)}
+              >
+                {config.name}
+              </Button>
+            );
+          })}
+          <Button
+            variant={inventoryChainFocus === "all" ? "default" : "outline"}
+            size="sm"
             data-testid="wallet-focus-all"
-            className={`wt__chip ${inventoryChainFocus === "all" ? "is-active" : ""}`}
+            className={`wt__chip h-7 px-2.5 py-0.5 text-xs shadow-sm ${inventoryChainFocus === "all" ? "is-active" : ""}`}
             onClick={() => setState("inventoryChainFocus", "all")}
           >
             {t("wallet.all")}
-          </button>
+          </Button>
 
           <span className="flex-1" />
 
           <span className="text-[10px] text-muted font-mono">
             {t("wallet.sort")}:
           </span>
-          <button
-            type="button"
-            className={`wt__chip ${inventorySort === "value" ? "is-active" : ""}`}
+          <Button
+            variant={inventorySort === "value" ? "default" : "outline"}
+            size="sm"
+            className={`wt__chip h-7 px-2.5 py-0.5 text-xs shadow-sm ${inventorySort === "value" ? "is-active" : ""}`}
             onClick={() => setState("inventorySort", "value")}
           >
             {t("wallet.value")}
-          </button>
-          <button
-            type="button"
-            className={`wt__chip ${inventorySort === "chain" ? "is-active" : ""}`}
+          </Button>
+          <Button
+            variant={inventorySort === "chain" ? "default" : "outline"}
+            size="sm"
+            className={`wt__chip h-7 px-2.5 py-0.5 text-xs shadow-sm ${inventorySort === "chain" ? "is-active" : ""}`}
             onClick={() => setState("inventorySort", "chain")}
           >
             {t("wallet.chain")}
-          </button>
-          <button
-            type="button"
-            className={`wt__chip ${inventorySort === "symbol" ? "is-active" : ""}`}
+          </Button>
+          <Button
+            variant={inventorySort === "symbol" ? "default" : "outline"}
+            size="sm"
+            className={`wt__chip h-7 px-2.5 py-0.5 text-xs shadow-sm ${inventorySort === "symbol" ? "is-active" : ""}`}
             onClick={() => setState("inventorySort", "symbol")}
           >
             {t("wallet.name")}
-          </button>
+          </Button>
         </>
       )}
 
-      <button
-        type="button"
-        className="wt__refresh"
+      <Button
+        variant="outline"
+        size="sm"
+        className="wt__refresh h-8 px-3 shadow-sm hover:border-accent hover:text-accent"
         onClick={() =>
           inventoryView === "tokens" ? loadBalances() : loadNfts()
         }
       >
-        Refresh
-      </button>
+        {t("inventorytoolbar.Refresh")}
+      </Button>
     </div>
   );
 }

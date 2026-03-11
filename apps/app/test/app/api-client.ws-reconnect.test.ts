@@ -71,7 +71,7 @@ vi.stubGlobal("window", {
 // Import the real MiladyClient
 // ---------------------------------------------------------------------------
 
-const { MiladyClient } = await import("../../src/api-client");
+const { MiladyClient } = await import("@milady/app-core/api");
 
 describe("MiladyClient WS reconnect", () => {
   let client: InstanceType<typeof MiladyClient>;

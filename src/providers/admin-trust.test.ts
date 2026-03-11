@@ -77,8 +77,8 @@ describe("admin-trust provider", () => {
         content: { text: "admin trust" },
       } as Memory;
 
-      const result = await provider!.get!(runtime, message, state);
-      const values = result.values as Record<string, string | boolean>;
+      const result = await provider?.get?.(runtime, message, state);
+      const values = result?.values as Record<string, string | boolean>;
       expect(values.trustedAdmin).toBe(true);
       expect(values.adminRole).toBe("OWNER");
     },
@@ -100,8 +100,8 @@ describe("admin-trust provider", () => {
       content: { text: "admin trust" },
     } as Memory;
 
-    const result = await provider!.get!(runtime, message, state);
-    const values = result.values as Record<string, string | boolean>;
+    const result = await provider?.get?.(runtime, message, state);
+    const values = result?.values as Record<string, string | boolean>;
     expect(values.trustedAdmin).toBe(false);
   });
 
@@ -113,8 +113,8 @@ describe("admin-trust provider", () => {
       content: { text: "admin trust" },
     } as Memory;
 
-    const result = await provider!.get!(runtime, message, state);
-    const values = result.values as Record<string, string | boolean>;
+    const result = await provider?.get?.(runtime, message, state);
+    const values = result?.values as Record<string, string | boolean>;
     expect(values.trustedAdmin).toBe(false);
   });
 });

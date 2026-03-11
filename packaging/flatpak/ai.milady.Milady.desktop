@@ -1,10 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=Milady
+GenericName=AI Assistant
 Comment=Personal AI assistant built on elizaOS
 Exec=milady start
 Icon=ai.milady.Milady
 Terminal=true
 Categories=Development;Utility;
-Keywords=ai;assistant;agent;elizaos;llm;
+Keywords=ai;assistant;agent;elizaos;llm;chatbot;
 StartupNotify=false

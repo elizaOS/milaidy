@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,8 +11,52 @@ vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
 }));
 
+vi.mock("@milady/app-core/hooks", () => ({
+  useBugReport: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+}));
+
 vi.mock("../../src/hooks/useBugReport", () => ({
   useBugReport: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+}));
+
+vi.mock("../../src/components/shared/AgentModeDropdown", () => ({
+  AgentModeDropdown: () =>
+    React.createElement("div", null, "AgentModeDropdown"),
+}));
+
+vi.mock("@milady/app-core/navigation", () => ({
+  getTabGroups: () => [
+    {
+      label: "Chat",
+      tabs: ["chat"],
+      icon: () => React.createElement("span", null, "💬"),
+      description: "Chat",
+    },
+  ],
+}));
+
+vi.mock("@milady/app-core/components", () => ({
+  LanguageDropdown: () => React.createElement("div", null, "LanguageDropdown"),
+}));
+
+vi.mock("@milady/ui", () => ({
+  IconTooltip: ({
+    children,
+  }: {
+    children: React.ReactNode;
+    content?: string;
+    side?: string;
+  }) => React.createElement("div", null, children),
+}));
+
+vi.mock("lucide-react", () => ({
+  AlertTriangle: () => React.createElement("span", null, "⚠"),
+  Bug: () => React.createElement("span", null, "🐛"),
+  CircleDollarSign: () => React.createElement("span", null, "💰"),
+  Menu: () => React.createElement("span", null, "☰"),
+  Monitor: () => React.createElement("span", null, "🖥"),
+  Smartphone: () => React.createElement("span", null, "📱"),
+  X: () => React.createElement("span", null, "✕"),
 }));
 
 import { Header } from "../../src/components/Header";
@@ -22,6 +67,7 @@ describe("header status", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
     baseAppState = {
+      t: (k: string) => k,
       agentStatus: {
         state: "running",
         agentName: "Milady",
@@ -29,119 +75,68 @@ describe("header status", () => {
         startedAt: undefined,
         uptime: undefined,
       },
-      cloudEnabled: false,
-      cloudConnected: false,
-      cloudCredits: null,
-      cloudCreditsCritical: false,
-      cloudCreditsLow: false,
-      cloudTopUpUrl: "",
+      miladyCloudEnabled: false,
+      miladyCloudConnected: false,
+      miladyCloudCredits: null,
+      miladyCloudCreditsCritical: false,
+      miladyCloudCreditsLow: false,
+      miladyCloudTopUpUrl: "",
       walletAddresses: null,
       lifecycleBusy: false,
       lifecycleAction: null,
       handlePauseResume: vi.fn(),
       handleRestart: vi.fn(),
+      handleStart: vi.fn(),
       openCommandPalette: vi.fn(),
       copyToClipboard: vi.fn(),
+      tab: "chat",
       setTab: vi.fn(),
       dropStatus: null,
       loadDropStatus: vi.fn().mockResolvedValue(undefined),
       registryStatus: null,
+      plugins: [],
       uiShellMode: "native",
       setUiShellMode: vi.fn(),
       uiLanguage: "en",
+      setUiLanguage: vi.fn(),
     };
     mockUseApp.mockReturnValue(baseAppState);
   });
 
-  it("renders starting state with loading indicator", async () => {
-    mockUseApp.mockReturnValue({
-      ...baseAppState,
-      agentStatus: {
-        state: "starting",
-        agentName: "Milady",
-        model: undefined,
-        startedAt: undefined,
-        uptime: undefined,
-      },
-    });
-
-    let tree: TestRenderer.ReactTestRenderer;
+  it("renders agent name via data-testid", async () => {
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const renderedText = tree?.root
-      .findAllByType("span")
-      .map((node) => node.children.join(""))
-      .join("\n");
-
-    expect(renderedText).toContain("starting");
-    // Check that pause button is not present during starting state
-    // (Loader2 spinner is shown instead of the pause/resume button)
-    expect(renderedText).not.toContain("⏸️");
+    expect(tree).toBeDefined();
+    const agentName = tree?.root.findByProps({ "data-testid": "agent-name" });
+    expect(agentName).toBeDefined();
+    expect(agentName?.children).toContain("Milady");
   });
 
-  it("shows restart in-progress label and disables controls during lifecycle action", async () => {
-    mockUseApp.mockReturnValue({
-      ...baseAppState,
-      lifecycleBusy: true,
-      lifecycleAction: "restart",
-    });
-
-    let tree: TestRenderer.ReactTestRenderer;
+  it("renders shell toggle button", async () => {
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const restartButton = tree?.root.find(
-      (node) =>
-        node.type === "button" && node.props["aria-label"] === "Restart agent",
-    );
-    expect(restartButton.props.disabled).toBe(true);
-
-    const renderedText = tree?.root
-      .findAllByType("span")
-      .map((node) => node.children.join(""))
-      .join("\n");
-    expect(renderedText).toContain("Restarting...");
-
-    const pauseResumeButton = tree?.root.find(
-      (node) =>
-        node.type === "button" && node.props["aria-label"] === "Pause autonomy",
-    );
-    expect(pauseResumeButton.props.disabled).toBe(true);
+    expect(tree).toBeDefined();
+    const shellToggle = tree?.root.findByProps({
+      "data-testid": "ui-shell-toggle",
+    });
+    expect(shellToggle).toBeDefined();
   });
 
-  it("renders aria labels for icon-only controls", async () => {
-    mockUseApp.mockReturnValue({
-      ...baseAppState,
-      walletAddresses: {
-        evmAddress: "0x1234567890abcdef1234567890abcdef12345678",
-        solanaAddress: "So1anaAddress1111111111111111111111111111111",
-      },
-    });
-
-    let tree: TestRenderer.ReactTestRenderer;
+  it("renders bug report button with aria-label", async () => {
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const pauseResumeButton = tree?.root.find(
+    expect(tree).toBeDefined();
+    const bugButton = tree?.root.findAll(
       (node) =>
-        node.type === "button" && node.props["aria-label"] === "Pause autonomy",
+        node.type === "button" &&
+        node.props["aria-label"] === "header.reportBug",
     );
-    expect(pauseResumeButton.props["aria-label"]).toBe("Pause autonomy");
-
-    const restartButton = tree?.root.find(
-      (node) =>
-        node.type === "button" && node.props["aria-label"] === "Restart agent",
-    );
-    expect(restartButton.props["aria-label"]).toBe("Restart agent");
-
-    const walletButton = tree?.root.find(
-      (node) =>
-        node.type === "button" && node.props["aria-label"] === "View wallets",
-    );
-    expect(walletButton.props["aria-label"]).toBe("View wallets");
+    expect(bugButton?.length).toBeGreaterThan(0);
   });
 });

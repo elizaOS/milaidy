@@ -1,17 +1,25 @@
 /**
  * Custom hook: derives token rows, sorted rows, NFT items,
- * chain errors, and BSC-specific computed values from app state.
+ * chain errors, and chain-specific computed values from app state.
+ *
+ * Chain-aware: uses the chainConfig registry so that filtering,
+ * fallback rows, and derived values work for any supported chain.
  */
 
-import { useMemo } from "react";
 import type {
   EvmChainBalance,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
-} from "../../api-client";
+} from "@milady/app-core/api";
+import { useMemo } from "react";
 import type { TrackedToken } from "../BscTradePanel";
+import {
+  CHAIN_CONFIGS,
+  PRIMARY_CHAIN_KEYS,
+  resolveChainKey,
+} from "../chainConfig";
 import {
   isBscChainName,
   type NftItem,
@@ -36,16 +44,35 @@ export interface InventoryDataOutput {
   tokenRows: TokenRow[];
   sortedRows: TokenRow[];
   chainErrors: EvmChainBalance[];
+  /** @deprecated Use focusChainHasError instead */
   bscHasError: boolean;
+  focusChainHasError: boolean;
   allNfts: NftItem[];
+  /** @deprecated Use primaryChain instead */
   bscChain: EvmChainBalance | null;
+  primaryChain: EvmChainBalance | null;
+  /** @deprecated Use primaryNativeBalance (number) instead */
   bnbBalance: number;
+  primaryNativeBalanceNum: number;
+  /** @deprecated Use focusedRows instead */
   bscRows: TokenRow[];
+  focusedRows: TokenRow[];
   visibleRows: TokenRow[];
   totalUsd: number;
   visibleChainErrors: EvmChainBalance[];
+  /** @deprecated Use primaryChainError instead */
   bscChainError: string | null;
+  primaryChainError: string | null;
+  /** @deprecated Use primaryNativeBalance instead */
   bscNativeBalance: string | null;
+  primaryNativeBalance: string | null;
+}
+
+/** Returns true if a chain name matches the given focus key using chainConfig. */
+function matchesChainFocus(chainName: string, focus: string): boolean {
+  if (focus === "all") return true;
+  const resolved = resolveChainKey(chainName);
+  return resolved === focus;
 }
 
 function hasContractAddress(
@@ -66,20 +93,20 @@ export function useInventoryData({
 }: InventoryDataInput): InventoryDataOutput {
   const chainFocus = inventoryChainFocus ?? "all";
 
-  // ── BSC chain data ────────────────────────────────────────────────
-  const bscChain = useMemo(() => {
+  // ── Primary chain data (BSC by default, extensible) ────────────────
+  const primaryChain = useMemo(() => {
     if (!walletBalances?.evm?.chains) return null;
     return (
-      walletBalances.evm.chains.find(
-        (c: EvmChainBalance) => c.chain === "BSC" || c.chain === "bsc",
+      walletBalances.evm.chains.find((c: EvmChainBalance) =>
+        isBscChainName(c.chain),
       ) ?? null
     );
   }, [walletBalances]);
 
-  const bnbBalance = useMemo(() => {
-    if (!bscChain) return 0;
-    return Number.parseFloat(bscChain.nativeBalance) || 0;
-  }, [bscChain]);
+  const primaryNativeBalanceNum = useMemo(() => {
+    if (!primaryChain) return 0;
+    return Number.parseFloat(primaryChain.nativeBalance) || 0;
+  }, [primaryChain]);
 
   // ── Flatten token rows ────────────────────────────────────────────
   const tokenRows = useMemo((): TokenRow[] => {
@@ -88,10 +115,13 @@ export function useInventoryData({
       walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
 
     if (walletBalances?.evm) {
-      let hasBsc = false;
+      const seenChainKeys = new Set<string>();
       for (const chain of walletBalances.evm.chains) {
-        if (isBscChainName(chain.chain)) hasBsc = true;
-        if (chainFocus === "bsc" && !isBscChainName(chain.chain)) continue;
+        const chainKey = resolveChainKey(chain.chain);
+        if (chainKey) seenChainKeys.add(chainKey);
+        // Filter by chain focus when not "all"
+        if (chainFocus !== "all" && !matchesChainFocus(chain.chain, chainFocus))
+          continue;
         rows.push({
           chain: chain.chain,
           symbol: chain.nativeSymbol,
@@ -119,20 +149,28 @@ export function useInventoryData({
           });
         }
       }
-      if (!hasBsc && knownEvmAddr) {
-        rows.unshift({
-          chain: "BSC",
-          symbol: "BNB",
-          name: "BSC native",
-          contractAddress: null,
-          logoUrl: null,
-          balance: "0",
-          valueUsd: 0,
-          balanceRaw: 0,
-          isNative: true,
-        });
+      // Insert fallback rows for primary chains not seen in API data
+      if (knownEvmAddr) {
+        for (const key of PRIMARY_CHAIN_KEYS) {
+          if (key === "solana") continue; // handled below
+          if (seenChainKeys.has(key)) continue;
+          if (chainFocus !== "all" && chainFocus !== key) continue;
+          const cfg = CHAIN_CONFIGS[key];
+          rows.unshift({
+            chain: cfg.name,
+            symbol: cfg.nativeSymbol,
+            name: `${cfg.name} native`,
+            contractAddress: null,
+            logoUrl: null,
+            balance: "0",
+            valueUsd: 0,
+            balanceRaw: 0,
+            isNative: true,
+          });
+        }
       }
     } else if (knownEvmAddr) {
+      // No EVM data at all — add BSC placeholder (primary chain)
       rows.push({
         chain: "BSC",
         symbol: "BNB",
@@ -146,7 +184,11 @@ export function useInventoryData({
       });
     }
 
-    if (chainFocus !== "bsc" && walletBalances?.solana) {
+    // Solana tokens
+    if (
+      (chainFocus === "all" || chainFocus === "solana") &&
+      walletBalances?.solana
+    ) {
       rows.push({
         chain: "Solana",
         symbol: "SOL",
@@ -262,9 +304,14 @@ export function useInventoryData({
   );
 
   const bscHasError = useMemo(
-    () => chainErrors.some((c: EvmChainBalance) => c.chain === "BSC"),
+    () => chainErrors.some((c: EvmChainBalance) => isBscChainName(c.chain)),
     [chainErrors],
   );
+
+  const focusChainHasError = useMemo(() => {
+    if (chainFocus === "all") return chainErrors.length > 0;
+    return chainErrors.some((c) => matchesChainFocus(c.chain, chainFocus));
+  }, [chainErrors, chainFocus]);
 
   // ── Flatten NFTs ──────────────────────────────────────────────────
   const allNfts = useMemo((): NftItem[] => {
@@ -294,28 +341,36 @@ export function useInventoryData({
   }, [walletNfts]);
 
   // ── Derived values ────────────────────────────────────────────────
-  const bscChainError =
-    bscChain?.error ??
+  const primaryChainError =
+    primaryChain?.error ??
     chainErrors.find((chain) => isBscChainName(chain.chain))?.error ??
     null;
-  const bscNativeBalance: string | null = bscChain?.nativeBalance ?? null;
+  const primaryNativeBalance: string | null =
+    primaryChain?.nativeBalance ?? null;
+
+  const focusedRows = useMemo(() => {
+    if (chainFocus === "all") return sortedRows;
+    return sortedRows.filter((row) => matchesChainFocus(row.chain, chainFocus));
+  }, [sortedRows, chainFocus]);
 
   const bscRows = sortedRows.filter((row) => isBscChainName(row.chain));
-  const visibleRows = inventoryChainFocus === "bsc" ? bscRows : sortedRows;
+  const visibleRows = chainFocus === "all" ? sortedRows : focusedRows;
 
   const totalUsd = useMemo(
     () =>
-      (inventoryChainFocus === "bsc" ? bscRows : tokenRows).reduce(
+      (chainFocus === "all" ? tokenRows : focusedRows).reduce(
         (sum, r) => sum + r.valueUsd,
         0,
       ),
-    [tokenRows, bscRows, inventoryChainFocus],
+    [tokenRows, focusedRows, chainFocus],
   );
 
-  const visibleChainErrors =
-    inventoryChainFocus === "bsc"
-      ? chainErrors.filter((chain) => isBscChainName(chain.chain))
-      : chainErrors;
+  const visibleChainErrors = useMemo(() => {
+    if (chainFocus === "all") return chainErrors;
+    return chainErrors.filter((chain) =>
+      matchesChainFocus(chain.chain, chainFocus),
+    );
+  }, [chainErrors, chainFocus]);
 
   return {
     chainFocus,
@@ -323,14 +378,21 @@ export function useInventoryData({
     sortedRows,
     chainErrors,
     bscHasError,
+    focusChainHasError,
     allNfts,
-    bscChain,
-    bnbBalance,
+    // Backwards-compat aliases
+    bscChain: primaryChain,
+    primaryChain,
+    bnbBalance: primaryNativeBalanceNum,
+    primaryNativeBalanceNum,
     bscRows,
+    focusedRows,
     visibleRows,
     totalUsd,
     visibleChainErrors,
-    bscChainError,
-    bscNativeBalance,
+    bscChainError: primaryChainError,
+    primaryChainError,
+    bscNativeBalance: primaryNativeBalance,
+    primaryNativeBalance,
   };
 }

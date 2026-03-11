@@ -104,7 +104,7 @@ const { mockClient } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: mockClient,
   SkillScanReportSummary: {},
 }));
@@ -280,6 +280,7 @@ describe("chat send locking", () => {
       triggers: [],
       todos: [],
     });
+    mockClient.getCodingAgentStatus.mockResolvedValue(null);
   });
 
   it("allows only one same-tick chat send request", async () => {

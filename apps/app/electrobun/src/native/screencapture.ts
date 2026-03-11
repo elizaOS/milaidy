@@ -7,8 +7,7 @@
  *    Uses native CLI screenshot tools to capture real pixel data from the screen.
  *    - macOS: `screencapture -x -t jpg <tmpPath>` (no sound, no shadow)
  *    - Linux: `scrot --quality 70 <tmpPath>`, falling back to ImageMagick `import`
- *    - Windows: falls back to JS canvas approach (SIMPLE_CAPTURE_SCRIPT) since
- *      PowerShell screenshot capture is complex and Windows is not a primary target.
+ *    - Windows: PowerShell `System.Drawing.CopyFromScreen` for native capture.
  *    The temp JPEG file is read, POSTed to the stream endpoint, then deleted.
  *
  * 2. Game URL capture (gameUrl provided):
@@ -97,60 +96,34 @@ const _CAPTURE_SCRIPT = (_quality: number) => `
 })()
 `;
 
-// Simpler capture: screenshot the body background + visible text (very limited).
-// Used as last resort when no other method works.
-const SIMPLE_CAPTURE_SCRIPT = (quality: number) => `
-(function captureView() {
-  try {
-    var canvas = document.createElement('canvas');
-    var w = Math.min(window.innerWidth, 1280);
-    var h = Math.min(window.innerHeight, 720);
-    canvas.width = w;
-    canvas.height = h;
-    var ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    // Fill with background color
-    ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#000';
-    ctx.fillRect(0, 0, w, h);
-    return canvas.toDataURL('image/jpeg', ${quality / 100});
-  } catch(e) {
-    return null;
-  }
-})()
-`;
-
 export class ScreenCaptureManager {
   private frameCaptureActive = false;
   private frameCaptureTimer: ReturnType<typeof setInterval> | null = null;
   private frameCaptureWindow: BrowserWindow | null = null;
-  /** Reference to the main webview for app-window capture. */
-  private mainWebview: Webview | null = null;
-
-  /** Optional override target webview (e.g. a popout window's webview). */
-  private captureTargetWebview: Webview | null = null;
 
   setSendToWebview(_fn: SendToWebview): void {
     // Screen capture posts directly to the HTTP endpoint; no webview push needed.
   }
 
-  setMainWebview(webview: Webview | null): void {
-    this.mainWebview = webview;
+  setMainWebview(_webview: Webview | null): void {
+    // Native CLI capture does not use the webview reference; retained for RPC compat.
   }
 
   /**
    * Override the capture target webview. Pass null to revert to mainWebview.
    * Used when a StreamView is popped out to a separate window.
+   *
+   * NOTE: Since screen capture was moved to native CLI tools on all platforms
+   * (screencapture on macOS, PowerShell on Windows, scrot/import on Linux),
+   * this override is intentionally inert — frame capture always captures the
+   * full screen, not a specific webview. The setter is retained because it is
+   * wired into the RPC schema (screencapture:setCaptureTarget) and called by
+   * StreamView popout logic. Removing it would require coordinated changes
+   * across rpc-schema.ts, rpc-handlers.ts, electrobun-bridge.ts, and the
+   * renderer.
    */
-  setCaptureTarget(webview: Webview | null): void {
-    this.captureTargetWebview = webview;
-  }
-
-  /**
-   * Returns the active webview for frame capture: the override target if set,
-   * otherwise the main webview.
-   */
-  private getActiveWebview(): Webview | null {
-    return this.captureTargetWebview ?? this.mainWebview;
+  setCaptureTarget(_webview: Webview | null): void {
+    // Intentionally inert — see docblock above.
   }
 
   async getSources() {
@@ -234,7 +207,7 @@ export class ScreenCaptureManager {
    *
    * macOS: `screencapture -x -t jpg <tmpPath>`
    * Linux: `scrot --quality 70 <tmpPath>` (falls back to ImageMagick `import`)
-   * Windows: falls back to SIMPLE_CAPTURE_SCRIPT (JS canvas approach)
+   * Windows: PowerShell System.Drawing screen capture
    */
   private startWebviewCapture(
     _fps: number,
@@ -249,44 +222,32 @@ export class ScreenCaptureManager {
       if (!this.frameCaptureActive || skipping) return;
       skipping = true;
 
-      // Windows fallback: JS canvas (solid-color, but acceptable for non-primary platform)
-      if (platform === "win32") {
-        try {
-          const evalRpc = this.getActiveWebview()?.rpc as unknown as
-            | WebviewEvalRpc
-            | undefined;
-          const dataUrl =
-            await evalRpc?.requestProxy?.evaluateJavascriptWithResponse?.({
-              script: SIMPLE_CAPTURE_SCRIPT(quality),
-            });
-
-          if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
-            return;
-          }
-
-          const base64 = dataUrl.replace(/^data:[^;]+;base64,/, "");
-          const body = Buffer.from(base64, "base64");
-          fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "image/jpeg" },
-            body,
-          }).catch(() => {});
-        } catch {
-          // Skip frame on error
-        } finally {
-          skipping = false;
-        }
-        return;
-      }
-
-      // macOS / Linux: CLI screenshot → temp file → POST → delete
-      const tmpPath = `${os.tmpdir()}/milady-frame-${Date.now()}.jpg`;
+      // All platforms: CLI screenshot → temp file → POST → delete
+      const tmpPath = path.join(os.tmpdir(), `milady-frame-${Date.now()}.jpg`);
       try {
         let proc: ReturnType<typeof Bun.spawn>;
 
         if (platform === "darwin") {
           // -x = no shutter sound, no shadow  -t jpg = JPEG output
           proc = Bun.spawn(["screencapture", "-x", "-t", "jpg", tmpPath], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
+        } else if (platform === "win32") {
+          // Windows: use PowerShell with .NET to capture the primary screen.
+          // System.Windows.Forms is needed for Screen.PrimaryScreen.Bounds;
+          // System.Drawing provides Bitmap and CopyFromScreen.
+          const psScript = `
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+$gfx = [System.Drawing.Graphics]::FromImage($bmp)
+$gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+$gfx.Dispose()
+$bmp.Save('${tmpPath.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
+$bmp.Dispose()`;
+          proc = Bun.spawn(["powershell", "-NoProfile", "-Command", psScript], {
             stdout: "ignore",
             stderr: "ignore",
           });
@@ -506,8 +467,6 @@ export class ScreenCaptureManager {
 
   dispose(): void {
     this.stopFrameCapture();
-    this.mainWebview = null;
-    this.captureTargetWebview = null;
   }
 }
 

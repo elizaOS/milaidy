@@ -15,6 +15,7 @@ export interface StylePreset {
     post: string[];
   };
   postExamples: string[];
+  postExamples_zhCN?: string[];
   messageExamples: Array<
     Array<{
       user: string;

@@ -15,7 +15,7 @@ const mockGetConfig = vi.fn();
 const mockGetOnboardingOptions = vi.fn();
 const mockGetSubscriptionStatus = vi.fn();
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getConfig: (...args: unknown[]) => mockGetConfig(...args),
     getOnboardingOptions: (...args: unknown[]) =>
@@ -44,15 +44,15 @@ import { ProviderSwitcher } from "../../src/components/ProviderSwitcher";
 
 function defaultProps() {
   return {
-    cloudEnabled: false,
-    cloudConnected: false,
-    cloudCredits: null,
-    cloudCreditsLow: false,
-    cloudCreditsCritical: false,
-    cloudTopUpUrl: "",
-    cloudUserId: null,
-    cloudLoginBusy: false,
-    cloudLoginError: null,
+    miladyCloudEnabled: false,
+    miladyCloudConnected: false,
+    miladyCloudCredits: null,
+    miladyCloudCreditsLow: false,
+    miladyCloudCreditsCritical: false,
+    miladyCloudTopUpUrl: "",
+    miladyCloudUserId: null,
+    miladyCloudLoginBusy: false,
+    miladyCloudLoginError: null,
     cloudDisconnecting: false,
     plugins: [
       {
@@ -145,7 +145,7 @@ describe("ProviderSwitcher provider dropdown default", () => {
       tree = create(
         React.createElement(ProviderSwitcher, {
           ...defaultProps(),
-          cloudEnabled: true,
+          miladyCloudEnabled: true,
         }),
       );
     });

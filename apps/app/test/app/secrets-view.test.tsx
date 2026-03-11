@@ -7,7 +7,7 @@ const { mockGetSecrets, mockUpdateSecrets } = vi.hoisted(() => ({
   mockUpdateSecrets: vi.fn(),
 }));
 
-vi.mock("../../src/api-client", () => ({
+vi.mock("@milady/app-core/api", () => ({
   client: {
     getSecrets: mockGetSecrets,
     updateSecrets: mockUpdateSecrets,
@@ -56,7 +56,8 @@ describe("SecretsView picker keyboard behavior", () => {
 
     const addSecretButton = tree.root.find(
       (node) =>
-        node.type === "button" && node.props.children === "+ Add Secret",
+        node.type === "button" &&
+        node.props.children === "secretsview.AddSecret",
     );
 
     await act(async () => {

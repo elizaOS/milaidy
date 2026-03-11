@@ -217,7 +217,8 @@ describe("plugin-eject", () => {
       expect(result.success).toBe(true);
       expect(result.pluginName).toBe("@elizaos/plugin-test");
       expect(result.upstreamCommit).toBe("abc123");
-      await expect(fs.access(result.ejectedPath)).resolves.toBeUndefined();
+      // Verify the ejected path exists (fs.access throws if it doesn't)
+      await fs.access(result.ejectedPath);
 
       const upstreamRaw = await fs.readFile(
         path.join(result.ejectedPath, ".upstream.json"),

@@ -4,8 +4,9 @@
  * Creates a MiladyClient with an explicit base URL and mocks globalThis.fetch
  * to verify HTTP calls without a real server.
  */
+
+import { MiladyClient } from "@milady/app-core/api";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MiladyClient } from "../../src/api-client";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 let client: MiladyClient;

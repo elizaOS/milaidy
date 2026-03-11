@@ -11,6 +11,7 @@ import { getCameraManager } from "./camera";
 import { getCanvasManager } from "./canvas";
 import { getDesktopManager } from "./desktop";
 import { getGatewayDiscovery } from "./gateway";
+import { getGpuWindowManager } from "./gpu-window";
 import { getLocationManager } from "./location";
 import { getPermissionManager } from "./permissions";
 import { getScreenCaptureManager } from "./screencapture";
@@ -34,6 +35,7 @@ export function initializeNativeModules(
   getCameraManager().setSendToWebview(sendToWebview);
   getCanvasManager().setSendToWebview(sendToWebview);
   getGatewayDiscovery().setSendToWebview(sendToWebview);
+  getGpuWindowManager().setSendToWebview(sendToWebview);
   getLocationManager().setSendToWebview(sendToWebview);
   getPermissionManager().setSendToWebview(sendToWebview);
   const screencapture = getScreenCaptureManager();
@@ -52,6 +54,7 @@ export function disposeNativeModules(): void {
   getCanvasManager().dispose();
   getDesktopManager().dispose();
   getGatewayDiscovery().dispose();
+  getGpuWindowManager().dispose();
   getLocationManager().dispose();
   getPermissionManager().dispose();
   getScreenCaptureManager().dispose();
