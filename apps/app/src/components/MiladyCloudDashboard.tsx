@@ -603,7 +603,7 @@ function AgentDetailSidebar({
         if (logsData.success) {
           setLogs(logsData.data.logs || "");
         }
-      } catch (e) {
+      } catch {
         // Silently retry next tick
       }
     };
