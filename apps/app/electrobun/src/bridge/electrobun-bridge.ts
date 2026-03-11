@@ -192,6 +192,24 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   // LIFO
   "lifo:getPipState": "lifoGetPipState",
   "lifo:setPip": "lifoSetPip",
+
+  // GPU Window
+  "gpuWindow:create": "gpuWindowCreate",
+  "gpuWindow:destroy": "gpuWindowDestroy",
+  "gpuWindow:show": "gpuWindowShow",
+  "gpuWindow:hide": "gpuWindowHide",
+  "gpuWindow:setBounds": "gpuWindowSetBounds",
+  "gpuWindow:getInfo": "gpuWindowGetInfo",
+  "gpuWindow:list": "gpuWindowList",
+
+  // GPU View
+  "gpuView:create": "gpuViewCreate",
+  "gpuView:destroy": "gpuViewDestroy",
+  "gpuView:setFrame": "gpuViewSetFrame",
+  "gpuView:setTransparent": "gpuViewSetTransparent",
+  "gpuView:setHidden": "gpuViewSetHidden",
+  "gpuView:getNativeHandle": "gpuViewGetNativeHandle",
+  "gpuView:list": "gpuViewList",
 };
 
 /**
@@ -238,6 +256,9 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "location:update": "locationUpdate",
   "desktop:updateAvailable": "desktopUpdateAvailable",
   "desktop:updateReady": "desktopUpdateReady",
+
+  // GPU Window push events
+  "gpuWindow:closed": "gpuWindowClosed",
 };
 
 // Reverse mapping: RPC message name → Electron push channel

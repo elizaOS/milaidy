@@ -752,6 +752,9 @@ export type MiladyRPCSchema = {
       // Desktop: Update events
       desktopUpdateAvailable: { version: string; releaseNotes?: string };
       desktopUpdateReady: { version: string };
+
+      // GPU Window push events
+      gpuWindowClosed: { id: string };
     };
   }>;
 };
@@ -928,6 +931,24 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   // LIFO
   "lifo:getPipState": "lifoGetPipState",
   "lifo:setPip": "lifoSetPip",
+
+  // GPU Window
+  "gpuWindow:create": "gpuWindowCreate",
+  "gpuWindow:destroy": "gpuWindowDestroy",
+  "gpuWindow:show": "gpuWindowShow",
+  "gpuWindow:hide": "gpuWindowHide",
+  "gpuWindow:setBounds": "gpuWindowSetBounds",
+  "gpuWindow:getInfo": "gpuWindowGetInfo",
+  "gpuWindow:list": "gpuWindowList",
+
+  // GPU View
+  "gpuView:create": "gpuViewCreate",
+  "gpuView:destroy": "gpuViewDestroy",
+  "gpuView:setFrame": "gpuViewSetFrame",
+  "gpuView:setTransparent": "gpuViewSetTransparent",
+  "gpuView:setHidden": "gpuViewSetHidden",
+  "gpuView:getNativeHandle": "gpuViewGetNativeHandle",
+  "gpuView:list": "gpuViewList",
 };
 
 /**
@@ -974,6 +995,9 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "location:update": "locationUpdate",
   "desktop:updateAvailable": "desktopUpdateAvailable",
   "desktop:updateReady": "desktopUpdateReady",
+
+  // GPU Window push events
+  "gpuWindow:closed": "gpuWindowClosed",
 };
 
 /**
