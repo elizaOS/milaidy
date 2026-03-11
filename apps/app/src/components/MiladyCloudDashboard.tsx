@@ -260,7 +260,7 @@ export function CloudDashboard() {
 
   if (!miladyCloudConnected) {
     return (
-      <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto px-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto px-6 py-10 sm:py-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mb-8 shadow-inner border border-accent/20">
           <Zap className="w-10 h-10 text-accent animate-pulse" />
         </div>
