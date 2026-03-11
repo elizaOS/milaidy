@@ -55,6 +55,7 @@ export function GameView() {
     setActionNotice,
     t,
   } = useApp();
+  const isElectrobun = !!window.electron;
   const [stopping, setStopping] = useState(false);
   const [showLogsPanel, setShowLogsPanel] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
@@ -63,6 +64,8 @@ export function GameView() {
   const [chatInput, setChatInput] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
   const [retakeCapture, setRetakeCapture] = useState(false);
+  const [gameWindowId, setGameWindowId] = useState<string | null>(null);
+  const gameWindowIdRef = useRef<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const authSentRef = useRef(false);
   const viewerSessionRef = useRef<string>("");
@@ -162,6 +165,45 @@ export function GameView() {
       }
     };
   }, [showLogsPanel, loadLogs]);
+
+  // Open the game URL in an isolated Electrobun BrowserWindow.
+  // Runs whenever the viewer URL or game title changes and we're inside the desktop app.
+  useEffect(() => {
+    if (!isElectrobun || !activeGameViewerUrl) return;
+
+    let cancelled = false;
+
+    window.electron.ipcRenderer
+      .invoke("game:openWindow", {
+        url: activeGameViewerUrl,
+        title: activeGameDisplayName || activeGameApp || "Game",
+      })
+      .then((result) => {
+        if (cancelled) return;
+        const res = result as { id: string } | null;
+        if (res?.id) {
+          gameWindowIdRef.current = res.id;
+          setGameWindowId(res.id);
+          setConnectionStatus("connected");
+        }
+      })
+      .catch((err) => {
+        console.warn("[GameView] game:openWindow failed:", err);
+        // Fall through — iframe fallback is still rendered
+      });
+
+    return () => {
+      cancelled = true;
+      // Close the game window when GameView unmounts or the URL changes
+      if (gameWindowIdRef.current) {
+        window.electron.ipcRenderer
+          .invoke("canvas:destroyWindow", { id: gameWindowIdRef.current })
+          .catch(() => {});
+        gameWindowIdRef.current = null;
+        setGameWindowId(null);
+      }
+    };
+  }, [activeGameViewerUrl, activeGameApp, activeGameDisplayName, isElectrobun]);
 
   // Reset auth handshake state when the active viewer session changes.
   useEffect(() => {
@@ -471,13 +513,35 @@ export function GameView() {
       </div>
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-h-0 relative">
-          <iframe
-            ref={iframeRef}
-            src={activeGameViewerUrl}
-            sandbox={activeGameSandbox}
-            className="w-full h-full border-none"
-            title={activeGameDisplayName || "Game"}
-          />
+          {isElectrobun ? (
+            /* Electrobun mode: game runs in an isolated BrowserWindow opened
+               via game:openWindow RPC. The div below is a placeholder that
+               fills the same space in the layout while the native window is
+               positioned by the OS window manager. */
+            <div className="w-full h-full flex flex-col items-center justify-center bg-bg text-muted gap-3">
+              {gameWindowId ? (
+                <>
+                  <span className="text-sm font-semibold text-txt">
+                    {activeGameDisplayName || activeGameApp}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {t("game.openInNativeWindow")}
+                  </span>
+                </>
+              ) : (
+                <span className="text-xs italic">{t("game.launching")}</span>
+              )}
+            </div>
+          ) : (
+            /* Web / dev-server fallback: standard iframe */
+            <iframe
+              ref={iframeRef}
+              src={activeGameViewerUrl}
+              sandbox={activeGameSandbox}
+              className="w-full h-full border-none"
+              title={activeGameDisplayName || "Game"}
+            />
+          )}
         </div>
         {showLogsPanel && renderLogsPanel()}
       </div>

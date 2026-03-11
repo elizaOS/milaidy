@@ -598,6 +598,13 @@ export type MiladyRPCSchema = {
         response: { windows: CanvasWindowInfo[] };
       };
 
+      // ---- Game ----
+      /** Opens a game client URL in a dedicated isolated BrowserWindow. */
+      gameOpenWindow: {
+        params: { url: string; title?: string };
+        response: { id: string };
+      };
+
       // ---- Screencapture (graceful stubs) ----
       screencaptureGetSources: {
         params: undefined;
@@ -1051,6 +1058,9 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "canvas:getBounds": "canvasGetBounds",
   "canvas:setBounds": "canvasSetBounds",
   "canvas:listWindows": "canvasListWindows",
+
+  // Game
+  "game:openWindow": "gameOpenWindow",
 
   // Screencapture
   "screencapture:getSources": "screencaptureGetSources",

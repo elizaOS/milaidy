@@ -3878,6 +3878,23 @@ describe("PermissionManager — checkFeaturePermissions", () => {
 //   1. Run `bun run start` (or `bun run dev`) in apps/app/electrobun/
 //   2. Work through each checklist item below
 //   3. Mark as passing by converting `it.todo` → `it.skip` with a note
+// INTERACTIVE: Game windows (isolated BrowserWindow for game clients)
+// ============================================================================
+
+describe.skip("INTERACTIVE: Game windows", () => {
+  it.todo(
+    "gameOpenWindow — opens an external game URL in an isolated BrowserWindow",
+  );
+  it.todo("gameOpenWindow — returned id appears in canvasListWindows result");
+  it.todo(
+    "gameOpenWindow — window uses game-isolated session partition (no cookie bleed from main renderer)",
+  );
+  it.todo(
+    "canvasDestroyWindow — closes a game window opened via gameOpenWindow",
+  );
+});
+
+// INTERACTIVE: GPU companion window (GpuWindow + WGPUView)
 // ============================================================================
 
 describe.skip("INTERACTIVE: Tray icon and menu", () => {

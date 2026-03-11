@@ -1081,6 +1081,8 @@
   "game.unpinOverlay": "Unpin Overlay",
   "game.keepOnTop": "Keep on Top",
   "game.openInNewTab": "Open in New Tab",
+  "game.openInNativeWindow": "Running in a separate window",
+  "game.launching": "Launching game window...",
   "game.stopping": "Stopping...",
   "game.stop": "Stop",
   "game.chatPlaceholder": "e.g. 'go chop wood' or 'attack the goblin'",

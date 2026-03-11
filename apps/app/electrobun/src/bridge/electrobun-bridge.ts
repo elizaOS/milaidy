@@ -158,6 +158,9 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "canvas:setBounds": "canvasSetBounds",
   "canvas:listWindows": "canvasListWindows",
 
+  // Game
+  "game:openWindow": "gameOpenWindow",
+
   // Screencapture
   "screencapture:getSources": "screencaptureGetSources",
   "screencapture:takeScreenshot": "screencaptureTakeScreenshot",
