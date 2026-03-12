@@ -4,7 +4,7 @@ export default {
   app: {
     name: "Milady",
     identifier: "com.miladyai.milady",
-    version: "2.0.0-alpha.76",
+    version: "2.0.0-alpha.85",
     description: "Cute AI agents for the desktop",
     urlSchemes: ["milady"],
   },

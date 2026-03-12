@@ -41,7 +41,7 @@ const requiredWorkflowSnippets = [
   "apps/app/electrobun/artifacts/*.exe",
   "name: Collect public release files",
   '-name "*Setup*.zip" -o \\',
-  '-name "*Setup*.tar.gz" \\',
+  '-name "*Setup*.tar.gz" -o \\',
   "name: Collect update channel files",
   '-name "*.tar.zst" -o \\',
   '-name "*-update.json" \\',

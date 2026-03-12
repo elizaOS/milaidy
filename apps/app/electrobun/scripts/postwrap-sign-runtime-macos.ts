@@ -176,18 +176,13 @@ export function isRetryableCodesignFailure(message: string): boolean {
 
 function formatExecSyncFailure(error: unknown): string {
   if (error instanceof Error) {
+    const stderrValue = (error as NodeJS.ErrnoException & { stderr?: unknown })
+      .stderr;
     const stderr =
-      typeof (error as NodeJS.ErrnoException & { stderr?: unknown }).stderr ===
-      "string"
-        ? (error as NodeJS.ErrnoException & { stderr?: string }).stderr
-        : Buffer.isBuffer(
-              (error as NodeJS.ErrnoException & { stderr?: unknown }).stderr,
-            )
-          ? (
-              error as NodeJS.ErrnoException & {
-                stderr: Buffer;
-              }
-            ).stderr.toString("utf8")
+      typeof stderrValue === "string"
+        ? stderrValue
+        : Buffer.isBuffer(stderrValue)
+          ? stderrValue.toString("utf8")
           : "";
     const trimmedStderr = stderr.trim();
     if (trimmedStderr) {

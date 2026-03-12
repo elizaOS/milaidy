@@ -428,6 +428,7 @@ $bmp.Dispose()`;
       window: win,
       url: options.url,
       title: options.title ?? "Milady Game",
+      savedPosition: null,
     };
 
     this.windows.set(id, canvas);

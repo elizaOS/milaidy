@@ -17,7 +17,7 @@ import type {
 // Load AXIsProcessTrustedWithOptions from the native dylib so it runs in the
 // app's process context — required for macOS to register Milady in the
 // Accessibility list in System Preferences.
-let _nativeLib: {
+interface NativePermissionsLib {
   requestAccessibilityPermission: () => boolean;
   checkAccessibilityPermission: () => boolean;
   requestScreenRecordingPermission: () => boolean;
@@ -26,7 +26,9 @@ let _nativeLib: {
   checkCameraPermission: () => number;
   requestCameraPermission: () => void;
   requestMicrophonePermission: () => void;
-} | null = null;
+}
+
+let _nativeLib: NativePermissionsLib | null = null;
 
 function getNativeLib() {
   if (_nativeLib) return _nativeLib;
@@ -45,7 +47,7 @@ function getNativeLib() {
       requestCameraPermission: { args: [], returns: FFIType.void },
       requestMicrophonePermission: { args: [], returns: FFIType.void },
     });
-    _nativeLib = symbols as typeof _nativeLib;
+    _nativeLib = symbols as NativePermissionsLib;
     return _nativeLib;
   } catch (err) {
     console.warn("[Permissions] Failed to load native dylib:", err);
