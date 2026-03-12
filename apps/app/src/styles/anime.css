@@ -3455,17 +3455,9 @@
   box-shadow: 0 0 10px var(--s-glow-edge);
 }
 
-/* Grid texture overlay */
+/* Grid texture overlay — disabled (was subtle line pattern, removed per UX) */
 .settings-content-area::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background:
-    linear-gradient(var(--s-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--s-grid-line) 1px, transparent 1px);
-  background-size: 40px 40px;
+  content: none;
 }
 
 /* Keep content above grid overlay */
@@ -4887,13 +4879,6 @@
       transparent 56%
     ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.02) 0,
-      rgba(255, 255, 255, 0.02) 1px,
-      transparent 1px,
-      transparent 26px
-    ),
     var(--pg-panel-bg);
 }
 
