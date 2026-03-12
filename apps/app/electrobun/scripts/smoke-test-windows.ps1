@@ -1,5 +1,6 @@
 param(
   [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\\artifacts"),
+  [string]$BuildDir = (Join-Path $PSScriptRoot "..\\build"),
   [int]$BackendPort = 2138,
   [int]$TimeoutSeconds = 240
 )
@@ -7,11 +8,19 @@ param(
 $ErrorActionPreference = "Stop"
 
 $resolvedArtifactsDir = (Resolve-Path $ArtifactsDir).Path
+$resolvedBuildDir = $null
+try {
+  $resolvedBuildDir = (Resolve-Path $BuildDir).Path
+} catch {
+  $resolvedBuildDir = $null
+}
 # Milady writes its startup log to AppData\Roaming\Milady on Windows, not the
 # Unix-style ~/.config/Milady path used on macOS/Linux.
 $startupLog = Join-Path $env:APPDATA "Milady\\milady-startup.log"
 $selfExtractionRoot = Join-Path $env:LOCALAPPDATA "com.miladyai.milady\\canary\\self-extraction"
 $tempExtractDir = Join-Path $env:RUNNER_TEMP ("milady-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
+$persistLauncherDir = $env:MILADY_TEST_WINDOWS_LAUNCHER_DIR
+$persistLauncherPathFile = $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE
 
 function Find-Launcher([string]$Root) {
   if (-not (Test-Path $Root)) {
@@ -19,6 +28,7 @@ function Find-Launcher([string]$Root) {
   }
 
   return Get-ChildItem -Path $Root -Recurse -File -Filter "launcher.exe" -ErrorAction SilentlyContinue |
+    Sort-Object FullName |
     Select-Object -First 1
 }
 
@@ -31,6 +41,37 @@ function Expand-PackagedTarball([string]$ArchivePath, [string]$DestinationPath) 
 
   New-Item -ItemType Directory -Force -Path $DestinationPath | Out-Null
   & $tarCommand -xf $ArchivePath -C $DestinationPath
+}
+
+function Write-ReusableLauncherPath([System.IO.FileInfo]$Launcher, [string]$TemporaryRoot) {
+  if (-not $Launcher -or [string]::IsNullOrWhiteSpace($persistLauncherPathFile)) {
+    return $Launcher
+  }
+
+  $launcherPath = $Launcher.FullName
+  if (
+    -not [string]::IsNullOrWhiteSpace($TemporaryRoot) -and
+    $launcherPath.StartsWith($TemporaryRoot, [System.StringComparison]::OrdinalIgnoreCase)
+  ) {
+    $stageDir = if ([string]::IsNullOrWhiteSpace($persistLauncherDir)) {
+      Join-Path $env:RUNNER_TEMP "milady-windows-ui-launcher"
+    } else {
+      $persistLauncherDir
+    }
+
+    $appRoot = Split-Path -Parent (Split-Path -Parent $launcherPath)
+    Remove-Item $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+    Copy-Item -Path (Join-Path $appRoot "*") -Destination $stageDir -Recurse -Force
+    $launcherPath = Join-Path $stageDir "bin\\launcher.exe"
+  }
+
+  $pathFileParent = Split-Path -Parent $persistLauncherPathFile
+  if ($pathFileParent) {
+    New-Item -ItemType Directory -Force -Path $pathFileParent | Out-Null
+  }
+  Set-Content -Path $persistLauncherPathFile -Value $launcherPath -Encoding utf8
+  return Get-Item $launcherPath
 }
 
 function Stop-MiladyProcesses() {
@@ -69,6 +110,9 @@ function Get-ObservedBackendPorts([int]$DefaultPort) {
 }
 
 Write-Host "Artifacts dir: $resolvedArtifactsDir"
+if ($resolvedBuildDir) {
+  Write-Host "Build dir: $resolvedBuildDir"
+}
 
 Stop-MiladyProcesses
 $env:ELECTROBUN_CONSOLE = "1"
@@ -78,11 +122,26 @@ if (Test-Path $selfExtractionRoot) {
 }
 
 $launcher = Find-Launcher $resolvedArtifactsDir
+$launcherSource = $null
 $packagedTarball = $null
 $installer = $null
 $installerProcess = $null
 $launcherProcess = $null
 $launcherStarted = $false
+
+if ($resolvedBuildDir) {
+  $launcher = Find-Launcher $resolvedBuildDir
+  if ($launcher) {
+    $launcherSource = "build"
+  }
+}
+
+if (-not $launcher) {
+  $launcher = Find-Launcher $resolvedArtifactsDir
+  if ($launcher) {
+    $launcherSource = "artifacts"
+  }
+}
 
 if (-not $launcher) {
   $packagedTarball = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst" -ErrorAction SilentlyContinue |
@@ -96,6 +155,8 @@ if (-not $launcher) {
       $launcher = Find-Launcher $tempExtractDir
       if (-not $launcher) {
         Write-Warning "Packaged tarball extracted but no launcher.exe was found. Falling back to installer path."
+      } else {
+        $launcherSource = "packaged tarball"
       }
     } catch {
       Write-Warning "Failed to extract packaged tarball: $($_.Exception.Message)"
@@ -104,7 +165,8 @@ if (-not $launcher) {
   }
 
   if ($launcher) {
-    Write-Host "Using launcher: $($launcher.FullName)"
+    $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
+    Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
     $launcherDir = Split-Path -Parent $launcher.FullName
     $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
     $launcherStarted = $true
@@ -133,7 +195,8 @@ if (-not $launcher) {
     $installerProcess = Start-Process -FilePath $installer.FullName -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru
   }
 } else {
-  Write-Host "Using launcher: $($launcher.FullName)"
+  $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
+  Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
   $launcherDir = Split-Path -Parent $launcher.FullName
   $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
   $launcherStarted = $true
@@ -147,6 +210,7 @@ try {
     if (-not $launcher) {
       $launcher = Find-Launcher $selfExtractionRoot
       if ($launcher) {
+        $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $null
         Write-Host "Found extracted launcher: $($launcher.FullName)"
       }
     }
