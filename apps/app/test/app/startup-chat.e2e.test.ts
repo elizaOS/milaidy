@@ -9,12 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
-const { mockUseLifoAutoPopout } = vi.hoisted(() => ({
-  mockUseLifoAutoPopout: vi.fn(),
-}));
-const { mockIsLifoPopoutMode } = vi.hoisted(() => ({
-  mockIsLifoPopoutMode: vi.fn(() => false),
-}));
 
 vi.mock("../../src/AppContext", () => ({
   useApp: () => mockUseApp(),
@@ -86,17 +80,6 @@ vi.mock("../../src/components/StreamView", () => ({
 vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () => React.createElement("div", null, "CompanionView"),
 }));
-vi.mock("../../src/hooks/useLifoAutoPopout", () => ({
-  useLifoAutoPopout: (options: unknown) => mockUseLifoAutoPopout(options),
-}));
-vi.mock("../../src/lifo-popout", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../src/lifo-popout")>();
-  return {
-    ...original,
-    isLifoPopoutMode: () => mockIsLifoPopoutMode(),
-  };
-});
 
 import { App } from "../../src/App";
 
@@ -120,9 +103,6 @@ describe("app startup routing (e2e)", () => {
   beforeEach(() => {
     setViewportWidth(1280);
     mockUseApp.mockReset();
-    mockUseLifoAutoPopout.mockReset();
-    mockIsLifoPopoutMode.mockReset();
-    mockIsLifoPopoutMode.mockReturnValue(false);
     mockUseApp.mockReturnValue({
       t: (k: string) => k,
       onboardingLoading: false,
@@ -162,11 +142,6 @@ describe("app startup routing (e2e)", () => {
     expect(renderedText).not.toContain("AvatarLoader");
     expect(renderedText).not.toContain("OnboardingWizard");
     expect(renderedText).not.toContain("PairingView");
-    expect(mockUseLifoAutoPopout).toHaveBeenCalled();
-    expect(
-      (mockUseLifoAutoPopout.mock.calls[0]?.[0] as { enabled?: boolean })
-        ?.enabled,
-    ).toBe(true);
   });
 
   it("renders wallets screen when wallets tab is active", async () => {
@@ -253,33 +228,5 @@ describe("app startup routing (e2e)", () => {
       .map((node) => node.children.join(""))
       .join("\n");
     expect(renderedText).toContain("AutonomousPanel");
-  });
-
-  // TODO: Fix mock for isLifoPopoutMode - the test infrastructure doesn't properly
-  // mock the module due to module resolution timing issues with useMemo.
-  it.skip("renders dedicated lifo popout shell for popout=lifo", async () => {
-    mockIsLifoPopoutMode.mockReturnValue(true);
-    window.history.pushState({}, "", "/lifo?popout=lifo");
-
-    let tree = undefined as unknown as TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(App));
-    });
-
-    const renderedText = tree?.root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
-
-    expect(renderedText).toContain("LifoSandboxView");
-    expect(renderedText).not.toContain("Header");
-    expect(renderedText).not.toContain("Nav");
-    expect(renderedText).not.toContain("ConversationsSidebar");
-    expect(renderedText).not.toContain("AutonomousPanel");
-    expect(mockUseLifoAutoPopout).toHaveBeenCalled();
-    expect(
-      (mockUseLifoAutoPopout.mock.calls[0]?.[0] as { enabled?: boolean })
-        ?.enabled,
-    ).toBe(false);
   });
 });

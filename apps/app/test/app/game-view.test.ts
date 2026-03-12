@@ -97,6 +97,7 @@ describe("GameView", () => {
   });
 
   afterEach(() => {
+    delete (window as typeof window & { electron?: unknown }).electron;
     vi.restoreAllMocks();
   });
 
@@ -134,7 +135,7 @@ describe("GameView", () => {
     await flush();
 
     await act(async () => {
-      findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
+      await findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
     });
 
     expect(openSpy).toHaveBeenCalledWith(
@@ -150,13 +151,40 @@ describe("GameView", () => {
 
     openSpy.mockReturnValueOnce(null);
     await act(async () => {
-      findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
+      await findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
     });
     expect(ctx.setActionNotice).toHaveBeenCalledWith(
       "Popup blocked. Allow popups and try again.",
       "error",
       3600,
     );
+  });
+
+  it("uses the Electrobun shell bridge when opening the viewer externally", async () => {
+    const ctx = createContext();
+    const invoke = vi.fn(async () => undefined);
+    mockUseApp.mockReturnValue(ctx);
+    Object.defineProperty(window, "electron", {
+      configurable: true,
+      writable: true,
+      value: { ipcRenderer: { invoke } },
+    });
+    const openSpy = vi.spyOn(window, "open");
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(GameView));
+    });
+    await flush();
+
+    await act(async () => {
+      await findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
+    });
+
+    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+      url: ctx.activeGameViewerUrl,
+    });
+    expect(openSpy).not.toHaveBeenCalled();
   });
 
   it("stops app, resets state, and navigates back on success", async () => {

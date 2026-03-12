@@ -87,6 +87,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { openExternalUrl } from "../utils/openExternalUrl";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
 import { SHOWCASE_PLUGIN } from "./plugins/showcase-data";
@@ -737,23 +738,6 @@ function getPluginResourceLinks(
   });
 }
 
-async function openPluginExternalUrl(url: string): Promise<void> {
-  const electron = (
-    window as {
-      electron?: {
-        ipcRenderer: {
-          invoke: (channel: string, params?: unknown) => Promise<unknown>;
-        };
-      };
-    }
-  ).electron;
-  if (electron?.ipcRenderer) {
-    await electron.ipcRenderer.invoke("desktop:openExternal", { url });
-  } else {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-}
-
 /* ── Sub-group Classification ──────────────────────────────────────── */
 
 /** Map plugin IDs to fine-grained sub-groups for the "Feature" category. */
@@ -1209,6 +1193,21 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     [handlePluginToggle],
   );
 
+  const handleOpenPluginExternalUrl = useCallback(
+    async (url: string) => {
+      try {
+        await openExternalUrl(url);
+      } catch (err) {
+        setActionNotice(
+          err instanceof Error ? err.message : "Failed to open external link.",
+          "error",
+          4200,
+        );
+      }
+    },
+    [setActionNotice],
+  );
+
   // ── Add from directory ──────────────────────────────────────────────
 
   const handleAddFromDirectory = async () => {
@@ -1462,7 +1461,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 className="h-6 px-2 text-[10px] font-bold border-border/40 text-muted hover:text-accent hover:border-accent hover:bg-accent/5 backdrop-blur-sm transition-all"
                 onClick={(e) => {
                   e.stopPropagation();
-                  void openPluginExternalUrl(link.url);
+                  void handleOpenPluginExternalUrl(link.url);
                 }}
                 title={`${link.label}: ${link.url}`}
               >
@@ -1771,7 +1770,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       type="button"
                       className="plugins-game-link-btn border border-border bg-transparent px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
                       onClick={() => {
-                        void openPluginExternalUrl(link.url);
+                        void handleOpenPluginExternalUrl(link.url);
                       }}
                     >
                       {link.label}

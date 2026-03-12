@@ -134,9 +134,9 @@ import {
   loadSavedCustomCommands,
   normalizeSlashCommandName,
 } from "./chat-commands";
-import { isLifoPopoutMode } from "./lifo-popout";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 import { mapServerTasksToSessions } from "./pty-session-hydrate";
+import { openExternalUrl } from "./utils/openExternalUrl";
 
 export {
   type ActionNotice,
@@ -3361,26 +3361,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Open login in browser
+      // Open login in the system browser. External window.open() is a no-op in
+      // Electrobun for these auth flows.
       if (resp.browserUrl) {
-        // Use desktop IPC to open in the system browser — window.open() is
-        // a no-op in WKWebView (Electrobun) for external URLs.
-        const electronApi = (
-          window as {
-            electron?: {
-              ipcRenderer: {
-                invoke: (ch: string, p?: unknown) => Promise<unknown>;
-              };
-            };
-          }
-        ).electron;
-        if (electronApi?.ipcRenderer) {
-          await electronApi.ipcRenderer.invoke("desktop:openExternal", {
-            url: resp.browserUrl,
-          });
-        } else {
-          window.open(resp.browserUrl, "_blank");
-        }
+        await openExternalUrl(resp.browserUrl);
       }
 
       // Start polling
@@ -3803,74 +3787,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn(`${STARTUP_WARN_PREFIX} ${scope}`, err);
     };
 
-    // Detect Lifo popout mode — lightweight init that skips agent lifecycle.
-    const isPopoutMode = isLifoPopoutMode();
-
     const initApp = async () => {
-      // Popout fast-path: just connect WS and fetch events. No agent
-      // lifecycle, no onboarding, no auth gates.
-      if (isPopoutMode) {
-        const navPath =
-          window.location.protocol === "file:"
-            ? window.location.hash.replace(/^#/, "") || "/"
-            : window.location.pathname;
-        const urlTab = tabFromPath(navPath);
-        setTabRaw(urlTab ?? "lifo");
-        setOnboardingComplete(true);
-        setOnboardingLoading(false);
-
-        // Wait for API to be reachable (it's already running from the main window)
-        for (let i = 0; i < 30 && !cancelled; i++) {
-          try {
-            const status = await client.getStatus();
-            setAgentStatus(status);
-            setConnected(true);
-            break;
-          } catch {
-            await new Promise<void>((r) => setTimeout(r, 500));
-          }
-        }
-
-        client.connectWs();
-        unbindStatus = client.onWsEvent(
-          "status",
-          (data: Record<string, unknown>) => {
-            const nextStatus = parseAgentStatusEvent(data);
-            if (nextStatus) setAgentStatus(nextStatus);
-          },
-        );
-        unbindAgentEvents = client.onWsEvent(
-          "agent_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-        unbindHeartbeatEvents = client.onWsEvent(
-          "heartbeat_event",
-          (data: Record<string, unknown>) => {
-            const event = parseStreamEventEnvelopeEvent(data);
-            if (event) appendAutonomousEvent(event);
-          },
-        );
-
-        await fetchAutonomyReplay();
-
-        // Restore custom avatar in the popout so the stream captures it.
-        const popoutAvatarIndex = loadAvatarIndex();
-        if (popoutAvatarIndex === 0) {
-          const hasVrm = await client.hasCustomVrm();
-          if (hasVrm) {
-            setSelectedVrmIndex(0);
-            setCustomVrmUrl(resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
-          }
-        } else {
-          setSelectedVrmIndex(popoutAvatarIndex);
-        }
-
-        return;
-      }
-
       if (import.meta.env.DEV && startupRunId > 0) {
         console.debug(`[milady] Retrying startup run #${startupRunId}`);
       }

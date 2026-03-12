@@ -4,12 +4,8 @@
 
 import { ErrorBoundary } from "@milady/app-core/components";
 import type { Tab } from "@milady/app-core/navigation";
-import {
-  APPS_ENABLED,
-  COMPANION_ENABLED,
-  pathForTab,
-} from "@milady/app-core/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { APPS_ENABLED, COMPANION_ENABLED } from "@milady/app-core/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useApp } from "./AppContext";
 import { AdvancedPageView } from "./components/AdvancedPageView";
 import { AppsPageView } from "./components/AppsPageView";
@@ -31,7 +27,6 @@ import { GameViewOverlay } from "./components/GameViewOverlay";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
-import { LifoSandboxView } from "./components/LifoSandboxView";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PairingView } from "./components/PairingView";
 import { SaveCommandModal } from "./components/SaveCommandModal";
@@ -42,14 +37,13 @@ import { StreamView } from "./components/StreamView";
 import { SystemWarningBanner } from "./components/SystemWarningBanner";
 import { BugReportProvider, useBugReportState } from "./hooks/useBugReport";
 import { useContextMenu } from "./hooks/useContextMenu";
-import { useLifoAutoPopout } from "./hooks/useLifoAutoPopout";
 import { useStreamPopoutNavigation } from "./hooks/useStreamPopoutNavigation";
-import { isLifoPopoutMode, isLifoPopoutValue } from "./lifo-popout";
+import { isLifoPopoutValue } from "./lifo-popout";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
 /** Check if we're in pop-out mode (StreamView only, no chrome).
- *  Excludes lifo popout values — those use the dedicated LifoSandboxView shell. */
+ *  Legacy LIFO popout values are ignored so the normal app shell still loads. */
 function useIsPopout(): boolean {
   const [popout] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -124,7 +118,6 @@ export function App() {
     unreadConversations,
     activeGameViewerUrl,
     gameOverlayEnabled,
-    setActionNotice,
   } = useApp();
 
   const isPopout = useIsPopout();
@@ -289,24 +282,6 @@ export function App() {
   }, [isChat]);
 
   const bugReport = useBugReportState();
-  const lifoPopoutMode = useMemo(() => isLifoPopoutMode(), []);
-
-  useLifoAutoPopout({
-    enabled:
-      !lifoPopoutMode &&
-      !onboardingLoading &&
-      onboardingComplete &&
-      !authRequired,
-    targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
-    onPopupBlocked: () => {
-      setActionNotice(
-        "Lifo popout blocked by the browser. Allow popups to watch agent computer-use live.",
-        "error",
-        3800,
-      );
-    },
-  });
-
   const agentStarting = agentStatus?.state === "starting";
 
   useEffect(() => {
@@ -342,18 +317,6 @@ export function App() {
 
   if (authRequired) return <PairingView />;
   if (!onboardingComplete) return <OnboardingWizard />;
-
-  if (lifoPopoutMode) {
-    return (
-      <BugReportProvider value={bugReport}>
-        <div className="flex h-screen w-screen min-h-0 bg-bg text-txt">
-          <main className="flex-1 min-h-0 overflow-hidden p-3 xl:p-4">
-            <LifoSandboxView />
-          </main>
-        </div>
-      </BugReportProvider>
-    );
-  }
 
   /* ── Companion shell mode ─────────────────────────────────────────── */
   if (shellMode === "companion" && COMPANION_OVERLAY_TABS.has(effectiveTab)) {

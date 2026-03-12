@@ -18,6 +18,8 @@ const requiredWorkflowSnippets = [
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
   "run: bun run release:check",
+  "name: Ensure avatar assets",
+  "node scripts/ensure-avatars.mjs",
   "Install quiet macOS packaging wrappers",
   "apps/app/electrobun/scripts/xcrun-wrapper.sh",
   "apps/app/electrobun/scripts/zip-wrapper.sh",
@@ -193,8 +195,11 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
   }
 
   const requiredSnippets = [
+    "Find-Launcher $resolvedBuildDir",
     'Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst"',
     'Join-Path $env:APPDATA "Milady\\\\milady-startup.log"',
+    "$persistLauncherPathFile = $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE",
+    "Using $launcherSource launcher:",
     "Using packaged tarball:",
     "Find-Launcher $selfExtractionRoot",
     "Started extracted launcher:",

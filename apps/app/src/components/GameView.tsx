@@ -14,6 +14,7 @@ import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { useRetakeCapture } from "../hooks/useRetakeCapture";
+import { openExternalUrl } from "../utils/openExternalUrl";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const READY_EVENT_BY_AUTH_TYPE: Record<string, string> = {
@@ -266,13 +267,10 @@ export function GameView() {
     setActionNotice,
   ]);
 
-  const handleOpenInNewTab = useCallback(() => {
-    const popup = window.open(
-      activeGameViewerUrl,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    if (!popup) {
+  const handleOpenInNewTab = useCallback(async () => {
+    try {
+      await openExternalUrl(activeGameViewerUrl);
+    } catch {
       setActionNotice(
         "Popup blocked. Allow popups and try again.",
         "error",

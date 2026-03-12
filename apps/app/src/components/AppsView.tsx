@@ -17,6 +17,7 @@ import {
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import { openExternalUrl } from "../utils/openExternalUrl";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
 const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
@@ -224,14 +225,14 @@ export function AppsView() {
       clearActiveGameState();
       const targetUrl = result.launchUrl ?? app.launchUrl;
       if (targetUrl) {
-        const popup = window.open(targetUrl, "_blank", "noopener,noreferrer");
-        if (popup) {
+        try {
+          await openExternalUrl(targetUrl);
           setActionNotice(
             `${app.displayName ?? app.name} opened in a new tab.`,
             "success",
             2600,
           );
-        } else {
+        } catch {
           setActionNotice(
             `Popup blocked while opening ${app.displayName ?? app.name}. Allow popups and try again.`,
             "error",
@@ -262,22 +263,19 @@ export function AppsView() {
     setState("appsSubTab", "games");
   }, [hasCurrentGame, setState]);
 
-  const handleOpenCurrentGameInNewTab = useCallback(() => {
+  const handleOpenCurrentGameInNewTab = useCallback(async () => {
     if (!hasCurrentGame) return;
-    const popup = window.open(
-      currentGameViewerUrl,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    if (popup) {
+    try {
+      await openExternalUrl(currentGameViewerUrl);
       setActionNotice("Current game opened in a new tab.", "success", 2600);
       return;
+    } catch {
+      setActionNotice(
+        "Popup blocked. Allow popups and try again.",
+        "error",
+        4200,
+      );
     }
-    setActionNotice(
-      "Popup blocked. Allow popups and try again.",
-      "error",
-      4200,
-    );
   }, [currentGameViewerUrl, hasCurrentGame, setActionNotice]);
 
   const selectedHyperscapeAgent = useMemo(

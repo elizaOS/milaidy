@@ -5,18 +5,9 @@ import {
   type SandboxBrowserEndpoints,
   type SandboxWindowInfo,
 } from "@milady/app-core/api";
-import { pathForTab } from "@milady/app-core/navigation";
 import { useApp } from "../AppContext";
 import { useLifoSync } from "../hooks/useLifoSync";
-import {
-  buildLifoPopoutUrl,
-  generateLifoSessionId,
-  getLifoSessionIdFromLocation,
-  isLifoPopoutMode,
-  isSafeEndpointUrl,
-  LIFO_POPOUT_FEATURES,
-  LIFO_POPOUT_WINDOW_NAME,
-} from "../lifo-popout";
+import { generateLifoSessionId, isSafeEndpointUrl } from "../lifo-popout";
 import {
   createLifoRuntime,
   type LifoRuntime,
@@ -46,7 +37,6 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
   const runtimeRef = useRef<LifoRuntime | null>(null);
   const queueRef = useRef<string[]>([]);
   const runningRef = useRef(false);
-  const popoutRef = useRef<Window | null>(null);
   const controllerHeartbeatAtRef = useRef(0);
 
   const [booting, setBooting] = useState(false);
@@ -56,15 +46,10 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
   const [runCount, setRunCount] = useState(0);
   const [sessionKey, setSessionKey] = useState(0);
 
-  const popoutMode = useMemo(() => isLifoPopoutMode(), []);
-  const lifoSessionId = useMemo(() => {
-    if (popoutMode) {
-      return getLifoSessionIdFromLocation(window.location);
-    }
-    return generateLifoSessionId();
-  }, [popoutMode]);
-  const [controllerOnline, setControllerOnline] = useState(popoutMode);
-  const controllerOnlineRef = useRef(popoutMode);
+  const popoutMode = false;
+  const lifoSessionId = useMemo(() => generateLifoSessionId(), []);
+  const [controllerOnline, setControllerOnline] = useState(false);
+  const controllerOnlineRef = useRef(false);
   controllerOnlineRef.current = controllerOnline;
   const [monitorOnline, setMonitorOnline] = useState(false);
   const [monitorError, setMonitorError] = useState<string | null>(null);
@@ -73,7 +58,6 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
     useState<SandboxBrowserEndpoints | null>(null);
   const [sandboxWindows, setSandboxWindows] = useState<SandboxWindowInfo[]>([]);
   const [noVncFailed, setNoVncFailed] = useState(false);
-  const [pipEnabled, setPipEnabled] = useState(false);
   const [screenPreviewBase64, setScreenPreviewBase64] = useState<string | null>(
     null,
   );
@@ -221,7 +205,7 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
     } catch (err) {
       setMonitorError(formatError(err));
     }
-  }, [popoutMode]);
+  }, []);
 
   const refreshScreenPreview = useCallback(async () => {
     if (popoutMode) return;
@@ -239,7 +223,7 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
       setMonitorOnline(false);
       setMonitorError(formatError(err));
     }
-  }, [noVncActive, popoutMode]);
+  }, [noVncActive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -294,29 +278,6 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
   }, [appendOutput, runQueuedCommands, sessionKey, teardown]);
 
   useEffect(() => {
-    if (!popoutMode) return;
-    const ipc = window.electron?.ipcRenderer;
-    if (!ipc?.invoke) return;
-
-    let cancelled = false;
-
-    void ipc
-      .invoke("lifo:getPipState")
-      .then((result) => {
-        if (cancelled || typeof result !== "object" || result === null) return;
-        const enabled = (result as { enabled?: unknown }).enabled;
-        setPipEnabled(enabled === true);
-      })
-      .catch(() => {
-        // Ignore if running outside Electron.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [popoutMode]);
-
-  useEffect(() => {
     if (popoutMode) return;
 
     let cancelled = false;
@@ -367,7 +328,7 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
       stopPolling();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [popoutMode, refreshMonitorMeta, refreshScreenPreview]);
+  }, [refreshMonitorMeta, refreshScreenPreview]);
 
   useEffect(() => {
     const unbind = client.onWsEvent(
@@ -376,9 +337,7 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
         const event = data as TerminalOutputEvent;
         if (event.event !== "start") return;
         if (typeof event.command !== "string" || !event.command.trim()) return;
-        const popoutOpen =
-          !popoutMode && popoutRef.current != null && !popoutRef.current.closed;
-        if (!popoutMode && (controllerOnlineRef.current || popoutOpen)) {
+        if (!popoutMode && controllerOnlineRef.current) {
           // A dedicated popout controller is active; watcher mirrors via sync.
           return;
         }
@@ -387,67 +346,12 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
     );
 
     return unbind;
-  }, [enqueueAgentCommand, popoutMode]);
-
-  useEffect(() => {
-    if (!popoutMode) return;
-    const previous = document.title;
-    document.title = "Milady • Lifo Agent Popout";
-    return () => {
-      document.title = previous;
-    };
-  }, [popoutMode]);
+  }, [enqueueAgentCommand]);
 
   const resetSession = useCallback(() => {
     setSessionKey((value) => value + 1);
     broadcastSyncMessage({ type: "session-reset" });
   }, [broadcastSyncMessage]);
-
-  const openPopout = useCallback(() => {
-    const existing = popoutRef.current;
-    if (existing && !existing.closed) {
-      existing.focus();
-      return;
-    }
-
-    const url = buildLifoPopoutUrl({
-      targetPath: pathForTab("lifo", import.meta.env.BASE_URL),
-      sessionId: lifoSessionId ?? undefined,
-    });
-    const popup = window.open(
-      url,
-      LIFO_POPOUT_WINDOW_NAME,
-      LIFO_POPOUT_FEATURES,
-    );
-
-    if (!popup) {
-      setError("Popup blocked. Allow popups to launch the Lifo popout window.");
-      return;
-    }
-
-    popoutRef.current = popup;
-    controllerHeartbeatAtRef.current = Date.now();
-    setControllerOnline(true);
-
-    const onPopoutClosed = () => {
-      popoutRef.current = null;
-    };
-    popup.addEventListener("beforeunload", onPopoutClosed);
-    popup.focus();
-  }, [lifoSessionId]);
-
-  const togglePip = useCallback(async () => {
-    const ipc = window.electron?.ipcRenderer;
-    if (!ipc?.invoke) return;
-
-    const next = !pipEnabled;
-    try {
-      await ipc.invoke("lifo:setPip", { flag: next });
-      setPipEnabled(next);
-    } catch (err) {
-      setError(`Failed to toggle PIP: ${formatError(err)}`);
-    }
-  }, [pipEnabled]);
 
   const panelCls = inModal
     ? "rounded-xl border border-[var(--border)] overflow-hidden bg-[rgba(255,255,255,0.04)] backdrop-blur-sm"
@@ -461,9 +365,6 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
   const btnCls = inModal
     ? "px-3 py-1.5 rounded-md border border-[var(--border)] bg-[rgba(255,255,255,0.06)] text-xs text-[var(--txt)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
     : "px-3 py-1.5 rounded-md border border-border bg-card text-xs text-txt hover:border-accent hover:text-accent transition-colors";
-  const btnAccentCls = inModal
-    ? "px-3 py-1.5 rounded-md border border-[var(--accent)] bg-[var(--accent)] text-white text-xs hover:opacity-90 transition-colors"
-    : "px-3 py-1.5 rounded-md border border-accent bg-accent text-accent-fg text-xs hover:bg-accent-hover transition-colors";
 
   return (
     <section
@@ -475,14 +376,12 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
             <h2
               className={`text-sm font-semibold ${inModal ? "text-[var(--txt)]" : "text-txt"}`}
             >
-              {popoutMode ? "Lifo Agent Popout" : "Lifo Agent Surface"}
+              Lifo Agent Surface
             </h2>
             <p
               className={`mt-1 text-xs ${inModal ? "text-[var(--muted)]" : "text-muted"}`}
             >
-              {popoutMode
-                ? "Dedicated full Lifo runtime. Agent commands execute here in real time."
-                : "Embedded full Lifo watcher. Open popout for the dedicated agent-controlled surface."}
+              Embedded Lifo watcher. Agent commands execute here in real time.
             </p>
           </div>
 
@@ -499,38 +398,11 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
               {error ? "error" : ready ? "ready" : "booting"}
             </span>
 
-            <span className={badgeCls}>
-              {popoutMode
-                ? "controller"
-                : controllerOnline
-                  ? "watcher • synced"
-                  : "watcher • local"}
-            </span>
+            <span className={badgeCls}>embedded</span>
 
-            {!popoutMode && (
-              <button
-                type="button"
-                onClick={openPopout}
-                className={btnAccentCls}
-              >
-                {t("lifosandboxview.OpenLifoPopout")}
-              </button>
-            )}
-
-            {popoutMode && (
-              <>
-                <button
-                  type="button"
-                  onClick={togglePip}
-                  className={pipEnabled ? btnAccentCls : btnCls}
-                >
-                  {pipEnabled ? "Disable PIP" : "Enable PIP"}
-                </button>
-                <button type="button" onClick={resetSession} className={btnCls}>
-                  {t("lifosandboxview.Reset")}
-                </button>
-              </>
-            )}
+            <button type="button" onClick={resetSession} className={btnCls}>
+              {t("lifosandboxview.Reset")}
+            </button>
           </div>
         </div>
 
@@ -585,25 +457,23 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
         </div>
       </div>
 
-      {!popoutMode && (
-        <LifoMonitorPanel
-          monitorOnline={monitorOnline}
-          monitorError={monitorError}
-          monitorUpdatedAt={monitorUpdatedAt}
-          noVncActive={noVncActive}
-          safeNoVncEndpoint={safeNoVncEndpoint}
-          noVncFailed={noVncFailed}
-          setNoVncFailed={setNoVncFailed}
-          screenPreviewUrl={screenPreviewUrl}
-          browserEndpoints={browserEndpoints}
-          sandboxWindows={sandboxWindows}
-          noVncEndpoint={noVncEndpoint}
-          refreshMonitorMeta={refreshMonitorMeta}
-          refreshScreenPreview={refreshScreenPreview}
-          setMonitorOnline={setMonitorOnline}
-          setMonitorError={setMonitorError}
-        />
-      )}
+      <LifoMonitorPanel
+        monitorOnline={monitorOnline}
+        monitorError={monitorError}
+        monitorUpdatedAt={monitorUpdatedAt}
+        noVncActive={noVncActive}
+        safeNoVncEndpoint={safeNoVncEndpoint}
+        noVncFailed={noVncFailed}
+        setNoVncFailed={setNoVncFailed}
+        screenPreviewUrl={screenPreviewUrl}
+        browserEndpoints={browserEndpoints}
+        sandboxWindows={sandboxWindows}
+        noVncEndpoint={noVncEndpoint}
+        refreshMonitorMeta={refreshMonitorMeta}
+        refreshScreenPreview={refreshScreenPreview}
+        setMonitorOnline={setMonitorOnline}
+        setMonitorError={setMonitorError}
+      />
 
       <div
         className={`${

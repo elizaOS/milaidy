@@ -7,6 +7,7 @@ import { client } from "@milady/app-core/api";
 import { useState } from "react";
 import { useApp } from "../../AppContext";
 import { getProviderLogo } from "../../provider-logos";
+import { openExternalUrl } from "../../utils/openExternalUrl";
 
 function formatRequestError(err: unknown): string {
   if (err instanceof Error) {
@@ -45,29 +46,12 @@ export function ConnectionStep() {
 
   const [apiKeyFormatWarning, setApiKeyFormatWarning] = useState("");
 
-  const openInSystemBrowser = async (url: string) => {
-    const electron = (
-      window as {
-        electron?: {
-          ipcRenderer: {
-            invoke: (channel: string, params?: unknown) => Promise<unknown>;
-          };
-        };
-      }
-    ).electron;
-    if (electron?.ipcRenderer) {
-      await electron.ipcRenderer.invoke("desktop:openExternal", { url });
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  };
-
   const handleAnthropicStart = async () => {
     setAnthropicError("");
     try {
       const { authUrl } = await client.startAnthropicLogin();
       if (authUrl) {
-        await openInSystemBrowser(authUrl);
+        await openExternalUrl(authUrl);
         setAnthropicOAuthStarted(true);
         return;
       }
@@ -95,7 +79,7 @@ export function ConnectionStep() {
     try {
       const { authUrl } = await client.startOpenAILogin();
       if (authUrl) {
-        await openInSystemBrowser(authUrl);
+        await openExternalUrl(authUrl);
         setOpenaiOAuthStarted(true);
         return;
       }

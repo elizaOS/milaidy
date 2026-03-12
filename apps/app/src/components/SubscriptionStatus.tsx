@@ -9,6 +9,7 @@ import { Button, Input } from "@milady/ui";
 import { useCallback, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { useTimeout } from "../hooks/useTimeout";
+import { openExternalUrl } from "../utils/openExternalUrl";
 
 function formatRequestError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -201,11 +202,7 @@ export function SubscriptionStatus({
     try {
       const { authUrl } = await client.startAnthropicLogin();
       if (authUrl) {
-        window.open(
-          authUrl,
-          "anthropic-oauth",
-          "width=600,height=700,top=50,left=200",
-        );
+        await openExternalUrl(authUrl);
         setAnthropicOAuthStarted(true);
         return;
       }
@@ -246,11 +243,7 @@ export function SubscriptionStatus({
     try {
       const { authUrl } = await client.startOpenAILogin();
       if (authUrl) {
-        window.open(
-          authUrl,
-          "openai-oauth",
-          "width=500,height=700,top=50,left=200",
-        );
+        await openExternalUrl(authUrl);
         setOpenaiOAuthStarted(true);
         return;
       }

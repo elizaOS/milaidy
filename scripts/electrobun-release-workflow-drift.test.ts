@@ -185,6 +185,27 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
+  it("prefers the live Windows build launcher and persists it for UI tests", () => {
+    const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(smokeScript).toContain("Find-Launcher $resolvedBuildDir");
+    expect(smokeScript).toContain(
+      'Write-Host "Using $launcherSource launcher:',
+    );
+    expect(smokeScript).toContain(
+      "$persistLauncherPathFile = $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE",
+    );
+    expect(smokeScript).toContain("Set-Content -Path $persistLauncherPathFile");
+    expect(workflow).toContain(
+      "MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: $" +
+        "{{ runner.temp }}\\milady-windows-ui-launcher.txt",
+    );
+    expect(workflow).toContain(
+      'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
+    );
+  });
+
   it("collects Windows smoke diagnostics from runner environment paths before upload", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 

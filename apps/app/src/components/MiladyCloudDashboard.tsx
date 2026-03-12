@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { openExternalUrl } from "../utils/openExternalUrl";
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   running: {
@@ -110,7 +111,7 @@ function CloudAgentCard({
             variant="outline"
             size="sm"
             className="flex-1 rounded-xl h-8 text-xs border-border/40"
-            onClick={() => window.open(agent.web_ui_url ?? "", "_blank")}
+            onClick={() => void openExternalUrl(agent.web_ui_url ?? "")}
           >
             <ExternalLink className="w-3 h-3 mr-1" />
             Open
@@ -494,7 +495,7 @@ export function CloudDashboard() {
                     <Button
                       variant="default"
                       className="w-full rounded-2xl h-12 font-bold shadow-lg shadow-accent/20"
-                      onClick={() => window.open(miladyCloudTopUpUrl, "_blank")}
+                      onClick={() => void openExternalUrl(miladyCloudTopUpUrl)}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       {t("miladyclouddashboard.TopUpCredits")}
@@ -551,7 +552,7 @@ export function CloudDashboard() {
                     variant="link"
                     className="w-full text-xs text-accent justify-start px-3 h-auto"
                     onClick={() =>
-                      window.open("https://miladycloud.ai/dashboard", "_blank")
+                      void openExternalUrl("https://miladycloud.ai/dashboard")
                     }
                   >
                     {t("miladyclouddashboard.AdvancedDashboard")}

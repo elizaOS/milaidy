@@ -58,6 +58,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
   } = useApp();
 
   const agentName = agentStatus?.agentName ?? "Milady";
+  const isElectrobun = !!window.electron;
 
   // ── Stream status polling ─────────────────────────────────────────────
   const [streamLive, setStreamLive] = useState(false);
@@ -163,10 +164,10 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
         const result = await client.streamGoLive();
         setStreamLive(result.live);
 
-        // Auto-open popout window so frame capture targets the StreamView
-        // instead of the full app UI.  The Electron did-create-window handler
-        // calls setCaptureTarget(childWindow) when it detects ?popout.
-        if (result.live && !IS_POPOUT) {
+        // Browser popout is only meaningful on the web. Electrobun now captures
+        // the native app window directly, so a renderer popup no longer changes
+        // the capture target and should not be opened on desktop.
+        if (result.live && !IS_POPOUT && !isElectrobun) {
           const apiBase = (window as unknown as Record<string, unknown>)
             .__MILADY_API_BASE__ as string | undefined;
           const base = window.location.origin || "";
@@ -196,7 +197,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
       loadingRef.current = false;
       setStreamLoading(false);
     }
-  }, [streamLive]);
+  }, [isElectrobun, streamLive]);
 
   // ── Fetch destinations on mount ──────────────────────────────────────
   useEffect(() => {

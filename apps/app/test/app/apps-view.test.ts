@@ -202,6 +202,7 @@ describe("AppsView", () => {
   const tStub = (k: string) => k;
 
   afterEach(() => {
+    delete (window as typeof window & { electron?: unknown }).electron;
     vi.restoreAllMocks();
   });
 
@@ -429,6 +430,53 @@ describe("AppsView", () => {
       "Failed to launch Babylon: network down",
       "error",
       4000,
+    );
+  });
+
+  it("uses the Electrobun shell bridge for external app launches", async () => {
+    const setState = vi.fn<AppsContextStub["setState"]>();
+    const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
+    const invoke = vi.fn(async () => undefined);
+    mockUseApp.mockReturnValue({
+      uiLanguage: "en",
+      t: tStub,
+      setState,
+      setActionNotice,
+    });
+    const app = createApp("@elizaos/app-babylon", "Babylon", "Wallet app");
+    mockClientFns.listApps.mockResolvedValue([app]);
+    mockClientFns.launchApp.mockResolvedValue(
+      createLaunchResult({
+        displayName: app.displayName,
+        launchUrl: "https://example.com/babylon",
+        viewer: null,
+      }),
+    );
+    Object.defineProperty(window, "electron", {
+      configurable: true,
+      writable: true,
+      value: { ipcRenderer: { invoke } },
+    });
+    const popupSpy = vi.spyOn(window, "open");
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(AppsView));
+    });
+    await flush();
+
+    await act(async () => {
+      await findButtonByText(tree?.root, "Launch").props.onClick();
+    });
+
+    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+      url: "https://example.com/babylon",
+    });
+    expect(popupSpy).not.toHaveBeenCalled();
+    expect(setActionNotice).toHaveBeenCalledWith(
+      "Babylon opened in a new tab.",
+      "success",
+      2600,
     );
   });
 

@@ -76,6 +76,7 @@ export function StatusBar({
   onOpenSettings?: () => void;
 }) {
   const { t } = useApp();
+  const isElectrobun = !!window.electron;
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -411,7 +412,7 @@ export function StatusBar({
               <Pin className="w-3.5 h-3.5" />
             </Button>
           </>
-        ) : (
+        ) : !isElectrobun ? (
           <Button
             variant="ghost"
             size="sm"
@@ -460,7 +461,7 @@ export function StatusBar({
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );

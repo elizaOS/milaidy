@@ -211,6 +211,9 @@ jobs:
             bun install --frozen-lockfile --ignore-scripts
           fi
 
+      - name: Ensure avatar assets
+        run: node scripts/ensure-avatars.mjs
+
       - name: Align version with release tag
         run: |
           node -e "

@@ -348,8 +348,8 @@ export function registerRpcHandlers(
       params: Parameters<typeof screencapture.switchSource>[0],
     ) => screencapture.switchSource(params),
     screencaptureSetCaptureTarget: async (_params: unknown) => {
-      // Revert to main webview. Popout windows call setCaptureTarget(win.webview)
-      // directly on the Bun side when they open.
+      // Legacy compatibility hook. Native frame capture now targets the app
+      // window directly, so renderer-side capture target overrides are inert.
       screencapture.setCaptureTarget(null);
       return { available: true };
     },
