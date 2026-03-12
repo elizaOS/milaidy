@@ -20,7 +20,10 @@ describe("SecretsView picker keyboard behavior", () => {
   beforeEach(() => {
     mockGetSecrets.mockReset();
     mockUpdateSecrets.mockReset();
-    globalThis.localStorage?.clear();
+    const storage = globalThis.localStorage;
+    if (storage && typeof storage.clear === "function") {
+      storage.clear();
+    }
   });
 
   it("keeps picker open on Enter/Space and closes on Escape", async () => {
