@@ -34,7 +34,7 @@
 
 <script type="module">
 /**
- * Dynamically import Three.js and three-vrm from Vite's optimized deps.
+ * Dynamically import Three.js and three-vrm from vite's optimized deps.
  * We scan /@fs/ and /node_modules/.vite/deps/ patterns to find the right URLs.
  */
 async function loadModules() {
@@ -364,7 +364,7 @@ runAllBtn.addEventListener('click', async () => {
   try {
     modules = await loadVRMModule();
   } catch (err) {
-    statusEl.textContent = `Failed to load three-vrm: ${err.message}. Make sure the Vite dev server is running.`;
+    statusEl.textContent = `Failed to load three-vrm: ${err.message}. Make sure the vite dev server is running.`;
     runAllBtn.disabled = false;
     return;
   }

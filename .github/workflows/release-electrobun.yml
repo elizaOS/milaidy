@@ -256,8 +256,8 @@ jobs:
             node --import tsx scripts/write-build-info.ts
           fi
 
-      - name: Build renderer (Vite)
-        # Vite output is arch-neutral JS/CSS/HTML, but bun install here may pull
+      - name: Build renderer (vite)
+        # vite output is arch-neutral JS/CSS/HTML, but bun install here may pull
         # native optional deps, so keep the Intel build on an explicit x64 path.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
@@ -269,7 +269,7 @@ jobs:
           fi
         working-directory: apps/app
 
-      # Copy the Vite-built frontend into the Electrobun renderer directory.
+      # Copy the vite-built frontend into the Electrobun renderer directory.
       # The bun entry point (src/index.ts) resolves the renderer at
       # ../renderer/index.html relative to itself, which maps to
       # apps/app/electrobun/renderer/ at build time and

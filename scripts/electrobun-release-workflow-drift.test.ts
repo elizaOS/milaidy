@@ -23,11 +23,16 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/macos-direct-launcher.c",
 );
+const WINDOWS_PACKAGED_TEST_PATH = path.join(
+  ROOT,
+  "apps/app/test/electron-packaged/electrobun-windows-startup.e2e.spec.ts",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("stages the built renderer before packaging", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
+    expect(workflow).toContain("name: Build renderer (vite)");
     expect(workflow).toContain("name: Stage renderer for Electrobun bundle");
     expect(workflow).toContain(
       "cp -r apps/app/dist apps/app/electrobun/renderer",
@@ -235,6 +240,20 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain(
       "Invoke-WebRequest -Uri $url -OutFile $modelPath",
+    );
+  });
+
+  it("passes a Chromium remote debugging argument to the packaged Windows app test", () => {
+    const windowsPackagedTest = fs.readFileSync(
+      WINDOWS_PACKAGED_TEST_PATH,
+      "utf8",
+    );
+
+    expect(windowsPackagedTest).toContain(
+      "[`--remote-debugging-port=$" + "{debugPort}`]",
+    );
+    expect(windowsPackagedTest).toContain(
+      "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
     );
   });
 });

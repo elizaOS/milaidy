@@ -2,15 +2,15 @@
 /**
  * Development script that starts:
  * 1. The Milady dev server (runtime + API on port 31337) with restart support
- * 2. The Vite app dev server (port 2138, proxies /api and /ws to 31337)
+ * 2. The vite app dev server (port 2138, proxies /api and /ws to 31337)
  *
  * Automatically kills zombie processes on both ports before starting.
- * Waits for the API server to be ready before launching Vite so the proxy
+ * Waits for the API server to be ready before launching vite so the proxy
  * doesn't flood the terminal with ECONNREFUSED errors.
  *
  * Usage:
  *   node scripts/dev-ui.mjs            # starts both API + UI
- *   node scripts/dev-ui.mjs --ui-only  # starts only the Vite UI (API assumed running)
+ *   node scripts/dev-ui.mjs --ui-only  # starts only the vite UI (API assumed running)
  */
 import { execSync, spawn } from "node:child_process";
 import {
@@ -1021,7 +1021,7 @@ function startVite() {
   viteProcess.on("exit", (code) => {
     if (shuttingDown) return;
     if (code !== 0) {
-      console.error(`${green("[milady]")} Vite exited with code ${code}`);
+      console.error(`${green("[milady]")} vite exited with code ${code}`);
       cleanup(code ?? 1);
     }
   });

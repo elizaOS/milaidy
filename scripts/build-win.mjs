@@ -8,7 +8,7 @@
  *   2. Write dist/package.json with {"type":"module"}
  *   3. Write build info
  *   4. Build all Capacitor plugins
- *   5. Vite build the app (renderer)
+ *   5. vite build the app (renderer)
  *
  * Usage:
  *   node scripts/build-win.mjs [--variant base|companion|full] [--skip-plugins] [--skip-install]
@@ -87,8 +87,8 @@ try {
     console.log("\n=== Step 4/5: Skipping plugins (--skip-plugins) ===");
   }
 
-  // Step 5: Vite build
-  console.log(`\n=== Step 5/5: Vite build (variant=${variant}) ===`);
+  // Step 5: vite build
+  console.log(`\n=== Step 5/5: vite build (variant=${variant}) ===`);
   if (!skipInstall) {
     run("bun install --ignore-scripts", { cwd: appDir });
   }

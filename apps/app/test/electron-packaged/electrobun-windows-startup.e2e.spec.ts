@@ -175,7 +175,7 @@ async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      // Chromium/WebView2 CDP endpoint
+      // Chromium CDP endpoint exposed by the packaged Windows renderer.
       const response = await fetch(
         `http://127.0.0.1:${debugPort}/json/version`,
       );
@@ -267,7 +267,10 @@ test("packaged Windows app starts and reaches chat/agent-ready state", async () 
 
     appProcess = spawn(
       executablePath,
-      [], // no app args, WebView2 flag is passed via env
+      // Windows release builds use CEF/Chromium, so pass the debug port as a
+      // real Chromium argument. Keep the WebView2 env var as a compatibility
+      // fallback in case the renderer mode changes in the future.
+      [`--remote-debugging-port=${debugPort}`],
       {
         cwd: path.dirname(executablePath),
         env: {
@@ -276,7 +279,7 @@ test("packaged Windows app starts and reaches chat/agent-ready state", async () 
           MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
           MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
           MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
-          // Pass the debugging port to WebView2
+          // Compatibility fallback for native Windows webviews.
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
           // Redirect the Roaming AppData so it doesn't pollute the dev machine's real AppData
           APPDATA: userDataDir,
