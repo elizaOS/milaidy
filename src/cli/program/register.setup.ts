@@ -162,6 +162,14 @@ export function saveConfig(
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 }
 
+function resolveLaunchCommand(cwd = process.cwd()): string {
+  const localEntry = path.join(cwd, "milady.mjs");
+  const localPackage = path.join(cwd, "package.json");
+  return fs.existsSync(localEntry) && fs.existsSync(localPackage)
+    ? "node milady.mjs start"
+    : "milady start";
+}
+
 function getEnvSection(
   config: Record<string, unknown>,
 ): Record<string, string> {
@@ -410,7 +418,7 @@ export function registerSetupCommand(program: Command) {
               console.log(`  ${icon} ${result.label}${detail}`);
             }
             console.log(
-              `\n  Run ${theme.command("milady start")} to launch your agent.\n`,
+              `\n  Run ${theme.command(resolveLaunchCommand())} to launch your agent.\n`,
             );
           } else {
             console.log(`\n${theme.success("Setup complete.")}`);

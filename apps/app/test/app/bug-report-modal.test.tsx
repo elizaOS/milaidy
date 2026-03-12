@@ -174,10 +174,7 @@ describe("BugReportModal", () => {
     });
 
     const errorDivs = tree?.root.findAll(
-      (node) =>
-        node.type === "div" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("text-danger"),
+      (node) => node.type === "div" && node.props.style?.color === "#ef4444",
     );
     expect(errorDivs?.length).toBeGreaterThan(0);
   });
@@ -273,8 +270,7 @@ describe("BugReportModal", () => {
     const errorDivs = tree?.root.findAll(
       (node) =>
         node.type === "div" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("text-danger") &&
+        node.props.style?.color === "#ef4444" &&
         node.children.some(
           (c) => typeof c === "string" && c.includes("Network error"),
         ),

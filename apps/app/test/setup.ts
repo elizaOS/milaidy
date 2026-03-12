@@ -142,6 +142,7 @@ if (!nav.userAgent) {
 // ---------------------------------------------------------------------------
 
 if (typeof globalThis.document === "undefined") {
+  const mockHead = { appendChild: vi.fn(), removeChild: vi.fn() };
   Object.defineProperty(globalThis, "document", {
     value: {
       createElement: vi.fn(() => ({
@@ -156,6 +157,11 @@ if (typeof globalThis.document === "undefined") {
         videoWidth: 1920,
         videoHeight: 1080,
       })),
+      createTextNode: vi.fn((text: string) => ({ textContent: text })),
+      getElementsByTagName: vi.fn((tagName: string) =>
+        tagName?.toLowerCase() === "head" ? [mockHead] : [],
+      ),
+      head: mockHead,
       hidden: false,
       hasFocus: vi.fn(() => true),
       documentElement: { requestFullscreen: vi.fn() },

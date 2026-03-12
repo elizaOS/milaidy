@@ -282,7 +282,7 @@ function PaginationBar({
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] rounded-lg border-border/50 hover:border-accent hover:text-accent hover:shadow-[0_0_10px_rgba(var(--accent),0.2)] transition-all bg-bg/50 backdrop-blur-sm"
+          className="h-auto min-h-[1.75rem] py-1 whitespace-normal break-words text-left text-[11px] rounded-lg border-border/50 hover:border-accent hover:text-accent hover:shadow-[0_0_10px_rgba(var(--accent),0.2)] transition-all bg-bg/50 backdrop-blur-sm"
           disabled={!hasPrev}
           onClick={onPrev}
         >
@@ -291,7 +291,7 @@ function PaginationBar({
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-[11px] rounded-lg border-border/50 hover:border-accent hover:text-accent hover:shadow-[0_0_10px_rgba(var(--accent),0.2)] transition-all bg-bg/50 backdrop-blur-sm"
+          className="h-auto min-h-[1.75rem] py-1 whitespace-normal break-words text-left text-[11px] rounded-lg border-border/50 hover:border-accent hover:text-accent hover:shadow-[0_0_10px_rgba(var(--accent),0.2)] transition-all bg-bg/50 backdrop-blur-sm"
           disabled={!hasNext}
           onClick={onNext}
         >
@@ -508,7 +508,7 @@ export function DatabaseView() {
           <Button
             variant={view === "tables" ? "default" : "ghost"}
             size="sm"
-            className={`h-7 px-4 text-xs font-medium rounded-lg transition-all duration-300 ${
+            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${
               view === "tables"
                 ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.4)] border border-accent/50 scale-105"
                 : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
@@ -520,7 +520,7 @@ export function DatabaseView() {
           <Button
             variant={view === "query" ? "default" : "ghost"}
             size="sm"
-            className={`h-7 px-4 text-xs font-medium rounded-lg transition-all duration-300 ${
+            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${
               view === "query"
                 ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.4)] border border-accent/50 scale-105"
                 : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
@@ -534,7 +534,7 @@ export function DatabaseView() {
         <Button
           variant="outline"
           size="sm"
-          className="h-9 px-4 text-xs font-medium rounded-xl border-border/50 hover:border-accent hover:text-accent transition-all duration-300 bg-bg/50 backdrop-blur-md shadow-sm hover:shadow-[0_0_15px_rgba(var(--accent),0.3)]"
+          className="h-auto min-h-[2.25rem] whitespace-normal break-words px-4 py-1.5 text-xs font-medium rounded-xl border-border/50 hover:border-accent hover:text-accent transition-all duration-300 bg-bg/50 backdrop-blur-md shadow-sm hover:shadow-[0_0_15px_rgba(var(--accent),0.3)]"
           onClick={async () => {
             const status = await loadStatus();
             if (status?.connected) {
@@ -628,7 +628,15 @@ export function DatabaseView() {
             size="icon"
             className="flex-shrink-0 w-6 h-12 flex items-center justify-center rounded-xl bg-card/40 backdrop-blur-sm border border-border/40 my-auto shadow-sm text-muted hover:text-txt hover:bg-bg-hover hover:border-accent/40 transition-all hover:scale-110"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            title={
+              sidebarCollapsed
+                ? t("databaseview.showSidebar", {
+                    defaultValue: "Show sidebar",
+                  })
+                : t("databaseview.hideSidebar", {
+                    defaultValue: "Hide sidebar",
+                  })
+            }
           >
             {sidebarCollapsed ? (
               <ChevronRight className="w-3.5 h-3.5" />
@@ -730,11 +738,13 @@ export function DatabaseView() {
               <Button
                 variant="default"
                 size="sm"
-                className="px-6 h-9 text-xs font-bold rounded-xl bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40 shadow-[0_0_15px_rgba(var(--accent),0.4)] transition-all hover:scale-[1.02]"
+                className="px-6 h-auto min-h-[2.25rem] whitespace-normal break-words text-left py-1.5 text-xs font-bold rounded-xl bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40 shadow-[0_0_15px_rgba(var(--accent),0.4)] transition-all hover:scale-[1.02]"
                 disabled={queryLoading || !queryText.trim()}
                 onClick={runQuery}
               >
-                {queryLoading ? "Running..." : "Run Query"}
+                {queryLoading
+                  ? t("common.running", { defaultValue: "Running..." })
+                  : t("databaseview.runQuery", { defaultValue: "Run Query" })}
               </Button>
               <kbd className="text-[10px] text-muted font-mono bg-bg/50 px-2 py-1 rounded-md border border-border/30 shadow-inner tracking-wider">
                 {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}{" "}

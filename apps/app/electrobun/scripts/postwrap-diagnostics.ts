@@ -34,6 +34,30 @@ type WrapperDiagnostics = {
   wrapperBundlePath: string;
 };
 
+const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
+
+function isPosixAbsolutePath(value: string): boolean {
+  return value.startsWith("/") && !WINDOWS_ABS_PATH_RE.test(value);
+}
+
+function resolvePortablePath(value: string): string {
+  return isPosixAbsolutePath(value) || WINDOWS_ABS_PATH_RE.test(value)
+    ? value
+    : path.resolve(value);
+}
+
+function joinPortable(base: string, ...parts: string[]): string {
+  return isPosixAbsolutePath(base)
+    ? path.posix.join(base, ...parts)
+    : path.join(base, ...parts);
+}
+
+function dirnamePortable(value: string): string {
+  return isPosixAbsolutePath(value)
+    ? path.posix.dirname(value)
+    : path.dirname(value);
+}
+
 function execText(command: string, args: string[]): string {
   return execFileSync(command, args, {
     encoding: "utf8",
@@ -59,7 +83,7 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   const bundleCandidates = fs
     .readdirSync(resolvedBuildDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(resolvedBuildDir, entry.name));
+    .map((entry) => joinPortable(resolvedBuildDir, entry.name));
 
   if (bundleCandidates.length === 0) {
     return null;
@@ -67,7 +91,7 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
 
   const wrapperPath = env.ELECTROBUN_WRAPPER_BUNDLE_PATH?.trim();
   if (wrapperPath) {
-    const resolvedWrapperPath = path.resolve(wrapperPath);
+    const resolvedWrapperPath = resolvePortablePath(wrapperPath);
     if (fs.existsSync(resolvedWrapperPath)) {
       return resolvedWrapperPath;
     }
@@ -98,12 +122,12 @@ export function resolveWrapperBundlePath(
 ): string {
   const explicitPath = args.find((arg) => arg.trim().length > 0);
   if (explicitPath) {
-    return path.resolve(explicitPath);
+    return resolvePortablePath(explicitPath);
   }
 
   const wrapperBundlePath = env.ELECTROBUN_WRAPPER_BUNDLE_PATH?.trim();
   if (wrapperBundlePath) {
-    return path.resolve(wrapperBundlePath);
+    return resolvePortablePath(wrapperBundlePath);
   }
 
   const buildBundlePath = resolveBuildBundlePath(env);
@@ -122,14 +146,14 @@ export function resolveBundleLayout(
 ): { binaryDir: string; resourcesDir: string } {
   if (osName === "macos") {
     return {
-      binaryDir: path.join(bundlePath, "Contents", "MacOS"),
-      resourcesDir: path.join(bundlePath, "Contents", "Resources"),
+      binaryDir: joinPortable(bundlePath, "Contents", "MacOS"),
+      resourcesDir: joinPortable(bundlePath, "Contents", "Resources"),
     };
   }
 
   return {
-    binaryDir: path.join(bundlePath, "bin"),
-    resourcesDir: path.join(bundlePath, "resources"),
+    binaryDir: joinPortable(bundlePath, "bin"),
+    resourcesDir: joinPortable(bundlePath, "resources"),
   };
 }
 
@@ -139,16 +163,17 @@ export function resolveDiagnosticsOutputPath(
 ): string {
   const buildDir = env.ELECTROBUN_BUILD_DIR?.trim();
   if (buildDir) {
-    return path.join(path.resolve(buildDir), "wrapper-diagnostics.json");
+    const resolvedBuildDir = resolvePortablePath(buildDir);
+    return joinPortable(resolvedBuildDir, "wrapper-diagnostics.json");
   }
-  return path.join(path.dirname(bundlePath), "wrapper-diagnostics.json");
+  return joinPortable(dirnamePortable(bundlePath), "wrapper-diagnostics.json");
 }
 
 function collectBinaryReport(
   binaryDir: string,
   fileName: string,
 ): BinaryReport {
-  const filePath = path.join(binaryDir, fileName);
+  const filePath = joinPortable(binaryDir, fileName);
   if (!fs.existsSync(filePath)) {
     return {
       exists: false,
@@ -194,7 +219,7 @@ function collectArchiveReports(resourcesDir: string): ArchiveReport[] {
   return fs
     .readdirSync(resourcesDir)
     .filter((entry) => entry.endsWith(".tar.zst"))
-    .map((entry) => path.join(resourcesDir, entry))
+    .map((entry) => joinPortable(resourcesDir, entry))
     .sort()
     .map((archivePath) => {
       let sampleEntries: string[] = [];
@@ -267,7 +292,7 @@ function main(): void {
     wrapperBundlePath,
   };
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.mkdirSync(dirnamePortable(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(diagnostics, null, 2)}\n`);
 
   console.log(

@@ -46,7 +46,8 @@ export function formatByteSize(
     kbPrecision = 1,
     mbPrecision = 1,
     gbPrecision = 1,
-    tbPrecision = 1 } = options;
+    tbPrecision = 1,
+  } = options;
 
   if (!Number.isFinite(bytes) || bytes < 0) return unknownLabel;
   if (bytes >= 1024 ** 4) {
@@ -106,7 +107,8 @@ export function formatShortDate(
   return parsed.toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
-    day: "numeric" });
+    day: "numeric",
+  });
 }
 
 /**

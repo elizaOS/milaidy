@@ -518,12 +518,12 @@ export interface ConnectorConfig {
   token?: string;
   apiKey?: string;
   [key: string]:
-  | string
-  | boolean
-  | number
-  | string[]
-  | Record<string, unknown>
-  | undefined;
+    | string
+    | boolean
+    | number
+    | string[]
+    | Record<string, unknown>
+    | undefined;
 }
 
 export interface OnboardingData {
@@ -662,12 +662,12 @@ export interface PluginInfo {
   configured: boolean;
   envKey: string | null;
   category:
-  | "ai-provider"
-  | "connector"
-  | "streaming"
-  | "database"
-  | "app"
-  | "feature";
+    | "ai-provider"
+    | "connector"
+    | "streaming"
+    | "database"
+    | "app"
+    | "feature";
   source: "bundled" | "store";
   parameters: PluginParamDef[];
   validationErrors: Array<{ field: string; message: string }>;
@@ -926,14 +926,14 @@ export interface SecurityAuditResponse {
 
 export type SecurityAuditStreamEvent =
   | {
-    type: "snapshot";
-    entries: SecurityAuditEntry[];
-    totalBuffered: number;
-  }
+      type: "snapshot";
+      entries: SecurityAuditEntry[];
+      totalBuffered: number;
+    }
   | {
-    type: "entry";
-    entry: SecurityAuditEntry;
-  };
+      type: "entry";
+      entry: SecurityAuditEntry;
+    };
 
 export type StreamEventType =
   | "agent_event"
@@ -1307,12 +1307,12 @@ export interface CodingAgentSession {
   originalTask: string;
   workdir: string;
   status:
-  | "active"
-  | "blocked"
-  | "completed"
-  | "stopped"
-  | "error"
-  | "tool_running";
+    | "active"
+    | "blocked"
+    | "completed"
+    | "stopped"
+    | "error"
+    | "tool_running";
   decisionCount: number;
   autoResolvedCount: number;
   /** Description of the active tool when status is "tool_running". */
@@ -1514,10 +1514,10 @@ export type HyperscapeJsonValue =
 export type HyperscapePosition =
   | [number, number, number]
   | {
-    x: number;
-    y: number;
-    z: number;
-  };
+      x: number;
+      y: number;
+      z: number;
+    };
 
 export interface HyperscapeEmbeddedAgent {
   agentId: string;
@@ -3283,7 +3283,9 @@ export class MiladyClient {
     success: boolean;
     data: CloudCompatAgent;
   }> {
-    return this.fetch(`/api/cloud/compat/agents/${encodeURIComponent(agentId)}`);
+    return this.fetch(
+      `/api/cloud/compat/agents/${encodeURIComponent(agentId)}`,
+    );
   }
 
   /** Delete a cloud-hosted agent. */
@@ -3368,9 +3370,7 @@ export class MiladyClient {
     success: boolean;
     data: CloudCompatJob;
   }> {
-    return this.fetch(
-      `/api/cloud/compat/jobs/${encodeURIComponent(jobId)}`,
-    );
+    return this.fetch(`/api/cloud/compat/jobs/${encodeURIComponent(jobId)}`);
   }
 
   // Apps & Registry
@@ -4376,9 +4376,12 @@ export class MiladyClient {
     lang?: string,
   ): Promise<{ text: string; agentName: string; generated: boolean }> {
     const qs = lang ? `?lang=${encodeURIComponent(lang)}` : "";
-    return this.fetch(`/api/conversations/${encodeURIComponent(id)}/greeting${qs}`, {
-      method: "POST",
-    });
+    return this.fetch(
+      `/api/conversations/${encodeURIComponent(id)}/greeting${qs}`,
+      {
+        method: "POST",
+      },
+    );
   }
 
   async renameConversation(

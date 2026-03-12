@@ -4,6 +4,14 @@
 
 import type { LogEntry } from "@milady/app-core/api";
 import { formatTime } from "@milady/app-core/components";
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@milady/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
 
@@ -37,16 +45,6 @@ export function LogsView() {
     void loadLogs();
   }, [loadLogs]);
 
-  const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setState("logLevelFilter", e.target.value);
-    void loadLogs();
-  };
-
-  const handleSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setState("logSourceFilter", e.target.value);
-    void loadLogs();
-  };
-
   const handleClearFilters = () => {
     setState("logTagFilter", "");
     setState("logLevelFilter", "");
@@ -78,11 +76,6 @@ export function LogsView() {
     });
   }, [logs, normalizedSearch]);
 
-  const handleTagChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setState("logTagFilter", e.target.value);
-    void loadLogs();
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* Filters row — filters left, refresh right */}
@@ -96,63 +89,86 @@ export function LogsView() {
           aria-label="Search logs"
         />
 
-        <select
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-          value={logLevelFilter}
-          onChange={handleLevelChange}
+        <Select
+          value={logLevelFilter === "" ? "all" : logLevelFilter}
+          onValueChange={(val) => {
+            setState("logLevelFilter", val === "all" ? "" : val);
+            void loadLogs();
+          }}
         >
-          <option value="">{t("logsview.AllLevels")}</option>
-          <option value="debug">{t("logsview.Debug")}</option>
-          <option value="info">{t("logsview.Info")}</option>
-          <option value="warn">{t("logsview.Warn")}</option>
-          <option value="error">{t("logsview.Error")}</option>
-        </select>
+          <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+            <SelectValue placeholder={t("logsview.AllLevels")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("logsview.AllLevels")}</SelectItem>
+            <SelectItem value="debug">{t("logsview.Debug")}</SelectItem>
+            <SelectItem value="info">{t("logsview.Info")}</SelectItem>
+            <SelectItem value="warn">{t("logsview.Warn")}</SelectItem>
+            <SelectItem value="error">{t("logsview.Error")}</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-          value={logSourceFilter}
-          onChange={handleSourceChange}
+        <Select
+          value={logSourceFilter === "" ? "all" : logSourceFilter}
+          onValueChange={(val) => {
+            setState("logSourceFilter", val === "all" ? "" : val);
+            void loadLogs();
+          }}
         >
-          <option value="">{t("logsview.AllSources")}</option>
-          {logSources.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+            <SelectValue placeholder={t("logsview.AllSources")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("logsview.AllSources")}</SelectItem>
+            {logSources.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {logTags.length > 0 && (
-          <select
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-            value={logTagFilter}
-            onChange={handleTagChange}
+          <Select
+            value={logTagFilter === "" ? "all" : logTagFilter}
+            onValueChange={(val) => {
+              setState("logTagFilter", val === "all" ? "" : val);
+              void loadLogs();
+            }}
           >
-            <option value="">{t("logsview.AllTags")}</option>
-            {logTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+              <SelectValue placeholder={t("logsview.AllTags")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("logsview.AllTags")}</SelectItem>
+              {logTags.map((tag) => (
+                <SelectItem key={tag} value={tag}>
+                  {tag}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {hasActiveFilters && (
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words text-left text-xs bg-card text-txt hover:text-accent shadow-sm px-3 py-1.5"
             onClick={handleClearFilters}
           >
             {t("logsview.ClearFilters")}
-          </button>
+          </Button>
         )}
 
-        <button
-          type="button"
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer hover:border-accent hover:text-accent ml-auto"
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-auto min-h-[2rem] whitespace-normal break-words text-left text-xs bg-card text-txt hover:text-accent shadow-sm ml-auto px-3 py-1.5"
           onClick={() => void loadLogs()}
         >
           {t("logsview.Refresh")}
-        </button>
+        </Button>
       </div>
 
       {/* Log entries — full remaining height */}

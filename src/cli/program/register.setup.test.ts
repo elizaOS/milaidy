@@ -12,6 +12,7 @@ import {
 
 describe("register.setup helpers", () => {
   const tempDirs: string[] = [];
+  const toPosix = (value: string) => value.replaceAll("\\", "/");
 
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) {
@@ -36,7 +37,7 @@ describe("register.setup helpers", () => {
 
   it("uses MILADY_STATE_DIR without adding a second .milady segment", () => {
     expect(
-      resolveConfigPath({ MILADY_STATE_DIR: "/tmp/profile/.milady" }),
+      toPosix(resolveConfigPath({ MILADY_STATE_DIR: "/tmp/profile/.milady" })),
     ).toBe("/tmp/profile/.milady/milady.json");
   });
 

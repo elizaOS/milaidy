@@ -54,9 +54,13 @@ describe("checkEligibility", () => {
   });
 
   it("rejects when OS does not match", () => {
+    const otherPlatform =
+      ["darwin", "linux", "win32"].find(
+        (value) => value !== process.platform,
+      ) ?? "darwin";
     const metadata: MiladyHookMetadata = {
       events: ["command:new"],
-      os: ["win32"], // Current platform is darwin (macOS)
+      os: [otherPlatform],
     };
     const result = checkEligibility(metadata, undefined);
     expect(result.eligible).toBe(false);

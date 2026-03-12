@@ -9,8 +9,8 @@
 import type { StreamEventEnvelope } from "@milady/app-core/api";
 import { useMemo } from "react";
 import type { AgentMode } from "../helpers";
-import type { OverlayLayout } from "../types";
 import { getWidget } from "./registry";
+import type { OverlayLayout } from "./types";
 
 // Ensure all built-in widgets are registered
 import "./built-in";

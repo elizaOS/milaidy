@@ -72,6 +72,8 @@ interface CanvasWindow {
   window: BrowserWindow;
   url: string;
   title: string;
+  /** Position saved before hide() so show() can restore it. null = not hidden. */
+  savedPosition: { x: number; y: number } | null;
 }
 
 let canvasCounter = 0;
@@ -107,6 +109,7 @@ export class CanvasManager {
       window: win,
       url: options.url ?? "",
       title: options.title ?? "Milady Canvas",
+      savedPosition: null,
     };
 
     this.windows.set(id, canvas);
@@ -319,16 +322,26 @@ $bmp.Dispose()`;
   }
 
   async show(options: { id: string }): Promise<void> {
-    this.windows.get(options.id)?.window.show();
+    const canvas = this.windows.get(options.id);
+    if (!canvas) return;
+    // Restore saved position before making visible so the window isn't
+    // stuck at the off-screen coordinates set by hide().
+    if (canvas.savedPosition) {
+      canvas.window.setPosition(canvas.savedPosition.x, canvas.savedPosition.y);
+      canvas.savedPosition = null;
+    }
+    canvas.window.show();
   }
 
   async hide(options: { id: string }): Promise<void> {
     // Electrobun has no hide() API — move off-screen so the window
     // disappears without showing a dock bounce or taskbar entry.
-    const win = this.windows.get(options.id)?.window;
-    if (win) {
-      win.setPosition(-99999, -99999);
-    }
+    const canvas = this.windows.get(options.id);
+    if (!canvas) return;
+    // Save position so show() can restore it.
+    const pos = canvas.window.getPosition();
+    canvas.savedPosition = { x: pos.x, y: pos.y };
+    canvas.window.setPosition(-99999, -99999);
   }
 
   async resize(options: {
@@ -356,6 +369,85 @@ $bmp.Dispose()`;
     if (!win) return;
     win.setPosition(options.x, options.y);
     win.setSize(options.width, options.height);
+  }
+
+  /**
+   * Opens a game client URL in a dedicated isolated BrowserWindow.
+   *
+   * Unlike createWindow(), this does NOT enforce a localhost-only navigation
+   * rule because game clients (Hyperscape, 2004scape) are external origins.
+   * The window uses its own "game-isolated" session partition so cookies and
+   * storage are separated from the main renderer and canvas windows.
+   *
+   * canvasEval() is intentionally NOT available on game windows — they are
+   * opened for display/interaction only, not agent computer-use.
+   *
+   * Security: only http: and https: are permitted. file:, javascript:, data:,
+   * and other schemes are blocked to prevent local file access and code injection.
+   */
+  async openGameWindow(options: {
+    url: string;
+    title?: string;
+  }): Promise<{ id: string }> {
+    // Validate protocol before passing the URL to the native layer.
+    // file: would grant access to local filesystem; javascript:/data: could inject code.
+    try {
+      const parsed = new URL(options.url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error(
+          `openGameWindow blocked — only http/https URLs are permitted, got: ${parsed.protocol}`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw new Error(`openGameWindow blocked — invalid URL: ${options.url}`);
+      }
+      throw err;
+    }
+
+    const id = `game_${++canvasCounter}`;
+
+    const win = new BrowserWindow({
+      title: options.title ?? "Milady Game",
+      url: options.url,
+      frame: {
+        x: 100,
+        y: 100,
+        width: 1024,
+        height: 768,
+      },
+      transparent: false,
+      sandbox: true,
+      // @ts-expect-error — partition is a valid Electrobun option not yet typed
+      partition: "game-isolated",
+      // No navigationRules restriction — game sites navigate externally.
+    });
+
+    const canvas: CanvasWindow = {
+      id,
+      window: win,
+      url: options.url,
+      title: options.title ?? "Milady Game",
+    };
+
+    this.windows.set(id, canvas);
+
+    win.on("close", () => {
+      this.windows.delete(id);
+      this.sendToWebview?.("canvasWindowEvent", {
+        windowId: id,
+        event: "closed",
+      });
+    });
+
+    win.on("focus", () => {
+      this.sendToWebview?.("canvasWindowEvent", {
+        windowId: id,
+        event: "focus",
+      });
+    });
+
+    return { id };
   }
 
   async listWindows(): Promise<{ windows: CanvasWindowInfo[] }> {

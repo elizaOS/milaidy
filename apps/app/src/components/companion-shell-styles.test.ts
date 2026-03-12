@@ -9,6 +9,7 @@ import {
   overlayBackdropClass,
   TOP_BAR_COLORS,
   tabFlags,
+  viewWrapperStyle,
 } from "./companion-shell-styles";
 
 describe("COMPANION_OVERLAY_TABS", () => {
@@ -121,6 +122,11 @@ describe("derived style helpers", () => {
     expect(accentVar(tabFlags("stream"))).toBe("#ef4444");
     expect(accentVar(tabFlags("wallets"))).toBe("#f0b90b");
   });
+
+  it("keeps card surfaces non-transparent in base chat shell", () => {
+    const style = viewWrapperStyle(tabFlags("chat"), "#7b8fb5");
+    expect(style["--card"]).toBe("rgba(255, 255, 255, 0.05)");
+  });
 });
 
 describe("App.tsx advanced-tab parity", () => {
@@ -147,7 +153,7 @@ describe("App.tsx advanced-tab parity", () => {
 describe("accent palettes", () => {
   it("keeps stable accent constants", () => {
     expect(ACCENT_COLORS.stream).toBe("#ef4444");
-    expect(ACCENT_COLORS.skills).toBe("#00e1ff");
+    expect(ACCENT_COLORS.skills).toBe("#f0b232");
     expect(TOP_BAR_COLORS.stream).toContain("239, 68, 68");
   });
 });

@@ -3,7 +3,9 @@
  */
 
 import type { createTranslator } from "@milady/app-core/i18n";
+import { useState } from "react";
 import { chainIcon, type NftItem } from "./constants";
+import { normalizeInventoryImageUrl } from "./media-url";
 
 export interface NftGridProps {
   t: ReturnType<typeof createTranslator>;
@@ -18,6 +20,8 @@ export function NftGrid({
   walletNfts,
   allNfts,
 }: NftGridProps) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
   if (walletNftsLoading) {
     return (
       <div className="text-center py-10 text-muted italic text-xs">
@@ -44,17 +48,27 @@ export function NftGrid({
     <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 mt-3 max-h-[60vh] overflow-y-auto">
       {allNfts.map((nft, idx) => {
         const icon = chainIcon(nft.chain);
+        const key = `${nft.chain}-${nft.name}-${idx}`;
+        const normalizedImageUrl = normalizeInventoryImageUrl(nft.imageUrl);
+        const showImage = Boolean(normalizedImageUrl) && !failedImages.has(key);
         return (
           <div
-            key={`${nft.chain}-${nft.name}-${idx}`}
+            key={key}
             className="border border-border bg-card overflow-hidden"
           >
-            {nft.imageUrl ? (
+            {showImage ? (
               <img
-                src={nft.imageUrl}
+                src={normalizedImageUrl ?? ""}
                 alt={nft.name}
                 loading="lazy"
                 className="w-full h-[150px] object-cover block bg-bg-muted"
+                onError={() => {
+                  setFailedImages((prev) => {
+                    const next = new Set(prev);
+                    next.add(key);
+                    return next;
+                  });
+                }}
               />
             ) : (
               <div className="w-full h-[150px] bg-bg-muted flex items-center justify-center text-[11px] text-muted">

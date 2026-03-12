@@ -7,6 +7,7 @@
  */
 
 import { client, type QueryResult } from "@milady/app-core/api";
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
@@ -27,6 +28,8 @@ const AUDIO_EXTS = /\.(mp3|wav|ogg|flac|aac|m4a|opus)(\?|$)/i;
 const DATA_URI_IMG = /^data:image\//i;
 const DATA_URI_VID = /^data:video\//i;
 const DATA_URI_AUD = /^data:audio\//i;
+const MEDIA_URL_PREFIX =
+  /^(https?:|data:|blob:|file:|capacitor:|capacitor-electron:|app:|\/|\.\/|\.\.\/)/i;
 
 function classifyUrl(url: string): "image" | "video" | "audio" | null {
   if (IMAGE_EXTS.test(url) || DATA_URI_IMG.test(url)) return "image";
@@ -43,6 +46,21 @@ function filenameFromUrl(url: string): string {
   } catch {
     return "media";
   }
+}
+
+function looksLikePotentialMediaUrl(value: string): boolean {
+  const candidate = value.trim();
+  if (!candidate) return false;
+  if (classifyUrl(candidate)) return true;
+  return MEDIA_URL_PREFIX.test(candidate);
+}
+
+function normalizeMediaUrl(url: string): string {
+  const candidate = url.trim();
+  if (!candidate) return candidate;
+  return MEDIA_URL_PREFIX.test(candidate)
+    ? resolveAppAssetUrl(candidate)
+    : candidate;
 }
 
 const FILTER_CHIPS: { id: MediaType; label: string }[] = [
@@ -89,33 +107,44 @@ function extractMediaFromRows(
 
 /** Pull URLs out of a string value — handles plain URLs and JSON blobs. */
 function extractUrlsFromValue(val: string): string[] {
-  const urls: string[] = [];
+  const urls = new Set<string>();
 
   // If it looks like JSON, parse it and search recursively
   if (val.startsWith("{") || val.startsWith("[")) {
     try {
       const parsed = JSON.parse(val);
       collectStrings(parsed, urls);
-      return urls;
+      return Array.from(urls);
     } catch {
       // not JSON, fall through to regex
     }
   }
 
-  // Plain URL match
-  const urlRegex = /https?:\/\/[^\s"'<>]+/gi;
+  // Absolute URL/scheme match
+  const urlRegex =
+    /(?:https?:\/\/|file:\/\/|blob:|capacitor(?:-electron)?:\/\/|app:\/\/)[^\s"'<>]+/gi;
   const matches = val.match(urlRegex);
-  if (matches) urls.push(...matches);
+  if (matches) {
+    for (const match of matches) urls.add(match);
+  }
+
+  // Relative/path-like token match
+  const tokens = val
+    .split(/[\s"'<>]+/)
+    .map((token) => token.replace(/^[([{]+/, "").replace(/[)\]},;.!?]+$/, ""));
+  for (const token of tokens) {
+    if (looksLikePotentialMediaUrl(token)) urls.add(token);
+  }
 
   // Data URI match
-  if (val.startsWith("data:")) urls.push(val);
+  if (val.startsWith("data:")) urls.add(val);
 
-  return urls;
+  return Array.from(urls);
 }
 
-function collectStrings(obj: unknown, out: string[]) {
+function collectStrings(obj: unknown, out: Set<string>) {
   if (typeof obj === "string") {
-    if (obj.startsWith("http") || obj.startsWith("data:")) out.push(obj);
+    if (looksLikePotentialMediaUrl(obj)) out.add(obj.trim());
     return;
   }
   if (Array.isArray(obj)) {
@@ -279,7 +308,7 @@ export function MediaGalleryView() {
               <div className="w-full aspect-square bg-[var(--bg)] flex items-center justify-center overflow-hidden">
                 {item.type === "image" ? (
                   <img
-                    src={item.url}
+                    src={normalizeMediaUrl(item.url)}
                     alt={item.filename}
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -359,13 +388,13 @@ export function MediaGalleryView() {
             <div className="p-4 flex items-center justify-center min-h-[200px]">
               {lightboxItem.type === "image" ? (
                 <img
-                  src={lightboxItem.url}
+                  src={normalizeMediaUrl(lightboxItem.url)}
                   alt={lightboxItem.filename}
                   className="max-w-full max-h-[70vh] object-contain"
                 />
               ) : lightboxItem.type === "video" ? (
                 <video
-                  src={lightboxItem.url}
+                  src={normalizeMediaUrl(lightboxItem.url)}
                   controls
                   className="max-w-full max-h-[70vh]"
                 >
@@ -373,7 +402,7 @@ export function MediaGalleryView() {
                 </video>
               ) : (
                 <audio
-                  src={lightboxItem.url}
+                  src={normalizeMediaUrl(lightboxItem.url)}
                   controls
                   className="w-full max-w-[400px]"
                 >

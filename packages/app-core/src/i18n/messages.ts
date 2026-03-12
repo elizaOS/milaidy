@@ -1,8 +1,8 @@
 import en from "./locales/en.json";
-import zhCN from "./locales/zh-CN.json";
-import ko from "./locales/ko.json";
 import es from "./locales/es.json";
+import ko from "./locales/ko.json";
 import pt from "./locales/pt.json";
+import zhCN from "./locales/zh-CN.json";
 
 export const UI_LANGUAGES = ["en", "zh-CN", "ko", "es", "pt"] as const;
 

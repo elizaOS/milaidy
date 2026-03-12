@@ -11,6 +11,7 @@ vi.mock("../../src/AppContext", () => ({
   THEMES: [{ id: "milady", label: "Milady", hint: "default" }],
   getVrmPreviewUrl: () => "/vrms/previews/milady-1.png",
   getVrmUrl: () => "/vrms/milady-1.vrm",
+  getVrmBackgroundUrl: () => "/vrms/backgrounds/milady-1.png",
 }));
 
 vi.mock("../../src/components/AvatarSelector", () => ({
@@ -19,6 +20,10 @@ vi.mock("../../src/components/AvatarSelector", () => ({
 
 vi.mock("../../src/components/PermissionsSection", () => ({
   PermissionsOnboardingSection: () => null,
+}));
+
+vi.mock("../../src/components/companion/VrmStage", () => ({
+  VrmStage: () => null,
 }));
 
 vi.mock("@milady/app-core/api", () => ({
@@ -37,7 +42,7 @@ function createOnboardingContext(
 ): Record<string, unknown> {
   return {
     t: (k: string) => k,
-    onboardingStep: "runMode",
+    onboardingStep: "identity",
     onboardingOptions: {
       names: ["Milady"],
       styles: [],
@@ -75,7 +80,6 @@ function createOnboardingContext(
     onboardingAvatar: 1,
     customVrmUrl: "",
     onboardingRestarting: false,
-    onboardingSetupMode: "advanced",
     uiLanguage: "en",
     miladyCloudConnected: false,
     miladyCloudLoginBusy: false,
@@ -107,7 +111,9 @@ describe("Onboarding language mode", () => {
       tree = TestRenderer.create(React.createElement(OnboardingWizard));
     });
 
-    expect(collectText(tree?.root)).toContain("onboarding.whereShouldILive");
+    expect(collectText(tree?.root as TestRenderer.ReactTestInstance)).toContain(
+      "Designation",
+    );
   });
 
   it("shows chinese copy when uiLanguage is zh-CN", async () => {
@@ -119,8 +125,8 @@ describe("Onboarding language mode", () => {
       tree = TestRenderer.create(React.createElement(OnboardingWizard));
     });
 
-    const text = collectText(tree?.root);
-    expect(text).toContain("onboarding.whereShouldILive");
-    expect(text).toContain("onboarding.pickHowToRun");
+    const text = collectText(tree?.root as TestRenderer.ReactTestInstance);
+    expect(text).toContain("Designation");
+    expect(text).toContain("My name is");
   });
 });

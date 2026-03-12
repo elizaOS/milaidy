@@ -1,3 +1,5 @@
+import { resolveAppAssetUrl } from "@milady/app-core/utils";
+
 /**
  * Provider logo mapping
  * Maps provider IDs to their logo image paths for dark and light themes
@@ -58,7 +60,7 @@ export function getProviderLogo(
   const logoMap = isDarkMode ? PROVIDER_LOGO_MAP_DARK : PROVIDER_LOGO_MAP_LIGHT;
   const logo = logoMap[providerId.toLowerCase()];
   if (logo) {
-    return logo;
+    return resolveAppAssetUrl(logo);
   }
 
   // Fallback: generate a colored square with initials

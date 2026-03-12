@@ -45,7 +45,7 @@ describe("resolveConfigDir", () => {
       platform: "darwin",
       homedir: "/Users/test",
     });
-    expect(result).toBe(path.join("/Users/test", ".config", "Milady"));
+    expect(result).toBe(path.posix.join("/Users/test", ".config", "Milady"));
   });
 
   it("returns ~/.config/Milady on Linux", () => {
@@ -53,7 +53,7 @@ describe("resolveConfigDir", () => {
       platform: "linux",
       homedir: "/home/test",
     });
-    expect(result).toBe(path.join("/home/test", ".config", "Milady"));
+    expect(result).toBe(path.posix.join("/home/test", ".config", "Milady"));
   });
 
   it("ignores APPDATA on non-Windows platforms", () => {
@@ -63,7 +63,7 @@ describe("resolveConfigDir", () => {
       homedir: "/Users/test",
     });
     // Should use ~/.config, not APPDATA
-    expect(result).toBe(path.join("/Users/test", ".config", "Milady"));
+    expect(result).toBe(path.posix.join("/Users/test", ".config", "Milady"));
   });
 
   it("uses explicit appdata over process.env.APPDATA", () => {
@@ -101,7 +101,7 @@ describe("getMiladyDistFallbackCandidates", () => {
       "/a/b",
       "/app/Contents/MacOS/launcher",
     );
-    const macosBundlePath = path.resolve(
+    const macosBundlePath = path.posix.resolve(
       "/app/Contents/MacOS",
       "../Resources/app/milady-dist",
     );
@@ -113,7 +113,10 @@ describe("getMiladyDistFallbackCandidates", () => {
       "/a/b",
       "/app/launcher.exe",
     );
-    const winResourcesPath = path.resolve("/app", "resources/app/milady-dist");
+    const winResourcesPath = path.posix.resolve(
+      "/app",
+      "resources/app/milady-dist",
+    );
     expect(candidates).toContain(winResourcesPath);
   });
 });

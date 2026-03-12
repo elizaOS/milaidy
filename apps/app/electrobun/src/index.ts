@@ -414,6 +414,33 @@ function attachMainWindow(win: BrowserWindow): BrowserWindow {
     injectApiBase(win);
   });
 
+  // Prevent the main webview from navigating to external URLs.
+  // The renderer is always served from localhost — any other navigation
+  // (e.g. from a compromised plugin) should open in the default browser.
+  win.webview.on(
+    "will-navigate",
+    (e: { url?: string; preventDefault?: () => void }) => {
+      const url = e.url ?? "";
+      try {
+        const parsed = new URL(url);
+        const isAllowed =
+          parsed.protocol === "file:" ||
+          parsed.hostname === "localhost" ||
+          parsed.hostname === "127.0.0.1" ||
+          parsed.protocol === "views:";
+        if (!isAllowed) {
+          e.preventDefault?.();
+          void import("electrobun/bun").then(({ Utils }) => {
+            Utils.openExternal(url).catch(() => {});
+          });
+        }
+      } catch {
+        // Unparseable URL — block it.
+        e.preventDefault?.();
+      }
+    },
+  );
+
   win.on("close", () => {
     if (currentWindow?.id === win.id) {
       currentWindow = null;

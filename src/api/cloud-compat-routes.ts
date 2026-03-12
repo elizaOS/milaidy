@@ -1,9 +1,16 @@
 /**
  * Cloud Compat proxy routes — forwards /api/cloud/compat/* to Eliza Cloud v2's
- * /api/compat/* endpoints, injecting the stored API key for authentication.
+ * /api/compat/* endpoints, injecting stored credentials for authentication.
  *
- * These routes let the frontend consume cloud agent management, status, logs,
- * and availability data without needing to know the cloud base URL or API key.
+ * Auth strategy:
+ *   1. If a service key is configured, sends X-Service-Key header (S2S auth)
+ *   2. Falls back to Authorization: Bearer <apiKey> (standard user auth)
+ *
+ * Resilience:
+ *   - Retries once on HTTP 503 (deploy-in-progress) after a 2s backoff
+ *   - 15s timeout per attempt
+ *   - Rejects redirects
+ *   - 1MB body size limit
  */
 
 import type http from "node:http";
@@ -17,14 +24,89 @@ export interface CloudCompatRouteState {
 }
 
 const PROXY_TIMEOUT_MS = 15_000;
+const MAX_BODY_BYTES = 1_048_576;
+const RETRY_BACKOFF_MS = 2_000;
 
 /**
  * Resolve the Eliza Cloud base URL from config (without trailing slashes).
  */
-function resolveCloudBaseUrl(config: MiladyConfig): string {
+export function resolveCloudBaseUrl(config: MiladyConfig): string {
   return (config.cloud?.baseUrl ?? "https://www.elizacloud.ai")
     .trim()
     .replace(/\/+$/, "");
+}
+
+/**
+ * Build auth headers based on available credentials.
+ * Prefers X-Service-Key (S2S) when a service key is configured;
+ * falls back to Bearer token (standard user API key).
+ */
+function buildAuthHeaders(config: MiladyConfig): Record<string, string> {
+  const serviceKey = (config.cloud as Record<string, unknown> | undefined)
+    ?.serviceKey as string | undefined;
+  const apiKey = config.cloud?.apiKey?.trim();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  if (serviceKey?.trim()) {
+    headers["X-Service-Key"] = serviceKey.trim();
+  }
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  return headers;
+}
+
+/**
+ * Read request body with size limit enforcement.
+ */
+function readBody(req: http.IncomingMessage): Promise<string | undefined> {
+  return new Promise<string | undefined>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error("Request body too large"));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () =>
+      resolve(
+        chunks.length > 0 ? Buffer.concat(chunks).toString("utf-8") : undefined,
+      ),
+    );
+    req.on("error", reject);
+  });
+}
+
+/**
+ * Execute a single upstream fetch with timeout and redirect rejection.
+ */
+async function fetchUpstream(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers,
+    body,
+    redirect: "manual",
+    signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+  });
+
+  if (res.status >= 300 && res.status < 400) {
+    throw Object.assign(new Error("redirect"), { code: "REDIRECT" });
+  }
+
+  return res;
 }
 
 /**
@@ -57,9 +139,9 @@ export async function handleCloudCompatRoute(
     return true;
   }
 
-  // Strip /api/cloud prefix to get the compat path
+  // Strip /api/cloud prefix and ensure we hit the /api/compat upstream route
   // /api/cloud/compat/agents → /api/compat/agents
-  const compatPath = pathname.replace("/api/cloud", "");
+  const compatPath = pathname.replace("/api/cloud", "/api");
 
   // Forward query string if present
   const fullUrl = req.url ?? pathname;
@@ -67,46 +149,42 @@ export async function handleCloudCompatRoute(
   const queryString = qsIndex >= 0 ? fullUrl.slice(qsIndex) : "";
 
   const upstreamUrl = `${baseUrl}${compatPath}${queryString}`;
+  const headers = buildAuthHeaders(state.config);
 
   try {
     // Read request body for non-GET methods
     let body: string | undefined;
     if (method !== "GET" && method !== "HEAD") {
-      body = await new Promise<string>((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        let size = 0;
-        req.on("data", (chunk: Buffer) => {
-          size += chunk.length;
-          if (size > 1_048_576) {
-            reject(new Error("Request body too large"));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-        req.on("error", reject);
-      });
+      body = await readBody(req);
     }
 
-    const upstreamRes = await fetch(upstreamUrl, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: body || undefined,
-      redirect: "manual",
-      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
-    });
+    let upstreamRes: Response;
+    try {
+      upstreamRes = await fetchUpstream(upstreamUrl, method, headers, body);
+    } catch (firstErr) {
+      // Retry once on 503 (deploy/maintenance) after a short backoff
+      if (
+        firstErr instanceof Response ||
+        (firstErr instanceof Error &&
+          "code" in firstErr &&
+          (firstErr as { code: string }).code === "REDIRECT")
+      ) {
+        throw firstErr;
+      }
+      throw firstErr;
+    }
 
-    if (upstreamRes.status >= 300 && upstreamRes.status < 400) {
-      sendJsonError(
-        res,
-        "Milady Cloud request was redirected; redirects are not allowed",
-        502,
+    // Retry on 503 (Service Unavailable — likely deploy in progress)
+    if (upstreamRes.status === 503) {
+      logger.info(
+        `[cloud-compat] Got 503 from upstream, retrying after ${RETRY_BACKOFF_MS}ms: ${compatPath}`,
       );
-      return true;
+      await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+      try {
+        upstreamRes = await fetchUpstream(upstreamUrl, method, headers, body);
+      } catch {
+        // Fall through to return the original 503
+      }
     }
 
     const responseData = await upstreamRes.json().catch(() => ({
@@ -117,6 +195,19 @@ export async function handleCloudCompatRoute(
     sendJson(res, responseData, upstreamRes.status);
     return true;
   } catch (err) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code: string }).code === "REDIRECT"
+    ) {
+      sendJsonError(
+        res,
+        "Milady Cloud request was redirected; redirects are not allowed",
+        502,
+      );
+      return true;
+    }
+
     const isTimeout =
       err instanceof Error &&
       (err.name === "TimeoutError" ||

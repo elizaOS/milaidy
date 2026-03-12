@@ -6,14 +6,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
-    include: [
-      path.join(here, "test/**/*.test.ts"),
-      path.join(here, "test/**/*.test.tsx"),
-    ],
-    exclude: [
-      path.join(here, "test/electron/**"),
-      path.join(here, "test/electron-ui/**"),
-    ],
+    // Use POSIX-style relative globs so test discovery works on Windows too.
+    include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
+    exclude: ["test/electron/**", "test/electron-ui/**"],
     setupFiles: [path.join(here, "test/setup.ts")],
     environment: "node",
     alias: {

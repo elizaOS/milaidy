@@ -8,11 +8,13 @@
  * Called once during app startup after the BrowserView is created.
  */
 
+import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
+import { getGpuWindowManager } from "./native/gpu-window";
 import { getLocationManager } from "./native/location";
 import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
@@ -75,6 +77,7 @@ export function registerRpcHandlers(
   const canvas = getCanvasManager();
   const desktop = getDesktopManager();
   const gateway = getGatewayDiscovery();
+  const gpuWindow = getGpuWindowManager();
   const location = getLocationManager();
   const permissions = getPermissionManager();
   const screencapture = getScreenCaptureManager();
@@ -130,6 +133,7 @@ export function registerRpcHandlers(
       params: Parameters<typeof desktop.setWindowBounds>[0],
     ) => desktop.setWindowBounds(params),
     desktopMinimizeWindow: async () => desktop.minimizeWindow(),
+    desktopUnminimizeWindow: async () => desktop.unminimizeWindow(),
     desktopMaximizeWindow: async () => desktop.maximizeWindow(),
     desktopUnmaximizeWindow: async () => desktop.unmaximizeWindow(),
     desktopCloseWindow: async () => desktop.closeWindow(),
@@ -164,11 +168,24 @@ export function registerRpcHandlers(
     // ---- Desktop: App ----
     desktopQuit: async () => desktop.quit(),
     desktopRelaunch: async () => desktop.relaunch(),
+    desktopApplyUpdate: async () => {
+      Updater.applyUpdate();
+    },
     desktopGetVersion: async () => desktop.getVersion(),
     desktopIsPackaged: async () => desktop.isPackaged(),
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
+
+    // ---- Desktop: Screen ----
+    desktopGetPrimaryDisplay: async () => desktop.getPrimaryDisplay(),
+    desktopGetAllDisplays: async () => desktop.getAllDisplays(),
+    desktopGetCursorPosition: async () => desktop.getCursorPosition(),
+
+    // ---- Desktop: Message Box ----
+    desktopShowMessageBox: async (
+      params: Parameters<typeof desktop.showMessageBox>[0],
+    ) => desktop.showMessageBox(params),
 
     // ---- Desktop: Clipboard ----
     desktopWriteToClipboard: async (
@@ -176,6 +193,8 @@ export function registerRpcHandlers(
     ) => desktop.writeToClipboard(params),
     desktopReadFromClipboard: async () => desktop.readFromClipboard(),
     desktopClearClipboard: async () => desktop.clearClipboard(),
+    desktopClipboardAvailableFormats: async () =>
+      desktop.clipboardAvailableFormats(),
 
     // ---- Desktop: Shell ----
     desktopOpenExternal: async (
@@ -184,6 +203,16 @@ export function registerRpcHandlers(
     desktopShowItemInFolder: async (
       params: Parameters<typeof desktop.showItemInFolder>[0],
     ) => desktop.showItemInFolder(params),
+    desktopOpenPath: async (params: Parameters<typeof desktop.openPath>[0]) =>
+      desktop.openPath(params),
+
+    // ---- Desktop: File Dialogs ----
+    desktopShowOpenDialog: async (
+      params: Parameters<typeof desktop.showOpenDialog>[0],
+    ) => desktop.showOpenDialog(params),
+    desktopShowSaveDialog: async (
+      params: Parameters<typeof desktop.showSaveDialog>[0],
+    ) => desktop.showSaveDialog(params),
 
     // ---- Gateway ----
     gatewayStartDiscovery: async (
@@ -289,6 +318,11 @@ export function registerRpcHandlers(
       canvas.setBounds(params),
     canvasListWindows: async () => canvas.listWindows(),
 
+    // ---- Game ----
+    gameOpenWindow: async (
+      params: Parameters<typeof canvas.openGameWindow>[0],
+    ) => canvas.openGameWindow(params),
+
     // ---- Screencapture ----
     screencaptureGetSources: async () => screencapture.getSources(),
     screencaptureTakeScreenshot: async () => screencapture.takeScreenshot(),
@@ -377,6 +411,44 @@ export function registerRpcHandlers(
         desktop.setAlwaysOnTop({ flag: false });
       }
     },
+
+    // ---- GPU Window ----
+    gpuWindowCreate: async (
+      params: Parameters<typeof gpuWindow.createWindow>[0],
+    ) => gpuWindow.createWindow(params),
+    gpuWindowDestroy: async (
+      params: Parameters<typeof gpuWindow.destroyWindow>[0],
+    ) => gpuWindow.destroyWindow(params),
+    gpuWindowShow: async (params: Parameters<typeof gpuWindow.showWindow>[0]) =>
+      gpuWindow.showWindow(params),
+    gpuWindowHide: async (params: Parameters<typeof gpuWindow.hideWindow>[0]) =>
+      gpuWindow.hideWindow(params),
+    gpuWindowSetBounds: async (
+      params: Parameters<typeof gpuWindow.setBounds>[0],
+    ) => gpuWindow.setBounds(params),
+    gpuWindowGetInfo: async (params: Parameters<typeof gpuWindow.getInfo>[0]) =>
+      gpuWindow.getInfo(params),
+    gpuWindowList: async () => gpuWindow.listWindows(),
+
+    // ---- GPU View ----
+    gpuViewCreate: async (params: Parameters<typeof gpuWindow.createView>[0]) =>
+      gpuWindow.createView(params),
+    gpuViewDestroy: async (
+      params: Parameters<typeof gpuWindow.destroyView>[0],
+    ) => gpuWindow.destroyView(params),
+    gpuViewSetFrame: async (
+      params: Parameters<typeof gpuWindow.setViewFrame>[0],
+    ) => gpuWindow.setViewFrame(params),
+    gpuViewSetTransparent: async (
+      params: Parameters<typeof gpuWindow.setViewTransparent>[0],
+    ) => gpuWindow.setViewTransparent(params),
+    gpuViewSetHidden: async (
+      params: Parameters<typeof gpuWindow.setViewHidden>[0],
+    ) => gpuWindow.setViewHidden(params),
+    gpuViewGetNativeHandle: async (
+      params: Parameters<typeof gpuWindow.getViewNativeHandle>[0],
+    ) => gpuWindow.getViewNativeHandle(params),
+    gpuViewList: async () => gpuWindow.listViews(),
   });
 
   console.log("[RPC] All handlers registered");

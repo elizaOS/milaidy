@@ -62,75 +62,78 @@ interface SettingsSectionDef {
 const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "appearance",
-    label: "Appearance",
+    label: "settings.sections.appearance.label",
     icon: Palette,
-    description: "Visual preferences",
+    description: "settings.sections.appearance.desc",
   },
   {
     id: "ai-model",
-    label: "AI Model",
+    label: "settings.sections.aimodel.label",
     icon: Bot,
-    description: "Provider and model settings",
+    description: "settings.sections.aimodel.desc",
   },
   {
     id: "cloud",
-    label: "Milady Cloud",
+    label: "settings.sections.cloud.label",
     icon: Cloud,
-    description: "Manage your cloud agents and resources",
+    description: "settings.sections.cloud.desc",
   },
   {
     id: "coding-agents",
-    label: "Coding Agents",
+    label: "settings.sections.codingagents.label",
     icon: Terminal,
-    description: "Agent preferences, models, and permissions",
+    description: "settings.sections.codingagents.desc",
   },
   {
     id: "wallet-rpc",
-    label: "Wallet & RPC",
+    label: "settings.sections.walletrpc.label",
     icon: Wallet,
-    description: "Chain RPC providers and API keys",
+    description: "settings.sections.walletrpc.desc",
   },
   {
     id: "media",
-    label: "Media",
+    label: "settings.sections.media.label",
     icon: Image,
-    description: "Image, video, and vision providers",
+    description: "settings.sections.media.desc",
   },
   {
     id: "voice",
-    label: "Voice",
+    label: "settings.sections.voice.label",
     icon: Mic,
-    description: "Text-to-speech and transcription",
+    description: "settings.sections.voice.desc",
   },
   {
     id: "permissions",
-    label: "Permissions",
+    label: "settings.sections.permissions.label",
     icon: Shield,
-    description: "Capabilities and access control",
+    description: "settings.sections.permissions.desc",
   },
   {
     id: "updates",
-    label: "Updates",
+    label: "settings.sections.updates.label",
     icon: RefreshCw,
-    description: "Software update settings",
+    description: "settings.sections.updates.desc",
   },
   {
     id: "advanced",
-    label: "Advanced",
+    label: "settings.sections.advanced.label",
     icon: Sliders,
-    description: "Export, import, and dangerous actions",
+    description: "settings.sections.advanced.desc",
   },
 ];
 
 function matchesSettingsSection(
   section: SettingsSectionDef,
   query: string,
+  t: (key: string) => string,
 ): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
   return (
-    section.label.toLowerCase().includes(normalized) ||
-    section.description?.toLowerCase().includes(normalized) === true
+    t(section.label).toLowerCase().includes(normalized) ||
+    (section.description
+      ? t(section.description).toLowerCase().includes(normalized)
+      : false)
   );
 }
 
@@ -150,7 +153,7 @@ function SettingsSidebar({
   const { t } = useApp();
 
   const filteredSections = SETTINGS_SECTIONS.filter((section) =>
-    matchesSettingsSection(section, searchQuery),
+    matchesSettingsSection(section, searchQuery, t),
   );
 
   return (
@@ -192,7 +195,7 @@ function SettingsSidebar({
                 key={section.id}
                 type="button"
                 onClick={() => onSectionChange(section.id)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all duration-300 min-w-fit lg:min-w-0 whitespace-nowrap lg:whitespace-normal group ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all duration-300 min-w-fit lg:min-w-0 whitespace-normal break-words h-auto group ${
                   isActive
                     ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.2)] scale-[1.01]"
                     : "text-txt hover:bg-bg-hover hover:border-border/50 border border-transparent"
@@ -206,10 +209,12 @@ function SettingsSidebar({
                   <Icon className="w-4 h-4" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-semibold`}>{section.label}</div>
+                  <div className={`text-sm font-semibold`}>
+                    {t(section.label)}
+                  </div>
                   {section.description && (
                     <div className="text-[11px] opacity-80 hidden lg:block mt-0.5 truncate">
-                      {section.description}
+                      {t(section.description)}
                     </div>
                   )}
                 </div>
@@ -249,7 +254,7 @@ function UpdatesSection() {
         <Button
           variant="default"
           size="sm"
-          className="rounded-xl shadow-sm"
+          className="rounded-xl shadow-sm h-auto whitespace-normal break-words text-left"
           onClick={() => void loadUpdateStatus(true)}
           disabled={updateLoading}
         >
@@ -349,7 +354,7 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openExportModal}
-            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
             <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
@@ -368,7 +373,7 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openImportModal}
-            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer"
+            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
             <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
@@ -406,7 +411,7 @@ function AdvancedSection() {
               <Button
                 variant="destructive"
                 size="sm"
-                className="rounded-xl shadow-sm"
+                className="rounded-xl shadow-sm h-auto whitespace-normal break-words text-left"
                 onClick={() => {
                   const confirmed = window.confirm(
                     t("settings.resetConfirmMessage"),
@@ -522,14 +527,16 @@ function AdvancedSection() {
               </div>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover h-auto min-h-[3rem] whitespace-normal break-words"
                 onClick={() => importFileInputRef.current?.click()}
               >
                 <span className="min-w-0 flex-1 truncate text-sm text-txt">
-                  {importFile?.name ?? "Choose an exported backup file"}
+                  {importFile?.name ?? t("settingsview.ChooseAnExportedBack")}
                 </span>
                 <span className="shrink-0 text-xs font-medium text-accent">
-                  {importFile ? "Change" : "Browse"}
+                  {importFile
+                    ? t("settings.change", { defaultValue: "Change" })
+                    : t("settings.browse", { defaultValue: "Browse" })}
                 </span>
               </button>
             </div>
@@ -640,9 +647,9 @@ export function SettingsView({
   const visibleSections = useMemo(
     () =>
       SETTINGS_SECTIONS.filter((section) =>
-        matchesSettingsSection(section, searchQuery),
+        matchesSettingsSection(section, searchQuery, t),
       ),
-    [searchQuery],
+    [searchQuery, t],
   );
   const visibleSectionIds = useMemo(
     () => new Set(visibleSections.map((section) => section.id)),
@@ -736,7 +743,7 @@ export function SettingsView({
                 <button
                   key={lang.id}
                   type="button"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-colors duration-200 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 h-auto whitespace-normal break-words text-left text-xs rounded-md font-medium transition-colors duration-200 ${
                     uiLanguage === lang.id
                       ? "bg-accent text-accent-fg shadow-sm"
                       : "text-txt hover:bg-bg-hover"

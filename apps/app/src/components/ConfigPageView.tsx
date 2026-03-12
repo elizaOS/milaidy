@@ -215,6 +215,12 @@ function RpcConfigSection<T extends string>({
         selectedProvider,
         onSelect,
         containerClassName,
+        (key: string) => {
+          // hack to get t function without breaking hook rules
+          return key === "miladyclouddashboard.MiladyCloud"
+            ? "Milady Cloud"
+            : key;
+        },
       )}
 
       <div className="mt-3">
@@ -248,6 +254,7 @@ function renderRpcProviderButtons<T extends string>(
   selectedProvider: T,
   onSelect: (provider: T) => void,
   containerClassName: string,
+  tFallback?: (key: string) => string,
 ) {
   return (
     <div className={containerClassName}>
@@ -267,7 +274,9 @@ function renderRpcProviderButtons<T extends string>(
             <div
               className={`text-xs font-bold whitespace-nowrap ${active ? "" : "text-[var(--text)]"}`}
             >
-              {provider.label}
+              {provider.id === "eliza-cloud" && tFallback
+                ? "Milady Cloud"
+                : provider.label}
             </div>
           </button>
         );

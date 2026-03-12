@@ -4,14 +4,35 @@
 
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
-import { delimiter } from "node:path";
+import { delimiter, extname, isAbsolute, join } from "node:path";
 import type { HookConfig, InternalHooksConfig } from "../config/types.hooks";
 import type { MiladyHookMetadata } from "./types";
 
 function binaryExists(name: string): boolean {
+  const pathExts =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
+          .split(";")
+          .map((ext) => ext.trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+  const baseCandidates =
+    process.platform === "win32" && extname(name) === ""
+      ? [name, ...pathExts.map((ext) => `${name}${ext}`)]
+      : [name];
+
+  if (
+    isAbsolute(name) &&
+    baseCandidates.some((candidate) => existsSync(candidate))
+  ) {
+    return true;
+  }
+
   const pathDirs = (process.env.PATH ?? "").split(delimiter);
   for (const dir of pathDirs) {
-    if (existsSync(`${dir}/${name}`)) return true;
+    for (const candidate of baseCandidates) {
+      if (existsSync(join(dir, candidate))) return true;
+    }
   }
   return false;
 }

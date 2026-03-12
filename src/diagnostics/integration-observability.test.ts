@@ -580,23 +580,41 @@ describe("observability call-site coverage", () => {
     const path = await import("node:path");
 
     const srcDir = path.resolve(__dirname, "..");
-    const { execSync } = await import("node:child_process");
+    const repoRoot = path.resolve(srcDir, "..");
 
-    // Find all source files (non-test) importing the span factory
-    const grepResult = execSync(
-      "grep -rl 'createIntegrationTelemetrySpan' src/ --include='*.ts' || true",
-      { cwd: path.resolve(srcDir, ".."), encoding: "utf-8" },
-    );
+    const findTsFiles = async (dir: string): Promise<string[]> => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const files: string[] = [];
+      for (const entry of entries) {
+        const absolute = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...(await findTsFiles(absolute)));
+          continue;
+        }
+        if (entry.isFile() && absolute.endsWith(".ts")) {
+          files.push(absolute);
+        }
+      }
+      return files;
+    };
 
-    const sourceFiles = grepResult
-      .split("\n")
-      .map((f) => f.trim())
-      .filter(
-        (f) =>
-          f &&
-          !f.includes(".test.ts") &&
-          f !== "src/diagnostics/integration-observability.ts",
-      );
+    const sourceFiles: string[] = [];
+    for (const absoluteFile of await findTsFiles(srcDir)) {
+      const relativeFile = path
+        .relative(repoRoot, absoluteFile)
+        .split(path.sep)
+        .join("/");
+      if (
+        relativeFile.includes(".test.ts") ||
+        relativeFile === "src/diagnostics/integration-observability.ts"
+      ) {
+        continue;
+      }
+      const content = await fs.readFile(absoluteFile, "utf-8");
+      if (content.includes("createIntegrationTelemetrySpan")) {
+        sourceFiles.push(relativeFile);
+      }
+    }
 
     expect(sourceFiles.length).toBeGreaterThan(0);
 

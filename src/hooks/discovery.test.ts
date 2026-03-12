@@ -9,7 +9,7 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { discoverHooks } from "./discovery";
 
@@ -243,7 +243,7 @@ describe("handler resolution", () => {
     const entries = await discoverHooks({ bundledDir: bundled });
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].hook.handlerPath.endsWith("/handler")).toBe(true);
+    expect(basename(entries[0].hook.handlerPath)).toBe("handler");
   });
 
   it("skips hook when no handler file exists", async () => {

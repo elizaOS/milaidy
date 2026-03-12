@@ -364,6 +364,24 @@ interface TrajectoryLoggerControl {
   setEnabled?: (enabled: boolean) => void;
 }
 
+interface TrajectoryLoggerOps {
+  startTrajectory?: (
+    stepIdOrAgentId: string,
+    options?: {
+      agentId?: string;
+      roomId?: string;
+      entityId?: string;
+      source?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) => Promise<string>;
+  startStep?: (trajectoryId: string) => string;
+  endTrajectory?: (
+    stepIdOrTrajectoryId: string,
+    status?: string,
+  ) => Promise<void>;
+}
+
 type TrajectoryLoggerRegistrationStatus =
   | "pending"
   | "registering"
@@ -493,6 +511,48 @@ function ensureTrajectoryLoggerEnabled(
   if (!isEnabled && typeof trajectoryLogger.setEnabled === "function") {
     trajectoryLogger.setEnabled(true);
     logger.info("[milady] trajectory_logger enabled by default");
+  }
+}
+
+function patchTrajectoryLoggerAliasCompatibility(runtime: AgentRuntime): void {
+  const runtimeLike = runtime as unknown as TrajectoryLoggerRuntimeLike;
+  const primary = collectTrajectoryLoggerCandidates(runtimeLike)[0] as
+    | (TrajectoryLoggerControl & TrajectoryLoggerOps)
+    | undefined;
+  if (!primary) return;
+
+  if (typeof runtimeLike.getService !== "function") return;
+  const aliases: unknown[] = [
+    runtimeLike.getService("logger5"),
+    runtimeLike.getService("logger"),
+  ];
+
+  for (const alias of aliases) {
+    if (!alias || typeof alias !== "object" || alias === primary) continue;
+    const aliasOps = alias as TrajectoryLoggerOps;
+    if (typeof aliasOps.startTrajectory !== "function") {
+      aliasOps.startTrajectory = async (...args) => {
+        if (typeof primary.startTrajectory === "function") {
+          return primary.startTrajectory(...args);
+        }
+        return `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      };
+    }
+    if (typeof aliasOps.startStep !== "function") {
+      aliasOps.startStep = (trajectoryId: string) => {
+        if (typeof primary.startStep === "function") {
+          return primary.startStep(trajectoryId);
+        }
+        return `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      };
+    }
+    if (typeof aliasOps.endTrajectory !== "function") {
+      aliasOps.endTrajectory = async (...args) => {
+        if (typeof primary.endTrajectory === "function") {
+          await primary.endTrajectory(...args);
+        }
+      };
+    }
   }
 }
 
@@ -3827,6 +3887,7 @@ export async function startEliza(
     await waitForTrajectoryLoggerService(runtime, "runtime.initialize()");
     ensureTrajectoryLoggerEnabled(runtime, "runtime.initialize()");
     installDatabaseTrajectoryLogger(runtime);
+    patchTrajectoryLoggerAliasCompatibility(runtime);
 
     // 8b. Ensure AutonomyService is available for trigger dispatch.
     // IGNORE_BOOTSTRAP=true prevents the bootstrap plugin (which normally

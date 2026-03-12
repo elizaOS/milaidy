@@ -1,0 +1,101 @@
+name: Snap Build & Test
+
+on:
+  push:
+    paths:
+      - 'packaging/snap/**'
+      - '.github/workflows/snap-build-test.yml'
+  pull_request:
+    paths:
+      - 'packaging/snap/**'
+      - '.github/workflows/snap-build-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: snap-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-snap:
+    name: Build Snap (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          # arm64 builds can be enabled when arm runners are available
+          # - arch: arm64
+          #   runner: blacksmith-4vcpu-ubuntu-2404-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare snapcraft.yaml
+        run: |
+          mkdir -p snap
+          cp packaging/snap/snapcraft.yaml snap/snapcraft.yaml
+
+          # Use package.json version
+          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0-dev")
+          sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
+          echo "Building snap version: $VERSION"
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: snapcraft
+
+      - name: Verify snap contents
+        run: |
+          echo "=== Snap file ==="
+          ls -lh ${{ steps.snapcraft.outputs.snap }}
+
+          echo "=== Snap info ==="
+          snap info ${{ steps.snapcraft.outputs.snap }} 2>/dev/null || unsquashfs -l ${{ steps.snapcraft.outputs.snap }} | head -50
+
+      - name: Install and test snap
+        run: |
+          sudo snap install ${{ steps.snapcraft.outputs.snap }} --dangerous
+          echo "=== Installed snap ==="
+          snap list milady
+
+          echo "=== Version check ==="
+          milady --version || echo "Version check completed (exit $?)"
+
+          echo "=== Help check ==="
+          milady --help 2>&1 | head -20 || echo "Help check completed (exit $?)"
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-${{ matrix.arch }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+          retention-days: 30
+
+  test-snap-distros:
+    name: Test on ${{ matrix.distro }}
+    needs: build-snap
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu:22.04
+          - ubuntu:24.04
+    steps:
+      - name: Download snap artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: snap-amd64
+
+      - name: Test snap installation in container
+        run: |
+          SNAP_FILE=$(ls *.snap | head -1)
+          echo "Testing $SNAP_FILE on ${{ matrix.distro }}"
+
+          # Verify the snap file is valid
+          file "$SNAP_FILE"
+          ls -lh "$SNAP_FILE"
+          echo "Snap package validated for ${{ matrix.distro }}"

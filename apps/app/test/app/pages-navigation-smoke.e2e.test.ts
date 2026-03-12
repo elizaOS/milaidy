@@ -110,8 +110,8 @@ vi.mock("../../src/components/SettingsView", () => ({
     React.createElement("section", null, "SettingsView Ready"),
 }));
 
-vi.mock("../../src/components/LoadingScreen", () => ({
-  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
+vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+  AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 
 vi.mock("../../src/components/TerminalPanel", () => ({
@@ -247,7 +247,7 @@ function requireTree(
   return tree;
 }
 
-async function clickAndRerender(
+async function _clickAndRerender(
   tree: TestRenderer.ReactTestRenderer,
   label: string,
 ): Promise<void> {
@@ -450,7 +450,7 @@ describe("pages navigation smoke (e2e)", () => {
       {
         name: "loading",
         patch: { onboardingLoading: true, onboardingComplete: false },
-        token: "LoadingScreen",
+        token: "AvatarLoader",
       },
       {
         name: "pairing",

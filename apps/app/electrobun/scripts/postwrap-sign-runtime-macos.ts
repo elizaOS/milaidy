@@ -12,6 +12,23 @@ const NATIVE_EXTENSIONS = new Set([".bare", ".dylib", ".node", ".so"]);
 const KNOWN_NATIVE_HELPERS = new Set(["spawn-helper"]);
 const CODESIGN_MAX_ATTEMPTS = 4;
 const CODESIGN_RETRY_DELAY_MS = 5_000;
+const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
+
+function isPosixAbsolutePath(value: string): boolean {
+  return value.startsWith("/") && !WINDOWS_ABS_PATH_RE.test(value);
+}
+
+function resolvePortablePath(value: string): string {
+  return isPosixAbsolutePath(value) || WINDOWS_ABS_PATH_RE.test(value)
+    ? value
+    : path.resolve(value);
+}
+
+function joinPortable(base: string, ...parts: string[]): string {
+  return isPosixAbsolutePath(base)
+    ? path.posix.join(base, ...parts)
+    : path.join(base, ...parts);
+}
 
 export function classifyMachOKind(description: string): MachOKind {
   const normalized = description.toLowerCase();
@@ -33,9 +50,9 @@ export function classifyMachOKind(description: string): MachOKind {
 }
 
 function materializeRuntimePath(inputPath: string): string {
-  const resolved = path.resolve(inputPath);
+  const resolved = resolvePortablePath(inputPath);
   if (resolved.endsWith(".app")) {
-    return path.join(
+    return joinPortable(
       resolved,
       "Contents",
       "Resources",
@@ -45,7 +62,7 @@ function materializeRuntimePath(inputPath: string): string {
     );
   }
   if (path.basename(resolved) === "milady-dist") {
-    return path.join(resolved, "node_modules");
+    return joinPortable(resolved, "node_modules");
   }
   return resolved;
 }
@@ -60,7 +77,7 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
     return null;
   }
 
-  const resolvedBuildDir = path.resolve(buildDir);
+  const resolvedBuildDir = resolvePortablePath(buildDir);
   if (!fs.existsSync(resolvedBuildDir)) {
     return null;
   }
@@ -68,7 +85,7 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   const bundleCandidates = fs
     .readdirSync(resolvedBuildDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.endsWith(".app"))
-    .map((entry) => path.join(resolvedBuildDir, entry.name));
+    .map((entry) => joinPortable(resolvedBuildDir, entry.name));
 
   if (bundleCandidates.length === 0) {
     return null;

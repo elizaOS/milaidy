@@ -340,7 +340,9 @@ export function MediaSettingsSection() {
       {currentMode === "cloud" && (
         <CloudConnectionStatus
           connected={miladyCloudConnected}
-          disconnectedText="Milady Cloud not connected - configure in Settings -> AI Model"
+          disconnectedText={t(
+            "miladyclouddashboard.MiladyCloudNotConnectedSettings",
+          )}
         />
       )}
 
@@ -378,9 +380,15 @@ export function MediaSettingsSection() {
                       })
                     }
                   >
-                    <div className="font-semibold">{p.label}</div>
+                    <div className="font-semibold">
+                      {p.id === "cloud"
+                        ? t("miladyclouddashboard.MiladyCloud")
+                        : p.label}
+                    </div>
                     <div className="text-[10px] text-muted mt-0.5">
-                      {p.hint}
+                      {p.id === "cloud"
+                        ? t("miladyclouddashboard.NoSetupNeeded")
+                        : p.hint}
                     </div>
                   </Button>
                 );

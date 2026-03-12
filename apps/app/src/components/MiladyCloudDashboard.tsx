@@ -12,7 +12,9 @@ import {
   Server,
   Settings,
   Shield,
+  Terminal,
   Trash2,
+  X,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -56,13 +58,27 @@ function CloudAgentCard({
   agent,
   onDelete,
   deleting,
+  onSelect,
 }: {
   agent: CloudCompatAgent;
   onDelete: (id: string) => void;
   deleting: boolean;
+  onSelect?: (id: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border/50 bg-bg/30 p-4 flex flex-col justify-between gap-3 hover:border-accent/30 transition-all duration-200">
+    // biome-ignore lint/a11y/useSemanticElements: cannot use button due to nested buttons
+    <div
+      className="rounded-2xl border border-border/50 bg-bg/30 p-4 flex flex-col justify-between gap-3 hover:border-accent/30 transition-all duration-200 cursor-pointer"
+      onClick={() => onSelect?.(agent.agent_id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect?.(agent.agent_id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <Server className="w-4 h-4 text-accent shrink-0" />
@@ -139,6 +155,11 @@ export function CloudDashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgent = cloudAgents.find((a) => a.agent_id === selectedAgentId);
+  const [showDeployForm, setShowDeployForm] = useState(false);
+  const [deployAgentName, setDeployAgentName] = useState("");
+  const [deploying, setDeploying] = useState(false);
   const mountedRef = useRef(true);
 
   // We import the client lazily to avoid circular dependency issues
@@ -167,23 +188,49 @@ export function CloudDashboard() {
     }
   }, []);
 
-  const handleDeleteAgent = useCallback(async (agentId: string) => {
-    setDeletingAgentId(agentId);
+  const handleDeleteAgent = useCallback(
+    async (agentId: string) => {
+      setDeletingAgentId(agentId);
+      try {
+        const res = await fetch(
+          `/api/cloud/compat/agents/${encodeURIComponent(agentId)}`,
+          { method: "DELETE" },
+        );
+        const data = await res.json();
+        if (data.success) {
+          setCloudAgents((prev) => prev.filter((a) => a.agent_id !== agentId));
+        }
+      } catch {
+        // Silently fail — user can retry
+      } finally {
+        setDeletingAgentId(null);
+        if (selectedAgentId === agentId) setSelectedAgentId(null);
+      }
+    },
+    [selectedAgentId],
+  );
+
+  const handleDeployAgent = useCallback(async () => {
+    if (!deployAgentName.trim()) return;
+    setDeploying(true);
     try {
-      const res = await fetch(
-        `/api/cloud/compat/agents/${encodeURIComponent(agentId)}`,
-        { method: "DELETE" },
-      );
+      const res = await fetch("/api/cloud/compat/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent_name: deployAgentName.trim() }),
+      });
       const data = await res.json();
-      if (data.success) {
-        setCloudAgents((prev) => prev.filter((a) => a.agent_id !== agentId));
+      if (data.success && data.data) {
+        setCloudAgents((prev) => [data.data, ...prev]);
+        setShowDeployForm(false);
+        setDeployAgentName("");
       }
     } catch {
-      // Silently fail — user can retry
+      // Intentionally swallow for now
     } finally {
-      setDeletingAgentId(null);
+      setDeploying(false);
     }
-  }, []);
+  }, [deployAgentName]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -218,7 +265,7 @@ export function CloudDashboard() {
           <Zap className="w-10 h-10 text-accent animate-pulse" />
         </div>
         <h1 className="text-4xl font-bold text-txt-strong mb-4 tracking-tight">
-          Milady Cloud
+          {t("miladyclouddashboard.MiladyCloud")}
         </h1>
         <p className="text-lg text-muted mb-10 leading-relaxed">
           {t("miladyclouddashboard.ScaleYourAgents")}
@@ -328,20 +375,67 @@ export function CloudDashboard() {
                       agent={agent}
                       onDelete={handleDeleteAgent}
                       deleting={deletingAgentId === agent.agent_id}
+                      onSelect={(id) => setSelectedAgentId(id)}
                     />
                   ))}
                   {/* Deploy new agent card */}
-                  <div className="aspect-[4/3] rounded-2xl border border-dashed border-border/60 flex flex-col items-center justify-center p-6 text-center group hover:border-accent/50 hover:bg-accent/5 transition-all duration-300 cursor-pointer">
-                    <div className="w-12 h-12 rounded-full bg-bg-accent flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <Plus className="w-6 h-6 text-muted group-hover:text-accent" />
+                  {showDeployForm ? (
+                    <div className="aspect-[4/3] rounded-2xl border border-border/50 bg-bg/30 p-6 flex flex-col items-center justify-center text-center">
+                      <div className="w-full space-y-3">
+                        <input
+                          placeholder={t("miladyclouddashboard.AgentName")}
+                          value={deployAgentName}
+                          onChange={(e) => setDeployAgentName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void handleDeployAgent();
+                            if (e.key === "Escape") setShowDeployForm(false);
+                          }}
+                          disabled={deploying}
+                          className="w-full h-8 px-3 rounded-xl bg-bg/50 border border-border/40 text-xs text-center focus:outline-none focus:border-accent"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 rounded-xl h-8 text-xs text-muted hover:text-txt-strong flex items-center justify-center p-0"
+                            onClick={() => setShowDeployForm(false)}
+                            disabled={deploying}
+                          >
+                            {t("miladyclouddashboard.Cancel")}
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="flex-1 rounded-xl h-8 text-xs font-bold"
+                            onClick={handleDeployAgent}
+                            disabled={deploying || !deployAgentName.trim()}
+                          >
+                            {deploying ? (
+                              <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                            ) : (
+                              t("miladyclouddashboard.Deploy")
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="font-bold text-txt-strong mb-1">
-                      {t("miladyclouddashboard.DeployNewAgent")}
-                    </h3>
-                    <p className="text-xs text-muted">
-                      {t("miladyclouddashboard.InitializeInstance")}
-                    </p>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="aspect-[4/3] rounded-2xl border border-dashed border-border/60 flex flex-col items-center justify-center p-6 text-center group hover:border-accent/50 hover:bg-accent/5 transition-all duration-300 cursor-pointer"
+                      onClick={() => setShowDeployForm(true)}
+                    >
+                      <div className="w-12 h-12 rounded-full bg-bg-accent flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Plus className="w-6 h-6 text-muted group-hover:text-accent" />
+                      </div>
+                      <h3 className="font-bold text-txt-strong mb-1">
+                        {t("miladyclouddashboard.DeployNewAgent")}
+                      </h3>
+                      <p className="text-xs text-muted">
+                        {t("miladyclouddashboard.InitializeInstance")}
+                      </p>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -359,106 +453,236 @@ export function CloudDashboard() {
           </SectionCard>
         </div>
 
-        {/* Sidebar: Billing & Account */}
+        {/* Sidebar Area */}
         <div className="space-y-8">
-          {/* Credit Wallet Card */}
-          <div className="bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-700" />
+          {selectedAgentId && selectedAgent ? (
+            <AgentDetailSidebar
+              agent={selectedAgent}
+              onClose={() => setSelectedAgentId(null)}
+            />
+          ) : (
+            <>
+              {/* Credit Wallet Card */}
+              <div className="bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-700" />
 
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-accent text-accent-fg flex items-center justify-center">
-                  <CircleDollarSign className="w-6 h-6" />
-                </div>
-                <div className="text-[10px] uppercase font-bold tracking-widest text-accent/80 bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
-                  {t("miladyclouddashboard.CreditWallet")}
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="w-12 h-12 rounded-2xl bg-accent text-accent-fg flex items-center justify-center">
+                      <CircleDollarSign className="w-6 h-6" />
+                    </div>
+                    <div className="text-[10px] uppercase font-bold tracking-widest text-accent/80 bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
+                      {t("miladyclouddashboard.CreditWallet")}
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <span className="text-[11px] text-muted uppercase font-bold tracking-wider block mb-1">
+                      {t("miladyclouddashboard.AvailableBalance")}
+                    </span>
+                    <div
+                      className={`text-4xl font-bold tracking-tight flex items-baseline gap-1 ${creditStatusColor}`}
+                    >
+                      <span className="text-2xl opacity-70">$</span>
+                      {miladyCloudCredits !== null
+                        ? miladyCloudCredits.toFixed(2)
+                        : "0.00"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      variant="default"
+                      className="w-full rounded-2xl h-12 font-bold shadow-lg shadow-accent/20"
+                      onClick={() => window.open(miladyCloudTopUpUrl, "_blank")}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t("miladyclouddashboard.TopUpCredits")}
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-xl h-10 border-border/50 text-xs"
+                      >
+                        <History className="w-3 h-3 mr-2" />
+                        {t("miladyclouddashboard.History")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-xl h-10 border-border/50 text-xs"
+                      >
+                        <Settings className="w-3 h-3 mr-2" />
+                        {t("miladyclouddashboard.Pricing")}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mb-8">
-                <span className="text-[11px] text-muted uppercase font-bold tracking-wider block mb-1">
-                  {t("miladyclouddashboard.AvailableBalance")}
-                </span>
-                <div
-                  className={`text-4xl font-bold tracking-tight flex items-baseline gap-1 ${creditStatusColor}`}
-                >
-                  <span className="text-2xl opacity-70">$</span>
-                  {miladyCloudCredits !== null
-                    ? miladyCloudCredits.toFixed(2)
-                    : "0.00"}
-                </div>
-              </div>
+              {/* Account Info */}
+              <SectionCard
+                title={t("miladyclouddashboard.AccountDetails")}
+                className="border-border/50 bg-bg/40 backdrop-blur-xl rounded-3xl shadow-sm"
+              >
+                <div className="space-y-4 mt-2">
+                  <div className="p-3 rounded-2xl bg-bg/30 border border-border/30">
+                    <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-1 block">
+                      {t("miladyclouddashboard.CloudUserID")}
+                    </span>
+                    <code className="text-xs text-txt-strong break-all font-mono">
+                      {miladyCloudUserId ||
+                        t("miladyclouddashboard.NotAvailable")}
+                    </code>
+                  </div>
 
-              <div className="space-y-3">
-                <Button
-                  variant="default"
-                  className="w-full rounded-2xl h-12 font-bold shadow-lg shadow-accent/20"
-                  onClick={() => window.open(miladyCloudTopUpUrl, "_blank")}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t("miladyclouddashboard.TopUpCredits")}
-                </Button>
-                <div className="flex gap-2">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-ok" />
+                      <span className="text-xs font-medium">
+                        {t("miladyclouddashboard.SecurityStatus")}
+                      </span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-ok/10 text-ok font-bold uppercase tracking-wider border border-ok/20">
+                      {t("miladyclouddashboard.Secure")}
+                    </span>
+                  </div>
+
                   <Button
-                    variant="outline"
-                    className="flex-1 rounded-xl h-10 border-border/50 text-xs"
+                    variant="link"
+                    className="w-full text-xs text-accent justify-start px-3 h-auto"
+                    onClick={() =>
+                      window.open("https://miladycloud.ai/dashboard", "_blank")
+                    }
                   >
-                    <History className="w-3 h-3 mr-2" />
-                    {t("miladyclouddashboard.History")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 rounded-xl h-10 border-border/50 text-xs"
-                  >
-                    <Settings className="w-3 h-3 mr-2" />
-                    {t("miladyclouddashboard.Pricing")}
+                    {t("miladyclouddashboard.AdvancedDashboard")}
+                    <ExternalLink className="w-3 h-3 ml-2" />
                   </Button>
                 </div>
-              </div>
+              </SectionCard>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface StatusDetail {
+  status?: string;
+  databaseStatus?: string;
+  lastHeartbeat?: string | number | Date;
+}
+
+function AgentDetailSidebar({
+  agent,
+  onClose,
+}: {
+  agent: CloudCompatAgent | undefined;
+  onClose: () => void;
+}) {
+  const [logs, setLogs] = useState<string>("");
+  const [statusDetail, setStatusDetail] = useState<StatusDetail | null>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!agent) return;
+    let mounted = true;
+
+    const fetchDetails = async () => {
+      try {
+        const [statusRes, logsRes] = await Promise.all([
+          fetch(`/api/cloud/compat/agents/${agent.agent_id}/status`),
+          fetch(`/api/cloud/compat/agents/${agent.agent_id}/logs?lines=100`),
+        ]);
+        const statusData = await statusRes.json();
+        const logsData = await logsRes.json();
+
+        if (!mounted) return;
+        if (statusData.success) {
+          setStatusDetail(statusData.data);
+        }
+        if (logsData.success) {
+          setLogs(logsData.data.logs || "");
+        }
+      } catch {
+        // Silently retry next tick
+      }
+    };
+
+    void fetchDetails();
+    const intId = setInterval(fetchDetails, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(intId);
+    };
+  }, [agent]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rerun when logs update
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs]);
+
+  if (!agent) return null;
+
+  return (
+    <div className="space-y-4 animate-in slide-in-from-right-8 duration-300">
+      <SectionCard
+        title="Agent Details"
+        className="border-accent/40 bg-accent/5 backdrop-blur-xl rounded-3xl shadow-sm relative overflow-hidden"
+      >
+        <button
+          type="button"
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-bg/50 transition-colors text-muted hover:text-txt-strong"
+          onClick={onClose}
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 rounded-xl bg-bg/40 border border-border/40">
+              <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-1 block">
+                Status
+              </span>
+              <AgentStatusBadge status={statusDetail?.status || agent.status} />
+            </div>
+            <div className="p-3 rounded-xl bg-bg/40 border border-border/40">
+              <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-1 block">
+                DB Status
+              </span>
+              <span className="text-xs font-mono">
+                {statusDetail?.databaseStatus || agent.database_status || "—"}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-bg/40 border border-border/40 col-span-2">
+              <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-1 block">
+                Heartbeat
+              </span>
+              <span className="text-xs font-mono">
+                {statusDetail?.lastHeartbeat
+                  ? new Date(statusDetail.lastHeartbeat).toLocaleString()
+                  : agent.last_heartbeat_at
+                    ? new Date(agent.last_heartbeat_at).toLocaleString()
+                    : "No heartbeat yet"}
+              </span>
             </div>
           </div>
 
-          {/* Account Info */}
-          <SectionCard
-            title={t("miladyclouddashboard.AccountDetails")}
-            className="border-border/50 bg-bg/40 backdrop-blur-xl rounded-3xl shadow-sm"
-          >
-            <div className="space-y-4 mt-2">
-              <div className="p-3 rounded-2xl bg-bg/30 border border-border/30">
-                <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-1 block">
-                  {t("miladyclouddashboard.CloudUserID")}
-                </span>
-                <code className="text-xs text-txt-strong break-all font-mono">
-                  {miladyCloudUserId || "Not available"}
-                </code>
-              </div>
-
-              <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-ok" />
-                  <span className="text-xs font-medium">
-                    {t("miladyclouddashboard.SecurityStatus")}
-                  </span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-ok/10 text-ok font-bold uppercase tracking-wider border border-ok/20">
-                  {t("miladyclouddashboard.Secure")}
-                </span>
-              </div>
-
-              <Button
-                variant="link"
-                className="w-full text-xs text-accent justify-start px-3 h-auto"
-                onClick={() =>
-                  window.open("https://miladycloud.ai/dashboard", "_blank")
-                }
-              >
-                {t("miladyclouddashboard.AdvancedDashboard")}
-                <ExternalLink className="w-3 h-3 ml-2" />
-              </Button>
+          <div className="p-3 rounded-xl bg-bg/80 border border-border/40">
+            <span className="text-[10px] text-muted uppercase font-bold tracking-wider mb-2 flex items-center gap-2">
+              <Terminal className="w-3 h-3" /> Live Logs
+            </span>
+            <div className="h-64 overflow-y-auto custom-scrollbar bg-black/50 rounded-lg p-3 border border-border/20">
+              <pre className="text-[10px] font-mono text-txt-strong/80 whitespace-pre-wrap break-all">
+                {logs || "No logs available. Deploying..."}
+                <div ref={logsEndRef} />
+              </pre>
             </div>
-          </SectionCard>
+          </div>
         </div>
-      </div>
+      </SectionCard>
     </div>
   );
 }

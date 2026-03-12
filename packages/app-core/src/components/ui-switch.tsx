@@ -17,11 +17,13 @@ type SwitchProps = Omit<
 
 const SIZE_CLASS: Record<SwitchSize, string> = {
   default: "w-10 h-5",
-  compact: "w-9 h-5 border-2 border-transparent" };
+  compact: "w-9 h-5 border-2 border-transparent",
+};
 
 const KNOB_TRAVEL_CLASS: Record<SwitchSize, string> = {
   default: "translate-x-5",
-  compact: "translate-x-4" };
+  compact: "translate-x-4",
+};
 
 export function Switch({
   checked,

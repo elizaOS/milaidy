@@ -11,7 +11,7 @@
  *   - Prompt generation: registry.catalog.prompt() for AI system prompts
  */
 
-import type { ConfigUiHint } from "@milady/app-core/types";
+import type { ConfigUiHint, PluginUiTheme } from "@milady/app-core/types";
 import React, {
   forwardRef,
   useCallback,
@@ -64,7 +64,7 @@ export interface ConfigRendererProps {
   /** Show a validation error summary above the form fields when errors exist. Defaults to true. */
   showValidationSummary?: boolean;
   /** Partial theme overrides for plugin UI tokens. */
-  theme?: Partial<import("../types").PluginUiTheme>;
+  theme?: Partial<PluginUiTheme>;
 }
 
 /** Handle exposed by ConfigRenderer via ref for parent-driven validation. */
@@ -237,7 +237,7 @@ function ValidationSummary({
 // ── Theme mapping ──────────────────────────────────────────────────────
 
 /** Maps PluginUiTheme keys to CSS variable names. */
-const THEME_TO_CSS: Record<keyof import("../types").PluginUiTheme, string> = {
+const THEME_TO_CSS: Record<keyof PluginUiTheme, string> = {
   fieldGap: "--plugin-field-gap",
   groupGap: "--plugin-group-gap",
   sectionPadding: "--plugin-section-padding",
@@ -551,7 +551,7 @@ export const ConfigRenderer = forwardRef<
     for (const [key, value] of Object.entries(theme)) {
       const cssVar = THEME_TO_CSS[key as keyof typeof THEME_TO_CSS];
       if (cssVar && value) {
-        style[cssVar] = value;
+        style[cssVar] = value as string;
       }
     }
     return Object.keys(style).length > 0 ? style : undefined;

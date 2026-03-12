@@ -319,9 +319,9 @@ export function startMemoryLeakDetector(options?: {
         const currentMb = memInfo.usedJSHeapSize / (1024 * 1024);
         console.warn(
           `[MemoryLeakDetector] Potential memory leak detected!\n` +
-          `  Growth rate: +${trend.mbPerMinute.toFixed(2)} MB/min\n` +
-          `  Current heap: ${currentMb.toFixed(1)} MB\n` +
-          `  Window: ${trend.windowMinutes.toFixed(1)} min (${trend.sampleCount} samples)`,
+            `  Growth rate: +${trend.mbPerMinute.toFixed(2)} MB/min\n` +
+            `  Current heap: ${currentMb.toFixed(1)} MB\n` +
+            `  Window: ${trend.windowMinutes.toFixed(1)} min (${trend.sampleCount} samples)`,
         );
         options?.onLeak?.({
           mbPerMinute: trend.mbPerMinute,

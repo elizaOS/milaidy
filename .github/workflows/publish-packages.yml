@@ -230,7 +230,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snapcraft.outputs.snap }}
-          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge' || 'stable' }}
+          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge,beta' || 'stable,candidate' }}
 
   # ── Debian / apt ───────────────────────────────────────────────────────
   build-deb:

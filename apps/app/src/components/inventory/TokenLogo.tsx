@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { getContractLogoUrl, getNativeLogoUrl } from "../chainConfig";
 import { chainIcon } from "./constants";
+import { normalizeInventoryImageUrl } from "./media-url";
 
 /* ── Logo URL resolver ──────────────────────────────────────────────── */
 
@@ -36,12 +37,15 @@ export function TokenLogo({
   size?: number;
 }) {
   const [errored, setErrored] = useState(false);
-  const usePreferredLogo = Boolean(preferredLogoUrl?.startsWith("http"));
+  const preferredResolved = normalizeInventoryImageUrl(preferredLogoUrl);
+  const defaultResolved = normalizeInventoryImageUrl(
+    tokenLogoUrl(chain, contractAddress),
+  );
   const url = errored
     ? null
-    : usePreferredLogo
-      ? preferredLogoUrl
-      : tokenLogoUrl(chain, contractAddress);
+    : preferredResolved
+      ? preferredResolved
+      : defaultResolved;
   const icon = chainIcon(chain);
 
   if (url) {

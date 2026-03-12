@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
+  clearNfaRecord,
+  patchNfaRecord,
   readNfaRecord,
   writeNfaRecord,
-  patchNfaRecord,
-  clearNfaRecord,
 } from "../src/nfa-store.js";
 import type { NfaRecord } from "../src/types.js";
 
@@ -44,7 +44,7 @@ describe("store", () => {
 
   it("throws when patching without existing record", async () => {
     await expect(patchNfaRecord({ merkleRoot: "x" })).rejects.toThrow(
-      "No NFA record found"
+      "No NFA record found",
     );
   });
 

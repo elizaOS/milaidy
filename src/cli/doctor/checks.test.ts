@@ -38,6 +38,7 @@ const mockAccessSync = vi.mocked(accessSync);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockStatfsSync = vi.mocked(statfsSync);
 const mockCreateConnection = vi.mocked(createConnection);
+const toPosix = (value: string) => value.replaceAll("\\", "/");
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -131,7 +132,9 @@ describe("checkConfigFile", () => {
       MILADY_STATE_DIR: "/tmp/milady-profile",
     });
     expect(result.status).toBe("warn");
-    expect(result.detail).toContain("/tmp/milady-profile/milady.json");
+    expect(toPosix(result.detail ?? "")).toContain(
+      "/tmp/milady-profile/milady.json",
+    );
   });
 });
 

@@ -12,7 +12,19 @@ import {
   type TrajectoryRecord,
   type TrajectoryStats,
 } from "@milady/app-core/api";
-import { Button, Input } from "@milady/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@milady/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
 import {
@@ -241,43 +253,59 @@ export function TrajectoriesView({
           }}
         />
 
-        <select
-          className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as StatusFilter);
+        <Select
+          value={statusFilter === "" ? "all" : statusFilter}
+          onValueChange={(val) => {
+            setStatusFilter(val === "all" ? "" : (val as StatusFilter));
             setPage(0);
           }}
         >
-          <option value="">{t("trajectoriesview.AllStatuses")}</option>
-          <option value="active">{t("trajectoriesview.Active")}</option>
-          <option value="completed">{t("trajectoriesview.Completed")}</option>
-          <option value="error">{t("trajectoriesview.Error")}</option>
-        </select>
+          <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+            <SelectValue placeholder={t("trajectoriesview.AllStatuses")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {t("trajectoriesview.AllStatuses")}
+            </SelectItem>
+            <SelectItem value="active">
+              {t("trajectoriesview.Active")}
+            </SelectItem>
+            <SelectItem value="completed">
+              {t("trajectoriesview.Completed")}
+            </SelectItem>
+            <SelectItem value="error">{t("trajectoriesview.Error")}</SelectItem>
+          </SelectContent>
+        </Select>
 
         {sources.length > 0 && (
-          <select
-            className="text-xs px-3 py-1.5 border border-border bg-card text-txt cursor-pointer"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
+          <Select
+            value={sourceFilter === "" ? "all" : sourceFilter}
+            onValueChange={(val) => {
+              setSourceFilter(val === "all" ? "" : val);
               setPage(0);
             }}
           >
-            <option value="">{t("trajectoriesview.AllSources")}</option>
-            {sources.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 px-3 py-1.5 text-xs bg-card border-border shadow-sm w-36">
+              <SelectValue placeholder={t("trajectoriesview.AllSources")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {t("trajectoriesview.AllSources")}
+              </SelectItem>
+              {sources.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {hasActiveFilters && (
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
             onClick={handleClearFilters}
           >
             {t("trajectoriesview.ClearFilters")}
@@ -288,62 +316,54 @@ export function TrajectoriesView({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
             onClick={() => void loadTrajectories()}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading
+              ? t("common.loading", { defaultValue: "Loading..." })
+              : t("common.refresh", { defaultValue: "Refresh" })}
           </Button>
 
-          <div className="relative group">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm"
-              disabled={exporting || trajectories.length === 0}
-            >
-              {exporting ? "Exporting..." : "Export"}
-            </Button>
-            <div className="absolute right-0 mt-1 hidden group-hover:block bg-card border border-border shadow-lg z-10 w-48">
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", true)}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-txt hover:text-accent shadow-sm text-left"
+                disabled={exporting || trajectories.length === 0}
               >
+                {exporting
+                  ? t("common.exporting", { defaultValue: "Exporting..." })
+                  : t("common.export", { defaultValue: "Export" })}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleExport("json", true)}>
                 {t("trajectoriesview.JSONWithPrompts")}
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("json", false)}
-              >
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("json", false)}>
                 {t("trajectoriesview.JSONRedacted")}
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("csv", false)}
-              >
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("csv", false)}>
                 {t("trajectoriesview.CSVSummaryOnly")}
-              </button>
-              <button
-                type="button"
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-muted/20"
-                onClick={() => handleExport("zip", true)}
-              >
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("zip", true)}>
                 {t("trajectoriesview.ZIPFolders")}
-              </button>
-            </div>
-          </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-3 py-1.5 text-xs bg-card text-danger border-danger/50 hover:bg-danger/10 hover:border-danger shadow-sm"
+            className="h-auto min-h-[2rem] whitespace-normal break-words px-3 py-1.5 text-xs bg-card text-danger border-danger/50 hover:bg-danger/10 hover:border-danger shadow-sm text-left"
             onClick={handleClearAll}
             disabled={clearing || stats?.totalTrajectories === 0}
           >
-            {clearing ? "Clearing..." : "Clear All"}
+            {clearing
+              ? t("common.clearing", { defaultValue: "Clearing..." })
+              : t("common.clearAll", { defaultValue: "Clear All" })}
           </Button>
         </div>
       </div>
@@ -465,7 +485,7 @@ export function TrajectoriesView({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
+              className="h-auto min-h-[1.75rem] px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
@@ -474,7 +494,7 @@ export function TrajectoriesView({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
+              className="h-auto min-h-[1.75rem] px-2 py-1 text-xs bg-card disabled:opacity-50 shadow-sm"
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= totalPages - 1}
             >

@@ -104,39 +104,39 @@ describe("header status", () => {
   });
 
   it("renders agent name via data-testid", async () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const agentName = tree!.root.findByProps({ "data-testid": "agent-name" });
+    expect(tree).toBeDefined();
+    const agentName = tree?.root.findByProps({ "data-testid": "agent-name" });
     expect(agentName).toBeDefined();
-    expect(agentName.children).toContain("Milady");
+    expect(agentName?.children).toContain("Milady");
   });
 
   it("renders shell toggle button", async () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const shellToggle = tree!.root.findByProps({
+    expect(tree).toBeDefined();
+    const shellToggle = tree?.root.findByProps({
       "data-testid": "ui-shell-toggle",
     });
     expect(shellToggle).toBeDefined();
   });
 
   it("renders bug report button with aria-label", async () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
-
-    const bugButton = tree!.root.findAll(
+    expect(tree).toBeDefined();
+    const bugButton = tree?.root.findAll(
       (node) =>
         node.type === "button" &&
         node.props["aria-label"] === "header.reportBug",
     );
-    expect(bugButton.length).toBeGreaterThan(0);
+    expect(bugButton?.length).toBeGreaterThan(0);
   });
 });

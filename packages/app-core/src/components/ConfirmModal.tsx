@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface ConfirmModalProps {
   open: boolean;
@@ -26,7 +27,8 @@ export function ConfirmModal({
   cancelLabel = "Cancel",
   tone = "default",
   onConfirm,
-  onCancel }: ConfirmModalProps) {
+  onCancel,
+}: ConfirmModalProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -48,16 +50,21 @@ export function ConfirmModal({
 
   if (!open) return null;
 
-  const confirmBtnClass =
+  const confirmBtnStyle: React.CSSProperties =
     tone === "danger"
-      ? "bg-danger text-white hover:opacity-90"
+      ? { background: "#ef4444", color: "#fff" }
       : tone === "warn"
-        ? "bg-warn text-white hover:opacity-90"
-        : "bg-accent text-accent-fg hover:opacity-90";
+        ? { background: "#f59e0b", color: "#fff" }
+        : { background: "#f0b232", color: "#000" };
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/40 z-[10001] flex items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center"
+      style={{
+        zIndex: 10001,
+        background: "rgba(5,7,12,0.95)",
+        backdropFilter: "blur(24px)",
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
@@ -67,14 +74,38 @@ export function ConfirmModal({
       aria-label={title}
       tabIndex={-1}
     >
-      <div className="bg-bg border border-border rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
-        <h2 className="text-base font-bold text-txt-strong mb-3">{title}</h2>
-        <p className="text-sm text-muted whitespace-pre-line mb-6">{message}</p>
+      <div
+        className="rounded-xl max-w-md w-full mx-4 p-6"
+        style={{
+          background: "rgba(18, 22, 32, 0.96)",
+          border: "1px solid rgba(240, 178, 50, 0.18)",
+          backdropFilter: "blur(24px)",
+          boxShadow:
+            "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+        }}
+      >
+        <h2
+          className="text-base font-bold mb-3"
+          style={{ color: "rgba(240,238,250,0.92)" }}
+        >
+          {title}
+        </h2>
+        <p
+          className="text-sm whitespace-pre-line mb-6"
+          style={{ color: "rgba(255,255,255,0.45)" }}
+        >
+          {message}
+        </p>
         <div className="flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm border border-border rounded-md hover:bg-bg-hover transition-colors"
+            className="px-4 py-2 text-sm rounded-md transition-colors cursor-pointer"
+            style={{
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.6)",
+              background: "transparent",
+            }}
           >
             {cancelLabel}
           </button>
@@ -82,7 +113,8 @@ export function ConfirmModal({
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm rounded-md transition-opacity font-medium ${confirmBtnClass}`}
+            className="px-4 py-2 text-sm rounded-md transition-opacity font-medium cursor-pointer border-0"
+            style={confirmBtnStyle}
           >
             {confirmLabel}
           </button>
@@ -90,6 +122,18 @@ export function ConfirmModal({
       </div>
     </div>
   );
+
+  // Portal to body to escape any 3D transform stacking contexts (e.g. CompanionShell).
+  // Skip portal in test environments where react-test-renderer can't handle real DOM portals.
+  const canPortal =
+    typeof document !== "undefined" &&
+    document.body &&
+    typeof document.body.appendChild === "function" &&
+    !(globalThis as Record<string, unknown>).__TEST_RENDERER__;
+  if (canPortal) {
+    return createPortal(content, document.body);
+  }
+  return content;
 }
 
 /**
@@ -133,12 +177,14 @@ export function useConfirm() {
         onCancel: () => {
           state.resolve(false);
           setState(null);
-        } }
+        },
+      }
     : {
         open: false,
         message: "",
         onConfirm: () => {},
-        onCancel: () => {} };
+        onCancel: () => {},
+      };
 
   return { confirm, modalProps };
 }

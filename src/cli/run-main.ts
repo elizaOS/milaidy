@@ -23,6 +23,42 @@ function formatUncaughtError(error: unknown): string {
   return String(error);
 }
 
+function hasInsufficientCreditsSignal(input: string): boolean {
+  return /\b(insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|payment required|statuscode:\s*402)\b/i.test(
+    input,
+  );
+}
+
+function shouldIgnoreUnhandledRejection(reason: unknown): boolean {
+  const formatted = formatUncaughtError(reason);
+  if (
+    !/AI_NoOutputGeneratedError|No output generated|AI_APICallError/i.test(
+      formatted,
+    )
+  ) {
+    return false;
+  }
+
+  if (hasInsufficientCreditsSignal(formatted)) {
+    return true;
+  }
+
+  if (reason && typeof reason === "object") {
+    const statusCode = (reason as { statusCode?: number }).statusCode;
+    if (statusCode === 402) return true;
+
+    const responseBody = (reason as { responseBody?: unknown }).responseBody;
+    if (
+      typeof responseBody === "string" &&
+      hasInsufficientCreditsSignal(responseBody)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function runCli(argv: string[] = process.argv) {
   await loadDotEnv();
 
@@ -39,6 +75,12 @@ export async function runCli(argv: string[] = process.argv) {
   program.exitOverride();
 
   process.on("unhandledRejection", (reason) => {
+    if (shouldIgnoreUnhandledRejection(reason)) {
+      console.warn(
+        "[milady] Provider credits appear exhausted; request failed without output. Top up credits and retry.",
+      );
+      return;
+    }
     console.error("[milady] Unhandled rejection:", formatUncaughtError(reason));
     process.exit(1);
   });

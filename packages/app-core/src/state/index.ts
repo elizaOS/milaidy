@@ -1,5 +1,5 @@
-export * from "./vrm";
+export * from "./parsers";
 export * from "./persistence";
 export * from "./types";
-export * from "./parsers";
 export * from "./useApp";
+export * from "./vrm";

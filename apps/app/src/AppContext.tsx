@@ -562,14 +562,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Onboarding ---
   const [onboardingStep, setOnboardingStep] =
-    useState<OnboardingStep>("welcome");
+    useState<OnboardingStep>("wakeUp");
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("Eliza");
   const [onboardingOwnerName, setOnboardingOwnerName] = useState("anon");
-  const [onboardingSetupMode, setOnboardingSetupMode] = useState<
-    "" | "quick" | "advanced"
-  >("");
+
   const [onboardingStyle, setOnboardingStyle] = useState("");
   const [onboardingRunMode, setOnboardingRunMode] = useState<
     "local-rawdog" | "local-sandbox" | "cloud" | ""
@@ -1335,14 +1333,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setExtensionChecking(false);
   }, []);
 
-  const pollCloudCredits = useCallback(async () => {
+  const pollCloudCredits = useCallback(async (): Promise<boolean> => {
     const cloudStatus = await client.getCloudStatus().catch(() => null);
     if (!cloudStatus) {
       setMiladyCloudConnected(false);
       setMiladyCloudCredits(null);
       setMiladyCloudCreditsLow(false);
       setMiladyCloudCreditsCritical(false);
-      return;
+      return false;
     }
     // A cached cloud API key represents a completed login and should be shared
     // across all views, even before runtime CLOUD_AUTH fully initializes.
@@ -1369,6 +1367,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMiladyCloudCreditsLow(false);
       setMiladyCloudCreditsCritical(false);
     }
+    return isConnected;
   }, []);
 
   // ── Lifecycle actions ──────────────────────────────────────────────
@@ -1614,7 +1613,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await client.resetAgent();
       setAgentStatus(null);
       setOnboardingComplete(false);
-      setOnboardingStep("welcome");
+      setOnboardingStep("wakeUp");
       setConversationMessages([]);
       setActiveConversationId(null);
       activeConversationIdRef.current = null;
@@ -3199,27 +3198,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
 
-    const isLocalMode =
-      onboardingRunMode === "local-rawdog" ||
-      onboardingRunMode === "local-sandbox";
-    const inventoryProviders: Array<{
-      chain: string;
-      rpcProvider: string;
-      rpcApiKey?: string;
-    }> = [];
-    if (isLocalMode) {
-      for (const chain of onboardingSelectedChains) {
-        const rpcProvider = onboardingRpcSelections[chain] || "miladycloud";
-        const rpcApiKey =
-          onboardingRpcKeys[`${chain}:${rpcProvider}`] || undefined;
-        inventoryProviders.push({ chain, rpcProvider, rpcApiKey });
-      }
-    }
-
-    // Map the 3-mode selection to the API's runMode field
-    // "local-rawdog" and "local-sandbox" both map to "local" for backward compat
-    // Sandbox mode is additionally stored as a separate flag
-    const apiRunMode = onboardingRunMode === "cloud" ? "cloud" : "local";
+    // Default to local mode
+    const apiRunMode = "local";
 
     onboardingFinishBusyRef.current = true;
     setOnboardingRestarting(true);
@@ -3229,12 +3209,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await client.submitOnboarding({
         name: onboardingName,
         runMode: apiRunMode as "local" | "cloud",
-        sandboxMode:
-          onboardingRunMode === "local-sandbox"
-            ? "standard"
-            : onboardingRunMode === "cloud"
-              ? "light"
-              : "off",
+        // Sandbox mode is unconditionally disabled: the simplified 6-step
+        // linear onboarding no longer offers run-mode choices (local-rawdog,
+        // local-sandbox, cloud). The Docker-based "local-sandbox" execution
+        // path was the only consumer of sandbox isolation; with that path
+        // removed, sandbox provides no additional protection and "off" is
+        // the correct default.
+        sandboxMode: "off" as const,
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
         style: style?.style,
@@ -3242,29 +3223,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         topics: style?.topics,
         postExamples: style?.postExamples,
         messageExamples: style?.messageExamples,
-        cloudProvider:
-          onboardingRunMode === "cloud" ? onboardingCloudProvider : undefined,
-        smallModel:
-          onboardingRunMode === "cloud" ? onboardingSmallModel : undefined,
-        largeModel:
-          onboardingRunMode === "cloud" ? onboardingLargeModel : undefined,
-        provider: isLocalMode ? onboardingProvider || undefined : undefined,
-        providerApiKey: isLocalMode ? onboardingApiKey || undefined : undefined,
-        primaryModel: isLocalMode
-          ? onboardingPrimaryModel.trim() || undefined
-          : undefined,
-        inventoryProviders:
-          inventoryProviders.length > 0 ? inventoryProviders : undefined,
-        // Connectors
-        telegramToken: onboardingTelegramToken.trim() || undefined,
-        discordToken: onboardingDiscordToken.trim() || undefined,
-        whatsappSessionPath: onboardingWhatsAppSessionPath.trim() || undefined,
-        twilioAccountSid: onboardingTwilioAccountSid.trim() || undefined,
-        twilioAuthToken: onboardingTwilioAuthToken.trim() || undefined,
-        twilioPhoneNumber: onboardingTwilioPhoneNumber.trim() || undefined,
-        blooioApiKey: onboardingBlooioApiKey.trim() || undefined,
-        blooioPhoneNumber: onboardingBlooioPhoneNumber.trim() || undefined,
-        githubToken: onboardingGithubToken.trim() || undefined,
+        provider: onboardingProvider || undefined,
+        providerApiKey: onboardingApiKey || undefined,
+        primaryModel: onboardingPrimaryModel.trim() || undefined,
       });
       setOnboardingComplete(true);
       setTab("chat");
@@ -3287,232 +3248,100 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingOptions,
     onboardingStyle,
     onboardingName,
-    onboardingRunMode,
-    onboardingCloudProvider,
-    onboardingSmallModel,
-    onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
     onboardingPrimaryModel,
-    onboardingSelectedChains,
-    onboardingRpcSelections,
-    onboardingRpcKeys,
-    onboardingTelegramToken,
-    onboardingDiscordToken,
-    onboardingWhatsAppSessionPath,
-    onboardingTwilioAccountSid,
-    onboardingTwilioAuthToken,
-    onboardingTwilioPhoneNumber,
-    onboardingBlooioApiKey,
-    onboardingBlooioPhoneNumber,
-    onboardingGithubToken,
     setTab,
   ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: t is stable but defined later
   const handleOnboardingNext = useCallback(
     async (options?: OnboardingNextOptions) => {
-      const opts = onboardingOptions;
-      switch (onboardingStep) {
-        case "welcome":
-        case "language":
-          // Auto-select first style if none chosen
-          if (!onboardingStyle && onboardingOptions?.styles?.length) {
-            setState(
-              "onboardingStyle",
-              onboardingOptions.styles[0].catchphrase,
-            );
-          }
-          if (
-            dropStatus?.dropEnabled &&
-            !dropStatus.userHasMinted &&
-            !dropStatus.mintedOut
-          ) {
-            setOnboardingStep("mint");
-          } else {
-            setOnboardingStep("setupMode");
-          }
-          break;
+      const STEP_ORDER: OnboardingStep[] = [
+        "wakeUp",
+        "language",
+        "identity",
+        "connection",
+        "senses",
+        "activate",
+      ];
 
-        case "mint":
-          setOnboardingStep("setupMode");
-          break;
-        case "setupMode":
-          if (onboardingSetupMode === "quick") {
-            // Quick path: skip directly to LLM provider
-            setOnboardingStep("llmProvider");
-          } else {
-            // Advanced path: go through runMode, etc.
-            setOnboardingStep("runMode");
-          }
-          break;
-        case "runMode":
-          if (onboardingRunMode === "cloud") {
-            if (opts && opts.cloudProviders.length === 1) {
-              setOnboardingCloudProvider(opts.cloudProviders[0].id);
-            }
-            setOnboardingStep("cloudProvider");
-          } else if (onboardingRunMode === "local-sandbox") {
-            setOnboardingStep("dockerSetup");
-          } else {
-            // local-rawdog: skip docker, go straight to LLM provider
-            setOnboardingStep("llmProvider");
-          }
-          break;
-        case "dockerSetup":
-          setOnboardingStep("llmProvider");
-          break;
-        case "cloudProvider":
-          setOnboardingStep("modelSelection");
-          break;
-        case "modelSelection":
-          if (miladyCloudConnected) {
-            setTab("chat");
-            break;
-          }
-          setOnboardingStep("cloudLogin");
-          break;
-        case "cloudLogin":
-          setOnboardingStep("connectors");
-          break;
-        case "llmProvider":
-          if (onboardingSetupMode === "quick") {
-            setOnboardingStep("permissions");
-          } else {
-            setOnboardingStep("inventorySetup");
-          }
-          break;
-        case "inventorySetup":
-          setOnboardingStep("connectors");
-          break;
-        case "connectors":
-          setOnboardingStep("permissions");
-          break;
-        case "permissions": {
-          if (options?.allowPermissionBypass) {
-            await handleOnboardingFinish();
-            break;
-          }
-          try {
-            const permissions = await client.getPermissions();
-            const missingPermissions =
-              getMissingOnboardingPermissions(permissions);
-            if (missingPermissions.length > 0) {
-              const missingLabels = missingPermissions
-                .map((id) => ONBOARDING_PERMISSION_LABELS[id] ?? id)
-                .join(", ");
-              setActionNotice(
-                `Missing required permissions: ${missingLabels}. Grant them or use "Skip for Now".`,
-                "error",
-                5200,
-              );
-              return;
-            }
-          } catch (err) {
+      // Auto-select first style if none chosen
+      if (
+        (onboardingStep === "wakeUp" || onboardingStep === "language") &&
+        !onboardingStyle &&
+        onboardingOptions?.styles?.length
+      ) {
+        setState("onboardingStyle", onboardingOptions.styles[0].catchphrase);
+      }
+
+      // At activate step, finish onboarding
+      if (onboardingStep === "activate") {
+        await handleOnboardingFinish();
+        return;
+      }
+
+      // At senses step, check permissions unless bypass
+      if (onboardingStep === "senses") {
+        if (options?.allowPermissionBypass) {
+          await handleOnboardingFinish();
+          return;
+        }
+        try {
+          const permissions = await client.getPermissions();
+          const missingPermissions =
+            getMissingOnboardingPermissions(permissions);
+          if (missingPermissions.length > 0) {
+            const missingLabels = missingPermissions
+              .map((id) => ONBOARDING_PERMISSION_LABELS[id] ?? id)
+              .join(", ");
             setActionNotice(
-              `Could not verify permissions (${err instanceof Error ? err.message : "unknown error"}). Use "Skip for Now" to continue.`,
+              `Missing required permissions: ${missingLabels}. Grant them or use "Skip for Now".`,
               "error",
               5200,
             );
             return;
           }
-          await handleOnboardingFinish();
-          break;
+        } catch (err) {
+          setActionNotice(
+            `Could not verify permissions (${err instanceof Error ? err.message : "unknown error"}). Use "Skip for Now" to continue.`,
+            "error",
+            5200,
+          );
+          return;
         }
+      }
+
+      // Advance to next step
+      const currentIndex = STEP_ORDER.indexOf(onboardingStep);
+      if (currentIndex < STEP_ORDER.length - 1) {
+        setOnboardingStep(STEP_ORDER[currentIndex + 1]);
       }
     },
     [
       onboardingStep,
+      onboardingStyle,
       onboardingOptions,
-      onboardingRunMode,
-      onboardingSetupMode,
-      miladyCloudConnected,
       setActionNotice,
       handleOnboardingFinish,
-      dropStatus?.dropEnabled,
-      dropStatus?.userHasMinted,
-      dropStatus?.mintedOut,
-      setTab,
     ],
   );
 
   const handleOnboardingBack = useCallback(() => {
-    if (onboardingRunMode === "cloud") {
-      if (miladyCloudLoginPollTimer.current) {
-        clearInterval(miladyCloudLoginPollTimer.current);
-        miladyCloudLoginPollTimer.current = null;
-      }
-      miladyCloudLoginBusyRef.current = false;
-      setMiladyCloudLoginBusy(false);
-      setMiladyCloudLoginError(null);
-    }
+    const STEP_ORDER: OnboardingStep[] = [
+      "wakeUp",
+      "language",
+      "identity",
+      "connection",
+      "senses",
+      "activate",
+    ];
 
-    switch (onboardingStep) {
-      case "mint":
-        setOnboardingStep("welcome"); // or "language" if enabled
-        break;
-      case "setupMode":
-        if (
-          dropStatus?.dropEnabled &&
-          !dropStatus.userHasMinted &&
-          !dropStatus.mintedOut
-        ) {
-          setOnboardingStep("mint");
-        } else {
-          setOnboardingStep("welcome");
-        }
-        break;
-      case "runMode":
-        setOnboardingStep("setupMode");
-        break;
-      case "cloudProvider":
-        setOnboardingStep("runMode");
-        break;
-      case "modelSelection":
-        setOnboardingStep("cloudProvider");
-        break;
-      case "cloudLogin":
-        setOnboardingStep("modelSelection");
-        break;
-      case "dockerSetup":
-        setOnboardingStep("runMode");
-        break;
-      case "llmProvider":
-        if (onboardingSetupMode === "quick") {
-          setOnboardingStep("setupMode");
-        } else if (onboardingRunMode === "local-sandbox") {
-          setOnboardingStep("dockerSetup");
-        } else {
-          setOnboardingStep("runMode");
-        }
-        break;
-      case "inventorySetup":
-        setOnboardingStep("llmProvider");
-        break;
-      case "connectors":
-        // Go back to whichever path we came from
-        if (onboardingRunMode === "cloud") {
-          setOnboardingStep("cloudLogin");
-        } else {
-          setOnboardingStep("inventorySetup");
-        }
-        break;
-      case "permissions":
-        if (onboardingSetupMode === "quick") {
-          setOnboardingStep("llmProvider");
-        } else {
-          setOnboardingStep("connectors");
-        }
-        break;
+    const currentIndex = STEP_ORDER.indexOf(onboardingStep);
+    if (currentIndex > 0) {
+      setOnboardingStep(STEP_ORDER[currentIndex - 1]);
     }
-  }, [
-    onboardingStep,
-    onboardingRunMode,
-    onboardingSetupMode,
-    dropStatus?.dropEnabled,
-    dropStatus?.userHasMinted,
-    dropStatus?.mintedOut,
-  ]);
+  }, [onboardingStep]);
 
   // ── Cloud ──────────────────────────────────────────────────────────
 
@@ -3806,7 +3635,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         importSuccess: setImportSuccess,
         onboardingName: setOnboardingName,
         onboardingOwnerName: setOnboardingOwnerName,
-        onboardingSetupMode: setOnboardingSetupMode,
         onboardingStyle: setOnboardingStyle,
         onboardingRunMode: setOnboardingRunMode,
         onboardingCloudProvider: setOnboardingCloudProvider,
@@ -4706,14 +4534,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Cloud polling
-      if (miladyCloudConnected) {
-        pollCloudCredits();
-        miladyCloudPollInterval.current = window.setInterval(
-          () => pollCloudCredits(),
-          60_000,
-        );
-      }
+      // Cloud polling — always run the initial poll unconditionally so we can
+      // discover a pre-existing API key / connection. If connected, start the
+      // recurring interval too.
+      pollCloudCredits().then((connected) => {
+        if (connected) {
+          miladyCloudPollInterval.current = window.setInterval(
+            () => pollCloudCredits(),
+            60_000,
+          );
+        }
+      });
 
       // Load tab from URL — use hash in file:// mode (Electron packaged builds)
       const navPath =
@@ -5000,7 +4831,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingOptions,
     onboardingName,
     onboardingOwnerName,
-    onboardingSetupMode,
     onboardingStyle,
     onboardingRunMode,
     onboardingCloudProvider,

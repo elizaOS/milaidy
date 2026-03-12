@@ -1,6 +1,6 @@
 /**
- * Loading screen — modern, game-like loader with animated spinner ring
- * and smooth phase indicator. Uses the same `--bg` background as the main app.
+ * Loading screen — NieR: Automata inspired loader with horizontal progress bar,
+ * phase label, and percentage indicator.
  */
 
 import { useEffect, useState } from "react";
@@ -9,9 +9,9 @@ import type { StartupPhase } from "../AppContext";
 /* ── Phase config ──────────────────────────────────────────────────── */
 
 const PHASE_META: Record<StartupPhase, { label: string; progress: number }> = {
-  "starting-backend": { label: "Starting backend", progress: 20 },
-  "initializing-agent": { label: "Initializing agent", progress: 50 },
-  ready: { label: "Ready", progress: 100 },
+  "starting-backend": { label: "Initializing systems", progress: 20 },
+  "initializing-agent": { label: "Loading neural network", progress: 50 },
+  ready: { label: "Systems online", progress: 100 },
 };
 
 /* ── Component ─────────────────────────────────────────────────────── */
@@ -29,7 +29,7 @@ export function LoadingScreen({
   vrmUrl,
 }: LoadingScreenProps) {
   const [vrmCached, setVrmCached] = useState(false);
-  const [runtimeElapsedSeconds, setRuntimeElapsedSeconds] = useState(0);
+  const [, setRuntimeElapsedSeconds] = useState(0);
 
   useEffect(() => {
     if (typeof elapsedSeconds === "number") return;
@@ -54,69 +54,34 @@ export function LoadingScreen({
     return () => controller.abort();
   }, [vrmUrl]);
 
-  const displayedElapsedSeconds =
-    typeof elapsedSeconds === "number"
-      ? Math.max(0, Math.floor(elapsedSeconds))
-      : runtimeElapsedSeconds;
-
   const meta = PHASE_META[phase];
-  // Bump progress once VRM is cached
   const progress = vrmCached ? Math.max(meta.progress, 80) : meta.progress;
   const label = vrmCached && phase !== "ready" ? "Loading avatar" : meta.label;
 
   return (
     <div className="loading-screen">
-      {/* Ambient glow behind the spinner */}
-      <div className="loading-screen__glow" />
+      {/* Center content block */}
+      <div className="loading-screen__center">
+        {/* LOADING label */}
+        <div className="loading-screen__title">
+          LOADING
+          <span className="loading-screen__dots" />
+        </div>
 
-      {/* Spinner ring */}
-      <div className="loading-screen__spinner">
-        <svg viewBox="0 0 100 100" className="loading-screen__ring">
-          <title>Loading spinner</title>
-          {/* Track */}
-          <circle
-            cx="50"
-            cy="50"
-            r="44"
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth="3"
-            opacity="0.3"
-          />
-          {/* Animated arc */}
-          <circle
-            cx="50"
-            cy="50"
-            r="44"
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray="180 276"
-            className="loading-screen__arc"
-          />
-        </svg>
+        {/* Progress bar row */}
+        <div className="loading-screen__bar-row">
+          <div className="loading-screen__progress-track">
+            <div
+              className="loading-screen__progress-fill"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="loading-screen__percent">{progress} %</div>
+        </div>
 
-        {/* Center logo mark */}
-        <div className="loading-screen__logo">M</div>
+        {/* Phase label */}
+        <div className="loading-screen__phase">{label}</div>
       </div>
-
-      {/* Progress bar */}
-      <div className="loading-screen__progress-track">
-        <div
-          className="loading-screen__progress-fill"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Phase label */}
-      <div className="loading-screen__label">
-        {label}
-        <span className="loading-screen__dots" />
-      </div>
-
-      {/* Elapsed timer */}
-      <div className="loading-screen__timer">{displayedElapsedSeconds}s</div>
     </div>
   );
 }

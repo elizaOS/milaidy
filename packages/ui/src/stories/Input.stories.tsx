@@ -7,4 +7,6 @@ type Story = StoryObj<typeof Input>;
 
 export const Default: Story = { args: { placeholder: "Type something…" } };
 export const Filled: Story = { args: { defaultValue: "Hello world" } };
-export const Disabled: Story = { args: { placeholder: "Locked", disabled: true } };
+export const Disabled: Story = {
+  args: { placeholder: "Locked", disabled: true },
+};

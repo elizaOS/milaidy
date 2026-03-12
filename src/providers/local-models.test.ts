@@ -4,7 +4,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getLocalModelStatuses,
@@ -50,7 +50,7 @@ describe("LocalModelManager", () => {
     it("should sanitize special characters in model IDs", () => {
       const path = manager.getModelPath("org/model:variant");
       // The sanitized model name part should not contain : or /
-      const modelName = path.split("/").pop();
+      const modelName = basename(path);
       expect(modelName).not.toContain(":");
       expect(modelName).toBe("org_model_variant");
     });

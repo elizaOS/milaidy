@@ -37,6 +37,22 @@ function createState(createAgent: (args: unknown) => Promise<unknown>) {
   } as unknown as CloudRouteState;
 }
 
+// Keep these route tests hermetic: login helpers should never call the live cloud service.
+beforeEach(() => {
+  fetchMock.mockReset();
+  saveMiladyConfigMock.mockReset();
+  validateCloudBaseUrlMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+  validateCloudBaseUrlMock.mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  delete process.env.ELIZAOS_CLOUD_API_KEY;
+  delete process.env.ELIZAOS_CLOUD_ENABLED;
+});
+
 describe("handleCloudRoute", () => {
   it("returns false for unknown routes", async () => {
     const { res } = createMockHttpResponse();
@@ -1039,17 +1055,6 @@ function cloudState(): CloudRouteState {
 }
 
 describe("handleCloudRoute timeout behavior", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
-    validateCloudBaseUrlMock.mockResolvedValue(null);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete process.env.ELIZAOS_CLOUD_API_KEY;
-    delete process.env.ELIZAOS_CLOUD_ENABLED;
-  });
-
   it("returns 504 when cloud login session creation times out", async () => {
     let capturedSignal: AbortSignal | null | undefined;
     fetchMock.mockImplementation(async (_input, init) => {

@@ -41,6 +41,36 @@ const HEALTH_POLL_INTERVAL_MS = 500;
 // 120s: Windows first-run can be slow (PGLite WASM init + 100+ plugins)
 const HEALTH_POLL_TIMEOUT_MS = 120_000;
 const SIGTERM_GRACE_MS = 5_000;
+const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
+
+function isPosixAbsolutePath(value: string): boolean {
+  return value.startsWith("/") && !WINDOWS_ABS_PATH_RE.test(value);
+}
+
+function resolvePortablePath(value: string): string {
+  if (isPosixAbsolutePath(value) || WINDOWS_ABS_PATH_RE.test(value)) {
+    return value;
+  }
+  return path.resolve(value);
+}
+
+function dirnamePortable(value: string): string {
+  return isPosixAbsolutePath(value)
+    ? path.posix.dirname(value)
+    : path.dirname(value);
+}
+
+function joinPortable(base: string, ...parts: string[]): string {
+  return isPosixAbsolutePath(base)
+    ? path.posix.join(base, ...parts)
+    : path.join(base, ...parts);
+}
+
+function resolveRelativePortable(base: string, relativePath: string): string {
+  return isPosixAbsolutePath(base)
+    ? path.posix.resolve(base, relativePath)
+    : path.resolve(base, relativePath);
+}
 
 // ---------------------------------------------------------------------------
 // Diagnostic logging
@@ -65,10 +95,10 @@ export function resolveConfigDir(opts?: {
     const roaming =
       opts?.appdata ??
       process.env.APPDATA ??
-      path.join(homedir, "AppData", "Roaming");
-    return path.join(roaming, "Milady");
+      joinPortable(homedir, "AppData", "Roaming");
+    return joinPortable(roaming, "Milady");
   }
-  return path.join(homedir, ".config", "Milady");
+  return joinPortable(homedir, ".config", "Milady");
 }
 
 let diagnosticLogPath: string | null = null;
@@ -126,27 +156,29 @@ export function getMiladyDistFallbackCandidates(
   moduleDir: string = import.meta.dir,
   execPath: string = process.execPath,
 ): string[] {
-  const execDir = execPath ? path.dirname(execPath) : moduleDir;
+  const execDir = execPath ? dirnamePortable(execPath) : moduleDir;
 
   return [
     // macOS: inside .app bundle (Contents/Resources/app/milady-dist)
-    path.resolve(execDir, "../Resources/app/milady-dist"),
+    resolveRelativePortable(execDir, "../Resources/app/milady-dist"),
     // Windows NSIS/portable: resources/app/milady-dist next to exe
-    path.resolve(execDir, "resources/app/milady-dist"),
-    path.resolve(execDir, "../resources/app/milady-dist"),
-    path.resolve(moduleDir, "app/milady-dist"),
-    path.resolve(moduleDir, "../app/milady-dist"),
-    path.resolve(moduleDir, "../milady-dist"),
-    path.resolve(moduleDir, "../../../milady-dist"),
+    resolveRelativePortable(execDir, "resources/app/milady-dist"),
+    resolveRelativePortable(execDir, "../resources/app/milady-dist"),
+    resolveRelativePortable(moduleDir, "app/milady-dist"),
+    resolveRelativePortable(moduleDir, "../app/milady-dist"),
+    resolveRelativePortable(moduleDir, "../milady-dist"),
+    resolveRelativePortable(moduleDir, "../../../milady-dist"),
   ].filter((candidate, index, all) => all.indexOf(candidate) === index);
 }
 
 function resolveBunExecutablePath(execPath: string = process.execPath): string {
-  const executableName = process.platform === "win32" ? "bun.exe" : "bun";
-  const execDir = execPath ? path.dirname(execPath) : "";
+  const looksLikeMacBundleExec = execPath.includes(".app/Contents/MacOS/");
+  const executableName =
+    process.platform === "win32" && !looksLikeMacBundleExec ? "bun.exe" : "bun";
+  const execDir = execPath ? dirnamePortable(execPath) : "";
   const candidates = [
     execPath,
-    execDir ? path.join(execDir, executableName) : "",
+    execDir ? joinPortable(execDir, executableName) : "",
   ].filter(Boolean);
 
   for (const candidate of candidates) {
@@ -166,12 +198,13 @@ function resolveBunExecutablePath(execPath: string = process.execPath): string {
   // Windows: bun is not always on PATH; check well-known install locations.
   if (process.platform === "win32") {
     const localAppData =
-      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
+      process.env.LOCALAPPDATA ??
+      joinPortable(os.homedir(), "AppData", "Local");
     const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
     const winCandidates = [
-      path.join(localAppData, "bun", "bun.exe"),
-      path.join(programFiles, "bun", "bun.exe"),
-      path.join(os.homedir(), ".bun", "bin", "bun.exe"),
+      joinPortable(localAppData, "bun", "bun.exe"),
+      joinPortable(programFiles, "bun", "bun.exe"),
+      joinPortable(os.homedir(), ".bun", "bin", "bun.exe"),
     ];
     for (const candidate of winCandidates) {
       if (fs.existsSync(candidate)) return candidate;
@@ -185,7 +218,7 @@ function resolveMiladyDistPath(): string {
   // 1. Env override
   const envPath = process.env.MILADY_DIST_PATH;
   if (envPath) {
-    const resolved = path.resolve(envPath);
+    const resolved = resolvePortablePath(envPath);
     if (fs.existsSync(resolved)) {
       return resolved;
     }
@@ -199,16 +232,16 @@ function resolveMiladyDistPath(): string {
   const maxDepth = 15;
   for (let i = 0; i < maxDepth; i++) {
     // Packaged: milady-dist sibling
-    const miladyDist = path.join(dir, "milady-dist");
+    const miladyDist = joinPortable(dir, "milady-dist");
     if (fs.existsSync(miladyDist)) {
       return miladyDist;
     }
     // Dev monorepo: dist/ sibling containing eliza.js
-    const devDist = path.join(dir, "dist");
-    if (fs.existsSync(path.join(devDist, "eliza.js"))) {
+    const devDist = joinPortable(dir, "dist");
+    if (fs.existsSync(joinPortable(devDist, "eliza.js"))) {
       return devDist;
     }
-    const parent = path.dirname(dir);
+    const parent = dirnamePortable(dir);
     if (parent === dir) break; // reached filesystem root
     dir = parent;
   }
@@ -232,8 +265,8 @@ function resolveMiladyDistPath(): string {
 
 function resolveElizaEntryPath(miladyDistPath: string): string | null {
   const candidates = [
-    path.join(miladyDistPath, "eliza.js"),
-    path.join(miladyDistPath, "runtime", "eliza.js"),
+    joinPortable(miladyDistPath, "eliza.js"),
+    joinPortable(miladyDistPath, "runtime", "eliza.js"),
   ];
 
   for (const candidate of candidates) {
@@ -359,7 +392,13 @@ async function drainStderrToLog(
 const PGLITE_MIGRATION_RE = /Failed query:|create schema if not exists/i;
 
 function resolvePgliteDataDir(): string {
-  return path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb");
+  return joinPortable(
+    os.homedir(),
+    ".milady",
+    "workspace",
+    ".eliza",
+    ".elizadb",
+  );
 }
 
 function deletePgliteDataDir(): void {
@@ -479,7 +518,7 @@ export class AgentManager {
       const nodePaths: string[] = [];
 
       // milady-dist/node_modules for native binaries (sharp, llama-cpp, etc.)
-      const distModules = path.join(miladyDistPath, "node_modules");
+      const distModules = joinPortable(miladyDistPath, "node_modules");
       if (fs.existsSync(distModules)) {
         nodePaths.push(distModules);
       }
@@ -487,12 +526,12 @@ export class AgentManager {
       // Walk up from milady-dist to find monorepo root node_modules
       let searchDir = miladyDistPath;
       while (searchDir !== path.dirname(searchDir)) {
-        const candidate = path.join(searchDir, "node_modules");
+        const candidate = joinPortable(searchDir, "node_modules");
         if (fs.existsSync(candidate) && candidate !== distModules) {
           nodePaths.push(candidate);
           break;
         }
-        searchDir = path.dirname(searchDir);
+        searchDir = dirnamePortable(searchDir);
       }
 
       // Preserve existing NODE_PATH
