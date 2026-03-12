@@ -28,6 +28,13 @@ const electrobunArtifactsDir = path.join(
   "electrobun",
   "artifacts",
 );
+const electrobunBuildDir = path.join(
+  repoRoot,
+  "apps",
+  "app",
+  "electrobun",
+  "build",
+);
 
 function isIgnorableConsoleError(message: string): boolean {
   const patterns = [
@@ -85,8 +92,16 @@ async function resolveWindowsLauncher(tempExtractDir: string): Promise<string> {
     return fs.realpath(explicit);
   }
 
+  // CI Windows builds already have launcher.exe under the live build output.
+  // Prefer that over re-extracting the packaged tarball, which is slow enough
+  // to consume the entire Playwright test timeout on hosted runners.
+  let launcher = await findLauncherExe(electrobunBuildDir);
+  if (launcher) {
+    return fs.realpath(launcher);
+  }
+
   // First try to find an already extracted launcher in the artifacts dir
-  let launcher = await findLauncherExe(electrobunArtifactsDir);
+  launcher = await findLauncherExe(electrobunArtifactsDir);
   if (launcher) {
     return fs.realpath(launcher);
   }
