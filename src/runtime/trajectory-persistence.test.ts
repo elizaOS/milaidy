@@ -640,7 +640,7 @@ describe("observation buffer", () => {
     expect(flush2Result).toEqual([]);
 
     // Resolve the first flush
-    resolveModel!("[]");
+    resolveModel?.("[]");
     await flush1;
 
     // useModel only called once (concurrent flush was blocked)
@@ -866,12 +866,10 @@ describe("pruneOldTrajectories", () => {
   });
 
   it("falls back to PostgreSQL syntax when SQLite INSERT OR IGNORE fails", async () => {
-    let callCount = 0;
     const executedSql: string[] = [];
     const dbExecute = vi.fn(async (query: unknown) => {
       const sqlStr = JSON.stringify(query);
       executedSql.push(sqlStr);
-      callCount++;
 
       // First archive attempt (SQLite) fails
       if (

@@ -27,6 +27,49 @@ export interface PTYService {
 }
 
 const VALID_ACTIONS = ["respond", "escalate", "ignore", "complete"];
+const ACTION_KEYS = new Set([
+  "action",
+  "reasoning",
+  "response",
+  "useKeys",
+  "keys",
+]);
+
+function isValidActionEnvelope(
+  parsed: unknown,
+): parsed is Record<string, unknown> & { action: string } {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    return false;
+  const record = parsed as Record<string, unknown>;
+  if (
+    typeof record.action !== "string" ||
+    !VALID_ACTIONS.includes(record.action)
+  )
+    return false;
+
+  for (const key of Object.keys(record)) {
+    if (!ACTION_KEYS.has(key)) return false;
+  }
+
+  if ("reasoning" in record && typeof record.reasoning !== "string")
+    return false;
+
+  if (record.action === "respond") {
+    const hasResponse =
+      typeof record.response === "string" && record.response.length > 0;
+    const hasKeys =
+      record.useKeys === true &&
+      Array.isArray(record.keys) &&
+      record.keys.length > 0;
+    return hasResponse || hasKeys;
+  }
+
+  // Non-respond actions should not carry respond-only fields.
+  if ("response" in record || "useKeys" in record || "keys" in record) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Strip JSON action blocks from text before displaying in chat.
@@ -40,7 +83,7 @@ export function stripActionBlockFromDisplay(text: string): string {
     (_match, json: string) => {
       try {
         const parsed = JSON.parse(json);
-        if (parsed && VALID_ACTIONS.includes(parsed.action)) return "";
+        if (isValidActionEnvelope(parsed)) return "";
       } catch {
         // malformed JSON — leave as-is
       }
@@ -57,11 +100,7 @@ export function stripActionBlockFromDisplay(text: string): string {
     const candidate = cleaned.slice(lastBrace);
     try {
       const parsed = JSON.parse(candidate);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        VALID_ACTIONS.includes(parsed.action)
-      ) {
+      if (isValidActionEnvelope(parsed)) {
         cleaned = cleaned.slice(0, lastBrace);
       }
     } catch {
@@ -86,10 +125,10 @@ export function parseActionBlock(text: string): CoordinationLLMResponse | null {
   if (!jsonStr) return null;
   try {
     const parsed = JSON.parse(jsonStr);
-    if (!VALID_ACTIONS.includes(parsed.action)) return null;
+    if (!isValidActionEnvelope(parsed)) return null;
     const result: CoordinationLLMResponse = {
       action: parsed.action,
-      reasoning: parsed.reasoning || "",
+      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : "",
     };
     if (parsed.action === "respond") {
       if (parsed.useKeys && Array.isArray(parsed.keys)) {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 function parseArgs(argv) {
   const args = {
@@ -18,7 +18,8 @@ function parseArgs(argv) {
     if (token === "--workspace") args.workspace = argv[++i] ?? "";
     else if (token === "--api-dir") args.apiDir = argv[++i] ?? "apps/api";
     else if (token === "--mode") args.mode = argv[++i] ?? "cold";
-    else if (token === "--venv-dir") args.venvDir = argv[++i] ?? ".benchmark-venv";
+    else if (token === "--venv-dir")
+      args.venvDir = argv[++i] ?? ".benchmark-venv";
     else if (token === "--shell-export") args.shellExport = true;
     else if (token === "--dry-run") args.dryRun = true;
     else if (token === "--help" || token === "-h") args.help = true;
@@ -135,8 +136,18 @@ async function main() {
     runCommand("python3", ["-m", "venv", venvPath], workspace, args.dryRun);
   }
 
-  runCommand(pythonInVenv, ["-m", "pip", "install", "--upgrade", "pip"], workspace, args.dryRun);
-  runCommand(pythonInVenv, ["-m", "pip", "install", "-r", requirementsPath], workspace, args.dryRun);
+  runCommand(
+    pythonInVenv,
+    ["-m", "pip", "install", "--upgrade", "pip"],
+    workspace,
+    args.dryRun,
+  );
+  runCommand(
+    pythonInVenv,
+    ["-m", "pip", "install", "-r", requirementsPath],
+    workspace,
+    args.dryRun,
+  );
 
   const summary = {
     workspace,

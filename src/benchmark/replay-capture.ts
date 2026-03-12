@@ -153,7 +153,9 @@ function extractEvents(input: unknown): Record<string, unknown>[] {
   return [];
 }
 
-function inferMode(input: Record<string, unknown>): "solo" | "swarm" | "unknown" {
+function inferMode(
+  input: Record<string, unknown>,
+): "solo" | "swarm" | "unknown" {
   const mode = pickString(input, ["mode", "run_mode"]);
   if (mode === "solo" || mode === "swarm") return mode;
   const agentCount = pickNumber(input, ["agent_count", "workers"]);
@@ -206,11 +208,19 @@ function normalizeEvent(
             "completion_tokens",
             "output_tokens",
           ]),
-          latency_ms: pickNumber(event, ["latency_ms", "latency", "duration_ms"]),
+          latency_ms: pickNumber(event, [
+            "latency_ms",
+            "latency",
+            "duration_ms",
+          ]),
         }
       : undefined;
 
-  const decisionType = pickString(event, ["decision_type", "decisionType", "purpose"]);
+  const decisionType = pickString(event, [
+    "decision_type",
+    "decisionType",
+    "purpose",
+  ]);
 
   return ReplayEventSchema.parse({
     id,

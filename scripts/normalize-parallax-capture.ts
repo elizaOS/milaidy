@@ -36,12 +36,19 @@ function matchesSimpleGlob(filename: string, glob: string): boolean {
   return filename.startsWith(prefix) && filename.endsWith(suffix ?? "");
 }
 
-async function normalizeFile(inputPath: string, outputPath: string): Promise<void> {
+async function normalizeFile(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
   const raw = await readFile(inputPath, "utf8");
   const parsed = JSON.parse(raw) as unknown;
   const normalized = normalizeParallaxCapture(parsed);
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+  await writeFile(
+    outputPath,
+    `${JSON.stringify(normalized, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 async function run(): Promise<void> {
@@ -51,7 +58,8 @@ async function run(): Promise<void> {
 
   if (inputStat.isFile()) {
     const outputPath = path.resolve(
-      args.output ?? path.join(path.dirname(inputPath), toReplayFilename(inputPath)),
+      args.output ??
+        path.join(path.dirname(inputPath), toReplayFilename(inputPath)),
     );
     await normalizeFile(inputPath, outputPath);
     console.log(outputPath);
@@ -87,4 +95,3 @@ run().catch((error) => {
   );
   process.exitCode = 1;
 });
-

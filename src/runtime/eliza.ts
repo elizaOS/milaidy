@@ -42,6 +42,7 @@ import {
   type Character,
   type Component,
   createMessageMemory,
+  type Entity,
   type LogEntry,
   logger,
   // loggerScope, // removed
@@ -2277,6 +2278,8 @@ function isPluginAlreadyRegisteredError(err: unknown): boolean {
 interface RuntimeWithMethodBindings extends AgentRuntime {
   __miladyMethodBindingsInstalled?: boolean;
   __miladyComponentWriteDiagnosticsInstalled?: boolean;
+  __miladyEntityWriteDiagnosticsInstalled?: boolean;
+  __miladyEntityCreateMutex?: Promise<void>;
 }
 
 interface RuntimeWithActionAliases extends Omit<AgentRuntime, "actions"> {
@@ -2309,9 +2312,7 @@ function getConstraintName(error: unknown): string | null {
 }
 
 function isComponentsWorldFkViolation(error: unknown): boolean {
-  return (
-    getConstraintName(error) === "components_world_id_worlds_id_fk"
-  );
+  return getConstraintName(error) === "components_world_id_worlds_id_fk";
 }
 
 function toErrorDetails(error: unknown, depth = 0): Record<string, unknown> {
@@ -2341,6 +2342,27 @@ function toErrorDetails(error: unknown, depth = 0): Record<string, unknown> {
     details.cause = toErrorDetails(err.cause, depth + 1);
   }
   return details;
+}
+
+async function withEntityCreateMutex<T>(
+  runtimeWithBindings: RuntimeWithMethodBindings,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = runtimeWithBindings.__miladyEntityCreateMutex;
+  let release: () => void = () => {};
+  runtimeWithBindings.__miladyEntityCreateMutex = new Promise<void>(
+    (resolve) => {
+      release = resolve;
+    },
+  );
+  if (previous) {
+    await previous;
+  }
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
 }
 
 function summarizeComponentWrite(input: unknown): Record<string, unknown> {
@@ -2435,12 +2457,9 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
     };
 
     if (typeof runtimeWithComponentWrites.createComponent === "function") {
-      const originalCreate = runtimeWithComponentWrites.createComponent.bind(
-        runtime,
-      );
-      runtimeWithComponentWrites.createComponent = async (
-        input: Component,
-      ) => {
+      const originalCreate =
+        runtimeWithComponentWrites.createComponent.bind(runtime);
+      runtimeWithComponentWrites.createComponent = async (input: Component) => {
         try {
           return await originalCreate(input);
         } catch (error) {
@@ -2484,12 +2503,9 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
     }
 
     if (typeof runtimeWithComponentWrites.updateComponent === "function") {
-      const originalUpdate = runtimeWithComponentWrites.updateComponent.bind(
-        runtime,
-      );
-      runtimeWithComponentWrites.updateComponent = async (
-        input: Component,
-      ) => {
+      const originalUpdate =
+        runtimeWithComponentWrites.updateComponent.bind(runtime);
+      runtimeWithComponentWrites.updateComponent = async (input: Component) => {
         try {
           return await originalUpdate(input);
         } catch (error) {
@@ -2506,6 +2522,88 @@ function installRuntimeMethodBindings(runtime: AgentRuntime): void {
     }
 
     runtimeWithBindings.__miladyComponentWriteDiagnosticsInstalled = true;
+  }
+
+  // Proactive guard for plugin-sql entity creation. Some evaluators may attempt
+  // to create the same entity in rapid succession; plugin-sql's batch insert is
+  // non-idempotent and can fail entire writes on duplicate/conflicting rows.
+  if (!runtimeWithBindings.__miladyEntityWriteDiagnosticsInstalled) {
+    type CreateEntitiesFn = (entities: Entity[]) => Promise<boolean>;
+    type GetEntitiesByIdsFn = (entityIds: UUID[]) => Promise<Entity[]>;
+    type EnsureEntityExistsFn = (entity: Entity) => Promise<boolean>;
+    const runtimeWithEntityWrites = runtime as AgentRuntime & {
+      createEntities?: CreateEntitiesFn;
+      getEntitiesByIds?: GetEntitiesByIdsFn;
+      ensureEntityExists?: EnsureEntityExistsFn;
+    };
+
+    if (typeof runtimeWithEntityWrites.createEntities === "function") {
+      const originalCreateEntities =
+        runtimeWithEntityWrites.createEntities.bind(runtime);
+      runtimeWithEntityWrites.createEntities = async (
+        entities: Entity[],
+      ): Promise<boolean> => {
+        return withEntityCreateMutex(runtimeWithBindings, async () => {
+          const uniqueById = new Map<UUID, Entity>();
+          for (const entity of entities) {
+            if (entity?.id) uniqueById.set(entity.id as UUID, entity);
+          }
+          const deduped = Array.from(uniqueById.values());
+          if (deduped.length === 0) return true;
+
+          let missing = deduped;
+          if (typeof runtimeWithEntityWrites.getEntitiesByIds === "function") {
+            try {
+              const existing =
+                (await runtimeWithEntityWrites.getEntitiesByIds(
+                  deduped.map((e) => e.id as UUID),
+                )) ?? [];
+              const existingIds = new Set<UUID>();
+              for (const entity of existing) {
+                if (entity?.id) existingIds.add(entity.id as UUID);
+              }
+              missing = deduped.filter(
+                (entity) => !existingIds.has(entity.id as UUID),
+              );
+            } catch (err) {
+              logger.warn(
+                `[milady] createEntities precheck failed; proceeding with guarded insert: ${formatError(err)}`,
+              );
+            }
+          }
+          if (missing.length === 0) return true;
+
+          const ok = await originalCreateEntities(missing);
+          if (ok) return true;
+
+          if (
+            typeof runtimeWithEntityWrites.ensureEntityExists === "function"
+          ) {
+            let allRecovered = true;
+            for (const entity of missing) {
+              try {
+                const ensured =
+                  await runtimeWithEntityWrites.ensureEntityExists(entity);
+                allRecovered = allRecovered && ensured;
+              } catch (err) {
+                allRecovered = false;
+                logger.warn(
+                  `[milady] ensureEntityExists recovery failed for ${String(entity.id)}: ${formatError(err)}`,
+                );
+              }
+            }
+            if (allRecovered) return true;
+          }
+
+          logger.warn(
+            `[milady] createEntities unresolved after guarded retries (requested=${entities.length}, deduped=${deduped.length}, missing=${missing.length})`,
+          );
+          return false;
+        });
+      };
+    }
+
+    runtimeWithBindings.__miladyEntityWriteDiagnosticsInstalled = true;
   }
 
   runtimeWithBindings.__miladyMethodBindingsInstalled = true;

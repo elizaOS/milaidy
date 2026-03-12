@@ -1,8 +1,8 @@
-import fs from "node:fs/promises";
+import { once } from "node:events";
 import { createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { once } from "node:events";
 import { createGzip } from "node:zlib";
 import { type IAgentRuntime, ModelType, Service } from "@elizaos/core";
 
@@ -247,7 +247,9 @@ function hasEvaluatorNamed(runtime: IAgentRuntime, name: string): boolean {
 }
 
 /** @internal Exported for testing. */
-export function shouldRunObservationExtraction(runtime: IAgentRuntime): boolean {
+export function shouldRunObservationExtraction(
+  runtime: IAgentRuntime,
+): boolean {
   const runtimeAny = runtime as unknown as {
     getSetting?: (key: string) => unknown;
   };
@@ -327,12 +329,16 @@ export function extractInsightsFromResponse(
   const insights: string[] = [];
   const decisionPattern = /DECISION:\s*(.+?)(?:\n|$)/gi;
   let match: RegExpExecArray | null;
-  while ((match = decisionPattern.exec(response)) !== null) {
+  match = decisionPattern.exec(response);
+  while (match !== null) {
     insights.push(match[1].trim());
+    match = decisionPattern.exec(response);
   }
   const keyDecisionPattern = /"keyDecision"\s*:\s*"([^"]+)"/g;
-  while ((match = keyDecisionPattern.exec(response)) !== null) {
+  match = keyDecisionPattern.exec(response);
+  while (match !== null) {
     insights.push(match[1].trim());
+    match = keyDecisionPattern.exec(response);
   }
   if (
     (purpose === "turn-complete" || purpose === "coordination") &&
@@ -1424,9 +1430,10 @@ async function appendProviderAccess(
     providerName: toText(params.providerName, "unknown"),
     timestamp: now,
     data: truncateRecord(asRecord(params.data) ?? {}),
-    query: asRecord(params.query)
-      ? truncateRecord(asRecord(params.query)!)
-      : undefined,
+    query: (() => {
+      const queryRecord = asRecord(params.query);
+      return queryRecord ? truncateRecord(queryRecord) : undefined;
+    })(),
     purpose: toText(params.purpose, "provider"),
   };
 

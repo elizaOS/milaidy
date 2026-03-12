@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ReplayArtifactSchema,
   normalizeParallaxCapture,
+  ReplayArtifactSchema,
 } from "./replay-capture";
 
 describe("normalizeParallaxCapture", () => {
