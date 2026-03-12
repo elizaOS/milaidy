@@ -153,7 +153,7 @@ describe("App.tsx advanced-tab parity", () => {
 describe("accent palettes", () => {
   it("keeps stable accent constants", () => {
     expect(ACCENT_COLORS.stream).toBe("#ef4444");
-    expect(ACCENT_COLORS.skills).toBe("#00e1ff");
+    expect(ACCENT_COLORS.skills).toBe("#f0b232");
     expect(TOP_BAR_COLORS.stream).toContain("239, 68, 68");
   });
 });

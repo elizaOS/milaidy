@@ -56,7 +56,8 @@ export function ShortcutsOverlay() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-[10000] flex items-center justify-center"
+      className="fixed inset-0 z-[10000] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) setOpen(false);
       }}
@@ -74,15 +75,31 @@ export function ShortcutsOverlay() {
       aria-label="Keyboard shortcuts"
       tabIndex={-1}
     >
-      <div className="bg-bg border border-border rounded-lg shadow-2xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-base font-bold text-txt-strong">
+      <div
+        className="rounded-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
+        style={{
+          background: "rgba(18, 22, 32, 0.96)",
+          border: "1px solid rgba(240, 178, 50, 0.18)",
+          backdropFilter: "blur(24px)",
+          boxShadow:
+            "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <h2
+            className="text-base font-bold"
+            style={{ color: "rgba(240,238,250,0.92)" }}
+          >
             {t("shortcutsoverlay.KeyboardShortcuts")}
           </h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="p-1 text-muted hover:text-txt rounded transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{ color: "rgba(255,255,255,0.45)" }}
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -91,17 +108,32 @@ export function ShortcutsOverlay() {
         <div className="p-5 space-y-5">
           {Object.entries(grouped).map(([scope, shortcuts]) => (
             <div key={scope}>
-              <h3 className="text-[11px] uppercase tracking-wide text-muted font-medium mb-2">
+              <h3
+                className="text-[11px] uppercase tracking-wide font-medium mb-2"
+                style={{ color: "rgba(255,255,255,0.45)" }}
+              >
                 {scope}
               </h3>
               <div className="space-y-1">
                 {shortcuts.map((s) => (
                   <div
                     key={`${s.key}-${s.description}`}
-                    className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-bg-hover"
+                    className="flex items-center justify-between py-1.5 px-2 rounded"
                   >
-                    <span className="text-sm text-txt">{s.description}</span>
-                    <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-mono bg-bg-elevated border border-border rounded text-muted">
+                    <span
+                      className="text-sm"
+                      style={{ color: "rgba(240,238,250,0.92)" }}
+                    >
+                      {s.description}
+                    </span>
+                    <kbd
+                      className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-mono rounded"
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "rgba(255,255,255,0.5)",
+                      }}
+                    >
                       {formatKey(s)}
                     </kbd>
                   </div>

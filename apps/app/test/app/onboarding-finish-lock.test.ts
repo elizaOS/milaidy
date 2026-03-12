@@ -138,14 +138,24 @@ function permissionState(
   return { status, canRequest, lastChecked: Date.now() };
 }
 
-async function advanceToPermissions(getApi: () => ProbeApi) {
+async function advanceToActivate(getApi: () => ProbeApi) {
   for (let i = 0; i < 20; i += 1) {
-    if (getApi().getOnboardingStep() === "permissions") return;
+    if (getApi().getOnboardingStep() === "activate") return;
     await act(async () => {
       await getApi().handleOnboardingNext();
     });
   }
-  throw new Error("Failed to reach permissions onboarding step");
+  throw new Error("Failed to reach activate onboarding step");
+}
+
+async function advanceToSenses(getApi: () => ProbeApi) {
+  for (let i = 0; i < 20; i += 1) {
+    if (getApi().getOnboardingStep() === "senses") return;
+    await act(async () => {
+      await getApi().handleOnboardingNext();
+    });
+  }
+  throw new Error("Failed to reach senses onboarding step");
 }
 
 async function waitForOnboardingOptions(getApi: () => ProbeApi) {
@@ -267,7 +277,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
-    await advanceToPermissions(requireApi);
+    await advanceToActivate(requireApi);
 
     await act(async () => {
       void api?.handleOnboardingNext();
@@ -314,7 +324,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
-    await advanceToPermissions(requireApi);
+    await advanceToActivate(requireApi);
 
     await act(async () => {
       await api?.handleOnboardingNext();
@@ -365,7 +375,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
-    await advanceToPermissions(requireApi);
+    await advanceToSenses(requireApi);
 
     await act(async () => {
       await api?.handleOnboardingNext();

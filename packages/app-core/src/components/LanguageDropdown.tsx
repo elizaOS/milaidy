@@ -7,7 +7,8 @@
  */
 
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { UiLanguage } from "../i18n/messages";
 
 /** Minimal translator function type. Receive key, return string. */
@@ -41,12 +42,29 @@ export function LanguageDropdown({
 }: LanguageDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+
+  // Compute dropdown position from trigger button rect (for companion portal)
+  const updateMenuPos = useCallback(() => {
+    if (variant !== "companion" || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  }, [variant]);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        // Also check if clicked inside the portaled menu
+        const portalMenu = document.getElementById("lang-dropdown-portal");
+        if (portalMenu && portalMenu.contains(e.target as Node)) return;
         setOpen(false);
       }
     };
@@ -64,12 +82,80 @@ export function LanguageDropdown({
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
+  // Update position when opening
+  useEffect(() => {
+    if (open) updateMenuPos();
+  }, [open, updateMenuPos]);
+
   const current = LANGUAGES.find((l) => l.id === uiLanguage) ?? LANGUAGES[0];
 
   const triggerClass =
     variant === "companion"
       ? `flex items-center gap-1.5 h-8 px-2.5 rounded-full bg-white/5 text-white/80 hover:text-white hover:bg-white/20 border border-transparent hover:border-white/30 transition-all text-xs font-medium cursor-pointer ${open ? "bg-white/20 text-white border-white/30 shadow-sm" : ""}`
       : `inline-flex items-center gap-1.5 h-9 px-2 sm:px-3 border border-border bg-bg text-[11px] sm:text-xs font-medium cursor-pointer transition-colors duration-200 hover:border-accent hover:text-accent rounded-md ${open ? "border-accent text-accent bg-accent/5 backdrop-blur-sm" : ""}`;
+
+  const menuContent = open && (
+    <ul
+      id="lang-dropdown-portal"
+      className={`w-36 rounded-lg shadow-xl overflow-hidden py-1 ${variant === "companion" ? "fixed" : "absolute top-full right-0 mt-1 bg-bg-elevated border border-border z-50"}`}
+      style={
+        variant === "companion" && menuPos
+          ? {
+              top: menuPos.top,
+              right: menuPos.right,
+              zIndex: 10001,
+              background: "rgba(18, 22, 32, 0.96)",
+              border: "1px solid rgba(240, 178, 50, 0.18)",
+              backdropFilter: "blur(24px)",
+              boxShadow:
+                "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+            }
+          : undefined
+      }
+      aria-label={t?.("settings.language") ?? "Language"}
+    >
+      {LANGUAGES.map((lang) => (
+        <li key={lang.id} role="presentation">
+          <button
+            type="button"
+            role="option"
+            aria-selected={lang.id === uiLanguage}
+            className={
+              variant === "companion"
+                ? "w-full flex items-center justify-between px-3 py-2 text-sm transition-colors border-0 cursor-pointer"
+                : `w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-bg-hover ${lang.id === uiLanguage ? "text-accent bg-accent/5 font-medium" : "text-txt"}`
+            }
+            style={
+              variant === "companion"
+                ? {
+                    background:
+                      lang.id === uiLanguage
+                        ? "rgba(240,178,50,0.1)"
+                        : "transparent",
+                    color:
+                      lang.id === uiLanguage
+                        ? "#f0b232"
+                        : "rgba(240,238,250,0.92)",
+                    fontWeight: lang.id === uiLanguage ? 500 : 400,
+                  }
+                : undefined
+            }
+            onClick={() => {
+              setUiLanguage(lang.id);
+              setOpen(false);
+            }}
+            data-testid={`language-option-${lang.id}`}
+          >
+            <div className="flex items-center gap-2">
+              <span>{lang.flag}</span>
+              <span>{lang.label}</span>
+            </div>
+            {lang.id === uiLanguage && <Check className="w-4 h-4" />}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <div
@@ -78,6 +164,7 @@ export function LanguageDropdown({
       data-testid="language-dropdown"
     >
       <button
+        ref={triggerRef}
         type="button"
         className={triggerClass}
         onClick={() => setOpen((v) => !v)}
@@ -95,34 +182,9 @@ export function LanguageDropdown({
         />
       </button>
 
-      {open && (
-        <ul
-          className="absolute top-full right-0 mt-1 w-36 bg-bg-elevated border border-border rounded-lg shadow-xl overflow-hidden z-50 py-1"
-          aria-label={t?.("settings.language") ?? "Language"}
-        >
-          {LANGUAGES.map((lang) => (
-            <li key={lang.id} role="presentation">
-              <button
-                type="button"
-                role="option"
-                aria-selected={lang.id === uiLanguage}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-bg-hover ${lang.id === uiLanguage ? "text-accent bg-accent/5 font-medium" : "text-txt"}`}
-                onClick={() => {
-                  setUiLanguage(lang.id);
-                  setOpen(false);
-                }}
-                data-testid={`language-option-${lang.id}`}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{lang.flag}</span>
-                  <span>{lang.label}</span>
-                </div>
-                {lang.id === uiLanguage && <Check className="w-4 h-4" />}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {variant === "companion" && menuContent
+        ? createPortal(menuContent, document.body)
+        : menuContent}
     </div>
   );
 }

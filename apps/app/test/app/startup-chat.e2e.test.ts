@@ -77,8 +77,8 @@ vi.mock("../../src/components/LifoSandboxView", () => ({
 vi.mock("../../src/components/SettingsView", () => ({
   SettingsView: () => React.createElement("div", null, "SettingsView"),
 }));
-vi.mock("../../src/components/LoadingScreen", () => ({
-  LoadingScreen: () => React.createElement("div", null, "LoadingScreen"),
+vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+  AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 vi.mock("../../src/components/StreamView", () => ({
   StreamView: () => React.createElement("div", null, "StreamView"),
@@ -159,7 +159,7 @@ describe("app startup routing (e2e)", () => {
       .join("\n");
 
     expect(renderedText).toContain("ChatView");
-    expect(renderedText).not.toContain("LoadingScreen");
+    expect(renderedText).not.toContain("AvatarLoader");
     expect(renderedText).not.toContain("OnboardingWizard");
     expect(renderedText).not.toContain("PairingView");
     expect(mockUseLifoAutoPopout).toHaveBeenCalled();

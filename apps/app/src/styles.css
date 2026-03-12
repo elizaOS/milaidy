@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./styles/base.css";
 @import "./styles/anime.css";
+@import "./styles/onboarding-game.css";
 
 /*
  * Map the existing theme CSS custom properties to Tailwind theme tokens.
@@ -205,143 +206,38 @@
 
 /* ── Loading screen ───────────────────────────────────────────────── */
 
+/* ── NieR: Automata–style loading screen ─────────────────────────── */
+
 .loading-screen {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
   height: 100dvh;
-  background: var(--bg);
-  gap: 28px;
+  background: #0c0e14;
   position: relative;
   overflow: hidden;
 }
 
-/* Ambient glow */
-.loading-screen__glow {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-  opacity: 0.08;
-  animation: loading-glow-pulse 3s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes loading-glow-pulse {
-  0%,
-  100% {
-    opacity: 0.06;
-    transform: scale(0.95);
-  }
-
-  50% {
-    opacity: 0.12;
-    transform: scale(1.1);
-  }
-}
-
-/* Spinner container */
-.loading-screen__spinner {
-  position: relative;
-  width: 96px;
-  height: 96px;
-}
-
-.loading-screen__ring {
-  width: 100%;
-  height: 100%;
-  animation: loading-ring-spin 1.4s linear infinite;
-}
-
-@keyframes loading-ring-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-screen__arc {
-  filter: drop-shadow(0 0 6px var(--accent));
-}
-
-/* Center logo mark */
-.loading-screen__logo {
-  position: absolute;
-  inset: 0;
+/* Centered content wrapper */
+.loading-screen__center {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display, var(--font-body));
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
-  animation: loading-logo-pulse 2.5s ease-in-out infinite;
-  user-select: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  width: 420px;
+  max-width: 90vw;
 }
 
-@keyframes loading-logo-pulse {
-  0%,
-  100% {
-    opacity: 0.7;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Progress bar */
-.loading-screen__progress-track {
-  width: 180px;
-  height: 3px;
-  border-radius: 3px;
-  background: var(--border);
-  overflow: hidden;
-  opacity: 0.6;
-}
-
-.loading-screen__progress-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--accent);
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.loading-screen__progress-fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.25) 50%,
-    transparent 100%
-  );
-  animation: loading-shimmer 1.8s ease-in-out infinite;
-}
-
-@keyframes loading-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* Phase label */
-.loading-screen__label {
-  font-family: var(--font-body);
+/* LOADING title */
+.loading-screen__title {
+  font-family: var(--mono, monospace);
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-weight: 400;
+  letter-spacing: 0.35em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.7);
+  user-select: none;
 }
 
 .loading-screen__dots::after {
@@ -353,27 +249,78 @@
   0% {
     content: "";
   }
-
   25% {
     content: ".";
   }
-
   50% {
     content: "..";
   }
-
   75% {
     content: "...";
   }
 }
 
-/* Elapsed timer */
-.loading-screen__timer {
-  font-family: var(--mono);
+/* Progress bar row: bar + percentage */
+.loading-screen__bar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.loading-screen__progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-screen__progress-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+/* Percentage label */
+.loading-screen__percent {
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 48px;
+  text-align: right;
+  user-select: none;
+}
+
+/* Phase sub-label */
+.loading-screen__phase {
+  font-family: var(--mono, monospace);
   font-size: 11px;
-  color: var(--muted);
-  opacity: 0.5;
-  letter-spacing: 0.08em;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  user-select: none;
+}
+
+/* Avatar loader indeterminate bar */
+@keyframes avatar-loader-progress {
+  0% {
+    width: 20%;
+    opacity: 0.6;
+  }
+  50% {
+    width: 70%;
+    opacity: 1;
+  }
+  100% {
+    width: 20%;
+    opacity: 0.6;
+  }
 }
 
 /* ── Animation utilities ────────────────────────────────────────────── */

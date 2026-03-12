@@ -379,16 +379,29 @@ export function EmotePicker() {
   return (
     <div
       ref={panelRef}
-      className="fixed bottom-4 left-4 z-[9999] w-[320px] rounded-lg border border-gray-700 bg-gray-900/95 shadow-2xl backdrop-blur-md"
+      className="fixed bottom-4 left-4 z-[9999] w-[320px] rounded-xl shadow-2xl"
+      style={{
+        background: "rgba(18, 22, 32, 0.96)",
+        border: "1px solid rgba(240, 178, 50, 0.18)",
+        backdropFilter: "blur(24px)",
+        boxShadow: "0 8px 60px rgba(0,0,0,0.6), 0 0 40px rgba(240,178,50,0.06)",
+      }}
     >
       {/* Header */}
       <div
-        className="flex cursor-move items-center justify-between border-b border-gray-700 px-3 py-2"
+        className="flex cursor-move items-center justify-between px-3 py-2"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
         onPointerDown={onPointerDown}
       >
         <div className="flex items-center gap-2">
-          <Menu className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-semibold text-white">
+          <Menu
+            className="w-4 h-4"
+            style={{ color: "rgba(255,255,255,0.45)" }}
+          />
+          <span
+            className="text-sm font-semibold"
+            style={{ color: "rgba(240,238,250,0.92)" }}
+          >
             {t("emotepicker.Emotes")}
           </span>
         </div>
@@ -398,19 +411,28 @@ export function EmotePicker() {
           <button
             type="button"
             onClick={stopEmote}
-            className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
+            className="rounded px-2 py-1 text-xs font-medium transition-colors"
+            style={{ background: "#ef4444", color: "#fff" }}
           >
             {t("emotepicker.Stop")}
           </button>
 
           {/* Shortcut label */}
-          <span className="text-xs text-gray-400">⌘E</span>
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+            ⌘E
+          </span>
 
           {/* Close button */}
           <button
             type="button"
             onClick={closeEmotePicker}
-            className="text-gray-400 hover:text-white"
+            style={{ color: "rgba(255,255,255,0.45)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "rgba(240,238,250,0.92)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+            }}
           >
             <X className="w-4 h-4" />
           </button>
@@ -418,27 +440,39 @@ export function EmotePicker() {
       </div>
 
       {/* Search */}
-      <div className="border-b border-gray-700 px-3 py-2">
+      <div
+        className="px-3 py-2"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+      >
         <input
           ref={inputRef}
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("emotepicker.SearchEmotes")}
-          className="w-full rounded bg-gray-800 px-2 py-1 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded px-2 py-1 text-sm focus:outline-none focus:ring-1"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(240,238,250,0.92)",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
         />
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-gray-700 px-3 py-2">
+      <div
+        className="flex gap-1 overflow-x-auto px-3 py-2"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+      >
         <button
           type="button"
           onClick={() => setActiveCategory(null)}
-          className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-            activeCategory === null
-              ? "bg-blue-600 text-white"
-              : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-          }`}
+          className="shrink-0 rounded px-2 py-1 text-xs font-medium transition-colors"
+          style={{
+            background:
+              activeCategory === null ? "#f0b232" : "rgba(255,255,255,0.06)",
+            color: activeCategory === null ? "#000" : "rgba(255,255,255,0.6)",
+          }}
         >
           {t("emotepicker.All")}
         </button>
@@ -447,11 +481,12 @@ export function EmotePicker() {
             type="button"
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
-              activeCategory === cat
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            }`}
+            className="shrink-0 rounded px-2 py-1 text-xs font-medium transition-colors"
+            style={{
+              background:
+                activeCategory === cat ? "#f0b232" : "rgba(255,255,255,0.06)",
+              color: activeCategory === cat ? "#000" : "rgba(255,255,255,0.6)",
+            }}
           >
             <span className="mr-1">{CATEGORY_ICONS[cat]}</span>
             {CATEGORY_LABELS[cat]}
@@ -469,11 +504,11 @@ export function EmotePicker() {
               onClick={() => playEmote(emote.id)}
               disabled={playing === emote.id}
               title={emote.name}
-              className={`flex aspect-square items-center justify-center rounded text-2xl transition-colors ${
-                playing === emote.id
-                  ? "bg-blue-600"
-                  : "bg-gray-800 hover:bg-gray-700"
-              }`}
+              className="flex aspect-square items-center justify-center rounded text-2xl transition-colors"
+              style={{
+                background:
+                  playing === emote.id ? "#f0b232" : "rgba(255,255,255,0.06)",
+              }}
             >
               {emote.icon}
             </button>
@@ -481,7 +516,10 @@ export function EmotePicker() {
         </div>
 
         {filteredEmotes.length === 0 && (
-          <div className="py-8 text-center text-sm text-gray-500">
+          <div
+            className="py-8 text-center text-sm"
+            style={{ color: "rgba(255,255,255,0.3)" }}
+          >
             {t("emotepicker.NoEmotesFound")}
           </div>
         )}
