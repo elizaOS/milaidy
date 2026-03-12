@@ -14,7 +14,15 @@
  * - listViews — returns all views
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — vi.fn() INSIDE factories to avoid hoisting issues.
@@ -65,8 +73,46 @@ vi.mock("electrobun/bun", () => {
 import * as electrobunBun from "electrobun/bun";
 import { GpuWindowManager } from "../gpu-window";
 
-const MockGpuWindow = electrobunBun.GpuWindow as ReturnType<typeof vi.fn>;
-const MockWGPUView = electrobunBun.WGPUView as ReturnType<typeof vi.fn>;
+interface MockGpuWindowInstance {
+  frame: { x: number; y: number; width: number; height: number };
+  wgpuViewId: string;
+  wgpuView: {
+    setFrame: Mock<
+      (x: number, y: number, width: number, height: number) => void
+    >;
+  } | null;
+  on: Mock<(event: string, handler: () => void) => void>;
+  close: Mock<() => void>;
+  show: Mock<() => void>;
+  hide: Mock<() => void>;
+  minimize: Mock<() => void>;
+  setAlwaysOnTop: Mock<(flag: boolean) => void>;
+  setFrame: Mock<(x: number, y: number, width: number, height: number) => void>;
+  getFrame: Mock<() => { x: number; y: number; width: number; height: number }>;
+}
+
+interface MockWGPUViewInstance {
+  id: string;
+  frame: { x: number; y: number; width: number; height: number };
+  setFrame: Mock<(x: number, y: number, width: number, height: number) => void>;
+  setTransparent: Mock<(flag: boolean) => void>;
+  setHidden: Mock<(flag: boolean) => void>;
+  getNativeHandle: Mock<() => number>;
+  remove: Mock<() => void>;
+}
+
+type MockGpuWindowConstructor = Mock<
+  (options?: unknown) => MockGpuWindowInstance
+>;
+type MockWGPUViewConstructor = Mock<
+  (options?: unknown) => MockWGPUViewInstance
+>;
+type SendToWebview = (message: string, payload?: unknown) => void;
+
+const MockGpuWindow =
+  electrobunBun.GpuWindow as unknown as MockGpuWindowConstructor;
+const MockWGPUView =
+  electrobunBun.WGPUView as unknown as MockWGPUViewConstructor;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,12 +123,9 @@ const MockWGPUView = electrobunBun.WGPUView as ReturnType<typeof vi.fn>;
  * The mock's `on` method is a vi.fn(); each call is (event, handler).
  */
 function getCloseHandler(
-  mockWin: ReturnType<typeof MockGpuWindow>,
+  mockWin: MockGpuWindowInstance,
 ): (() => void) | undefined {
-  const onCalls = (mockWin.on as ReturnType<typeof vi.fn>).mock.calls as [
-    string,
-    () => void,
-  ][];
+  const onCalls = mockWin.on.mock.calls as [string, () => void][];
   const closeCall = onCalls.find(([event]) => event === "close");
   return closeCall?.[1];
 }
@@ -93,7 +136,7 @@ function getCloseHandler(
 
 describe("GpuWindowManager", () => {
   let manager: GpuWindowManager;
-  let sendToWebview: ReturnType<typeof vi.fn>;
+  let sendToWebview: Mock<SendToWebview>;
 
   beforeEach(() => {
     MockGpuWindow.mockClear();

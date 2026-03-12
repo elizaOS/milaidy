@@ -8,7 +8,15 @@
  * Test environment: Vitest (Node), electrobun/bun is always vi.mocked().
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
 // Top-level vi.mock calls — ALL hoisted before imports.
@@ -535,6 +543,16 @@ import {
 function setPlatform(p: string) {
   Object.defineProperty(process, "platform", { value: p, configurable: true });
 }
+
+type SendToWebview = (message: string, payload?: unknown) => void;
+type BrowserWindowOptionsArg = {
+  title?: string;
+  frame: { width: number; height: number };
+  sandbox?: boolean;
+};
+type MockBrowserWindowCtor = Mock<
+  (options: BrowserWindowOptionsArg) => unknown
+>;
 
 // ============================================================================
 // 1. Schema completeness
@@ -1158,7 +1176,7 @@ describe("Reverse mapping consistency", () => {
 
 describe("DesktopManager — tray", () => {
   let manager: DesktopManager;
-  let sendFn: ReturnType<typeof vi.fn>;
+  let sendFn: Mock<SendToWebview>;
   const MockTray = electrobunBun.Tray as unknown as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -1234,7 +1252,7 @@ describe("DesktopManager — tray", () => {
 
 describe("DesktopManager — shortcuts", () => {
   let manager: DesktopManager;
-  let sendFn: ReturnType<typeof vi.fn>;
+  let sendFn: Mock<SendToWebview>;
   const mockGS =
     electrobunBun.GlobalShortcut as typeof electrobunBun.GlobalShortcut;
 
@@ -1304,7 +1322,7 @@ describe("DesktopManager — shortcuts", () => {
 
 describe("DesktopManager — window management", () => {
   let manager: DesktopManager;
-  let sendFn: ReturnType<typeof vi.fn>;
+  let sendFn: Mock<SendToWebview>;
   const mockMakeKeyAndOrderFront =
     macEffects.makeKeyAndOrderFront as ReturnType<typeof vi.fn>;
   const mockOrderOut = macEffects.orderOut as ReturnType<typeof vi.fn>;
@@ -1339,7 +1357,7 @@ describe("DesktopManager — window management", () => {
     sendFn = vi.fn();
     manager.setSendToWebview(sendFn);
     manager.setMainWindow(
-      fakeWindow as Parameters<DesktopManager["setMainWindow"]>[0],
+      fakeWindow as unknown as Parameters<DesktopManager["setMainWindow"]>[0],
     );
   });
 
@@ -1802,8 +1820,12 @@ describe("DesktopManager — app lifecycle", () => {
 
 describe("DesktopManager — auto launch", () => {
   let manager: DesktopManager;
-  const mockExistsSync = nodeFs.existsSync as ReturnType<typeof vi.fn>;
-  const mockReadFileSync = nodeFs.readFileSync as ReturnType<typeof vi.fn>;
+  const mockExistsSync = nodeFs.existsSync as unknown as Mock<
+    typeof nodeFs.existsSync
+  >;
+  const mockReadFileSync = nodeFs.readFileSync as unknown as Mock<
+    typeof nodeFs.readFileSync
+  >;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2576,7 +2598,7 @@ describe("CanvasManager — window operations", () => {
 
   it("setSendToWebview() stores function for event forwarding", () => {
     const mgr = new CanvasManager();
-    const fn = vi.fn();
+    const fn: Mock<SendToWebview> = vi.fn();
     expect(() => mgr.setSendToWebview(fn)).not.toThrow();
   });
 });
@@ -2592,9 +2614,8 @@ describe("CanvasManager — window creation via BrowserWindow", () => {
   });
 
   it("createWindow() calls new BrowserWindow() with correct options", async () => {
-    const MockBrowserWindow = electrobunBun.BrowserWindow as ReturnType<
-      typeof vi.fn
-    >;
+    const MockBrowserWindow =
+      electrobunBun.BrowserWindow as unknown as MockBrowserWindowCtor;
     MockBrowserWindow.mockClear();
     const mgr = new CanvasManager();
     const result = await mgr.createWindow({
@@ -2614,9 +2635,8 @@ describe("CanvasManager — window creation via BrowserWindow", () => {
   });
 
   it("createWindow() uses defaults when options are minimal", async () => {
-    const MockBrowserWindow = electrobunBun.BrowserWindow as ReturnType<
-      typeof vi.fn
-    >;
+    const MockBrowserWindow =
+      electrobunBun.BrowserWindow as unknown as MockBrowserWindowCtor;
     MockBrowserWindow.mockClear();
     const mgr = new CanvasManager();
     await mgr.createWindow({});
@@ -2684,7 +2704,7 @@ describe("GatewayDiscovery — state and lifecycle", () => {
 
   it("setSendToWebview() stores the function without error", () => {
     const gd = new GatewayDiscovery();
-    const fn = vi.fn();
+    const fn: Mock<SendToWebview> = vi.fn();
     expect(() => gd.setSendToWebview(fn)).not.toThrow();
   });
 
@@ -2757,7 +2777,7 @@ describe("AgentManager — initial state", () => {
 
   it("setSendToWebview() stores the function without error", () => {
     const mgr = new AgentManager();
-    const fn = vi.fn();
+    const fn: Mock<SendToWebview> = vi.fn();
     expect(() => mgr.setSendToWebview(fn)).not.toThrow();
   });
 });
@@ -2879,7 +2899,7 @@ describe("PermissionManager — shell permission logic", () => {
 
   it("setShellEnabled() calls sendToWebview('permissionsChanged') with { id: 'shell' }", () => {
     const mgr = new PermissionManager();
-    const sendFn = vi.fn();
+    const sendFn: Mock<SendToWebview> = vi.fn();
     mgr.setSendToWebview(sendFn);
     mgr.setShellEnabled(false);
     expect(sendFn).toHaveBeenCalledWith("permissionsChanged", { id: "shell" });
@@ -3436,7 +3456,7 @@ describe("Push event routing — sendToWebview dispatches to RPC send proxy", ()
   it("known push message (PUSH_CHANNEL_TO_RPC_MESSAGE key) routes to mapped RPC method", () => {
     // Build a sendToWebview function the same way wireRpcAndModules does it
     const agentStatusSend = vi.fn();
-    const mockRpcSend: Record<string, ReturnType<typeof vi.fn>> = {
+    const mockRpcSend: Record<string, Mock<(payload: unknown) => void>> = {
       agentStatusUpdate: agentStatusSend,
     };
 
@@ -3452,7 +3472,7 @@ describe("Push event routing — sendToWebview dispatches to RPC send proxy", ()
 
   it("direct RPC method name (no mapping needed) routes to that method", () => {
     const gatewayDiscoverySend = vi.fn();
-    const mockRpcSend: Record<string, ReturnType<typeof vi.fn>> = {
+    const mockRpcSend: Record<string, Mock<(payload: unknown) => void>> = {
       gatewayDiscovery: gatewayDiscoverySend,
     };
 
@@ -3474,7 +3494,7 @@ describe("Push event routing — sendToWebview dispatches to RPC send proxy", ()
 
   it("unknown message routes to itself and calls that RPC method if it exists", () => {
     const customSend = vi.fn();
-    const mockRpcSend: Record<string, ReturnType<typeof vi.fn>> = {
+    const mockRpcSend: Record<string, Mock<(payload: unknown) => void>> = {
       customEvent: customSend,
     };
 
@@ -3489,10 +3509,13 @@ describe("Push event routing — sendToWebview dispatches to RPC send proxy", ()
   });
 
   it("sendToWebview with no rpc method does not throw", () => {
+    const mockRpcSend: Record<string, Mock<(payload: unknown) => void>> = {};
     const sendToWebview = (message: string, payload?: unknown): void => {
       const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message] ?? message;
-      const sender = {}[rpcMessage as keyof typeof sender];
-      if (sender) (sender as (p: unknown) => void)(payload ?? null);
+      const sender = mockRpcSend[rpcMessage];
+      if (sender) {
+        sender(payload ?? null);
+      }
     };
 
     expect(() => sendToWebview("nonExistentMessage", { x: 1 })).not.toThrow();
@@ -3649,9 +3672,9 @@ describe("pushApiBaseToRenderer — injects API base into webview RPC", () => {
 describe("loadWindowState — window state persistence", () => {
   // loadWindowState is not exported, so we test it via the index.ts startup-bootstrap.
   // For direct logic testing, we exercise the branches manually here.
-  const mockFs = nodeFs as {
-    existsSync: ReturnType<typeof vi.fn>;
-    readFileSync: ReturnType<typeof vi.fn>;
+  const mockFs = nodeFs as unknown as {
+    existsSync: Mock<typeof nodeFs.existsSync>;
+    readFileSync: Mock<typeof nodeFs.readFileSync>;
   };
 
   beforeEach(() => {
