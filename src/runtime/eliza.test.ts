@@ -66,6 +66,7 @@ import {
   CUSTOM_PLUGINS_DIRNAME,
   cleanStalePglitePid,
   collectPluginNames,
+  configureLocalEmbeddingPlugin,
   deduplicatePluginActions,
   findRuntimePluginExport,
   isEnvKeyAllowedForForwarding,
@@ -78,6 +79,7 @@ import {
   scanDropInPlugins,
   shouldIgnoreMissingPluginExport,
 } from "./eliza";
+import { detectEmbeddingPreset } from "./embedding-presets";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -166,6 +168,36 @@ describe("collectPluginNames", () => {
     });
   });
   afterEach(() => snap.restore());
+
+  it("uses the hardware-adaptive embedding preset defaults when no embedding config is set", () => {
+    const detectedPreset = detectEmbeddingPreset();
+
+    delete process.env.LOCAL_EMBEDDING_MODEL;
+    delete process.env.LOCAL_EMBEDDING_MODEL_REPO;
+    delete process.env.LOCAL_EMBEDDING_DIMENSIONS;
+    delete process.env.LOCAL_EMBEDDING_CONTEXT_SIZE;
+    delete process.env.LOCAL_EMBEDDING_GPU_LAYERS;
+    delete process.env.LOCAL_EMBEDDING_USE_MMAP;
+
+    configureLocalEmbeddingPlugin({} as Plugin, {} as MiladyConfig);
+
+    expect(process.env.LOCAL_EMBEDDING_MODEL).toBe(detectedPreset.model);
+    expect(process.env.LOCAL_EMBEDDING_MODEL_REPO).toBe(
+      detectedPreset.modelRepo,
+    );
+    expect(process.env.LOCAL_EMBEDDING_DIMENSIONS).toBe(
+      String(detectedPreset.dimensions),
+    );
+    expect(process.env.LOCAL_EMBEDDING_CONTEXT_SIZE).toBe(
+      String(detectedPreset.contextSize),
+    );
+    expect(process.env.LOCAL_EMBEDDING_GPU_LAYERS).toBe(
+      String(detectedPreset.gpuLayers),
+    );
+    expect(process.env.LOCAL_EMBEDDING_USE_MMAP).toBe(
+      detectedPreset.gpuLayers === "auto" ? "false" : "true",
+    );
+  });
 
   it("includes all core plugins for an empty config", () => {
     // Guard against accidental removal from CORE_PLUGINS array

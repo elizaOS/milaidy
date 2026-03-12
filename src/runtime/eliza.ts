@@ -118,6 +118,7 @@ import { SandboxAuditLog } from "../security/audit-log";
 import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
+import { detectEmbeddingPreset } from "./embedding-presets";
 import { createMiladyPlugin } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
@@ -231,13 +232,11 @@ interface PluginModuleShape {
   [key: string]: Plugin | undefined;
 }
 
-function configureLocalEmbeddingPlugin(
+export function configureLocalEmbeddingPlugin(
   _plugin: Plugin,
   config?: MiladyConfig,
 ): void {
-  // Check if we're on macOS with Apple Silicon
-  const isAppleSilicon =
-    process.platform === "darwin" && process.arch === "arm64";
+  const detectedPreset = detectEmbeddingPreset();
 
   const embeddingConfig = config?.embedding;
   const configuredModel = embeddingConfig?.model?.trim();
@@ -276,28 +275,46 @@ function configureLocalEmbeddingPlugin(
     process.env[key] = value;
   };
 
-  // Default to Nomic for zero-config local embeddings.
+  // Keep plugin-local-embedding aligned with Milady's hardware-adaptive preset
+  // selection. Hard-coding the standard preset here forces slower first-run
+  // downloads on Windows and low-spec machines.
   setEnvIfMissing(
     "LOCAL_EMBEDDING_MODEL",
-    configuredModel || "nomic-embed-text-v1.5.Q5_K_M.gguf",
+    configuredModel || detectedPreset.model,
   );
-  setEnvFromConfig("LOCAL_EMBEDDING_MODEL_REPO", configuredRepo);
-  setEnvFromConfig("LOCAL_EMBEDDING_DIMENSIONS", configuredDimensions);
-  setEnvFromConfig("LOCAL_EMBEDDING_CONTEXT_SIZE", configuredContextSize);
+  if (configuredRepo) {
+    setEnvFromConfig("LOCAL_EMBEDDING_MODEL_REPO", configuredRepo);
+  } else if (!configuredModel) {
+    setEnvIfMissing("LOCAL_EMBEDDING_MODEL_REPO", detectedPreset.modelRepo);
+  }
+  if (configuredDimensions) {
+    setEnvFromConfig("LOCAL_EMBEDDING_DIMENSIONS", configuredDimensions);
+  } else if (!configuredModel) {
+    setEnvIfMissing(
+      "LOCAL_EMBEDDING_DIMENSIONS",
+      String(detectedPreset.dimensions),
+    );
+  }
+  if (configuredContextSize) {
+    setEnvFromConfig("LOCAL_EMBEDDING_CONTEXT_SIZE", configuredContextSize);
+  } else if (!configuredModel) {
+    setEnvIfMissing(
+      "LOCAL_EMBEDDING_CONTEXT_SIZE",
+      String(detectedPreset.contextSize),
+    );
+  }
 
-  // Hardware acceleration (Metal on macOS)
-  // gpuLayers: "auto" is now safe with v3.15.1+ on Metal
   if (configuredGpuLayers) {
     process.env.LOCAL_EMBEDDING_GPU_LAYERS = configuredGpuLayers;
   } else if (!process.env.LOCAL_EMBEDDING_GPU_LAYERS) {
-    process.env.LOCAL_EMBEDDING_GPU_LAYERS = isAppleSilicon ? "auto" : "0";
+    process.env.LOCAL_EMBEDDING_GPU_LAYERS = String(detectedPreset.gpuLayers);
   }
 
   // Performance tuning
   // Disable mmap on Metal to prevent "different text" errors with some models
   setEnvIfMissing(
     "LOCAL_EMBEDDING_USE_MMAP",
-    isAppleSilicon ? "false" : "true",
+    detectedPreset.gpuLayers === "auto" ? "false" : "true",
   );
 
   // Set default models directory if not present

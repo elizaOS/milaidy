@@ -127,7 +127,11 @@ async function getExistsSyncMock(): Promise<Mock> {
 // ---------------------------------------------------------------------------
 // Import AFTER mocks
 // ---------------------------------------------------------------------------
-import { AgentManager, getMiladyDistFallbackCandidates } from "../native/agent";
+import {
+  AgentManager,
+  getHealthPollTimeoutMs,
+  getMiladyDistFallbackCandidates,
+} from "../native/agent";
 
 describe("AgentManager", () => {
   let manager: AgentManager;
@@ -199,6 +203,22 @@ describe("AgentManager", () => {
       expect(candidates).toContain(
         "/Users/test/AppData/Local/com.miladyai.milady/canary/self-extraction/Milady-canary/resources/app/milady-dist",
       );
+    });
+  });
+
+  describe("getHealthPollTimeoutMs()", () => {
+    it("defaults to a longer startup timeout on Windows", () => {
+      expect(getHealthPollTimeoutMs({}, "win32")).toBe(240_000);
+      expect(getHealthPollTimeoutMs({}, "darwin")).toBe(120_000);
+    });
+
+    it("honors MILADY_AGENT_HEALTH_TIMEOUT_MS when set", () => {
+      expect(
+        getHealthPollTimeoutMs(
+          { MILADY_AGENT_HEALTH_TIMEOUT_MS: "300000" },
+          "win32",
+        ),
+      ).toBe(300_000);
     });
   });
 

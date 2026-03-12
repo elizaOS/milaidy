@@ -222,4 +222,19 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).not.toContain("env.USERPROFILE }}\\.config\\Milady");
   });
+
+  it("seeds the Windows embedding model cache before packaged smoke", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Seed Windows embedding model cache");
+    expect(workflow).toContain(
+      '$modelName = "nomic-embed-text-v1.5.Q4_K_S.gguf"',
+    );
+    expect(workflow).toContain(
+      '$modelRepo = "nomic-ai/nomic-embed-text-v1.5-GGUF"',
+    );
+    expect(workflow).toContain(
+      "Invoke-WebRequest -Uri $url -OutFile $modelPath",
+    );
+  });
 });

@@ -38,10 +38,25 @@ type BunSubprocess = ReturnType<typeof Bun.spawn>;
 
 const DEFAULT_PORT = 2138;
 const HEALTH_POLL_INTERVAL_MS = 500;
-// 120s: Windows first-run can be slow (PGLite WASM init + 100+ plugins)
-const HEALTH_POLL_TIMEOUT_MS = 120_000;
 const SIGTERM_GRACE_MS = 5_000;
 const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
+
+export function getHealthPollTimeoutMs(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: string = process.platform,
+): number {
+  const raw = env.MILADY_AGENT_HEALTH_TIMEOUT_MS?.trim();
+  if (raw) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  // Windows packaged first-run startup can include PGLite initialization plus
+  // a GGUF embedding model download before /api/health comes online.
+  return platform === "win32" ? 240_000 : 120_000;
+}
 
 function isPosixAbsolutePath(value: string): boolean {
   return value.startsWith("/") && !WINDOWS_ABS_PATH_RE.test(value);
@@ -284,7 +299,7 @@ function resolveElizaEntryPath(miladyDistPath: string): string | null {
 
 async function waitForHealthy(
   getPort: () => number,
-  timeoutMs: number = HEALTH_POLL_TIMEOUT_MS,
+  timeoutMs: number = getHealthPollTimeoutMs(),
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
 
@@ -643,7 +658,8 @@ export class AgentManager {
       diagnosticLog(
         `[Agent] Waiting for health endpoint at http://127.0.0.1:${apiPort}/api/health ...`,
       );
-      const healthy = await waitForHealthy(() => apiPort);
+      const healthPollTimeoutMs = getHealthPollTimeoutMs();
+      const healthy = await waitForHealthy(() => apiPort, healthPollTimeoutMs);
 
       if (!healthy) {
         // Check if process already exited
@@ -664,7 +680,7 @@ export class AgentManager {
 
         const errMsg = detectedListening
           ? "Server reported listening but health check timed out"
-          : `Health check timed out after ${HEALTH_POLL_TIMEOUT_MS}ms`;
+          : `Health check timed out after ${healthPollTimeoutMs}ms`;
         diagnosticLog(`[Agent] ${errMsg}`);
         this.status = {
           state: "error",

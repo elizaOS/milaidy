@@ -610,6 +610,24 @@ jobs:
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
         run: bash apps/app/electrobun/scripts/stage-macos-release-artifacts.sh
 
+      - name: Seed Windows embedding model cache
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $modelsDir = Join-Path $env:USERPROFILE ".eliza\models"
+          $modelName = "nomic-embed-text-v1.5.Q4_K_S.gguf"
+          $modelRepo = "nomic-ai/nomic-embed-text-v1.5-GGUF"
+          $modelPath = Join-Path $modelsDir $modelName
+
+          if (-not (Test-Path $modelPath)) {
+            New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null
+            $url = "https://huggingface.co/$modelRepo/resolve/main/$modelName"
+            Write-Host "Downloading Windows embedding model cache seed: $url"
+            Invoke-WebRequest -Uri $url -OutFile $modelPath
+          }
+
+          Write-Host "Windows embedding model cache ready: $modelPath"
+
       - name: Smoke test packaged Windows app
         if: matrix.platform.os == 'windows'
         shell: pwsh
