@@ -408,6 +408,58 @@ jobs:
             bun install -g "electrobun@$ELECTROBUN_VERSION"
           fi
 
+      - name: Ensure Windows rcedit binary is available for Electrobun
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $globalNodeModules = Join-Path $env:USERPROFILE ".bun\install\global\node_modules"
+          $electrobunDir = Join-Path $globalNodeModules "electrobun"
+          $globalRceditDir = Join-Path $globalNodeModules "rcedit"
+          $globalRceditExe = Join-Path $globalRceditDir "bin\rcedit-x64.exe"
+
+          if (-not (Test-Path $globalRceditExe)) {
+            Write-Host "Installing global rcedit helper..."
+            bun install -g "rcedit@4.0.1"
+          }
+
+          $resolvedRceditPackageJson = node -e @'
+            const { createRequire } = require("node:module");
+            const path = require("node:path");
+            const electrobunDir = process.argv[1];
+            try {
+              const req = createRequire(path.join(electrobunDir, "package.json"));
+              process.stdout.write(req.resolve("rcedit/package.json"));
+            } catch (error) {
+              process.stdout.write("");
+            }
+          '@ $electrobunDir
+
+          $resolvedRceditPackageJson = $resolvedRceditPackageJson.Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedRceditPackageJson)) {
+            Write-Warning "Electrobun could not resolve rcedit/package.json; seeding a local copy under the electrobun package."
+            $resolvedRceditDir = Join-Path $electrobunDir "node_modules\rcedit"
+          } else {
+            $resolvedRceditDir = Split-Path -Parent $resolvedRceditPackageJson
+          }
+          $resolvedRceditExe = Join-Path $resolvedRceditDir "bin\rcedit-x64.exe"
+
+          if (-not (Test-Path $resolvedRceditExe)) {
+            Write-Warning "Electrobun resolved rcedit without a bundled binary at $resolvedRceditExe; copying known-good package into place."
+            $resolvedNodeModulesDir = Split-Path -Parent $resolvedRceditDir
+            New-Item -ItemType Directory -Force -Path $resolvedNodeModulesDir | Out-Null
+            if (Test-Path $resolvedRceditDir) {
+              Remove-Item -Recurse -Force $resolvedRceditDir
+            }
+            Copy-Item -Recurse -Force $globalRceditDir $resolvedNodeModulesDir
+          }
+
+          if (-not (Test-Path $resolvedRceditExe)) {
+            Write-Error "rcedit-x64.exe is still missing at $resolvedRceditExe"
+            exit 1
+          }
+
+          Write-Host "Using rcedit from $resolvedRceditDir"
+
       # electrobun.cjs downloads its native binary then calls:
       #   execSync(`tar -xzf "${tarballPath}"`, { cwd: cacheDir })
       # GNU tar (found first in PATH on Windows) treats the C: drive letter as
@@ -557,7 +609,29 @@ jobs:
 
       - name: Smoke test packaged Windows app
         if: matrix.platform.os == 'windows'
-        run: pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
+        shell: pwsh
+        env:
+          MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
+          MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
+        run: |
+          Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_DIR -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE -Force -ErrorAction SilentlyContinue
+
+          pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
+
+          if (-not (Test-Path $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE)) {
+            Write-Error "Smoke test did not emit a reusable Windows launcher path."
+            exit 1
+          }
+
+          $launcherPath = (Get-Content $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($launcherPath) -or -not (Test-Path $launcherPath)) {
+            Write-Error "Reusable Windows launcher path is invalid: $launcherPath"
+            exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
+          Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
 
       - name: Install Playwright Chromium (Windows)
         if: matrix.platform.os == 'windows'

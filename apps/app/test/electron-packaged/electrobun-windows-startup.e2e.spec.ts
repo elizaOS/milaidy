@@ -89,7 +89,9 @@ async function resolveWindowsLauncher(tempExtractDir: string): Promise<string> {
   const explicit = process.env.MILADY_TEST_WINDOWS_LAUNCHER_PATH?.trim();
   if (explicit) {
     await fs.access(explicit);
-    return fs.realpath(explicit);
+    const resolved = await fs.realpath(explicit);
+    console.log(`Using explicit Windows launcher: ${resolved}`);
+    return resolved;
   }
 
   // CI Windows builds already have launcher.exe under the live build output.
