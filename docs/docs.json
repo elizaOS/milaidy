@@ -220,7 +220,8 @@
           {
             "group": "Runtime",
             "pages": [
-              "agents/runtime-and-lifecycle"
+              "agents/runtime-and-lifecycle",
+              "guides/coding-swarms"
             ]
           },
           {

@@ -1,4 +1,5 @@
 import type { CodingAgentSession } from "@milady/app-core/api";
+import { client } from "@milady/app-core/api";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +11,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@milady/app-core/api", () => ({
   client: {
     stopCodingAgent: vi.fn(async () => {}),
+    listCodingAgentScratchWorkspaces: vi.fn(async () => []),
+    keepCodingAgentScratchWorkspace: vi.fn(async () => true),
+    deleteCodingAgentScratchWorkspace: vi.fn(async () => true),
+    promoteCodingAgentScratchWorkspace: vi.fn(async () => null),
     subscribePtyOutput: vi.fn(),
     unsubscribePtyOutput: vi.fn(),
     sendPtyInput: vi.fn(),
@@ -71,6 +76,16 @@ function findAllByTestId(
       typeof node.props["data-testid"] === "string" &&
       pattern.test(node.props["data-testid"]),
   );
+}
+
+function findButtonByLabel(
+  root: TestRenderer.ReactTestInstance,
+  label: string,
+): TestRenderer.ReactTestInstance | null {
+  const matches = root.findAll(
+    (node) => node.type === "button" && node.children?.includes(label),
+  );
+  return matches[0] ?? null;
 }
 
 /** Find session card toggle elements (div[role="button"] with w-full text-left) */
@@ -222,5 +237,40 @@ describe("CodingAgentsSection — terminal keep-alive", () => {
     expect(terminals.length).toBe(1);
     expect(findByTestId(tree?.root, "xterminal-s-2")).not.toBeNull();
     expect(findByTestId(tree?.root, "xterminal-s-1")).toBeNull();
+  });
+
+  it("shows scratch controls for terminal sessions and calls keep", async () => {
+    const listScratchMock = client
+      .listCodingAgentScratchWorkspaces as unknown as ReturnType<typeof vi.fn>;
+    listScratchMock.mockResolvedValueOnce([
+      {
+        sessionId: "s-1",
+        label: "Scratch s-1",
+        path: "/tmp/s-1",
+        status: "pending_decision",
+        createdAt: Date.now(),
+        terminalAt: Date.now(),
+        terminalEvent: "task_complete",
+      },
+    ]);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(CodingAgentsSection, {
+          sessions: [createSession("s-1", { status: "completed" })],
+        }),
+      );
+    });
+    await flush();
+
+    const keepButton = findButtonByLabel(tree?.root, "Keep");
+    expect(keepButton).not.toBeNull();
+
+    await act(async () => {
+      keepButton?.props.onClick({ stopPropagation() {} });
+    });
+
+    expect(client.keepCodingAgentScratchWorkspace).toHaveBeenCalledWith("s-1");
   });
 });

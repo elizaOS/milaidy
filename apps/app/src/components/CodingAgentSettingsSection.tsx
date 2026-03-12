@@ -9,6 +9,14 @@ type AgentTab = "claude" | "gemini" | "codex" | "aider";
 type AiderProvider = "anthropic" | "openai" | "google";
 type ApprovalPreset = "readonly" | "standard" | "permissive" | "autonomous";
 type AgentSelectionStrategy = "fixed" | "ranked";
+interface AgentPreflightResult {
+  adapter?: string;
+  installed?: boolean;
+  installCommand?: string;
+  docsUrl?: string;
+}
+
+const AGENT_TABS: AgentTab[] = ["claude", "gemini", "codex", "aider"];
 
 const APPROVAL_PRESETS: {
   value: ApprovalPreset;
@@ -98,18 +106,26 @@ export function CodingAgentSettingsSection() {
   const [providerModels, setProviderModels] = useState<
     Record<string, ModelOption[]>
   >({});
+  const [preflightLoaded, setPreflightLoaded] = useState(false);
+  const [preflightByAgent, setPreflightByAgent] = useState<
+    Partial<Record<AgentTab, AgentPreflightResult>>
+  >({});
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       try {
-        // Fetch config + all three provider model lists in parallel
-        const [cfg, anthropicRes, googleRes, openaiRes] = await Promise.all([
-          client.getConfig(),
-          client.fetchModels("anthropic", false).catch(() => null),
-          client.fetchModels("google-genai", false).catch(() => null),
-          client.fetchModels("openai", false).catch(() => null),
-        ]);
+        // Fetch config + model lists + coding agent preflight in parallel
+        const [cfg, anthropicRes, googleRes, openaiRes, preflightRes] =
+          await Promise.all([
+            client.getConfig(),
+            client.fetchModels("anthropic", false).catch(() => null),
+            client.fetchModels("google-genai", false).catch(() => null),
+            client.fetchModels("openai", false).catch(() => null),
+            fetch("/api/coding-agents/preflight")
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ]);
 
         // Load saved preferences
         const env = (cfg.env ?? {}) as Record<string, string>;
@@ -160,12 +176,53 @@ export function CodingAgentSettingsSection() {
           }
         }
         setProviderModels(models);
+
+        if (Array.isArray(preflightRes)) {
+          const mapped: Partial<Record<AgentTab, AgentPreflightResult>> = {};
+          for (const item of preflightRes as AgentPreflightResult[]) {
+            const raw = item.adapter?.toLowerCase();
+            const key =
+              raw === "claude"
+                ? "claude"
+                : raw === "gemini"
+                  ? "gemini"
+                  : raw === "codex"
+                    ? "codex"
+                    : raw === "aider"
+                      ? "aider"
+                      : null;
+            if (key) mapped[key] = item;
+          }
+          setPreflightByAgent(mapped);
+          setPreflightLoaded(true);
+        }
       } catch {
         // ignore — fallbacks will be used
       }
       setLoading(false);
     })();
   }, []);
+
+  const installedAgents = AGENT_TABS.filter(
+    (agent) => preflightByAgent[agent]?.installed === true,
+  );
+  const availableAgents =
+    preflightLoaded && installedAgents.length > 0
+      ? installedAgents
+      : AGENT_TABS;
+  const getInstallState = (
+    agent: AgentTab,
+  ): "installed" | "missing" | "unknown" => {
+    if (!preflightLoaded) return "unknown";
+    return preflightByAgent[agent]?.installed ? "installed" : "missing";
+  };
+
+  useEffect(() => {
+    if (availableAgents.length === 0) return;
+    if (!availableAgents.includes(activeTab)) {
+      setActiveTab(availableAgents[0]);
+    }
+  }, [activeTab, availableAgents]);
 
   const setPref = useCallback((key: string, value: string) => {
     setPrefs((prev) => ({ ...prev, [key]: value }));
@@ -225,6 +282,32 @@ export function CodingAgentSettingsSection() {
     "fixed") as AgentSelectionStrategy;
   const defaultAgentType = (prefs.PARALLAX_DEFAULT_AGENT_TYPE ||
     "claude") as AgentTab;
+  const effectiveDefaultAgentType = availableAgents.includes(defaultAgentType)
+    ? defaultAgentType
+    : availableAgents[0];
+
+  if (preflightLoaded && installedAgents.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 text-xs">
+        <div className="text-[var(--muted)]">
+          No supported coding agent CLIs detected. Install at least one of:
+          Claude, Gemini, Codex, or Aider.
+        </div>
+        <div className="flex flex-col gap-1 text-[11px] text-[var(--muted)]">
+          {AGENT_TABS.map((agent) => {
+            const pf = preflightByAgent[agent];
+            return (
+              <div key={agent}>
+                <span className="font-semibold">{AGENT_LABELS[agent]}:</span>{" "}
+                {pf?.installCommand ? `Install with ${pf.installCommand}` : ""}
+                {pf?.docsUrl ? ` (${pf.docsUrl})` : ""}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -260,23 +343,16 @@ export function CodingAgentSettingsSection() {
           </span>
           <select
             className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
-            value={defaultAgentType}
+            value={effectiveDefaultAgentType}
             onChange={(e) =>
               setPref("PARALLAX_DEFAULT_AGENT_TYPE", e.target.value)
             }
           >
-            <option value="claude">
-              {t("codingagentsettingssection.Claude")}
-            </option>
-            <option value="gemini">
-              {t("codingagentsettingssection.Gemini")}
-            </option>
-            <option value="codex">
-              {t("codingagentsettingssection.Codex")}
-            </option>
-            <option value="aider">
-              {t("codingagentsettingssection.Aider")}
-            </option>
+            {availableAgents.map((agent) => (
+              <option key={agent} value={agent}>
+                {AGENT_LABELS[agent]}
+              </option>
+            ))}
           </select>
           <div className="text-[11px] text-[var(--muted)]">
             {t("codingagentsettingssection.AgentUsedWhenNoE")}
@@ -312,8 +388,9 @@ export function CodingAgentSettingsSection() {
 
       {/* Agent tabs */}
       <div className="flex border border-border">
-        {(["claude", "gemini", "codex", "aider"] as AgentTab[]).map((agent) => {
+        {availableAgents.map((agent) => {
           const active = activeTab === agent;
+          const state = getInstallState(agent);
           return (
             <Button
               key={agent}
@@ -326,11 +403,38 @@ export function CodingAgentSettingsSection() {
               }`}
               onClick={() => setActiveTab(agent)}
             >
-              {AGENT_LABELS[agent]}
+              <span className="inline-flex items-center gap-1.5">
+                <span>{AGENT_LABELS[agent]}</span>
+                {state === "installed" && (
+                  <span className="text-[10px] font-medium opacity-80">
+                    Installed
+                  </span>
+                )}
+                {state === "unknown" && (
+                  <span className="text-[10px] font-medium opacity-70">
+                    Unknown
+                  </span>
+                )}
+              </span>
             </Button>
           );
         })}
       </div>
+      {preflightLoaded && (
+        <div className="text-[11px] text-[var(--muted)]">
+          Availability:{" "}
+          {AGENT_TABS.map((agent) => {
+            const state = getInstallState(agent);
+            const label =
+              state === "installed"
+                ? "Installed"
+                : state === "missing"
+                  ? "Not installed"
+                  : "Unknown";
+            return `${AGENT_LABELS[agent]}: ${label}`;
+          }).join(" · ")}
+        </div>
+      )}
 
       {/* Aider provider selector */}
       {activeTab === "aider" && (

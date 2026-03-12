@@ -1,4 +1,7 @@
-import type { CodingAgentSession } from "@milady/app-core/api";
+import type {
+  CodingAgentScratchWorkspace,
+  CodingAgentSession,
+} from "@milady/app-core/api";
 import { client } from "@milady/app-core/api";
 import { useEffect, useState } from "react";
 import { useApp } from "../AppContext";
@@ -27,9 +30,13 @@ interface CodingAgentsSectionProps {
 }
 
 export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
-  const { t } = useApp();
+  const { t, setActionNotice } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [stopping, setStopping] = useState<Set<string>>(new Set());
+  const [scratchBusy, setScratchBusy] = useState<Set<string>>(new Set());
+  const [scratchBySession, setScratchBySession] = useState<
+    Record<string, CodingAgentScratchWorkspace>
+  >({});
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   // Sessions whose XTerminal has been mounted. Once mounted, stays alive
   // (hidden via height:0) so switching back is instant with no re-hydration.
@@ -41,6 +48,66 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
     setStopping((prev) => new Set([...prev, sessionId]));
     await client.stopCodingAgent(sessionId);
     // Don't remove from stopping — the WS event will remove the session
+  };
+
+  const withScratchBusy = async (
+    sessionId: string,
+    run: () => Promise<void>,
+  ) => {
+    setScratchBusy((prev) => new Set([...prev, sessionId]));
+    try {
+      await run();
+    } finally {
+      setScratchBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+    }
+  };
+
+  const handleScratchKeep = async (sessionId: string) => {
+    await withScratchBusy(sessionId, async () => {
+      const ok = await client.keepCodingAgentScratchWorkspace(sessionId);
+      if (!ok) {
+        setActionNotice("Failed to keep scratch workspace.", "error", 2600);
+        return;
+      }
+      setScratchBySession((prev) => {
+        const record = prev[sessionId];
+        if (!record) return prev;
+        return { ...prev, [sessionId]: { ...record, status: "kept" } };
+      });
+      setActionNotice("Scratch workspace marked as kept.", "success", 2200);
+    });
+  };
+
+  const handleScratchDelete = async (sessionId: string) => {
+    await withScratchBusy(sessionId, async () => {
+      const ok = await client.deleteCodingAgentScratchWorkspace(sessionId);
+      if (!ok) {
+        setActionNotice("Failed to delete scratch workspace.", "error", 2600);
+        return;
+      }
+      setScratchBySession((prev) => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
+      setActionNotice("Scratch workspace deleted.", "success", 2200);
+    });
+  };
+
+  const handleScratchPromote = async (sessionId: string) => {
+    await withScratchBusy(sessionId, async () => {
+      const scratch = await client.promoteCodingAgentScratchWorkspace(sessionId);
+      if (!scratch) {
+        setActionNotice("Failed to promote scratch workspace.", "error", 2600);
+        return;
+      }
+      setScratchBySession((prev) => ({ ...prev, [sessionId]: scratch }));
+      setActionNotice("Scratch workspace promoted.", "success", 2200);
+    });
   };
 
   const toggleTerminal = (sessionId: string) => {
@@ -65,6 +132,33 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
       setExpandedSession(null);
     }
   }, [sessions, expandedSession]);
+
+  useEffect(() => {
+    if (sessions.length === 0) {
+      setScratchBySession({});
+      return;
+    }
+
+    const shouldFetch = sessions.some((session) =>
+      ["completed", "stopped", "error"].includes(session.status),
+    );
+    if (!shouldFetch) return;
+
+    let cancelled = false;
+    const loadScratch = async () => {
+      const records = await client.listCodingAgentScratchWorkspaces();
+      if (cancelled) return;
+      const next: Record<string, CodingAgentScratchWorkspace> = {};
+      for (const record of records) {
+        next[record.sessionId] = record;
+      }
+      setScratchBySession(next);
+    };
+    void loadScratch();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessions]);
 
   return (
     <div className="border-b border-border">
@@ -133,7 +227,11 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                           ? "Waiting for input"
                           : session.status === "error"
                             ? "Error"
-                            : "Running"}
+                            : session.status === "completed"
+                              ? "Completed"
+                              : session.status === "stopped"
+                                ? "Stopped"
+                                : "Running"}
                     </span>
                     {(session.status === "active" ||
                       session.status === "tool_running" ||
@@ -153,6 +251,49 @@ export function CodingAgentsSection({ sessions }: CodingAgentsSectionProps) {
                       </button>
                     )}
                   </div>
+                  {["completed", "stopped", "error"].includes(session.status) &&
+                    scratchBySession[session.sessionId] && (
+                      <div className="mt-1.5 pt-1.5 border-t border-border/70">
+                        <div className="text-[10px] text-muted mb-1">
+                          Scratch workspace
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-txt hover:border-border-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleScratchKeep(session.sessionId);
+                            }}
+                            disabled={scratchBusy.has(session.sessionId)}
+                          >
+                            Keep
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-accent hover:border-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleScratchPromote(session.sessionId);
+                            }}
+                            disabled={scratchBusy.has(session.sessionId)}
+                          >
+                            Promote
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-danger hover:border-danger transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleScratchDelete(session.sessionId);
+                            }}
+                            disabled={scratchBusy.has(session.sessionId)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                 </div>
                 {mountedSessions.has(session.sessionId) && (
                   <div

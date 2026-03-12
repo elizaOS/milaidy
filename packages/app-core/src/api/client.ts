@@ -1321,6 +1321,17 @@ export interface CodingAgentSession {
   lastActivity?: string;
 }
 
+export interface CodingAgentScratchWorkspace {
+  sessionId: string;
+  label: string;
+  path: string;
+  status: "pending_decision" | "kept" | "promoted";
+  createdAt: number;
+  terminalAt: number;
+  terminalEvent: "stopped" | "task_complete" | "error";
+  expiresAt?: number;
+}
+
 export interface CodingAgentStatus {
   supervisionLevel: string;
   taskCount: number;
@@ -4955,6 +4966,60 @@ export class MiladyClient {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async listCodingAgentScratchWorkspaces(): Promise<
+    CodingAgentScratchWorkspace[]
+  > {
+    try {
+      return await this.fetch<CodingAgentScratchWorkspace[]>(
+        "/api/coding-agents/scratch",
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  async keepCodingAgentScratchWorkspace(sessionId: string): Promise<boolean> {
+    try {
+      await this.fetch(
+        `/api/coding-agents/${encodeURIComponent(sessionId)}/scratch/keep`,
+        { method: "POST" },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async deleteCodingAgentScratchWorkspace(sessionId: string): Promise<boolean> {
+    try {
+      await this.fetch(
+        `/api/coding-agents/${encodeURIComponent(sessionId)}/scratch/delete`,
+        { method: "POST" },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async promoteCodingAgentScratchWorkspace(
+    sessionId: string,
+    name?: string,
+  ): Promise<CodingAgentScratchWorkspace | null> {
+    try {
+      const response = await this.fetch<{
+        success: boolean;
+        scratch?: CodingAgentScratchWorkspace;
+      }>(`/api/coding-agents/${encodeURIComponent(sessionId)}/scratch/promote`, {
+        method: "POST",
+        body: JSON.stringify(name ? { name } : {}),
+      });
+      return response.scratch ?? null;
+    } catch {
+      return null;
     }
   }
 

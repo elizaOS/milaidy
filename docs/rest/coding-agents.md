@@ -6,6 +6,10 @@ description: REST API endpoints for managing autonomous coding agent tasks and s
 
 These endpoints manage coding agent tasks orchestrated by the `AgentOrchestratorService`. They serve as fallback handlers when the coding agent plugin does not export its own route handler.
 
+For setup, architecture, auth, and debug/benchmark guidance, see:
+
+- [Coding Swarms (Orchestrator)](/guides/coding-swarms)
+
 ## Coordinator Status
 
 ```
