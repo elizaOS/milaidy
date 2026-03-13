@@ -160,14 +160,14 @@ function SettingsSidebar({
     <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border/50 bg-bg/50 backdrop-blur-xl">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(var(--accent),0.3)]">
-            <Sliders className="w-5 h-5 text-accent-fg" />
+          <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center">
+            <Sliders className="w-5 h-5 text-txt" />
           </div>
-          <div>
-            <h2 className="font-bold text-lg text-txt-strong">
+          <div className="min-h-10 flex flex-col justify-center">
+            <h2 className="font-bold text-lg text-txt-strong leading-tight">
               {t("nav.settings")}
             </h2>
-            <p className="text-xs text-muted hidden lg:block">
+            <p className="text-xs text-muted hidden lg:block leading-tight mt-0.5">
               {t("settings.customizeExperience")}
             </p>
           </div>
@@ -201,11 +201,7 @@ function SettingsSidebar({
                     : "text-txt hover:bg-bg-hover hover:border-border/50 border border-transparent"
                 }`}
               >
-                <span
-                  className={`w-9 h-9 flex items-center justify-center shrink-0 rounded-lg ${
-                    isActive ? "bg-accent-foreground/20" : "bg-bg-accent"
-                  }`}
-                >
+                <span className="w-9 h-9 flex items-center justify-center shrink-0 rounded-lg">
                   <Icon className="w-4 h-4" />
                 </span>
                 <div className="flex-1 min-w-0">
@@ -242,12 +238,12 @@ function UpdatesSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between p-5 bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
+      <div className="flex items-center justify-between p-5 border border-border/50 rounded-2xl shadow-sm">
         <div>
-          <div className="font-medium text-sm">
+          <div className="font-medium text-sm text-white">
             {t("settings.versionPrefix")}
           </div>
-          <div className="text-2xl font-bold text-txt-strong mt-1">
+          <div className="text-2xl font-bold text-white mt-1">
             {updateStatus?.currentVersion || `${t("common.loading")}...`}
           </div>
         </div>
@@ -354,11 +350,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openExportModal}
-            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
+            className="flex items-center gap-4 p-5 border border-border/50 rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
-            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
-              <Download className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-all">
+              <Download className="w-5 h-5 text-txt group-hover:text-accent transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -373,11 +369,11 @@ function AdvancedSection() {
           <button
             type="button"
             onClick={openImportModal}
-            className="flex items-center gap-4 p-5 border border-border/50 bg-card/60 backdrop-blur-md rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
+            className="flex items-center gap-4 p-5 border border-border/50 rounded-2xl hover:border-accent hover:shadow-[0_4px_20px_rgba(var(--accent),0.1)] transition-all text-left group hover:-translate-y-0.5 cursor-pointer h-auto min-h-[5rem] whitespace-normal break-words"
             aria-haspopup="dialog"
           >
-            <div className="w-12 h-12 rounded-xl bg-bg-accent border border-border/50 flex items-center justify-center group-hover:bg-accent group-hover:border-accent transition-all shadow-sm">
-              <Upload className="w-5 h-5 text-txt group-hover:text-accent-fg transition-colors" />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-all">
+              <Upload className="w-5 h-5 text-txt group-hover:text-accent transition-colors" />
             </div>
             <div>
               <div className="font-medium text-sm">
@@ -732,7 +728,7 @@ export function SettingsView({
           className="p-4 sm:p-5 lg:p-6"
         >
           <div className="mb-5">
-            <div className="text-xs font-semibold text-txt-strong mb-2">
+            <div className="text-xs font-semibold text-white mb-2">
               {t("settings.language")}
             </div>
             <div className="flex flex-wrap gap-1.5 border border-border rounded-lg p-1">
