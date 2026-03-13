@@ -1,18 +1,15 @@
 /**
  * Electrobun Renderer Bridge
  *
- * Provides backward compatibility with the existing renderer code by
- * mapping `window.electron.ipcRenderer` calls to Electrobun RPC.
+ * Exposes the direct Milady Electrobun RPC surface in the webview context.
  *
  * This script runs in the webview context (injected as a preload).
  * It uses `Electroview.defineRPC()` + `new Electroview()` to connect to
  * the Bun main process via the Electrobun WebSocket RPC channel.
  *
- * The renderer code continues to use:
- *   window.electron.ipcRenderer.invoke("agent:start")
- *   window.electron.ipcRenderer.on("agent:status", callback)
- *
- * This bridge translates those calls to typed RPC requests/messages.
+ * `window.__MILADY_ELECTROBUN_RPC__` is the only public desktop bridge exposed
+ * to renderer code. The internal legacy channel mapping remains here only to
+ * adapt the existing native event names onto that direct RPC surface.
  */
 
 import { Electroview } from "electrobun/view";
@@ -553,11 +550,7 @@ declare global {
     __MILADY_API_BASE__: string;
     __MILADY_API_TOKEN__: string;
     __MILADY_ELECTROBUN_RPC__: typeof miladyElectrobunRpc;
-    electron: typeof electronAPI;
   }
 }
 
 window.__MILADY_ELECTROBUN_RPC__ = miladyElectrobunRpc;
-
-// Expose as window.electron for backward compatibility
-window.electron = electronAPI;

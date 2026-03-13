@@ -15,17 +15,11 @@ type TestWindow = Window & {
       listener: (payload: unknown) => void,
     ) => void;
   };
-  electron?: {
-    ipcRenderer?: {
-      invoke: (channel: string, params?: unknown) => Promise<unknown>;
-    };
-  };
 };
 
 describe("openExternalUrl", () => {
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
   });
 

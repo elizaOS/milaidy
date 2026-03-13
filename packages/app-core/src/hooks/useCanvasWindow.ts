@@ -7,7 +7,7 @@
  *
  * Works in:
  *   - Electrobun — calls via the preload-exposed renderer RPC
- *   - Electron — falls back to window.electron.ipcRenderer
+ *   - Legacy Electron — falls back to the historical Electron bridge
  *
  * Falls back gracefully (isReady=false, no window created) when neither
  * runtime is detected (web / Capacitor / SSR).

@@ -15,18 +15,12 @@ type TestWindow = Window & {
       listener: (payload: unknown) => void,
     ) => void;
   };
-  electron?: {
-    ipcRenderer?: {
-      invoke: (channel: string, params?: unknown) => Promise<unknown>;
-    };
-  };
 };
 
 describe("toggleAlwaysOnTop", () => {
   afterEach(() => {
     delete (window as typeof window & { Capacitor?: unknown }).Capacitor;
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
   });
 

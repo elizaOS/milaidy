@@ -365,7 +365,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
   // Read the pre-built webview bridge preload (built by `bun run build:preload`).
   // The preload runs in the webview context after Electrobun's built-in preload,
-  // setting up window.electron as a compatibility shim over the Electrobun RPC.
+  // setting up Milady's direct Electrobun RPC bridge on the window.
   const preloadPath = path.join(import.meta.dir, "preload.js");
   const preload = fs.existsSync(preloadPath)
     ? fs.readFileSync(preloadPath, "utf8")
@@ -373,7 +373,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
   if (!preload) {
     console.warn(
-      "[Main] preload.js not found — run `bun run build:preload` first. window.electron will be unavailable.",
+      "[Main] preload.js not found — run `bun run build:preload` first. window.__MILADY_ELECTROBUN_RPC__ will be unavailable.",
     );
   }
 
