@@ -21,7 +21,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../whisper", () => ({
   isWhisperAvailable: vi.fn(() => false),
   isWhisperBinaryAvailable: vi.fn(() => false),
+  transcribeBunSpawn: vi.fn(),
+  writeWavFile: vi.fn(),
 }));
+
+vi.mock("node:fs", () => ({
+  default: { unlinkSync: vi.fn() },
+  unlinkSync: vi.fn(),
+}));
+
+vi.mock("node:os", () => ({
+  default: { tmpdir: vi.fn(() => "/tmp") },
+  tmpdir: vi.fn(() => "/tmp"),
+}));
+
+vi.mock("node:path", async () => {
+  const actual = await vi.importActual<typeof import("node:path")>("node:path");
+  return { default: actual, ...actual };
+});
 
 vi.stubGlobal("fetch", vi.fn());
 
@@ -40,6 +57,10 @@ import * as whisperMod from "../whisper";
 const mockIsWhisperAvailable = whisperMod.isWhisperAvailable as ReturnType<
   typeof vi.fn
 >;
+const mockTranscribeBunSpawn = whisperMod.transcribeBunSpawn as ReturnType<
+  typeof vi.fn
+>;
+const mockWriteWavFile = whisperMod.writeWavFile as ReturnType<typeof vi.fn>;
 const mockFetch = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
@@ -70,6 +91,7 @@ function makeErrorResponse(status = 500) {
 describe("TalkModeManager", () => {
   let manager: TalkModeManager;
   let webviewMessages: Array<{ message: string; payload: unknown }>;
+  const TALKMODE_AUDIO_BUFFER_THRESHOLD = 16000 * 3 * 4;
 
   beforeEach(() => {
     manager = new TalkModeManager();
@@ -79,6 +101,8 @@ describe("TalkModeManager", () => {
     });
     mockFetch.mockReset();
     mockIsWhisperAvailable.mockReturnValue(false);
+    mockTranscribeBunSpawn.mockReset();
+    mockWriteWavFile.mockReset();
   });
 
   afterEach(() => {
@@ -349,6 +373,55 @@ describe("TalkModeManager", () => {
       await expect(
         manager.audioChunk({ data: "dGVzdA==" }),
       ).resolves.toBeUndefined();
+    });
+
+    it("emits talkmode:transcript when whisper transcription succeeds", async () => {
+      mockIsWhisperAvailable.mockReturnValue(true);
+      mockTranscribeBunSpawn.mockResolvedValue({
+        text: "hello world",
+        segments: [{ text: "hello world", start: 0, end: 1 }],
+      });
+      await manager.start();
+
+      await expect(
+        manager.audioChunk({
+          data: Buffer.alloc(TALKMODE_AUDIO_BUFFER_THRESHOLD).toString(
+            "base64",
+          ),
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(mockWriteWavFile).toHaveBeenCalledTimes(1);
+      expect(webviewMessages).toContainEqual({
+        message: "talkmode:transcript",
+        payload: {
+          text: "hello world",
+          segments: [{ text: "hello world", start: 0, end: 1 }],
+        },
+      });
+    });
+
+    it("emits talkmode:error when whisper transcription fails", async () => {
+      mockIsWhisperAvailable.mockReturnValue(true);
+      mockTranscribeBunSpawn.mockRejectedValue(new Error("whisper crashed"));
+      await manager.start();
+
+      await expect(
+        manager.audioChunk({
+          data: Buffer.alloc(TALKMODE_AUDIO_BUFFER_THRESHOLD).toString(
+            "base64",
+          ),
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(webviewMessages).toContainEqual({
+        message: "talkmode:error",
+        payload: {
+          code: "transcription_failed",
+          message: "whisper crashed",
+          recoverable: true,
+        },
+      });
     });
   });
 

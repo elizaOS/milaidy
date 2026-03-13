@@ -319,6 +319,11 @@ export class TalkModeManager {
         })),
       });
     } catch (err) {
+      this.sendToWebview?.("talkmode:error", {
+        code: "transcription_failed",
+        message: err instanceof Error ? err.message : String(err),
+        recoverable: true,
+      });
       console.error("[TalkMode] _processBuffer error:", err);
     } finally {
       this._processing = false;

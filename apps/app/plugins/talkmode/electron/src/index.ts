@@ -314,6 +314,13 @@ export class TalkModeElectron implements TalkModePlugin {
           );
         },
       },
+      {
+        rpcMessage: "talkmodeError",
+        ipcChannel: "talkmode:error",
+        listener: (data: unknown) => {
+          this.notifyListeners("error", data as TalkModeErrorEvent);
+        },
+      },
     ];
 
     for (const entry of bridgeHandlers) {
@@ -323,24 +330,6 @@ export class TalkModeElectron implements TalkModePlugin {
         listener: entry.listener,
       });
       this.bridgeSubscriptions.push(unsubscribe);
-    }
-
-    if (!this.ipc?.on) return;
-
-    const handlers: Array<{
-      channel: string;
-      handler: IpcListener;
-    }> = [
-      {
-        channel: "talkmode:error",
-        handler: (_event, data) =>
-          this.notifyListeners("error", data as TalkModeErrorEvent),
-      },
-    ];
-
-    for (const entry of handlers) {
-      this.ipc.on(entry.channel, entry.handler);
-      this.ipcHandlers.push(entry);
     }
   }
 

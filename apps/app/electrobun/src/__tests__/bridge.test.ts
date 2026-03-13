@@ -175,6 +175,7 @@ describe("PUSH_CHANNEL_TO_RPC_MESSAGE mapping", () => {
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["talkmode:speakComplete"]).toBe(
       "talkmodeSpeakComplete",
     );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["talkmode:error"]).toBe("talkmodeError");
   });
 
   it("maps swabble push events", () => {
