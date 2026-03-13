@@ -706,6 +706,7 @@ jobs:
           WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
           WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
           WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
         run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
 
       - name: Verify Windows code signature
