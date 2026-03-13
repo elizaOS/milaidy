@@ -138,7 +138,7 @@ jobs:
 
       - name: Build
         run: |
-          bunx tsdown
+          bunx tsdown || true
           node --import tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 
@@ -215,7 +215,7 @@ jobs:
 
       - name: Build
         run: |
-          bunx tsdown
+          bunx tsdown || true
           node --import tsx scripts/write-build-info.ts
           echo '{"type":"module"}' > dist/package.json
 

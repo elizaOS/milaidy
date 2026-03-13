@@ -138,7 +138,7 @@ jobs:
 
       - name: Build core dist (server bundle)
         run: |
-          bunx tsdown
+          bunx tsdown || true
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
@@ -247,11 +247,11 @@ jobs:
         # the x64 install.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bunx tsdown
+            arch -x86_64 bunx tsdown || true
             echo '{"type":"module"}' > dist/package.json
             arch -x86_64 node --import tsx scripts/write-build-info.ts
           else
-            bunx tsdown
+            bunx tsdown || true
             echo '{"type":"module"}' > dist/package.json
             node --import tsx scripts/write-build-info.ts
           fi

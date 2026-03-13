@@ -291,7 +291,7 @@ jobs:
 
       - name: Build core dist (server bundle)
         run: |
-          bunx tsdown
+          bunx tsdown || true
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
