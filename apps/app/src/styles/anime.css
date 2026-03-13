@@ -4934,18 +4934,10 @@
   scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
 }
 
-.plugins-game-detail-panel::before {
-  top: 9px;
-  left: 9px;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
-}
-
+/* Corner brackets removed for cleaner ACP/plugin detail panel */
+.plugins-game-detail-panel::before,
 .plugins-game-detail-panel::after {
-  right: 9px;
-  bottom: 9px;
-  border-right: 1px solid rgba(255, 255, 255, 0.22);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  display: none;
 }
 
 .plugins-game-detail-panel::-webkit-scrollbar {
