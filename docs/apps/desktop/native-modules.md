@@ -1,28 +1,41 @@
 ---
 title: "Native Modules"
 sidebarTitle: "Native Modules"
-description: "IPC-based native module system that gives the Electron desktop app access to platform capabilities."
+description: "Electrobun RPC-based native module system that gives the Milady desktop app access to platform capabilities."
 ---
 
-The Milady desktop app exposes platform capabilities to the web renderer through a set of **native modules** — singleton manager classes running in the Electron main process. Each module is initialized in `initializeNativeModules()` and registers its IPC handlers via `registerAllIPC()`. The renderer calls into these modules using Electron's `ipcRenderer.invoke` and `ipcRenderer.on` APIs, proxied through the context-isolated preload script.
+The Milady desktop app exposes platform capabilities to the web renderer through a set of **native modules** running in the Electrobun Bun host. Each module is initialized in `initializeNativeModules()`, and Bun-side request handlers are wired through `registerRpcHandlers()`.
 
-There are **10 native modules** with **118+ IPC channels** in total, covering agent lifecycle, desktop integration, network discovery, voice I/O, wake-word detection, screen capture, camera, canvas windows, geolocation, and system permissions.
+Renderer code talks to the host through `window.__MILADY_ELECTROBUN_RPC__`:
 
-## IPC Channel Conventions
+- `request.<method>(params)` for request/response calls into Bun
+- `onMessage(name, listener)` / `offMessage(name, listener)` for Bun push events
 
-Every IPC channel follows the pattern `<module>:<action>` (e.g., `agent:start`, `desktop:registerShortcut`, `gateway:startDiscovery`).
+There are **10 native modules** with **118+ request aliases and push messages** in total, covering agent lifecycle, desktop integration, network discovery, voice I/O, wake-word detection, screen capture, camera, canvas windows, geolocation, and system permissions.
+
+## RPC Alias Conventions
+
+The source of truth still keeps legacy channel-style aliases in `rpc-schema.ts` using the pattern `<module>:<action>` (for example `agent:start`, `desktop:registerShortcut`, `gateway:startDiscovery`). The public renderer API maps those aliases onto camelCase request methods and message names.
+
+Examples:
+
+- `agent:start` → `window.__MILADY_ELECTROBUN_RPC__.request.agentStart()`
+- `desktop:registerShortcut` → `window.__MILADY_ELECTROBUN_RPC__.request.desktopRegisterShortcut(...)`
+- `agent:status` push event → `window.__MILADY_ELECTROBUN_RPC__.onMessage("agentStatusUpdate", ...)`
 
 **Direction** describes the communication model:
 
-- **invoke** — renderer calls the main process and awaits a response (`ipcRenderer.invoke`)
-- **event** — main process pushes to the renderer (`ipcRenderer.on` / `webContents.send`)
+- **request** — renderer calls Bun and awaits a response
+- **message** — Bun pushes an event to the renderer
 
 ```typescript
-// Invoke: call a native module and await its response
-const status = await ipcRenderer.invoke("agent:start");
+const rpc = window.__MILADY_ELECTROBUN_RPC__;
 
-// Event: listen for push notifications from the main process
-ipcRenderer.on("agent:status", (_event, status) => {
+// Request: call a native module and await its response
+const status = await rpc.request.agentStart();
+
+// Message: listen for push notifications from the Bun host
+rpc.onMessage("agentStatusUpdate", (status) => {
   console.log(status.state);
 });
 ```
@@ -73,7 +86,7 @@ interface AgentStatus {
 
 **Class**: `DesktopManager` | **Channels**: 32 invoke, 20 events
 
-The largest native module. Wraps Electron's system APIs for the tray, global shortcuts, auto-launch, window management, native notifications, power monitoring, clipboard, and shell operations.
+The largest native module. Wraps desktop system APIs for the tray, global shortcuts, auto-launch, window management, native notifications, power monitoring, clipboard, and shell operations.
 
 ### Tray
 
@@ -158,11 +171,11 @@ The largest native module. Wraps Electron's system APIs for the tray, global sho
 
 | Channel | Direction | Description |
 |---|---|---|
-| `desktop:quit` | invoke | Quits the Electron app. |
+| `desktop:quit` | invoke | Quits the desktop app. |
 | `desktop:relaunch` | invoke | Relaunches the app. |
 | `desktop:getVersion` | invoke | Returns the current app version string. |
 | `desktop:isPackaged` | invoke | Returns `true` if running a production build. |
-| `desktop:getPath` | invoke | Returns an Electron path (e.g., `userData`, `downloads`). |
+| `desktop:getPath` | invoke | Returns a desktop app path (for example `userData` or `downloads`). |
 
 ### Clipboard
 
@@ -250,7 +263,13 @@ Runs continuous wake-word detection in the background using fuzzy phrase matchin
 
 **Class**: `ScreenCaptureManager` | **Channels**: 9 invoke, 1 event
 
-Provides access to screen sources, screenshots, and screen recording. Capture operations run through a hidden renderer window to access the `desktopCapturer` API.
+Provides access to screen sources, screenshots, and screen recording.
+
+- App-window capture uses native OS tooling by default:
+  - macOS: `screencapture`
+  - Windows: PowerShell `System.Drawing.CopyFromScreen`
+  - Linux: `scrot`, falling back to ImageMagick `import`
+- Game URL capture uses a dedicated `BrowserWindow` path when a game URL is provided.
 
 | Channel | Direction | Description |
 |---|---|---|
@@ -384,34 +403,36 @@ Checks and requests OS-level permissions for accessibility, screen recording, mi
 ## Usage Example
 
 ```typescript
-import { ipcRenderer } from "electron";
+const rpc = window.__MILADY_ELECTROBUN_RPC__;
 
 // Register a global shortcut from the renderer
-await ipcRenderer.invoke("desktop:registerShortcut", {
+await rpc.request.desktopRegisterShortcut({
   id: "open-chat",
   accelerator: "CmdOrCtrl+Shift+M",
 });
 
 // Listen for the shortcut being pressed
-ipcRenderer.on("desktop:shortcutPressed", (_event, { id }) => {
+rpc.onMessage("desktopShortcutPressed", ({ id }) => {
   if (id === "open-chat") openChatWindow();
 });
 
-// Start the embedded agent and poll its status
-const status = await ipcRenderer.invoke("agent:start");
+// Start the embedded agent
+const status = await rpc.request.agentStart();
 console.log(status.state); // "starting" | "running" | "error"
 
 // React to live agent state changes
-ipcRenderer.on("agent:status", (_event, status) => {
-  updateAgentIndicator(status);
+rpc.onMessage("agentStatusUpdate", (nextStatus) => {
+  updateAgentIndicator(nextStatus);
 });
 
 // Check a permission before using a feature
-const cameraGranted = await ipcRenderer.invoke("permissions:check", "camera");
-if (!cameraGranted) {
-  await ipcRenderer.invoke("permissions:request", "camera");
+const cameraPermission = await rpc.request.permissionsCheck({ id: "camera" });
+if (cameraPermission.status !== "granted") {
+  await rpc.request.permissionsRequest({ id: "camera" });
 }
 ```
+
+The renderer usually should not call this global directly. Prefer the shared app helpers in `packages/app-core/src/bridge/electrobun-rpc.ts`, which wrap the same preload bridge behind request/message helpers used by the app and plugins.
 
 ---
 
