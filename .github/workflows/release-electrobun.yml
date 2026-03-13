@@ -292,7 +292,7 @@ jobs:
           fi
         working-directory: apps/app/electrobun
 
-      # Build the webview bridge preload (window.electron shim injected into the webview)
+      # Build the webview bridge preload (direct Electrobun RPC bridge injected into the webview)
       - name: Build webview bridge preload
         run: bun run build:preload
         working-directory: apps/app/electrobun
@@ -668,15 +668,11 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
           Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
 
-      - name: Install Playwright Chromium (Windows)
-        if: matrix.platform.os == 'windows'
-        run: bunx playwright install chromium --with-deps
-
-      - name: Run Windows UI Playwright Tests
+      - name: Run Windows packaged CEF UI test
         if: matrix.platform.os == 'windows'
         run: |
           cd apps/app
-          bunx playwright test --config playwright.electron.packaged.config.ts test/electron-packaged/electrobun-windows-startup.e2e.spec.ts
+          bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts
 
       - name: Upload Windows Playwright UI diagnostics
         if: failure() && matrix.platform.os == 'windows'

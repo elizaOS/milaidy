@@ -1,10 +1,10 @@
 ---
-title: Desktop App (Electron)
+title: Desktop App (Electrobun)
 sidebarTitle: Desktop App
 description: Install and use the Milady desktop application on macOS, Windows, and Linux with embedded agent runtime and native features.
 ---
 
-The Milady desktop app wraps the web dashboard in a native Electron shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
+The Milady desktop app wraps the web dashboard in a native Electrobun shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
 
 ## Download and Install
 
@@ -36,14 +36,14 @@ Download the `.AppImage` or `.deb` package from the releases page.
 ```bash
 git clone https://github.com/milady-ai/milady.git && cd milady
 bun install && bun run build
-cd apps/app && bun run electron:dev
+bun run dev:desktop
 ```
 
-In development mode, the Electron app resolves the milady distribution from the repository root's `dist/` directory. In packaged builds, assets are copied to `Resources/milady-dist/` via `extraResources`.
+In development mode, the Electrobun app resolves the Milady distribution from the repository root's `dist/` directory. In packaged builds, assets are copied into the app bundle under `Resources/app/milady-dist/`.
 
 ## Embedded Agent Runtime
 
-The desktop app embeds the full Milady agent runtime directly in the Electron main process. No separate server or CLI is needed.
+The desktop app embeds the full Milady agent runtime directly in the Electrobun host process. No separate server or CLI is needed.
 
 ### Startup Sequence
 
@@ -81,8 +81,9 @@ For testing or connecting to a remote agent:
 
 | Environment Variable | Effect |
 |---------------------|--------|
-| `MILADY_ELECTRON_TEST_API_BASE` | Use a remote API server instead of the embedded agent |
-| `MILADY_ELECTRON_SKIP_EMBEDDED_AGENT=1` | Disable embedded agent startup (no API connection) |
+| `MILADY_DESKTOP_TEST_API_BASE` | Use a remote API server instead of the embedded agent |
+| `MILADY_DESKTOP_SKIP_EMBEDDED_AGENT=1` | Disable embedded agent startup (no API connection) |
+| `MILADY_ELECTRON_TEST_API_BASE` | Legacy fallback for older test harnesses |
 | `MILADY_API_TOKEN` | Inject an API authentication token into the renderer |
 
 ## Native Modules

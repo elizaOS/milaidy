@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./test/electron-packaged",
+  testDir: "./test/electrobun-packaged",
   testMatch: ["**/*.e2e.spec.ts"],
   timeout: 300_000,
   expect: {

@@ -25,7 +25,7 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
 );
 const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
-  "apps/app/test/electron-packaged/electrobun-windows-startup.e2e.spec.ts",
+  "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
 );
 
 describe("Electrobun release workflow drift", () => {
@@ -259,7 +259,22 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("passes a Chromium remote debugging argument to the packaged Windows app test", () => {
+  it("attaches Playwright to the embedded Windows CEF renderer without installing a separate browser", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Run Windows packaged CEF UI test");
+    expect(workflow).toContain(
+      "bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
+    );
+    expect(workflow).not.toContain(
+      "name: Install Playwright Chromium (Windows)",
+    );
+    expect(workflow).not.toContain(
+      "bunx playwright install chromium --with-deps",
+    );
+  });
+
+  it("passes a remote debugging argument and attaches over CDP to the packaged Windows CEF app", () => {
     const windowsPackagedTest = fs.readFileSync(
       WINDOWS_PACKAGED_TEST_PATH,
       "utf8",
@@ -268,6 +283,8 @@ describe("Electrobun release workflow drift", () => {
     expect(windowsPackagedTest).toContain(
       "[`--remote-debugging-port=$" + "{debugPort}`]",
     );
+    expect(windowsPackagedTest).toContain("embedded CEF/Chromium renderer");
+    expect(windowsPackagedTest).toContain("chromium.connectOverCDP");
     expect(windowsPackagedTest).toContain(
       "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
     );

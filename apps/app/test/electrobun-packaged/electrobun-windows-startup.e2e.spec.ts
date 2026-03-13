@@ -264,18 +264,19 @@ test("packaged Windows app starts and reaches chat/agent-ready state", async () 
 
     appProcess = spawn(
       executablePath,
-      // Windows release builds use CEF/Chromium, so pass the debug port as a
-      // real Chromium argument. Keep the WebView2 env var as a compatibility
-      // fallback in case the renderer mode changes in the future.
+      // Windows release builds use an embedded CEF/Chromium renderer, so pass
+      // the debug port directly to the packaged app and attach over CDP.
+      // Keep the WebView2 env var as a compatibility fallback in case the
+      // renderer mode changes in the future.
       [`--remote-debugging-port=${debugPort}`],
       {
         cwd: path.dirname(executablePath),
         env: {
           ...process.env,
-          MILADY_ELECTRON_SKIP_EMBEDDED_AGENT: "1",
-          MILADY_ELECTRON_TEST_API_BASE: api.baseUrl,
-          MILADY_ELECTRON_DISABLE_AUTO_UPDATER: "1",
-          MILADY_ELECTRON_DISABLE_DEVTOOLS: "1",
+          MILADY_DESKTOP_SKIP_EMBEDDED_AGENT: "1",
+          MILADY_DESKTOP_TEST_API_BASE: api.baseUrl,
+          MILADY_DESKTOP_DISABLE_AUTO_UPDATER: "1",
+          MILADY_DESKTOP_DISABLE_DEVTOOLS: "1",
           // Compatibility fallback for native Windows webviews.
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
           // Redirect the Roaming AppData so it doesn't pollute the dev machine's real AppData
