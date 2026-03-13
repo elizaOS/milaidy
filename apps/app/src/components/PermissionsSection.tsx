@@ -312,7 +312,6 @@ function usePermissionActions(
       // native bridge to actually open system settings.
       const opened = await invokeDesktopBridgeRequest({
         rpcMethod: "permissionsOpenSettings",
-        ipcChannel: "permissions:openSettings",
         params: { id },
       });
       if (opened === null) {

@@ -73,7 +73,7 @@ describe("DesktopElectron desktop bridge", () => {
   it("throws when desktop-only requests are called without direct Electrobun RPC", async () => {
     const plugin = new DesktopElectron();
     await expect(plugin.beep()).rejects.toThrow(
-      "beep is not available: Electron IPC bridge not found.",
+      "beep is not available: desktop RPC bridge not found.",
     );
   });
 

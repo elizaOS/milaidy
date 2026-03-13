@@ -69,22 +69,18 @@ export function useContextMenu(): ContextMenuState {
     const unsubscribers = [
       subscribeDesktopBridgeEvent({
         rpcMessage: "contextMenuSaveAsCommand",
-        ipcChannel: "contextMenu:saveAsCommand",
         listener: onSaveAsCommand,
       }),
       subscribeDesktopBridgeEvent({
         rpcMessage: "contextMenuAskAgent",
-        ipcChannel: "contextMenu:askAgent",
         listener: onAskAgent,
       }),
       subscribeDesktopBridgeEvent({
         rpcMessage: "contextMenuCreateSkill",
-        ipcChannel: "contextMenu:createSkill",
         listener: onCreateSkill,
       }),
       subscribeDesktopBridgeEvent({
         rpcMessage: "contextMenuQuoteInChat",
-        ipcChannel: "contextMenu:quoteInChat",
         listener: onQuoteInChat,
       }),
     ];

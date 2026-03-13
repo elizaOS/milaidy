@@ -1563,7 +1563,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const restartBackend = useCallback(async () => {
     const restarted = await invokeDesktopBridgeRequest({
       rpcMethod: "agentRestart",
-      ipcChannel: "agent:restart",
     });
     if (restarted === null) {
       // Fallback for web: call API restart endpoint

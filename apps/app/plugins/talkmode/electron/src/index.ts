@@ -11,7 +11,7 @@
  * TTS Options:
  * - ElevenLabs API streaming (online, high quality)
  * - System TTS via speechSynthesis API
- * - Native TTS via Electron IPC (platform-specific)
+ * - Native desktop TTS via the Electrobun RPC bridge
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
@@ -145,13 +145,11 @@ export class TalkModeElectron implements TalkModePlugin {
 
   private async invokeBridge<T>(
     rpcMethod: string,
-    ipcChannel: string,
     params?: unknown,
   ): Promise<T | null> {
     try {
       return await invokeDesktopBridgeRequest<T>({
         rpcMethod,
-        ipcChannel,
         params,
       });
     } catch {
@@ -170,20 +168,16 @@ export class TalkModeElectron implements TalkModePlugin {
 
     const nativeConfig = toNativeTalkModeConfig(options?.config);
     if (nativeConfig) {
-      await this.invokeBridge(
-        "talkmodeUpdateConfig",
-        "talkmode:updateConfig",
-        nativeConfig,
-      );
+      await this.invokeBridge("talkmodeUpdateConfig", nativeConfig);
     }
 
-    // Try native STT/TTS via Electrobun RPC or Electron IPC first
+    // Try the native desktop bridge before falling back to Web Speech APIs.
     const nativeResult = await this.invokeBridge<{
       available?: boolean;
       started?: boolean;
       reason?: string;
       error?: string;
-    }>("talkmodeStart", "talkmode:start");
+    }>("talkmodeStart");
     if (nativeResult) {
       const started = nativeResult.available ?? nativeResult.started ?? false;
       if (started) {
@@ -193,7 +187,6 @@ export class TalkModeElectron implements TalkModePlugin {
 
         const whisperStatus = await this.invokeBridge<{ available: boolean }>(
           "talkmodeIsWhisperAvailable",
-          "talkmode:isWhisperAvailable",
         );
         if (whisperStatus?.available) {
           this.captureSampleRate = this.config.stt?.sampleRate ?? 16000;
@@ -281,14 +274,12 @@ export class TalkModeElectron implements TalkModePlugin {
     const bridgeHandlers = [
       {
         rpcMessage: "talkmodeStateChanged",
-        ipcChannel: "talkmode:stateChanged",
         listener: (data: unknown) => {
           this.handleNativeStateChanged(data);
         },
       },
       {
         rpcMessage: "talkmodeTranscript",
-        ipcChannel: "talkmode:transcript",
         listener: (data: unknown) => {
           this.notifyListeners(
             "transcript",
@@ -298,7 +289,6 @@ export class TalkModeElectron implements TalkModePlugin {
       },
       {
         rpcMessage: "talkmodeError",
-        ipcChannel: "talkmode:error",
         listener: (data: unknown) => {
           this.notifyListeners("error", data as TalkModeErrorEvent);
         },
@@ -308,7 +298,6 @@ export class TalkModeElectron implements TalkModePlugin {
     for (const entry of bridgeHandlers) {
       const unsubscribe = subscribeDesktopBridgeEvent({
         rpcMessage: entry.rpcMessage,
-        ipcChannel: entry.ipcChannel,
         listener: entry.listener,
       });
       this.bridgeSubscriptions.push(unsubscribe);
@@ -326,7 +315,7 @@ export class TalkModeElectron implements TalkModePlugin {
     this.enabled = false;
     this.stopAudioCapture();
     this.removeNativeListeners();
-    await this.invokeBridge("talkmodeStop", "talkmode:stop");
+    await this.invokeBridge("talkmodeStop");
 
     this.recognition?.stop();
     this.recognition = null;
@@ -339,7 +328,6 @@ export class TalkModeElectron implements TalkModePlugin {
   async isEnabled(): Promise<{ enabled: boolean }> {
     const nativeEnabled = await this.invokeBridge<{ enabled: boolean }>(
       "talkmodeIsEnabled",
-      "talkmode:isEnabled",
     );
     if (nativeEnabled) {
       this.enabled = nativeEnabled.enabled;
@@ -351,7 +339,6 @@ export class TalkModeElectron implements TalkModePlugin {
   async getState(): Promise<{ state: TalkModeState; statusText: string }> {
     const nativeState = await this.invokeBridge<{ state: TalkModeState }>(
       "talkmodeGetState",
-      "talkmode:getState",
     );
     if (nativeState?.state) {
       this.state = nativeState.state;
@@ -373,11 +360,7 @@ export class TalkModeElectron implements TalkModePlugin {
       return;
     }
 
-    await this.invokeBridge(
-      "talkmodeUpdateConfig",
-      "talkmode:updateConfig",
-      nativeConfig,
-    );
+    await this.invokeBridge("talkmodeUpdateConfig", nativeConfig);
   }
 
   async speak(options: SpeakOptions): Promise<SpeakResult> {
@@ -716,7 +699,6 @@ export class TalkModeElectron implements TalkModePlugin {
   async isSpeaking(): Promise<{ speaking: boolean }> {
     const nativeSpeaking = await this.invokeBridge<{ speaking: boolean }>(
       "talkmodeIsSpeaking",
-      "talkmode:isSpeaking",
     );
     if (nativeSpeaking) {
       this.isSpeakingValue = nativeSpeaking.speaking;
@@ -757,7 +739,6 @@ export class TalkModeElectron implements TalkModePlugin {
 
     const whisperStatus = await this.invokeBridge<{ available: boolean }>(
       "talkmodeIsWhisperAvailable",
-      "talkmode:isWhisperAvailable",
     );
     if (whisperStatus?.available) {
       speechRecognition = "granted";

@@ -9,11 +9,7 @@ type TestWindow = Window & {
 };
 
 type TalkModeElectronPrivate = TalkModeElectron & {
-  invokeBridge: (
-    rpcMethod: string,
-    ipcChannel: string,
-    params?: unknown,
-  ) => Promise<unknown>;
+  invokeBridge: (rpcMethod: string, params?: unknown) => Promise<unknown>;
   setupNativeListeners: () => void;
 };
 
@@ -166,26 +162,16 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
       }),
     ).resolves.toEqual({ started: true });
 
-    expect(invokeBridge).toHaveBeenNthCalledWith(
-      1,
-      "talkmodeUpdateConfig",
-      "talkmode:updateConfig",
-      {
-        engine: "whisper",
-        modelSize: "base",
-        language: "en",
-        voiceId: "voice-1",
-      },
-    );
-    expect(invokeBridge).toHaveBeenNthCalledWith(
-      2,
-      "talkmodeStart",
-      "talkmode:start",
-    );
+    expect(invokeBridge).toHaveBeenNthCalledWith(1, "talkmodeUpdateConfig", {
+      engine: "whisper",
+      modelSize: "base",
+      language: "en",
+      voiceId: "voice-1",
+    });
+    expect(invokeBridge).toHaveBeenNthCalledWith(2, "talkmodeStart");
     expect(invokeBridge).toHaveBeenNthCalledWith(
       3,
       "talkmodeIsWhisperAvailable",
-      "talkmode:isWhisperAvailable",
     );
 
     directListeners.get("talkmodeStateChanged")?.forEach((listener) => {
@@ -224,14 +210,10 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
         silenceWindowMs: 1000,
       },
     });
-    expect(invokeBridge).toHaveBeenCalledWith(
-      "talkmodeUpdateConfig",
-      "talkmode:updateConfig",
-      {
-        modelSize: "small",
-        voiceId: "voice-2",
-      },
-    );
+    expect(invokeBridge).toHaveBeenCalledWith("talkmodeUpdateConfig", {
+      modelSize: "small",
+      voiceId: "voice-2",
+    });
 
     processorStub.onaudioprocess?.({
       inputBuffer: {
@@ -245,7 +227,7 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
     });
 
     await plugin.stop();
-    expect(invokeBridge).toHaveBeenCalledWith("talkmodeStop", "talkmode:stop");
+    expect(invokeBridge).toHaveBeenCalledWith("talkmodeStop");
     expect(directListeners.get("talkmodeStateChanged")?.size ?? 0).toBe(0);
     expect(directListeners.get("talkmodeTranscript")?.size ?? 0).toBe(0);
   });

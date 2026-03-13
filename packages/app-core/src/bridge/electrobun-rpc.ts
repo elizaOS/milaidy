@@ -29,7 +29,6 @@ export function getElectrobunRendererRpc(): ElectrobunRendererRpc | undefined {
 
 export async function invokeDesktopBridgeRequest<T>(options: {
   rpcMethod: string;
-  ipcChannel: string;
   params?: unknown;
 }): Promise<T | null> {
   const rpc = getElectrobunRendererRpc();
@@ -43,7 +42,6 @@ export async function invokeDesktopBridgeRequest<T>(options: {
 
 export function subscribeDesktopBridgeEvent(options: {
   rpcMessage: string;
-  ipcChannel: string;
   listener: ElectrobunMessageListener;
 }): () => void {
   const rpc = getElectrobunRendererRpc();

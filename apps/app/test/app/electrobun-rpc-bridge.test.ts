@@ -17,7 +17,7 @@ describe("electrobun rpc bridge", () => {
     vi.restoreAllMocks();
   });
 
-  it("prefers direct Electrobun RPC requests over Electron IPC", async () => {
+  it("prefers direct Electrobun RPC requests when available", async () => {
     const rpcRequest = vi.fn().mockResolvedValue({ ok: true });
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: { desktopOpenExternal: rpcRequest },
@@ -28,7 +28,6 @@ describe("electrobun rpc bridge", () => {
     await expect(
       invokeDesktopBridgeRequest({
         rpcMethod: "desktopOpenExternal",
-        ipcChannel: "desktop:openExternal",
         params: { url: "https://example.com" },
       }),
     ).resolves.toEqual({ ok: true });
@@ -40,7 +39,6 @@ describe("electrobun rpc bridge", () => {
     await expect(
       invokeDesktopBridgeRequest({
         rpcMethod: "desktopOpenExternal",
-        ipcChannel: "desktop:openExternal",
         params: { url: "https://example.com" },
       }),
     ).resolves.toBeNull();
@@ -67,7 +65,6 @@ describe("electrobun rpc bridge", () => {
     const listener = vi.fn();
     const unsubscribe = subscribeDesktopBridgeEvent({
       rpcMessage: "contextMenuSaveAsCommand",
-      ipcChannel: "contextMenu:saveAsCommand",
       listener,
     });
 

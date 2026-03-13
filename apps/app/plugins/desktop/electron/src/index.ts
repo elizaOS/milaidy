@@ -12,7 +12,7 @@
  * - Shell operations
  *
  * This file should be loaded in the Electron main process and
- * its API exposed to the renderer via IPC.
+ * its API exposed to the renderer via the desktop RPC bridge.
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
@@ -84,56 +84,48 @@ type DesktopVersionResult =
     };
 
 const DESKTOP_RPC_EVENTS: Partial<
-  Record<DesktopEventName, { rpcMessage: string; ipcChannel: string }>
+  Record<DesktopEventName, { rpcMessage: string }>
 > = {
   trayClick: {
     rpcMessage: "desktopTrayClick",
-    ipcChannel: "desktop:trayClick",
   },
   trayMenuClick: {
     rpcMessage: "desktopTrayMenuClick",
-    ipcChannel: "desktop:trayMenuClick",
   },
   shortcutPressed: {
     rpcMessage: "desktopShortcutPressed",
-    ipcChannel: "desktop:shortcutPressed",
   },
   windowFocus: {
     rpcMessage: "desktopWindowFocus",
-    ipcChannel: "desktop:windowFocus",
   },
   windowBlur: {
     rpcMessage: "desktopWindowBlur",
-    ipcChannel: "desktop:windowBlur",
   },
   windowMaximize: {
     rpcMessage: "desktopWindowMaximize",
-    ipcChannel: "desktop:windowMaximize",
   },
   windowUnmaximize: {
     rpcMessage: "desktopWindowUnmaximize",
-    ipcChannel: "desktop:windowUnmaximize",
   },
   windowClose: {
     rpcMessage: "desktopWindowClose",
-    ipcChannel: "desktop:windowClose",
   },
 };
 
 /**
- * Helper to throw when Electron IPC is unavailable.
- * Desktop plugin features require Electron's main process access.
+ * Helper to throw when the desktop bridge is unavailable.
+ * Desktop plugin features require Electrobun's native desktop runtime.
  */
-function requireIPC(feature: string): never {
+function requireDesktopBridge(feature: string): never {
   throw new Error(
-    `${feature} is not available: Electron IPC bridge not found. ` +
-      "The Desktop plugin requires the Electron main process with properly configured IPC handlers.",
+    `${feature} is not available: desktop RPC bridge not found. ` +
+      "The Desktop plugin requires the native desktop runtime with configured RPC handlers.",
   );
 }
 
 /**
  * Desktop Plugin implementation for Electron
- * Uses IPC to communicate with the main process
+ * Uses the desktop RPC bridge to communicate with the native runtime.
  */
 export class DesktopElectron implements DesktopPlugin {
   private listeners: ListenerEntry[] = [];
@@ -146,16 +138,14 @@ export class DesktopElectron implements DesktopPlugin {
   private async invokeBridge<T>(
     feature: string,
     rpcMethod: string,
-    ipcChannel: string,
     params?: unknown,
   ): Promise<T> {
     const result = await invokeDesktopBridgeRequest<T>({
       rpcMethod,
-      ipcChannel,
       params,
     });
     if (result === null) {
-      requireIPC(feature);
+      requireDesktopBridge(feature);
     }
     return result as T;
   }
@@ -191,7 +181,6 @@ export class DesktopElectron implements DesktopPlugin {
 
       const unsubscribe = subscribeDesktopBridgeEvent({
         rpcMessage: rpcEvent.rpcMessage,
-        ipcChannel: rpcEvent.ipcChannel,
         listener: (data) => {
           this.notifyListeners(
             eventName,
@@ -205,38 +194,19 @@ export class DesktopElectron implements DesktopPlugin {
 
   // System Tray
   async createTray(options: TrayOptions): Promise<void> {
-    await this.invokeBridge(
-      "createTray",
-      "desktopCreateTray",
-      "desktop:createTray",
-      options,
-    );
+    await this.invokeBridge("createTray", "desktopCreateTray", options);
   }
 
   async updateTray(options: Partial<TrayOptions>): Promise<void> {
-    await this.invokeBridge(
-      "updateTray",
-      "desktopUpdateTray",
-      "desktop:updateTray",
-      options,
-    );
+    await this.invokeBridge("updateTray", "desktopUpdateTray", options);
   }
 
   async destroyTray(): Promise<void> {
-    await this.invokeBridge(
-      "destroyTray",
-      "desktopDestroyTray",
-      "desktop:destroyTray",
-    );
+    await this.invokeBridge("destroyTray", "desktopDestroyTray");
   }
 
   async setTrayMenu(options: { menu: TrayMenuItem[] }): Promise<void> {
-    await this.invokeBridge(
-      "setTrayMenu",
-      "desktopSetTrayMenu",
-      "desktop:setTrayMenu",
-      options,
-    );
+    await this.invokeBridge("setTrayMenu", "desktopSetTrayMenu", options);
   }
 
   // Global Shortcuts
@@ -246,7 +216,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ success: boolean }>(
       "registerShortcut",
       "desktopRegisterShortcut",
-      "desktop:registerShortcut",
       options,
     );
   }
@@ -255,7 +224,6 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "unregisterShortcut",
       "desktopUnregisterShortcut",
-      "desktop:unregisterShortcut",
       options,
     );
   }
@@ -264,7 +232,6 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "unregisterAllShortcuts",
       "desktopUnregisterAllShortcuts",
-      "desktop:unregisterAllShortcuts",
     );
   }
 
@@ -274,19 +241,13 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ registered: boolean }>(
       "isShortcutRegistered",
       "desktopIsShortcutRegistered",
-      "desktop:isShortcutRegistered",
       options,
     );
   }
 
   // Auto Launch
   async setAutoLaunch(options: AutoLaunchOptions): Promise<void> {
-    await this.invokeBridge(
-      "setAutoLaunch",
-      "desktopSetAutoLaunch",
-      "desktop:setAutoLaunch",
-      options,
-    );
+    await this.invokeBridge("setAutoLaunch", "desktopSetAutoLaunch", options);
   }
 
   async getAutoLaunchStatus(): Promise<{
@@ -296,11 +257,7 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{
       enabled: boolean;
       openAsHidden: boolean;
-    }>(
-      "getAutoLaunchStatus",
-      "desktopGetAutoLaunchStatus",
-      "desktop:getAutoLaunchStatus",
-    );
+    }>("getAutoLaunchStatus", "desktopGetAutoLaunchStatus");
   }
 
   // Window Management
@@ -308,7 +265,6 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "setWindowOptions",
       "desktopSetWindowOptions",
-      "desktop:setWindowOptions",
       options,
     );
   }
@@ -317,7 +273,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<WindowBounds>(
       "getWindowBounds",
       "desktopGetWindowBounds",
-      "desktop:getWindowBounds",
     );
   }
 
@@ -325,72 +280,42 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "setWindowBounds",
       "desktopSetWindowBounds",
-      "desktop:setWindowBounds",
       options,
     );
   }
 
   async minimizeWindow(): Promise<void> {
-    await this.invokeBridge(
-      "minimizeWindow",
-      "desktopMinimizeWindow",
-      "desktop:minimizeWindow",
-    );
+    await this.invokeBridge("minimizeWindow", "desktopMinimizeWindow");
   }
 
   async maximizeWindow(): Promise<void> {
-    await this.invokeBridge(
-      "maximizeWindow",
-      "desktopMaximizeWindow",
-      "desktop:maximizeWindow",
-    );
+    await this.invokeBridge("maximizeWindow", "desktopMaximizeWindow");
   }
 
   async unmaximizeWindow(): Promise<void> {
-    await this.invokeBridge(
-      "unmaximizeWindow",
-      "desktopUnmaximizeWindow",
-      "desktop:unmaximizeWindow",
-    );
+    await this.invokeBridge("unmaximizeWindow", "desktopUnmaximizeWindow");
   }
 
   async closeWindow(): Promise<void> {
-    await this.invokeBridge(
-      "closeWindow",
-      "desktopCloseWindow",
-      "desktop:closeWindow",
-    );
+    await this.invokeBridge("closeWindow", "desktopCloseWindow");
   }
 
   async showWindow(): Promise<void> {
-    await this.invokeBridge(
-      "showWindow",
-      "desktopShowWindow",
-      "desktop:showWindow",
-    );
+    await this.invokeBridge("showWindow", "desktopShowWindow");
   }
 
   async hideWindow(): Promise<void> {
-    await this.invokeBridge(
-      "hideWindow",
-      "desktopHideWindow",
-      "desktop:hideWindow",
-    );
+    await this.invokeBridge("hideWindow", "desktopHideWindow");
   }
 
   async focusWindow(): Promise<void> {
-    await this.invokeBridge(
-      "focusWindow",
-      "desktopFocusWindow",
-      "desktop:focusWindow",
-    );
+    await this.invokeBridge("focusWindow", "desktopFocusWindow");
   }
 
   async isWindowMaximized(): Promise<{ maximized: boolean }> {
     return await this.invokeBridge<{ maximized: boolean }>(
       "isWindowMaximized",
       "desktopIsWindowMaximized",
-      "desktop:isWindowMaximized",
     );
   }
 
@@ -398,7 +323,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ minimized: boolean }>(
       "isWindowMinimized",
       "desktopIsWindowMinimized",
-      "desktop:isWindowMinimized",
     );
   }
 
@@ -406,7 +330,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ visible: boolean }>(
       "isWindowVisible",
       "desktopIsWindowVisible",
-      "desktop:isWindowVisible",
     );
   }
 
@@ -414,7 +337,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ focused: boolean }>(
       "isWindowFocused",
       "desktopIsWindowFocused",
-      "desktop:isWindowFocused",
     );
   }
 
@@ -422,30 +344,15 @@ export class DesktopElectron implements DesktopPlugin {
     flag: boolean;
     level?: AlwaysOnTopLevel;
   }): Promise<void> {
-    await this.invokeBridge(
-      "setAlwaysOnTop",
-      "desktopSetAlwaysOnTop",
-      "desktop:setAlwaysOnTop",
-      options,
-    );
+    await this.invokeBridge("setAlwaysOnTop", "desktopSetAlwaysOnTop", options);
   }
 
   async setFullscreen(options: { flag: boolean }): Promise<void> {
-    await this.invokeBridge(
-      "setFullscreen",
-      "desktopSetFullscreen",
-      "desktop:setFullscreen",
-      options,
-    );
+    await this.invokeBridge("setFullscreen", "desktopSetFullscreen", options);
   }
 
   async setOpacity(options: { opacity: number }): Promise<void> {
-    await this.invokeBridge(
-      "setOpacity",
-      "desktopSetOpacity",
-      "desktop:setOpacity",
-      options,
-    );
+    await this.invokeBridge("setOpacity", "desktopSetOpacity", options);
   }
 
   // Notifications
@@ -455,7 +362,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ id: string }>(
       "showNotification",
       "desktopShowNotification",
-      "desktop:showNotification",
       options,
     );
   }
@@ -464,7 +370,6 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "closeNotification",
       "desktopCloseNotification",
-      "desktop:closeNotification",
       options,
     );
   }
@@ -474,17 +379,16 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<PowerMonitorState>(
       "getPowerState",
       "desktopGetPowerState",
-      "desktop:getPowerState",
     );
   }
 
   // App
   async quit(): Promise<void> {
-    await this.invokeBridge("quit", "desktopQuit", "desktop:quit");
+    await this.invokeBridge("quit", "desktopQuit");
   }
 
   async relaunch(): Promise<void> {
-    await this.invokeBridge("relaunch", "desktopRelaunch", "desktop:relaunch");
+    await this.invokeBridge("relaunch", "desktopRelaunch");
   }
 
   async getVersion(): Promise<{
@@ -497,7 +401,6 @@ export class DesktopElectron implements DesktopPlugin {
     const version = await this.invokeBridge<DesktopVersionResult>(
       "getVersion",
       "desktopGetVersion",
-      "desktop:getVersion",
     );
     if ("runtime" in version) {
       return {
@@ -515,7 +418,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ packaged: boolean }>(
       "isPackaged",
       "desktopIsPackaged",
-      "desktop:isPackaged",
     );
   }
 
@@ -523,7 +425,6 @@ export class DesktopElectron implements DesktopPlugin {
     return await this.invokeBridge<{ path: string }>(
       "getPath",
       "desktopGetPath",
-      "desktop:getPath",
       options,
     );
   }
@@ -538,7 +439,6 @@ export class DesktopElectron implements DesktopPlugin {
     await this.invokeBridge(
       "writeToClipboard",
       "desktopWriteToClipboard",
-      "desktop:writeToClipboard",
       options,
     );
   }
@@ -554,42 +454,28 @@ export class DesktopElectron implements DesktopPlugin {
       html?: string;
       rtf?: string;
       hasImage: boolean;
-    }>(
-      "readFromClipboard",
-      "desktopReadFromClipboard",
-      "desktop:readFromClipboard",
-    );
+    }>("readFromClipboard", "desktopReadFromClipboard");
   }
 
   async clearClipboard(): Promise<void> {
-    await this.invokeBridge(
-      "clearClipboard",
-      "desktopClearClipboard",
-      "desktop:clearClipboard",
-    );
+    await this.invokeBridge("clearClipboard", "desktopClearClipboard");
   }
 
   // Shell
   async openExternal(options: { url: string }): Promise<void> {
-    await this.invokeBridge(
-      "openExternal",
-      "desktopOpenExternal",
-      "desktop:openExternal",
-      options,
-    );
+    await this.invokeBridge("openExternal", "desktopOpenExternal", options);
   }
 
   async showItemInFolder(options: { path: string }): Promise<void> {
     await this.invokeBridge(
       "showItemInFolder",
       "desktopShowItemInFolder",
-      "desktop:showItemInFolder",
       options,
     );
   }
 
   async beep(): Promise<void> {
-    await this.invokeBridge("beep", "desktopBeep", "desktop:beep");
+    await this.invokeBridge("beep", "desktopBeep");
   }
 
   // Events

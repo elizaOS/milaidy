@@ -50,7 +50,6 @@ async function showDesktopMessageBox(
 ): Promise<DesktopMessageBoxResult | null> {
   return await invokeDesktopBridgeRequest<DesktopMessageBoxResult>({
     rpcMethod: "desktopShowMessageBox",
-    ipcChannel: "desktop:showMessageBox",
     params: options,
   });
 }

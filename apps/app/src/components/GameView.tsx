@@ -180,7 +180,6 @@ export function GameView() {
 
     void invokeDesktopBridgeRequest<{ id: string }>({
       rpcMethod: "gameOpenWindow",
-      ipcChannel: "game:openWindow",
       params: {
         url: activeGameViewerUrl,
         title: activeGameDisplayName || activeGameApp || "Game",
@@ -205,7 +204,6 @@ export function GameView() {
       if (gameWindowIdRef.current) {
         void invokeDesktopBridgeRequest({
           rpcMethod: "canvasDestroyWindow",
-          ipcChannel: "canvas:destroyWindow",
           params: { id: gameWindowIdRef.current },
         }).catch(() => {});
         gameWindowIdRef.current = null;
