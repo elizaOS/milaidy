@@ -94,7 +94,7 @@ describe("DesktopElectron desktop bridge", () => {
     expect(invoke).toHaveBeenCalledWith("desktop:beep", undefined);
   });
 
-  it("keeps IPC-only fallback events wired for unsupported desktop push messages", async () => {
+  it("does not wire unsupported desktop push messages through plugin-level IPC fallbacks", async () => {
     const ipcListeners = new Map<
       string,
       Set<(event: unknown, payload: unknown) => void>
@@ -128,10 +128,7 @@ describe("DesktopElectron desktop bridge", () => {
     const suspendListener = vi.fn();
     await plugin.addListener("powerSuspend", suspendListener);
 
-    ipcListeners.get("desktop:powerSuspend")?.forEach((listener) => {
-      listener({ sender: "test" }, undefined);
-    });
-
-    expect(suspendListener).toHaveBeenCalledWith(undefined);
+    expect(ipcListeners.has("desktop:powerSuspend")).toBe(false);
+    expect(suspendListener).not.toHaveBeenCalled();
   });
 });
