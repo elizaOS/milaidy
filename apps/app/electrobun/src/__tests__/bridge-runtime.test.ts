@@ -42,13 +42,11 @@ describe("electrobun bridge runtime", () => {
     };
     defineRpc.mockReturnValue({ request });
 
-    await import("../bridge/electrobun-bridge");
+    await import("../bridge/electrobun-direct-rpc");
 
-    expect(window.__MILADY_ELECTROBUN_RPC__).toEqual({
-      request,
-      onMessage: expect.any(Function),
-      offMessage: expect.any(Function),
-    });
+    expect(window.__MILADY_ELECTROBUN_RPC__.request).toBe(request);
+    expect(typeof window.__MILADY_ELECTROBUN_RPC__.onMessage).toBe("function");
+    expect(typeof window.__MILADY_ELECTROBUN_RPC__.offMessage).toBe("function");
     expect((window as typeof window & { electron?: unknown }).electron).toBe(
       undefined,
     );
@@ -77,7 +75,7 @@ describe("electrobun bridge runtime", () => {
       },
     );
 
-    await import("../bridge/electrobun-bridge");
+    await import("../bridge/electrobun-direct-rpc");
 
     const listener = vi.fn();
     window.__MILADY_ELECTROBUN_RPC__.onMessage("shareTargetReceived", listener);
@@ -98,5 +96,61 @@ describe("electrobun bridge runtime", () => {
     );
     wildcardHandler?.("shareTargetReceived", { files: ["other.md"] });
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("de-duplicates message listeners and keeps other listeners subscribed", async () => {
+    let wildcardHandler:
+      | ((messageName: unknown, payload: unknown) => void)
+      | undefined;
+    defineRpc.mockImplementation(
+      (config: {
+        handlers: {
+          messages: Record<
+            string,
+            (messageName: unknown, payload: unknown) => void
+          >;
+        };
+      }) => {
+        wildcardHandler = config.handlers.messages["*"];
+        return {
+          request: {
+            desktopGetVersion: vi.fn().mockResolvedValue({ version: "1.0.0" }),
+          },
+        };
+      },
+    );
+
+    await import("../bridge/electrobun-direct-rpc");
+
+    const firstListener = vi.fn();
+    const secondListener = vi.fn();
+
+    window.__MILADY_ELECTROBUN_RPC__.onMessage(
+      "shareTargetReceived",
+      firstListener,
+    );
+    window.__MILADY_ELECTROBUN_RPC__.onMessage(
+      "shareTargetReceived",
+      firstListener,
+    );
+    window.__MILADY_ELECTROBUN_RPC__.onMessage(
+      "shareTargetReceived",
+      secondListener,
+    );
+
+    wildcardHandler?.("shareTargetReceived", { files: ["first.md"] });
+    expect(firstListener).toHaveBeenCalledTimes(1);
+    expect(firstListener).toHaveBeenCalledWith({ files: ["first.md"] });
+    expect(secondListener).toHaveBeenCalledTimes(1);
+
+    window.__MILADY_ELECTROBUN_RPC__.offMessage(
+      "shareTargetReceived",
+      firstListener,
+    );
+    wildcardHandler?.("shareTargetReceived", { files: ["second.md"] });
+
+    expect(firstListener).toHaveBeenCalledTimes(1);
+    expect(secondListener).toHaveBeenCalledTimes(2);
+    expect(secondListener).toHaveBeenLastCalledWith({ files: ["second.md"] });
   });
 });
