@@ -412,6 +412,19 @@ jobs:
             bun install -g "electrobun@$ELECTROBUN_VERSION"
           fi
 
+      - name: Materialize local electrobun package for build
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const src = fs.realpathSync('node_modules/electrobun');
+            const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');
+            fs.rmSync(dest, { recursive: true, force: true });
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.cpSync(src, dest, { recursive: true });
+            console.log('Materialized local electrobun package:', dest, '<-', src);
+          "
+
       - name: Ensure Windows rcedit binary is available for Electrobun
         if: matrix.platform.os == 'windows'
         shell: pwsh

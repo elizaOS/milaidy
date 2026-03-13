@@ -110,6 +110,22 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
   });
+
+  it("materializes a local electrobun package before packaging", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "name: Materialize local electrobun package for build",
+    );
+    expect(workflow).toContain(
+      "const src = fs.realpathSync('node_modules/electrobun');",
+    );
+    expect(workflow).toContain(
+      "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
+    );
+    expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
+  });
+
   it("keeps updater transport files off the public GitHub release asset list", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
