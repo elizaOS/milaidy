@@ -28,6 +28,13 @@ interface GameContextStub {
   ) => void;
 }
 
+type TestWindow = Window & {
+  __MILADY_ELECTROBUN_RPC__?: {
+    request: Record<string, (params?: unknown) => Promise<unknown>>;
+  };
+  __electrobunWindowId?: number;
+};
+
 const { mockClientFns, mockUseApp } = vi.hoisted(() => ({
   mockClientFns: {
     getCodingAgentStatus: vi.fn(async () => null),
@@ -97,7 +104,8 @@ describe("GameView", () => {
   });
 
   afterEach(() => {
-    delete (window as typeof window & { electron?: unknown }).electron;
+    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__electrobunWindowId;
     vi.restoreAllMocks();
   });
 
@@ -162,13 +170,16 @@ describe("GameView", () => {
 
   it("uses the Electrobun shell bridge when opening the viewer externally", async () => {
     const ctx = createContext();
-    const invoke = vi.fn(async () => undefined);
+    const desktopOpenExternal = vi.fn(async () => undefined);
+    const gameOpenWindow = vi.fn(async () => ({ id: "game-window-1" }));
     mockUseApp.mockReturnValue(ctx);
-    Object.defineProperty(window, "electron", {
-      configurable: true,
-      writable: true,
-      value: { ipcRenderer: { invoke } },
-    });
+    (window as TestWindow).__electrobunWindowId = 1;
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+      request: {
+        desktopOpenExternal,
+        gameOpenWindow,
+      },
+    };
     const openSpy = vi.spyOn(window, "open");
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -181,7 +192,11 @@ describe("GameView", () => {
       await findButtonByText(tree?.root, "game.openInNewTab").props.onClick();
     });
 
-    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+    expect(gameOpenWindow).toHaveBeenCalledWith({
+      url: ctx.activeGameViewerUrl,
+      title: ctx.activeGameDisplayName || ctx.activeGameApp,
+    });
+    expect(desktopOpenExternal).toHaveBeenCalledWith({
       url: ctx.activeGameViewerUrl,
     });
     expect(openSpy).not.toHaveBeenCalled();

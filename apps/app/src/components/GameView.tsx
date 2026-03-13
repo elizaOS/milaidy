@@ -9,7 +9,10 @@
  */
 
 import { client, type LogEntry } from "@milady/app-core/api";
-import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
+import {
+  invokeDesktopBridgeRequest,
+  isElectrobunRuntime,
+} from "@milady/app-core/bridge";
 import { formatTime } from "@milady/app-core/components";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -57,7 +60,7 @@ export function GameView() {
     setActionNotice,
     t,
   } = useApp();
-  const isElectrobun = !!window.electron;
+  const isElectrobun = isElectrobunRuntime();
   const [stopping, setStopping] = useState(false);
   const [showLogsPanel, setShowLogsPanel] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
