@@ -9,4 +9,4 @@
  * config and run before any page content loads.
  */
 
-import "./electrobun-bridge";
+import "./electrobun-direct-rpc";
