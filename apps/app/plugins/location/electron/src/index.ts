@@ -10,6 +10,10 @@
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
+import {
+  invokeDesktopBridgeRequest,
+  subscribeDesktopBridgeEvent,
+} from "@milady/app-core/bridge";
 import type {
   LocationErrorEvent,
   LocationOptions,
@@ -27,30 +31,11 @@ interface ListenerEntry {
   callback: EventCallback<LocationEventData>;
 }
 
-type IpcPrimitive = string | number | boolean | null | undefined;
-type IpcObject = { [key: string]: IpcValue };
-type IpcValue =
-  | IpcPrimitive
-  | IpcObject
-  | IpcValue[]
-  | ArrayBuffer
-  | Float32Array
-  | Uint8Array;
-type IpcListener = (...args: IpcValue[]) => void;
-
-// Type for Electron IPC
-interface ElectronAPI {
-  ipcRenderer: {
-    invoke(channel: string, ...args: IpcValue[]): Promise<IpcValue>;
-    on(channel: string, listener: IpcListener): void;
-    removeListener(channel: string, listener: IpcListener): void;
-  };
-}
-
-declare global {
-  interface Window {
-    electron?: ElectronAPI;
-  }
+interface NativeLocationPosition {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: number;
 }
 
 /**
@@ -58,24 +43,24 @@ declare global {
  */
 export class LocationElectron implements LocationPlugin {
   private watches: Map<string, number> = new Map();
-  private ipcHandlers = new Map<string, IpcListener>();
+  private nativeWatchSubscriptions = new Map<string, () => void>();
   private listeners: ListenerEntry[] = [];
   private watchIdCounter = 0;
 
   // MARK: - Position Methods
 
   async getCurrentPosition(options?: LocationOptions): Promise<LocationResult> {
-    // Try Electron IPC for native location services first
-    if (window.electron?.ipcRenderer) {
-      try {
-        const result = await window.electron.ipcRenderer.invoke(
-          "location:getCurrentPosition",
-          options as IpcValue,
-        );
-        return result as LocationResult;
-      } catch {
-        // Fall through to browser API
+    try {
+      const result = await invokeDesktopBridgeRequest<NativeLocationPosition>({
+        rpcMethod: "locationGetCurrentPosition",
+        ipcChannel: "location:getCurrentPosition",
+        params: options,
+      });
+      if (result) {
+        return this.toNativeLocationResult(result);
       }
+    } catch {
+      // Fall through to browser API
     }
 
     // Use browser Geolocation API
@@ -111,38 +96,37 @@ export class LocationElectron implements LocationPlugin {
   async watchPosition(
     options?: WatchLocationOptions,
   ): Promise<{ watchId: string }> {
-    const watchId = `watch_${++this.watchIdCounter}`;
-
-    // Try Electron IPC for native location services
-    if (window.electron?.ipcRenderer) {
-      try {
-        await window.electron.ipcRenderer.invoke("location:watchPosition", {
-          ...options,
-          watchId,
+    try {
+      const nativeWatch = await invokeDesktopBridgeRequest<{ watchId: string }>(
+        {
+          rpcMethod: "locationWatchPosition",
+          ipcChannel: "location:watchPosition",
+          params: options,
+        },
+      );
+      if (nativeWatch?.watchId) {
+        const unsubscribe = subscribeDesktopBridgeEvent({
+          rpcMessage: "locationUpdate",
+          ipcChannel: "location:update",
+          listener: (data) => {
+            const location = this.extractNativeWatchLocation(
+              nativeWatch.watchId,
+              data,
+            );
+            if (location) {
+              this.notifyListeners("locationChange", location);
+            }
+          },
         });
-
-        // Set up IPC listener for location updates
-        const handler = (data: {
-          watchId: string;
-          location: LocationResult;
-        }) => {
-          if (data.watchId === watchId) {
-            this.notifyListeners("locationChange", data.location);
-          }
-        };
-        this.ipcHandlers.set(watchId, handler as IpcListener);
-        window.electron.ipcRenderer.on(
-          "location:update",
-          handler as IpcListener,
-        );
-
-        return { watchId };
-      } catch {
-        // Fall through to browser API
+        this.nativeWatchSubscriptions.set(nativeWatch.watchId, unsubscribe);
+        return nativeWatch;
       }
+    } catch {
+      // Fall through to browser API
     }
 
     // Use browser Geolocation API
+    const watchId = `watch_${++this.watchIdCounter}`;
     const geoOptions: PositionOptions = {
       enableHighAccuracy:
         options?.accuracy === "best" || options?.accuracy === "high",
@@ -176,26 +160,20 @@ export class LocationElectron implements LocationPlugin {
       this.watches.delete(options.watchId);
     }
 
-    // Remove the IPC listener if one was registered for this watch
-    const ipcHandler = this.ipcHandlers.get(options.watchId);
-    if (ipcHandler) {
-      window.electron?.ipcRenderer.removeListener(
-        "location:update",
-        ipcHandler,
-      );
-      this.ipcHandlers.delete(options.watchId);
+    const unsubscribe = this.nativeWatchSubscriptions.get(options.watchId);
+    if (unsubscribe) {
+      unsubscribe();
+      this.nativeWatchSubscriptions.delete(options.watchId);
     }
 
-    // Also notify Electron if using native
-    if (window.electron?.ipcRenderer) {
-      try {
-        await window.electron.ipcRenderer.invoke(
-          "location:clearWatch",
-          options,
-        );
-      } catch {
-        // Ignore
-      }
+    try {
+      await invokeDesktopBridgeRequest({
+        rpcMethod: "locationClearWatch",
+        ipcChannel: "location:clearWatch",
+        params: options,
+      });
+    } catch {
+      // Ignore desktop bridge shutdown issues
     }
   }
 
@@ -258,6 +236,66 @@ export class LocationElectron implements LocationPlugin {
     };
   }
 
+  private toNativeLocationResult(
+    position: NativeLocationPosition,
+  ): LocationResult {
+    return {
+      coords: {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        timestamp: position.timestamp,
+      },
+      cached: false,
+    };
+  }
+
+  private extractNativeWatchLocation(
+    watchId: string,
+    data: unknown,
+  ): LocationResult | null {
+    if (
+      this.isNativeWatchPayload(data) &&
+      data.watchId === watchId &&
+      this.isNativePosition(data.location)
+    ) {
+      return data.location;
+    }
+
+    if (this.isNativePosition(data)) {
+      return this.toNativeLocationResult(data);
+    }
+
+    return null;
+  }
+
+  private isNativeWatchPayload(
+    value: unknown,
+  ): value is { watchId: string; location: LocationResult } {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "watchId" in value &&
+      typeof value.watchId === "string" &&
+      "location" in value
+    );
+  }
+
+  private isNativePosition(value: unknown): value is NativeLocationPosition {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "latitude" in value &&
+      typeof value.latitude === "number" &&
+      "longitude" in value &&
+      typeof value.longitude === "number" &&
+      "accuracy" in value &&
+      typeof value.accuracy === "number" &&
+      "timestamp" in value &&
+      typeof value.timestamp === "number"
+    );
+  }
+
   private getErrorCode(code: number): string {
     switch (code) {
       case GeolocationPositionError.PERMISSION_DENIED:
@@ -312,11 +350,10 @@ export class LocationElectron implements LocationPlugin {
       await this.clearWatch({ watchId });
     }
 
-    // Remove any remaining IPC handlers not associated with browser watches
-    for (const [, handler] of this.ipcHandlers) {
-      window.electron?.ipcRenderer.removeListener("location:update", handler);
+    for (const [, unsubscribe] of this.nativeWatchSubscriptions) {
+      unsubscribe();
     }
-    this.ipcHandlers.clear();
+    this.nativeWatchSubscriptions.clear();
 
     this.listeners = [];
   }
