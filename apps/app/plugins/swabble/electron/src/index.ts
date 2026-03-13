@@ -2,7 +2,6 @@
 import type { PluginListenerHandle } from "@capacitor/core";
 import {
   getElectrobunRendererRpc,
-  getElectronIpcRenderer,
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
 } from "@milady/app-core/bridge";
@@ -31,16 +30,6 @@ type SwabbleEvent =
 interface ListenerEntry {
   eventName: string;
   callback: EventCallback<SwabbleEvent>;
-}
-
-type IpcPayload = unknown;
-type IpcListener = (event: unknown, payload: IpcPayload) => void;
-
-interface ElectronAudioIpcRenderer {
-  invoke: (channel: string, params?: unknown) => Promise<unknown>;
-  send?: (channel: string, params?: unknown) => void;
-  on?: (channel: string, listener: IpcListener) => void;
-  removeListener?: (channel: string, listener: IpcListener) => void;
 }
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
@@ -128,14 +117,6 @@ export class SwabbleElectron implements SwabblePlugin {
   private captureGain: GainNode | null = null;
   private captureSampleRate = 16000;
   private bridgeSubscriptions: Array<() => void> = [];
-  private ipcHandlers: Array<{
-    channel: string;
-    handler: IpcListener;
-  }> = [];
-
-  private get ipc(): ElectronAudioIpcRenderer | undefined {
-    return getElectronIpcRenderer() as ElectronAudioIpcRenderer | undefined;
-  }
 
   private async invokeBridge<T>(
     rpcMethod: string,
@@ -179,7 +160,7 @@ export class SwabbleElectron implements SwabblePlugin {
     if (nativeResult) {
       // Fall through to web implementation when the native bridge is present
       // but cannot start whisper.cpp.
-    } else if (this.ipc || getElectrobunRendererRpc()) {
+    } else if (getElectrobunRendererRpc()) {
       // Native bridge exists but returned no result. Fall through to the web path.
     }
 
@@ -341,18 +322,12 @@ export class SwabbleElectron implements SwabblePlugin {
       unsubscribe();
     }
     this.bridgeSubscriptions = [];
-
-    for (const entry of this.ipcHandlers) {
-      this.ipc?.removeListener?.(entry.channel, entry.handler);
-    }
-    this.ipcHandlers = [];
   }
 
   private async startAudioCapture(): Promise<void> {
     if (
       this.captureContext ||
-      (!this.ipc?.send &&
-        !getElectrobunRendererRpc()?.request?.swabbleAudioChunk)
+      !getElectrobunRendererRpc()?.request?.swabbleAudioChunk
     ) {
       return;
     }
@@ -474,21 +449,20 @@ export class SwabbleElectron implements SwabblePlugin {
 
   private sendAudioChunk(downsampled: Float32Array): void {
     const rpcRequest = getElectrobunRendererRpc()?.request?.swabbleAudioChunk;
-    if (rpcRequest) {
-      const bytes = new Uint8Array(
-        downsampled.buffer,
-        downsampled.byteOffset,
-        downsampled.byteLength,
-      );
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      void rpcRequest({ data: btoa(binary) }).catch(() => {});
+    if (!rpcRequest) {
       return;
     }
 
-    this.ipc?.send?.("swabble:audioChunk", downsampled);
+    const bytes = new Uint8Array(
+      downsampled.buffer,
+      downsampled.byteOffset,
+      downsampled.byteLength,
+    );
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    void rpcRequest({ data: btoa(binary) }).catch(() => {});
   }
 
   private normalizeWakeWordEvent(data: unknown): SwabbleWakeWordEvent {
@@ -726,7 +700,7 @@ export class SwabbleElectron implements SwabblePlugin {
   async setAudioDevice(_options: { deviceId: string }): Promise<void> {
     this.selectedDeviceId = _options.deviceId;
 
-    if ((this.ipc || getElectrobunRendererRpc()) && this.captureContext) {
+    if (getElectrobunRendererRpc() && this.captureContext) {
       this.stopAudioCapture();
       await this.startAudioCapture();
       return;

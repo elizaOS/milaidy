@@ -1,19 +1,11 @@
 // @vitest-environment jsdom
 
-import type {
-  ElectrobunRendererRpc,
-  ElectronIpcRenderer,
-} from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleElectron } from "../../plugins/swabble/electron/src/index";
 
 type TestWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: {
-    ipcRenderer?: ElectronIpcRenderer & {
-      send?: (channel: string, payload?: unknown) => void;
-    };
-  };
 };
 
 interface ProcessorStub {
@@ -97,7 +89,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
 
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -123,7 +114,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
       .fn()
       .mockResolvedValue({ available: true });
     const swabbleAudioChunk = vi.fn().mockResolvedValue(undefined);
-    const ipcInvoke = vi.fn();
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
@@ -148,11 +138,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
         },
       ),
     };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: ipcInvoke,
-      },
-    };
 
     const plugin = new SwabbleElectron();
     const wakeListener = vi.fn();
@@ -169,7 +154,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
     expect(swabbleStart).toHaveBeenCalledWith({
       config: { triggers: ["milady"], sampleRate: 16000 },
     });
-    expect(ipcInvoke).not.toHaveBeenCalled();
 
     listeners.get("swabbleWakeWord")?.forEach((listener) => {
       listener({
@@ -227,10 +211,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
 
   it("uses direct swabble transcript and error push messages when Electrobun exposes them", async () => {
     const rpcListeners = new Map<string, Set<(payload: unknown) => void>>();
-    const ipcListeners = new Map<
-      string,
-      Set<(event: unknown, payload: unknown) => void>
-    >();
     const swabbleStop = vi.fn().mockResolvedValue(undefined);
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
@@ -251,29 +231,6 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
           rpcListeners.get(messageName)?.delete(listener);
         },
       ),
-    };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: vi.fn(),
-        on: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            const entry = ipcListeners.get(channel) ?? new Set();
-            entry.add(listener);
-            ipcListeners.set(channel, entry);
-          },
-        ),
-        removeListener: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            ipcListeners.get(channel)?.delete(listener);
-          },
-        ),
-      },
     };
 
     const plugin = new SwabbleElectron();
@@ -318,7 +275,5 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
     expect(swabbleStop).toHaveBeenCalledWith(undefined);
     expect(rpcListeners.get("swabbleTranscript")?.size ?? 0).toBe(0);
     expect(rpcListeners.get("swabbleError")?.size ?? 0).toBe(0);
-    expect(ipcListeners.get("swabble:transcript")?.size ?? 0).toBe(0);
-    expect(ipcListeners.get("swabble:error")?.size ?? 0).toBe(0);
   });
 });
