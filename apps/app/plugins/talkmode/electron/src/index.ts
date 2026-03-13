@@ -15,10 +15,8 @@
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
-import type { ElectronIpcRenderer } from "@milady/app-core/bridge";
 import {
   getElectrobunRendererRpc,
-  getElectronIpcRenderer,
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
 } from "@milady/app-core/bridge";
@@ -47,14 +45,6 @@ type TalkModeEvent =
 interface ListenerEntry {
   eventName: string;
   callback: EventCallback<TalkModeEvent>;
-}
-
-type IpcListener = (event: unknown, payload: unknown) => void;
-
-interface ElectronTalkModeIpcRenderer extends ElectronIpcRenderer {
-  send?: (channel: string, payload?: unknown) => void;
-  on?: (channel: string, listener: IpcListener) => void;
-  removeListener?: (channel: string, listener: IpcListener) => void;
 }
 
 interface NativeTalkModeConfig {
@@ -146,19 +136,11 @@ export class TalkModeElectron implements TalkModePlugin {
   private captureSampleRate = 16000;
 
   private bridgeSubscriptions: Array<() => void> = [];
-  private ipcHandlers: Array<{
-    channel: string;
-    handler: IpcListener;
-  }> = [];
 
   constructor() {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       this.synthesis = window.speechSynthesis;
     }
-  }
-
-  private get ipc(): ElectronTalkModeIpcRenderer | undefined {
-    return getElectronIpcRenderer() as ElectronTalkModeIpcRenderer | undefined;
   }
 
   private async invokeBridge<T>(
@@ -338,11 +320,6 @@ export class TalkModeElectron implements TalkModePlugin {
       unsubscribe();
     }
     this.bridgeSubscriptions = [];
-
-    for (const entry of this.ipcHandlers) {
-      this.ipc?.removeListener?.(entry.channel, entry.handler);
-    }
-    this.ipcHandlers = [];
   }
 
   async stop(): Promise<void> {
@@ -521,8 +498,7 @@ export class TalkModeElectron implements TalkModePlugin {
   private async startAudioCapture(): Promise<void> {
     if (
       this.captureContext ||
-      (!this.ipc?.send &&
-        !getElectrobunRendererRpc()?.request?.talkmodeAudioChunk)
+      !getElectrobunRendererRpc()?.request?.talkmodeAudioChunk
     ) {
       return;
     }
@@ -562,21 +538,20 @@ export class TalkModeElectron implements TalkModePlugin {
 
   private sendAudioChunk(downsampled: Float32Array): void {
     const rpcRequest = getElectrobunRendererRpc()?.request?.talkmodeAudioChunk;
-    if (rpcRequest) {
-      const bytes = new Uint8Array(
-        downsampled.buffer,
-        downsampled.byteOffset,
-        downsampled.byteLength,
-      );
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      void rpcRequest({ data: btoa(binary) }).catch(() => {});
+    if (!rpcRequest) {
       return;
     }
 
-    this.ipc?.send?.("talkmode:audioChunk", downsampled);
+    const bytes = new Uint8Array(
+      downsampled.buffer,
+      downsampled.byteOffset,
+      downsampled.byteLength,
+    );
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    void rpcRequest({ data: btoa(binary) }).catch(() => {});
   }
 
   private stopAudioCapture(): void {

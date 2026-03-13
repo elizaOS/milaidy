@@ -1,27 +1,11 @@
 // @vitest-environment jsdom
 
-import type {
-  ElectrobunRendererRpc,
-  ElectronIpcRenderer,
-} from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TalkModeElectron } from "../../plugins/talkmode/electron/src/index.ts";
 
 type TestWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: {
-    ipcRenderer?: ElectronIpcRenderer & {
-      send?: (channel: string, payload?: unknown) => void;
-      on?: (
-        channel: string,
-        listener: (event: unknown, payload: unknown) => void,
-      ) => void;
-      removeListener?: (
-        channel: string,
-        listener: (event: unknown, payload: unknown) => void,
-      ) => void;
-    };
-  };
 };
 
 type TalkModeElectronPrivate = TalkModeElectron & {
@@ -106,7 +90,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
 
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -121,7 +104,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
   it("prefers direct Electrobun RPC for talkmode control and syncs the native config shape", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
     const talkmodeAudioChunk = vi.fn().mockResolvedValue(undefined);
-    const ipcInvoke = vi.fn();
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
@@ -139,11 +121,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
           directListeners.get(messageName)?.delete(listener);
         },
       ),
-    };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: ipcInvoke,
-      },
     };
 
     const plugin = new TalkModeElectron();
@@ -210,7 +187,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
       "talkmodeIsWhisperAvailable",
       "talkmode:isWhisperAvailable",
     );
-    expect(ipcInvoke).not.toHaveBeenCalled();
 
     directListeners.get("talkmodeStateChanged")?.forEach((listener) => {
       listener({ state: "processing" });
@@ -276,10 +252,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
 
   it("uses direct talkmode error push messages when Electrobun exposes them", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
-    const ipcListeners = new Map<
-      string,
-      Set<(event: unknown, payload: unknown) => void>
-    >();
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {},
@@ -295,29 +267,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
           directListeners.get(messageName)?.delete(listener);
         },
       ),
-    };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: vi.fn(),
-        on: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            const entry = ipcListeners.get(channel) ?? new Set();
-            entry.add(listener);
-            ipcListeners.set(channel, entry);
-          },
-        ),
-        removeListener: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            ipcListeners.get(channel)?.delete(listener);
-          },
-        ),
-      },
     };
 
     const plugin = new TalkModeElectron();
@@ -343,6 +292,5 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
       recoverable: true,
     });
     expect(directListeners.get("talkmodeError")?.size ?? 0).toBe(1);
-    expect(ipcListeners.get("talkmode:error")?.size ?? 0).toBe(0);
   });
 });
