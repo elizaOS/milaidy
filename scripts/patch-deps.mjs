@@ -95,6 +95,175 @@ function findAllThreeVrmNodeFiles() {
   return targets;
 }
 
+// ---------------------------------------------------------------------------
+// Patch @elizaos/plugin-signal: Fix bugs in the compiled dist.
+//
+// 1) msg.attachments.length crash when attachments is undefined
+// 2) msg.attachments.map crash when attachments is undefined
+// 3) pollMessages: add try/catch, envelope unwrapping, receive() null guard
+// 4) JSON.parse without try-catch in HTTP client request()
+// 5) handleIncomingMessage: add ensureConnection before createMemory
+// 6) sendMessage: accept UUID recipients (signal-cli returns UUIDs)
+//
+// Remove once plugin-signal publishes fixes (>2.0.0-alpha.7).
+// ---------------------------------------------------------------------------
+{
+  const signalPaths = [
+    resolve(root, "node_modules/@elizaos/plugin-signal/dist/index.js"),
+  ];
+  // Also check bun cache
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      for (const entry of readdirSync(bunCacheDir)) {
+        if (entry.startsWith("@elizaos+plugin-signal@")) {
+          const p = resolve(bunCacheDir, entry, "node_modules/@elizaos/plugin-signal/dist/index.js");
+          if (existsSync(p) && !signalPaths.includes(p)) signalPaths.push(p);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  for (const target of signalPaths) {
+    if (!existsSync(target)) continue;
+    let src = readFileSync(target, "utf8");
+    let patched = false;
+
+    // Fix 1: msg.attachments.length without null check
+    const bug1 = "if (!msg.message && msg.attachments.length === 0)";
+    const fix1 = "if (!msg.message && (!msg.attachments || msg.attachments.length === 0))";
+    if (src.includes(bug1)) { src = src.replace(bug1, fix1); patched = true; }
+
+    // Fix 2: msg.attachments.map without null check
+    const bug2 = "const media = msg.attachments.map(";
+    const fix2 = "const media = (msg.attachments || []).map(";
+    if (src.includes(bug2)) { src = src.replace(bug2, fix2); patched = true; }
+
+    // Fix 3: pollMessages — try/catch/finally + envelope unwrapping + receive null guard
+    // signal-cli REST API returns {envelope:{source,dataMessage:{message,...}}} but
+    // the plugin expects flat {sender, message, timestamp, ...} objects.
+    const bug3 = `  async pollMessages() {
+    if (!this.client || this.isPolling)
+      return;
+    this.isPolling = true;
+    const messages = await this.client.receive();
+    for (const msg of messages) {
+      await this.handleIncomingMessage(msg);
+    }
+    this.isPolling = false;
+  }`;
+    const fix3 = `  static unwrapEnvelope(raw) {
+    if (!raw || !raw.envelope) return raw;
+    const env = raw.envelope;
+    const dm = env.dataMessage || {};
+    return {
+      sender: env.sourceNumber || env.source,
+      senderName: env.sourceName || null,
+      message: dm.message || null,
+      timestamp: dm.timestamp || env.timestamp,
+      groupId: dm.groupInfo?.groupId || null,
+      attachments: dm.attachments || null,
+      reaction: dm.reaction || null,
+      expiresInSeconds: dm.expiresInSeconds || 0,
+      viewOnce: dm.viewOnce || false,
+      _raw: raw
+    };
+  }
+  async pollMessages() {
+    if (!this.client || this.isPolling)
+      return;
+    this.isPolling = true;
+    try {
+      const rawMessages = (await this.client.receive()) || [];
+      for (const raw of rawMessages) {
+        try {
+          const msg = SignalService.unwrapEnvelope(raw);
+          this.runtime.logger.info({ src: "plugin:signal", sender: msg.sender, hasMessage: !!msg.message, hasAttachments: !!(msg.attachments && msg.attachments.length) }, "Signal message received");
+          await this.handleIncomingMessage(msg);
+        } catch (msgErr) {
+          this.runtime.logger.error({ src: "plugin:signal", error: String(msgErr) }, "Error handling incoming message");
+        }
+      }
+    } catch (err) {
+      this.runtime.logger.error({ src: "plugin:signal", error: String(err) }, "Error polling messages");
+    } finally {
+      this.isPolling = false;
+    }
+  }`;
+    if (src.includes(bug3)) { src = src.replace(bug3, fix3); patched = true; }
+
+    // Fix 4: JSON.parse without try-catch in request()
+    const bug4 = `    const text = await response.text();
+    return text ? JSON.parse(text) : {};`;
+    const fix4 = `    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch (parseErr) {
+      throw new Error(\`Signal API returned invalid JSON: \${text.slice(0, 200)}\`);
+    }`;
+    if (src.includes(bug4)) { src = src.replace(bug4, fix4); patched = true; }
+
+    // Fix 5: handleIncomingMessage — add ensureConnection before createMemory
+    // Without this, the entity/room/world don't exist and DB insert fails.
+    const bug5 = `    const memory = await this.buildMemoryFromMessage(msg);
+    if (!memory)
+      return;
+    const room = await this.ensureRoomExists(msg.sender, msg.groupId);
+    await this.runtime.createMemory(memory, "messages");
+    await this.runtime.emitEvent("SIGNAL_MESSAGE_RECEIVED" /* MESSAGE_RECEIVED */, {
+      runtime: this.runtime,
+      source: "signal"
+    });
+    await this.processMessage(memory, room, msg.sender, msg.groupId);`;
+    const fix5 = `    const entityId = this.getEntityId(msg.sender);
+    const roomId = await this.getRoomId(msg.sender, msg.groupId);
+    const worldId = createUniqueUuid(this.runtime, "signal-world");
+    const displayName = msg.senderName || (this.contactCache.get(msg.sender) ? getSignalContactDisplayName(this.contactCache.get(msg.sender)) : msg.sender);
+    await this.runtime.ensureConnection({
+      entityId,
+      roomId,
+      worldId,
+      worldName: "Signal",
+      userName: displayName,
+      name: displayName,
+      source: "signal",
+      type: isGroupMessage ? ChannelType.GROUP : ChannelType.DM,
+      channelId: msg.groupId || msg.sender
+    });
+    const memory = await this.buildMemoryFromMessage(msg);
+    if (!memory)
+      return;
+    await this.runtime.createMemory(memory, "messages");
+    await this.runtime.emitEvent("SIGNAL_MESSAGE_RECEIVED" /* MESSAGE_RECEIVED */, {
+      runtime: this.runtime,
+      source: "signal"
+    });
+    const room = await this.runtime.getRoom(roomId);
+    await this.processMessage(memory, room, msg.sender, msg.groupId);`;
+    if (src.includes(bug5)) { src = src.replace(bug5, fix5); patched = true; }
+
+    // Fix 6: sendMessage — accept UUID recipients (signal-cli returns UUIDs not phone numbers)
+    const bug6 = `    const normalizedRecipient = normalizeE164(recipient);
+    if (!normalizedRecipient) {
+      throw new Error(\`Invalid recipient number: \${recipient}\`);
+    }`;
+    const fix6 = `    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recipient);
+    const normalizedRecipient = isUuid ? recipient : normalizeE164(recipient);
+    if (!normalizedRecipient) {
+      throw new Error(\`Invalid recipient number: \${recipient}\`);
+    }`;
+    if (src.includes(bug6)) { src = src.replace(bug6, fix6); patched = true; }
+
+    if (patched) {
+      writeFileSync(target, src, "utf8");
+      console.log(`[patch-deps] Applied @elizaos/plugin-signal patches: ${target}`);
+    } else {
+      console.log(`[patch-deps] @elizaos/plugin-signal patches already applied or not needed: ${target}`);
+    }
+  }
+}
+
 const threeVrmNodeTargets = findAllThreeVrmNodeFiles();
 const threeVrmFnCompatBuggy = `return THREE_WEBGPU.tslFn(jsFunc);`;
 const threeVrmFnCompatFixed = `return THREE_TSL.Fn(jsFunc);`;

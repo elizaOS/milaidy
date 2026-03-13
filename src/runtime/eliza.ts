@@ -595,7 +595,10 @@ const CHANNEL_ENV_MAP: Readonly<
     userToken: "SLACK_USER_TOKEN",
   },
   signal: {
-    account: "SIGNAL_ACCOUNT",
+    authDir: "SIGNAL_AUTH_DIR",
+    account: "SIGNAL_ACCOUNT_NUMBER",
+    httpUrl: "SIGNAL_HTTP_URL",
+    cliPath: "SIGNAL_CLI_PATH",
   },
   msteams: {
     appId: "MSTEAMS_APP_ID",
@@ -646,7 +649,8 @@ export const CHANNEL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   twitter: "@elizaos/plugin-twitter",
   // Internal connector built from src/plugins/whatsapp (not an npm package).
   whatsapp: "@milady/plugin-whatsapp",
-  signal: "@elizaos/plugin-signal",
+  // Internal connector built from src/plugins/signal (not an npm package).
+  signal: "@milady/plugin-signal",
   imessage: "@elizaos/plugin-imessage",
   bluebubbles: "@elizaos/plugin-bluebubbles",
   farcaster: "@elizaos/plugin-farcaster",
@@ -2481,7 +2485,7 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     "SLACK_BOT_TOKEN",
     "SLACK_APP_TOKEN",
     "SLACK_USER_TOKEN",
-    "SIGNAL_ACCOUNT",
+    "SIGNAL_ACCOUNT_NUMBER",
     "MSTEAMS_APP_ID",
     "MSTEAMS_APP_PASSWORD",
     "MATTERMOST_BOT_TOKEN",

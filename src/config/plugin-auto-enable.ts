@@ -18,7 +18,8 @@ export const CONNECTOR_PLUGINS: Record<string, string> = {
   twitter: "@elizaos/plugin-twitter",
   // Internal connector built from src/plugins/whatsapp (not an npm package).
   whatsapp: "@milady/plugin-whatsapp",
-  signal: "@elizaos/plugin-signal",
+  // Internal connector built from src/plugins/signal (not an npm package).
+  signal: "@milady/plugin-signal",
   bluebubbles: "@elizaos/plugin-bluebubbles",
   imessage: "@elizaos/plugin-imessage",
   farcaster: "@elizaos/plugin-farcaster",
@@ -148,7 +149,8 @@ export function isConnectorConfigured(
         const accountConfig = account as Record<string, unknown>;
         if (accountConfig.enabled === false) return false;
         return Boolean(
-          accountConfig.account ||
+          accountConfig.authDir ||
+            accountConfig.account ||
             accountConfig.httpUrl ||
             accountConfig.httpHost ||
             accountConfig.httpPort ||
@@ -168,7 +170,8 @@ export function isConnectorConfigured(
       return Boolean(config.cliPath);
     case "signal":
       return Boolean(
-        config.account ||
+        config.authDir ||
+          config.account ||
           config.httpUrl ||
           config.httpHost ||
           config.httpPort ||

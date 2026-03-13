@@ -213,6 +213,10 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+import {
+  applySignalQrOverride,
+  handleSignalRoute,
+} from "./signal-routes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -429,6 +433,11 @@ interface ServerState {
   whatsappPairingSessions?: Map<
     string,
     import("../services/whatsapp-pairing").WhatsAppPairingSession
+  >;
+  /** Active Signal pairing sessions (device linking flow). */
+  signalPairingSessions?: Map<
+    string,
+    import("../services/signal-pairing").SignalPairingSession
   >;
 }
 
@@ -1378,6 +1387,7 @@ export function discoverPluginsFromManifest(): PluginEntry[] {
         .sort((a, b) => a.name.localeCompare(b.name));
 
       applyWhatsAppQrOverride(entries, resolveDefaultAgentWorkspaceDir());
+      applySignalQrOverride(entries, resolveDefaultAgentWorkspaceDir());
 
       return entries;
     } catch (err) {
@@ -7791,6 +7801,7 @@ async function handleRequest(
     }
 
     applyWhatsAppQrOverride(allPlugins, resolveDefaultAgentWorkspaceDir());
+    applySignalQrOverride(allPlugins, resolveDefaultAgentWorkspaceDir());
 
     // Inject per-provider model options into configUiHints for MODEL fields.
     // Each provider's cache is independent — no cross-population.
@@ -10260,6 +10271,33 @@ async function handleRequest(
     }
     const handled = await handleWhatsAppRoute(req, res, pathname, method, {
       whatsappPairingSessions: state.whatsappPairingSessions,
+      broadcastWs: state.broadcastWs ?? undefined,
+      config: state.config,
+      runtime: state.runtime ?? undefined,
+      saveConfig: () => saveMiladyConfig(state.config),
+      workspaceDir: resolveDefaultAgentWorkspaceDir(),
+    });
+    if (handled) return;
+  }
+
+  // ── Signal routes (/api/signal/*) ─────────────────────────────────────
+  if (pathname.startsWith("/api/signal")) {
+    if (!state.signalPairingSessions) {
+      state.signalPairingSessions = new Map();
+    }
+    for (const [id, session] of state.signalPairingSessions) {
+      const status = session.getStatus();
+      if (
+        status === "disconnected" ||
+        status === "timeout" ||
+        status === "error"
+      ) {
+        session.stop();
+        state.signalPairingSessions.delete(id);
+      }
+    }
+    const handled = await handleSignalRoute(req, res, pathname, method, {
+      signalPairingSessions: state.signalPairingSessions,
       broadcastWs: state.broadcastWs ?? undefined,
       config: state.config,
       runtime: state.runtime ?? undefined,
@@ -16263,6 +16301,17 @@ export async function startApiServer(opts?: {
                 }
               }
               state.whatsappPairingSessions.clear();
+            }
+            // Clean up Signal pairing sessions
+            if (state.signalPairingSessions) {
+              for (const s of state.signalPairingSessions.values()) {
+                try {
+                  s.stop();
+                } catch {
+                  /* non-fatal */
+                }
+              }
+              state.signalPairingSessions.clear();
             }
             wss.close();
             const closeTimeout = setTimeout(() => r(), 5_000);

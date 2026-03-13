@@ -760,7 +760,9 @@ describe("applyConnectorSecretsToEnv", () => {
     "SLACK_BOT_TOKEN",
     "SLACK_APP_TOKEN",
     "SLACK_USER_TOKEN",
-    "SIGNAL_ACCOUNT",
+    "SIGNAL_ACCOUNT_NUMBER",
+    "SIGNAL_HTTP_URL",
+    "SIGNAL_CLI_PATH",
     "MSTEAMS_APP_ID",
     "MSTEAMS_APP_PASSWORD",
     "MATTERMOST_BOT_TOKEN",
@@ -846,6 +848,22 @@ describe("applyConnectorSecretsToEnv", () => {
     } as MiladyConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("legacy-tg-tok");
+  });
+
+  it("copies Signal account, httpUrl, and cliPath from config to env", () => {
+    const config = {
+      connectors: {
+        signal: {
+          account: "+14155551234",
+          httpUrl: "http://localhost:8080",
+          cliPath: "/usr/bin/signal-cli",
+        },
+      },
+    } as MiladyConfig;
+    applyConnectorSecretsToEnv(config);
+    expect(process.env.SIGNAL_ACCOUNT_NUMBER).toBe("+14155551234");
+    expect(process.env.SIGNAL_HTTP_URL).toBe("http://localhost:8080");
+    expect(process.env.SIGNAL_CLI_PATH).toBe("/usr/bin/signal-cli");
   });
 });
 

@@ -217,6 +217,7 @@ export default defineConfig({
       "test/terminal-execution.e2e.test.ts",
       "test/config-hot-reload.e2e.test.ts",
       "test/health-endpoint.e2e.test.ts",
+      "test/signal-connector.e2e.test.ts",
     ],
     setupFiles: ["test/setup.ts"],
     exclude: [
@@ -247,7 +248,7 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: ["@elizaos/core", "zod"],
+        inline: ["@elizaos/core", "zod", "@elizaos/plugin-signal"],
       },
     },
   },
