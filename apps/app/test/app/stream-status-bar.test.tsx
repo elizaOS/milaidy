@@ -4,6 +4,10 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+type TestWindow = Window & {
+  __electrobunWindowId?: number;
+};
+
 const mockUseApp = vi.fn(() => ({
   t: (key: string) => key,
 }));
@@ -53,16 +57,12 @@ function renderStatusBar() {
 
 describe("StatusBar stream popout button", () => {
   afterEach(() => {
-    delete (window as typeof window & { electron?: unknown }).electron;
+    delete (window as TestWindow).__electrobunWindowId;
     vi.restoreAllMocks();
   });
 
   it("hides the browser popout control inside Electrobun", () => {
-    Object.defineProperty(window, "electron", {
-      configurable: true,
-      writable: true,
-      value: { ipcRenderer: { invoke: vi.fn() } },
-    });
+    (window as TestWindow).__electrobunWindowId = 1;
 
     const tree = renderStatusBar();
 
