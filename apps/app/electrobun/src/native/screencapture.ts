@@ -123,7 +123,7 @@ export class ScreenCaptureManager {
    * full screen, not a specific webview. The setter is retained because it is
    * wired into the RPC schema (screencapture:setCaptureTarget) and called by
    * StreamView popout logic. Removing it would require coordinated changes
-   * across rpc-schema.ts, rpc-handlers.ts, electrobun-bridge.ts, and the
+   * across rpc-schema.ts, rpc-handlers.ts, electrobun-direct-rpc.ts, and the
    * renderer.
    */
   setCaptureTarget(_webview: Webview | null): void {
