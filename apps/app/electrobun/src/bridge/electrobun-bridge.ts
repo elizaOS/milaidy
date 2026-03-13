@@ -251,6 +251,7 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "talkmode:stateChanged": "talkmodeStateChanged",
   "talkmode:speakComplete": "talkmodeSpeakComplete",
   "talkmode:transcript": "talkmodeTranscript",
+  "talkmode:error": "talkmodeError",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChange": "swabbleStateChanged",
   "swabble:transcript": "swabbleTranscript",
