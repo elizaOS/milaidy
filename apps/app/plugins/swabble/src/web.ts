@@ -1,4 +1,11 @@
 import { WebPlugin } from "@capacitor/core";
+import {
+  type ElectronIpcRenderer,
+  getElectrobunRendererRpc,
+  getElectronIpcRenderer,
+  invokeDesktopBridgeRequest,
+  subscribeDesktopBridgeEvent,
+} from "@milady/app-core/bridge";
 
 import type {
   SwabbleConfig,
@@ -42,28 +49,6 @@ interface SpeechRecognitionResultList {
 }
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
-
-type DesktopMessageListener = (payload: unknown) => void;
-
-interface ElectrobunRendererRpc {
-  request?: Record<string, (params?: unknown) => Promise<unknown>>;
-  onMessage?: (messageName: string, listener: DesktopMessageListener) => void;
-  offMessage?: (messageName: string, listener: DesktopMessageListener) => void;
-}
-
-interface DesktopIpcRenderer {
-  invoke(ch: string, ...a: unknown[]): Promise<unknown>;
-  send?(ch: string, ...a: unknown[]): void;
-  on?(ch: string, fn: (...a: unknown[]) => void): void;
-  removeListener?(ch: string, fn: (...a: unknown[]) => void): void;
-}
-
-interface DesktopBridgeWindow extends Window {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: {
-    ipcRenderer?: DesktopIpcRenderer;
-  };
-}
 
 const getSpeechRecognition = (): SpeechRecognitionCtor | null =>
   ((window as unknown as Record<string, unknown>)
@@ -138,52 +123,23 @@ export class SwabbleWeb extends WebPlugin {
   private captureStream: MediaStream | null = null;
   private captureContext: AudioContext | null = null;
   private captureProcessor: ScriptProcessorNode | null = null;
-  private ipcHandlers: Array<{
-    channel: string;
-    listener: (...args: unknown[]) => void;
-  }> = [];
   private bridgeSubscriptions: Array<() => void> = [];
   private usingNativeIpc = false;
 
-  private getRendererRpc(): ElectrobunRendererRpc | null {
-    return (
-      (window as unknown as DesktopBridgeWindow).__MILADY_ELECTROBUN_RPC__ ??
-      null
-    );
+  private getRendererRpc() {
+    return getElectrobunRendererRpc() ?? null;
   }
 
-  private getIpc(): DesktopIpcRenderer | null {
-    return (
-      (window as unknown as DesktopBridgeWindow).electron?.ipcRenderer ?? null
-    );
+  private getIpc(): ElectronIpcRenderer | null {
+    return getElectronIpcRenderer() ?? null;
   }
 
   private subscribeDesktopEvent(options: {
     rpcMessage: string;
     ipcChannel: string;
-    listener: DesktopMessageListener;
+    listener: (payload: unknown) => void;
   }): void {
-    const rpc = this.getRendererRpc();
-    if (rpc?.onMessage && rpc?.offMessage) {
-      rpc.onMessage(options.rpcMessage, options.listener);
-      this.bridgeSubscriptions.push(() => {
-        rpc.offMessage?.(options.rpcMessage, options.listener);
-      });
-      return;
-    }
-
-    const ipc = this.getIpc();
-    if (!ipc?.on) return;
-
-    const ipcListener = (...args: unknown[]) => {
-      const payload = args.length > 1 ? args[1] : args[0];
-      options.listener(payload);
-    };
-    ipc.on(options.ipcChannel, ipcListener);
-    this.ipcHandlers.push({
-      channel: options.ipcChannel,
-      listener: ipcListener,
-    });
+    this.bridgeSubscriptions.push(subscribeDesktopBridgeEvent(options));
   }
 
   private async invokeDesktopRequest<T>(options: {
@@ -191,17 +147,7 @@ export class SwabbleWeb extends WebPlugin {
     ipcChannel: string;
     params?: unknown;
   }): Promise<T | null> {
-    const rpcRequest = this.getRendererRpc()?.request?.[options.rpcMethod];
-    if (rpcRequest) {
-      return (await rpcRequest(options.params)) as T;
-    }
-
-    const ipc = this.getIpc();
-    if (ipc) {
-      return (await ipc.invoke(options.ipcChannel, options.params)) as T;
-    }
-
-    return null;
+    return await invokeDesktopBridgeRequest<T>(options);
   }
 
   private setupNativeListeners(): void {
@@ -248,12 +194,6 @@ export class SwabbleWeb extends WebPlugin {
       unsubscribe();
     }
     this.bridgeSubscriptions = [];
-
-    const ipc = this.getIpc();
-    for (const { channel, listener } of this.ipcHandlers) {
-      ipc?.removeListener?.(channel, listener);
-    }
-    this.ipcHandlers = [];
   }
 
   private async startNativeAudioCapture(sampleRate = 16000): Promise<void> {
