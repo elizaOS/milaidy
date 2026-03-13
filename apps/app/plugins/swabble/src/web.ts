@@ -43,6 +43,28 @@ interface SpeechRecognitionResultList {
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
+type DesktopMessageListener = (payload: unknown) => void;
+
+interface ElectrobunRendererRpc {
+  request?: Record<string, (params?: unknown) => Promise<unknown>>;
+  onMessage?: (messageName: string, listener: DesktopMessageListener) => void;
+  offMessage?: (messageName: string, listener: DesktopMessageListener) => void;
+}
+
+interface DesktopIpcRenderer {
+  invoke(ch: string, ...a: unknown[]): Promise<unknown>;
+  send?(ch: string, ...a: unknown[]): void;
+  on?(ch: string, fn: (...a: unknown[]) => void): void;
+  removeListener?(ch: string, fn: (...a: unknown[]) => void): void;
+}
+
+interface DesktopBridgeWindow extends Window {
+  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  electron?: {
+    ipcRenderer?: DesktopIpcRenderer;
+  };
+}
+
 const getSpeechRecognition = (): SpeechRecognitionCtor | null =>
   ((window as unknown as Record<string, unknown>)
     .SpeechRecognition as SpeechRecognitionCtor) ||
@@ -120,65 +142,103 @@ export class SwabbleWeb extends WebPlugin {
     channel: string;
     listener: (...args: unknown[]) => void;
   }> = [];
+  private bridgeSubscriptions: Array<() => void> = [];
   private usingNativeIpc = false;
 
-  private getIpc(): {
-    invoke(ch: string, ...a: unknown[]): Promise<unknown>;
-    send(ch: string, ...a: unknown[]): void;
-    on(ch: string, fn: (...a: unknown[]) => void): void;
-    removeListener(ch: string, fn: (...a: unknown[]) => void): void;
-  } | null {
+  private getRendererRpc(): ElectrobunRendererRpc | null {
     return (
-      (
-        window as {
-          electron?: {
-            ipcRenderer?: {
-              invoke(ch: string, ...a: unknown[]): Promise<unknown>;
-              send(ch: string, ...a: unknown[]): void;
-              on(ch: string, fn: (...a: unknown[]) => void): void;
-              removeListener(ch: string, fn: (...a: unknown[]) => void): void;
-            };
-          };
-        }
-      ).electron?.ipcRenderer ?? null
+      (window as unknown as DesktopBridgeWindow).__MILADY_ELECTROBUN_RPC__ ??
+      null
     );
   }
 
-  /** True when running inside Electrobun (vs plain Electron). */
-  private isElectrobun(): boolean {
-    return !!(window as unknown as Record<string, unknown>).__ELECTROBUN__;
+  private getIpc(): DesktopIpcRenderer | null {
+    return (
+      (window as unknown as DesktopBridgeWindow).electron?.ipcRenderer ?? null
+    );
+  }
+
+  private async invokeDesktopRequest<T>(options: {
+    rpcMethod: string;
+    ipcChannel: string;
+    params?: unknown;
+  }): Promise<T | null> {
+    const rpcRequest = this.getRendererRpc()?.request?.[options.rpcMethod];
+    if (rpcRequest) {
+      return (await rpcRequest(options.params)) as T;
+    }
+
+    const ipc = this.getIpc();
+    if (ipc) {
+      return (await ipc.invoke(options.ipcChannel, options.params)) as T;
+    }
+
+    return null;
   }
 
   private setupNativeListeners(): void {
+    this.removeNativeListeners();
+
+    const rpc = this.getRendererRpc();
+    if (rpc?.onMessage && rpc?.offMessage) {
+      const wakeWordListener: DesktopMessageListener = (payload) => {
+        this.notifyListeners("wakeWord", payload as Record<string, unknown>);
+      };
+      rpc.onMessage("swabbleWakeWord", wakeWordListener);
+      this.bridgeSubscriptions.push(() => {
+        rpc.offMessage?.("swabbleWakeWord", wakeWordListener);
+      });
+
+      const stateChangeListener: DesktopMessageListener = (payload) => {
+        const listening =
+          typeof (payload as { listening?: unknown }).listening === "boolean"
+            ? (payload as { listening: boolean }).listening
+            : false;
+        this.isActive = listening;
+        this.notifyListeners("stateChange", {
+          state: listening ? "listening" : "idle",
+        });
+      };
+      rpc.onMessage("swabbleStateChanged", stateChangeListener);
+      this.bridgeSubscriptions.push(() => {
+        rpc.offMessage?.("swabbleStateChanged", stateChangeListener);
+      });
+    }
+
     const ipc = this.getIpc();
-    if (!ipc) return;
-    const map: Array<[string, string]> = [
-      ["swabble:wakeWord", "wakeWord"],
-      ["swabble:stateChange", "stateChange"],
+    if (!ipc?.on) return;
+
+    const ipcOnlyEvents: Array<[string, string]> = [
       ["swabble:audioLevel", "audioLevel"],
       ["swabble:transcript", "transcript"],
       ["swabble:error", "error"],
     ];
-    for (const [ch, ev] of map) {
+    for (const [channel, eventName] of ipcOnlyEvents) {
       const listener = (...args: unknown[]) => {
-        this.notifyListeners(ev, args[0] as Record<string, unknown>);
+        this.notifyListeners(eventName, args[0] as Record<string, unknown>);
       };
-      ipc.on(ch, listener);
-      this.ipcHandlers.push({ channel: ch, listener });
+      ipc.on(channel, listener);
+      this.ipcHandlers.push({ channel, listener });
     }
   }
 
   private removeNativeListeners(): void {
+    for (const unsubscribe of this.bridgeSubscriptions) {
+      unsubscribe();
+    }
+    this.bridgeSubscriptions = [];
+
     const ipc = this.getIpc();
     for (const { channel, listener } of this.ipcHandlers) {
-      ipc?.removeListener(channel, listener);
+      ipc?.removeListener?.(channel, listener);
     }
     this.ipcHandlers = [];
   }
 
   private async startNativeAudioCapture(sampleRate = 16000): Promise<void> {
     const ipc = this.getIpc();
-    if (!ipc) return;
+    const rpcRequest = this.getRendererRpc()?.request?.swabbleAudioChunk;
+    if (!ipc && !rpcRequest) return;
     const stream = await navigator.mediaDevices
       .getUserMedia({ audio: true })
       .catch(() => null);
@@ -204,7 +264,7 @@ export class SwabbleWeb extends WebPlugin {
         }
         out[i] = cnt > 0 ? acc / cnt : 0;
       }
-      if (this.isElectrobun()) {
+      if (rpcRequest) {
         // Electrobun: handleRequest expects invoke + base64-encoded Float32 PCM
         const bytes = new Uint8Array(
           out.buffer,
@@ -214,10 +274,14 @@ export class SwabbleWeb extends WebPlugin {
         let binary = "";
         for (let i = 0; i < bytes.length; i++)
           binary += String.fromCharCode(bytes[i]);
-        ipc
-          .invoke("swabble:audioChunk", { data: btoa(binary) })
-          .catch(() => {});
-      } else {
+        if (rpcRequest) {
+          void rpcRequest({ data: btoa(binary) }).catch(() => {});
+        } else {
+          ipc
+            ?.invoke("swabble:audioChunk", { data: btoa(binary) })
+            .catch(() => {});
+        }
+      } else if (ipc?.send) {
         // Electron: ipcMain.on expects send + raw typed array
         ipc.send("swabble:audioChunk", out);
       }
@@ -244,13 +308,15 @@ export class SwabbleWeb extends WebPlugin {
     if (this.isActive) return { started: true };
 
     // Delegate to native IPC when running in Electron or Electrobun
+    const rpc = this.getRendererRpc();
     const ipc = this.getIpc();
-    if (ipc) {
+    if (rpc || ipc) {
       try {
-        const result = (await ipc.invoke(
-          "swabble:start",
-          options as unknown,
-        )) as SwabbleStartResult;
+        const result = await this.invokeDesktopRequest<SwabbleStartResult>({
+          rpcMethod: "swabbleStart",
+          ipcChannel: "swabble:start",
+          params: options,
+        });
         if (result?.started) {
           this.isActive = true;
           this.usingNativeIpc = true;
@@ -404,9 +470,10 @@ export class SwabbleWeb extends WebPlugin {
       this.usingNativeIpc = false;
       this.removeNativeListeners();
       this.stopNativeAudioCapture();
-      this.getIpc()
-        ?.invoke("swabble:stop")
-        .catch(() => {});
+      void this.invokeDesktopRequest({
+        rpcMethod: "swabbleStop",
+        ipcChannel: "swabble:stop",
+      });
       this.notifyListeners("stateChange", { state: "idle" });
       return;
     }
@@ -441,9 +508,11 @@ export class SwabbleWeb extends WebPlugin {
 
     // Sync to native IPC if active
     if (this.usingNativeIpc) {
-      this.getIpc()
-        ?.invoke("swabble:updateConfig", options)
-        .catch(() => {});
+      void this.invokeDesktopRequest({
+        rpcMethod: "swabbleUpdateConfig",
+        ipcChannel: "swabble:updateConfig",
+        params: options.config,
+      });
     }
   }
 
@@ -457,9 +526,21 @@ export class SwabbleWeb extends WebPlugin {
     } catch {
       /* permissions.query not supported for microphone in some browsers */
     }
+    let speechRecognition: SwabblePermissionStatus["speechRecognition"] =
+      getSpeechRecognition() ? "granted" : "not_supported";
+    const whisperStatus = await this.invokeDesktopRequest<{
+      available: boolean;
+    }>({
+      rpcMethod: "swabbleIsWhisperAvailable",
+      ipcChannel: "swabble:isWhisperAvailable",
+    });
+    if (whisperStatus?.available) {
+      speechRecognition = "granted";
+    }
+
     return {
       microphone,
-      speechRecognition: getSpeechRecognition() ? "granted" : "not_supported",
+      speechRecognition,
     };
   }
 
