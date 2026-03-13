@@ -43,7 +43,7 @@ const isSwabbleState = (value: unknown): value is SwabbleStateEvent["state"] =>
 /**
  * WakeWordGate detects trigger phrases in transcripts.
  *
- * NOTE: When using the Web Speech API fallback (no Whisper IPC),
+ * NOTE: When using the Web Speech API fallback (no native Whisper bridge),
  * word-level timing is unavailable. In that mode, `postGap` is -1
  * and minPostTriggerGap is not enforced.
  */
@@ -96,7 +96,7 @@ class WakeWordGate {
 /**
  * Swabble Plugin for Electron
  *
- * Uses Whisper.cpp via Electron IPC when available for full timing parity,
+ * Uses Whisper.cpp via the native desktop bridge when available for full timing parity,
  * with Web Speech API fallback when Whisper bindings are unavailable.
  */
 export class SwabbleElectron implements SwabblePlugin {
@@ -120,13 +120,11 @@ export class SwabbleElectron implements SwabblePlugin {
 
   private async invokeBridge<T>(
     rpcMethod: string,
-    ipcChannel: string,
     params?: unknown,
   ): Promise<T | null> {
     try {
       return await invokeDesktopBridgeRequest<T>({
         rpcMethod,
-        ipcChannel,
         params,
       });
     } catch {
@@ -144,10 +142,9 @@ export class SwabbleElectron implements SwabblePlugin {
     this.segments = [];
     this.captureSampleRate = options.config.sampleRate ?? 16000;
 
-    // Try native Whisper via Electron IPC first
+    // Try the native desktop bridge first.
     const nativeResult = await this.invokeBridge<SwabbleStartResult>(
       "swabbleStart",
-      "swabble:start",
       options,
     );
     if (nativeResult?.started) {
@@ -282,25 +279,21 @@ export class SwabbleElectron implements SwabblePlugin {
       {
         eventName: "wakeWord" as const,
         rpcMessage: "swabbleWakeWord",
-        ipcChannel: "swabble:wakeWord",
         normalize: (data: unknown) => this.normalizeWakeWordEvent(data),
       },
       {
         eventName: "stateChange" as const,
         rpcMessage: "swabbleStateChanged",
-        ipcChannel: "swabble:stateChange",
         normalize: (data: unknown) => this.normalizeStateEvent(data),
       },
       {
         eventName: "transcript" as const,
         rpcMessage: "swabbleTranscript",
-        ipcChannel: "swabble:transcript",
         normalize: (data: unknown) => data as unknown as SwabbleTranscriptEvent,
       },
       {
         eventName: "error" as const,
         rpcMessage: "swabbleError",
-        ipcChannel: "swabble:error",
         normalize: (data: unknown) => data as unknown as SwabbleErrorEvent,
       },
     ];
@@ -308,7 +301,6 @@ export class SwabbleElectron implements SwabblePlugin {
     for (const entry of bridgeHandlers) {
       const unsubscribe = subscribeDesktopBridgeEvent({
         rpcMessage: entry.rpcMessage,
-        ipcChannel: entry.ipcChannel,
         listener: (data) => {
           this.notifyListeners(entry.eventName, entry.normalize(data));
         },
@@ -578,7 +570,7 @@ export class SwabbleElectron implements SwabblePlugin {
     this.stopAudioCapture();
     this.stopAudioLevelMonitoring();
 
-    await this.invokeBridge("swabbleStop", "swabble:stop");
+    await this.invokeBridge("swabbleStop");
 
     if (this.recognition) {
       this.recognition.stop();
@@ -591,7 +583,6 @@ export class SwabbleElectron implements SwabblePlugin {
   async isListening(): Promise<{ listening: boolean }> {
     const nativeState = await this.invokeBridge<{ listening: boolean }>(
       "swabbleIsListening",
-      "swabble:isListening",
     );
     if (nativeState) {
       this.isActive = nativeState.listening;
@@ -601,10 +592,8 @@ export class SwabbleElectron implements SwabblePlugin {
   }
 
   async getConfig(): Promise<{ config: SwabbleConfig | null }> {
-    const nativeConfig = await this.invokeBridge<Record<string, unknown>>(
-      "swabbleGetConfig",
-      "swabble:getConfig",
-    );
+    const nativeConfig =
+      await this.invokeBridge<Record<string, unknown>>("swabbleGetConfig");
     if (nativeConfig && isObjectRecord(nativeConfig)) {
       return { config: nativeConfig as unknown as SwabbleConfig };
     }
@@ -620,11 +609,7 @@ export class SwabbleElectron implements SwabblePlugin {
       this.captureSampleRate = this.config.sampleRate ?? this.captureSampleRate;
     }
 
-    await this.invokeBridge(
-      "swabbleUpdateConfig",
-      "swabble:updateConfig",
-      options.config,
-    );
+    await this.invokeBridge("swabbleUpdateConfig", options.config);
   }
 
   async checkPermissions(): Promise<SwabblePermissionStatus> {
@@ -653,7 +638,6 @@ export class SwabbleElectron implements SwabblePlugin {
 
     const whisperStatus = await this.invokeBridge<{ available: boolean }>(
       "swabbleIsWhisperAvailable",
-      "swabble:isWhisperAvailable",
     );
     if (whisperStatus?.available) {
       speechRecognition = "granted";

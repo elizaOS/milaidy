@@ -29,7 +29,6 @@ export class ScreenCaptureElectron
       const screenshot =
         await invokeDesktopBridgeRequest<NativeScreenshotResponse>({
           rpcMethod: "screencaptureTakeScreenshot",
-          ipcChannel: "screencapture:takeScreenshot",
         });
 
       if (screenshot?.available && screenshot.data) {

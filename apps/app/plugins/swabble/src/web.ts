@@ -73,7 +73,6 @@ function getElectrobunRendererRpc(): ElectrobunRendererRpc | null {
 
 async function invokeDesktopBridgeRequest<T>(options: {
   rpcMethod: string;
-  ipcChannel: string;
   params?: unknown;
 }): Promise<T | null> {
   const rpc = getElectrobunRendererRpc();
@@ -87,7 +86,6 @@ async function invokeDesktopBridgeRequest<T>(options: {
 
 function subscribeDesktopBridgeEvent(options: {
   rpcMessage: string;
-  ipcChannel: string;
   listener: ElectrobunMessageListener;
 }): () => void {
   const rpc = getElectrobunRendererRpc();
@@ -170,12 +168,12 @@ export class SwabbleWeb extends WebPlugin {
   private mediaStream: MediaStream | null = null;
   private levelInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Native IPC state (Electron/Electrobun)
+  // Native desktop bridge state.
   private captureStream: MediaStream | null = null;
   private captureContext: AudioContext | null = null;
   private captureProcessor: ScriptProcessorNode | null = null;
   private bridgeSubscriptions: Array<() => void> = [];
-  private usingNativeIpc = false;
+  private usingNativeBridge = false;
 
   private getRendererRpc() {
     return getElectrobunRendererRpc() ?? null;
@@ -183,7 +181,6 @@ export class SwabbleWeb extends WebPlugin {
 
   private subscribeDesktopEvent(options: {
     rpcMessage: string;
-    ipcChannel: string;
     listener: (payload: unknown) => void;
   }): void {
     this.bridgeSubscriptions.push(subscribeDesktopBridgeEvent(options));
@@ -191,7 +188,6 @@ export class SwabbleWeb extends WebPlugin {
 
   private async invokeDesktopRequest<T>(options: {
     rpcMethod: string;
-    ipcChannel: string;
     params?: unknown;
   }): Promise<T | null> {
     return await invokeDesktopBridgeRequest<T>(options);
@@ -201,14 +197,12 @@ export class SwabbleWeb extends WebPlugin {
     this.removeNativeListeners();
     this.subscribeDesktopEvent({
       rpcMessage: "swabbleWakeWord",
-      ipcChannel: "swabble:wakeWord",
       listener: (payload) => {
         this.notifyListeners("wakeWord", payload as Record<string, unknown>);
       },
     });
     this.subscribeDesktopEvent({
       rpcMessage: "swabbleStateChanged",
-      ipcChannel: "swabble:stateChange",
       listener: (payload) => {
         const listening =
           typeof (payload as { listening?: unknown }).listening === "boolean"
@@ -222,14 +216,12 @@ export class SwabbleWeb extends WebPlugin {
     });
     this.subscribeDesktopEvent({
       rpcMessage: "swabbleTranscript",
-      ipcChannel: "swabble:transcript",
       listener: (payload) => {
         this.notifyListeners("transcript", payload as Record<string, unknown>);
       },
     });
     this.subscribeDesktopEvent({
       rpcMessage: "swabbleError",
-      ipcChannel: "swabble:error",
       listener: (payload) => {
         this.notifyListeners("error", payload as Record<string, unknown>);
       },
@@ -327,12 +319,11 @@ export class SwabbleWeb extends WebPlugin {
       try {
         const result = await this.invokeDesktopRequest<SwabbleStartResult>({
           rpcMethod: "swabbleStart",
-          ipcChannel: "swabble:start",
           params: options,
         });
         if (result?.started) {
           this.isActive = true;
-          this.usingNativeIpc = true;
+          this.usingNativeBridge = true;
           this.config = options.config;
           this.setupNativeListeners();
           await this.startNativeAudioCapture(
@@ -478,14 +469,13 @@ export class SwabbleWeb extends WebPlugin {
   async stop(): Promise<void> {
     this.isActive = false;
 
-    // Clean up native IPC if in native mode
-    if (this.usingNativeIpc) {
-      this.usingNativeIpc = false;
+    // Clean up native desktop bridge resources if native mode is active.
+    if (this.usingNativeBridge) {
+      this.usingNativeBridge = false;
       this.removeNativeListeners();
       this.stopNativeAudioCapture();
       void this.invokeDesktopRequest({
         rpcMethod: "swabbleStop",
-        ipcChannel: "swabble:stop",
       });
       this.notifyListeners("stateChange", { state: "idle" });
       return;
@@ -519,11 +509,10 @@ export class SwabbleWeb extends WebPlugin {
       }
     }
 
-    // Sync to native IPC if active
-    if (this.usingNativeIpc) {
+    // Sync to the native desktop bridge when active.
+    if (this.usingNativeBridge) {
       void this.invokeDesktopRequest({
         rpcMethod: "swabbleUpdateConfig",
-        ipcChannel: "swabble:updateConfig",
         params: options.config,
       });
     }
@@ -545,7 +534,6 @@ export class SwabbleWeb extends WebPlugin {
       available: boolean;
     }>({
       rpcMethod: "swabbleIsWhisperAvailable",
-      ipcChannel: "swabble:isWhisperAvailable",
     });
     if (whisperStatus?.available) {
       speechRecognition = "granted";

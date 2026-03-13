@@ -27,7 +27,6 @@ export function useRetakeCapture(
       activeRef.current = true;
       void invokeDesktopBridgeRequest({
         rpcMethod: "screencaptureStartFrameCapture",
-        ipcChannel: "screencapture:startFrameCapture",
         params: {
           fps,
           quality: JPEG_QUALITY,
@@ -48,7 +47,6 @@ export function useRetakeCapture(
       activeRef.current = false;
       void invokeDesktopBridgeRequest({
         rpcMethod: "screencaptureStopFrameCapture",
-        ipcChannel: "screencapture:stopFrameCapture",
       }).catch((err) => {
         console.warn("[retake] Failed to stop frame capture:", err);
       });
@@ -59,7 +57,6 @@ export function useRetakeCapture(
         activeRef.current = false;
         void invokeDesktopBridgeRequest({
           rpcMethod: "screencaptureStopFrameCapture",
-          ipcChannel: "screencapture:stopFrameCapture",
         }).catch(() => {});
       }
     };

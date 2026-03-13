@@ -17,7 +17,6 @@ function copyTextWithExecCommand(text: string): void {
 export async function copyTextToClipboard(text: string): Promise<void> {
   const copied = await invokeDesktopBridgeRequest({
     rpcMethod: "desktopWriteToClipboard",
-    ipcChannel: "desktop:writeToClipboard",
     params: { text },
   });
   if (copied !== null) {

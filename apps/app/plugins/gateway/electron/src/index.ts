@@ -473,7 +473,6 @@ export class GatewayElectron implements GatewayPlugin {
 
       this.discoveryUnsubscribe = subscribeDesktopBridgeEvent({
         rpcMessage: "gatewayDiscovery",
-        ipcChannel: "gateway:discovery",
         listener: (event) => {
           if (this.isGatewayDiscoveryEvent(event)) {
             this.handleDiscoveryEvent(event);
@@ -483,7 +482,6 @@ export class GatewayElectron implements GatewayPlugin {
 
       const result = await invokeDesktopBridgeRequest<GatewayDiscoveryResult>({
         rpcMethod: "gatewayStartDiscovery",
-        ipcChannel: "gateway:startDiscovery",
         params: {
           wideAreaDomain: options?.wideAreaDomain,
           timeout: options?.timeout || 30000,
@@ -503,7 +501,7 @@ export class GatewayElectron implements GatewayPlugin {
     }
 
     console.warn(
-      "[Gateway] mDNS discovery not available - Electron IPC bridge not configured",
+      "[Gateway] mDNS discovery not available - desktop RPC bridge not configured",
     );
     return {
       gateways: [],
@@ -518,7 +516,6 @@ export class GatewayElectron implements GatewayPlugin {
     try {
       await invokeDesktopBridgeRequest({
         rpcMethod: "gatewayStopDiscovery",
-        ipcChannel: "gateway:stopDiscovery",
       });
     } catch {
       // Ignore errors when stopping

@@ -6,7 +6,7 @@
  * Location methods:
  * - Browser Geolocation API (requires permission, may use WiFi/IP)
  * - IP-based geolocation fallback (less accurate, no permission needed)
- * - Native location services via Electron IPC (platform-specific)
+ * - Native location services via the desktop RPC bridge
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
@@ -53,7 +53,6 @@ export class LocationElectron implements LocationPlugin {
     try {
       const result = await invokeDesktopBridgeRequest<NativeLocationPosition>({
         rpcMethod: "locationGetCurrentPosition",
-        ipcChannel: "location:getCurrentPosition",
         params: options,
       });
       if (result) {
@@ -100,14 +99,12 @@ export class LocationElectron implements LocationPlugin {
       const nativeWatch = await invokeDesktopBridgeRequest<{ watchId: string }>(
         {
           rpcMethod: "locationWatchPosition",
-          ipcChannel: "location:watchPosition",
           params: options,
         },
       );
       if (nativeWatch?.watchId) {
         const unsubscribe = subscribeDesktopBridgeEvent({
           rpcMessage: "locationUpdate",
-          ipcChannel: "location:update",
           listener: (data) => {
             const location = this.extractNativeWatchLocation(
               nativeWatch.watchId,
@@ -169,7 +166,6 @@ export class LocationElectron implements LocationPlugin {
     try {
       await invokeDesktopBridgeRequest({
         rpcMethod: "locationClearWatch",
-        ipcChannel: "location:clearWatch",
         params: options,
       });
     } catch {

@@ -121,7 +121,6 @@ export async function toggleAlwaysOnTop(pinned: boolean): Promise<boolean> {
     }
     const result = await invokeDesktopBridgeRequest({
       rpcMethod: "desktopSetAlwaysOnTop",
-      ipcChannel: "desktop:setAlwaysOnTop",
       params: { flag: pinned },
     });
     if (result !== null) {

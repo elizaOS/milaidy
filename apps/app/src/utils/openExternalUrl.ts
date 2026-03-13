@@ -3,7 +3,6 @@ import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 export async function openExternalUrl(url: string): Promise<void> {
   const opened = await invokeDesktopBridgeRequest({
     rpcMethod: "desktopOpenExternal",
-    ipcChannel: "desktop:openExternal",
     params: { url },
   });
   if (opened !== null) {

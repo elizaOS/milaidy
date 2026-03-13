@@ -7,10 +7,9 @@
  *
  * Works in:
  *   - Electrobun — calls via the preload-exposed renderer RPC
- *   - Legacy Electron — falls back to the historical Electron bridge
  *
- * Falls back gracefully (isReady=false, no window created) when neither
- * runtime is detected (web / Capacitor / SSR).
+ * Falls back gracefully (isReady=false, no window created) when the
+ * desktop runtime is unavailable (web / Capacitor / SSR).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -120,7 +119,6 @@ export function useCanvasWindow(
 
     void invokeDesktopBridgeRequest({
       rpcMethod: "canvasSetBounds",
-      ipcChannel: "canvas:setBounds",
       params: { id, ...bounds },
     }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:setBounds failed", err);
@@ -164,7 +162,6 @@ export function useCanvasWindow(
 
     void invokeDesktopBridgeRequest<{ id?: string }>({
       rpcMethod: "canvasCreateWindow",
-      ipcChannel: "canvas:createWindow",
       params: {
         url: urlRef.current,
         title: titleRef.current ?? "Canvas",
@@ -184,7 +181,6 @@ export function useCanvasWindow(
           if (id) {
             void invokeDesktopBridgeRequest({
               rpcMethod: "canvasDestroyWindow",
-              ipcChannel: "canvas:destroyWindow",
               params: { id },
             }).catch(() => {});
           }
@@ -230,7 +226,6 @@ export function useCanvasWindow(
         lastBoundsRef.current = null;
         void invokeDesktopBridgeRequest({
           rpcMethod: "canvasDestroyWindow",
-          ipcChannel: "canvas:destroyWindow",
           params: { id },
         }).catch(() => {});
       }
@@ -247,7 +242,6 @@ export function useCanvasWindow(
     if (!id) return;
     void invokeDesktopBridgeRequest({
       rpcMethod: "canvasNavigate",
-      ipcChannel: "canvas:navigate",
       params: { id, url: newUrl },
     }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:navigate failed", err);
@@ -259,7 +253,6 @@ export function useCanvasWindow(
     if (!id) return;
     void invokeDesktopBridgeRequest({
       rpcMethod: "canvasShow",
-      ipcChannel: "canvas:show",
       params: { id },
     }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:show failed", err);
@@ -271,7 +264,6 @@ export function useCanvasWindow(
     if (!id) return;
     void invokeDesktopBridgeRequest({
       rpcMethod: "canvasHide",
-      ipcChannel: "canvas:hide",
       params: { id },
     }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:hide failed", err);
