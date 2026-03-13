@@ -668,7 +668,7 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
           Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
 
-      - name: Run Windows packaged CEF UI test
+      - name: Run Windows packaged renderer bootstrap check
         if: matrix.platform.os == 'windows'
         run: |
           cd apps/app

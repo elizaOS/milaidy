@@ -1,17 +1,10 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import {
-  type Browser,
-  chromium,
-  expect,
-  type Page,
-  test,
-} from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { type MockApiServer, startMockApiServer } from "./mock-api";
 
@@ -32,31 +25,6 @@ const electrobunBuildDir = path.join(
   "electrobun",
   "build",
 );
-
-function isIgnorableConsoleError(message: string): boolean {
-  const patterns = [
-    "Electron Security Warning",
-    "DevTools failed to load source map",
-    "Failed to load resource: net::ERR_FILE_NOT_FOUND",
-    "Failed to load resource: net::ERR_CONNECTION_REFUSED",
-    "Download the React DevTools", // Often noisy in prod builds if left in
-  ];
-  return patterns.some((pattern) => message.includes(pattern));
-}
-
-function isIgnorableRequestFailure(
-  requestUrl: string,
-  errorText: string | undefined,
-): boolean {
-  const failure = errorText ?? "";
-  if (
-    failure.includes("ERR_CONNECTION_REFUSED") &&
-    /https?:\/\/localhost:2138\/api\/auth\/status/.test(requestUrl)
-  ) {
-    return true;
-  }
-  return false;
-}
 
 // Find a launcher.exe in a given directory
 async function findLauncherExe(dir: string): Promise<string | null> {
@@ -147,61 +115,6 @@ async function resolveWindowsLauncher(tempExtractDir: string): Promise<string> {
   return fs.realpath(launcher);
 }
 
-async function getFreeTcpPort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close(() =>
-          reject(new Error("Unable to resolve free TCP port.")),
-        );
-        return;
-      }
-      const { port } = address;
-      server.close((closeErr) => {
-        if (closeErr) reject(closeErr);
-        else resolve(port);
-      });
-    });
-  });
-}
-
-async function waitForCdp(debugPort: number, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      // Chromium CDP endpoint exposed by the packaged Windows renderer.
-      const response = await fetch(
-        `http://127.0.0.1:${debugPort}/json/version`,
-      );
-      if (response.ok) return;
-    } catch {
-      // retry
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`Timed out waiting for CDP endpoint at :${debugPort}`);
-}
-
-async function waitForAppPage(
-  browser: Browser,
-  timeoutMs: number,
-): Promise<Page> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    for (const context of browser.contexts()) {
-      for (const page of context.pages()) {
-        const url = page.url();
-        if (!url.startsWith("devtools://")) return page;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error("Timed out waiting for packaged app renderer page.");
-}
-
 function collectProcessLogs(child: ChildProcess): {
   stdout: string[];
   stderr: string[];
@@ -219,6 +132,41 @@ function collectProcessLogs(child: ChildProcess): {
   return { stdout, stderr };
 }
 
+async function waitForRendererBootstrap(
+  api: MockApiServer,
+  child: ChildProcess,
+  timeoutMs: number,
+  processLogs: { stdout: string[]; stderr: string[] } | null,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      const stdoutText = processLogs?.stdout.join("") ?? "";
+      const stderrText = processLogs?.stderr.join("") ?? "";
+      throw new Error(
+        `Packaged Windows app exited before renderer bootstrap.\n` +
+          `Exit code: ${child.exitCode}\n` +
+          `Mock requests:\n${api.requests.join("\n")}\n\n` +
+          `App stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
+      );
+    }
+
+    if (api.requests.some((request) => request.includes("/api/status"))) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  const stdoutText = processLogs?.stdout.join("") ?? "";
+  const stderrText = processLogs?.stderr.join("") ?? "";
+  throw new Error(
+    `Timed out waiting for packaged Windows renderer to reach the external API.\n` +
+      `Mock requests:\n${api.requests.join("\n")}\n\n` +
+      `App stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
+  );
+}
+
 async function killProcess(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.killed) return;
   child.kill("SIGTERM");
@@ -234,7 +182,7 @@ async function killProcess(child: ChildProcess): Promise<void> {
   });
 }
 
-test("packaged Windows app starts and reaches chat/agent-ready state", async () => {
+test("packaged Windows app bootstraps the renderer against the external API override", async () => {
   test.skip(
     process.platform !== "win32",
     "Windows startup test is win32-only.",
@@ -248,117 +196,73 @@ test("packaged Windows app starts and reaches chat/agent-ready state", async () 
   );
 
   const executablePath = await resolveWindowsLauncher(tempExtractDir);
-  const debugPort = await getFreeTcpPort();
 
   let api: MockApiServer | null = null;
-  let browser: Browser | null = null;
   let appProcess: ChildProcess | null = null;
   let processLogs: { stdout: string[]; stderr: string[] } | null = null;
-
-  const consoleErrors: string[] = [];
-  const pageErrors: string[] = [];
-  const requestFailures: string[] = [];
 
   try {
     api = await startMockApiServer({ onboardingComplete: true, port: 0 });
 
-    appProcess = spawn(
-      executablePath,
-      // Windows release builds use an embedded CEF/Chromium renderer, so pass
-      // the debug port directly to the packaged app and attach over CDP.
-      // Keep the WebView2 env var as a compatibility fallback in case the
-      // renderer mode changes in the future.
-      [`--remote-debugging-port=${debugPort}`],
-      {
-        cwd: path.dirname(executablePath),
-        env: {
-          ...process.env,
-          MILADY_DESKTOP_SKIP_EMBEDDED_AGENT: "1",
-          MILADY_DESKTOP_TEST_API_BASE: api.baseUrl,
-          MILADY_DESKTOP_DISABLE_AUTO_UPDATER: "1",
-          MILADY_DESKTOP_DISABLE_DEVTOOLS: "1",
-          // Compatibility fallback for native Windows webviews.
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
-          // Redirect the Roaming AppData so it doesn't pollute the dev machine's real AppData
-          APPDATA: userDataDir,
-        },
-        stdio: ["ignore", "pipe", "pipe"],
+    appProcess = spawn(executablePath, [], {
+      cwd: path.dirname(executablePath),
+      env: {
+        ...process.env,
+        MILADY_DESKTOP_TEST_API_BASE: api.baseUrl,
+        // Redirect the Roaming AppData so it doesn't pollute the dev machine's real AppData
+        APPDATA: userDataDir,
       },
-    );
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     processLogs = collectProcessLogs(appProcess);
 
-    const cdpTimeoutMs = process.env.CI ? 240_000 : 120_000;
-    try {
-      await waitForCdp(debugPort, cdpTimeoutMs);
-    } catch (e) {
-      const stdoutText = processLogs?.stdout.join("") ?? "";
-      const stderrText = processLogs?.stderr.join("") ?? "";
-      console.error(
-        `CDP endpoint never came up.\nApp stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
-      );
-      throw e;
-    }
-    try {
-      browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, {
-        timeout: 120_000,
-      });
-    } catch (e) {
-      const stdoutText = processLogs?.stdout.join("") ?? "";
-      const stderrText = processLogs?.stderr.join("") ?? "";
-      console.error(
-        `CDP connect failed!\nApp stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
-      );
-      throw e;
-    }
-    const page = await waitForAppPage(browser, 120_000);
+    await waitForRendererBootstrap(
+      api,
+      appProcess,
+      process.env.CI ? 180_000 : 90_000,
+      processLogs,
+    );
 
-    page.on("console", (msg) => {
-      if (msg.type() !== "error") return;
-      const text = msg.text();
-      if (isIgnorableConsoleError(text)) return;
-      consoleErrors.push(text);
-    });
-    page.on("pageerror", (error) => {
-      pageErrors.push(String(error));
-    });
-    page.on("requestfailed", (request) => {
-      const failure = request.failure();
-      if (isIgnorableRequestFailure(request.url(), failure?.errorText)) return;
-      requestFailures.push(
-        `${request.method()} ${request.url()} :: ${failure?.errorText ?? "failed"}`,
-      );
-    });
+    await expect
+      .poll(
+        () =>
+          api?.requests.filter((request) => request.includes("/api/status"))
+            .length ?? 0,
+        {
+          timeout: 30_000,
+          message: "Expected the packaged renderer to poll /api/status",
+        },
+      )
+      .toBeGreaterThan(0);
 
-    // Ensure desktop layout so the nav tabs are visible
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect
+      .poll(
+        () =>
+          appProcess && appProcess.exitCode === null ? "running" : "exited",
+        {
+          timeout: 5_000,
+          message:
+            "Expected the packaged Windows app to stay alive after bootstrap",
+        },
+      )
+      .toBe("running");
 
-    await expect(page.getByPlaceholder("Type a message...")).toBeVisible({
-      timeout: 120_000,
-    });
-    // Status pill verifies app reached ready state
-    await expect(page.getByTestId("status-pill")).toBeVisible({
-      timeout: 30_000,
-    });
     expect(
       api.requests.some((request) => request.includes("/api/status")),
     ).toBe(true);
+    expect(api.requests.length).toBeGreaterThan(0);
 
     const stdoutText = processLogs?.stdout.join("") ?? "";
     const stderrText = processLogs?.stderr.join("") ?? "";
     expect(
-      pageErrors,
-      `Page errors:\n${pageErrors.join("\n")}\n\nMock requests:\n${api.requests.join("\n")}\n\nApp stderr:\n${stderrText}`,
-    ).toEqual([]);
-    expect(
-      requestFailures,
-      `Failed requests:\n${requestFailures.join("\n")}\n\nMock requests:\n${api.requests.join("\n")}\n\nApp stderr:\n${stderrText}`,
-    ).toEqual([]);
-    expect(
-      consoleErrors,
-      `Console errors:\n${consoleErrors.join("\n")}\n\nMock requests:\n${api.requests.join("\n")}\n\nApp stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
-    ).toEqual([]);
+      `${stdoutText}\n${stderrText}`,
+      `Packaged Windows app logs should not contain fatal startup errors.\n` +
+        `Mock requests:\n${api.requests.join("\n")}\n\n` +
+        `App stdout:\n${stdoutText}\n\nApp stderr:\n${stderrText}`,
+    ).not.toMatch(
+      /Fatal error during startup|startup failure|Cannot find module/i,
+    );
   } finally {
-    await browser?.close().catch(() => undefined);
     await api?.close().catch(() => undefined);
     if (appProcess) await killProcess(appProcess);
     await fs

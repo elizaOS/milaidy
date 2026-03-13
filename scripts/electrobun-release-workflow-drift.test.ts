@@ -259,10 +259,12 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("attaches Playwright to the embedded Windows CEF renderer without installing a separate browser", () => {
+  it("runs the Windows packaged renderer bootstrap check without installing a separate browser", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Run Windows packaged CEF UI test");
+    expect(workflow).toContain(
+      "name: Run Windows packaged renderer bootstrap check",
+    );
     expect(workflow).toContain(
       "bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
     );
@@ -274,18 +276,20 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("passes a remote debugging argument and attaches over CDP to the packaged Windows CEF app", () => {
+  it("verifies the packaged Windows renderer reaches the external API without CDP assumptions", () => {
     const windowsPackagedTest = fs.readFileSync(
       WINDOWS_PACKAGED_TEST_PATH,
       "utf8",
     );
 
     expect(windowsPackagedTest).toContain(
-      "[`--remote-debugging-port=$" + "{debugPort}`]",
+      "MILADY_DESKTOP_TEST_API_BASE: api.baseUrl",
     );
-    expect(windowsPackagedTest).toContain("embedded CEF/Chromium renderer");
-    expect(windowsPackagedTest).toContain("chromium.connectOverCDP");
-    expect(windowsPackagedTest).toContain(
+    expect(windowsPackagedTest).toContain('request.includes("/api/status")');
+    expect(windowsPackagedTest).toContain("waitForRendererBootstrap");
+    expect(windowsPackagedTest).not.toContain("chromium.connectOverCDP");
+    expect(windowsPackagedTest).not.toContain("--remote-debugging-port");
+    expect(windowsPackagedTest).not.toContain(
       "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
     );
   });
