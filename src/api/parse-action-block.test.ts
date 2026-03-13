@@ -93,6 +93,13 @@ describe("parseActionBlock", () => {
     expect(parseActionBlock(input)).toBeNull();
   });
 
+  it("returns null when action JSON contains unknown keys", () => {
+    const input = `\`\`\`json
+{"action":"respond","response":"ok","reasoning":"x","format":"json"}
+\`\`\``;
+    expect(parseActionBlock(input)).toBeNull();
+  });
+
   it("returns null for malformed JSON", () => {
     const input = `\`\`\`json
 {"action": "respond", "response": broken json here
@@ -193,6 +200,11 @@ describe("stripActionBlockFromDisplay", () => {
 
   it("leaves non-action JSON intact", () => {
     const input = `Config is {"port": 3000, "debug": true}`;
+    expect(stripActionBlockFromDisplay(input)).toBe(input);
+  });
+
+  it("keeps JSON with action key when schema is not coordinator envelope", () => {
+    const input = `Return this JSON exactly:\n\n{"action":"ignore","reasoning":"user payload","format":"public"}`;
     expect(stripActionBlockFromDisplay(input)).toBe(input);
   });
 

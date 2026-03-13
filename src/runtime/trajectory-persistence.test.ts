@@ -2,9 +2,16 @@ import type { IAgentRuntime } from "@elizaos/core";
 import { describe, expect, it, vi } from "vitest";
 import {
   computeBySource,
+  extractInsightsFromResponse,
   extractRows,
+  flushObservationBuffer,
   installDatabaseTrajectoryLogger,
+  pruneOldTrajectories,
+  pushChatExchange,
   readOrchestratorTrajectoryContext,
+  shouldRunObservationExtraction,
+  truncateField,
+  truncateRecord,
 } from "./trajectory-persistence";
 
 async function waitForCallCount(
@@ -400,5 +407,550 @@ describe("computeBySource", () => {
     const runtime = {} as IAgentRuntime;
     const result = await computeBySource(runtime);
     expect(result).toEqual({});
+  });
+});
+
+describe("shouldRunObservationExtraction", () => {
+  it("returns true by default when no explicit setting and no reflection evaluators", () => {
+    const runtime = {
+      evaluators: [],
+      getSetting: vi.fn(() => undefined),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(true);
+  });
+
+  it("returns false when REFLECTION evaluator is present and no explicit setting", () => {
+    const runtime = {
+      evaluators: [{ name: "REFLECTION" }],
+      getSetting: vi.fn(() => undefined),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(false);
+  });
+
+  it("returns false when RELATIONSHIP_EXTRACTION evaluator is present", () => {
+    const runtime = {
+      evaluators: [{ name: "RELATIONSHIP_EXTRACTION" }],
+      getSetting: vi.fn(() => undefined),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(false);
+  });
+
+  it("returns true when explicitly enabled even if evaluators are present", () => {
+    const runtime = {
+      evaluators: [{ name: "REFLECTION" }],
+      getSetting: vi.fn((key: string) =>
+        key === "TRAJECTORY_OBSERVATION_EXTRACTION" ? "true" : undefined,
+      ),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(true);
+  });
+
+  it("returns false when explicitly disabled", () => {
+    const runtime = {
+      evaluators: [],
+      getSetting: vi.fn((key: string) =>
+        key === "TRAJECTORY_OBSERVATION_EXTRACTION" ? "false" : undefined,
+      ),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(false);
+  });
+
+  it("falls back to evaluator guard when explicit setting is invalid", () => {
+    const runtime = {
+      evaluators: [{ name: " REFLECTION " }],
+      getSetting: vi.fn((key: string) =>
+        key === "TRAJECTORY_OBSERVATION_EXTRACTION" ? "maybe" : undefined,
+      ),
+    } as unknown as IAgentRuntime;
+    expect(shouldRunObservationExtraction(runtime)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// truncateField
+// ---------------------------------------------------------------------------
+
+describe("truncateField", () => {
+  it("returns short strings unchanged", () => {
+    expect(truncateField("hello", 500)).toBe("hello");
+  });
+
+  it("returns strings at exactly 2x limit unchanged", () => {
+    const s = "a".repeat(1000);
+    expect(truncateField(s, 500)).toBe(s);
+  });
+
+  it("truncates strings exceeding 2x limit", () => {
+    const s = "a".repeat(2000);
+    const result = truncateField(s, 500);
+    expect(result).toContain("[...truncated 1000 chars...]");
+    expect(result.startsWith("a".repeat(500))).toBe(true);
+    expect(result.endsWith("a".repeat(500))).toBe(true);
+    expect(result.length).toBeLessThan(s.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractInsightsFromResponse
+// ---------------------------------------------------------------------------
+
+describe("extractInsightsFromResponse", () => {
+  it("extracts DECISION: markers", () => {
+    const response = "Some text\nDECISION: use claude for this task\nMore text";
+    expect(extractInsightsFromResponse(response, "coordination")).toEqual([
+      "use claude for this task",
+    ]);
+  });
+
+  it("extracts keyDecision JSON fields", () => {
+    const response =
+      '{"keyDecision": "split into 3 subtasks", "other": "stuff"}';
+    expect(extractInsightsFromResponse(response, "action")).toEqual([
+      "split into 3 subtasks",
+    ]);
+  });
+
+  it("falls back to reasoning for turn-complete when no other insights", () => {
+    const response =
+      '{"reasoning": "the agent completed the bug fix successfully and tests pass"}';
+    const insights = extractInsightsFromResponse(response, "turn-complete");
+    expect(insights).toHaveLength(1);
+    expect(insights[0]).toContain("the agent completed the bug fix");
+  });
+
+  it("falls back to reasoning for coordination when no other insights", () => {
+    const response =
+      '{"reasoning": "coordinate agents by routing docs to gamma and tests to beta for faster completion"}';
+    const insights = extractInsightsFromResponse(response, "coordination");
+    expect(insights).toHaveLength(1);
+    expect(insights[0]).toContain("coordinate agents");
+  });
+
+  it("does not extract reasoning for non-turn-complete purposes", () => {
+    const response =
+      '{"reasoning": "the agent completed the bug fix successfully and tests pass"}';
+    expect(extractInsightsFromResponse(response, "action")).toEqual([]);
+  });
+
+  it("returns empty array for responses with no markers", () => {
+    expect(
+      extractInsightsFromResponse("just a normal response", "action"),
+    ).toEqual([]);
+  });
+
+  it("extracts multiple insights from one response", () => {
+    const response =
+      'DECISION: use parallel agents\n{"keyDecision": "split by module"}\nDECISION: assign alpha to frontend';
+    const insights = extractInsightsFromResponse(response, "coordination");
+    expect(insights).toEqual([
+      "use parallel agents",
+      "assign alpha to frontend",
+      "split by module",
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pushChatExchange / flushObservationBuffer
+// ---------------------------------------------------------------------------
+
+describe("observation buffer", () => {
+  it("pushChatExchange adds to the buffer without throwing", () => {
+    const runtime = {} as IAgentRuntime;
+    expect(() =>
+      pushChatExchange(runtime, {
+        userPrompt: "hello",
+        response: "hi there",
+        trajectoryId: "step-1",
+        timestamp: Date.now(),
+      }),
+    ).not.toThrow();
+  });
+
+  it("flushObservationBuffer returns empty array when buffer is empty", async () => {
+    const runtime = {} as IAgentRuntime;
+    const result = await flushObservationBuffer(runtime);
+    expect(result).toEqual([]);
+  });
+
+  it("flushObservationBuffer returns empty array when useModel is unavailable", async () => {
+    const runtime = {
+      useModel: vi.fn(async () => "not json"),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "I prefer TypeScript",
+      response: "Noted!",
+      trajectoryId: "step-obs-1",
+      timestamp: Date.now(),
+    });
+
+    const result = await flushObservationBuffer(runtime);
+    // useModel was called with the extraction prompt
+    expect(runtime.useModel).toHaveBeenCalledTimes(1);
+    // Returns empty because "not json" can't be parsed as array
+    expect(result).toEqual([]);
+  });
+
+  it("flushObservationBuffer parses valid LLM response into observations", async () => {
+    const runtime = {
+      useModel: vi.fn(async () =>
+        JSON.stringify(["prefers TypeScript", "works on milady"]),
+      ),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "I prefer TypeScript and I work on milady",
+      response: "Got it!",
+      trajectoryId: "step-obs-2",
+      timestamp: Date.now(),
+    });
+
+    const result = await flushObservationBuffer(runtime);
+    expect(result).toEqual(["prefers TypeScript", "works on milady"]);
+  });
+
+  it("flushObservationBuffer prevents concurrent flushes", async () => {
+    let resolveModel: ((value: string) => void) | null = null;
+    const runtime = {
+      useModel: vi.fn(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveModel = resolve;
+          }),
+      ),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "first message",
+      response: "ok",
+      trajectoryId: "step-concurrent-1",
+      timestamp: Date.now(),
+    });
+
+    // Start first flush (will block on useModel)
+    const flush1 = flushObservationBuffer(runtime);
+
+    // Second flush should return empty immediately (concurrent guard)
+    const flush2Result = await flushObservationBuffer(runtime);
+    expect(flush2Result).toEqual([]);
+
+    // Resolve the first flush
+    resolveModel?.("[]");
+    await flush1;
+
+    // useModel only called once (concurrent flush was blocked)
+    expect(runtime.useModel).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushObservationBuffer truncates observations to 150 chars", async () => {
+    const longObs = "a".repeat(200);
+    const runtime = {
+      useModel: vi.fn(async () => JSON.stringify([longObs])),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "test",
+      response: "response",
+      trajectoryId: "step-trunc-obs",
+      timestamp: Date.now(),
+    });
+
+    const result = await flushObservationBuffer(runtime);
+    expect(result).toHaveLength(1);
+    expect(result[0].length).toBe(150);
+  });
+
+  it("flushObservationBuffer filters non-string entries from LLM response", async () => {
+    const runtime = {
+      useModel: vi.fn(async () =>
+        JSON.stringify(["valid observation", 42, null, "", "another valid"]),
+      ),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "test",
+      response: "response",
+      trajectoryId: "step-filter-obs",
+      timestamp: Date.now(),
+    });
+
+    const result = await flushObservationBuffer(runtime);
+    expect(result).toEqual(["valid observation", "another valid"]);
+  });
+
+  it("flushObservationBuffer sets __orchestratorTrajectoryCtx to prevent recursion", async () => {
+    let capturedCtx: unknown;
+    const runtime = {
+      useModel: vi.fn(async function (this: unknown) {
+        capturedCtx = (runtime as unknown as Record<string, unknown>)
+          .__orchestratorTrajectoryCtx;
+        return "[]";
+      }),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "test",
+      response: "response",
+      trajectoryId: "step-recursion",
+      timestamp: Date.now(),
+    });
+
+    await flushObservationBuffer(runtime);
+
+    // During the call, the context should have been set
+    expect(capturedCtx).toEqual({
+      source: "orchestrator",
+      decisionType: "observation-extraction",
+    });
+
+    // After the call, the context should be cleaned up
+    expect(
+      (runtime as unknown as Record<string, unknown>)
+        .__orchestratorTrajectoryCtx,
+    ).toBeUndefined();
+  });
+
+  it("flushObservationBuffer clears __orchestratorTrajectoryCtx when useModel throws", async () => {
+    const runtime = {
+      useModel: vi.fn(async () => {
+        throw new Error("model failed");
+      }),
+      adapter: {
+        db: { execute: vi.fn(async () => ({ rows: [] })) },
+      },
+      agentId: "test-agent",
+    } as unknown as IAgentRuntime;
+
+    pushChatExchange(runtime, {
+      userPrompt: "test",
+      response: "response",
+      trajectoryId: "step-throw-cleanup",
+      timestamp: Date.now(),
+    });
+
+    const result = await flushObservationBuffer(runtime);
+    expect(result).toEqual([]);
+    expect(
+      (runtime as unknown as Record<string, unknown>)
+        .__orchestratorTrajectoryCtx,
+    ).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// truncateRecord
+// ---------------------------------------------------------------------------
+
+describe("truncateRecord", () => {
+  it("returns small records unchanged", () => {
+    const obj = { key: "value", num: 42 };
+    expect(truncateRecord(obj, 500)).toBe(obj);
+  });
+
+  it("wraps large records with _truncated key", () => {
+    const obj: Record<string, unknown> = {};
+    // Create object whose JSON is > 1000 chars (2x500 limit)
+    for (let i = 0; i < 50; i++) {
+      obj[`key_${i}`] = "x".repeat(30);
+    }
+    const result = truncateRecord(obj, 500);
+    expect(result).toHaveProperty("_truncated");
+    expect(typeof result._truncated).toBe("string");
+    expect(result._truncated as string).toContain("[...truncated");
+  });
+
+  it("uses default limit when none specified", () => {
+    const obj: Record<string, unknown> = {};
+    for (let i = 0; i < 100; i++) {
+      obj[`key_${i}`] = "x".repeat(30);
+    }
+    const result = truncateRecord(obj);
+    expect(result).toHaveProperty("_truncated");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pruneOldTrajectories
+// ---------------------------------------------------------------------------
+
+describe("pruneOldTrajectories", () => {
+  it("returns null when runtime has no DB adapter", async () => {
+    const runtime = {} as IAgentRuntime;
+    const result = await pruneOldTrajectories(runtime);
+    expect(result).toBeNull();
+  });
+
+  it("archives and deletes old trajectories", async () => {
+    const executedSql: string[] = [];
+    const dbExecute = vi.fn(async (query: unknown) => {
+      // Extract the SQL string from the drizzle sql.raw object
+      const sqlStr = JSON.stringify(query);
+      executedSql.push(sqlStr);
+
+      // Return count for the SELECT count query
+      if (sqlStr.includes("SELECT count")) {
+        return { rows: [{ total: 5 }] };
+      }
+      return { rows: [] };
+    });
+
+    const runtime = {
+      agentId: "test-agent",
+      adapter: {
+        db: { execute: dbExecute },
+      },
+      getServicesByType: () => [],
+      getService: () => null,
+    } as unknown as IAgentRuntime;
+
+    const result = await pruneOldTrajectories(runtime, 30);
+    expect(result).toBe(5);
+
+    // Verify archive SQL was attempted (INSERT ... INTO trajectory_archive)
+    const archiveSql = executedSql.find((s) =>
+      s.includes("trajectory_archive"),
+    );
+    expect(archiveSql).toBeDefined();
+
+    // Verify DELETE was executed
+    const deleteSql = executedSql.find((s) =>
+      s.includes("DELETE FROM trajectories"),
+    );
+    expect(deleteSql).toBeDefined();
+  });
+
+  it("returns 0 when no old trajectories exist", async () => {
+    const dbExecute = vi.fn(async (query: unknown) => {
+      const sqlStr = JSON.stringify(query);
+      if (sqlStr.includes("SELECT count")) {
+        return { rows: [{ total: 0 }] };
+      }
+      return { rows: [] };
+    });
+
+    const runtime = {
+      agentId: "test-agent",
+      adapter: {
+        db: { execute: dbExecute },
+      },
+      getServicesByType: () => [],
+      getService: () => null,
+    } as unknown as IAgentRuntime;
+
+    const result = await pruneOldTrajectories(runtime, 30);
+    expect(result).toBe(0);
+
+    // DELETE should NOT be called when count is 0
+    const calls = dbExecute.mock.calls.map((c: unknown[]) => JSON.stringify(c));
+    const deleteCall = calls.find((s: string) =>
+      s.includes("DELETE FROM trajectories"),
+    );
+    expect(deleteCall).toBeUndefined();
+  });
+
+  it("falls back to PostgreSQL syntax when SQLite INSERT OR IGNORE fails", async () => {
+    const executedSql: string[] = [];
+    const dbExecute = vi.fn(async (query: unknown) => {
+      const sqlStr = JSON.stringify(query);
+      executedSql.push(sqlStr);
+
+      // First archive attempt (SQLite) fails
+      if (
+        sqlStr.includes("INSERT OR IGNORE") &&
+        sqlStr.includes("trajectory_archive")
+      ) {
+        throw new Error("SQLite syntax not supported");
+      }
+
+      if (sqlStr.includes("SELECT count")) {
+        return { rows: [{ total: 2 }] };
+      }
+      return { rows: [] };
+    });
+
+    const runtime = {
+      agentId: "test-agent",
+      adapter: {
+        db: { execute: dbExecute },
+      },
+      getServicesByType: () => [],
+      getService: () => null,
+    } as unknown as IAgentRuntime;
+
+    const result = await pruneOldTrajectories(runtime, 30);
+    expect(result).toBe(2);
+
+    // Should have tried PostgreSQL fallback (ON CONFLICT DO NOTHING)
+    const pgSql = executedSql.find(
+      (s) => s.includes("ON CONFLICT") && s.includes("DO NOTHING"),
+    );
+    expect(pgSql).toBeDefined();
+  });
+
+  it("does not delete trajectories when summary archive inserts fail", async () => {
+    const executedSql: string[] = [];
+    const dbExecute = vi.fn(async (query: unknown) => {
+      const sqlStr = JSON.stringify(query);
+      executedSql.push(sqlStr);
+
+      if (
+        sqlStr.includes("INSERT OR IGNORE") &&
+        sqlStr.includes("trajectory_archive")
+      ) {
+        throw new Error("SQLite insert failed");
+      }
+      if (
+        sqlStr.includes("INSERT INTO trajectory_archive") &&
+        sqlStr.includes("ON CONFLICT")
+      ) {
+        throw new Error("PostgreSQL insert failed");
+      }
+      if (sqlStr.includes("SELECT count")) {
+        return { rows: [{ total: 4 }] };
+      }
+      return { rows: [] };
+    });
+
+    const runtime = {
+      agentId: "test-agent",
+      adapter: {
+        db: { execute: dbExecute },
+      },
+      getServicesByType: () => [],
+      getService: () => null,
+    } as unknown as IAgentRuntime;
+
+    const result = await pruneOldTrajectories(runtime, 30);
+    expect(result).toBeNull();
+
+    const deleteSql = executedSql.find((s) =>
+      s.includes("DELETE FROM trajectories"),
+    );
+    expect(deleteSql).toBeUndefined();
   });
 });

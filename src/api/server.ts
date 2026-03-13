@@ -2928,6 +2928,7 @@ async function persistAssistantConversationMemory(
     createMessageMemory({
       id: crypto.randomUUID() as UUID,
       entityId: runtime.agentId,
+      agentId: runtime.agentId,
       roomId,
       content: {
         text: trimmed,
@@ -3073,16 +3074,18 @@ export function buildUserMessages(params: {
   images: ChatImageAttachment[] | undefined;
   prompt: string;
   userId: UUID;
+  agentId: UUID;
   roomId: UUID;
   channelType: ChannelType;
 }): { userMessage: MessageMemory; messageToStore: MessageMemory } {
-  const { images, prompt, userId, roomId, channelType } = params;
+  const { images, prompt, userId, agentId, roomId, channelType } = params;
   const { attachments, compactAttachments } = buildChatAttachments(images);
   const id = crypto.randomUUID() as UUID;
   // In-memory message carries _data/_mimeType so action handlers can upload.
   const userMessage = createMessageMemory({
     id,
     entityId: userId,
+    agentId,
     roomId,
     content: {
       text: prompt,
@@ -3096,6 +3099,7 @@ export function buildUserMessages(params: {
     ? createMessageMemory({
         id,
         entityId: userId,
+        agentId,
         roomId,
         content: {
           text: prompt,
@@ -12702,6 +12706,7 @@ async function handleRequest(
       images,
       prompt,
       userId,
+      agentId: runtime.agentId,
       roomId: conv.roomId,
       channelType,
     });
@@ -12857,6 +12862,7 @@ async function handleRequest(
       images,
       prompt,
       userId,
+      agentId: runtime.agentId,
       roomId: conv.roomId,
       channelType,
     });

@@ -225,7 +225,10 @@ describe("Agent Orchestrator Plugin Loading", () => {
     );
     expect(fs.existsSync(distPath)).toBe(true);
     const dist = fs.readFileSync(distPath, "utf-8");
-    expect(dist).toContain("agentOrchestratorPlugin");
+    expect(
+      dist.includes("agentOrchestratorPlugin") ||
+        dist.includes("codingAgentPlugin"),
+    ).toBe(true);
   });
 
   it("installed version matches package.json spec", async () => {

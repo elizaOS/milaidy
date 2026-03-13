@@ -1,4 +1,10 @@
-import { type IAgentRuntime, Service } from "@elizaos/core";
+import { once } from "node:events";
+import { createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { createGzip } from "node:zlib";
+import { type IAgentRuntime, ModelType, Service } from "@elizaos/core";
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
 
@@ -33,6 +39,7 @@ interface TrajectoryListItem {
   totalPromptTokens: number;
   totalCompletionTokens: number;
   createdAt: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface TrajectoryListResult {
@@ -212,6 +219,57 @@ function toOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function toOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on", "enabled"].includes(normalized)) return true;
+  if (["0", "false", "no", "off", "disabled"].includes(normalized))
+    return false;
+  return undefined;
+}
+
+function hasEvaluatorNamed(runtime: IAgentRuntime, name: string): boolean {
+  const runtimeLike = runtime as unknown as {
+    evaluators?: Array<{ name?: unknown }>;
+  };
+  const evaluators = runtimeLike.evaluators;
+  if (!Array.isArray(evaluators)) return false;
+  const target = name.trim().toUpperCase();
+  return evaluators.some((evaluator) => {
+    const evaluatorName =
+      evaluator && typeof evaluator.name === "string"
+        ? evaluator.name.trim().toUpperCase()
+        : "";
+    return evaluatorName === target;
+  });
+}
+
+/** @internal Exported for testing. */
+export function shouldRunObservationExtraction(
+  runtime: IAgentRuntime,
+): boolean {
+  const runtimeAny = runtime as unknown as {
+    getSetting?: (key: string) => unknown;
+  };
+  const explicitSetting = runtimeAny.getSetting?.(
+    "TRAJECTORY_OBSERVATION_EXTRACTION",
+  );
+  const explicitValue = toOptionalBoolean(explicitSetting);
+  if (explicitValue !== undefined) return explicitValue;
+
+  // Reflection/relationship extraction already derives durable facts from chat.
+  // Default to off in that mode to avoid duplicated extraction cost.
+  if (
+    hasEvaluatorNamed(runtime, "REFLECTION") ||
+    hasEvaluatorNamed(runtime, "RELATIONSHIP_EXTRACTION")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function readRecordValue(
   record: Record<string, unknown>,
   keys: string[],
@@ -228,6 +286,262 @@ function parseJsonValue(value: unknown): unknown {
     return JSON.parse(value);
   } catch {
     return value;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Truncation helpers — cap large text fields to reduce storage/context bloat
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TRUNCATE_LIMIT = 500;
+
+/** @internal Exported for testing. */
+export function truncateField(
+  value: string,
+  limit = DEFAULT_TRUNCATE_LIMIT,
+): string {
+  if (value.length <= limit * 2) return value;
+  const removed = value.length - limit * 2;
+  return `${value.slice(0, limit)}\n[...truncated ${removed} chars...]\n${value.slice(-limit)}`;
+}
+
+/** @internal Exported for testing. */
+export function truncateRecord(
+  obj: Record<string, unknown>,
+  limit = DEFAULT_TRUNCATE_LIMIT,
+): Record<string, unknown> {
+  const serialized = JSON.stringify(obj);
+  if (serialized.length <= limit * 2) return obj;
+  return { _truncated: truncateField(serialized, limit) };
+}
+
+// ---------------------------------------------------------------------------
+// Insight extraction — pull key decision markers from LLM responses at write
+// time so the feedback loop can read them from metadata without loading full
+// trajectory details.
+// ---------------------------------------------------------------------------
+
+/** @internal Exported for testing. */
+export function extractInsightsFromResponse(
+  response: string,
+  purpose: string,
+): string[] {
+  const insights: string[] = [];
+  const decisionPattern = /DECISION:\s*(.+?)(?:\n|$)/gi;
+  let match: RegExpExecArray | null;
+  match = decisionPattern.exec(response);
+  while (match !== null) {
+    insights.push(match[1].trim());
+    match = decisionPattern.exec(response);
+  }
+  const keyDecisionPattern = /"keyDecision"\s*:\s*"([^"]+)"/g;
+  match = keyDecisionPattern.exec(response);
+  while (match !== null) {
+    insights.push(match[1].trim());
+    match = keyDecisionPattern.exec(response);
+  }
+  if (
+    (purpose === "turn-complete" || purpose === "coordination") &&
+    insights.length === 0
+  ) {
+    const reasoningMatch = response.match(/"reasoning"\s*:\s*"([^"]{20,200})"/);
+    if (reasoningMatch) insights.push(reasoningMatch[1].trim());
+  }
+  return insights;
+}
+
+// ---------------------------------------------------------------------------
+// Chat observation buffer — accumulates recent chat exchanges and flushes
+// to a background LLM call for durable observation extraction.
+// ---------------------------------------------------------------------------
+
+interface BufferedExchange {
+  userPrompt: string;
+  response: string;
+  trajectoryId: string;
+  timestamp: number;
+}
+
+const OBSERVATION_BUFFER_THRESHOLD = 5;
+const OBSERVATION_FLUSH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+const observationBuffers = new WeakMap<object, BufferedExchange[]>();
+const observationFlushTimers = new WeakMap<
+  object,
+  ReturnType<typeof setTimeout>
+>();
+const observationFlushInProgress = new WeakMap<object, boolean>();
+
+const TRAJECTORY_ARCHIVE_DIRNAME = "trajectory-archive";
+
+function getObservationBuffer(runtime: IAgentRuntime): BufferedExchange[] {
+  const key = runtime as unknown as object;
+  let buffer = observationBuffers.get(key);
+  if (!buffer) {
+    buffer = [];
+    observationBuffers.set(key, buffer);
+  }
+  return buffer;
+}
+
+function resolvePreferredTrajectoryArchiveRoot(): string {
+  const explicitWorkspace = process.env.MILADY_WORKSPACE_DIR?.trim();
+  if (explicitWorkspace) return explicitWorkspace;
+
+  const workspaceRoot = process.env.MILADY_WORKSPACE_ROOT?.trim();
+  if (workspaceRoot) return workspaceRoot;
+
+  return path.join(os.homedir(), ".milady", "workspace");
+}
+
+async function ensureArchiveDirectory(dir: string): Promise<void> {
+  await fs.mkdir(dir, { recursive: true });
+}
+
+async function resolveTrajectoryArchiveDirectory(): Promise<string> {
+  const preferred = path.join(
+    resolvePreferredTrajectoryArchiveRoot(),
+    TRAJECTORY_ARCHIVE_DIRNAME,
+  );
+  try {
+    await ensureArchiveDirectory(preferred);
+    return preferred;
+  } catch {
+    const fallback = path.join(
+      process.env.TMPDIR || os.tmpdir(),
+      "milady",
+      TRAJECTORY_ARCHIVE_DIRNAME,
+    );
+    await ensureArchiveDirectory(fallback);
+    return fallback;
+  }
+}
+
+/** @internal Exported for testing. */
+export function pushChatExchange(
+  runtime: IAgentRuntime,
+  exchange: BufferedExchange,
+): void {
+  const buffer = getObservationBuffer(runtime);
+  buffer.push(exchange);
+
+  const key = runtime as unknown as object;
+
+  // Flush on threshold
+  if (buffer.length >= OBSERVATION_BUFFER_THRESHOLD) {
+    flushObservationBuffer(runtime).catch(() => {});
+    return;
+  }
+
+  // Set/reset flush timer
+  const existing = observationFlushTimers.get(key);
+  if (existing) clearTimeout(existing);
+  observationFlushTimers.set(
+    key,
+    setTimeout(() => {
+      flushObservationBuffer(runtime).catch(() => {});
+    }, OBSERVATION_FLUSH_INTERVAL_MS),
+  );
+}
+
+const OBSERVATION_EXTRACTION_PROMPT = `You are analyzing recent conversation exchanges between a user and an AI assistant.
+Extract any durable observations about the user that would be useful across future sessions.
+
+Categories to look for:
+- Preferences (tools, languages, workflows, communication style)
+- Facts (role, location, projects they work on, tech stack)
+- Standing instructions (things they always/never want)
+- Patterns (recurring topics, how they like to work)
+
+Return ONLY a JSON array of short observation strings (max 150 chars each).
+If nothing meaningful is found, return an empty array [].
+Do NOT include observations about the conversation itself, only about the user.
+
+Recent exchanges:
+`;
+
+/** @internal Exported for testing. */
+export async function flushObservationBuffer(
+  runtime: IAgentRuntime,
+): Promise<string[]> {
+  const key = runtime as unknown as object;
+
+  // Prevent concurrent flushes
+  if (observationFlushInProgress.get(key)) return [];
+  observationFlushInProgress.set(key, true);
+
+  const buffer = getObservationBuffer(runtime);
+  if (buffer.length === 0) {
+    observationFlushInProgress.set(key, false);
+    return [];
+  }
+
+  // Take the current buffer and reset
+  const exchanges = buffer.splice(0, buffer.length);
+  const timer = observationFlushTimers.get(key);
+  if (timer) clearTimeout(timer);
+
+  // Build the extraction prompt
+  const exchangeText = exchanges
+    .map(
+      (e, i) =>
+        `Exchange ${i + 1}:\nUser: ${e.userPrompt.slice(0, 500)}\nAssistant: ${e.response.slice(0, 500)}`,
+    )
+    .join("\n\n");
+
+  const prompt = OBSERVATION_EXTRACTION_PROMPT + exchangeText;
+
+  const runtimeAny = runtime as unknown as Record<string, unknown>;
+  try {
+    // Tag the call to prevent recursion — appendLlmCall skips observation
+    // extraction when orchestratorCtx is set.
+    runtimeAny.__orchestratorTrajectoryCtx = {
+      source: "orchestrator",
+      decisionType: "observation-extraction",
+    };
+
+    const result = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt,
+      maxTokens: 512,
+      temperature: 0,
+    });
+
+    // Parse the JSON response
+    const jsonMatch = result.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return [];
+
+    const observations = parsed
+      .filter((s: unknown) => typeof s === "string" && s.length > 0)
+      .map((s: string) => s.slice(0, 150)) as string[];
+
+    if (observations.length === 0) return [];
+
+    // Write observations to the most recent trajectory in the batch
+    const lastExchange = exchanges[exchanges.length - 1];
+    const trajectory = await loadTrajectoryById(
+      runtime,
+      lastExchange.trajectoryId,
+    );
+    if (trajectory) {
+      const meta = (trajectory.metadata ?? {}) as Record<string, unknown>;
+      const existing = Array.isArray(meta.observations)
+        ? (meta.observations as string[])
+        : [];
+      meta.observations = [...existing, ...observations].slice(-30);
+      trajectory.metadata = meta;
+      await saveTrajectory(runtime, trajectory);
+    }
+
+    return observations;
+  } catch {
+    // Non-critical — observations are best-effort
+    return [];
+  } finally {
+    delete runtimeAny.__orchestratorTrajectoryCtx;
+    observationFlushInProgress.set(key, false);
   }
 }
 
@@ -415,6 +729,43 @@ async function ensureTrajectoriesTable(
         archetype TEXT
       )`,
     );
+
+    // Archive table — lightweight summary rows that persist after TTL pruning
+    // deletes the heavy steps_json data from the main table.
+    await executeRawSql(
+      runtime,
+      `CREATE TABLE IF NOT EXISTS trajectory_archive (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'runtime',
+        status TEXT NOT NULL DEFAULT 'completed',
+        start_time BIGINT NOT NULL,
+        end_time BIGINT,
+        duration_ms BIGINT,
+        step_count INTEGER NOT NULL DEFAULT 0,
+        llm_call_count INTEGER NOT NULL DEFAULT 0,
+        provider_access_count INTEGER NOT NULL DEFAULT 0,
+        total_prompt_tokens INTEGER NOT NULL DEFAULT 0,
+        total_completion_tokens INTEGER NOT NULL DEFAULT 0,
+        total_reward REAL NOT NULL DEFAULT 0,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        observations TEXT NOT NULL DEFAULT '[]',
+        archive_blob_path TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT NOT NULL
+      )`,
+    );
+
+    // Best-effort forward migration for existing archive tables.
+    try {
+      await executeRawSql(
+        runtime,
+        `ALTER TABLE trajectory_archive ADD COLUMN archive_blob_path TEXT`,
+      );
+    } catch {
+      // ignore when column already exists
+    }
 
     if (needsRecreate) {
       console.warn(
@@ -968,17 +1319,25 @@ async function appendLlmCall(
   // so orchestrator LLM calls are identifiable in the trajectories viewer.
   const orchestratorCtx = readOrchestratorTrajectoryContext(runtime);
 
+  // Extract insights from the full response and persist them into metadata
+  // so the feedback loop can read summaries without loading full details.
+  const fullResponse = toText(params.response, "");
+  const purpose =
+    orchestratorCtx?.decisionType ?? toText(params.purpose, "action");
+  const insights = extractInsightsFromResponse(fullResponse, purpose);
+
   const step = ensureStep(trajectory, stepId, now);
   const call: PersistedLlmCall = {
     callId: toText(params.callId, `${stepId}-call-${step.llmCalls.length + 1}`),
     timestamp: now,
     model: toText(params.model, "unknown"),
+    // Keep full prompts/responses for training data fidelity.
     systemPrompt: toText(params.systemPrompt, ""),
     userPrompt: toText(params.userPrompt ?? params.input, ""),
-    response: toText(params.response, ""),
+    response: fullResponse,
     temperature: toNumber(params.temperature, 0),
     maxTokens: toNumber(params.maxTokens, 0),
-    purpose: orchestratorCtx?.decisionType ?? toText(params.purpose, "action"),
+    purpose,
     actionType: orchestratorCtx
       ? "orchestrator.useModel"
       : toText(params.actionType, "runtime.useModel"),
@@ -994,6 +1353,31 @@ async function appendLlmCall(
   trajectory.startTime = Math.min(trajectory.startTime, now);
   trajectory.endTime = Math.max(trajectory.endTime ?? now, now);
   trajectory.updatedAt = new Date(now).toISOString();
+
+  // Store extracted insights in metadata for lightweight querying
+  if (insights.length > 0) {
+    const meta = (trajectory.metadata ?? {}) as Record<string, unknown>;
+    const existing = Array.isArray(meta.insights)
+      ? (meta.insights as string[])
+      : [];
+    meta.insights = [...existing, ...insights].slice(-20);
+    trajectory.metadata = meta;
+  }
+
+  // Buffer chat exchanges for background LLM observation extraction.
+  // The buffer flushes after 5 messages or 10 minutes, whichever comes first.
+  if (
+    !orchestratorCtx &&
+    trajectory.source === "chat" &&
+    shouldRunObservationExtraction(runtime)
+  ) {
+    pushChatExchange(runtime, {
+      userPrompt: toText(params.userPrompt ?? params.input, ""),
+      response: fullResponse,
+      trajectoryId: trajectory.id,
+      timestamp: now,
+    });
+  }
 
   // Merge orchestrator metadata into trajectory metadata for filtering/display
   if (orchestratorCtx) {
@@ -1045,8 +1429,11 @@ async function appendProviderAccess(
     ),
     providerName: toText(params.providerName, "unknown"),
     timestamp: now,
-    data: asRecord(params.data) ?? {},
-    query: asRecord(params.query) ?? undefined,
+    data: truncateRecord(asRecord(params.data) ?? {}),
+    query: (() => {
+      const queryRecord = asRecord(params.query);
+      return queryRecord ? truncateRecord(queryRecord) : undefined;
+    })(),
     purpose: toText(params.purpose, "provider"),
   };
 
@@ -1329,9 +1716,10 @@ export function installDatabaseTrajectoryLogger(runtime: IAgentRuntime): void {
               r.created_at,
               new Date(toNumber(r.start_time, Date.now())).toISOString(),
             ),
+            metadata: parseMetadata(r.metadata),
           };
         })
-        .filter((item): item is TrajectoryListItem => item !== null);
+        .filter(Boolean) as TrajectoryListItem[];
 
       return { trajectories, total, offset, limit };
     } catch (err) {
@@ -1551,6 +1939,190 @@ export async function clearPersistedTrajectoryRows(
   }
 }
 
+function toArchiveSafeTimestamp(isoTimestamp: string): string {
+  return isoTimestamp.replace(/[:.]/g, "-");
+}
+
+function stringifyArchiveRow(row: Record<string, unknown>): string {
+  return JSON.stringify(row, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
+}
+
+async function writeCompressedJsonlRows(
+  archivePath: string,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  const gzipStream = createGzip({ level: 9 });
+  const outStream = createWriteStream(archivePath);
+  gzipStream.pipe(outStream);
+
+  for (const row of rows) {
+    if (!gzipStream.write(`${stringifyArchiveRow(row)}\n`, "utf8")) {
+      await once(gzipStream, "drain");
+    }
+  }
+
+  gzipStream.end();
+  await once(outStream, "finish");
+}
+
+async function exportRawTrajectoriesToCompressedArchive(
+  runtime: IAgentRuntime,
+  cutoff: string,
+  archivedAt: string,
+): Promise<{ archivePath: string; rowCount: number }> {
+  const rawRowsResult = await executeRawSql(
+    runtime,
+    `SELECT
+      id, trajectory_id, agent_id, source, status, start_time, end_time,
+      duration_ms, step_count, llm_call_count, provider_access_count,
+      total_prompt_tokens, total_completion_tokens, total_reward, steps_json,
+      metadata, created_at, updated_at, episode_length, ai_judge_reward,
+      ai_judge_reasoning, archetype
+    FROM trajectories
+    WHERE created_at < ${sqlQuote(cutoff)}`,
+  );
+  const rawRows = extractRows(rawRowsResult)
+    .map((row) => asRecord(row))
+    .filter(Boolean) as Record<string, unknown>[];
+
+  if (rawRows.length === 0) {
+    return { archivePath: "", rowCount: 0 };
+  }
+
+  const archiveDir = await resolveTrajectoryArchiveDirectory();
+  const archiveName = `trajectories-before-${toArchiveSafeTimestamp(cutoff)}-archived-${toArchiveSafeTimestamp(archivedAt)}.jsonl.gz`;
+  const archivePath = path.join(archiveDir, archiveName);
+  await writeCompressedJsonlRows(archivePath, rawRows);
+
+  return { archivePath, rowCount: rawRows.length };
+}
+
+/**
+ * Archive and then delete trajectories older than `maxAgeDays`.
+ * Summary rows (without steps_json) are copied to `trajectory_archive`
+ * before the heavy raw data is removed. Returns the number of rows
+ * pruned, or null if the DB is unavailable.
+ */
+export async function pruneOldTrajectories(
+  runtime: IAgentRuntime,
+  maxAgeDays = 30,
+): Promise<number | null> {
+  if (!hasRuntimeDb(runtime)) return null;
+  const tableReady = await ensureTrajectoriesTable(runtime);
+  if (!tableReady) return 0;
+
+  const cutoff = new Date(
+    Date.now() - maxAgeDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const archivedAt = new Date().toISOString();
+
+  try {
+    // Step 1: Persist full training rows to compressed local archive.
+    // If this fails, abort pruning to avoid data loss.
+    let archivePath = "";
+    try {
+      const archived = await exportRawTrajectoriesToCompressedArchive(
+        runtime,
+        cutoff,
+        archivedAt,
+      );
+      archivePath = archived.archivePath;
+      if (archived.rowCount > 0 && !archivePath) {
+        return 0;
+      }
+    } catch (err) {
+      console.warn(
+        "[trajectory-persistence] Could not write compressed trajectory archive, skipping prune",
+        err,
+      );
+      return null;
+    }
+
+    // Step 2: Copy summary rows to archive table (idempotent).
+    // This must succeed before deletion to preserve the summary index contract.
+    let summaryArchived = false;
+    try {
+      await executeRawSql(
+        runtime,
+        `INSERT OR IGNORE INTO trajectory_archive (
+          id, agent_id, source, status, start_time, end_time, duration_ms,
+          step_count, llm_call_count, provider_access_count,
+          total_prompt_tokens, total_completion_tokens, total_reward,
+          metadata, observations, archive_blob_path, created_at, updated_at, archived_at
+        )
+        SELECT
+          id, agent_id, source, status, start_time, end_time, duration_ms,
+          step_count, llm_call_count, provider_access_count,
+          total_prompt_tokens, total_completion_tokens, total_reward,
+          metadata,
+          COALESCE(json_extract(metadata, '$.observations'), '[]'),
+          ${sqlQuote(archivePath)},
+          created_at, updated_at,
+          ${sqlQuote(archivedAt)}
+        FROM trajectories
+        WHERE created_at < ${sqlQuote(cutoff)}`,
+      );
+      summaryArchived = true;
+    } catch {
+      // PostgreSQL uses ON CONFLICT DO NOTHING instead of INSERT OR IGNORE
+      try {
+        await executeRawSql(
+          runtime,
+          `INSERT INTO trajectory_archive (
+            id, agent_id, source, status, start_time, end_time, duration_ms,
+            step_count, llm_call_count, provider_access_count,
+            total_prompt_tokens, total_completion_tokens, total_reward,
+            metadata, observations, archive_blob_path, created_at, updated_at, archived_at
+          )
+          SELECT
+            id, agent_id, source, status, start_time, end_time, duration_ms,
+            step_count, llm_call_count, provider_access_count,
+            total_prompt_tokens, total_completion_tokens, total_reward,
+            metadata,
+            COALESCE(metadata::json->>'observations', '[]'),
+            ${sqlQuote(archivePath)},
+            created_at, updated_at,
+            ${sqlQuote(archivedAt)}
+          FROM trajectories
+          WHERE created_at < ${sqlQuote(cutoff)}
+          ON CONFLICT (id) DO NOTHING`,
+        );
+        summaryArchived = true;
+      } catch {
+        console.warn(
+          "[trajectory-persistence] Could not write summary trajectory archive rows",
+        );
+      }
+    }
+
+    if (!summaryArchived) {
+      console.warn(
+        "[trajectory-persistence] Summary archive insert failed, skipping prune delete",
+      );
+      return null;
+    }
+
+    // Step 3: Delete the archived rows from the main table.
+    const countResult = await executeRawSql(
+      runtime,
+      `SELECT count(*) AS total FROM trajectories WHERE created_at < ${sqlQuote(cutoff)}`,
+    );
+    const countRow = asRecord(extractRows(countResult)[0]);
+    const count = toNumber(countRow?.total, 0);
+    if (count > 0) {
+      await executeRawSql(
+        runtime,
+        `DELETE FROM trajectories WHERE created_at < ${sqlQuote(cutoff)}`,
+      );
+    }
+    return count;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Wait for all pending trajectory writes to complete.
  * Useful for tests to ensure writes are flushed before assertions.
@@ -1600,6 +2172,18 @@ export class DatabaseTrajectoryLogger extends Service {
   async initialize(): Promise<void> {
     if (hasRuntimeDb(this.runtime)) {
       await ensureTrajectoriesTable(this.runtime);
+      // Fire-and-forget TTL pruning on startup
+      pruneOldTrajectories(this.runtime, 30)
+        .then((count) => {
+          if (count && count > 0) {
+            console.warn(
+              `[trajectory-persistence] Pruned ${count} trajectories older than 30 days`,
+            );
+          }
+        })
+        .catch(() => {
+          /* non-critical */
+        });
     }
   }
 
@@ -1820,9 +2404,10 @@ export class DatabaseTrajectoryLogger extends Service {
               r.created_at,
               new Date(toNumber(r.start_time, Date.now())).toISOString(),
             ),
+            metadata: parseMetadata(r.metadata),
           };
         })
-        .filter((item): item is TrajectoryListItem => item !== null);
+        .filter(Boolean) as TrajectoryListItem[];
 
       return { trajectories, total, offset, limit };
     } catch (err) {
