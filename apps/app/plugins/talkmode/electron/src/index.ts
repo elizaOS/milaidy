@@ -15,6 +15,13 @@
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
+import type { ElectronIpcRenderer } from "@milady/app-core/bridge";
+import {
+  getElectrobunRendererRpc,
+  getElectronIpcRenderer,
+  invokeDesktopBridgeRequest,
+  subscribeDesktopBridgeEvent,
+} from "@milady/app-core/bridge";
 import type {
   SpeakOptions,
   SpeakResult,
@@ -42,32 +49,73 @@ interface ListenerEntry {
   callback: EventCallback<TalkModeEvent>;
 }
 
-type IpcPrimitive = string | number | boolean | null | undefined;
-type IpcObject = { [key: string]: IpcValue };
-type IpcValue =
-  | IpcPrimitive
-  | IpcObject
-  | IpcValue[]
-  | ArrayBuffer
-  | Float32Array
-  | Uint8Array;
-type IpcListener = (...args: IpcValue[]) => void;
+type IpcListener = (event: unknown, payload: unknown) => void;
 
-// Type for Electron IPC
-interface ElectronAPI {
-  ipcRenderer: {
-    invoke(channel: string, ...args: IpcValue[]): Promise<IpcValue>;
-    send(channel: string, ...args: IpcValue[]): void;
-    on(channel: string, listener: IpcListener): void;
-    removeListener(channel: string, listener: IpcListener): void;
-  };
+interface ElectronTalkModeIpcRenderer extends ElectronIpcRenderer {
+  send?: (channel: string, payload?: unknown) => void;
+  on?: (channel: string, listener: IpcListener) => void;
+  removeListener?: (channel: string, listener: IpcListener) => void;
 }
 
-declare global {
-  interface Window {
-    electron?: ElectronAPI;
+interface NativeTalkModeConfig {
+  engine?: "whisper" | "web";
+  modelSize?: string;
+  language?: string;
+  voiceId?: string;
+}
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isTalkModeState = (value: unknown): value is TalkModeState =>
+  value === "idle" ||
+  value === "listening" ||
+  value === "processing" ||
+  value === "speaking" ||
+  value === "error";
+
+const getStatusTextForState = (
+  state: TalkModeState,
+  usingSystemTts = false,
+): string => {
+  switch (state) {
+    case "idle":
+      return "Off";
+    case "listening":
+      return "Listening";
+    case "processing":
+      return "Processing";
+    case "speaking":
+      return usingSystemTts ? "Speaking (System)" : "Speaking";
+    case "error":
+      return "Speech error";
   }
-}
+};
+
+const toNativeTalkModeConfig = (
+  config?: Partial<TalkModeConfig>,
+): NativeTalkModeConfig | null => {
+  if (!config) {
+    return null;
+  }
+
+  const nativeConfig: NativeTalkModeConfig = {};
+
+  if (config.stt?.engine) {
+    nativeConfig.engine = config.stt.engine;
+  }
+  if (config.stt?.modelSize) {
+    nativeConfig.modelSize = config.stt.modelSize;
+  }
+  if (config.stt?.language) {
+    nativeConfig.language = config.stt.language;
+  }
+  if (config.tts?.voiceId) {
+    nativeConfig.voiceId = config.tts.voiceId;
+  }
+
+  return Object.keys(nativeConfig).length > 0 ? nativeConfig : null;
+};
 
 /**
  * TalkMode Plugin implementation for Electron
@@ -97,19 +145,35 @@ export class TalkModeElectron implements TalkModePlugin {
   private captureGain: GainNode | null = null;
   private captureSampleRate = 16000;
 
-  // Native TTS playback tracking
-  private pendingNativeSpeakResolve: ((result: SpeakResult) => void) | null =
-    null;
-  private pendingNativeSpeakComplete: TTSCompleteEvent | null = null;
-  private awaitingNativeAudio = false;
+  private bridgeSubscriptions: Array<() => void> = [];
   private ipcHandlers: Array<{
     channel: string;
-    handler: (data: IpcValue) => void;
+    handler: IpcListener;
   }> = [];
 
   constructor() {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       this.synthesis = window.speechSynthesis;
+    }
+  }
+
+  private get ipc(): ElectronTalkModeIpcRenderer | undefined {
+    return getElectronIpcRenderer() as ElectronTalkModeIpcRenderer | undefined;
+  }
+
+  private async invokeBridge<T>(
+    rpcMethod: string,
+    ipcChannel: string,
+    params?: unknown,
+  ): Promise<T | null> {
+    try {
+      return await invokeDesktopBridgeRequest<T>({
+        rpcMethod,
+        ipcChannel,
+        params,
+      });
+    } catch {
+      return null;
     }
   }
 
@@ -122,35 +186,46 @@ export class TalkModeElectron implements TalkModePlugin {
       this.config = { ...this.config, ...options.config };
     }
 
-    // Try native STT/TTS via Electron IPC first
-    if (window.electron?.ipcRenderer) {
-      try {
-        const result = (await window.electron.ipcRenderer.invoke(
-          "talkmode:start",
-          options as unknown as IpcValue,
-        )) as {
-          started: boolean;
-          error?: string;
-        };
-        if (result.started) {
-          this.enabled = true;
-          this.setupElectronListeners();
-          this.setState("listening", "Listening");
+    const nativeConfig = toNativeTalkModeConfig(options?.config);
+    if (nativeConfig) {
+      await this.invokeBridge(
+        "talkmodeUpdateConfig",
+        "talkmode:updateConfig",
+        nativeConfig,
+      );
+    }
 
-          const whisperStatus = (await window.electron.ipcRenderer.invoke(
-            "talkmode:isWhisperAvailable",
-          )) as {
-            available: boolean;
-          };
-          if (whisperStatus.available) {
-            this.captureSampleRate = this.config.stt?.sampleRate ?? 16000;
-            await this.startAudioCapture();
-          }
+    // Try native STT/TTS via Electrobun RPC or Electron IPC first
+    const nativeResult = await this.invokeBridge<{
+      available?: boolean;
+      started?: boolean;
+      reason?: string;
+      error?: string;
+    }>("talkmodeStart", "talkmode:start");
+    if (nativeResult) {
+      const started = nativeResult.available ?? nativeResult.started ?? false;
+      if (started) {
+        this.enabled = true;
+        this.setupNativeListeners();
+        this.setState("listening", "Listening");
 
-          return result;
+        const whisperStatus = await this.invokeBridge<{ available: boolean }>(
+          "talkmodeIsWhisperAvailable",
+          "talkmode:isWhisperAvailable",
+        );
+        if (whisperStatus?.available) {
+          this.captureSampleRate = this.config.stt?.sampleRate ?? 16000;
+          await this.startAudioCapture();
         }
-      } catch {
-        // Fall through to web implementation
+
+        return { started: true };
+      }
+
+      if (nativeResult.error || nativeResult.reason) {
+        return {
+          started: false,
+          error: nativeResult.error ?? nativeResult.reason,
+        };
       }
     }
 
@@ -218,43 +293,65 @@ export class TalkModeElectron implements TalkModePlugin {
     }
   }
 
-  private setupElectronListeners(): void {
-    if (!window.electron?.ipcRenderer) return;
+  private setupNativeListeners(): void {
+    this.removeNativeListeners();
 
-    this.removeElectronListeners();
-
-    const events = ["stateChange", "transcript", "speaking", "error"] as const;
-    const handlers: Array<{
-      channel: string;
-      handler: (data: IpcValue) => void;
-    }> = [
-      ...events.map((eventName) => ({
-        channel: `talkmode:${eventName}`,
-        handler: (data: IpcValue) =>
-          this.notifyListeners(eventName, data as unknown as TalkModeEvent),
-      })),
+    const bridgeHandlers = [
       {
-        channel: "talkmode:speakComplete",
-        handler: (data: IpcValue) =>
-          this.handleNativeSpeakComplete(data as unknown as TTSCompleteEvent),
+        rpcMessage: "talkmodeStateChanged",
+        ipcChannel: "talkmode:stateChanged",
+        listener: (data: unknown) => {
+          this.handleNativeStateChanged(data);
+        },
       },
       {
-        channel: "talkmode:audioComplete",
-        handler: (data: IpcValue) =>
-          void this.handleNativeAudioComplete(data as { audioBase64: string }),
+        rpcMessage: "talkmodeTranscript",
+        ipcChannel: "talkmode:transcript",
+        listener: (data: unknown) => {
+          this.notifyListeners(
+            "transcript",
+            this.normalizeTranscriptEvent(data),
+          );
+        },
+      },
+    ];
+
+    for (const entry of bridgeHandlers) {
+      const unsubscribe = subscribeDesktopBridgeEvent({
+        rpcMessage: entry.rpcMessage,
+        ipcChannel: entry.ipcChannel,
+        listener: entry.listener,
+      });
+      this.bridgeSubscriptions.push(unsubscribe);
+    }
+
+    if (!this.ipc?.on) return;
+
+    const handlers: Array<{
+      channel: string;
+      handler: IpcListener;
+    }> = [
+      {
+        channel: "talkmode:error",
+        handler: (_event, data) =>
+          this.notifyListeners("error", data as TalkModeErrorEvent),
       },
     ];
 
     for (const entry of handlers) {
-      window.electron.ipcRenderer.on(entry.channel, entry.handler);
+      this.ipc.on(entry.channel, entry.handler);
       this.ipcHandlers.push(entry);
     }
   }
 
-  private removeElectronListeners(): void {
-    if (!window.electron?.ipcRenderer) return;
+  private removeNativeListeners(): void {
+    for (const unsubscribe of this.bridgeSubscriptions) {
+      unsubscribe();
+    }
+    this.bridgeSubscriptions = [];
+
     for (const entry of this.ipcHandlers) {
-      window.electron.ipcRenderer.removeListener(entry.channel, entry.handler);
+      this.ipc?.removeListener?.(entry.channel, entry.handler);
     }
     this.ipcHandlers = [];
   }
@@ -262,32 +359,42 @@ export class TalkModeElectron implements TalkModePlugin {
   async stop(): Promise<void> {
     this.enabled = false;
     this.stopAudioCapture();
-    this.removeElectronListeners();
-
-    if (window.electron?.ipcRenderer) {
-      try {
-        await window.electron.ipcRenderer.invoke("talkmode:stop");
-      } catch {
-        // Ignore
-      }
-    }
+    this.removeNativeListeners();
+    await this.invokeBridge("talkmodeStop", "talkmode:stop");
 
     this.recognition?.stop();
     this.recognition = null;
     this.synthesis?.cancel();
     this.currentUtterance = null;
     this.stopAudio();
-    this.awaitingNativeAudio = false;
-    this.pendingNativeSpeakComplete = null;
-    this.pendingNativeSpeakResolve = null;
     this.setState("idle", "Off");
   }
 
   async isEnabled(): Promise<{ enabled: boolean }> {
+    const nativeEnabled = await this.invokeBridge<{ enabled: boolean }>(
+      "talkmodeIsEnabled",
+      "talkmode:isEnabled",
+    );
+    if (nativeEnabled) {
+      this.enabled = nativeEnabled.enabled;
+      return nativeEnabled;
+    }
     return { enabled: this.enabled };
   }
 
   async getState(): Promise<{ state: TalkModeState; statusText: string }> {
+    const nativeState = await this.invokeBridge<{ state: TalkModeState }>(
+      "talkmodeGetState",
+      "talkmode:getState",
+    );
+    if (nativeState?.state) {
+      this.state = nativeState.state;
+      this.statusText = getStatusTextForState(
+        nativeState.state,
+        this.usedSystemTts,
+      );
+      return { state: this.state, statusText: this.statusText };
+    }
     return { state: this.state, statusText: this.statusText };
   }
 
@@ -295,68 +402,22 @@ export class TalkModeElectron implements TalkModePlugin {
     config: Partial<TalkModeConfig>;
   }): Promise<void> {
     this.config = { ...this.config, ...options.config };
-
-    if (window.electron?.ipcRenderer) {
-      try {
-        await window.electron.ipcRenderer.invoke(
-          "talkmode:updateConfig",
-          options as unknown as IpcObject,
-        );
-      } catch {
-        // Ignore
-      }
+    const nativeConfig = toNativeTalkModeConfig(options.config);
+    if (!nativeConfig) {
+      return;
     }
+
+    await this.invokeBridge(
+      "talkmodeUpdateConfig",
+      "talkmode:updateConfig",
+      nativeConfig,
+    );
   }
 
   async speak(options: SpeakOptions): Promise<SpeakResult> {
     const text = options.text.trim();
     if (!text) {
       return { completed: true, interrupted: false, usedSystemTts: false };
-    }
-
-    if (this.pendingNativeSpeakResolve) {
-      await this.stopSpeaking();
-    }
-    this.awaitingNativeAudio = false;
-    this.pendingNativeSpeakComplete = null;
-
-    // Try ElevenLabs via Electron IPC if available
-    if (
-      !options.useSystemTts &&
-      window.electron?.ipcRenderer &&
-      this.config.tts?.apiKey
-    ) {
-      try {
-        this.awaitingNativeAudio = true;
-        this.isSpeakingValue = true;
-        this.usedSystemTts = false;
-        this.setState("speaking", "Speaking");
-
-        const pending = new Promise<SpeakResult>((resolve) => {
-          this.pendingNativeSpeakResolve = resolve;
-        });
-
-        const result = (await window.electron.ipcRenderer.invoke(
-          "talkmode:speak",
-          options as unknown as IpcValue,
-        )) as unknown as SpeakResult;
-        if (!result.completed) {
-          this.awaitingNativeAudio = false;
-          this.isSpeakingValue = false;
-          this.pendingNativeSpeakResolve = null;
-          return result;
-        }
-
-        return pending;
-      } catch (error) {
-        console.warn(
-          "[TalkMode] Electron TTS failed, falling back to system:",
-          error,
-        );
-        this.awaitingNativeAudio = false;
-        this.isSpeakingValue = false;
-        this.pendingNativeSpeakResolve = null;
-      }
     }
 
     // Try ElevenLabs via fetch (may have CORS issues in Electron)
@@ -468,18 +529,14 @@ export class TalkModeElectron implements TalkModePlugin {
     });
   }
 
-  private async playBase64Audio(audioBase64: string): Promise<void> {
-    const binaryString = atob(audioBase64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    await this.playAudioBuffer(bytes.buffer);
-  }
-
   private async startAudioCapture(): Promise<void> {
-    if (this.captureContext || !window.electron?.ipcRenderer) return;
+    if (
+      this.captureContext ||
+      (!this.ipc?.send &&
+        !getElectrobunRendererRpc()?.request?.talkmodeAudioChunk)
+    ) {
+      return;
+    }
 
     this.captureStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -505,13 +562,32 @@ export class TalkModeElectron implements TalkModePlugin {
         this.captureSampleRate,
       );
       if (downsampled.length > 0) {
-        window.electron?.ipcRenderer.send("talkmode:audioChunk", downsampled);
+        this.sendAudioChunk(downsampled);
       }
     };
 
     source.connect(processor);
     processor.connect(gain);
     gain.connect(this.captureContext.destination);
+  }
+
+  private sendAudioChunk(downsampled: Float32Array): void {
+    const rpcRequest = getElectrobunRendererRpc()?.request?.talkmodeAudioChunk;
+    if (rpcRequest) {
+      const bytes = new Uint8Array(
+        downsampled.buffer,
+        downsampled.byteOffset,
+        downsampled.byteLength,
+      );
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      void rpcRequest({ data: btoa(binary) }).catch(() => {});
+      return;
+    }
+
+    this.ipc?.send?.("talkmode:audioChunk", downsampled);
   }
 
   private stopAudioCapture(): void {
@@ -629,77 +705,36 @@ export class TalkModeElectron implements TalkModePlugin {
     });
   }
 
-  private resolveNativeSpeak(result: SpeakResult): void {
-    if (this.pendingNativeSpeakResolve) {
-      this.pendingNativeSpeakResolve(result);
-      this.pendingNativeSpeakResolve = null;
-    }
-  }
-
-  private handleNativeSpeakComplete(event: TTSCompleteEvent): void {
-    if (!this.awaitingNativeAudio && !this.pendingNativeSpeakResolve) {
+  private handleNativeStateChanged(data: unknown): void {
+    if (!isObjectRecord(data) || !isTalkModeState(data.state)) {
       return;
     }
 
-    this.pendingNativeSpeakComplete = event;
-
-    if (!this.awaitingNativeAudio) {
-      this.isSpeakingValue = false;
-      this.setState(
-        event.completed ? "listening" : "idle",
-        event.completed ? "Listening" : "Speech error",
-      );
-      this.notifyListeners("speakComplete", event);
-      this.resolveNativeSpeak({
-        completed: event.completed,
-        interrupted: !event.completed,
-        interruptedAt: event.interruptedAt,
-        usedSystemTts: false,
-      });
-      this.pendingNativeSpeakComplete = null;
-    }
+    const previousState = this.state;
+    this.state = data.state;
+    this.statusText = getStatusTextForState(data.state, this.usedSystemTts);
+    this.notifyListeners("stateChange", {
+      state: data.state,
+      previousState,
+      statusText: this.statusText,
+      usingSystemTts: this.usedSystemTts,
+    });
   }
 
-  private async handleNativeAudioComplete(payload: {
-    audioBase64: string;
-  }): Promise<void> {
-    if (!payload.audioBase64) return;
-
-    const event = this.pendingNativeSpeakComplete ?? { completed: true };
-    try {
-      await this.playBase64Audio(payload.audioBase64);
-      this.isSpeakingValue = false;
-      this.setState(
-        event.completed ? "listening" : "idle",
-        event.completed ? "Listening" : "Speech error",
-      );
-      this.notifyListeners("speakComplete", event);
-      this.resolveNativeSpeak({
-        completed: event.completed,
-        interrupted: !event.completed,
-        interruptedAt: event.interruptedAt,
-        usedSystemTts: false,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Native TTS playback failed";
-      this.isSpeakingValue = false;
-      this.setState("idle", "Speech error");
-      this.notifyListeners("error", {
-        code: "native_tts_playback_failed",
-        message,
-        recoverable: true,
-      });
-      this.resolveNativeSpeak({
-        completed: false,
-        interrupted: true,
-        usedSystemTts: false,
-        error: message,
-      });
-    } finally {
-      this.awaitingNativeAudio = false;
-      this.pendingNativeSpeakComplete = null;
+  private normalizeTranscriptEvent(data: unknown): TalkModeTranscriptEvent {
+    if (!isObjectRecord(data)) {
+      return { transcript: "", isFinal: true };
     }
+
+    return {
+      transcript:
+        typeof data.transcript === "string"
+          ? data.transcript
+          : typeof data.text === "string"
+            ? data.text
+            : "",
+      isFinal: typeof data.isFinal === "boolean" ? data.isFinal : true,
+    };
   }
 
   async stopSpeaking(): Promise<{ interruptedAt?: number }> {
@@ -710,29 +745,19 @@ export class TalkModeElectron implements TalkModePlugin {
       this.currentUtterance = null;
     }
 
-    if (window.electron?.ipcRenderer) {
-      try {
-        await window.electron.ipcRenderer.invoke("talkmode:stopSpeaking");
-      } catch {
-        // Ignore
-      }
-    }
-
-    if (this.pendingNativeSpeakResolve) {
-      this.awaitingNativeAudio = false;
-      this.pendingNativeSpeakComplete = null;
-      this.resolveNativeSpeak({
-        completed: false,
-        interrupted: true,
-        usedSystemTts: false,
-      });
-    }
-
     this.isSpeakingValue = false;
     return {};
   }
 
   async isSpeaking(): Promise<{ speaking: boolean }> {
+    const nativeSpeaking = await this.invokeBridge<{ speaking: boolean }>(
+      "talkmodeIsSpeaking",
+      "talkmode:isSpeaking",
+    );
+    if (nativeSpeaking) {
+      this.isSpeakingValue = nativeSpeaking.speaking;
+      return nativeSpeaking;
+    }
     return {
       speaking: this.isSpeakingValue || (this.synthesis?.speaking ?? false),
     };
@@ -766,19 +791,12 @@ export class TalkModeElectron implements TalkModePlugin {
     let speechRecognition: TalkModePermissionStatus["speechRecognition"] =
       SpeechRecognitionAPI ? "prompt" : "not_supported";
 
-    if (window.electron?.ipcRenderer) {
-      try {
-        const whisperStatus = (await window.electron.ipcRenderer.invoke(
-          "talkmode:isWhisperAvailable",
-        )) as {
-          available: boolean;
-        };
-        if (whisperStatus.available) {
-          speechRecognition = "granted";
-        }
-      } catch {
-        // Ignore
-      }
+    const whisperStatus = await this.invokeBridge<{ available: boolean }>(
+      "talkmodeIsWhisperAvailable",
+      "talkmode:isWhisperAvailable",
+    );
+    if (whisperStatus?.available) {
+      speechRecognition = "granted";
     }
 
     return { microphone, speechRecognition };
