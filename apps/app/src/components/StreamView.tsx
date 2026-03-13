@@ -12,6 +12,7 @@
  */
 
 import { client, isApiError } from "@milady/app-core/api";
+import { isElectrobunRuntime } from "@milady/app-core/bridge";
 import {
   type CSSProperties,
   useCallback,
@@ -58,7 +59,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
   } = useApp();
 
   const agentName = agentStatus?.agentName ?? "Milady";
-  const isElectrobun = !!window.electron;
+  const isElectrobun = isElectrobunRuntime();
 
   // ── Stream status polling ─────────────────────────────────────────────
   const [streamLive, setStreamLive] = useState(false);

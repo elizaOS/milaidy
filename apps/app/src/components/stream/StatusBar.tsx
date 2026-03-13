@@ -1,3 +1,4 @@
+import { isElectrobunRuntime } from "@milady/app-core/bridge";
 import { Button, Input, Slider } from "@milady/ui";
 import {
   ChevronDown,
@@ -76,7 +77,7 @@ export function StatusBar({
   onOpenSettings?: () => void;
 }) {
   const { t } = useApp();
-  const isElectrobun = !!window.electron;
+  const isElectrobun = isElectrobunRuntime();
   const isLive = streamLive;
   const [pinned, setPinned] = useState(IS_POPOUT); // popout starts pinned
   const [sourceOpen, setSourceOpen] = useState(false);
