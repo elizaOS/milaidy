@@ -915,12 +915,12 @@ export function SettingsView({
         className={`flex-1 min-h-0 overflow-y-auto scroll-smooth ${inModal ? "px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6" : "px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"}`}
       >
         <div className={`${inModal ? "max-w-5xl" : "max-w-4xl"} mx-auto`}>
-          <div className="flex items-start justify-between gap-4 border-b border-border/70 pb-4 sm:pb-6">
+          <div className="settings-page-header flex items-start justify-between gap-4 border-b border-border/70 pb-4 sm:pb-6">
             <div className="min-w-0">
-              <h1 className="text-balance text-xl font-bold text-txt-strong sm:text-2xl">
+              <h1 className="text-balance text-xl font-bold text-white sm:text-2xl">
                 {t("nav.settings")}
               </h1>
-              <p className="mt-1 max-w-2xl text-pretty text-sm text-muted">
+              <p className="mt-1 max-w-2xl text-pretty text-sm text-white/85">
                 {t("settings.customizeExperience")}
               </p>
             </div>
@@ -946,7 +946,7 @@ export function SettingsView({
             />
           </div>
 
-          <div className="space-y-6 pb-20 pt-6 sm:space-y-8">
+          <div className="settings-sections space-y-6 pb-20 pt-6 sm:space-y-8">
             {sectionsContent}
           </div>
         </div>

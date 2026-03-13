@@ -3928,6 +3928,15 @@
   margin-top: 8px;
 }
 
+/* Settings page: card titles and labels visible on dark background */
+.settings-sections .bg-card > div:first-child button.font-semibold {
+  color: #fff;
+}
+
+.settings-sections .bg-card > div:first-child .text-muted {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 .settings-section-card > *:not(.settings-section-title) {
   padding: 4px 24px 16px;
 }
@@ -3940,7 +3949,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--s-text-secondary);
+  color: #fff;
   padding: 11px 24px 9px;
   background: linear-gradient(
     90deg,
