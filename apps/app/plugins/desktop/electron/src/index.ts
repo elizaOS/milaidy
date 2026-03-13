@@ -16,6 +16,11 @@
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
+import {
+  getElectronIpcRenderer,
+  invokeDesktopBridgeRequest,
+  subscribeDesktopBridgeEvent,
+} from "@milady/app-core/bridge";
 import type {
   AutoLaunchOptions,
   DesktopPlugin,
@@ -65,34 +70,56 @@ interface ListenerEntry {
 
 type AlwaysOnTopLevel = Parameters<DesktopPlugin["setAlwaysOnTop"]>[0]["level"];
 type DesktopPathName = Parameters<DesktopPlugin["getPath"]>[0]["name"];
+type DesktopVersionResult =
+  | {
+      version: string;
+      name: string;
+      runtime: string;
+    }
+  | {
+      version: string;
+      name: string;
+      electron: string;
+      chrome: string;
+      node: string;
+    };
 
-// Type definitions for Electron APIs accessed via window
-type IpcPrimitive = string | number | boolean | null | undefined;
-type IpcObject = { [key: string]: IpcValue };
-type IpcValue =
-  | IpcPrimitive
-  | IpcObject
-  | IpcValue[]
-  | ArrayBuffer
-  | Float32Array
-  | Uint8Array;
-
-interface ElectronAPI {
-  ipcRenderer: {
-    invoke(channel: string, ...args: IpcValue[]): Promise<IpcValue>;
-    on(channel: string, listener: (...args: IpcValue[]) => void): void;
-    removeListener(
-      channel: string,
-      listener: (...args: IpcValue[]) => void,
-    ): void;
-  };
-}
-
-declare global {
-  interface Window {
-    electron?: ElectronAPI;
-  }
-}
+const DESKTOP_RPC_EVENTS: Partial<
+  Record<DesktopEventName, { rpcMessage: string; ipcChannel: string }>
+> = {
+  trayClick: {
+    rpcMessage: "desktopTrayClick",
+    ipcChannel: "desktop:trayClick",
+  },
+  trayMenuClick: {
+    rpcMessage: "desktopTrayMenuClick",
+    ipcChannel: "desktop:trayMenuClick",
+  },
+  shortcutPressed: {
+    rpcMessage: "desktopShortcutPressed",
+    ipcChannel: "desktop:shortcutPressed",
+  },
+  windowFocus: {
+    rpcMessage: "desktopWindowFocus",
+    ipcChannel: "desktop:windowFocus",
+  },
+  windowBlur: {
+    rpcMessage: "desktopWindowBlur",
+    ipcChannel: "desktop:windowBlur",
+  },
+  windowMaximize: {
+    rpcMessage: "desktopWindowMaximize",
+    ipcChannel: "desktop:windowMaximize",
+  },
+  windowUnmaximize: {
+    rpcMessage: "desktopWindowUnmaximize",
+    ipcChannel: "desktop:windowUnmaximize",
+  },
+  windowClose: {
+    rpcMessage: "desktopWindowClose",
+    ipcChannel: "desktop:windowClose",
+  },
+};
 
 /**
  * Helper to throw when Electron IPC is unavailable.
@@ -111,31 +138,34 @@ function requireIPC(feature: string): never {
  */
 export class DesktopElectron implements DesktopPlugin {
   private listeners: ListenerEntry[] = [];
-  private ipcListeners: Map<DesktopEventName, (...args: IpcValue[]) => void> =
-    new Map();
+  private internalSubscriptions: Array<() => void> = [];
 
   constructor() {
-    this.setupIPCListeners();
+    this.setupDesktopListeners();
   }
 
-  private get ipc(): ElectronAPI["ipcRenderer"] | undefined {
-    return window.electron?.ipcRenderer;
+  private get ipc() {
+    return getElectronIpcRenderer();
   }
 
-  /**
-   * Ensures IPC is available, throws descriptive error if not
-   */
-  private requireIPC(feature: string): ElectronAPI["ipcRenderer"] {
-    const ipc = this.ipc;
-    if (!ipc) {
+  private async invokeBridge<T>(
+    feature: string,
+    rpcMethod: string,
+    ipcChannel: string,
+    params?: unknown,
+  ): Promise<T> {
+    const result = await invokeDesktopBridgeRequest<T>({
+      rpcMethod,
+      ipcChannel,
+      params,
+    });
+    if (result === null) {
       requireIPC(feature);
     }
-    return ipc;
+    return result as T;
   }
 
-  private setupIPCListeners(): void {
-    if (!this.ipc) return;
-
+  private setupDesktopListeners(): void {
     const events: DesktopEventName[] = [
       "trayClick",
       "trayDoubleClick",
@@ -159,209 +189,321 @@ export class DesktopElectron implements DesktopPlugin {
     ];
 
     for (const eventName of events) {
-      const handler = (...args: IpcValue[]) => {
-        const data = args[0] as DesktopEventPayloads[typeof eventName];
-        this.notifyListeners(eventName, data);
+      const rpcEvent = DESKTOP_RPC_EVENTS[eventName];
+      if (rpcEvent) {
+        const unsubscribe = subscribeDesktopBridgeEvent({
+          rpcMessage: rpcEvent.rpcMessage,
+          ipcChannel: rpcEvent.ipcChannel,
+          listener: (data) => {
+            this.notifyListeners(
+              eventName,
+              data as DesktopEventPayloads[typeof eventName],
+            );
+          },
+        });
+        this.internalSubscriptions.push(unsubscribe);
+        continue;
+      }
+
+      if (!this.ipc?.on) {
+        continue;
+      }
+
+      const handler = (_event: unknown, payload: unknown) => {
+        this.notifyListeners(
+          eventName,
+          payload as DesktopEventPayloads[typeof eventName],
+        );
       };
       this.ipc.on(`desktop:${eventName}`, handler);
-      this.ipcListeners.set(eventName, handler);
+      this.internalSubscriptions.push(() => {
+        this.ipc?.removeListener?.(`desktop:${eventName}`, handler);
+      });
     }
   }
 
   // System Tray
   async createTray(options: TrayOptions): Promise<void> {
-    const ipc = this.requireIPC("createTray");
-    await ipc.invoke("desktop:createTray", options);
+    await this.invokeBridge(
+      "createTray",
+      "desktopCreateTray",
+      "desktop:createTray",
+      options,
+    );
   }
 
   async updateTray(options: Partial<TrayOptions>): Promise<void> {
-    const ipc = this.requireIPC("updateTray");
-    await ipc.invoke("desktop:updateTray", options);
+    await this.invokeBridge(
+      "updateTray",
+      "desktopUpdateTray",
+      "desktop:updateTray",
+      options,
+    );
   }
 
   async destroyTray(): Promise<void> {
-    const ipc = this.requireIPC("destroyTray");
-    await ipc.invoke("desktop:destroyTray");
+    await this.invokeBridge(
+      "destroyTray",
+      "desktopDestroyTray",
+      "desktop:destroyTray",
+    );
   }
 
   async setTrayMenu(options: { menu: TrayMenuItem[] }): Promise<void> {
-    const ipc = this.requireIPC("setTrayMenu");
-    await ipc.invoke("desktop:setTrayMenu", options);
+    await this.invokeBridge(
+      "setTrayMenu",
+      "desktopSetTrayMenu",
+      "desktop:setTrayMenu",
+      options,
+    );
   }
 
   // Global Shortcuts
   async registerShortcut(
     options: GlobalShortcut,
   ): Promise<{ success: boolean }> {
-    const ipc = this.requireIPC("registerShortcut");
-    return (await ipc.invoke("desktop:registerShortcut", options)) as {
-      success: boolean;
-    };
+    return await this.invokeBridge<{ success: boolean }>(
+      "registerShortcut",
+      "desktopRegisterShortcut",
+      "desktop:registerShortcut",
+      options,
+    );
   }
 
   async unregisterShortcut(options: { id: string }): Promise<void> {
-    const ipc = this.requireIPC("unregisterShortcut");
-    await ipc.invoke("desktop:unregisterShortcut", options);
+    await this.invokeBridge(
+      "unregisterShortcut",
+      "desktopUnregisterShortcut",
+      "desktop:unregisterShortcut",
+      options,
+    );
   }
 
   async unregisterAllShortcuts(): Promise<void> {
-    const ipc = this.requireIPC("unregisterAllShortcuts");
-    await ipc.invoke("desktop:unregisterAllShortcuts");
+    await this.invokeBridge(
+      "unregisterAllShortcuts",
+      "desktopUnregisterAllShortcuts",
+      "desktop:unregisterAllShortcuts",
+    );
   }
 
   async isShortcutRegistered(options: {
     accelerator: string;
   }): Promise<{ registered: boolean }> {
-    const ipc = this.requireIPC("isShortcutRegistered");
-    return (await ipc.invoke("desktop:isShortcutRegistered", options)) as {
-      registered: boolean;
-    };
+    return await this.invokeBridge<{ registered: boolean }>(
+      "isShortcutRegistered",
+      "desktopIsShortcutRegistered",
+      "desktop:isShortcutRegistered",
+      options,
+    );
   }
 
   // Auto Launch
   async setAutoLaunch(options: AutoLaunchOptions): Promise<void> {
-    const ipc = this.requireIPC("setAutoLaunch");
-    await ipc.invoke("desktop:setAutoLaunch", options);
+    await this.invokeBridge(
+      "setAutoLaunch",
+      "desktopSetAutoLaunch",
+      "desktop:setAutoLaunch",
+      options,
+    );
   }
 
   async getAutoLaunchStatus(): Promise<{
     enabled: boolean;
     openAsHidden: boolean;
   }> {
-    const ipc = this.requireIPC("getAutoLaunchStatus");
-    return (await ipc.invoke("desktop:getAutoLaunchStatus")) as {
+    return await this.invokeBridge<{
       enabled: boolean;
       openAsHidden: boolean;
-    };
+    }>(
+      "getAutoLaunchStatus",
+      "desktopGetAutoLaunchStatus",
+      "desktop:getAutoLaunchStatus",
+    );
   }
 
   // Window Management
   async setWindowOptions(options: WindowOptions): Promise<void> {
-    const ipc = this.requireIPC("setWindowOptions");
-    await ipc.invoke("desktop:setWindowOptions", options);
+    await this.invokeBridge(
+      "setWindowOptions",
+      "desktopSetWindowOptions",
+      "desktop:setWindowOptions",
+      options,
+    );
   }
 
   async getWindowBounds(): Promise<WindowBounds> {
-    const ipc = this.requireIPC("getWindowBounds");
-    return (await ipc.invoke("desktop:getWindowBounds")) as WindowBounds;
+    return await this.invokeBridge<WindowBounds>(
+      "getWindowBounds",
+      "desktopGetWindowBounds",
+      "desktop:getWindowBounds",
+    );
   }
 
   async setWindowBounds(options: WindowBounds): Promise<void> {
-    const ipc = this.requireIPC("setWindowBounds");
-    await ipc.invoke("desktop:setWindowBounds", options);
+    await this.invokeBridge(
+      "setWindowBounds",
+      "desktopSetWindowBounds",
+      "desktop:setWindowBounds",
+      options,
+    );
   }
 
   async minimizeWindow(): Promise<void> {
-    const ipc = this.requireIPC("minimizeWindow");
-    await ipc.invoke("desktop:minimizeWindow");
+    await this.invokeBridge(
+      "minimizeWindow",
+      "desktopMinimizeWindow",
+      "desktop:minimizeWindow",
+    );
   }
 
   async maximizeWindow(): Promise<void> {
-    const ipc = this.requireIPC("maximizeWindow");
-    await ipc.invoke("desktop:maximizeWindow");
+    await this.invokeBridge(
+      "maximizeWindow",
+      "desktopMaximizeWindow",
+      "desktop:maximizeWindow",
+    );
   }
 
   async unmaximizeWindow(): Promise<void> {
-    const ipc = this.requireIPC("unmaximizeWindow");
-    await ipc.invoke("desktop:unmaximizeWindow");
+    await this.invokeBridge(
+      "unmaximizeWindow",
+      "desktopUnmaximizeWindow",
+      "desktop:unmaximizeWindow",
+    );
   }
 
   async closeWindow(): Promise<void> {
-    const ipc = this.requireIPC("closeWindow");
-    await ipc.invoke("desktop:closeWindow");
+    await this.invokeBridge(
+      "closeWindow",
+      "desktopCloseWindow",
+      "desktop:closeWindow",
+    );
   }
 
   async showWindow(): Promise<void> {
-    const ipc = this.requireIPC("showWindow");
-    await ipc.invoke("desktop:showWindow");
+    await this.invokeBridge(
+      "showWindow",
+      "desktopShowWindow",
+      "desktop:showWindow",
+    );
   }
 
   async hideWindow(): Promise<void> {
-    const ipc = this.requireIPC("hideWindow");
-    await ipc.invoke("desktop:hideWindow");
+    await this.invokeBridge(
+      "hideWindow",
+      "desktopHideWindow",
+      "desktop:hideWindow",
+    );
   }
 
   async focusWindow(): Promise<void> {
-    const ipc = this.requireIPC("focusWindow");
-    await ipc.invoke("desktop:focusWindow");
+    await this.invokeBridge(
+      "focusWindow",
+      "desktopFocusWindow",
+      "desktop:focusWindow",
+    );
   }
 
   async isWindowMaximized(): Promise<{ maximized: boolean }> {
-    const ipc = this.requireIPC("isWindowMaximized");
-    return (await ipc.invoke("desktop:isWindowMaximized")) as {
-      maximized: boolean;
-    };
+    return await this.invokeBridge<{ maximized: boolean }>(
+      "isWindowMaximized",
+      "desktopIsWindowMaximized",
+      "desktop:isWindowMaximized",
+    );
   }
 
   async isWindowMinimized(): Promise<{ minimized: boolean }> {
-    const ipc = this.requireIPC("isWindowMinimized");
-    return (await ipc.invoke("desktop:isWindowMinimized")) as {
-      minimized: boolean;
-    };
+    return await this.invokeBridge<{ minimized: boolean }>(
+      "isWindowMinimized",
+      "desktopIsWindowMinimized",
+      "desktop:isWindowMinimized",
+    );
   }
 
   async isWindowVisible(): Promise<{ visible: boolean }> {
-    const ipc = this.requireIPC("isWindowVisible");
-    return (await ipc.invoke("desktop:isWindowVisible")) as {
-      visible: boolean;
-    };
+    return await this.invokeBridge<{ visible: boolean }>(
+      "isWindowVisible",
+      "desktopIsWindowVisible",
+      "desktop:isWindowVisible",
+    );
   }
 
   async isWindowFocused(): Promise<{ focused: boolean }> {
-    const ipc = this.requireIPC("isWindowFocused");
-    return (await ipc.invoke("desktop:isWindowFocused")) as {
-      focused: boolean;
-    };
+    return await this.invokeBridge<{ focused: boolean }>(
+      "isWindowFocused",
+      "desktopIsWindowFocused",
+      "desktop:isWindowFocused",
+    );
   }
 
   async setAlwaysOnTop(options: {
     flag: boolean;
     level?: AlwaysOnTopLevel;
   }): Promise<void> {
-    const ipc = this.requireIPC("setAlwaysOnTop");
-    await ipc.invoke("desktop:setAlwaysOnTop", options);
+    await this.invokeBridge(
+      "setAlwaysOnTop",
+      "desktopSetAlwaysOnTop",
+      "desktop:setAlwaysOnTop",
+      options,
+    );
   }
 
   async setFullscreen(options: { flag: boolean }): Promise<void> {
-    const ipc = this.requireIPC("setFullscreen");
-    await ipc.invoke("desktop:setFullscreen", options);
+    await this.invokeBridge(
+      "setFullscreen",
+      "desktopSetFullscreen",
+      "desktop:setFullscreen",
+      options,
+    );
   }
 
   async setOpacity(options: { opacity: number }): Promise<void> {
-    const ipc = this.requireIPC("setOpacity");
-    await ipc.invoke("desktop:setOpacity", options);
+    await this.invokeBridge(
+      "setOpacity",
+      "desktopSetOpacity",
+      "desktop:setOpacity",
+      options,
+    );
   }
 
   // Notifications
   async showNotification(
     options: NotificationOptions,
   ): Promise<{ id: string }> {
-    const ipc = this.requireIPC("showNotification");
-    return (await ipc.invoke("desktop:showNotification", options)) as {
-      id: string;
-    };
+    return await this.invokeBridge<{ id: string }>(
+      "showNotification",
+      "desktopShowNotification",
+      "desktop:showNotification",
+      options,
+    );
   }
 
   async closeNotification(options: { id: string }): Promise<void> {
-    const ipc = this.requireIPC("closeNotification");
-    await ipc.invoke("desktop:closeNotification", options);
+    await this.invokeBridge(
+      "closeNotification",
+      "desktopCloseNotification",
+      "desktop:closeNotification",
+      options,
+    );
   }
 
   // Power Monitor
   async getPowerState(): Promise<PowerMonitorState> {
-    const ipc = this.requireIPC("getPowerState");
-    return (await ipc.invoke("desktop:getPowerState")) as PowerMonitorState;
+    return await this.invokeBridge<PowerMonitorState>(
+      "getPowerState",
+      "desktopGetPowerState",
+      "desktop:getPowerState",
+    );
   }
 
   // App
   async quit(): Promise<void> {
-    const ipc = this.requireIPC("quit");
-    await ipc.invoke("desktop:quit");
+    await this.invokeBridge("quit", "desktopQuit", "desktop:quit");
   }
 
   async relaunch(): Promise<void> {
-    const ipc = this.requireIPC("relaunch");
-    await ipc.invoke("desktop:relaunch");
+    await this.invokeBridge("relaunch", "desktopRelaunch", "desktop:relaunch");
   }
 
   async getVersion(): Promise<{
@@ -371,24 +513,38 @@ export class DesktopElectron implements DesktopPlugin {
     chrome: string;
     node: string;
   }> {
-    const ipc = this.requireIPC("getVersion");
-    return (await ipc.invoke("desktop:getVersion")) as {
-      version: string;
-      name: string;
-      electron: string;
-      chrome: string;
-      node: string;
-    };
+    const version = await this.invokeBridge<DesktopVersionResult>(
+      "getVersion",
+      "desktopGetVersion",
+      "desktop:getVersion",
+    );
+    if ("runtime" in version) {
+      return {
+        version: version.version,
+        name: version.name,
+        electron: version.runtime,
+        chrome: "N/A",
+        node: "N/A",
+      };
+    }
+    return version;
   }
 
   async isPackaged(): Promise<{ packaged: boolean }> {
-    const ipc = this.requireIPC("isPackaged");
-    return (await ipc.invoke("desktop:isPackaged")) as { packaged: boolean };
+    return await this.invokeBridge<{ packaged: boolean }>(
+      "isPackaged",
+      "desktopIsPackaged",
+      "desktop:isPackaged",
+    );
   }
 
   async getPath(options: { name: DesktopPathName }): Promise<{ path: string }> {
-    const ipc = this.requireIPC("getPath");
-    return (await ipc.invoke("desktop:getPath", options)) as { path: string };
+    return await this.invokeBridge<{ path: string }>(
+      "getPath",
+      "desktopGetPath",
+      "desktop:getPath",
+      options,
+    );
   }
 
   // Clipboard
@@ -398,8 +554,12 @@ export class DesktopElectron implements DesktopPlugin {
     image?: string;
     rtf?: string;
   }): Promise<void> {
-    const ipc = this.requireIPC("writeToClipboard");
-    await ipc.invoke("desktop:writeToClipboard", options);
+    await this.invokeBridge(
+      "writeToClipboard",
+      "desktopWriteToClipboard",
+      "desktop:writeToClipboard",
+      options,
+    );
   }
 
   async readFromClipboard(): Promise<{
@@ -408,34 +568,47 @@ export class DesktopElectron implements DesktopPlugin {
     rtf?: string;
     hasImage: boolean;
   }> {
-    const ipc = this.requireIPC("readFromClipboard");
-    return (await ipc.invoke("desktop:readFromClipboard")) as {
+    return await this.invokeBridge<{
       text?: string;
       html?: string;
       rtf?: string;
       hasImage: boolean;
-    };
+    }>(
+      "readFromClipboard",
+      "desktopReadFromClipboard",
+      "desktop:readFromClipboard",
+    );
   }
 
   async clearClipboard(): Promise<void> {
-    const ipc = this.requireIPC("clearClipboard");
-    await ipc.invoke("desktop:clearClipboard");
+    await this.invokeBridge(
+      "clearClipboard",
+      "desktopClearClipboard",
+      "desktop:clearClipboard",
+    );
   }
 
   // Shell
   async openExternal(options: { url: string }): Promise<void> {
-    const ipc = this.requireIPC("openExternal");
-    await ipc.invoke("desktop:openExternal", options);
+    await this.invokeBridge(
+      "openExternal",
+      "desktopOpenExternal",
+      "desktop:openExternal",
+      options,
+    );
   }
 
   async showItemInFolder(options: { path: string }): Promise<void> {
-    const ipc = this.requireIPC("showItemInFolder");
-    await ipc.invoke("desktop:showItemInFolder", options);
+    await this.invokeBridge(
+      "showItemInFolder",
+      "desktopShowItemInFolder",
+      "desktop:showItemInFolder",
+      options,
+    );
   }
 
   async beep(): Promise<void> {
-    const ipc = this.requireIPC("beep");
-    await ipc.invoke("desktop:beep");
+    await this.invokeBridge("beep", "desktopBeep", "desktop:beep");
   }
 
   // Events
