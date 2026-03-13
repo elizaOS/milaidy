@@ -173,6 +173,20 @@ describe("Electrobun release workflow drift", () => {
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
   });
 
+  it("rebuilds the staged macOS direct launcher with the packaged launcher architecture", () => {
+    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+
+    expect(stageScript).toContain(
+      'LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"',
+    );
+    expect(stageScript).toContain("clang_arch_args=()");
+    expect(stageScript).toContain('clang_arch_args+=(-arch "$arch")');
+    expect(stageScript).toContain(
+      'echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"',
+    );
+    expect(stageScript).toContain('"${clang_arch_args[@]}"');
+  });
+
   it("pins the native macOS effects build to C++17", () => {
     const buildScript = fs.readFileSync(
       MACOS_EFFECTS_BUILD_SCRIPT_PATH,
