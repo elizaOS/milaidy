@@ -254,7 +254,7 @@ describe("SwabbleWeb desktop bridge", () => {
     };
     (window as TestWindow).electron = {
       ipcRenderer: {
-        invoke: vi.fn(),
+        invoke: vi.fn().mockResolvedValue(undefined),
         send: vi.fn(),
         on: ipcOn,
         removeListener: vi.fn(
@@ -315,6 +315,9 @@ describe("SwabbleWeb desktop bridge", () => {
       level: expect.any(Number),
       peak: 0.5,
     });
+    expect(
+      (window as TestWindow).electron?.ipcRenderer?.invoke,
+    ).toHaveBeenCalledWith("swabble:audioChunk", { data: expect.any(String) });
 
     await sw.stop();
     expect(directListeners.get("swabbleTranscript")?.size ?? 0).toBe(0);

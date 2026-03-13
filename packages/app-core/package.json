@@ -13,6 +13,8 @@
     "./navigation": "./src/navigation/index.ts",
     "./hooks": "./src/hooks/index.ts",
     "./bridge": "./src/bridge/index.ts",
+    "./bridge/electrobun-rpc": "./src/bridge/electrobun-rpc.ts",
+    "./bridge/electrobun-runtime": "./src/bridge/electrobun-runtime.ts",
     "./state": "./src/state/index.ts",
     "./components": "./src/components/index.ts",
     "./utils": "./src/utils/index.ts",

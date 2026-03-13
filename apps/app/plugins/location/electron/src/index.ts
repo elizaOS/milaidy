@@ -13,7 +13,7 @@ import type { PluginListenerHandle } from "@capacitor/core";
 import {
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
-} from "@milady/app-core/bridge";
+} from "@milady/app-core/bridge/electrobun-rpc";
 import type {
   LocationErrorEvent,
   LocationOptions,
