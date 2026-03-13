@@ -113,4 +113,88 @@ describe("LocationElectron direct Electrobun RPC bridge", () => {
     });
     expect(listeners.get("locationUpdate")?.size ?? 0).toBe(0);
   });
+
+  it("handles wrapped IPC fallback watch payloads for native location updates", async () => {
+    const ipcListeners = new Map<
+      string,
+      Set<(event: unknown, payload: unknown) => void>
+    >();
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === "location:watchPosition") {
+        return { watchId: "ipc-watch-1" };
+      }
+
+      if (channel === "location:clearWatch") {
+        return undefined;
+      }
+
+      throw new Error(`Unexpected channel: ${channel}`);
+    });
+
+    (window as TestWindow).electron = {
+      ipcRenderer: {
+        invoke,
+        on: vi.fn(
+          (
+            channel: string,
+            listener: (event: unknown, payload: unknown) => void,
+          ) => {
+            const entry = ipcListeners.get(channel) ?? new Set();
+            entry.add(listener);
+            ipcListeners.set(channel, entry);
+          },
+        ),
+        removeListener: vi.fn(
+          (
+            channel: string,
+            listener: (event: unknown, payload: unknown) => void,
+          ) => {
+            ipcListeners.get(channel)?.delete(listener);
+          },
+        ),
+      },
+    };
+
+    const plugin = new LocationElectron();
+    const changeListener = vi.fn();
+    await plugin.addListener("locationChange", changeListener);
+
+    await expect(plugin.watchPosition()).resolves.toEqual({
+      watchId: "ipc-watch-1",
+    });
+
+    ipcListeners.get("location:update")?.forEach((listener) => {
+      listener(
+        { sender: "test" },
+        {
+          watchId: "ipc-watch-1",
+          location: {
+            coords: {
+              latitude: 37.7749,
+              longitude: -122.4194,
+              accuracy: 18,
+              timestamp: 24681012,
+            },
+            cached: false,
+          },
+        },
+      );
+    });
+
+    expect(changeListener).toHaveBeenCalledWith({
+      coords: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+        accuracy: 18,
+        timestamp: 24681012,
+      },
+      cached: false,
+    });
+
+    await plugin.clearWatch({ watchId: "ipc-watch-1" });
+    expect(invoke).toHaveBeenCalledWith("location:clearWatch", {
+      watchId: "ipc-watch-1",
+    });
+    expect(ipcListeners.get("location:update")?.size ?? 0).toBe(0);
+  });
 });
