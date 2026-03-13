@@ -676,10 +676,10 @@ bunx vitest run --config vitest.e2e.config.ts \
 
 # App startup onboarding e2e (CI job equivalent)
 bunx vitest run --config apps/app/vitest.config.ts \
-  apps/app/test/electron/electron-startup.e2e.test.ts \
-  apps/app/test/electron/electron-plugin-entrypoints.e2e.test.ts \
   apps/app/test/app/startup-chat.e2e.test.ts \
-  apps/app/test/app/startup-onboarding.e2e.test.ts
+  apps/app/test/app/startup-onboarding.e2e.test.ts \
+  apps/app/test/app/startup-backend-missing.e2e.test.ts \
+  apps/app/test/app/startup-token-401.e2e.test.ts
 
 # End-to-end validation suite from CI
 bunx vitest run --config vitest.e2e.config.ts test/e2e-validation.e2e.test.ts

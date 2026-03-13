@@ -17,27 +17,18 @@
     "apps/app": {
       "entry": [
         "src/main.tsx",
-        "electron/main.ts",
-        "electron/preload.ts",
-        "vite.config.ts",
-        "vitest.config.ts",
-        "index.html",
-        "src/main.tsx",
-        "electron/main.ts",
-        "electron/preload.ts",
         "vite.config.ts",
         "vitest.config.ts",
         "index.html",
         "capacitor.config.ts"
       ],
-      "project": ["src/**/*.{ts,tsx}", "electron/**/*.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}"],
       "ignore": [
         "dist/**",
         "build/**",
         "coverage/**",
         "**/*.test.ts",
         "public/**",
-        "playwright.electron.config.ts",
         "playwright.electron.packaged.config.ts",
         "cypress.config.ts",
         "**/*.cy.ts",

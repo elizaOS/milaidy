@@ -13,10 +13,7 @@ import {
   test,
 } from "@playwright/test";
 
-import {
-  type MockApiServer,
-  startMockApiServer,
-} from "../electron-ui/mock-api";
+import { type MockApiServer, startMockApiServer } from "./mock-api";
 
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));

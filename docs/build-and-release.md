@@ -61,7 +61,7 @@ CI workflows that need Node (for node-gyp / native modules or npm registry) were
 
 - **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64 and macOS x64 (both on macos-14, Intel via Rosetta), Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
 - **Legacy Electron compatibility stub:** `.github/workflows/release.yml` — manual workflow that only points maintainers at the Electrobun release path.
-- **Local desktop build:** From repo root, build core and app, then e.g. `cd apps/app/electron && bunx electron-builder build --mac --arm64 --publish never`. For a full signed/notarized local test, see `scripts/verify-build.sh` (macOS).
+- **Local desktop build:** From repo root, use the Electrobun path: `bun run build:desktop` for a local bundle build, then `bash apps/app/electrobun/scripts/smoke-test.sh` for packaged desktop verification.
 
 ## Electrobun update-channel naming
 

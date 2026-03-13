@@ -223,8 +223,6 @@ export default defineConfig({
       "dist/**",
       "**/node_modules/**",
       "**/*.live.test.ts",
-      "apps/app/test/electron/**",
-      "apps/app/test/electron-ui/**",
     ],
     coverage: {
       provider: "v8",

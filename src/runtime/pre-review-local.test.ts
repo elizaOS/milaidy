@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   classificationFromInputs,
   decisionFromFindings,
+  resolveRunnableTestFiles,
   runChecks,
   scanDiffTextForBlockedPatterns,
   scopeVerdictFor,
@@ -141,5 +142,18 @@ describe("pre-review-local helpers", () => {
     } finally {
       process.chdir(originalCwd);
     }
+  });
+
+  it("filters deleted test files out of targeted test runs", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "milady-prereview-files-"));
+    const kept = path.join(repoDir, "kept.test.ts");
+    writeFileSync(kept, "export {};\n");
+
+    const resolved = resolveRunnableTestFiles(
+      ["kept.test.ts", "deleted.test.ts"],
+      repoDir,
+    );
+
+    expect(resolved).toEqual(["kept.test.ts"]);
   });
 });

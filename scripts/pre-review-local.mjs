@@ -1,4 +1,5 @@
 import { execFileSync, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -164,6 +165,10 @@ export function scanForBlockedDiffPatterns(base, changedFiles) {
   return scanDiffTextForBlockedPatterns(diffChunks);
 }
 
+export function resolveRunnableTestFiles(testFiles, cwd = process.cwd()) {
+  return testFiles.filter((file) => existsSync(path.resolve(cwd, file)));
+}
+
 export function collectChangedFiles(base) {
   const result = runCommandArgs("git", [
     "diff",
@@ -280,15 +285,30 @@ export function runChecks() {
         "Run tests that validate the exact behavior change and check them in.",
       );
     } else {
-      const testRun = runCommand(`bunx vitest run ${testFiles.join(" ")}`);
-      if (!testRun.ok) {
-        issues.push("Regression/new-behavior tests did not pass.");
+      const runnableTestFiles = resolveRunnableTestFiles(testFiles);
+      if (runnableTestFiles.length === 0) {
+        issues.push(
+          "No runnable changed test files found for a behavioral change.",
+        );
         missingTests.push(
-          "Fix failing tests or add missing assertions for changed paths.",
+          "Add or update regression tests for changed runtime behavior.",
         );
         checklist.push(
-          "Re-run targeted regression tests after behavioral fixes.",
+          "Run tests that validate the exact behavior change and check them in.",
         );
+      } else {
+        const testRun = runCommand(
+          `bunx vitest run ${runnableTestFiles.join(" ")}`,
+        );
+        if (!testRun.ok) {
+          issues.push("Regression/new-behavior tests did not pass.");
+          missingTests.push(
+            "Fix failing tests or add missing assertions for changed paths.",
+          );
+          checklist.push(
+            "Re-run targeted regression tests after behavioral fixes.",
+          );
+        }
       }
     }
   }

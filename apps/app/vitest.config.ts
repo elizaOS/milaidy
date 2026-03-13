@@ -8,11 +8,9 @@ export default defineConfig({
   test: {
     // Use POSIX-style relative globs so test discovery works on Windows too.
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
-    exclude: ["test/electron/**", "test/electron-ui/**"],
     setupFiles: [path.join(here, "test/setup.ts")],
     environment: "node",
     alias: {
-      electron: path.join(here, "test/__mocks__/electron.ts"),
       "@elizaos/skills": path.join(here, "test/__mocks__/elizaos-skills.ts"),
       "@elizaos/plugin-pdf": path.join(
         here,
