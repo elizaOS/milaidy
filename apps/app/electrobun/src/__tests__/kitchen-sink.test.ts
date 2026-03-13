@@ -1097,6 +1097,10 @@ describe("Channel mapping — push events", () => {
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:stateChange"]).toBe(
       "swabbleStateChanged",
     );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:transcript"]).toBe(
+      "swabbleTranscript",
+    );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:error"]).toBe("swabbleError");
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:audioChunkPush"]).toBe(
       "swabbleAudioChunkPush",
     );
@@ -1166,6 +1170,9 @@ describe("Reverse mapping consistency", () => {
     );
     expect(RPC_MESSAGE_TO_PUSH_CHANNEL.swabbleWakeWord).toBe(
       "swabble:wakeWord",
+    );
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.swabbleTranscript).toBe(
+      "swabble:transcript",
     );
   });
 });

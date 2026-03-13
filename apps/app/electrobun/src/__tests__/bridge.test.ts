@@ -184,6 +184,10 @@ describe("PUSH_CHANNEL_TO_RPC_MESSAGE mapping", () => {
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:stateChange"]).toBe(
       "swabbleStateChanged",
     );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:transcript"]).toBe(
+      "swabbleTranscript",
+    );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["swabble:error"]).toBe("swabbleError");
   });
 
   it("maps GPU window push events", () => {
