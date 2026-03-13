@@ -15,6 +15,9 @@ const ACTIVE_BRIDGE_FILES = [
   "apps/app/electrobun/src/bridge/electrobun-direct-rpc.ts",
 ];
 
+const REMOVED_LEGACY_BRIDGE =
+  "apps/app/electrobun/src/bridge/electrobun-bridge.ts";
+
 const FORBIDDEN_PATTERNS = [
   { label: "window.electron", regex: /\bwindow\.electron\b/ },
   { label: "ipcRenderer", regex: /\bipcRenderer\b/ },
@@ -74,5 +77,9 @@ describe("electrobun rpc source guard", () => {
     }
 
     expect(violations).toEqual([]);
+  });
+
+  it("keeps the legacy electrobun bridge removed", () => {
+    expect(fs.existsSync(path.join(ROOT, REMOVED_LEGACY_BRIDGE))).toBe(false);
   });
 });
