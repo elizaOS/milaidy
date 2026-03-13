@@ -14,6 +14,7 @@ import { Button, Input } from "@milady/ui";
 import { useEffect, useMemo, useState } from "react";
 import { parsePositiveInteger } from "../../../../src/utils/number-parsing";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 
 type TriggerType = "interval" | "once" | "cron";
 type TriggerWakeMode = "inject_now" | "next_autonomy_cycle";
@@ -559,8 +560,18 @@ export function TriggersView() {
                         size="sm"
                         className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-danger text-danger"
                         onClick={() => {
-                          if (confirm(`Delete "${trigger.displayName}"?`))
-                            void deleteTrigger(trigger.id);
+                          void (async () => {
+                            const confirmed = await confirmDesktopAction({
+                              title: "Delete Trigger",
+                              message: `Delete "${trigger.displayName}"?`,
+                              confirmLabel: "Delete",
+                              cancelLabel: "Cancel",
+                              type: "warning",
+                            });
+                            if (confirmed) {
+                              await deleteTrigger(trigger.id);
+                            }
+                          })();
                         }}
                       >
                         {t("triggersview.Delete")}

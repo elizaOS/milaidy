@@ -63,7 +63,7 @@ function estimateCost(
 }
 
 function CodeBlock({ content, label }: { content: string; label: string }) {
-  const { t } = useApp();
+  const { t, copyToClipboard } = useApp();
   const [expanded, setExpanded] = useState(false);
   const lines = content.split("\n").length;
   const shouldTruncate = !expanded && lines > 20;
@@ -93,7 +93,9 @@ function CodeBlock({ content, label }: { content: string; label: string }) {
           <button
             type="button"
             className="text-[10px] text-muted hover:text-txt"
-            onClick={() => navigator.clipboard.writeText(content)}
+            onClick={() => {
+              void copyToClipboard(content);
+            }}
             title={t("trajectorydetailview.CopyToClipboard")}
           >
             {t("trajectorydetailview.Copy")}

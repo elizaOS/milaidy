@@ -350,6 +350,53 @@ function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+type RuntimeAdapterWithClose = {
+  close?: () => Promise<void> | void;
+};
+
+/**
+ * Best-effort runtime shutdown that also closes the database adapter.
+ *
+ * AgentRuntime.stop() only stops services. plugin-sql keeps a process-global
+ * PGlite manager, so restarts must close the adapter or the next runtime can
+ * silently reuse the same broken manager instance.
+ */
+export async function shutdownRuntime(
+  runtime: AgentRuntime | null | undefined,
+  context: string,
+): Promise<void> {
+  if (!runtime) return;
+
+  const adapter = runtime.adapter as RuntimeAdapterWithClose | undefined;
+  let firstError: unknown = null;
+
+  try {
+    await runtime.stop();
+  } catch (err) {
+    firstError = err;
+    logger.warn(
+      `[milady] ${context}: runtime stop failed: ${formatError(err)}`,
+    );
+  }
+
+  if (adapter && typeof adapter.close === "function") {
+    try {
+      await adapter.close();
+    } catch (err) {
+      if (!firstError) {
+        firstError = err;
+      }
+      logger.warn(
+        `[milady] ${context}: database adapter close failed: ${formatError(err)}`,
+      );
+    }
+  }
+
+  if (firstError) {
+    throw firstError;
+  }
+}
+
 /**
  * Remove duplicate actions across an ordered list of plugins.
  *
@@ -2594,6 +2641,21 @@ export function resolvePrimaryModel(config: MiladyConfig): string | undefined {
   return modelConfig.primary;
 }
 
+/**
+ * Vision is a heavy optional plugin. When Milady enables it, keep the service
+ * loaded but idle until the user explicitly selects CAMERA, SCREEN, or BOTH.
+ * This avoids background capture loops during normal app startup.
+ */
+export function resolveVisionModeSetting(
+  config: MiladyConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const explicitMode = env.VISION_MODE?.trim();
+  if (explicitMode) return explicitMode;
+  if (config.features?.vision === true) return "OFF";
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // First-run onboarding
 // ---------------------------------------------------------------------------
@@ -3509,6 +3571,7 @@ export async function startEliza(
   // `model.primary` in config), we bump that plugin's priority so its
   // handlers are always selected over other providers.
   const pluginsForRuntime = otherPlugins.map((p) => p.plugin);
+  const visionModeSetting = resolveVisionModeSetting(config);
   if (primaryModel) {
     for (const plugin of pluginsForRuntime) {
       if (plugin.name === primaryModel) {
@@ -3565,6 +3628,7 @@ export async function startEliza(
       ),
       // Forward Milady config env vars as runtime settings
       ...(primaryModel ? { MODEL_PROVIDER: primaryModel } : {}),
+      ...(visionModeSetting ? { VISION_MODE: visionModeSetting } : {}),
       // Forward skills config so plugin-agent-skills can apply allow/deny filtering
       ...(config.skills?.allowBundled
         ? { SKILLS_ALLOWLIST: config.skills.allowBundled.join(",") }
@@ -3771,14 +3835,14 @@ export async function startEliza(
     logger.warn(
       `[milady] Runtime migrations failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup once.`,
     );
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
-
     try {
-      await runtime.stop();
+      await shutdownRuntime(runtime, "PGLite recovery");
     } catch {
       // Ignore cleanup errors — retry creates a fresh runtime anyway.
     }
+
+    await resetPgliteDataDir(pgliteDataDir);
+    process.env.PGLITE_DATA_DIR = pgliteDataDir;
 
     return await startEliza({
       ...opts,
@@ -3818,7 +3882,7 @@ export async function startEliza(
       }
 
       try {
-        await runtime.stop();
+        await shutdownRuntime(runtime, "signal shutdown");
       } catch (err) {
         logger.warn(`[milady] Error during shutdown: ${formatError(err)}`);
       }
@@ -3879,7 +3943,7 @@ export async function startEliza(
           // Stop the old runtime to release resources (DB connections, timers, etc.)
 
           try {
-            await runtime.stop();
+            await shutdownRuntime(runtime, "hot-reload cleanup");
           } catch (stopErr) {
             logger.warn(
               `[milady] Hot-reload: old runtime stop failed: ${formatError(stopErr)}`,
@@ -3940,6 +4004,7 @@ export async function startEliza(
           );
           // Boost preferred model plugin priority (same as initial startup)
           const freshPluginsForRuntime = freshOtherPlugins.map((p) => p.plugin);
+          const freshVisionModeSetting = resolveVisionModeSetting(freshConfig);
           if (freshPrimaryModel) {
             for (const plugin of freshPluginsForRuntime) {
               if (plugin.name === freshPrimaryModel) {
@@ -3955,6 +4020,9 @@ export async function startEliza(
             settings: {
               ...(freshPrimaryModel
                 ? { MODEL_PROVIDER: freshPrimaryModel }
+                : {}),
+              ...(freshVisionModeSetting
+                ? { VISION_MODE: freshVisionModeSetting }
                 : {}),
               // Disable image description when vision is explicitly toggled off.
               ...(freshConfig.features?.vision === false
@@ -4060,7 +4128,7 @@ export async function startEliza(
     const cleanup = async () => {
       clearInterval(keepAlive);
       try {
-        await runtime.stop();
+        await shutdownRuntime(runtime, "server-only shutdown");
       } catch (err) {
         logger.warn(`[milady] Error stopping runtime: ${formatError(err)}`);
       }
@@ -4184,7 +4252,7 @@ export async function startEliza(
         console.log("\nGoodbye!");
         rl.close();
         try {
-          await runtime.stop();
+          await shutdownRuntime(runtime, "cli shutdown");
         } catch (err) {
           logger.warn(`[milady] Error stopping runtime: ${formatError(err)}`);
         }

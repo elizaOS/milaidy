@@ -27,6 +27,7 @@ import {
 } from "@milady/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 import {
   formatTrajectoryDuration,
   formatTrajectoryTimestamp,
@@ -136,11 +137,15 @@ export function TrajectoriesView({
   };
 
   const handleClearAll = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete ALL trajectories? This cannot be undone.",
-      )
-    ) {
+    const confirmed = await confirmDesktopAction({
+      title: "Delete All Trajectories",
+      message: "Are you sure you want to delete ALL trajectories?",
+      detail: "This cannot be undone.",
+      confirmLabel: "Delete All",
+      cancelLabel: "Cancel",
+      type: "warning",
+    });
+    if (!confirmed) {
       return;
     }
     setClearing(true);

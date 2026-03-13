@@ -34,6 +34,10 @@ export type VrmEngineState = {
 
 type UpdateCallback = () => void;
 type RendererBackend = "webgl" | "webgpu";
+type ElectrobunRuntimeWindow = Window & {
+  __electrobunWindowId?: number;
+  __electrobunWebviewId?: number;
+};
 type RendererLike = Pick<
   THREE.WebGLRenderer,
   | "dispose"
@@ -61,6 +65,12 @@ const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   speed: 0.8,
 };
 const MAX_RENDERER_PIXEL_RATIO = 2;
+const AVATAR_RENDERER_OVERRIDE_KEY = "milady.avatarRenderer";
+const KNOWN_VRM_WEBGPU_WARNING =
+  'TSL: "transformedNormalView" is deprecated. Use "normalView" instead.';
+
+let knownVrmWebGpuWarningFilterRefs = 0;
+let releaseKnownVrmWebGpuWarningFilterGlobal: (() => void) | null = null;
 
 function getRendererPixelRatio(): number {
   if (typeof window === "undefined") return 1;
@@ -70,16 +80,77 @@ function getRendererPixelRatio(): number {
   );
 }
 
+function isElectrobunAvatarRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const runtimeWindow = window as ElectrobunRuntimeWindow;
+  return (
+    typeof runtimeWindow.__electrobunWindowId === "number" ||
+    typeof runtimeWindow.__electrobunWebviewId === "number"
+  );
+}
+
+function getPreferredAvatarRendererBackend(): RendererBackend {
+  if (typeof window === "undefined") return "webgl";
+  const override = (() => {
+    try {
+      return window.localStorage.getItem(AVATAR_RENDERER_OVERRIDE_KEY);
+    } catch {
+      return null;
+    }
+  })();
+  const normalizedOverride = override?.trim().toLowerCase();
+  if (normalizedOverride === "webgpu" || normalizedOverride === "webgl") {
+    return normalizedOverride;
+  }
+  return isElectrobunAvatarRuntime() ? "webgpu" : "webgl";
+}
+
+function installKnownVrmWebGpuWarningFilter(): () => void {
+  knownVrmWebGpuWarningFilterRefs += 1;
+
+  if (!releaseKnownVrmWebGpuWarningFilterGlobal) {
+    const originalWarn = console.warn.bind(console);
+    console.warn = (...args: Parameters<typeof console.warn>) => {
+      if (
+        typeof args[0] === "string" &&
+        args[0].includes(KNOWN_VRM_WEBGPU_WARNING)
+      ) {
+        return;
+      }
+      originalWarn(...args);
+    };
+    releaseKnownVrmWebGpuWarningFilterGlobal = () => {
+      knownVrmWebGpuWarningFilterRefs = Math.max(
+        0,
+        knownVrmWebGpuWarningFilterRefs - 1,
+      );
+      if (knownVrmWebGpuWarningFilterRefs === 0) {
+        console.warn = originalWarn;
+        releaseKnownVrmWebGpuWarningFilterGlobal = null;
+      }
+    };
+  }
+
+  return () => {
+    releaseKnownVrmWebGpuWarningFilterGlobal?.();
+  };
+}
+
 /**
  * Create the best available renderer for the current platform.
- * Tries WebGPU first (better performance on macOS WKWebView and modern CEF).
- * Falls back to WebGL if WebGPU is unavailable or fails to initialize.
+ * Electrobun's CEF desktop shell expects WebGPU for the avatar stage, while the
+ * browser dev shell stays on WebGL by default to avoid upstream TSL noise.
+ * A localStorage override can force either backend for debugging.
  * THREE.WebGPURenderer is async-init and requires await renderer.init().
  */
 async function createRenderer(
   canvas: HTMLCanvasElement,
 ): Promise<{ backend: RendererBackend; renderer: RendererLike }> {
-  if (typeof navigator !== "undefined" && navigator.gpu) {
+  if (
+    getPreferredAvatarRendererBackend() === "webgpu" &&
+    typeof navigator !== "undefined" &&
+    navigator.gpu
+  ) {
     try {
       const { WebGPURenderer } = await import("three/webgpu");
       const renderer = new WebGPURenderer({
@@ -150,6 +221,7 @@ export class VrmEngine {
   private readyPromise: Promise<void> = Promise.resolve();
   private resolveReady: (() => void) | null = null;
   private rejectReady: ((error?: unknown) => void) | null = null;
+  private releaseKnownWebGpuWarningFilter: (() => void) | null = null;
 
   // Transition state
   private isCameraTransitioning = false;
@@ -210,8 +282,11 @@ export class VrmEngine {
     void (async () => {
       try {
         const { backend, renderer } = await createRenderer(canvas);
+        const releaseKnownWebGpuWarningFilter =
+          backend === "webgpu" ? installKnownVrmWebGpuWarningFilter() : null;
         // Guard: if dispose() was called while we were awaiting, abort.
         if (this.loadingAborted) {
+          releaseKnownWebGpuWarningFilter?.();
           renderer.dispose();
           if (backend === "webgl") {
             renderer.forceContextLoss?.();
@@ -219,6 +294,7 @@ export class VrmEngine {
           this.settleReady();
           return;
         }
+        this.releaseKnownWebGpuWarningFilter = releaseKnownWebGpuWarningFilter;
         renderer.setPixelRatio(getRendererPixelRatio());
         renderer.setClearColor(0x000000, 0);
         if (backend === "webgl") {
@@ -262,6 +338,8 @@ export class VrmEngine {
         this.settleReady();
       } catch (error) {
         this.initialized = false;
+        this.releaseKnownWebGpuWarningFilter?.();
+        this.releaseKnownWebGpuWarningFilter = null;
         this.renderer = null;
         this.rendererBackend = "webgl";
         this.scene = null;
@@ -280,6 +358,8 @@ export class VrmEngine {
     this.loadingAborted = true;
     this.initialized = false;
     this.settleReady();
+    this.releaseKnownWebGpuWarningFilter?.();
+    this.releaseKnownWebGpuWarningFilter = null;
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;

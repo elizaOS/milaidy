@@ -2,6 +2,10 @@ import { type CustomActionDef, client } from "@milady/app-core/api";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
+import {
+  alertDesktopMessage,
+  confirmDesktopAction,
+} from "../utils/desktop-dialogs";
 import { CustomActionEditor } from "./CustomActionEditor";
 
 export function CustomActionsView() {
@@ -68,7 +72,14 @@ export function CustomActionsView() {
   );
 
   const handleDelete = useCallback(async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+    const confirmed = await confirmDesktopAction({
+      title: "Delete Custom Action",
+      message: `Are you sure you want to delete "${name}"?`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      type: "warning",
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -98,7 +109,11 @@ export function CustomActionsView() {
         event.target.value = "";
       } catch (error) {
         console.error("Failed to import actions:", error);
-        alert("Failed to import actions. Please check the file format.");
+        await alertDesktopMessage({
+          title: "Import Failed",
+          message: "Failed to import actions. Please check the file format.",
+          type: "error",
+        });
       }
     },
     [loadActions],

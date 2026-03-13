@@ -18,6 +18,7 @@ import {
   parsePositiveInteger,
 } from "../../../../src/utils/number-parsing";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 
 const TRAINING_EVENT_KINDS = new Set<TrainingStreamEvent["kind"]>([
   "job_started",
@@ -376,9 +377,14 @@ export function FineTuningView() {
         4200,
       );
       if (result.needsRestart) {
-        const shouldRestart = window.confirm(
-          "Model activation was saved. Restart the agent now to load the new model?",
-        );
+        const shouldRestart = await confirmDesktopAction({
+          title: "Restart Agent",
+          message:
+            "Model activation was saved. Restart the agent now to load the new model?",
+          confirmLabel: "Restart",
+          cancelLabel: "Later",
+          type: "question",
+        });
         if (shouldRestart) {
           await handleRestart();
         }

@@ -76,8 +76,10 @@ import {
   resolveMiladyPluginImportSpecifier,
   resolvePackageEntry,
   resolvePrimaryModel,
+  resolveVisionModeSetting,
   scanDropInPlugins,
   shouldIgnoreMissingPluginExport,
+  shutdownRuntime,
 } from "./eliza";
 import { detectEmbeddingPreset } from "./embedding-presets";
 
@@ -661,6 +663,26 @@ describe("collectPluginNames", () => {
     const config = {} as MiladyConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
+  });
+
+  it("defaults runtime vision mode to OFF when vision is enabled but unset", () => {
+    const config = {
+      features: { vision: true },
+    } as unknown as MiladyConfig;
+    expect(resolveVisionModeSetting(config, {} as NodeJS.ProcessEnv)).toBe(
+      "OFF",
+    );
+  });
+
+  it("preserves an explicit VISION_MODE when vision is enabled", () => {
+    const config = {
+      features: { vision: true },
+    } as unknown as MiladyConfig;
+    expect(
+      resolveVisionModeSetting(config, {
+        VISION_MODE: "SCREEN",
+      } as NodeJS.ProcessEnv),
+    ).toBe("SCREEN");
   });
 
   it("cloud plugin is loaded independently of vision toggle", () => {
@@ -1329,6 +1351,60 @@ describe("isRecoverablePgliteInitError", () => {
     expect(isRecoverablePgliteInitError(new Error("Connection refused"))).toBe(
       false,
     );
+  });
+});
+
+describe("shutdownRuntime", () => {
+  it("stops the runtime and then closes the database adapter", async () => {
+    const calls: string[] = [];
+    const runtime = {
+      adapter: {
+        close: vi.fn(async () => {
+          calls.push("close");
+        }),
+      },
+      stop: vi.fn(async () => {
+        calls.push("stop");
+      }),
+    } as unknown as import("@elizaos/core").AgentRuntime;
+
+    await shutdownRuntime(runtime, "test");
+
+    expect(calls).toEqual(["stop", "close"]);
+  });
+
+  it("still closes the adapter when runtime.stop throws", async () => {
+    const stopError = new Error("stop failed");
+    const close = vi.fn(async () => {});
+    const runtime = {
+      adapter: { close },
+      stop: vi.fn(async () => {
+        throw stopError;
+      }),
+    } as unknown as import("@elizaos/core").AgentRuntime;
+
+    await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
+      "stop failed",
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates adapter close failures after attempting shutdown", async () => {
+    const closeError = new Error("close failed");
+    const stop = vi.fn(async () => {});
+    const runtime = {
+      adapter: {
+        close: vi.fn(async () => {
+          throw closeError;
+        }),
+      },
+      stop,
+    } as unknown as import("@elizaos/core").AgentRuntime;
+
+    await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
+      "close failed",
+    );
+    expect(stop).toHaveBeenCalledTimes(1);
   });
 });
 

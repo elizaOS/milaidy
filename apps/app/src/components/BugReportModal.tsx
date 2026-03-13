@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { useBugReport } from "../hooks/useBugReport";
 import { useTimeout } from "../hooks/useTimeout";
+import { openExternalUrl } from "../utils/openExternalUrl";
 
 const ENV_OPTIONS = ["macOS", "Windows", "Linux", "Other"] as const;
 const GITHUB_NEW_ISSUE_URL =
@@ -32,19 +33,10 @@ const EMPTY_FORM: BugReportForm = {
   logs: "",
 };
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function BugReportModal() {
   const { setTimeout } = useTimeout();
 
-  const { t } = useApp();
+  const { copyToClipboard, t } = useApp();
   const { isOpen, close } = useBugReport();
   const [form, setForm] = useState<BugReportForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -144,9 +136,15 @@ export function BugReportModal() {
         setResultUrl(result.url);
       } else if (result.fallback) {
         // No GITHUB_TOKEN on server — copy report and open GitHub manually
-        const ok = await copyText(formatMarkdown());
+        let ok = false;
+        try {
+          await copyToClipboard(formatMarkdown());
+          ok = true;
+        } catch {
+          ok = false;
+        }
         setCopied(ok);
-        globalThis.window?.open(result.fallback, "_blank", "noopener");
+        await openExternalUrl(result.fallback);
       }
     } catch (err) {
       setErrorMsg(
@@ -155,13 +153,19 @@ export function BugReportModal() {
     } finally {
       setSubmitting(false);
     }
-  }, [form, formatMarkdown]);
+  }, [copyToClipboard, form, formatMarkdown]);
 
   const handleCopyAndOpen = useCallback(async () => {
-    const ok = await copyText(formatMarkdown());
+    let ok = false;
+    try {
+      await copyToClipboard(formatMarkdown());
+      ok = true;
+    } catch {
+      ok = false;
+    }
     setCopied(ok);
-    globalThis.window?.open(GITHUB_NEW_ISSUE_URL, "_blank", "noopener");
-  }, [formatMarkdown]);
+    await openExternalUrl(GITHUB_NEW_ISSUE_URL);
+  }, [copyToClipboard, formatMarkdown]);
 
   // Close on Escape
   useEffect(() => {

@@ -2,6 +2,7 @@ import { type CustomActionDef, client } from "@milady/app-core/api";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 
 interface CustomActionsPanelProps {
   open: boolean;
@@ -96,9 +97,13 @@ export function CustomActionsPanel({
   };
 
   const handleDelete = async (action: CustomActionDef) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${action.name}"?`,
-    );
+    const confirmed = await confirmDesktopAction({
+      title: "Delete Custom Action",
+      message: `Are you sure you want to delete "${action.name}"?`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      type: "warning",
+    });
     if (!confirmed) {
       return;
     }

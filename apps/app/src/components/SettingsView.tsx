@@ -413,10 +413,7 @@ function AdvancedSection() {
                 size="sm"
                 className="rounded-xl shadow-sm h-auto whitespace-normal break-words text-left"
                 onClick={() => {
-                  const confirmed = window.confirm(
-                    t("settings.resetConfirmMessage"),
-                  );
-                  if (confirmed) void handleReset();
+                  void handleReset();
                 }}
               >
                 {t("settings.resetEverything")}

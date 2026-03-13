@@ -19,6 +19,7 @@ import React, {
   useState,
 } from "react";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 import { getByPath, setByPath } from "./config-catalog";
 import type {
   AuthState,
@@ -302,16 +303,19 @@ function fireEvent(action: UiAction | undefined, ctx: UiRenderContext) {
     }
   };
 
-  if (action.confirm) {
-    const ok = window.confirm(
-      action.confirm.message
-        ? `${action.confirm.title}\n\n${action.confirm.message}`
-        : action.confirm.title,
-    );
-    if (ok) execute();
-  } else {
+  void (async () => {
+    if (action.confirm) {
+      const ok = await confirmDesktopAction({
+        title: action.confirm.title,
+        message: action.confirm.message,
+        confirmLabel: "Confirm",
+        cancelLabel: "Cancel",
+        type: "question",
+      });
+      if (!ok) return;
+    }
     execute();
-  }
+  })();
 }
 
 // ── Gap / size maps ─────────────────────────────────────────────────

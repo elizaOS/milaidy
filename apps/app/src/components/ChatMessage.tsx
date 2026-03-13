@@ -41,7 +41,7 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const { setTimeout } = useTimeout();
 
-  const { t } = useApp();
+  const { copyToClipboard, t } = useApp();
   const [copied, setCopied] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const isUser = message.role === "user";
@@ -52,11 +52,11 @@ export function ChatMessage({
     if (onCopy) {
       onCopy(message.text);
     } else {
-      navigator.clipboard.writeText(message.text);
+      void copyToClipboard(message.text);
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [message.text, onCopy, setTimeout]);
+  }, [copyToClipboard, message.text, onCopy, setTimeout]);
 
   return (
     <article

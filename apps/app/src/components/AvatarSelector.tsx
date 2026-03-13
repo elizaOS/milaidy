@@ -13,6 +13,7 @@ import {
   useApp,
   VRM_COUNT,
 } from "../AppContext";
+import { alertDesktopMessage } from "../utils/desktop-dialogs";
 
 export interface AvatarSelectorProps {
   /** Currently selected index (1-N for bundled, 0 for custom) */
@@ -68,13 +69,21 @@ export function AvatarSelector({
   const handleVrmFile = useCallback(
     (file: File) => {
       if (!isVrmFile(file)) {
-        alert("Please select a .vrm file");
+        void alertDesktopMessage({
+          title: "Invalid Avatar File",
+          message: "Please select a .vrm file.",
+          type: "error",
+        });
         return;
       }
       void (async () => {
         const validationError = await validateVrmFile(file);
         if (validationError) {
-          alert(validationError);
+          await alertDesktopMessage({
+            title: "Invalid Avatar File",
+            message: validationError,
+            type: "error",
+          });
           return;
         }
         onUpload?.(file);

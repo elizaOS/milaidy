@@ -136,6 +136,11 @@ import {
 } from "./chat-commands";
 import { getMissingOnboardingPermissions } from "./onboarding-permissions";
 import { mapServerTasksToSessions } from "./pty-session-hydrate";
+import { copyTextToClipboard } from "./utils/clipboard";
+import {
+  alertDesktopMessage,
+  confirmDesktopAction,
+} from "./utils/desktop-dialogs";
 import { openExternalUrl } from "./utils/openExternalUrl";
 
 export {
@@ -197,7 +202,12 @@ export {
   VRM_COUNT,
 } from "@milady/app-core/state";
 
-import { ConfirmModal, useConfirm } from "@milady/app-core/components";
+import {
+  ConfirmModal,
+  PromptModal,
+  useConfirm,
+  usePrompt,
+} from "@milady/app-core/components";
 
 // ── Provider ───────────────────────────────────────────────────────────
 
@@ -714,6 +724,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Confirm Modal ---
   const { confirm: confirmModal, modalProps } = useConfirm();
+  const { prompt: promptModal, modalProps: promptModalProps } = usePrompt();
 
   // ── Action notice ──────────────────────────────────────────────────
 
@@ -738,18 +749,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Clipboard ──────────────────────────────────────────────────────
 
   const copyToClipboard = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
+    await copyTextToClipboard(text);
   }, []);
 
   // ── Language ────────────────────────────────────────────────────────
@@ -1601,11 +1601,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       return;
     }
-    const confirmed = window.confirm(
-      "This will completely reset the agent — wiping all config, memory, and data.\n\n" +
-        "You will be taken back to the onboarding wizard.\n\n" +
-        "Are you sure?",
-    );
+    const confirmed = await confirmDesktopAction({
+      title: "Reset Agent",
+      message:
+        "This will completely reset the agent, wiping all config, memory, and data.",
+      detail: "You will be taken back to the onboarding wizard.",
+      confirmLabel: "Reset",
+      cancelLabel: "Cancel",
+      type: "warning",
+    });
     if (!confirmed) return;
     if (!beginLifecycleAction("reset")) return;
     setActionNotice(LIFECYCLE_MESSAGES.reset.progress, "info", 3200);
@@ -1636,7 +1640,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "error",
         4200,
       );
-      window.alert("Reset failed. Check the console for details.");
+      await alertDesktopMessage({
+        title: "Reset Failed",
+        message: "Reset failed. Check the console for details.",
+        type: "error",
+      });
     } finally {
       finishLifecycleAction();
     }
@@ -2729,8 +2737,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleDeleteSkill = useCallback(
     async (skillId: string, skillName: string) => {
-      if (!confirm(`Delete skill "${skillName}"? This cannot be undone.`))
-        return;
+      const confirmed = await confirmDesktopAction({
+        title: "Delete Skill",
+        message: `Delete skill "${skillName}"?`,
+        detail: "This cannot be undone.",
+        confirmLabel: "Delete",
+        cancelLabel: "Cancel",
+        type: "warning",
+      });
+      if (!confirmed) return;
       try {
         await client.deleteSkill(skillId);
         setActionNotice(`Skill "${skillName}" deleted.`, "success");
@@ -2935,14 +2950,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWalletExportData(null);
       return;
     }
-    const confirmed = window.confirm(
-      "This will reveal your private keys.\n\nNEVER share your private keys with anyone.\nAnyone with your private keys can steal all funds in your wallets.\n\nContinue?",
-    );
+    const confirmed = await confirmDesktopAction({
+      title: "Reveal Private Keys",
+      message: "This will reveal your private keys.",
+      detail:
+        "NEVER share your private keys with anyone. Anyone with your private keys can steal all funds in your wallets.",
+      confirmLabel: "Continue",
+      cancelLabel: "Cancel",
+      type: "warning",
+    });
     if (!confirmed) return;
-    const exportToken = window.prompt(
-      "Enter your wallet export token (MILADY_WALLET_EXPORT_TOKEN):",
-      "",
-    );
+    const exportToken = await promptModal({
+      title: "Wallet Export Token",
+      message: "Enter your wallet export token (MILADY_WALLET_EXPORT_TOKEN):",
+      placeholder: "MILADY_WALLET_EXPORT_TOKEN",
+      confirmLabel: "Export",
+      cancelLabel: "Cancel",
+    });
     if (exportToken === null) return;
     if (!exportToken.trim()) {
       setWalletError("Wallet export token is required.");
@@ -2961,7 +2985,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         `Failed to export keys: ${err instanceof Error ? err.message : "network error"}`,
       );
     }
-  }, [walletExportVisible]);
+  }, [promptModal, walletExportVisible]);
 
   // ── Registry / Drop / Whitelist actions ─────────────────────────────
 
@@ -3235,9 +3259,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
     } catch (err) {
-      window.alert(
-        `Setup failed: ${err instanceof Error ? err.message : "network error"}. Please try again.`,
-      );
+      await alertDesktopMessage({
+        title: "Setup Failed",
+        message: `${
+          err instanceof Error ? err.message : "network error"
+        }. Please try again.`,
+        type: "error",
+      });
     } finally {
       onboardingFinishSavingRef.current = false;
       onboardingFinishBusyRef.current = false;
@@ -3420,9 +3448,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleCloudDisconnect = useCallback(async () => {
     if (
-      !confirm(
-        "Disconnect from Milady Cloud? The agent will need a local AI provider to continue working.",
-      )
+      !(await confirmDesktopAction({
+        title: "Disconnect from Milady Cloud",
+        message: "The agent will need a local AI provider to continue working.",
+        confirmLabel: "Disconnect",
+        cancelLabel: "Cancel",
+        type: "warning",
+      }))
     )
       return;
     setMiladyCloudDisconnecting(true);
@@ -4900,6 +4932,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={value}>
       {children}
       <ConfirmModal {...modalProps} />
+      <PromptModal {...promptModalProps} />
     </AppContext.Provider>
   );
 }

@@ -317,6 +317,11 @@ Object.assign(globalThis, {
     devicePixelRatio: 1,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
+    localStorage: {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    },
   },
 });
 Object.defineProperty(globalThis, "navigator", {
@@ -386,6 +391,10 @@ describe("VrmEngine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.navigatorMock.gpu = undefined;
+    delete (window as Window & { __electrobunWindowId?: number })
+      .__electrobunWindowId;
+    delete (window as Window & { __electrobunWebviewId?: number })
+      .__electrobunWebviewId;
     engine = new VrmEngine();
   });
 
@@ -459,8 +468,24 @@ describe("VrmEngine", () => {
       expect(engine.isInitialized()).toBe(true);
     });
 
-    it("uses WebGPURenderer when navigator.gpu is available", async () => {
+    it("defaults to WebGLRenderer when navigator.gpu is available", async () => {
       hoisted.navigatorMock.gpu = {};
+      const canvas = createMockCanvas();
+
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      const engineAny = engine as unknown as { rendererBackend: string };
+      expect(engineAny.rendererBackend).toBe("webgl");
+      expect(hoisted.mockWebGpuRendererInstance.init).not.toHaveBeenCalled();
+      expect(hoisted.mockRendererInstance.setPixelRatio).toHaveBeenCalledWith(
+        1,
+      );
+    });
+
+    it("uses WebGPURenderer when navigator.gpu is available and opted in", async () => {
+      hoisted.navigatorMock.gpu = {};
+      vi.mocked(window.localStorage.getItem).mockReturnValueOnce("webgpu");
       const canvas = createMockCanvas();
 
       engine.setup(canvas, vi.fn());
@@ -472,6 +497,21 @@ describe("VrmEngine", () => {
       expect(
         hoisted.mockWebGpuRendererInstance.setPixelRatio,
       ).toHaveBeenCalledWith(1);
+    });
+
+    it("uses WebGPURenderer by default in Electrobun runtime", async () => {
+      hoisted.navigatorMock.gpu = {};
+      (
+        window as Window & { __electrobunWindowId?: number }
+      ).__electrobunWindowId = 1;
+      const canvas = createMockCanvas();
+
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      const engineAny = engine as unknown as { rendererBackend: string };
+      expect(engineAny.rendererBackend).toBe("webgpu");
+      expect(hoisted.mockWebGpuRendererInstance.init).toHaveBeenCalledTimes(1);
     });
 
     it("forces WebGL context loss during dispose()", async () => {
@@ -657,6 +697,7 @@ describe("VrmEngine", () => {
 
     it("registers WebGPU-compatible VRM material loading when WebGPU is active", async () => {
       hoisted.navigatorMock.gpu = {};
+      vi.mocked(window.localStorage.getItem).mockReturnValueOnce("webgpu");
       hoisted.mockLoaderLoadAsync.mockRejectedValueOnce(
         new Error("stop-after-register"),
       );

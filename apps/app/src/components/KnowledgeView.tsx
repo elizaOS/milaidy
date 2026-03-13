@@ -25,6 +25,7 @@ import {
 import { Button, Input, SearchBar } from "@milady/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
+import { confirmDesktopAction } from "../utils/desktop-dialogs";
 
 const MAX_UPLOAD_REQUEST_BYTES = 32 * 1_048_576; // Must match server knowledge route limit
 const BULK_UPLOAD_TARGET_BYTES = 24 * 1_048_576;
@@ -797,10 +798,17 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
       );
       if (largeFiles.length > 0) {
         const shouldContinue =
-          typeof window === "undefined" ||
-          window.confirm(
-            `${largeFiles.length} large file(s) detected. Uploading can take longer and may increase embedding/vision costs. Continue?`,
-          );
+          typeof window === "undefined"
+            ? true
+            : await confirmDesktopAction({
+                title: "Upload Large Files",
+                message: `${largeFiles.length} large file(s) detected.`,
+                detail:
+                  "Uploading can take longer and may increase embedding or vision costs.",
+                confirmLabel: "Continue",
+                cancelLabel: "Cancel",
+                type: "warning",
+              });
         if (!shouldContinue) return;
       }
 

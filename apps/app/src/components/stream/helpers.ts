@@ -120,10 +120,16 @@ export async function toggleAlwaysOnTop(pinned: boolean): Promise<boolean> {
     }
     // Fallback: try Electron IPC directly
     const electron = (window as unknown as Record<string, unknown>).electron as
-      | { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> }
+      | {
+          ipcRenderer?: {
+            invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
+          };
+        }
       | undefined;
-    if (electron?.invoke) {
-      await electron.invoke("desktop:setAlwaysOnTop", { flag: pinned });
+    if (electron?.ipcRenderer) {
+      await electron.ipcRenderer.invoke("desktop:setAlwaysOnTop", {
+        flag: pinned,
+      });
       return pinned;
     }
   } catch {

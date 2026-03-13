@@ -29,6 +29,7 @@ import { Button, Input, TagEditor, Textarea, ThemedSelect } from "@milady/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../AppContext";
 import { useTimeout } from "../hooks/useTimeout";
+import { alertDesktopMessage } from "../utils/desktop-dialogs";
 import { AvatarSelector } from "./AvatarSelector";
 import type { JsonSchemaObject } from "./config-catalog";
 import { ConfigRenderer, defaultRegistry } from "./config-renderer";
@@ -245,7 +246,11 @@ export function CharacterView({ inModal }: { inModal?: boolean } = {}) {
           if (postExamples)
             handleCharacterFieldInput("postExamples", postExamples);
         } catch {
-          alert("invalid json file");
+          void alertDesktopMessage({
+            title: "Invalid Character File",
+            message: "Invalid JSON file.",
+            type: "error",
+          });
         }
       };
       reader.readAsText(file);
