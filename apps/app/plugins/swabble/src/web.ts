@@ -158,6 +158,34 @@ export class SwabbleWeb extends WebPlugin {
     );
   }
 
+  private subscribeDesktopEvent(options: {
+    rpcMessage: string;
+    ipcChannel: string;
+    listener: DesktopMessageListener;
+  }): void {
+    const rpc = this.getRendererRpc();
+    if (rpc?.onMessage && rpc?.offMessage) {
+      rpc.onMessage(options.rpcMessage, options.listener);
+      this.bridgeSubscriptions.push(() => {
+        rpc.offMessage?.(options.rpcMessage, options.listener);
+      });
+      return;
+    }
+
+    const ipc = this.getIpc();
+    if (!ipc?.on) return;
+
+    const ipcListener = (...args: unknown[]) => {
+      const payload = args.length > 1 ? args[1] : args[0];
+      options.listener(payload);
+    };
+    ipc.on(options.ipcChannel, ipcListener);
+    this.ipcHandlers.push({
+      channel: options.ipcChannel,
+      listener: ipcListener,
+    });
+  }
+
   private async invokeDesktopRequest<T>(options: {
     rpcMethod: string;
     ipcChannel: string;
@@ -178,18 +206,17 @@ export class SwabbleWeb extends WebPlugin {
 
   private setupNativeListeners(): void {
     this.removeNativeListeners();
-
-    const rpc = this.getRendererRpc();
-    if (rpc?.onMessage && rpc?.offMessage) {
-      const wakeWordListener: DesktopMessageListener = (payload) => {
+    this.subscribeDesktopEvent({
+      rpcMessage: "swabbleWakeWord",
+      ipcChannel: "swabble:wakeWord",
+      listener: (payload) => {
         this.notifyListeners("wakeWord", payload as Record<string, unknown>);
-      };
-      rpc.onMessage("swabbleWakeWord", wakeWordListener);
-      this.bridgeSubscriptions.push(() => {
-        rpc.offMessage?.("swabbleWakeWord", wakeWordListener);
-      });
-
-      const stateChangeListener: DesktopMessageListener = (payload) => {
+      },
+    });
+    this.subscribeDesktopEvent({
+      rpcMessage: "swabbleStateChanged",
+      ipcChannel: "swabble:stateChange",
+      listener: (payload) => {
         const listening =
           typeof (payload as { listening?: unknown }).listening === "boolean"
             ? (payload as { listening: boolean }).listening
@@ -198,28 +225,22 @@ export class SwabbleWeb extends WebPlugin {
         this.notifyListeners("stateChange", {
           state: listening ? "listening" : "idle",
         });
-      };
-      rpc.onMessage("swabbleStateChanged", stateChangeListener);
-      this.bridgeSubscriptions.push(() => {
-        rpc.offMessage?.("swabbleStateChanged", stateChangeListener);
-      });
-    }
-
-    const ipc = this.getIpc();
-    if (!ipc?.on) return;
-
-    const ipcOnlyEvents: Array<[string, string]> = [
-      ["swabble:audioLevel", "audioLevel"],
-      ["swabble:transcript", "transcript"],
-      ["swabble:error", "error"],
-    ];
-    for (const [channel, eventName] of ipcOnlyEvents) {
-      const listener = (...args: unknown[]) => {
-        this.notifyListeners(eventName, args[0] as Record<string, unknown>);
-      };
-      ipc.on(channel, listener);
-      this.ipcHandlers.push({ channel, listener });
-    }
+      },
+    });
+    this.subscribeDesktopEvent({
+      rpcMessage: "swabbleTranscript",
+      ipcChannel: "swabble:transcript",
+      listener: (payload) => {
+        this.notifyListeners("transcript", payload as Record<string, unknown>);
+      },
+    });
+    this.subscribeDesktopEvent({
+      rpcMessage: "swabbleError",
+      ipcChannel: "swabble:error",
+      listener: (payload) => {
+        this.notifyListeners("error", payload as Record<string, unknown>);
+      },
+    });
   }
 
   private removeNativeListeners(): void {
@@ -251,6 +272,10 @@ export class SwabbleWeb extends WebPlugin {
     const inputRate = this.captureContext.sampleRate;
     processor.onaudioprocess = (e: AudioProcessingEvent) => {
       const input = e.inputBuffer.getChannelData(0);
+      this.notifyListeners("audioLevel", {
+        level: this.computeRms(input),
+        peak: this.computePeak(input),
+      });
       const ratio = inputRate / sampleRate;
       const out = new Float32Array(Math.round(input.length / ratio));
       for (let i = 0; i < out.length; i++) {
@@ -291,6 +316,23 @@ export class SwabbleWeb extends WebPlugin {
     sink.gain.value = 0;
     processor.connect(sink);
     sink.connect(this.captureContext.destination);
+  }
+
+  private computeRms(samples: Float32Array): number {
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) {
+      sum += samples[i] * samples[i];
+    }
+    return Math.sqrt(sum / samples.length);
+  }
+
+  private computePeak(samples: Float32Array): number {
+    let peak = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const value = Math.abs(samples[i]);
+      if (value > peak) peak = value;
+    }
+    return peak;
   }
 
   private stopNativeAudioCapture(): void {

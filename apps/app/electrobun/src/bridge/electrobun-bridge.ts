@@ -253,6 +253,8 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "talkmode:transcript": "talkmodeTranscript",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChange": "swabbleStateChanged",
+  "swabble:transcript": "swabbleTranscript",
+  "swabble:error": "swabbleError",
   "swabble:audioChunkPush": "swabbleAudioChunkPush",
   "contextMenu:askAgent": "contextMenuAskAgent",
   "contextMenu:createSkill": "contextMenuCreateSkill",

@@ -310,6 +310,18 @@ export class SwabbleElectron implements SwabblePlugin {
         ipcChannel: "swabble:stateChange",
         normalize: (data: unknown) => this.normalizeStateEvent(data),
       },
+      {
+        eventName: "transcript" as const,
+        rpcMessage: "swabbleTranscript",
+        ipcChannel: "swabble:transcript",
+        normalize: (data: unknown) => data as unknown as SwabbleTranscriptEvent,
+      },
+      {
+        eventName: "error" as const,
+        rpcMessage: "swabbleError",
+        ipcChannel: "swabble:error",
+        normalize: (data: unknown) => data as unknown as SwabbleErrorEvent,
+      },
     ];
 
     for (const entry of bridgeHandlers) {
@@ -321,40 +333,6 @@ export class SwabbleElectron implements SwabblePlugin {
         },
       });
       this.bridgeSubscriptions.push(unsubscribe);
-    }
-
-    if (!this.ipc?.on) return;
-
-    const handlers: Array<{
-      channel: string;
-      handler: IpcListener;
-    }> = [
-      {
-        channel: "swabble:transcript",
-        handler: (_event, data) =>
-          this.notifyListeners(
-            "transcript",
-            data as unknown as SwabbleTranscriptEvent,
-          ),
-      },
-      {
-        channel: "swabble:audioLevel",
-        handler: (_event, data) =>
-          this.notifyListeners(
-            "audioLevel",
-            data as unknown as SwabbleAudioLevelEvent,
-          ),
-      },
-      {
-        channel: "swabble:error",
-        handler: (_event, data) =>
-          this.notifyListeners("error", data as unknown as SwabbleErrorEvent),
-      },
-    ];
-
-    for (const entry of handlers) {
-      this.ipc.on(entry.channel, entry.handler);
-      this.ipcHandlers.push(entry);
     }
   }
 
