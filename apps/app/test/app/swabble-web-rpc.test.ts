@@ -220,9 +220,16 @@ describe("SwabbleWeb desktop bridge", () => {
     expect(directListeners.get("swabbleWakeWord")?.size ?? 0).toBe(0);
   });
 
-  it("keeps transcript and error desktop events on the IPC fallback path", async () => {
+  it("uses direct swabble transcript and error push messages and keeps audio levels local", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
     const ipcListeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const ipcOn = vi.fn(
+      (channel: string, listener: (...args: unknown[]) => void) => {
+        const entry = ipcListeners.get(channel) ?? new Set();
+        entry.add(listener);
+        ipcListeners.set(channel, entry);
+      },
+    );
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
@@ -249,11 +256,7 @@ describe("SwabbleWeb desktop bridge", () => {
       ipcRenderer: {
         invoke: vi.fn(),
         send: vi.fn(),
-        on: vi.fn((channel: string, listener: (...args: unknown[]) => void) => {
-          const entry = ipcListeners.get(channel) ?? new Set();
-          entry.add(listener);
-          ipcListeners.set(channel, entry);
-        }),
+        on: ipcOn,
         removeListener: vi.fn(
           (channel: string, listener: (...args: unknown[]) => void) => {
             ipcListeners.get(channel)?.delete(listener);
@@ -265,8 +268,10 @@ describe("SwabbleWeb desktop bridge", () => {
     const sw = new SwabbleWeb();
     const transcriptListener = vi.fn();
     const errorListener = vi.fn();
+    const audioLevelListener = vi.fn();
     await sw.addListener("transcript", transcriptListener);
     await sw.addListener("error", errorListener);
+    await sw.addListener("audioLevel", audioLevelListener);
 
     await expect(
       sw.start({
@@ -274,7 +279,7 @@ describe("SwabbleWeb desktop bridge", () => {
       }),
     ).resolves.toEqual({ started: true });
 
-    ipcListeners.get("swabble:transcript")?.forEach((listener) => {
+    directListeners.get("swabbleTranscript")?.forEach((listener) => {
       listener({
         transcript: "hello world",
         segments: [],
@@ -287,7 +292,7 @@ describe("SwabbleWeb desktop bridge", () => {
       isFinal: true,
     });
 
-    ipcListeners.get("swabble:error")?.forEach((listener) => {
+    directListeners.get("swabbleError")?.forEach((listener) => {
       listener({
         code: "native_error",
         message: "boom",
@@ -300,8 +305,27 @@ describe("SwabbleWeb desktop bridge", () => {
       recoverable: true,
     });
 
+    processorStub.onaudioprocess?.({
+      inputBuffer: {
+        getChannelData: () =>
+          new Float32Array([0.25, -0.5, 0.25, -0.5, 0.25, -0.5]),
+      },
+    } as AudioProcessingEvent);
+    expect(audioLevelListener).toHaveBeenCalledWith({
+      level: expect.any(Number),
+      peak: 0.5,
+    });
+
     await sw.stop();
-    expect(ipcListeners.get("swabble:transcript")?.size ?? 0).toBe(0);
-    expect(ipcListeners.get("swabble:error")?.size ?? 0).toBe(0);
+    expect(directListeners.get("swabbleTranscript")?.size ?? 0).toBe(0);
+    expect(directListeners.get("swabbleError")?.size ?? 0).toBe(0);
+    expect(ipcOn).not.toHaveBeenCalledWith(
+      "swabble:transcript",
+      expect.any(Function),
+    );
+    expect(ipcOn).not.toHaveBeenCalledWith(
+      "swabble:error",
+      expect.any(Function),
+    );
   });
 });

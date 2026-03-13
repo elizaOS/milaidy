@@ -225,7 +225,7 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
     expect(listeners.get("swabbleStateChanged")?.size ?? 0).toBe(0);
   });
 
-  it("keeps transcript and error events on IPC fallback when Electrobun exposes no direct push message", async () => {
+  it("uses direct swabble transcript and error push messages when Electrobun exposes them", async () => {
     const rpcListeners = new Map<string, Set<(payload: unknown) => void>>();
     const ipcListeners = new Map<
       string,
@@ -286,16 +286,13 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
       config: { triggers: ["milady"], sampleRate: 16000 },
     });
 
-    ipcListeners.get("swabble:transcript")?.forEach((listener) => {
-      listener(
-        { sender: "test" },
-        {
-          transcript: "milady open settings",
-          segments: [],
-          isFinal: true,
-          confidence: 0.99,
-        },
-      );
+    rpcListeners.get("swabbleTranscript")?.forEach((listener) => {
+      listener({
+        transcript: "milady open settings",
+        segments: [],
+        isFinal: true,
+        confidence: 0.99,
+      });
     });
     expect(transcriptListener).toHaveBeenCalledWith({
       transcript: "milady open settings",
@@ -304,15 +301,12 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
       confidence: 0.99,
     });
 
-    ipcListeners.get("swabble:error")?.forEach((listener) => {
-      listener(
-        { sender: "test" },
-        {
-          code: "native-error",
-          message: "microphone busy",
-          recoverable: true,
-        },
-      );
+    rpcListeners.get("swabbleError")?.forEach((listener) => {
+      listener({
+        code: "native-error",
+        message: "microphone busy",
+        recoverable: true,
+      });
     });
     expect(errorListener).toHaveBeenCalledWith({
       code: "native-error",
@@ -322,6 +316,8 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
 
     await plugin.stop();
     expect(swabbleStop).toHaveBeenCalledWith(undefined);
+    expect(rpcListeners.get("swabbleTranscript")?.size ?? 0).toBe(0);
+    expect(rpcListeners.get("swabbleError")?.size ?? 0).toBe(0);
     expect(ipcListeners.get("swabble:transcript")?.size ?? 0).toBe(0);
     expect(ipcListeners.get("swabble:error")?.size ?? 0).toBe(0);
   });
