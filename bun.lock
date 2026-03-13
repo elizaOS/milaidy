@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "miladyai",
@@ -526,11 +525,11 @@
     "electrobun@1.15.1": "patches/electrobun@1.15.1.patch",
   },
   "overrides": {
-    "@elizaos/core": "alpha",
     "@elizaos/prompts": "alpha",
     "ai": "6.0.30",
-    "drizzle-orm": "0.45.1",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
+    "@elizaos/core": "alpha",
+    "drizzle-orm": "0.45.1",
     "pty-manager": "1.9.8",
   },
   "packages": {

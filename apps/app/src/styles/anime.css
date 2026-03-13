@@ -4887,13 +4887,6 @@
       transparent 56%
     ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 255, 255, 0.02) 0,
-      rgba(255, 255, 255, 0.02) 1px,
-      transparent 1px,
-      transparent 26px
-    ),
     var(--pg-panel-bg);
 }
 
@@ -5548,6 +5541,11 @@
 .plugins-game-detail-config [id^="field-"] {
   border-left: 1px solid rgba(255, 255, 255, 0.07);
   padding-left: 10px;
+  margin-bottom: 16px;
+}
+
+.plugins-game-detail-config [id^="field-"]:last-child {
+  margin-bottom: 0;
 }
 
 .plugins-game-detail-actions {
