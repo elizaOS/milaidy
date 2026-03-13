@@ -9,6 +9,10 @@
  */
 
 import type { PluginListenerHandle } from "@capacitor/core";
+import {
+  invokeDesktopBridgeRequest,
+  subscribeDesktopBridgeEvent,
+} from "@milady/app-core/bridge";
 import type {
   GatewayConnectOptions,
   GatewayConnectResult,
@@ -37,32 +41,6 @@ type GatewayEventName = "gatewayEvent" | "stateChange" | "error" | "discovery";
 interface ListenerEntry {
   eventName: GatewayEventName;
   callback: EventCallback<GatewayEventData>;
-}
-
-type IpcPrimitive = string | number | boolean | null | undefined;
-type IpcObject = { [key: string]: IpcValue };
-type IpcValue =
-  | IpcPrimitive
-  | IpcObject
-  | IpcValue[]
-  | ArrayBuffer
-  | Float32Array
-  | Uint8Array;
-type IpcListener = (...args: IpcValue[]) => void;
-
-// Type for Electron IPC
-interface ElectronAPI {
-  ipcRenderer: {
-    invoke(channel: string, ...args: IpcValue[]): Promise<IpcValue>;
-    on(channel: string, listener: IpcListener): void;
-    removeListener(channel: string, listener: IpcListener): void;
-  };
-}
-
-declare global {
-  interface Window {
-    electron?: ElectronAPI;
-  }
 }
 
 interface PendingRequest {
@@ -137,8 +115,7 @@ export class GatewayElectron implements GatewayPlugin {
   private listeners: ListenerEntry[] = [];
   private discoveredGateways: Map<string, GatewayEndpoint> = new Map();
   private isDiscovering = false;
-  private discoveryIPCHandler: ((event: GatewayDiscoveryEvent) => void) | null =
-    null;
+  private discoveryUnsubscribe: (() => void) | null = null;
 
   // MARK: - Connection Methods
 
@@ -489,42 +466,40 @@ export class GatewayElectron implements GatewayPlugin {
       };
     }
 
-    if (window.electron?.ipcRenderer) {
-      try {
-        this.isDiscovering = true;
-        this.discoveredGateways.clear();
+    try {
+      this.isDiscovering = true;
+      this.discoveredGateways.clear();
+      this.clearDiscoverySubscription();
 
-        this.discoveryIPCHandler = (event: GatewayDiscoveryEvent) => {
-          this.handleDiscoveryEvent(event);
-        };
-        window.electron.ipcRenderer.on(
-          "gateway:discovery",
-          this.discoveryIPCHandler,
-        );
+      this.discoveryUnsubscribe = subscribeDesktopBridgeEvent({
+        rpcMessage: "gatewayDiscovery",
+        ipcChannel: "gateway:discovery",
+        listener: (event) => {
+          if (this.isGatewayDiscoveryEvent(event)) {
+            this.handleDiscoveryEvent(event);
+          }
+        },
+      });
 
-        await window.electron.ipcRenderer.invoke("gateway:startDiscovery", {
+      const result = await invokeDesktopBridgeRequest<GatewayDiscoveryResult>({
+        rpcMethod: "gatewayStartDiscovery",
+        ipcChannel: "gateway:startDiscovery",
+        params: {
           wideAreaDomain: options?.wideAreaDomain,
           timeout: options?.timeout || 30000,
-        });
+        },
+      });
 
-        return {
-          gateways: [],
-          status: "Discovery started",
-        };
-      } catch (error) {
-        this.isDiscovering = false;
-        if (this.discoveryIPCHandler && window.electron?.ipcRenderer) {
-          window.electron.ipcRenderer.removeListener(
-            "gateway:discovery",
-            this.discoveryIPCHandler,
-          );
-          this.discoveryIPCHandler = null;
-        }
-        console.warn(
-          "[Gateway] Native discovery failed, using fallback:",
-          error,
-        );
+      if (result) {
+        return result;
       }
+
+      this.isDiscovering = false;
+      this.clearDiscoverySubscription();
+    } catch (error) {
+      this.isDiscovering = false;
+      this.clearDiscoverySubscription();
+      console.warn("[Gateway] Native discovery failed, using fallback:", error);
     }
 
     console.warn(
@@ -539,19 +514,14 @@ export class GatewayElectron implements GatewayPlugin {
   async stopDiscovery(): Promise<void> {
     this.isDiscovering = false;
 
-    if (window.electron?.ipcRenderer) {
-      if (this.discoveryIPCHandler) {
-        window.electron.ipcRenderer.removeListener(
-          "gateway:discovery",
-          this.discoveryIPCHandler,
-        );
-        this.discoveryIPCHandler = null;
-      }
-      try {
-        await window.electron.ipcRenderer.invoke("gateway:stopDiscovery");
-      } catch {
-        // Ignore errors when stopping
-      }
+    this.clearDiscoverySubscription();
+    try {
+      await invokeDesktopBridgeRequest({
+        rpcMethod: "gatewayStopDiscovery",
+        ipcChannel: "gateway:stopDiscovery",
+      });
+    } catch {
+      // Ignore errors when stopping
     }
   }
 
@@ -573,6 +543,45 @@ export class GatewayElectron implements GatewayPlugin {
         break;
     }
     this.notifyListeners("discovery", event);
+  }
+
+  private clearDiscoverySubscription(): void {
+    this.discoveryUnsubscribe?.();
+    this.discoveryUnsubscribe = null;
+  }
+
+  private isGatewayDiscoveryEvent(
+    value: unknown,
+  ): value is GatewayDiscoveryEvent {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "type" in value &&
+      (value.type === "found" ||
+        value.type === "updated" ||
+        value.type === "lost") &&
+      "gateway" in value &&
+      this.isGatewayEndpoint(value.gateway)
+    );
+  }
+
+  private isGatewayEndpoint(value: unknown): value is GatewayEndpoint {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "stableId" in value &&
+      typeof value.stableId === "string" &&
+      "name" in value &&
+      typeof value.name === "string" &&
+      "host" in value &&
+      typeof value.host === "string" &&
+      "port" in value &&
+      typeof value.port === "number" &&
+      "tlsEnabled" in value &&
+      typeof value.tlsEnabled === "boolean" &&
+      "isLocal" in value &&
+      typeof value.isLocal === "boolean"
+    );
   }
 
   // MARK: - Event Listeners
