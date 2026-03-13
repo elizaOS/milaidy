@@ -17,7 +17,6 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import {
-  getElectronIpcRenderer,
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
 } from "@milady/app-core/bridge";
@@ -144,10 +143,6 @@ export class DesktopElectron implements DesktopPlugin {
     this.setupDesktopListeners();
   }
 
-  private get ipc() {
-    return getElectronIpcRenderer();
-  }
-
   private async invokeBridge<T>(
     feature: string,
     rpcMethod: string,
@@ -190,35 +185,21 @@ export class DesktopElectron implements DesktopPlugin {
 
     for (const eventName of events) {
       const rpcEvent = DESKTOP_RPC_EVENTS[eventName];
-      if (rpcEvent) {
-        const unsubscribe = subscribeDesktopBridgeEvent({
-          rpcMessage: rpcEvent.rpcMessage,
-          ipcChannel: rpcEvent.ipcChannel,
-          listener: (data) => {
-            this.notifyListeners(
-              eventName,
-              data as DesktopEventPayloads[typeof eventName],
-            );
-          },
-        });
-        this.internalSubscriptions.push(unsubscribe);
+      if (!rpcEvent) {
         continue;
       }
 
-      if (!this.ipc?.on) {
-        continue;
-      }
-
-      const handler = (_event: unknown, payload: unknown) => {
-        this.notifyListeners(
-          eventName,
-          payload as DesktopEventPayloads[typeof eventName],
-        );
-      };
-      this.ipc.on(`desktop:${eventName}`, handler);
-      this.internalSubscriptions.push(() => {
-        this.ipc?.removeListener?.(`desktop:${eventName}`, handler);
+      const unsubscribe = subscribeDesktopBridgeEvent({
+        rpcMessage: rpcEvent.rpcMessage,
+        ipcChannel: rpcEvent.ipcChannel,
+        listener: (data) => {
+          this.notifyListeners(
+            eventName,
+            data as DesktopEventPayloads[typeof eventName],
+          );
+        },
       });
+      this.internalSubscriptions.push(unsubscribe);
     }
   }
 
