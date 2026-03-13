@@ -1,21 +1,16 @@
 // @vitest-environment jsdom
 
-import type {
-  ElectrobunRendererRpc,
-  ElectronIpcRenderer,
-} from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopElectron } from "../../plugins/desktop/electron/src/index.ts";
 
 type TestWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: { ipcRenderer?: ElectronIpcRenderer };
 };
 
 describe("DesktopElectron desktop bridge", () => {
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
   });
 
@@ -25,8 +20,6 @@ describe("DesktopElectron desktop bridge", () => {
       name: "Milady",
       runtime: "electrobun",
     });
-    const ipcInvoke = vi.fn();
-
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         desktopGetVersion,
@@ -34,7 +27,6 @@ describe("DesktopElectron desktop bridge", () => {
       onMessage: vi.fn(),
       offMessage: vi.fn(),
     };
-    (window as TestWindow).electron = { ipcRenderer: { invoke: ipcInvoke } };
 
     const plugin = new DesktopElectron();
     await expect(plugin.getVersion()).resolves.toEqual({
@@ -46,7 +38,6 @@ describe("DesktopElectron desktop bridge", () => {
     });
 
     expect(desktopGetVersion).toHaveBeenCalledWith(undefined);
-    expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
   it("subscribes window events through direct Electrobun RPC when available", async () => {
@@ -79,56 +70,18 @@ describe("DesktopElectron desktop bridge", () => {
     expect(focusListener).toHaveBeenCalledWith(undefined);
   });
 
-  it("uses IPC invoke fallback for desktop requests when direct Electrobun RPC is unavailable", async () => {
-    const invoke = vi.fn().mockResolvedValue(undefined);
-
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke,
-      },
-    };
-
+  it("throws when desktop-only requests are called without direct Electrobun RPC", async () => {
     const plugin = new DesktopElectron();
-    await expect(plugin.beep()).resolves.toBeUndefined();
-
-    expect(invoke).toHaveBeenCalledWith("desktop:beep", undefined);
+    await expect(plugin.beep()).rejects.toThrow(
+      "beep is not available: Electron IPC bridge not found.",
+    );
   });
 
-  it("does not wire unsupported desktop push messages through plugin-level IPC fallbacks", async () => {
-    const ipcListeners = new Map<
-      string,
-      Set<(event: unknown, payload: unknown) => void>
-    >();
-
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: vi.fn(),
-        on: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            const entry = ipcListeners.get(channel) ?? new Set();
-            entry.add(listener);
-            ipcListeners.set(channel, entry);
-          },
-        ),
-        removeListener: vi.fn(
-          (
-            channel: string,
-            listener: (event: unknown, payload: unknown) => void,
-          ) => {
-            ipcListeners.get(channel)?.delete(listener);
-          },
-        ),
-      },
-    };
-
+  it("does not emit unsupported desktop events without direct Electrobun RPC", async () => {
     const plugin = new DesktopElectron();
     const suspendListener = vi.fn();
     await plugin.addListener("powerSuspend", suspendListener);
 
-    expect(ipcListeners.has("desktop:powerSuspend")).toBe(false);
     expect(suspendListener).not.toHaveBeenCalled();
   });
 });

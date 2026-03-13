@@ -55,24 +55,8 @@ interface ElectrobunRendererRpc {
   ) => void;
 }
 
-interface ElectronIpcRenderer {
-  invoke: (channel: string, params?: unknown) => Promise<unknown>;
-  on?: (
-    channel: string,
-    listener: (event: unknown, payload: unknown) => void,
-  ) => void;
-  removeListener?: (
-    channel: string,
-    listener: (event: unknown, payload: unknown) => void,
-  ) => void;
-  removeAllListeners?: (channel: string) => void;
-}
-
 type DesktopBridgeWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: {
-    ipcRenderer?: ElectronIpcRenderer;
-  };
 };
 
 function getDesktopBridgeWindow(): DesktopBridgeWindow | null {
@@ -87,10 +71,6 @@ function getElectrobunRendererRpc(): ElectrobunRendererRpc | null {
   return getDesktopBridgeWindow()?.__MILADY_ELECTROBUN_RPC__ ?? null;
 }
 
-function getElectronIpcRenderer(): ElectronIpcRenderer | null {
-  return getDesktopBridgeWindow()?.electron?.ipcRenderer ?? null;
-}
-
 async function invokeDesktopBridgeRequest<T>(options: {
   rpcMethod: string;
   ipcChannel: string;
@@ -100,11 +80,6 @@ async function invokeDesktopBridgeRequest<T>(options: {
   const request = rpc?.request?.[options.rpcMethod];
   if (request) {
     return (await request(options.params)) as T;
-  }
-
-  const ipc = getElectronIpcRenderer();
-  if (ipc) {
-    return (await ipc.invoke(options.ipcChannel, options.params)) as T;
   }
 
   return null;
@@ -123,25 +98,7 @@ function subscribeDesktopBridgeEvent(options: {
     };
   }
 
-  const ipc = getElectronIpcRenderer();
-  if (!ipc?.on) {
-    return () => {};
-  }
-
-  const ipcListener = (_event: unknown, payload: unknown) => {
-    options.listener(payload);
-  };
-
-  ipc.on(options.ipcChannel, ipcListener);
-
-  return () => {
-    if (ipc.removeListener) {
-      ipc.removeListener(options.ipcChannel, ipcListener);
-      return;
-    }
-
-    ipc.removeAllListeners?.(options.ipcChannel);
-  };
+  return () => {};
 }
 
 const getSpeechRecognition = (): SpeechRecognitionCtor | null =>
@@ -224,10 +181,6 @@ export class SwabbleWeb extends WebPlugin {
     return getElectrobunRendererRpc() ?? null;
   }
 
-  private getIpc(): ElectronIpcRenderer | null {
-    return getElectronIpcRenderer() ?? null;
-  }
-
   private subscribeDesktopEvent(options: {
     rpcMessage: string;
     ipcChannel: string;
@@ -291,9 +244,7 @@ export class SwabbleWeb extends WebPlugin {
   }
 
   private async startNativeAudioCapture(sampleRate = 16000): Promise<void> {
-    const ipc = this.getIpc();
     const rpcRequest = this.getRendererRpc()?.request?.swabbleAudioChunk;
-    if (!ipc && !rpcRequest) return;
     const stream = await navigator.mediaDevices
       .getUserMedia({ audio: true })
       .catch(() => null);
@@ -323,22 +274,13 @@ export class SwabbleWeb extends WebPlugin {
         }
         out[i] = cnt > 0 ? acc / cnt : 0;
       }
-      if (rpcRequest || ipc) {
-        const bytes = new Uint8Array(
-          out.buffer,
-          out.byteOffset,
-          out.byteLength,
-        );
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        const payload = { data: btoa(binary) };
-        if (rpcRequest) {
-          void rpcRequest(payload).catch(() => {});
-        } else {
-          void ipc?.invoke("swabble:audioChunk", payload).catch(() => {});
-        }
+      const bytes = new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      if (rpcRequest) {
+        void rpcRequest({ data: btoa(binary) }).catch(() => {});
       }
     };
     source.connect(processor);
@@ -379,10 +321,9 @@ export class SwabbleWeb extends WebPlugin {
   async start(options: SwabbleStartOptions): Promise<SwabbleStartResult> {
     if (this.isActive) return { started: true };
 
-    // Delegate to native IPC when running in Electron or Electrobun
+    // Delegate to the native desktop bridge when available.
     const rpc = this.getRendererRpc();
-    const ipc = this.getIpc();
-    if (rpc || ipc) {
+    if (rpc) {
       try {
         const result = await this.invokeDesktopRequest<SwabbleStartResult>({
           rpcMethod: "swabbleStart",

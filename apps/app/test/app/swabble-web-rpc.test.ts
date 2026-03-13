@@ -1,24 +1,11 @@
 // @vitest-environment jsdom
 
-import type {
-  ElectrobunRendererRpc,
-  ElectronIpcRenderer,
-} from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleWeb } from "../../plugins/swabble/src/web.ts";
 
 type TestWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: {
-    ipcRenderer?: ElectronIpcRenderer & {
-      send?: (channel: string, payload?: unknown) => void;
-      on?: (channel: string, listener: (...args: unknown[]) => void) => void;
-      removeListener?: (
-        channel: string,
-        listener: (...args: unknown[]) => void,
-      ) => void;
-    };
-  };
 };
 
 interface ProcessorStub {
@@ -106,7 +93,6 @@ describe("SwabbleWeb desktop bridge", () => {
 
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -127,8 +113,6 @@ describe("SwabbleWeb desktop bridge", () => {
       .fn()
       .mockResolvedValue({ available: true });
     const swabbleAudioChunk = vi.fn().mockResolvedValue(undefined);
-    const ipcInvoke = vi.fn();
-
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart,
@@ -150,11 +134,6 @@ describe("SwabbleWeb desktop bridge", () => {
         },
       ),
     };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: ipcInvoke,
-      },
-    };
 
     const sw = new SwabbleWeb();
     const wakeListener = vi.fn();
@@ -171,7 +150,6 @@ describe("SwabbleWeb desktop bridge", () => {
     expect(swabbleStart).toHaveBeenCalledWith({
       config: { triggers: ["milady"], sampleRate: 16000 },
     });
-    expect(ipcInvoke).not.toHaveBeenCalled();
 
     directListeners.get("swabbleStateChanged")?.forEach((listener) => {
       listener({ listening: true });
@@ -222,15 +200,6 @@ describe("SwabbleWeb desktop bridge", () => {
 
   it("uses direct swabble transcript and error push messages and keeps audio levels local", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
-    const ipcListeners = new Map<string, Set<(...args: unknown[]) => void>>();
-    const ipcOn = vi.fn(
-      (channel: string, listener: (...args: unknown[]) => void) => {
-        const entry = ipcListeners.get(channel) ?? new Set();
-        entry.add(listener);
-        ipcListeners.set(channel, entry);
-      },
-    );
-
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart: vi.fn().mockResolvedValue({ started: true }),
@@ -251,18 +220,6 @@ describe("SwabbleWeb desktop bridge", () => {
           directListeners.get(messageName)?.delete(listener);
         },
       ),
-    };
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke: vi.fn().mockResolvedValue(undefined),
-        send: vi.fn(),
-        on: ipcOn,
-        removeListener: vi.fn(
-          (channel: string, listener: (...args: unknown[]) => void) => {
-            ipcListeners.get(channel)?.delete(listener);
-          },
-        ),
-      },
     };
 
     const sw = new SwabbleWeb();
@@ -315,20 +272,9 @@ describe("SwabbleWeb desktop bridge", () => {
       level: expect.any(Number),
       peak: 0.5,
     });
-    expect(
-      (window as TestWindow).electron?.ipcRenderer?.invoke,
-    ).toHaveBeenCalledWith("swabble:audioChunk", { data: expect.any(String) });
 
     await sw.stop();
     expect(directListeners.get("swabbleTranscript")?.size ?? 0).toBe(0);
     expect(directListeners.get("swabbleError")?.size ?? 0).toBe(0);
-    expect(ipcOn).not.toHaveBeenCalledWith(
-      "swabble:transcript",
-      expect.any(Function),
-    );
-    expect(ipcOn).not.toHaveBeenCalledWith(
-      "swabble:error",
-      expect.any(Function),
-    );
   });
 });

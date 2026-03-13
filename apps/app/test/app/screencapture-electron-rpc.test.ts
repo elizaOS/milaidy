@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 
-import type {
-  ElectrobunRendererRpc,
-  ElectronIpcRenderer,
-} from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenCaptureElectron } from "../../plugins/screencapture/electron/src/index.ts";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
 type TestWindow = Window & {
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
-  electron?: { ipcRenderer?: ElectronIpcRenderer };
 };
 
 const SAMPLE_DATA_URL = "data:image/png;base64,ZmFrZQ==";
@@ -50,7 +46,6 @@ describe("ScreenCaptureElectron desktop bridge", () => {
 
   afterEach(() => {
     delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
-    delete (window as TestWindow).electron;
     Object.defineProperty(globalThis, "Image", {
       configurable: true,
       writable: true,
@@ -69,8 +64,6 @@ describe("ScreenCaptureElectron desktop bridge", () => {
       available: true,
       data: SAMPLE_DATA_URL,
     });
-    const ipcInvoke = vi.fn();
-
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         screencaptureTakeScreenshot,
@@ -78,7 +71,6 @@ describe("ScreenCaptureElectron desktop bridge", () => {
       onMessage: vi.fn(),
       offMessage: vi.fn(),
     };
-    (window as TestWindow).electron = { ipcRenderer: { invoke: ipcInvoke } };
 
     const plugin = new ScreenCaptureElectron();
     await expect(plugin.captureScreenshot()).resolves.toEqual({
@@ -90,33 +82,23 @@ describe("ScreenCaptureElectron desktop bridge", () => {
     });
 
     expect(screencaptureTakeScreenshot).toHaveBeenCalledWith(undefined);
-    expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
-  it("uses IPC fallback for screenshots when direct Electrobun RPC is unavailable", async () => {
-    const invoke = vi
-      .fn()
-      .mockResolvedValue({ available: true, data: SAMPLE_DATA_URL });
-
-    (window as TestWindow).electron = {
-      ipcRenderer: {
-        invoke,
-      },
+  it("falls back to the web implementation when direct Electrobun RPC is unavailable", async () => {
+    const fallbackResult = {
+      base64: "fallback-rpcless",
+      format: "png",
+      width: 400,
+      height: 240,
+      timestamp: 5678,
     };
+    const fallbackCapture = vi
+      .spyOn(ScreenCaptureWeb.prototype, "captureScreenshot")
+      .mockResolvedValue(fallbackResult);
 
     const plugin = new ScreenCaptureElectron();
-    await expect(plugin.captureScreenshot()).resolves.toEqual({
-      base64: "ZmFrZQ==",
-      format: "png",
-      width: SAMPLE_WIDTH,
-      height: SAMPLE_HEIGHT,
-      timestamp: expect.any(Number),
-    });
-
-    expect(invoke).toHaveBeenCalledWith(
-      "screencapture:takeScreenshot",
-      undefined,
-    );
+    await expect(plugin.captureScreenshot()).resolves.toEqual(fallbackResult);
+    expect(fallbackCapture).toHaveBeenCalledWith(undefined);
   });
 
   it("falls back to the web implementation when native screenshot capture is unavailable", async () => {

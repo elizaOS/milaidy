@@ -190,7 +190,7 @@ describe("PluginsView game modal", () => {
         dispatchEvent: vi.fn(),
       })),
     });
-    Object.defineProperty(window, "electron", {
+    Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
       configurable: true,
       writable: true,
       value: undefined,
@@ -375,13 +375,15 @@ describe("PluginsView game modal", () => {
     const openSpy = vi
       .spyOn(window, "open")
       .mockImplementation(() => null as unknown as Window);
-    Object.defineProperty(window, "electron", {
+    Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
       configurable: true,
       writable: true,
       value: {
-        ipcRenderer: {
-          invoke: mockOpenExternalInvoke,
+        request: {
+          desktopOpenExternal: mockOpenExternalInvoke,
         },
+        onMessage: vi.fn(),
+        offMessage: vi.fn(),
       },
     });
 
@@ -430,14 +432,11 @@ describe("PluginsView game modal", () => {
       setupButton.props.onClick();
       await Promise.resolve();
     });
-    expect(mockOpenExternalInvoke).toHaveBeenCalledWith(
-      "desktop:openExternal",
-      {
-        url: "https://docs.milady.ai/plugin-setup-guide#retaketv",
-      },
-    );
+    expect(mockOpenExternalInvoke).toHaveBeenCalledWith({
+      url: "https://docs.milady.ai/plugin-setup-guide#retaketv",
+    });
 
-    Object.defineProperty(window, "electron", {
+    Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
       configurable: true,
       writable: true,
       value: undefined,

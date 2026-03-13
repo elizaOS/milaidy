@@ -436,7 +436,7 @@ describe("AppsView", () => {
   it("uses the Electrobun shell bridge for external app launches", async () => {
     const setState = vi.fn<AppsContextStub["setState"]>();
     const setActionNotice = vi.fn<AppsContextStub["setActionNotice"]>();
-    const invoke = vi.fn(async () => undefined);
+    const request = vi.fn(async () => undefined);
     mockUseApp.mockReturnValue({
       uiLanguage: "en",
       t: tStub,
@@ -452,10 +452,14 @@ describe("AppsView", () => {
         viewer: null,
       }),
     );
-    Object.defineProperty(window, "electron", {
+    Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
       configurable: true,
       writable: true,
-      value: { ipcRenderer: { invoke } },
+      value: {
+        request: { desktopOpenExternal: request },
+        onMessage: vi.fn(),
+        offMessage: vi.fn(),
+      },
     });
     const popupSpy = vi.spyOn(window, "open");
 
@@ -469,7 +473,7 @@ describe("AppsView", () => {
       await findButtonByText(tree?.root, "Launch").props.onClick();
     });
 
-    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+    expect(request).toHaveBeenCalledWith({
       url: "https://example.com/babylon",
     });
     expect(popupSpy).not.toHaveBeenCalled();
