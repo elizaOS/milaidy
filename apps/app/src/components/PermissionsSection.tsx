@@ -16,6 +16,7 @@ import {
   type PluginInfo,
   type SystemPermissionId,
 } from "@milady/app-core/api";
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 import { StatusBadge, Switch } from "@milady/app-core/components";
 import { Button } from "@milady/ui";
 import {
@@ -307,20 +308,14 @@ function usePermissionActions(
 
   const handleOpenSettings = useCallback(async (id: SystemPermissionId) => {
     try {
-      // Use IPC directly — the REST endpoint only returns an action code and
-      // never actually opens System Preferences in Electrobun.
-      const electron = (
-        window as {
-          electron?: {
-            ipcRenderer: {
-              invoke: (ch: string, p?: unknown) => Promise<unknown>;
-            };
-          };
-        }
-      ).electron;
-      if (electron?.ipcRenderer) {
-        await electron.ipcRenderer.invoke("permissions:openSettings", { id });
-      } else {
+      // The REST endpoint only returns an action code; desktop runtimes need the
+      // native bridge to actually open system settings.
+      const opened = await invokeDesktopBridgeRequest({
+        rpcMethod: "permissionsOpenSettings",
+        ipcChannel: "permissions:openSettings",
+        params: { id },
+      });
+      if (opened === null) {
         await client.openPermissionSettings(id);
       }
     } catch (err) {

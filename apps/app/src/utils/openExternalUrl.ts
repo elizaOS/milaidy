@@ -1,15 +1,12 @@
-type ElectronBridge = {
-  ipcRenderer?: {
-    invoke: (channel: string, params?: unknown) => Promise<unknown>;
-  };
-};
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 
 export async function openExternalUrl(url: string): Promise<void> {
-  const electron = (window as typeof window & { electron?: ElectronBridge })
-    .electron;
-
-  if (electron?.ipcRenderer) {
-    await electron.ipcRenderer.invoke("desktop:openExternal", { url });
+  const opened = await invokeDesktopBridgeRequest({
+    rpcMethod: "desktopOpenExternal",
+    ipcChannel: "desktop:openExternal",
+    params: { url },
+  });
+  if (opened !== null) {
     return;
   }
 

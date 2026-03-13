@@ -8,6 +8,17 @@ import {
 } from "../../src/utils/desktop-dialogs";
 
 type TestWindow = Window & {
+  __MILADY_ELECTROBUN_RPC__?: {
+    request: Record<string, (params?: unknown) => Promise<unknown>>;
+    onMessage: (
+      messageName: string,
+      listener: (payload: unknown) => void,
+    ) => void;
+    offMessage: (
+      messageName: string,
+      listener: (payload: unknown) => void,
+    ) => void;
+  };
   electron?: {
     ipcRenderer?: {
       invoke: (channel: string, params?: unknown) => Promise<unknown>;
@@ -36,13 +47,18 @@ describe("desktop dialog and clipboard helpers", () => {
   });
 
   afterEach(() => {
+    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
     delete (window as TestWindow).electron;
     vi.restoreAllMocks();
   });
 
   it("uses the Electrobun message-box RPC for confirm dialogs", async () => {
-    const invoke = vi.fn().mockResolvedValue({ response: 0 });
-    (window as TestWindow).electron = { ipcRenderer: { invoke } };
+    const request = vi.fn().mockResolvedValue({ response: 0 });
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+      request: { desktopShowMessageBox: request },
+      onMessage: vi.fn(),
+      offMessage: vi.fn(),
+    };
     const confirmSpy = vi.spyOn(window, "confirm");
 
     await expect(
@@ -52,7 +68,7 @@ describe("desktop dialog and clipboard helpers", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(invoke).toHaveBeenCalledWith("desktop:showMessageBox", {
+    expect(request).toHaveBeenCalledWith({
       type: "question",
       title: "Delete Item",
       message: "Delete this item?",
@@ -78,8 +94,12 @@ describe("desktop dialog and clipboard helpers", () => {
   });
 
   it("uses the Electrobun message-box RPC for alerts", async () => {
-    const invoke = vi.fn().mockResolvedValue({ response: 0 });
-    (window as TestWindow).electron = { ipcRenderer: { invoke } };
+    const request = vi.fn().mockResolvedValue({ response: 0 });
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+      request: { desktopShowMessageBox: request },
+      onMessage: vi.fn(),
+      offMessage: vi.fn(),
+    };
     const alertSpy = vi.spyOn(window, "alert");
 
     await expect(
@@ -90,7 +110,7 @@ describe("desktop dialog and clipboard helpers", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(invoke).toHaveBeenCalledWith("desktop:showMessageBox", {
+    expect(request).toHaveBeenCalledWith({
       type: "error",
       title: "Reset Failed",
       message: "Check the logs.",
@@ -103,13 +123,17 @@ describe("desktop dialog and clipboard helpers", () => {
   });
 
   it("uses the Electrobun clipboard RPC when available", async () => {
-    const invoke = vi.fn().mockResolvedValue(undefined);
-    (window as TestWindow).electron = { ipcRenderer: { invoke } };
+    const request = vi.fn().mockResolvedValue(undefined);
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+      request: { desktopWriteToClipboard: request },
+      onMessage: vi.fn(),
+      offMessage: vi.fn(),
+    };
     const clipboardSpy = vi.spyOn(navigator.clipboard, "writeText");
 
     await copyTextToClipboard("milady");
 
-    expect(invoke).toHaveBeenCalledWith("desktop:writeToClipboard", {
+    expect(request).toHaveBeenCalledWith({
       text: "milady",
     });
     expect(clipboardSpy).not.toHaveBeenCalled();

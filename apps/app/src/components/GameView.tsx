@@ -9,6 +9,7 @@
  */
 
 import { client, type LogEntry } from "@milady/app-core/api";
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 import { formatTime } from "@milady/app-core/components";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -174,17 +175,19 @@ export function GameView() {
 
     let cancelled = false;
 
-    window.electron.ipcRenderer
-      .invoke("game:openWindow", {
+    void invokeDesktopBridgeRequest<{ id: string }>({
+      rpcMethod: "gameOpenWindow",
+      ipcChannel: "game:openWindow",
+      params: {
         url: activeGameViewerUrl,
         title: activeGameDisplayName || activeGameApp || "Game",
-      })
+      },
+    })
       .then((result) => {
         if (cancelled) return;
-        const res = result as { id: string } | null;
-        if (res?.id) {
-          gameWindowIdRef.current = res.id;
-          setGameWindowId(res.id);
+        if (result?.id) {
+          gameWindowIdRef.current = result.id;
+          setGameWindowId(result.id);
           setConnectionStatus("connected");
         }
       })
@@ -197,9 +200,11 @@ export function GameView() {
       cancelled = true;
       // Close the game window when GameView unmounts or the URL changes
       if (gameWindowIdRef.current) {
-        window.electron.ipcRenderer
-          .invoke("canvas:destroyWindow", { id: gameWindowIdRef.current })
-          .catch(() => {});
+        void invokeDesktopBridgeRequest({
+          rpcMethod: "canvasDestroyWindow",
+          ipcChannel: "canvas:destroyWindow",
+          params: { id: gameWindowIdRef.current },
+        }).catch(() => {});
         gameWindowIdRef.current = null;
         setGameWindowId(null);
       }

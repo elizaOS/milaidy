@@ -484,6 +484,52 @@ const electronAPI = {
   },
 };
 
+type RpcMessageListener = (payload: unknown) => void;
+
+const rpcListenerWrappers: Record<
+  string,
+  Map<RpcMessageListener, IpcListener>
+> = {};
+
+const miladyElectrobunRpc = {
+  request: rpcRequest,
+  onMessage: (messageName: string, listener: RpcMessageListener): void => {
+    const channel = RPC_TO_PUSH_CHANNEL[messageName];
+    if (!channel) {
+      console.warn(
+        `[ElectrobunBridge] Unknown RPC message for onMessage: ${messageName}`,
+      );
+      return;
+    }
+
+    if (!rpcListenerWrappers[messageName]) {
+      rpcListenerWrappers[messageName] = new Map();
+    }
+    if (rpcListenerWrappers[messageName].has(listener)) {
+      return;
+    }
+
+    const wrappedListener: IpcListener = (_event, payload) => {
+      listener(payload);
+    };
+    rpcListenerWrappers[messageName].set(listener, wrappedListener);
+    electronAPI.ipcRenderer.on(channel, wrappedListener);
+  },
+  offMessage: (messageName: string, listener: RpcMessageListener): void => {
+    const channel = RPC_TO_PUSH_CHANNEL[messageName];
+    const wrappedListener = rpcListenerWrappers[messageName]?.get(listener);
+    if (!channel || !wrappedListener) {
+      return;
+    }
+
+    electronAPI.ipcRenderer.removeListener(channel, wrappedListener);
+    rpcListenerWrappers[messageName]?.delete(listener);
+    if (rpcListenerWrappers[messageName]?.size === 0) {
+      delete rpcListenerWrappers[messageName];
+    }
+  },
+};
+
 // Initialize platform version asynchronously
 electronAPI.ipcRenderer
   .invoke("desktop:getVersion")
@@ -503,9 +549,12 @@ declare global {
   interface Window {
     __MILADY_API_BASE__: string;
     __MILADY_API_TOKEN__: string;
+    __MILADY_ELECTROBUN_RPC__: typeof miladyElectrobunRpc;
     electron: typeof electronAPI;
   }
 }
+
+window.__MILADY_ELECTROBUN_RPC__ = miladyElectrobunRpc;
 
 // Expose as window.electron for backward compatibility
 window.electron = electronAPI;

@@ -1,8 +1,9 @@
 /**
- * Listens for context-menu IPC events from the Electron main process
+ * Listens for native desktop context-menu events
  * and dispatches actions into the app state.
  */
 
+import { subscribeDesktopBridgeEvent } from "@milady/app-core/bridge";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../AppContext";
 import {
@@ -35,63 +36,63 @@ export function useContextMenu(): ContextMenuState {
     useState<CustomCommand[]>(loadCustomCommands);
 
   useEffect(() => {
-    const electron = (
-      window as {
-        electron?: {
-          ipcRenderer: {
-            on: (
-              channel: string,
-              listener: (...args: unknown[]) => void,
-            ) => void;
-            removeAllListeners: (channel: string) => void;
-          };
-        };
-      }
-    ).electron;
-    if (!electron) return;
-
-    const { ipcRenderer } = electron;
-
-    const onSaveAsCommand = (...args: unknown[]) => {
-      const payload = args[0] as { text: string } | undefined;
-      if (!payload?.text) return;
-      setSaveCommandText(payload.text);
+    const onSaveAsCommand = (payload: unknown) => {
+      const command = payload as { text: string } | undefined;
+      if (!command?.text) return;
+      setSaveCommandText(command.text);
       setSaveCommandModalOpen(true);
     };
 
-    const onAskAgent = (...args: unknown[]) => {
-      const payload = args[0] as { text: string } | undefined;
-      if (!payload?.text) return;
-      setState("chatInput", payload.text);
+    const onAskAgent = (payload: unknown) => {
+      const command = payload as { text: string } | undefined;
+      if (!command?.text) return;
+      setState("chatInput", command.text);
       // Defer send to next tick so chatInput state propagates
       setTimeout(() => handleChatSend(), 0);
     };
 
-    const onCreateSkill = (...args: unknown[]) => {
-      const payload = args[0] as { text: string } | undefined;
-      if (!payload?.text) return;
-      const prompt = `Create a skill from the following content:\n\n"""${payload.text}"""\n\nAnalyze this and create a reusable skill.`;
+    const onCreateSkill = (payload: unknown) => {
+      const command = payload as { text: string } | undefined;
+      if (!command?.text) return;
+      const prompt = `Create a skill from the following content:\n\n"""${command.text}"""\n\nAnalyze this and create a reusable skill.`;
       setState("chatInput", prompt);
       setTimeout(() => handleChatSend(), 0);
     };
 
-    const onQuoteInChat = (...args: unknown[]) => {
-      const payload = args[0] as { text: string } | undefined;
-      if (!payload?.text) return;
-      const quoted = `> ${payload.text}\n\n`;
+    const onQuoteInChat = (payload: unknown) => {
+      const command = payload as { text: string } | undefined;
+      if (!command?.text) return;
+      const quoted = `> ${command.text}\n\n`;
       setState("chatInput", quoted + chatInput);
     };
 
-    ipcRenderer.on("contextMenu:saveAsCommand", onSaveAsCommand);
-    ipcRenderer.on("contextMenu:askAgent", onAskAgent);
-    ipcRenderer.on("contextMenu:createSkill", onCreateSkill);
-    ipcRenderer.on("contextMenu:quoteInChat", onQuoteInChat);
+    const unsubscribers = [
+      subscribeDesktopBridgeEvent({
+        rpcMessage: "contextMenuSaveAsCommand",
+        ipcChannel: "contextMenu:saveAsCommand",
+        listener: onSaveAsCommand,
+      }),
+      subscribeDesktopBridgeEvent({
+        rpcMessage: "contextMenuAskAgent",
+        ipcChannel: "contextMenu:askAgent",
+        listener: onAskAgent,
+      }),
+      subscribeDesktopBridgeEvent({
+        rpcMessage: "contextMenuCreateSkill",
+        ipcChannel: "contextMenu:createSkill",
+        listener: onCreateSkill,
+      }),
+      subscribeDesktopBridgeEvent({
+        rpcMessage: "contextMenuQuoteInChat",
+        ipcChannel: "contextMenu:quoteInChat",
+        listener: onQuoteInChat,
+      }),
+    ];
 
     return () => {
-      ipcRenderer.removeAllListeners("contextMenu:saveAsCommand");
-      ipcRenderer.removeAllListeners("contextMenu:askAgent");
-      ipcRenderer.removeAllListeners("contextMenu:createSkill");
-      ipcRenderer.removeAllListeners("contextMenu:quoteInChat");
+      for (const unsubscribe of unsubscribers) {
+        unsubscribe();
+      }
     };
   }, [setState, chatInput, handleChatSend]);
 

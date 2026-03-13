@@ -6,15 +6,15 @@
  * appears to be "embedded" because it is always kept aligned with the div.
  *
  * Works in:
- *   - Electrobun — calls via window.electron.ipcRenderer (wired through
- *     electrobun-bridge.ts which maps channel → electroview RPC)
- *   - Electron — same window.electron.ipcRenderer path works directly
+ *   - Electrobun — calls via the preload-exposed renderer RPC
+ *   - Electron — falls back to window.electron.ipcRenderer
  *
  * Falls back gracefully (isReady=false, no window created) when neither
  * runtime is detected (web / Capacitor / SSR).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { invokeDesktopBridgeRequest } from "../bridge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,23 +42,6 @@ export interface UseCanvasWindowResult {
   show: () => void;
   /** Hide the canvas window. */
   hide: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// IPC helper
-// ---------------------------------------------------------------------------
-
-function getIpc(): {
-  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
-} | null {
-  // Both Electrobun (via electrobun-bridge.ts) and Electron expose this.
-  return (
-    ((window as Window & { electron?: { ipcRenderer?: unknown } }).electron
-      ?.ipcRenderer as
-      | { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> }
-      | null
-      | undefined) ?? null
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +83,7 @@ export function useCanvasWindow(
   const titleRef = useRef(title);
   titleRef.current = title;
 
-  // Track last-synced bounds to avoid redundant IPC calls.
+  // Track last-synced bounds to avoid redundant bridge calls.
   const lastBoundsRef = useRef<{
     x: number;
     y: number;
@@ -118,8 +101,7 @@ export function useCanvasWindow(
   const syncBounds = useCallback(() => {
     const el = containerRef.current;
     const id = windowIdRef.current;
-    const ipc = getIpc();
-    if (!el || !id || !ipc) return;
+    if (!el || !id) return;
 
     const bounds = getScreenRect(el);
 
@@ -131,12 +113,16 @@ export function useCanvasWindow(
       last.width === bounds.width &&
       last.height === bounds.height
     ) {
-      return; // Nothing changed — skip the IPC call.
+      return; // Nothing changed — skip the bridge call.
     }
 
     lastBoundsRef.current = bounds;
 
-    ipc.invoke("canvas:setBounds", { id, ...bounds }).catch((err: unknown) => {
+    void invokeDesktopBridgeRequest({
+      rpcMethod: "canvasSetBounds",
+      ipcChannel: "canvas:setBounds",
+      params: { id, ...bounds },
+    }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:setBounds failed", err);
     });
   }, []);
@@ -167,12 +153,6 @@ export function useCanvasWindow(
   useEffect(() => {
     if (!enabled) return;
 
-    const ipc = getIpc();
-    if (!ipc) {
-      // Not in a supported desktop runtime — stay in fallback state.
-      return;
-    }
-
     let destroyed = false;
     let createdId: string | null = null;
 
@@ -182,26 +162,36 @@ export function useCanvasWindow(
       ? getScreenRect(el)
       : { x: 100, y: 100, width: 800, height: 600 };
 
-    ipc
-      .invoke("canvas:createWindow", {
+    void invokeDesktopBridgeRequest<{ id?: string }>({
+      rpcMethod: "canvasCreateWindow",
+      ipcChannel: "canvas:createWindow",
+      params: {
         url: urlRef.current,
         title: titleRef.current ?? "Canvas",
         x: initial.x,
         y: initial.y,
         width: initial.width,
         height: initial.height,
-      })
+      },
+    })
       .then((result) => {
+        if (!result) {
+          return;
+        }
         if (destroyed) {
           // Component unmounted before the promise resolved — clean up.
-          const id = (result as { id?: string })?.id;
+          const id = result.id;
           if (id) {
-            ipc.invoke("canvas:destroyWindow", { id }).catch(() => {});
+            void invokeDesktopBridgeRequest({
+              rpcMethod: "canvasDestroyWindow",
+              ipcChannel: "canvas:destroyWindow",
+              params: { id },
+            }).catch(() => {});
           }
           return;
         }
 
-        const id = (result as { id?: string })?.id;
+        const id = result.id;
         if (!id) {
           console.warn("[useCanvasWindow] canvasCreateWindow returned no id");
           return;
@@ -238,7 +228,11 @@ export function useCanvasWindow(
         setWindowId(null);
         setIsReady(false);
         lastBoundsRef.current = null;
-        ipc.invoke("canvas:destroyWindow", { id }).catch(() => {});
+        void invokeDesktopBridgeRequest({
+          rpcMethod: "canvasDestroyWindow",
+          ipcChannel: "canvas:destroyWindow",
+          params: { id },
+        }).catch(() => {});
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,28 +243,37 @@ export function useCanvasWindow(
   // ---------------------------------------------------------------------------
 
   const navigate = useCallback((newUrl: string) => {
-    const ipc = getIpc();
     const id = windowIdRef.current;
-    if (!ipc || !id) return;
-    ipc.invoke("canvas:navigate", { id, url: newUrl }).catch((err: unknown) => {
+    if (!id) return;
+    void invokeDesktopBridgeRequest({
+      rpcMethod: "canvasNavigate",
+      ipcChannel: "canvas:navigate",
+      params: { id, url: newUrl },
+    }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:navigate failed", err);
     });
   }, []);
 
   const show = useCallback(() => {
-    const ipc = getIpc();
     const id = windowIdRef.current;
-    if (!ipc || !id) return;
-    ipc.invoke("canvas:show", { id }).catch((err: unknown) => {
+    if (!id) return;
+    void invokeDesktopBridgeRequest({
+      rpcMethod: "canvasShow",
+      ipcChannel: "canvas:show",
+      params: { id },
+    }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:show failed", err);
     });
   }, []);
 
   const hide = useCallback(() => {
-    const ipc = getIpc();
     const id = windowIdRef.current;
-    if (!ipc || !id) return;
-    ipc.invoke("canvas:hide", { id }).catch((err: unknown) => {
+    if (!id) return;
+    void invokeDesktopBridgeRequest({
+      rpcMethod: "canvasHide",
+      ipcChannel: "canvas:hide",
+      params: { id },
+    }).catch((err: unknown) => {
       console.warn("[useCanvasWindow] canvas:hide failed", err);
     });
   }, []);

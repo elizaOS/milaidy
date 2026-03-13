@@ -1,8 +1,4 @@
-type ElectronBridge = {
-  ipcRenderer?: {
-    invoke: (channel: string, params?: unknown) => Promise<unknown>;
-  };
-};
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 
 type DesktopMessageBoxType = "info" | "warning" | "error" | "question";
 
@@ -37,11 +33,6 @@ interface DesktopAlertOptions {
   type?: DesktopMessageBoxType;
 }
 
-function getElectronBridge(): ElectronBridge["ipcRenderer"] | undefined {
-  return (window as typeof window & { electron?: ElectronBridge }).electron
-    ?.ipcRenderer;
-}
-
 function buildFallbackMessage(options: {
   title?: string;
   message?: string;
@@ -57,15 +48,11 @@ function buildFallbackMessage(options: {
 async function showDesktopMessageBox(
   options: DesktopMessageBoxOptions,
 ): Promise<DesktopMessageBoxResult | null> {
-  const ipc = getElectronBridge();
-  if (!ipc) {
-    return null;
-  }
-
-  return (await ipc.invoke(
-    "desktop:showMessageBox",
-    options,
-  )) as DesktopMessageBoxResult;
+  return await invokeDesktopBridgeRequest<DesktopMessageBoxResult>({
+    rpcMethod: "desktopShowMessageBox",
+    ipcChannel: "desktop:showMessageBox",
+    params: options,
+  });
 }
 
 export async function confirmDesktopAction(

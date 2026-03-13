@@ -18,22 +18,30 @@ function HookHost({
 }
 
 describe("useRetakeCapture", () => {
-  const mockInvoke = vi.fn().mockResolvedValue(undefined);
+  const mockStart = vi.fn().mockResolvedValue(undefined);
+  const mockStop = vi.fn().mockResolvedValue(undefined);
 
   beforeEach(() => {
-    // The hook now uses window.electron?.ipcRenderer.invoke
-    Object.defineProperty(window, "electron", {
-      value: { ipcRenderer: { invoke: mockInvoke } },
+    Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
+      value: {
+        request: {
+          screencaptureStartFrameCapture: mockStart,
+          screencaptureStopFrameCapture: mockStop,
+        },
+        onMessage: vi.fn(),
+        offMessage: vi.fn(),
+      },
       writable: true,
       configurable: true,
     });
-    mockInvoke.mockReset().mockResolvedValue(undefined);
+    mockStart.mockReset().mockResolvedValue(undefined);
+    mockStop.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // @ts-expect-error cleanup electron stub
-    delete window.electron;
+    // @ts-expect-error cleanup rpc stub
+    delete window.__MILADY_ELECTROBUN_RPC__;
   });
 
   it("does not start capture when active is false", () => {
@@ -47,10 +55,7 @@ describe("useRetakeCapture", () => {
       );
     });
 
-    expect(mockInvoke).not.toHaveBeenCalledWith(
-      "screencapture:startFrameCapture",
-      expect.anything(),
-    );
+    expect(mockStart).not.toHaveBeenCalled();
   });
 
   it("cleans up capture on unmount", () => {
@@ -65,8 +70,7 @@ describe("useRetakeCapture", () => {
       );
     });
 
-    expect(mockInvoke).toHaveBeenCalledWith(
-      "screencapture:startFrameCapture",
+    expect(mockStart).toHaveBeenCalledWith(
       expect.objectContaining({ fps: expect.any(Number) }),
     );
 
@@ -74,6 +78,6 @@ describe("useRetakeCapture", () => {
       renderer.unmount();
     });
 
-    expect(mockInvoke).toHaveBeenCalledWith("screencapture:stopFrameCapture");
+    expect(mockStop).toHaveBeenCalledWith(undefined);
   });
 });

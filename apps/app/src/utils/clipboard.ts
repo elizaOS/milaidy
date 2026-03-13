@@ -1,13 +1,4 @@
-type ElectronBridge = {
-  ipcRenderer?: {
-    invoke: (channel: string, params?: unknown) => Promise<unknown>;
-  };
-};
-
-function getElectronBridge(): ElectronBridge["ipcRenderer"] | undefined {
-  return (window as typeof window & { electron?: ElectronBridge }).electron
-    ?.ipcRenderer;
-}
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 
 function copyTextWithExecCommand(text: string): void {
   const ta = document.createElement("textarea");
@@ -24,9 +15,12 @@ function copyTextWithExecCommand(text: string): void {
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
-  const ipc = getElectronBridge();
-  if (ipc) {
-    await ipc.invoke("desktop:writeToClipboard", { text });
+  const copied = await invokeDesktopBridgeRequest({
+    rpcMethod: "desktopWriteToClipboard",
+    ipcChannel: "desktop:writeToClipboard",
+    params: { text },
+  });
+  if (copied !== null) {
     return;
   }
 

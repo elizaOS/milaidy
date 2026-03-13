@@ -4,6 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { openExternalUrl } from "../../src/utils/openExternalUrl";
 
 type TestWindow = Window & {
+  __MILADY_ELECTROBUN_RPC__?: {
+    request: Record<string, (params?: unknown) => Promise<unknown>>;
+    onMessage: (
+      messageName: string,
+      listener: (payload: unknown) => void,
+    ) => void;
+    offMessage: (
+      messageName: string,
+      listener: (payload: unknown) => void,
+    ) => void;
+  };
   electron?: {
     ipcRenderer?: {
       invoke: (channel: string, params?: unknown) => Promise<unknown>;
@@ -13,18 +24,23 @@ type TestWindow = Window & {
 
 describe("openExternalUrl", () => {
   afterEach(() => {
+    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
     delete (window as TestWindow).electron;
     vi.restoreAllMocks();
   });
 
   it("uses the Electrobun desktop bridge when available", async () => {
-    const invoke = vi.fn().mockResolvedValue(undefined);
-    (window as TestWindow).electron = { ipcRenderer: { invoke } };
+    const request = vi.fn().mockResolvedValue(undefined);
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+      request: { desktopOpenExternal: request },
+      onMessage: vi.fn(),
+      offMessage: vi.fn(),
+    };
     const openSpy = vi.spyOn(window, "open");
 
     await openExternalUrl("https://claude.ai");
 
-    expect(invoke).toHaveBeenCalledWith("desktop:openExternal", {
+    expect(request).toHaveBeenCalledWith({
       url: "https://claude.ai",
     });
     expect(openSpy).not.toHaveBeenCalled();

@@ -60,7 +60,10 @@ import {
   type WhitelistStatus,
   type WorkbenchOverview,
 } from "@milady/app-core/api";
-import { getBackendStartupTimeoutMs } from "@milady/app-core/bridge";
+import {
+  getBackendStartupTimeoutMs,
+  invokeDesktopBridgeRequest,
+} from "@milady/app-core/bridge";
 import {
   createTranslator,
   normalizeLanguage,
@@ -1558,17 +1561,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const restartBackend = useCallback(async () => {
-    const electron = (
-      window as {
-        electron?: {
-          ipcRenderer: { invoke: (channel: string) => Promise<unknown> };
-        };
-      }
-    ).electron;
-    if (electron?.ipcRenderer) {
-      // Electron: Use IPC to restart embedded agent
-      await electron.ipcRenderer.invoke("agent:restart");
-    } else {
+    const restarted = await invokeDesktopBridgeRequest({
+      rpcMethod: "agentRestart",
+      ipcChannel: "agent:restart",
+    });
+    if (restarted === null) {
       // Fallback for web: call API restart endpoint
       await client.restart();
     }

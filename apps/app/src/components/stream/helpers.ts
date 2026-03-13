@@ -3,6 +3,7 @@
  */
 
 import type { StreamEventEnvelope } from "@milady/app-core/api";
+import { invokeDesktopBridgeRequest } from "@milady/app-core/bridge";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -118,18 +119,12 @@ export async function toggleAlwaysOnTop(pinned: boolean): Promise<boolean> {
         return pinned;
       }
     }
-    // Fallback: try Electron IPC directly
-    const electron = (window as unknown as Record<string, unknown>).electron as
-      | {
-          ipcRenderer?: {
-            invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
-          };
-        }
-      | undefined;
-    if (electron?.ipcRenderer) {
-      await electron.ipcRenderer.invoke("desktop:setAlwaysOnTop", {
-        flag: pinned,
-      });
+    const result = await invokeDesktopBridgeRequest({
+      rpcMethod: "desktopSetAlwaysOnTop",
+      ipcChannel: "desktop:setAlwaysOnTop",
+      params: { flag: pinned },
+    });
+    if (result !== null) {
       return pinned;
     }
   } catch {
