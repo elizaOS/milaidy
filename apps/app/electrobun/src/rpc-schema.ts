@@ -877,6 +877,11 @@ export type MiladyRPCSchema = {
         text: string;
         segments: Array<{ text: string; start: number; end: number }>;
       };
+      talkmodeError: {
+        code: string;
+        message: string;
+        recoverable: boolean;
+      };
 
       // Swabble: Wake word detection
       swabbleWakeWord: {
@@ -1166,6 +1171,7 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
   "talkmode:stateChanged": "talkmodeStateChanged",
   "talkmode:speakComplete": "talkmodeSpeakComplete",
   "talkmode:transcript": "talkmodeTranscript",
+  "talkmode:error": "talkmodeError",
   "swabble:wakeWord": "swabbleWakeWord",
   "swabble:stateChange": "swabbleStateChanged",
   "swabble:transcript": "swabbleTranscript",

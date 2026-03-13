@@ -274,7 +274,8 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
     expect(directListeners.get("talkmodeTranscript")?.size ?? 0).toBe(0);
   });
 
-  it("keeps legacy talkmode error events on IPC fallback when Electrobun exposes no direct push message", async () => {
+  it("uses direct talkmode error push messages when Electrobun exposes them", async () => {
+    const directListeners = new Map<string, Set<(payload: unknown) => void>>();
     const ipcListeners = new Map<
       string,
       Set<(event: unknown, payload: unknown) => void>
@@ -282,8 +283,18 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
 
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {},
-      onMessage: vi.fn(),
-      offMessage: vi.fn(),
+      onMessage: vi.fn(
+        (messageName: string, listener: (payload: unknown) => void) => {
+          const entry = directListeners.get(messageName) ?? new Set();
+          entry.add(listener);
+          directListeners.set(messageName, entry);
+        },
+      ),
+      offMessage: vi.fn(
+        (messageName: string, listener: (payload: unknown) => void) => {
+          directListeners.get(messageName)?.delete(listener);
+        },
+      ),
     };
     (window as TestWindow).electron = {
       ipcRenderer: {
@@ -312,12 +323,6 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
     const plugin = new TalkModeElectron();
     const invokeBridge = vi.fn(async (rpcMethod: string) => {
       switch (rpcMethod) {
-        case "talkmodeStart":
-          return { available: true };
-        case "talkmodeIsWhisperAvailable":
-          return { available: false };
-        case "talkmodeStop":
-          return undefined;
         default:
           return null;
       }
@@ -329,16 +334,15 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
 
     (plugin as TalkModeElectronPrivate).setupNativeListeners();
 
-    ipcListeners.get("talkmode:error")?.forEach((listener) => {
-      listener(
-        {},
-        { code: "native_error", message: "boom", recoverable: true },
-      );
+    directListeners.get("talkmodeError")?.forEach((listener) => {
+      listener({ code: "native_error", message: "boom", recoverable: true });
     });
     expect(errorListener).toHaveBeenCalledWith({
       code: "native_error",
       message: "boom",
       recoverable: true,
     });
+    expect(directListeners.get("talkmodeError")?.size ?? 0).toBe(1);
+    expect(ipcListeners.get("talkmode:error")?.size ?? 0).toBe(0);
   });
 });

@@ -1088,6 +1088,7 @@ describe("Channel mapping — push events", () => {
     expect(PUSH_CHANNEL_TO_RPC_MESSAGE["talkmode:transcript"]).toBe(
       "talkmodeTranscript",
     );
+    expect(PUSH_CHANNEL_TO_RPC_MESSAGE["talkmode:error"]).toBe("talkmodeError");
   });
 
   it("swabble push events", () => {
@@ -1168,6 +1169,7 @@ describe("Reverse mapping consistency", () => {
     expect(RPC_MESSAGE_TO_PUSH_CHANNEL.desktopWindowFocus).toBe(
       "desktop:windowFocus",
     );
+    expect(RPC_MESSAGE_TO_PUSH_CHANNEL.talkmodeError).toBe("talkmode:error");
     expect(RPC_MESSAGE_TO_PUSH_CHANNEL.swabbleWakeWord).toBe(
       "swabble:wakeWord",
     );
