@@ -45,6 +45,7 @@ export default [
     env,
     fixedExtension: false,
     platform: "node",
+    inlineOnly: false,
     external: allExternals,
     outputOptions: { codeSplitting: false },
   },
@@ -53,6 +54,7 @@ export default [
     env,
     fixedExtension: false,
     platform: "node",
+    inlineOnly: false,
     external: allExternals,
     // Disable code splitting to prevent circular chunk dependencies.
     // Without this, rolldown places the __exportAll runtime helper in the
