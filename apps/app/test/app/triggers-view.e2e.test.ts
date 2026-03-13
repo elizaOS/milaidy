@@ -452,10 +452,7 @@ function findTextareaByPlaceholder(
 
 async function flush(): Promise<void> {
   await act(async () => {
-    await Promise.resolve();
-  });
-  await act(async () => {
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 50));
   });
 }
 
