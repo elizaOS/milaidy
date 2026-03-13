@@ -254,12 +254,14 @@ export class LocationElectron implements LocationPlugin {
     watchId: string,
     data: unknown,
   ): LocationResult | null {
-    if (
-      this.isNativeWatchPayload(data) &&
-      data.watchId === watchId &&
-      this.isNativePosition(data.location)
-    ) {
-      return data.location;
+    if (this.isNativeWatchPayload(data) && data.watchId === watchId) {
+      if (this.isLocationResult(data.location)) {
+        return data.location;
+      }
+
+      if (this.isNativePosition(data.location)) {
+        return this.toNativeLocationResult(data.location);
+      }
     }
 
     if (this.isNativePosition(data)) {
@@ -271,13 +273,35 @@ export class LocationElectron implements LocationPlugin {
 
   private isNativeWatchPayload(
     value: unknown,
-  ): value is { watchId: string; location: LocationResult } {
+  ): value is { watchId: string; location: unknown } {
     return (
       typeof value === "object" &&
       value !== null &&
       "watchId" in value &&
       typeof value.watchId === "string" &&
       "location" in value
+    );
+  }
+
+  private isLocationResult(value: unknown): value is LocationResult {
+    if (typeof value !== "object" || value === null || !("coords" in value)) {
+      return false;
+    }
+
+    const { coords, cached } = value;
+    return (
+      typeof coords === "object" &&
+      coords !== null &&
+      "latitude" in coords &&
+      typeof coords.latitude === "number" &&
+      "longitude" in coords &&
+      typeof coords.longitude === "number" &&
+      "accuracy" in coords &&
+      typeof coords.accuracy === "number" &&
+      "timestamp" in coords &&
+      typeof coords.timestamp === "number" &&
+      "cached" in value &&
+      typeof cached === "boolean"
     );
   }
 
