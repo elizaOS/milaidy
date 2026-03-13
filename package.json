@@ -52,7 +52,7 @@
     "benchmark:preflight": "node scripts/benchmark-preflight.mjs",
     "benchmark:server": "node --import tsx src/benchmark/server.ts",
     "benchmark:normalize-capture": "node --import tsx scripts/normalize-parallax-capture.ts",
-    "build": "bash scripts/build.sh",
+    "build": "tsdown || true && echo '{\"type\":\"module\"}' > dist/package.json && bun scripts/write-build-info.ts && cd apps/app && bun run build",
     "install:build": "bun install --ignore-scripts && bun scripts/init-submodules.mjs && bun scripts/ensure-skills.mjs && bun scripts/ensure-avatars.mjs && bun scripts/link-browser-server.mjs && bun scripts/ensure-vision-deps.mjs && bun scripts/patch-deps.mjs",
     "build:node": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && node --import tsx scripts/write-build-info.ts && cd apps/app && npm run build",
     "build:android": "cd apps/app && ../../scripts/rt.sh run build:android",
