@@ -71,7 +71,12 @@ function tokenMatches(expected: string, provided: string): boolean {
   if (expectedBuffer.length !== providedBuffer.length) {
     // Pad to equal length to avoid length oracle
     const padded = Buffer.alloc(expectedBuffer.length);
-    providedBuffer.copy(padded, 0, 0, Math.min(providedBuffer.length, expectedBuffer.length));
+    providedBuffer.copy(
+      padded,
+      0,
+      0,
+      Math.min(providedBuffer.length, expectedBuffer.length),
+    );
     return crypto.timingSafeEqual(expectedBuffer, padded) && false;
   }
   return crypto.timingSafeEqual(expectedBuffer, providedBuffer);

@@ -74,7 +74,10 @@ export function scoreEntries(
     for (const term of extraTerms?.(plugin) ?? [])
       if (term.toLowerCase().includes(lowerQuery)) score += 25;
     for (const term of terms) {
-      if (lowerName.includes(term) || aliases.some((alias) => alias.includes(term)))
+      if (
+        lowerName.includes(term) ||
+        aliases.some((alias) => alias.includes(term))
+      )
         score += 15;
       if (lowerDescription.includes(term)) score += 10;
       for (const topic of plugin.topics)
@@ -101,7 +104,8 @@ export function toSearchResults(
     description: plugin.description,
     score: score / maxScore,
     tags: plugin.topics,
-    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    latestVersion:
+      plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
     stars: plugin.stars,
     supports: plugin.supports,
     repository: `https://github.com/${plugin.gitRepo}`,
@@ -130,7 +134,8 @@ export function toAppInfo(
 
   return {
     name: plugin.name,
-    displayName: meta?.displayName ?? plugin.name.replace(/^@elizaos\/app-/, ""),
+    displayName:
+      meta?.displayName ?? plugin.name.replace(/^@elizaos\/app-/, ""),
     description: plugin.description,
     category: meta?.category ?? "game",
     launchType: meta?.launchType ?? "url",
@@ -139,7 +144,8 @@ export function toAppInfo(
     capabilities: meta?.capabilities ?? [],
     stars: plugin.stars,
     repository: `https://github.com/${plugin.gitRepo}`,
-    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    latestVersion:
+      plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
     supports: plugin.supports,
     npm: plugin.npm,
     viewer,
@@ -179,7 +185,8 @@ export function toPluginListItem(
     stars: plugin.stars,
     repository: `https://github.com/${plugin.gitRepo}`,
     topics: plugin.topics,
-    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    latestVersion:
+      plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
     supports: plugin.supports,
     npm: plugin.npm,
   };

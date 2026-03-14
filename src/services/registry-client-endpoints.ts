@@ -186,7 +186,11 @@ async function fetchSingleEndpoint(
       const rawEntry = raw as Record<string, unknown>;
       const git = (rawEntry.git ?? {}) as Record<string, unknown>;
       const npm = (rawEntry.npm ?? {}) as Record<string, unknown>;
-      const supports = (rawEntry.supports ?? { v0: false, v1: false, v2: false }) as {
+      const supports = (rawEntry.supports ?? {
+        v0: false,
+        v1: false,
+        v2: false,
+      }) as {
         v0: boolean;
         v1: boolean;
         v2: boolean;

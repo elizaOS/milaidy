@@ -4013,7 +4013,8 @@ function paramKeyToCategory(paramKey: string): ModelCategory {
   if (upperKey.includes("EMBEDDING")) return "embedding";
   if (upperKey.includes("IMAGE")) return "image";
   if (upperKey.includes("TTS")) return "tts";
-  if (upperKey.includes("STT") || upperKey.includes("TRANSCRIPTION")) return "stt";
+  if (upperKey.includes("STT") || upperKey.includes("TRANSCRIPTION"))
+    return "stt";
   return "chat";
 }
 
@@ -4111,11 +4112,21 @@ async function fetchModelsREST(
 function restTypeToCategory(type: string): ModelCategory {
   const lowerType = type.toLowerCase();
   if (lowerType.includes("embed")) return "embedding";
-  if (lowerType === "image" || lowerType.includes("image-generation")) return "image";
+  if (lowerType === "image" || lowerType.includes("image-generation"))
+    return "image";
   if (lowerType.includes("tts") || lowerType.includes("speech")) return "tts";
-  if (lowerType.includes("stt") || lowerType.includes("transcription") || lowerType.includes("whisper"))
+  if (
+    lowerType.includes("stt") ||
+    lowerType.includes("transcription") ||
+    lowerType.includes("whisper")
+  )
     return "stt";
-  if (lowerType === "language" || lowerType === "chat" || lowerType.includes("text")) return "chat";
+  if (
+    lowerType === "language" ||
+    lowerType === "chat" ||
+    lowerType.includes("text")
+  )
+    return "chat";
   return classifyModel(type);
 }
 
@@ -15215,6 +15226,7 @@ async function handleRequest(
 // headless `startEliza()` path).
 // ---------------------------------------------------------------------------
 import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
+
 export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------
