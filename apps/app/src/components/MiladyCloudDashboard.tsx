@@ -635,7 +635,7 @@ function AgentDetailSidebar({
       >
         <button
           type="button"
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-bg/50 transition-colors text-muted hover:text-txt-strong"
+          className="cursor-pointer absolute top-4 right-4 p-1 rounded-full hover:bg-bg/50 transition-colors text-muted hover:text-txt-strong"
           onClick={onClose}
         >
           <X className="w-5 h-5" />

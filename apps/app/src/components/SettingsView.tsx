@@ -922,7 +922,7 @@ export function SettingsView({
             </div>
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
+              className="cursor-pointer inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
               onClick={handleClose}
               aria-label="Close settings"
               title={t("settingsview.CloseSettings")}

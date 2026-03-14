@@ -98,7 +98,7 @@ export function ShortcutsOverlay() {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="p-1 rounded transition-colors"
+            className="cursor-pointer p-1 rounded transition-colors"
             style={{ color: "rgba(255,255,255,0.45)" }}
             aria-label="Close"
           >
