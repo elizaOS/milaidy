@@ -92,7 +92,16 @@ export class AwarenessRegistry {
       );
     }
     this.contributorIds.add(contributor.id);
-    this.contributors.push(contributor);
+    // Insert in sorted position so composeSummary/composeAllDetails never need
+    // to sort — contributors are registered at startup and rarely change.
+    const idx = this.contributors.findIndex(
+      (c) => c.position > contributor.position,
+    );
+    if (idx === -1) {
+      this.contributors.push(contributor);
+    } else {
+      this.contributors.splice(idx, 0, contributor);
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -100,14 +109,10 @@ export class AwarenessRegistry {
   // -----------------------------------------------------------------------
 
   async composeSummary(runtime: IAgentRuntime): Promise<string> {
-    // Sort by position ascending (lower position = higher priority).
-    const sorted = [...this.contributors].sort(
-      (a, b) => a.position - b.position,
-    );
-
+    // Contributors are kept sorted by position at registration time.
     const lines: string[] = [];
 
-    for (const contributor of sorted) {
+    for (const contributor of this.contributors) {
       let line: string;
       try {
         line = await this.getCachedSummary(contributor, runtime);
@@ -212,10 +217,18 @@ export class AwarenessRegistry {
     let budget = SUMMARY_TOTAL_CHAR_LIMIT - headerLen;
     const included: string[] = [];
     let remaining = 0;
+    // Track included.join("\n").length incrementally to avoid O(n) join per pop.
+    let bodyLen = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const lineLen = lines[i].length + 1; // +1 for newline separator
       if (budget >= lineLen) {
+        // First item contributes its length; each subsequent item also adds the
+        // newline separator that join() would insert before it.
+        bodyLen =
+          included.length === 0
+            ? lines[i].length
+            : bodyLen + 1 + lines[i].length;
         included.push(lines[i]);
         budget -= lineLen;
       } else {
@@ -224,37 +237,33 @@ export class AwarenessRegistry {
       }
     }
 
-    let body = included.join("\n");
     if (remaining > 0) {
       let suffix = `\n[+${remaining} more]`;
       // Make room for the suffix if needed — recompute suffix each iteration
       // because remaining++ can change its digit count (e.g. 9→10, 99→100).
       while (
-        body.length + suffix.length + headerLen + 1 >
-          SUMMARY_TOTAL_CHAR_LIMIT &&
+        bodyLen + suffix.length + headerLen + 1 > SUMMARY_TOTAL_CHAR_LIMIT &&
         included.length > 1
       ) {
-        included.pop();
+        const removed = included.pop() as string;
+        // Subtract the removed line and its preceding newline separator.
+        bodyLen -= removed.length + 1;
         remaining++;
-        body = included.join("\n");
         suffix = `\n[+${remaining} more]`;
       }
-      body += suffix;
+      return `${header}\n${included.join("\n")}${suffix}`;
     }
 
-    return `${header}\n${body}`;
+    return `${header}\n${included.join("\n")}`;
   }
 
   private async composeAllDetails(
     runtime: IAgentRuntime,
     level: "brief" | "full",
   ): Promise<string> {
-    const sorted = [...this.contributors].sort(
-      (a, b) => a.position - b.position,
-    );
-
+    // Contributors are kept sorted by position at registration time.
     const parts: string[] = [];
-    for (const contributor of sorted) {
+    for (const contributor of this.contributors) {
       if (!contributor.detail) {
         parts.push(`[${contributor.id}: no detail available]`);
         continue;

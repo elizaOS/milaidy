@@ -165,7 +165,6 @@ export function hasLifecycleScriptReferencingMissingFile(
 
   return !pathExists(resolve(packageDir, relativeTarget));
 }
-
 function runFastLocalPackCheck(hotspots: string[]) {
   console.warn(
     "release-check: skipping exact npm pack --dry-run because local desktop build artifacts are present and package.json whitelists broad build directories:",
@@ -257,7 +256,6 @@ function assertBundledAgentOrchestratorInstallFix() {
     process.exit(1);
   }
 }
-
 function assertReleaseWorkflowHasNotaryWrapper() {
   const workflow = readFileSync(
     ".github/workflows/release-electrobun.yml",
