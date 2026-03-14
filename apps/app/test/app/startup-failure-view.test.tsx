@@ -79,4 +79,26 @@ describe("StartupFailureView", () => {
     const links = tree.root.findAllByType("a");
     expect(links).toHaveLength(0);
   });
+
+  it("renders the asset-missing label for startup asset failures", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(StartupFailureView, {
+          error: {
+            reason: "asset-missing",
+            phase: "initializing-agent",
+            message: "Required companion assets could not be loaded.",
+            detail: "Bundled avatar MILADY-01 could not be loaded.",
+          },
+          onRetry: vi.fn(),
+        }),
+      );
+    });
+
+    if (!tree) throw new Error("failed to render StartupFailureView");
+    const heading = tree.root.findByType("h1").children.join("");
+    expect(heading).toContain("Asset Missing");
+  });
 });

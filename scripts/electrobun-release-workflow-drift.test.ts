@@ -71,6 +71,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
     );
+    expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
       "name: Setup Node.js (macOS Intel via Rosetta)",
     );
@@ -124,6 +125,24 @@ describe("Electrobun release workflow drift", () => {
       "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
     );
     expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
+    expect(workflow).toContain("name: Cache local electrobun core downloads");
+    expect(workflow).toContain(
+      "path: apps/app/electrobun/node_modules/electrobun/.cache",
+    );
+  });
+
+  it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Cache Whisper models");
+    expect(workflow).toContain("path: ~/.cache/milady/whisper");
+    expect(workflow).toContain("restore-keys: whisper-model-${{ matrix.platform.artifact-name }}-");
+    expect(workflow).toContain(
+      "# vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install",
+    );
+    expect(workflow).not.toContain(
+      "name: Build renderer (vite)\n        # vite output is arch-neutral JS/CSS/HTML, but bun install here may pull",
+    );
   });
 
   it("keeps updater transport files off the public GitHub release asset list", () => {

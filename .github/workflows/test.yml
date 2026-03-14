@@ -164,9 +164,6 @@ jobs:
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
-      - name: Run repository postinstall patches
-        run: bun run postinstall
-
       - name: Build
         run: bun run build
 
@@ -286,9 +283,6 @@ jobs:
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
-      - name: Run repository postinstall patches
-        run: bun run postinstall
-
       - name: Build core dist (server bundle)
         run: |
           bunx tsdown || true
@@ -399,9 +393,6 @@ jobs:
         run: bun install
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
-
-      - name: Run repository postinstall patches
-        run: bun run postinstall
 
       - name: Build and smoke test packaged macOS app
         env:
