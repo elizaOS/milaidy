@@ -62,6 +62,9 @@ jobs:
 
       - name: Run repository postinstall patches
         run: bun run postinstall
+        env:
+          SKIP_AVATAR_CLONE: "1"
+          MILADY_NO_VISION_DEPS: "1"
 
       - name: Run unit tests
         run: bunx vitest run --config vitest.unit.config.ts
@@ -119,6 +122,9 @@ jobs:
 
       - name: Run repository postinstall patches
         run: bun run postinstall
+        env:
+          SKIP_AVATAR_CLONE: "1"
+          MILADY_NO_VISION_DEPS: "1"
 
       - name: Run database security and query-guard tests
         run: bun run db:check

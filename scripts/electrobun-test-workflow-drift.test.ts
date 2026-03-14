@@ -58,4 +58,12 @@ describe("Electrobun test workflow drift", () => {
       "name: Install dependencies\n        run: bun install\n\n      - name: Run repository postinstall patches",
     );
   });
+
+  it("skips avatar clone and vision deps in pure test jobs", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      'name: Run repository postinstall patches\n        run: bun run postinstall\n        env:\n          SKIP_AVATAR_CLONE: "1"\n          MILADY_NO_VISION_DEPS: "1"',
+    );
+  });
 });
