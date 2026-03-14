@@ -56,38 +56,24 @@ import {
 import * as pluginAgentOrchestrator from "@elizaos/plugin-agent-orchestrator";
 import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
-import * as pluginBrowser from "@elizaos/plugin-browser";
-import * as pluginCli from "@elizaos/plugin-cli";
-import * as pluginComputeruse from "@elizaos/plugin-computeruse";
 import * as pluginCron from "@elizaos/plugin-cron";
-import * as pluginDiscord from "@elizaos/plugin-discord";
-import * as pluginEdgeTts from "@elizaos/plugin-edge-tts";
-import * as pluginElevenlabs from "@elizaos/plugin-elevenlabs";
 import * as pluginElizacloud from "@elizaos/plugin-elizacloud";
 import * as pluginExperience from "@elizaos/plugin-experience";
 import * as pluginForm from "@elizaos/plugin-form";
-import * as pluginGoogleGenai from "@elizaos/plugin-google-genai";
-import * as pluginGroq from "@elizaos/plugin-groq";
 import * as pluginKnowledge from "@elizaos/plugin-knowledge";
 import * as pluginLocalEmbedding from "@elizaos/plugin-local-embedding";
 import * as pluginOllama from "@elizaos/plugin-ollama";
 import * as pluginOpenai from "@elizaos/plugin-openai";
-import * as pluginOpenrouter from "@elizaos/plugin-openrouter";
 import * as pluginPdf from "@elizaos/plugin-pdf";
 import * as pluginPersonality from "@elizaos/plugin-personality";
 import * as pluginPluginManager from "@elizaos/plugin-plugin-manager";
 import * as pluginRolodex from "@elizaos/plugin-rolodex";
 import * as pluginSecretsManager from "@elizaos/plugin-secrets-manager";
 import * as pluginShell from "@elizaos/plugin-shell";
-// Static plugin imports - plugins with proper type declarations are imported
-// statically to enable TypeScript type checking. Plugins without types or not
-// installed will fall back to dynamic import at runtime.
 import * as pluginSql from "@elizaos/plugin-sql";
-import * as pluginTelegram from "@elizaos/plugin-telegram";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
-import * as pluginTwitch from "@elizaos/plugin-twitch";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -125,15 +111,12 @@ import { createMiladyPlugin } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
- * Map of @elizaos plugin names to their statically imported modules.
+ * Map of baseline bundled @elizaos plugin names to their statically imported
+ * modules.
  *
- * Note: Some OPTIONAL_CORE_PLUGINS are intentionally excluded from static imports:
- * - plugin-cua, plugin-obsidian, plugin-code, plugin-repoprompt, plugin-claude-code-workbench:
- *   These are specialized workflow plugins that may not be installed or have optional deps.
- * - plugin-vision: Feature-gated with heavy native dependencies (TensorFlow, canvas).
- *
- * Excluded plugins fall through to dynamic import() which works in Node.js/CLI.
- * For Electron builds, these plugins should be explicitly included if needed.
+ * Post-release plugins are intentionally excluded so the packaged runtime can
+ * ship a smaller baseline bundle. Those plugins fall through to dynamic
+ * import() and can be installed later via the plugin installer.
  */
 const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-sql": pluginSql,
@@ -151,20 +134,9 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-pdf": pluginPdf,
   "@elizaos/plugin-openai": pluginOpenai,
   "@elizaos/plugin-anthropic": pluginAnthropic,
-  "@elizaos/plugin-google-genai": pluginGoogleGenai,
-  "@elizaos/plugin-groq": pluginGroq,
-  "@elizaos/plugin-openrouter": pluginOpenrouter,
   "@elizaos/plugin-ollama": pluginOllama,
   "@elizaos/plugin-elizacloud": pluginElizacloud,
   "@elizaos/plugin-trust": pluginTrust,
-  "@elizaos/plugin-browser": pluginBrowser,
-  "@elizaos/plugin-discord": pluginDiscord,
-  "@elizaos/plugin-twitch": pluginTwitch,
-  "@elizaos/plugin-computeruse": pluginComputeruse,
-  "@elizaos/plugin-cli": pluginCli,
-  "@elizaos/plugin-telegram": pluginTelegram,
-  "@elizaos/plugin-elevenlabs": pluginElevenlabs,
-  "@elizaos/plugin-edge-tts": pluginEdgeTts,
   "@elizaos/plugin-todo": pluginTodo,
   "@elizaos/plugin-personality": pluginPersonality,
   "@elizaos/plugin-experience": pluginExperience,

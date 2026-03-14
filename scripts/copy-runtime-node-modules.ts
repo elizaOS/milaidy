@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   discoverAlwaysBundledPackages,
   discoverRuntimePackages,
+  shouldBundleDiscoveredPackage,
 } from "./runtime-package-manifest";
 
 type Options = {
@@ -829,7 +830,19 @@ function main(): void {
       entry.spec,
     ]),
   );
-  const discovered = new Set(discoverRuntimePackages(scanDir));
+  const filteredOptionalPlugins = new Set<string>();
+  const discovered = new Set(
+    discoverRuntimePackages(scanDir).filter((packageName) => {
+      const shouldBundle = shouldBundleDiscoveredPackage(
+        packageName,
+        alwaysBundled,
+      );
+      if (!shouldBundle) {
+        filteredOptionalPlugins.add(packageName);
+      }
+      return shouldBundle;
+    }),
+  );
   const queue: QueueEntry[] = [...new Set([...alwaysBundled, ...discovered])]
     .sort()
     .map((name) => ({
@@ -931,6 +944,12 @@ function main(): void {
   if (missingDiscovered.size > 0) {
     console.warn(
       `[runtime-copy] skipped unresolved optional package(s): ${[...missingDiscovered].sort().join(", ")}`,
+    );
+  }
+
+  if (filteredOptionalPlugins.size > 0) {
+    console.log(
+      `[runtime-copy] excluded post-release plugin package(s): ${[...filteredOptionalPlugins].sort().join(", ")}`,
     );
   }
 }

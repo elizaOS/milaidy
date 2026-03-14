@@ -27,35 +27,6 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-
-/**
- * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
- * These are only used as structural types for the SwarmCoordinator callbacks;
- * no runtime import is needed.
- */
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
-type SwarmEvent = Record<string, any>;
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
-type TaskContext = Record<string, any>;
-interface CoordinationLLMResponse {
-  action: string;
-  reasoning: string;
-  response?: string;
-  useKeys?: boolean;
-  keys?: string[];
-}
-interface TaskCompletionSummary {
-  sessionId: string;
-  label: string;
-  agentType: string;
-  originalTask: string;
-  status: string;
-  completionSummary: string;
-  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
-  [key: string]: any;
-}
-
-import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
 import { getGlobalAwarenessRegistry } from "../awareness/registry";
@@ -214,6 +185,42 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+
+/**
+ * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
+ * These are only used as structural types for the SwarmCoordinator callbacks;
+ * no runtime import is needed.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
+type SwarmEvent = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
+type TaskContext = Record<string, any>;
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
+interface TaskCompletionSummary {
+  sessionId: string;
+  label: string;
+  agentType: string;
+  originalTask: string;
+  status: string;
+  completionSummary: string;
+  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
+  [key: string]: any;
+}
+
+type PiAiPluginModule = typeof import("@elizaos/plugin-pi-ai");
+let _piAiPluginModule: PiAiPluginModule | null = null;
+async function loadPiAiPluginModule(): Promise<PiAiPluginModule> {
+  if (!_piAiPluginModule) {
+    _piAiPluginModule = await import("@elizaos/plugin-pi-ai");
+  }
+  return _piAiPluginModule;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -7401,7 +7408,7 @@ async function handleRequest(
     let piAiDefaultModel: string | null = null;
 
     try {
-      const piAi = await listPiAiModelOptions();
+      const piAi = await (await loadPiAiPluginModule()).listPiAiModelOptions();
       piAiModels = piAi.models;
       piAiDefaultModel = piAi.defaultModelSpec ?? null;
     } catch (err) {

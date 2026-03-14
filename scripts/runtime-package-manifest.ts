@@ -39,6 +39,26 @@ export function extractBarePackageSpecifiers(source: string): string[] {
   return [...found].sort();
 }
 
+export function isRuntimePluginPackage(packageName: string): boolean {
+  if (!packageName) return false;
+  if (packageName.startsWith("plugin-")) return true;
+  if (!packageName.startsWith("@")) return false;
+
+  const [, scopedName] = packageName.split("/");
+  return scopedName?.startsWith("plugin-") ?? false;
+}
+
+export function shouldBundleDiscoveredPackage(
+  packageName: string,
+  alwaysBundled: ReadonlySet<string>,
+): boolean {
+  if (!isRuntimePluginPackage(packageName)) {
+    return true;
+  }
+
+  return alwaysBundled.has(packageName);
+}
+
 export function discoverRuntimePackages(scanDir: string): string[] {
   const found = new Set<string>();
 
