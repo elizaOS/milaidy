@@ -183,10 +183,10 @@ async function fetchSingleEndpoint(
     }
     const plugins = new Map<string, RegistryPluginInfo>();
     for (const [name, raw] of Object.entries(data.registry)) {
-      const e = raw as Record<string, unknown>;
-      const git = (e.git ?? {}) as Record<string, unknown>;
-      const npm = (e.npm ?? {}) as Record<string, unknown>;
-      const supports = (e.supports ?? { v0: false, v1: false, v2: false }) as {
+      const rawEntry = raw as Record<string, unknown>;
+      const git = (rawEntry.git ?? {}) as Record<string, unknown>;
+      const npm = (rawEntry.npm ?? {}) as Record<string, unknown>;
+      const supports = (rawEntry.supports ?? { v0: false, v1: false, v2: false }) as {
         v0: boolean;
         v1: boolean;
         v2: boolean;
@@ -195,11 +195,11 @@ async function fetchSingleEndpoint(
         name,
         gitRepo: (git.repo as string) ?? "unknown/unknown",
         gitUrl: `https://github.com/${(git.repo as string) ?? "unknown/unknown"}.git`,
-        description: (e.description as string) ?? "",
-        homepage: (e.homepage as string) ?? null,
-        topics: (e.topics as string[]) ?? [],
-        stars: (e.stargazers_count as number) ?? 0,
-        language: (e.language as string) ?? "TypeScript",
+        description: (rawEntry.description as string) ?? "",
+        homepage: (rawEntry.homepage as string) ?? null,
+        topics: (rawEntry.topics as string[]) ?? [],
+        stars: (rawEntry.stargazers_count as number) ?? 0,
+        language: (rawEntry.language as string) ?? "TypeScript",
         npm: {
           package: (npm.repo as string) ?? name,
           v0Version: (npm.v0 as string) ?? null,

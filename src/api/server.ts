@@ -556,12 +556,12 @@ function isUiSpecObject(
 ): obj is { root: string; elements: Record<string, unknown> } {
   if (obj === null || typeof obj !== "object" || Array.isArray(obj))
     return false;
-  const c = obj as Record<string, unknown>;
+  const record = obj as Record<string, unknown>;
   return (
-    typeof c.root === "string" &&
-    c.elements !== null &&
-    typeof c.elements === "object" &&
-    !Array.isArray(c.elements)
+    typeof record.root === "string" &&
+    record.elements !== null &&
+    typeof record.elements === "object" &&
+    !Array.isArray(record.elements)
   );
 }
 
@@ -609,9 +609,9 @@ function _extractResponseBlocks(
   // Remove UiSpec blocks from text (reverse order to preserve indices)
   if (uiSpecRanges.length > 0) {
     for (let i = uiSpecRanges.length - 1; i >= 0; i--) {
-      const r = uiSpecRanges[i];
-      blocks.unshift(r.block);
-      text = text.slice(0, r.start) + text.slice(r.end);
+      const range = uiSpecRanges[i];
+      blocks.unshift(range.block);
+      text = text.slice(0, range.start) + text.slice(range.end);
     }
   }
 
@@ -631,8 +631,8 @@ function _extractResponseBlocks(
 
   if (configMarkers.length > 0) {
     for (let i = configMarkers.length - 1; i >= 0; i--) {
-      const m = configMarkers[i];
-      const plugin = plugins.find((p) => p.id === m.pluginId);
+      const marker = configMarkers[i];
+      const plugin = plugins.find((p) => p.id === marker.pluginId);
       if (plugin) {
         const schema: Record<string, unknown> = {};
         const values: Record<string, unknown> = {};
@@ -647,14 +647,14 @@ function _extractResponseBlocks(
         }
         blocks.push({
           type: "config-form",
-          pluginId: m.pluginId,
+          pluginId: marker.pluginId,
           pluginName: plugin.name,
           schema,
           hints: plugin.configUiHints ?? {},
           values,
         });
       }
-      text = text.slice(0, m.start) + text.slice(m.end);
+      text = text.slice(0, marker.start) + text.slice(marker.end);
     }
   }
 
@@ -4009,11 +4009,11 @@ function classifyModel(modelId: string): ModelCategory {
 
 /** Map param key → expected model category */
 function paramKeyToCategory(paramKey: string): ModelCategory {
-  const k = paramKey.toUpperCase();
-  if (k.includes("EMBEDDING")) return "embedding";
-  if (k.includes("IMAGE")) return "image";
-  if (k.includes("TTS")) return "tts";
-  if (k.includes("STT") || k.includes("TRANSCRIPTION")) return "stt";
+  const upperKey = paramKey.toUpperCase();
+  if (upperKey.includes("EMBEDDING")) return "embedding";
+  if (upperKey.includes("IMAGE")) return "image";
+  if (upperKey.includes("TTS")) return "tts";
+  if (upperKey.includes("STT") || upperKey.includes("TRANSCRIPTION")) return "stt";
   return "chat";
 }
 
@@ -4109,13 +4109,13 @@ async function fetchModelsREST(
 }
 
 function restTypeToCategory(type: string): ModelCategory {
-  const t = type.toLowerCase();
-  if (t.includes("embed")) return "embedding";
-  if (t === "image" || t.includes("image-generation")) return "image";
-  if (t.includes("tts") || t.includes("speech")) return "tts";
-  if (t.includes("stt") || t.includes("transcription") || t.includes("whisper"))
+  const lowerType = type.toLowerCase();
+  if (lowerType.includes("embed")) return "embedding";
+  if (lowerType === "image" || lowerType.includes("image-generation")) return "image";
+  if (lowerType.includes("tts") || lowerType.includes("speech")) return "tts";
+  if (lowerType.includes("stt") || lowerType.includes("transcription") || lowerType.includes("whisper"))
     return "stt";
-  if (t === "language" || t === "chat" || t.includes("text")) return "chat";
+  if (lowerType === "language" || lowerType === "chat" || lowerType.includes("text")) return "chat";
   return classifyModel(type);
 }
 
@@ -4937,10 +4937,10 @@ export function resolveHyperscapeAuthorizationHeader(
 }
 
 function tokenMatches(expected: string, provided: string): boolean {
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(provided, "utf8");
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const providedBuffer = Buffer.from(provided, "utf8");
+  if (expectedBuffer.length !== providedBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 function isLoopbackBindHost(host: string): boolean {

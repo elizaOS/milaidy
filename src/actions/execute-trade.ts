@@ -29,13 +29,13 @@ const BSC_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 /** Check if a value is a valid extracted param (not a placeholder). */
 function isValidParam(val: unknown): val is string {
   if (typeof val !== "string") return false;
-  const v = val.trim().toLowerCase();
+  const normalizedValue = val.trim().toLowerCase();
   return (
-    v.length > 0 &&
-    v !== "unknown" &&
-    !v.includes("required") &&
-    v !== "undefined" &&
-    v !== "null"
+    normalizedValue.length > 0 &&
+    normalizedValue !== "unknown" &&
+    !normalizedValue.includes("required") &&
+    normalizedValue !== "undefined" &&
+    normalizedValue !== "null"
   );
 }
 

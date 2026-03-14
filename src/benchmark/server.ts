@@ -66,15 +66,15 @@ function resolveBenchToken(): string | null {
 }
 
 function tokenMatches(expected: string, provided: string): boolean {
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(provided, "utf8");
-  if (a.length !== b.length) {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const providedBuffer = Buffer.from(provided, "utf8");
+  if (expectedBuffer.length !== providedBuffer.length) {
     // Pad to equal length to avoid length oracle
-    const padded = Buffer.alloc(a.length);
-    b.copy(padded, 0, 0, Math.min(b.length, a.length));
-    return crypto.timingSafeEqual(a, padded) && false;
+    const padded = Buffer.alloc(expectedBuffer.length);
+    providedBuffer.copy(padded, 0, 0, Math.min(providedBuffer.length, expectedBuffer.length));
+    return crypto.timingSafeEqual(expectedBuffer, padded) && false;
   }
-  return crypto.timingSafeEqual(a, b);
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 function checkBenchAuth(

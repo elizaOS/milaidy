@@ -402,12 +402,12 @@ export async function searchApps(
     appEntries,
     query,
     limit,
-    (p) => [p.appMeta?.displayName?.toLowerCase() ?? ""],
-    (p) => p.appMeta?.capabilities ?? [],
+    (plugin) => [plugin.appMeta?.displayName?.toLowerCase() ?? ""],
+    (plugin) => plugin.appMeta?.capabilities ?? [],
   );
 
-  return results.map(({ p }) =>
-    toAppInfo(p, sanitizeSandbox, LOCAL_APP_DEFAULT_SANDBOX),
+  return results.map(({ plugin }) =>
+    toAppInfo(plugin, sanitizeSandbox, LOCAL_APP_DEFAULT_SANDBOX),
   );
 }
 
@@ -452,5 +452,5 @@ export async function searchNonAppPlugins(
   const pluginEntries = [...registry.values()].filter((p) => p.kind !== "app");
 
   const results = scoreEntries(pluginEntries, query, limit);
-  return results.map(({ p }) => toPluginListItem(p));
+  return results.map(({ plugin }) => toPluginListItem(plugin));
 }

@@ -21,15 +21,15 @@ export function getPluginInfoFromRegistry(
   registry: Map<string, RegistryPluginInfo>,
   name: string,
 ): RegistryPluginInfo | null {
-  let p = registry.get(name);
-  if (p) return p;
+  let pluginInfo = registry.get(name);
+  if (pluginInfo) return pluginInfo;
 
   if (!name.startsWith("@")) {
-    p = registry.get(`@elizaos/${name}`);
-    if (p) return p;
+    pluginInfo = registry.get(`@elizaos/${name}`);
+    if (pluginInfo) return pluginInfo;
 
-    p = registry.get(`@elizaos/plugin-${name}`);
-    if (p) return p;
+    pluginInfo = registry.get(`@elizaos/plugin-${name}`);
+    if (pluginInfo) return pluginInfo;
   }
 
   const bare = name.replace(/^@[^/]+\//, "");
@@ -44,65 +44,76 @@ export function scoreEntries(
   entries: Iterable<RegistryPluginInfo>,
   query: string,
   limit: number,
-  extraNames?: (p: RegistryPluginInfo) => string[],
-  extraTerms?: (p: RegistryPluginInfo) => string[],
-): Array<{ p: RegistryPluginInfo; s: number }> {
-  const lq = query.toLowerCase();
-  const terms = lq.split(/\s+/).filter((t) => t.length > 1);
-  const scored: Array<{ p: RegistryPluginInfo; s: number }> = [];
+  extraNames?: (plugin: RegistryPluginInfo) => string[],
+  extraTerms?: (plugin: RegistryPluginInfo) => string[],
+): Array<{ plugin: RegistryPluginInfo; score: number }> {
+  const lowerQuery = query.toLowerCase();
+  const terms = lowerQuery.split(/\s+/).filter((term) => term.length > 1);
+  const scored: Array<{ plugin: RegistryPluginInfo; score: number }> = [];
 
-  for (const p of entries) {
-    const ln = p.name.toLowerCase();
-    const ld = p.description.toLowerCase();
-    const aliases = extraNames?.(p) ?? [];
-    let s = 0;
+  for (const plugin of entries) {
+    const lowerName = plugin.name.toLowerCase();
+    const lowerDescription = plugin.description.toLowerCase();
+    const aliases = extraNames?.(plugin) ?? [];
+    let score = 0;
 
-    if (ln === lq || ln === `@elizaos/${lq}` || aliases.some((a) => a === lq))
-      s += 100;
-    else if (ln.includes(lq) || aliases.some((a) => a.includes(lq))) s += 50;
-    if (ld.includes(lq)) s += 30;
-    for (const t of p.topics) if (t.toLowerCase().includes(lq)) s += 25;
-    for (const t of extraTerms?.(p) ?? [])
-      if (t.toLowerCase().includes(lq)) s += 25;
+    if (
+      lowerName === lowerQuery ||
+      lowerName === `@elizaos/${lowerQuery}` ||
+      aliases.some((alias) => alias === lowerQuery)
+    )
+      score += 100;
+    else if (
+      lowerName.includes(lowerQuery) ||
+      aliases.some((alias) => alias.includes(lowerQuery))
+    )
+      score += 50;
+    if (lowerDescription.includes(lowerQuery)) score += 30;
+    for (const topic of plugin.topics)
+      if (topic.toLowerCase().includes(lowerQuery)) score += 25;
+    for (const term of extraTerms?.(plugin) ?? [])
+      if (term.toLowerCase().includes(lowerQuery)) score += 25;
     for (const term of terms) {
-      if (ln.includes(term) || aliases.some((a) => a.includes(term))) s += 15;
-      if (ld.includes(term)) s += 10;
-      for (const t of p.topics) if (t.toLowerCase().includes(term)) s += 8;
+      if (lowerName.includes(term) || aliases.some((alias) => alias.includes(term)))
+        score += 15;
+      if (lowerDescription.includes(term)) score += 10;
+      for (const topic of plugin.topics)
+        if (topic.toLowerCase().includes(term)) score += 8;
     }
-    if (s > 0) {
-      if (p.stars > 100) s += 3;
-      if (p.stars > 500) s += 3;
-      if (p.stars > 1000) s += 4;
-      scored.push({ p, s });
+    if (score > 0) {
+      if (plugin.stars > 100) score += 3;
+      if (plugin.stars > 500) score += 3;
+      if (plugin.stars > 1000) score += 4;
+      scored.push({ plugin, score });
     }
   }
 
-  scored.sort((a, b) => b.s - a.s || b.p.stars - a.p.stars);
+  scored.sort((a, b) => b.score - a.score || b.plugin.stars - a.plugin.stars);
   return scored.slice(0, limit);
 }
 
 export function toSearchResults(
-  results: Array<{ p: RegistryPluginInfo; s: number }>,
+  results: Array<{ plugin: RegistryPluginInfo; score: number }>,
 ): RegistrySearchResult[] {
-  const max = results[0]?.s || 1;
-  return results.map(({ p, s }) => ({
-    name: p.name,
-    description: p.description,
-    score: s / max,
-    tags: p.topics,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    stars: p.stars,
-    supports: p.supports,
-    repository: `https://github.com/${p.gitRepo}`,
+  const maxScore = results[0]?.score || 1;
+  return results.map(({ plugin, score }) => ({
+    name: plugin.name,
+    description: plugin.description,
+    score: score / maxScore,
+    tags: plugin.topics,
+    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    stars: plugin.stars,
+    supports: plugin.supports,
+    repository: `https://github.com/${plugin.gitRepo}`,
   }));
 }
 
 export function toAppInfo(
-  p: RegistryPluginInfo,
+  plugin: RegistryPluginInfo,
   sanitizeSandbox: (value?: string) => string,
   defaultSandbox: string,
 ): RegistryAppInfo {
-  const meta = p.appMeta;
+  const meta = plugin.appMeta;
   const viewer = meta?.viewer
     ? {
         url: meta.viewer.url,
@@ -118,58 +129,58 @@ export function toAppInfo(
       : undefined;
 
   return {
-    name: p.name,
-    displayName: meta?.displayName ?? p.name.replace(/^@elizaos\/app-/, ""),
-    description: p.description,
+    name: plugin.name,
+    displayName: meta?.displayName ?? plugin.name.replace(/^@elizaos\/app-/, ""),
+    description: plugin.description,
     category: meta?.category ?? "game",
     launchType: meta?.launchType ?? "url",
-    launchUrl: meta?.launchUrl ?? p.homepage,
+    launchUrl: meta?.launchUrl ?? plugin.homepage,
     icon: meta?.icon ?? null,
     capabilities: meta?.capabilities ?? [],
-    stars: p.stars,
-    repository: `https://github.com/${p.gitRepo}`,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    supports: p.supports,
-    npm: p.npm,
+    stars: plugin.stars,
+    repository: `https://github.com/${plugin.gitRepo}`,
+    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    supports: plugin.supports,
+    npm: plugin.npm,
     viewer,
   };
 }
 
 export function toAppEntry(
-  p: RegistryPluginInfo,
+  plugin: RegistryPluginInfo,
   resolveAppOverride: (
     packageName: string,
     appMeta: RegistryPluginInfo["appMeta"],
   ) => RegistryPluginInfo["appMeta"],
 ): RegistryPluginInfo | null {
-  if (p.kind === "app" || p.appMeta) {
+  if (plugin.kind === "app" || plugin.appMeta) {
     return {
-      ...p,
+      ...plugin,
       kind: "app",
-      appMeta: p.appMeta,
+      appMeta: plugin.appMeta,
     };
   }
 
-  const appMeta = resolveAppOverride(p.name, undefined);
+  const appMeta = resolveAppOverride(plugin.name, undefined);
   if (!appMeta) return null;
   return {
-    ...p,
+    ...plugin,
     kind: "app",
     appMeta,
   };
 }
 
 export function toPluginListItem(
-  p: RegistryPluginInfo,
+  plugin: RegistryPluginInfo,
 ): RegistryPluginListItem {
   return {
-    name: p.name,
-    description: p.description,
-    stars: p.stars,
-    repository: `https://github.com/${p.gitRepo}`,
-    topics: p.topics,
-    latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
-    supports: p.supports,
-    npm: p.npm,
+    name: plugin.name,
+    description: plugin.description,
+    stars: plugin.stars,
+    repository: `https://github.com/${plugin.gitRepo}`,
+    topics: plugin.topics,
+    latestVersion: plugin.npm.v2Version || plugin.npm.v1Version || plugin.npm.v0Version,
+    supports: plugin.supports,
+    npm: plugin.npm,
   };
 }

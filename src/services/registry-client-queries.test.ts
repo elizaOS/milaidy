@@ -142,8 +142,8 @@ describe("registry-client-queries", () => {
 
     it("returns exact name match with highest score", () => {
       const results = scoreEntries(plugins, "discord", 10);
-      expect(results[0].p.name).toBe("@elizaos/plugin-discord");
-      expect(results[0].s).toBeGreaterThan(0);
+      expect(results[0].plugin.name).toBe("@elizaos/plugin-discord");
+      expect(results[0].score).toBeGreaterThan(0);
     });
 
     it("limits results to specified count", () => {
@@ -164,7 +164,7 @@ describe("registry-client-queries", () => {
 
     it("matches on description", () => {
       const results = scoreEntries(plugins, "connector", 10);
-      expect(results.some((r) => r.p.name.includes("discord"))).toBe(true);
+      expect(results.some((r) => r.plugin.name.includes("discord"))).toBe(true);
     });
 
     it("matches on topics", () => {
@@ -173,11 +173,11 @@ describe("registry-client-queries", () => {
     });
 
     it("uses extraNames callback for additional name matching", () => {
-      const results = scoreEntries(plugins, "chat-tool", 10, (p) => [
-        p.name === "@elizaos/plugin-discord" ? "chat-tool" : "",
+      const results = scoreEntries(plugins, "chat-tool", 10, (plugin) => [
+        plugin.name === "@elizaos/plugin-discord" ? "chat-tool" : "",
       ]);
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].p.name).toBe("@elizaos/plugin-discord");
+      expect(results[0].plugin.name).toBe("@elizaos/plugin-discord");
     });
 
     it("uses extraTerms callback for additional matching", () => {
@@ -186,9 +186,9 @@ describe("registry-client-queries", () => {
         "workspace-api",
         10,
         undefined,
-        (p) => (p.name.includes("notion") ? ["workspace-api"] : []),
+        (plugin) => (plugin.name.includes("notion") ? ["workspace-api"] : []),
       );
-      expect(results.some((r) => r.p.name.includes("notion"))).toBe(true);
+      expect(results.some((r) => r.plugin.name.includes("notion"))).toBe(true);
     });
   });
 
@@ -196,8 +196,8 @@ describe("registry-client-queries", () => {
   describe("toSearchResults", () => {
     it("normalizes scores relative to highest", () => {
       const input = [
-        { p: makePlugin({ name: "best" }), s: 100 },
-        { p: makePlugin({ name: "half" }), s: 50 },
+        { plugin: makePlugin({ name: "best" }), score: 100 },
+        { plugin: makePlugin({ name: "half" }), score: 50 },
       ];
       const results = toSearchResults(input);
       expect(results[0].score).toBe(1);
@@ -209,13 +209,13 @@ describe("registry-client-queries", () => {
     });
 
     it("includes expected fields", () => {
-      const p = makePlugin({
+      const plugin = makePlugin({
         name: "@elizaos/plugin-test",
         description: "desc",
         stars: 42,
         topics: ["ai"],
       });
-      const [result] = toSearchResults([{ p, s: 10 }]);
+      const [result] = toSearchResults([{ plugin, score: 10 }]);
       expect(result.name).toBe("@elizaos/plugin-test");
       expect(result.description).toBe("desc");
       expect(result.stars).toBe(42);
@@ -227,8 +227,8 @@ describe("registry-client-queries", () => {
   // ── toAppEntry ───────────────────────────────────────────────────
   describe("toAppEntry", () => {
     it("returns app entry when kind is 'app'", () => {
-      const p = makePlugin({ kind: "app" });
-      const result = toAppEntry(p, () => undefined);
+      const plugin = makePlugin({ kind: "app" });
+      const result = toAppEntry(plugin, () => undefined);
       expect(result).not.toBeNull();
       expect(result?.kind).toBe("app");
     });
@@ -244,19 +244,19 @@ describe("registry-client-queries", () => {
         minPlayers: null,
         maxPlayers: null,
       };
-      const p = makePlugin({ appMeta });
-      const result = toAppEntry(p, () => undefined);
+      const plugin = makePlugin({ appMeta });
+      const result = toAppEntry(plugin, () => undefined);
       expect(result).not.toBeNull();
     });
 
     it("returns null for non-app with no override", () => {
-      const p = makePlugin();
-      const result = toAppEntry(p, () => undefined);
+      const plugin = makePlugin();
+      const result = toAppEntry(plugin, () => undefined);
       expect(result).toBeNull();
     });
 
     it("applies override when resolver returns appMeta", () => {
-      const p = makePlugin();
+      const plugin = makePlugin();
       const override: RegistryAppMeta = {
         displayName: "Overridden",
         category: "game",
@@ -267,7 +267,7 @@ describe("registry-client-queries", () => {
         minPlayers: null,
         maxPlayers: null,
       };
-      const result = toAppEntry(p, () => override);
+      const result = toAppEntry(plugin, () => override);
       expect(result).not.toBeNull();
       expect(result?.appMeta?.displayName).toBe("Overridden");
     });
@@ -276,13 +276,13 @@ describe("registry-client-queries", () => {
   // ── toPluginListItem ─────────────────────────────────────────────
   describe("toPluginListItem", () => {
     it("maps all expected fields", () => {
-      const p = makePlugin({
+      const plugin = makePlugin({
         name: "@elizaos/plugin-test",
         description: "A desc",
         stars: 99,
         topics: ["ai", "chat"],
       });
-      const item = toPluginListItem(p);
+      const item = toPluginListItem(plugin);
       expect(item.name).toBe("@elizaos/plugin-test");
       expect(item.description).toBe("A desc");
       expect(item.stars).toBe(99);
@@ -292,17 +292,17 @@ describe("registry-client-queries", () => {
     });
 
     it("prefers v2Version for latestVersion", () => {
-      const p = makePlugin();
-      p.npm.v2Version = "2.0.0";
-      p.npm.v1Version = "1.0.0";
-      expect(toPluginListItem(p).latestVersion).toBe("2.0.0");
+      const plugin = makePlugin();
+      plugin.npm.v2Version = "2.0.0";
+      plugin.npm.v1Version = "1.0.0";
+      expect(toPluginListItem(plugin).latestVersion).toBe("2.0.0");
     });
 
     it("falls back to v1Version when v2 is null", () => {
-      const p = makePlugin();
-      p.npm.v2Version = null;
-      p.npm.v1Version = "1.0.0";
-      expect(toPluginListItem(p).latestVersion).toBe("1.0.0");
+      const plugin = makePlugin();
+      plugin.npm.v2Version = null;
+      plugin.npm.v1Version = "1.0.0";
+      expect(toPluginListItem(plugin).latestVersion).toBe("1.0.0");
     });
   });
 });

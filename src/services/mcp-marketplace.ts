@@ -167,10 +167,10 @@ export async function searchMcpMarketplace(
 
     // Apply search filter if query provided
     if (query) {
-      const q = query.toLowerCase();
-      const matchName = server.name.toLowerCase().includes(q);
-      const matchTitle = server.title?.toLowerCase().includes(q);
-      const matchDesc = server.description?.toLowerCase().includes(q);
+      const lowerQuery = query.toLowerCase();
+      const matchName = server.name.toLowerCase().includes(lowerQuery);
+      const matchTitle = server.title?.toLowerCase().includes(lowerQuery);
+      const matchDesc = server.description?.toLowerCase().includes(lowerQuery);
       if (!matchName && !matchTitle && !matchDesc) continue;
     }
 
