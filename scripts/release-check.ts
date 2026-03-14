@@ -1,7 +1,8 @@
 #!/usr/bin/env -S node --import tsx
 
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 type PackFile = { path: string };
 type PackResult = { files?: PackFile[] };
@@ -63,6 +64,11 @@ const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
 ];
+const localPackHotspotPaths = [
+  "dist/node_modules",
+  "apps/app/dist/vrms",
+  "apps/app/dist/animations",
+];
 
 function runPackDry(): PackResult[] {
   const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
@@ -71,6 +77,67 @@ function runPackDry(): PackResult[] {
     maxBuffer: 1024 * 1024 * 100,
   });
   return JSON.parse(raw) as PackResult[];
+}
+
+export function findLocalPackHotspots(
+  candidates = localPackHotspotPaths,
+  pathExists: (candidate: string) => boolean = existsSync,
+): string[] {
+  return candidates.filter((candidate) => pathExists(candidate));
+}
+
+export function shouldSkipExactPackDryRun(
+  hotspots: string[],
+  env = process.env,
+): boolean {
+  if (hotspots.length === 0) {
+    return false;
+  }
+
+  if (env.CI || env.GITHUB_ACTIONS) {
+    return false;
+  }
+
+  if (env.MILADY_FORCE_PACK_DRY_RUN === "1") {
+    return false;
+  }
+
+  return true;
+}
+
+function runFastLocalPackCheck(hotspots: string[]) {
+  console.warn(
+    "release-check: skipping exact npm pack --dry-run because local desktop build artifacts are present and package.json whitelists broad build directories:",
+  );
+  for (const hotspot of hotspots) {
+    console.warn(`  - ${hotspot}`);
+  }
+  console.warn(
+    "release-check: package.json files includes 'dist' and 'apps/app/dist', so a local pack dry-run has to walk those trees. Set MILADY_FORCE_PACK_DRY_RUN=1 to run the exact pack check anyway.",
+  );
+
+  const missing = requiredPaths.filter((path) => !existsSync(path));
+  const forbidden = forbiddenPrefixes.filter((prefix) =>
+    existsSync(prefix.replace(/\/$/, "")),
+  );
+
+  if (missing.length > 0 || forbidden.length > 0) {
+    if (missing.length > 0) {
+      console.error("release-check: missing files in publish roots:");
+      for (const path of missing) {
+        console.error(`  - ${path}`);
+      }
+    }
+    if (forbidden.length > 0) {
+      console.error("release-check: forbidden files present in publish roots:");
+      for (const prefix of forbidden) {
+        console.error(`  - ${prefix}`);
+      }
+    }
+    process.exit(1);
+  }
+
+  console.log("release-check: local publish-root sanity check looks OK.");
 }
 
 function assertReleaseWorkflowHasNotaryWrapper() {
@@ -284,6 +351,11 @@ function main() {
   assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
+  const localHotspots = findLocalPackHotspots();
+  if (shouldSkipExactPackDryRun(localHotspots)) {
+    runFastLocalPackCheck(localHotspots);
+    return;
+  }
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));
@@ -312,4 +384,6 @@ function main() {
   console.log("release-check: npm pack contents look OK.");
 }
 
-main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
