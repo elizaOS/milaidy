@@ -407,6 +407,17 @@ $bmp.Dispose()`;
 
     const id = `game_${++canvasCounter}`;
 
+    // On macOS, force the native WKWebView renderer which has built-in
+    // WebGPU support (macOS 26+). On Linux/Windows, CEF is the only option
+    // and will need upstream Electrobun support for --enable-unsafe-webgpu.
+    const useNativeRenderer = process.platform === "darwin";
+    if (!useNativeRenderer) {
+      console.warn(
+        "[Canvas] Game window using CEF renderer — WebGPU may not be available. " +
+          "Upstream Electrobun support for CEF WebGPU flags is pending.",
+      );
+    }
+
     const win = new BrowserWindow({
       title: options.title ?? "Milady Game",
       url: options.url,
@@ -420,6 +431,9 @@ $bmp.Dispose()`;
       sandbox: true,
       // @ts-expect-error — partition is a valid Electrobun option not yet typed
       partition: "game-isolated",
+      // On macOS, use the native WKWebView renderer for WebGPU support.
+      // On Linux/Win, omit this to use the default CEF renderer.
+      ...(useNativeRenderer ? { renderer: "native" as const } : {}),
       // No navigationRules restriction — game sites navigate externally.
     });
 

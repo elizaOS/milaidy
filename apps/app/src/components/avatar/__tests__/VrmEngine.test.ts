@@ -514,7 +514,7 @@ describe("VrmEngine", () => {
       expect(hoisted.mockWebGpuRendererInstance.init).toHaveBeenCalledTimes(1);
     });
 
-    it("forces WebGL context loss during dispose()", async () => {
+    it("cleans up WebGL resources during dispose()", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
       await waitForEngineReady(engine);
@@ -522,7 +522,6 @@ describe("VrmEngine", () => {
       engine.dispose();
 
       expect(hoisted.mockRendererInstance.dispose).toHaveBeenCalled();
-      expect(hoisted.mockRendererInstance.forceContextLoss).toHaveBeenCalled();
     });
   });
 

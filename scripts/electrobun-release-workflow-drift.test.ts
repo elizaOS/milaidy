@@ -25,7 +25,7 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
 );
 const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
-  "apps/app/test/electron-packaged/electrobun-windows-startup.e2e.spec.ts",
+  "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
 );
 
 describe("Electrobun release workflow drift", () => {
@@ -110,6 +110,22 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
   });
+
+  it("materializes a local electrobun package before packaging", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "name: Materialize local electrobun package for build",
+    );
+    expect(workflow).toContain(
+      "const src = fs.realpathSync('node_modules/electrobun');",
+    );
+    expect(workflow).toContain(
+      "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
+    );
+    expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
+  });
+
   it("keeps updater transport files off the public GitHub release asset list", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
@@ -155,6 +171,21 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(stageScript).toContain("xcrun notarytool submit \\");
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
+  });
+
+  it("rebuilds the staged macOS direct launcher with the packaged launcher architecture", () => {
+    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+
+    expect(stageScript).toContain(
+      'LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"',
+    );
+    expect(stageScript).toContain("clang_arch_args=()");
+    expect(stageScript).toContain('clang_arch_args+=(-arch "$arch")');
+    expect(stageScript).toContain(
+      'echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"',
+    );
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: bash variable expansion in shell script assertion
+    expect(stageScript).toContain('"${clang_arch_args[@]}"');
   });
 
   it("pins the native macOS effects build to C++17", () => {
@@ -243,16 +274,37 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("passes a Chromium remote debugging argument to the packaged Windows app test", () => {
+  it("runs the Windows packaged renderer bootstrap check without installing a separate browser", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "name: Run Windows packaged renderer bootstrap check",
+    );
+    expect(workflow).toContain(
+      "bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
+    );
+    expect(workflow).not.toContain(
+      "name: Install Playwright Chromium (Windows)",
+    );
+    expect(workflow).not.toContain(
+      "bunx playwright install chromium --with-deps",
+    );
+  });
+
+  it("verifies the packaged Windows renderer reaches the external API without CDP assumptions", () => {
     const windowsPackagedTest = fs.readFileSync(
       WINDOWS_PACKAGED_TEST_PATH,
       "utf8",
     );
 
     expect(windowsPackagedTest).toContain(
-      "[`--remote-debugging-port=$" + "{debugPort}`]",
+      "MILADY_DESKTOP_TEST_API_BASE: api.baseUrl",
     );
-    expect(windowsPackagedTest).toContain(
+    expect(windowsPackagedTest).toContain('request.includes("/api/status")');
+    expect(windowsPackagedTest).toContain("waitForRendererBootstrap");
+    expect(windowsPackagedTest).not.toContain("chromium.connectOverCDP");
+    expect(windowsPackagedTest).not.toContain("--remote-debugging-port");
+    expect(windowsPackagedTest).not.toContain(
       "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
     );
   });

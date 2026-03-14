@@ -149,7 +149,7 @@ jobs:
     name: Build ${{ matrix.platform.name }}
     needs: [prepare, validate-release]
     runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 75
+    timeout-minutes: 150
     defaults:
       run:
         shell: bash -euo pipefail {0}
@@ -292,7 +292,7 @@ jobs:
           fi
         working-directory: apps/app/electrobun
 
-      # Build the webview bridge preload (window.electron shim injected into the webview)
+      # Build the webview bridge preload (direct Electrobun RPC bridge injected into the webview)
       - name: Build webview bridge preload
         run: bun run build:preload
         working-directory: apps/app/electrobun
@@ -411,6 +411,19 @@ jobs:
           else
             bun install -g "electrobun@$ELECTROBUN_VERSION"
           fi
+
+      - name: Materialize local electrobun package for build
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const src = fs.realpathSync('node_modules/electrobun');
+            const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');
+            fs.rmSync(dest, { recursive: true, force: true });
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.cpSync(src, dest, { recursive: true });
+            console.log('Materialized local electrobun package:', dest, '<-', src);
+          "
 
       - name: Ensure Windows rcedit binary is available for Electrobun
         if: matrix.platform.os == 'windows'
@@ -655,15 +668,11 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
           Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
 
-      - name: Install Playwright Chromium (Windows)
-        if: matrix.platform.os == 'windows'
-        run: bunx playwright install chromium --with-deps
-
-      - name: Run Windows UI Playwright Tests
+      - name: Run Windows packaged renderer bootstrap check
         if: matrix.platform.os == 'windows'
         run: |
           cd apps/app
-          bunx playwright test --config playwright.electron.packaged.config.ts test/electron-packaged/electrobun-windows-startup.e2e.spec.ts
+          bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts
 
       - name: Upload Windows Playwright UI diagnostics
         if: failure() && matrix.platform.os == 'windows'
@@ -697,6 +706,7 @@ jobs:
           WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
           WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
           WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
         run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
 
       - name: Verify Windows code signature

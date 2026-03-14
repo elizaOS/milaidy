@@ -935,6 +935,15 @@ export type MiladyRPCSchema = {
 
       // GPU Window push events
       gpuWindowClosed: { id: string };
+
+      // WebGPU browser support status
+      webGpuBrowserStatus: {
+        available: boolean;
+        reason: string;
+        renderer: string;
+        chromeBetaPath: string | null;
+        downloadUrl: string | null;
+      };
     };
   }>;
 };
@@ -1189,6 +1198,9 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
 
   // GPU Window push events
   "gpuWindow:closed": "gpuWindowClosed",
+
+  // WebGPU browser support
+  "webgpu:browserStatus": "webGpuBrowserStatus",
 };
 
 /**

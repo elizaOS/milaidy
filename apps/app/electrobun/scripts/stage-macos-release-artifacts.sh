@@ -104,10 +104,30 @@ if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; th
 fi
 
 TMP_LAUNCHER_PATH="$TMP_ROOT/direct-launcher"
+LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"
+if [[ -z "$LAUNCHER_ARCHES" ]]; then
+  echo "stage-macos-release-artifacts: failed to determine launcher architecture for $LAUNCHER_PATH"
+  exit 1
+fi
+
+clang_arch_args=()
+for arch in $LAUNCHER_ARCHES; do
+  case "$arch" in
+    arm64|x86_64)
+      clang_arch_args+=(-arch "$arch")
+      ;;
+    *)
+      echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"
+      exit 1
+      ;;
+  esac
+done
+
 /usr/bin/clang \
   -O2 \
   -Wall \
   -Wextra \
+  "${clang_arch_args[@]}" \
   -mmacosx-version-min=11.0 \
   "$DIRECT_LAUNCHER_SOURCE" \
   -o "$TMP_LAUNCHER_PATH"

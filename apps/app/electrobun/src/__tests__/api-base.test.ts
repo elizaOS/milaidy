@@ -68,22 +68,32 @@ describe("resolveExternalApiBase", () => {
     });
   });
 
-  it("resolves MILADY_ELECTRON_TEST_API_BASE first (highest priority)", () => {
+  it("resolves MILADY_DESKTOP_TEST_API_BASE first (highest priority)", () => {
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_TEST_API_BASE: "http://localhost:9999",
+      MILADY_DESKTOP_TEST_API_BASE: "http://localhost:9999",
+      MILADY_ELECTRON_TEST_API_BASE: "http://localhost:7777",
       MILADY_API_BASE_URL: "http://localhost:8888",
     });
     expect(result.base).toBe("http://localhost:9999");
-    expect(result.source).toBe("MILADY_ELECTRON_TEST_API_BASE");
+    expect(result.source).toBe("MILADY_DESKTOP_TEST_API_BASE");
     expect(result.invalidSources).toEqual([]);
   });
 
-  it("falls through to MILADY_ELECTRON_API_BASE when test var missing", () => {
+  it("falls through to MILADY_DESKTOP_API_BASE when test var missing", () => {
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_API_BASE: "https://api.milady.ai",
+      MILADY_DESKTOP_API_BASE: "https://api.milady.ai",
+      MILADY_ELECTRON_API_BASE: "https://legacy.milady.ai",
     });
     expect(result.base).toBe("https://api.milady.ai");
-    expect(result.source).toBe("MILADY_ELECTRON_API_BASE");
+    expect(result.source).toBe("MILADY_DESKTOP_API_BASE");
+  });
+
+  it("falls back to legacy MILADY_ELECTRON_* variables", () => {
+    const result = resolveExternalApiBase({
+      MILADY_ELECTRON_TEST_API_BASE: "http://localhost:9999",
+    });
+    expect(result.base).toBe("http://localhost:9999");
+    expect(result.source).toBe("MILADY_ELECTRON_TEST_API_BASE");
   });
 
   it("falls through to MILADY_API_BASE_URL", () => {
@@ -104,6 +114,8 @@ describe("resolveExternalApiBase", () => {
 
   it("skips invalid URLs and records them in invalidSources", () => {
     const result = resolveExternalApiBase({
+      MILADY_DESKTOP_TEST_API_BASE: "not-a-url",
+      MILADY_DESKTOP_API_BASE: "ftp://bad-protocol.com",
       MILADY_ELECTRON_TEST_API_BASE: "not-a-url",
       MILADY_ELECTRON_API_BASE: "ftp://bad-protocol.com",
       MILADY_API_BASE_URL: "https://valid.milady.ai",
@@ -111,6 +123,8 @@ describe("resolveExternalApiBase", () => {
     expect(result.base).toBe("https://valid.milady.ai");
     expect(result.source).toBe("MILADY_API_BASE_URL");
     expect(result.invalidSources).toEqual([
+      "MILADY_DESKTOP_TEST_API_BASE",
+      "MILADY_DESKTOP_API_BASE",
       "MILADY_ELECTRON_TEST_API_BASE",
       "MILADY_ELECTRON_API_BASE",
     ]);
@@ -118,20 +132,20 @@ describe("resolveExternalApiBase", () => {
 
   it("returns null when all env vars are invalid", () => {
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_TEST_API_BASE: "garbage",
+      MILADY_DESKTOP_TEST_API_BASE: "garbage",
       MILADY_API_BASE: "ftp://nope",
     });
     expect(result.base).toBeNull();
     expect(result.source).toBeNull();
     expect(result.invalidSources).toEqual([
-      "MILADY_ELECTRON_TEST_API_BASE",
+      "MILADY_DESKTOP_TEST_API_BASE",
       "MILADY_API_BASE",
     ]);
   });
 
   it("ignores empty string env vars", () => {
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_TEST_API_BASE: "",
+      MILADY_DESKTOP_TEST_API_BASE: "",
       MILADY_API_BASE: "http://localhost:2138",
     });
     expect(result.base).toBe("http://localhost:2138");

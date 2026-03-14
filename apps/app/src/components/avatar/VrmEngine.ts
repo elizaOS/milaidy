@@ -288,9 +288,6 @@ export class VrmEngine {
         if (this.loadingAborted) {
           releaseKnownWebGpuWarningFilter?.();
           renderer.dispose();
-          if (backend === "webgl") {
-            renderer.forceContextLoss?.();
-          }
           this.settleReady();
           return;
         }
@@ -392,9 +389,6 @@ export class VrmEngine {
     this.cleanupTeleportDissolve();
     if (this.renderer) {
       this.renderer.dispose();
-      if (this.rendererBackend === "webgl") {
-        this.renderer.forceContextLoss?.();
-      }
     }
     this.renderer = null;
     this.rendererBackend = "webgl";

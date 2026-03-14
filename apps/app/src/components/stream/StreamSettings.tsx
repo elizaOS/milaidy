@@ -156,6 +156,7 @@ function WidgetRow({
   onToggle: () => void;
   onUpdate: (patch: Partial<Pick<WidgetInstance, "config">>) => void;
 }) {
+  const { t } = useApp();
   const [expanded, setExpanded] = useState(false);
   const def = getAllWidgets().find((d) => d.type === instance.type);
   const hasConfig = def && Object.keys(def.configSchema).length > 0;
@@ -167,7 +168,11 @@ function WidgetRow({
         <Switch
           checked={instance.enabled}
           onCheckedChange={onToggle}
-          title={instance.enabled ? "Disable widget" : "Enable widget"}
+          title={
+            instance.enabled
+              ? t("streamsettings.DisableWidget")
+              : t("streamsettings.EnableWidget")
+          }
         />
 
         <div className="flex-1 min-w-0">
@@ -188,7 +193,9 @@ function WidgetRow({
             onClick={() => setExpanded((x) => !x)}
             className="text-muted hover:text-txt text-[10px] h-6 px-1.5 py-0 bg-bg-muted"
           >
-            {expanded ? "▲ config" : "▼ config"}
+            {expanded
+              ? t("streamsettings.ConfigExpanded")
+              : t("streamsettings.ConfigCollapsed")}
           </Button>
         )}
       </div>
@@ -242,7 +249,7 @@ export function StreamSettings({
       variant={section === id ? "default" : "ghost"}
       size="sm"
       onClick={() => setSection(id)}
-      className={`px-3 py-1.5 text-[12px] font-medium rounded transition-colors h-auto ${
+      className={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors h-auto ${
         section === id
           ? "bg-accent/20 text-accent hover:bg-accent/30"
           : "text-muted hover:text-txt hover:bg-bg-muted"
@@ -278,9 +285,9 @@ export function StreamSettings({
 
         {/* Nav */}
         <div className="flex gap-1 px-4 py-2 border-b border-border flex-shrink-0">
-          {navBtn("channel", "Channel")}
-          {navBtn("overlays", "Overlays")}
-          {navBtn("source", "Source")}
+          {navBtn("channel", t("streamsettings.NavChannel"))}
+          {navBtn("overlays", t("streamsettings.NavOverlays"))}
+          {navBtn("source", t("streamsettings.NavSource"))}
         </div>
 
         {/* Content */}
@@ -310,7 +317,7 @@ export function StreamSettings({
                         variant="outline"
                         title={
                           streamLive
-                            ? "Stop stream to change channel"
+                            ? t("streamsettings.StopStreamToChangeChannel")
                             : undefined
                         }
                         onClick={() => onDestinationChange(d.id)}
@@ -432,15 +439,15 @@ export function StreamSettings({
                           >
                             {STREAM_SOURCE_LABELS[st]}
                           </div>
-                          <div className="text-[10px] text-muted">
+                          <div className="text-[10px] text-muted mt-1.5">
                             {st === "stream-tab" &&
-                              "Capture the stream browser tab (default)"}
+                              t("streamsettings.CaptureStreamBrowserTab")}
                             {st === "game" &&
                               (activeGameViewerUrl.trim()
-                                ? `Active game: ${activeGameViewerUrl}`
-                                : "No game active")}
+                                ? `${t("streamsettings.ActiveGame")} ${activeGameViewerUrl}`
+                                : t("streamsettings.NoGameActive"))}
                             {st === "custom-url" &&
-                              "Broadcast from a custom HTTP(S) URL"}
+                              t("streamsettings.BroadcastFromCustomUrl")}
                           </div>
                         </div>
                       </Button>

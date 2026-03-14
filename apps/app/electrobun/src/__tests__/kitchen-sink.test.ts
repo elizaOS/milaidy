@@ -3580,22 +3580,22 @@ describe("resolveExternalApiBase — priority order and validation", () => {
     const { resolveExternalApiBase } =
       await vi.importActual<typeof import("../api-base")>("../api-base");
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_TEST_API_BASE: "http://test.local:4000",
+      MILADY_DESKTOP_TEST_API_BASE: "http://test.local:4000",
       MILADY_API_BASE: "http://fallback.local:5000",
     });
     expect(result.base).toBe("http://test.local:4000");
-    expect(result.source).toBe("MILADY_ELECTRON_TEST_API_BASE");
+    expect(result.source).toBe("MILADY_DESKTOP_TEST_API_BASE");
   });
 
   it("skips invalid URLs and falls back to next key", async () => {
     const { resolveExternalApiBase } =
       await vi.importActual<typeof import("../api-base")>("../api-base");
     const result = resolveExternalApiBase({
-      MILADY_ELECTRON_TEST_API_BASE: "not-a-url",
+      MILADY_DESKTOP_TEST_API_BASE: "not-a-url",
       MILADY_API_BASE: "http://good.local:3000",
     });
     expect(result.base).toBe("http://good.local:3000");
-    expect(result.invalidSources).toContain("MILADY_ELECTRON_TEST_API_BASE");
+    expect(result.invalidSources).toContain("MILADY_DESKTOP_TEST_API_BASE");
   });
 
   it("rejects non-http protocols (file:, ftp:, etc.)", async () => {

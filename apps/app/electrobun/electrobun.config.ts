@@ -84,12 +84,37 @@ export default {
       bundleWGPU: true,
       defaultRenderer: "cef",
       icon: "assets/appIcon.png",
+      // Enable WebGPU in CEF. The Electrobun Linux defaults disable GPU for VM
+      // compatibility; override those with `false` so the GPU pipeline stays active
+      // and WebGPU can be used via navigator.gpu.
+      // Note: The native C++ code supports `false` to skip default flags, but
+      // the published TypeScript types only allow `string | true`. Cast needed
+      // until upstream fixes the type definition.
+      chromiumFlags: {
+        "enable-unsafe-webgpu": true,
+        "enable-features": "Vulkan",
+        // Override Linux defaults that disable GPU
+        "disable-gpu": false,
+        "disable-gpu-compositing": false,
+        "disable-gpu-sandbox": false,
+        "enable-software-rasterizer": false,
+        "force-software-rasterizer": false,
+        "disable-accelerated-2d-canvas": false,
+        "disable-accelerated-video-decode": false,
+        "disable-accelerated-video-encode": false,
+        "disable-gpu-memory-buffer-video-frames": false,
+      } as unknown as Record<string, string | true>,
     },
     win: {
       bundleCEF: true,
       bundleWGPU: true,
       defaultRenderer: "cef",
       icon: "assets/appIcon.ico",
+      // Enable WebGPU in CEF on Windows.
+      chromiumFlags: {
+        "enable-unsafe-webgpu": true,
+        "enable-features": "Vulkan",
+      },
     },
   },
   release: {

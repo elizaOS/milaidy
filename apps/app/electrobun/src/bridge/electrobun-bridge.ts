@@ -266,6 +266,9 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
 
   // GPU Window push events
   "gpuWindow:closed": "gpuWindowClosed",
+
+  // WebGPU browser support
+  "webgpu:browserStatus": "webGpuBrowserStatus",
 };
 
 // Reverse mapping: RPC message name → Electron push channel

@@ -652,7 +652,6 @@ function VectorGraph3D({
           }
         }
         renderer.dispose();
-        if (renderer.forceContextLoss) renderer.forceContextLoss();
         rendererRef.current = null;
         sceneRef.current = null;
         cameraRef.current = null;

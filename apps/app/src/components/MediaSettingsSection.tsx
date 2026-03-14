@@ -36,39 +36,103 @@ interface ProviderOption {
 }
 
 const IMAGE_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
-  { id: "fal", label: "FAL.ai", hint: "Flux 2, Kling, Recraft, Grok" },
-  { id: "openai", label: "OpenAI", hint: "DALL-E 3" },
-  { id: "google", label: "Google", hint: "Imagen 3" },
-  { id: "xai", label: "xAI", hint: "Aurora" },
+  {
+    id: "cloud",
+    label: "Milady Cloud",
+    hint: "mediasettingssection.ProviderHintNoSetup",
+  },
+  {
+    id: "fal",
+    label: "FAL.ai",
+    hint: "mediasettingssection.ProviderHintFalImage",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    hint: "mediasettingssection.ProviderHintOpenAIImage",
+  },
+  {
+    id: "google",
+    label: "Google",
+    hint: "mediasettingssection.ProviderHintGoogleImage",
+  },
+  {
+    id: "xai",
+    label: "xAI",
+    hint: "mediasettingssection.ProviderHintXAIAurora",
+  },
 ];
 
 const VIDEO_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
-  { id: "fal", label: "FAL.ai", hint: "Veo 3, Sora 2, Kling 3, Minimax" },
-  { id: "openai", label: "OpenAI", hint: "Sora" },
-  { id: "google", label: "Google", hint: "Veo" },
+  {
+    id: "cloud",
+    label: "Milady Cloud",
+    hint: "mediasettingssection.ProviderHintNoSetup",
+  },
+  {
+    id: "fal",
+    label: "FAL.ai",
+    hint: "mediasettingssection.ProviderHintFalVideo",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    hint: "mediasettingssection.ProviderHintOpenAIVideo",
+  },
+  {
+    id: "google",
+    label: "Google",
+    hint: "mediasettingssection.ProviderHintGoogleVideo",
+  },
 ];
 
 const AUDIO_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
-  { id: "suno", label: "Suno", hint: "Music generation" },
-  { id: "elevenlabs", label: "ElevenLabs", hint: "Sound effects" },
+  {
+    id: "cloud",
+    label: "Milady Cloud",
+    hint: "mediasettingssection.ProviderHintNoSetup",
+  },
+  { id: "suno", label: "Suno", hint: "mediasettingssection.ProviderHintSuno" },
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    hint: "mediasettingssection.ProviderHintElevenLabs",
+  },
 ];
 
 const VISION_PROVIDERS: ProviderOption[] = [
-  { id: "cloud", label: "Milady Cloud", hint: "No setup needed" },
-  { id: "openai", label: "OpenAI", hint: "GPT-4o Vision" },
-  { id: "google", label: "Google", hint: "Gemini Vision" },
-  { id: "anthropic", label: "Anthropic", hint: "Claude Vision" },
-  { id: "xai", label: "xAI", hint: "Grok Vision" },
+  {
+    id: "cloud",
+    label: "Milady Cloud",
+    hint: "mediasettingssection.ProviderHintNoSetup",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    hint: "mediasettingssection.ProviderHintOpenAIVision",
+  },
+  {
+    id: "google",
+    label: "Google",
+    hint: "mediasettingssection.ProviderHintGoogleVision",
+  },
+  {
+    id: "anthropic",
+    label: "Anthropic",
+    hint: "mediasettingssection.ProviderHintAnthropicVision",
+  },
+  {
+    id: "xai",
+    label: "xAI",
+    hint: "mediasettingssection.ProviderHintXAIVision",
+  },
 ];
 
 const CATEGORY_LABELS: Record<MediaCategory, string> = {
-  image: "Image Generation",
-  video: "Video Generation",
-  audio: "Audio / Music",
-  vision: "Vision (Analysis)",
+  image: "mediasettingssection.ImageGeneration",
+  video: "mediasettingssection.VideoGeneration",
+  audio: "mediasettingssection.AudioMusic",
+  vision: "mediasettingssection.VisionAnalysis",
 };
 
 function getProvidersForCategory(category: MediaCategory): ProviderOption[] {
@@ -87,36 +151,66 @@ function getProvidersForCategory(category: MediaCategory): ProviderOption[] {
 function getApiKeyField(
   category: MediaCategory,
   provider: string,
-): { path: string; label: string } | null {
+): { path: string; labelKey: string } | null {
   if (provider === "cloud") return null;
 
   switch (category) {
     case "image":
     case "video":
       if (provider === "fal")
-        return { path: `${category}.fal.apiKey`, label: "FAL API Key" };
+        return {
+          path: `${category}.fal.apiKey`,
+          labelKey: "mediasettingssection.FalApiKey",
+        };
       if (provider === "openai")
-        return { path: `${category}.openai.apiKey`, label: "OpenAI API Key" };
+        return {
+          path: `${category}.openai.apiKey`,
+          labelKey: "mediasettingssection.OpenAIApiKey",
+        };
       if (provider === "google")
-        return { path: `${category}.google.apiKey`, label: "Google API Key" };
+        return {
+          path: `${category}.google.apiKey`,
+          labelKey: "mediasettingssection.GoogleApiKey",
+        };
       if (provider === "xai")
-        return { path: `${category}.xai.apiKey`, label: "xAI API Key" };
+        return {
+          path: `${category}.xai.apiKey`,
+          labelKey: "mediasettingssection.XAIApiKey",
+        };
       break;
     case "audio":
       if (provider === "suno")
-        return { path: "audio.suno.apiKey", label: "Suno API Key" };
+        return {
+          path: "audio.suno.apiKey",
+          labelKey: "mediasettingssection.SunoApiKey",
+        };
       if (provider === "elevenlabs")
-        return { path: "audio.elevenlabs.apiKey", label: "ElevenLabs API Key" };
+        return {
+          path: "audio.elevenlabs.apiKey",
+          labelKey: "mediasettingssection.ElevenLabsApiKey",
+        };
       break;
     case "vision":
       if (provider === "openai")
-        return { path: "vision.openai.apiKey", label: "OpenAI API Key" };
+        return {
+          path: "vision.openai.apiKey",
+          labelKey: "mediasettingssection.OpenAIApiKey",
+        };
       if (provider === "google")
-        return { path: "vision.google.apiKey", label: "Google API Key" };
+        return {
+          path: "vision.google.apiKey",
+          labelKey: "mediasettingssection.GoogleApiKey",
+        };
       if (provider === "anthropic")
-        return { path: "vision.anthropic.apiKey", label: "Anthropic API Key" };
+        return {
+          path: "vision.anthropic.apiKey",
+          labelKey: "mediasettingssection.AnthropicApiKey",
+        };
       if (provider === "xai")
-        return { path: "vision.xai.apiKey", label: "xAI API Key" };
+        return {
+          path: "vision.xai.apiKey",
+          labelKey: "mediasettingssection.XAIApiKey",
+        };
       break;
   }
   return null;
@@ -276,7 +370,7 @@ export function MediaSettingsSection() {
   return (
     <div className="flex flex-col gap-4">
       {/* Category tabs */}
-      <div className="flex border border-border">
+      <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
         {(["image", "video", "audio", "vision"] as MediaCategory[]).map(
           (cat) => {
             const active = activeTab === cat;
@@ -293,7 +387,7 @@ export function MediaSettingsSection() {
                 }`}
                 onClick={() => setActiveTab(cat)}
               >
-                <span>{CATEGORY_LABELS[cat]}</span>
+                <span>{t(CATEGORY_LABELS[cat])}</span>
                 <span
                   className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${
                     catConfigured ? "bg-green-500" : "bg-yellow-500"
@@ -326,13 +420,15 @@ export function MediaSettingsSection() {
 
         {/* Status badge */}
         <span
-          className={`ml-auto text-[10px] px-2 py-0.5 border ${
+          className={`ml-auto text-[10px] px-2 py-0.5 border rounded-md ${
             configured
               ? "border-green-600 text-green-600"
               : "border-yellow-600 text-yellow-600"
           }`}
         >
-          {configured ? "Configured" : "Needs Setup"}
+          {configured
+            ? t("mediasettingssection.Configured")
+            : t("mediasettingssection.NeedsSetup")}
         </span>
       </div>
 
@@ -365,10 +461,10 @@ export function MediaSettingsSection() {
                     key={p.id}
                     variant="outline"
                     size="sm"
-                    className={`h-auto px-3 py-2 text-xs font-normal rounded-none border ${
+                    className={`h-auto px-3 py-2 text-xs font-normal rounded-lg border border-border ${
                       active
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-border bg-card text-txt hover:border-accent"
+                        ? "bg-accent/10 border-accent text-accent"
+                        : "bg-card text-txt hover:bg-bg-hover"
                     }`}
                     onClick={() =>
                       updateCategoryConfig(activeTab, {
@@ -388,7 +484,7 @@ export function MediaSettingsSection() {
                     <div className="text-[10px] text-muted mt-0.5">
                       {p.id === "cloud"
                         ? t("miladyclouddashboard.NoSetupNeeded")
-                        : p.hint}
+                        : t(p.hint)}
                     </div>
                   </Button>
                 );
@@ -397,18 +493,20 @@ export function MediaSettingsSection() {
 
           {/* API Key input */}
           {apiKeyField && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">{apiKeyField.label}</span>
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold">
+                {t(apiKeyField.labelKey)}
+              </span>
               <Input
                 type="password"
-                className="h-9 px-2.5 py-1.5 bg-card border-border text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
+                className="h-9 px-3 py-2 bg-card border-border text-xs rounded-lg shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
                 placeholder={
                   getNestedValue(
                     mediaConfig as Record<string, unknown>,
                     apiKeyField.path,
                   )
-                    ? "API key set — leave blank to keep"
-                    : "Enter API key..."
+                    ? t("mediasettingssection.ApiKeySetLeaveBlank")
+                    : t("mediasettingssection.EnterApiKey")
                 }
                 onChange={(e) =>
                   updateNestedValue(
@@ -427,7 +525,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -492,7 +590,7 @@ export function MediaSettingsSection() {
                   {t("mediasettingssection.Model")}
                 </span>
                 <select
-                  className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                  className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                   value={
                     (getNestedValue(
                       mediaConfig as Record<string, unknown>,
@@ -516,7 +614,7 @@ export function MediaSettingsSection() {
                   {t("mediasettingssection.Quality")}
                 </span>
                 <select
-                  className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                  className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                   value={
                     (getNestedValue(
                       mediaConfig as Record<string, unknown>,
@@ -543,7 +641,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -641,7 +739,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -673,7 +771,7 @@ export function MediaSettingsSection() {
                 min={0.5}
                 max={22}
                 step={0.5}
-                className="h-9 px-2.5 py-1.5 bg-card border-border text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-accent w-24"
+                className="h-9 px-3 py-2 bg-card border-border text-xs rounded-lg shadow-sm focus-visible:ring-1 focus-visible:ring-accent w-24"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -697,7 +795,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -727,7 +825,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,
@@ -757,7 +855,7 @@ export function MediaSettingsSection() {
                 {t("mediasettingssection.Model")}
               </span>
               <select
-                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none"
+                className="px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-xs focus:border-[var(--accent)] focus:outline-none rounded-lg"
                 value={
                   (getNestedValue(
                     mediaConfig as Record<string, unknown>,

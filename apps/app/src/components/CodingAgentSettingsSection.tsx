@@ -14,21 +14,29 @@ const AGENT_TABS: AgentTab[] = ["claude", "gemini", "codex", "aider"];
 
 const APPROVAL_PRESETS: {
   value: ApprovalPreset;
-  label: string;
-  desc: string;
+  labelKey: string;
+  descKey: string;
 }[] = [
-  { value: "readonly", label: "Read Only", desc: "Read-only tools only" },
+  {
+    value: "readonly",
+    labelKey: "codingagentsettingssection.PresetReadOnly",
+    descKey: "codingagentsettingssection.PresetReadOnlyDesc",
+  },
   {
     value: "standard",
-    label: "Standard",
-    desc: "Read + write, asks for shell/network",
+    labelKey: "codingagentsettingssection.PresetStandard",
+    descKey: "codingagentsettingssection.PresetStandardDesc",
   },
   {
     value: "permissive",
-    label: "Permissive",
-    desc: "File ops auto-approved, asks for shell",
+    labelKey: "codingagentsettingssection.PresetPermissive",
+    descKey: "codingagentsettingssection.PresetPermissiveDesc",
   },
-  { value: "autonomous", label: "Autonomous", desc: "All tools auto-approved" },
+  {
+    value: "autonomous",
+    labelKey: "codingagentsettingssection.PresetAutonomous",
+    descKey: "codingagentsettingssection.PresetAutonomousDesc",
+  },
 ];
 
 interface ModelOption {
@@ -287,8 +295,7 @@ export function CodingAgentSettingsSection() {
     return (
       <div className="flex flex-col gap-2 text-xs">
         <div className="text-[var(--muted)]">
-          No supported coding agent CLIs detected. Install at least one of:
-          Claude, Gemini, Codex, or Aider.
+          {t("codingagentsettingssection.NoSupportedCLIs")}
         </div>
         <div className="flex flex-col gap-1 text-[11px] text-[var(--muted)]">
           {AGENT_TABS.map((agent) => {
@@ -296,7 +303,9 @@ export function CodingAgentSettingsSection() {
             return (
               <div key={agent}>
                 <span className="font-semibold">{AGENT_LABELS[agent]}:</span>{" "}
-                {pf?.installCommand ? `Install with ${pf.installCommand}` : ""}
+                {pf?.installCommand
+                  ? `${t("codingagentsettingssection.InstallWith")} ${pf.installCommand}`
+                  : ""}
                 {pf?.docsUrl ? ` (${pf.docsUrl})` : ""}
               </div>
             );
@@ -314,7 +323,7 @@ export function CodingAgentSettingsSection() {
           {t("codingagentsettingssection.AgentSelectionStra")}
         </span>
         <select
-          className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+          className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
           value={selectionStrategy}
           onChange={(e) =>
             setPref("PARALLAX_AGENT_SELECTION_STRATEGY", e.target.value)
@@ -325,10 +334,10 @@ export function CodingAgentSettingsSection() {
             {t("codingagentsettingssection.RankedAutoSelect")}
           </option>
         </select>
-        <div className="text-[11px] text-[var(--muted)]">
+        <div className="text-[11px] text-[var(--muted)] mt-1.5">
           {selectionStrategy === "fixed"
-            ? "Always use the selected default agent type when none is specified."
-            : "Automatically select the best-performing installed agent based on success rate and stall metrics."}
+            ? t("codingagentsettingssection.AgentUsedWhenNoEStrategyFixed")
+            : t("codingagentsettingssection.AgentUsedWhenNoEStrategyRanked")}
         </div>
       </div>
 
@@ -339,7 +348,7 @@ export function CodingAgentSettingsSection() {
             {t("codingagentsettingssection.DefaultAgentType")}
           </span>
           <select
-            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
             value={effectiveDefaultAgentType}
             onChange={(e) =>
               setPref("PARALLAX_DEFAULT_AGENT_TYPE", e.target.value)
@@ -363,7 +372,7 @@ export function CodingAgentSettingsSection() {
           {t("codingagentsettingssection.DefaultPermissionL")}
         </span>
         <select
-          className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+          className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
           value={approvalPreset}
           onChange={(e) =>
             setPref("PARALLAX_DEFAULT_APPROVAL_PRESET", e.target.value)
@@ -371,20 +380,22 @@ export function CodingAgentSettingsSection() {
         >
           {APPROVAL_PRESETS.map((p) => (
             <option key={p.value} value={p.value}>
-              {p.label}
+              {t(p.labelKey)}
             </option>
           ))}
         </select>
-        <div className="text-[11px] text-[var(--muted)]">
-          {APPROVAL_PRESETS.find((p) => p.value === approvalPreset)?.desc ?? ""}
-          {
-            " — applies to all newly spawned agents unless overridden per-spawn."
-          }
+        <div className="text-[11px] text-[var(--muted)] mt-1.5">
+          {APPROVAL_PRESETS.find((p) => p.value === approvalPreset)?.descKey
+            ? t(
+                APPROVAL_PRESETS.find((p) => p.value === approvalPreset)
+                  ?.descKey ?? "",
+              )
+            : ""}
+          {t("codingagentsettingssection.AppliesToAllNewlySpawned")}
         </div>
       </div>
 
-      {/* Agent tabs */}
-      <div className="flex border border-border">
+      <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
         {availableAgents.map((agent) => {
           const active = activeTab === agent;
           const state = getInstallState(agent);
@@ -404,12 +415,12 @@ export function CodingAgentSettingsSection() {
                 <span>{AGENT_LABELS[agent]}</span>
                 {state === "installed" && (
                   <span className="text-[10px] font-medium opacity-80">
-                    Installed
+                    {t("codingagentsettingssection.Installed")}
                   </span>
                 )}
                 {state === "unknown" && (
                   <span className="text-[10px] font-medium opacity-70">
-                    Unknown
+                    {t("codingagentsettingssection.Unknown")}
                   </span>
                 )}
               </span>
@@ -418,16 +429,16 @@ export function CodingAgentSettingsSection() {
         })}
       </div>
       {preflightLoaded && (
-        <div className="text-[11px] text-[var(--muted)]">
-          Availability:{" "}
+        <div className="text-[11px] text-[var(--muted)] mt-1.5">
+          {t("codingagentsettingssection.Availability")}{" "}
           {AGENT_TABS.map((agent) => {
             const state = getInstallState(agent);
             const label =
               state === "installed"
-                ? "Installed"
+                ? t("codingagentsettingssection.Installed")
                 : state === "missing"
-                  ? "Not installed"
-                  : "Unknown";
+                  ? t("codingagentsettingssection.NotInstalled")
+                  : t("codingagentsettingssection.Unknown");
             return `${AGENT_LABELS[agent]}: ${label}`;
           }).join(" · ")}
         </div>
@@ -440,7 +451,7 @@ export function CodingAgentSettingsSection() {
             {t("codingagentsettingssection.Provider")}
           </span>
           <select
-            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
             value={aiderProvider}
             onChange={(e) => setPref("PARALLAX_AIDER_PROVIDER", e.target.value)}
           >
@@ -464,7 +475,7 @@ export function CodingAgentSettingsSection() {
             {t("codingagentsettingssection.PowerfulModel")}
           </span>
           <select
-            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
             value={powerfulValue}
             onChange={(e) =>
               setPref(`${prefix}_MODEL_POWERFUL`, e.target.value)
@@ -483,7 +494,7 @@ export function CodingAgentSettingsSection() {
             {t("codingagentsettingssection.FastModel")}
           </span>
           <select
-            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm"
+            className="px-2.5 py-1.5 border border-border bg-card text-xs focus:border-accent focus:outline-none shadow-sm rounded-lg"
             value={fastValue}
             onChange={(e) => setPref(`${prefix}_MODEL_FAST`, e.target.value)}
           >
@@ -496,10 +507,10 @@ export function CodingAgentSettingsSection() {
           </select>
         </div>
       </div>
-      <div className="text-[11px] text-[var(--muted)]">
+      <div className="text-[11px] text-[var(--muted)] mt-1.5">
         {isDynamic
-          ? "Models fetched from provider API. These are preferences — the CLI may override based on availability."
-          : "Using fallback model list — configure your API key to see all available models."}
+          ? t("codingagentsettingssection.ModelsFetched")
+          : t("codingagentsettingssection.UsingFallback")}
       </div>
 
       <ConfigSaveFooter

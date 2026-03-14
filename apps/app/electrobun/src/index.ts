@@ -27,6 +27,7 @@ import {
   setTrafficLightsPosition,
 } from "./native/mac-window-effects";
 import { getPermissionManager } from "./native/permissions";
+import { checkWebGpuSupport } from "./native/webgpu-browser-support";
 import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 
@@ -735,6 +736,34 @@ function initializeBundledWebGPU(): void {
   console.log(`[WebGPU] Native Dawn runtime ready at ${WGPU.native.path}`);
 }
 
+/**
+ * Check WebGPU availability in the webview browser and push status to renderer.
+ * On macOS 26+ with native renderer, WebGPU is available via WKWebView.
+ * On Linux/Windows with CEF, upstream Electrobun support is needed.
+ */
+function checkWebGpuBrowserSupport(): void {
+  const status = checkWebGpuSupport();
+  if (status.available) {
+    console.log(`[WebGPU Browser] ${status.reason}`);
+  } else {
+    console.warn(`[WebGPU Browser] ${status.reason}`);
+    if (status.chromeBetaPath) {
+      console.log(
+        `[WebGPU Browser] Chrome Beta found at: ${status.chromeBetaPath}`,
+      );
+    } else if (status.downloadUrl) {
+      console.log(
+        `[WebGPU Browser] Download Chrome Beta: ${status.downloadUrl}`,
+      );
+    }
+  }
+
+  // Push status to renderer after a short delay to allow window creation.
+  setTimeout(() => {
+    sendToActiveRenderer("webgpu:browserStatus", status);
+  }, 2000);
+}
+
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
   const normalizedModuleDir = import.meta.dir.replaceAll("\\", "/");
@@ -745,6 +774,7 @@ async function main(): Promise<void> {
       `packaged=${!normalizedModuleDir.includes("/src/")} argv=${process.argv.slice(1).join(" ")}`,
   );
   initializeBundledWebGPU();
+  checkWebGpuBrowserSupport();
   const cleanupFns: Array<() => void> = [];
 
   cleanupFns.push(

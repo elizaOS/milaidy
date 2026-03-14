@@ -357,5 +357,11 @@ export function getStablecoinAddress(
   return config.stablecoins.find((s) => s.symbol === upper)?.address ?? null;
 }
 
-/** The three primary chains we want to support prominently. */
-export const PRIMARY_CHAIN_KEYS: ChainKey[] = ["bsc", "avax", "solana"];
+/** The primary chains we want to support prominently. */
+export const PRIMARY_CHAIN_KEYS: ChainKey[] = [
+  "ethereum",
+  "base",
+  "bsc",
+  "avax",
+  "solana",
+];

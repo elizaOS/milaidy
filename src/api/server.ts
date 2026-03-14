@@ -3678,7 +3678,7 @@ function getProviderOptions(): Array<{
 }> {
   return [
     {
-      id: "elizacloud",
+      id: "miladycloud",
       name: "Eliza Cloud",
       envKey: null,
       pluginName: "@elizaos/plugin-elizacloud",
@@ -3809,7 +3809,7 @@ function getCloudProviderOptions(): Array<{
 }> {
   return [
     {
-      id: "elizacloud",
+      id: "miladycloud",
       name: "Eliza Cloud",
       description:
         "Managed cloud infrastructure. Wallets, LLMs, and RPCs included.",
@@ -4394,7 +4394,7 @@ function getInventoryProviderOptions(): Array<{
       description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "miladycloud",
           name: "Eliza Cloud",
           description: "Managed RPC. No setup needed.",
           envKey: null,
@@ -4429,7 +4429,7 @@ function getInventoryProviderOptions(): Array<{
       description: "Solana mainnet tokens and NFTs.",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "miladycloud",
           name: "Eliza Cloud",
           description: "Managed RPC. No setup needed.",
           envKey: null,
@@ -6832,7 +6832,7 @@ async function handleRequest(
 
     // P1 §7 — explicit provider allowlist
     const VALID_PROVIDERS = new Set([
-      "elizacloud",
+      "miladycloud",
       "pi-ai",
       "openai-codex",
       "openai-subscription",
@@ -6970,8 +6970,8 @@ async function handleRequest(
         body.apiKey = trimmedKey;
       }
 
-      if (provider === "elizacloud") {
-        // Switching TO elizacloud for inference
+      if (provider === "miladycloud") {
+        // Switching TO miladycloud for inference
         clearPiAi();
         await clearSubscriptions();
         clearOtherApiKeys();

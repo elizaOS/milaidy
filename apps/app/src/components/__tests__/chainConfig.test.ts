@@ -210,6 +210,8 @@ describe("chainConfig", () => {
   // ── PRIMARY_CHAIN_KEYS ──────────────────────────────────────────
   describe("PRIMARY_CHAIN_KEYS", () => {
     it("includes BSC, AVAX, and Solana", () => {
+      expect(PRIMARY_CHAIN_KEYS).toContain("ethereum");
+      expect(PRIMARY_CHAIN_KEYS).toContain("base");
       expect(PRIMARY_CHAIN_KEYS).toContain("bsc");
       expect(PRIMARY_CHAIN_KEYS).toContain("avax");
       expect(PRIMARY_CHAIN_KEYS).toContain("solana");
