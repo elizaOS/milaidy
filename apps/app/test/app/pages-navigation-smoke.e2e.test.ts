@@ -1,12 +1,38 @@
 // @vitest-environment jsdom
 
-import type { Tab } from "@milady/app-core/navigation";
-import { getTabGroups } from "@milady/app-core/navigation";
+import {
+  APPS_ENABLED,
+  getTabGroups,
+  type Tab,
+} from "@milady/app-core/navigation";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUseApp, noop } = vi.hoisted(() => ({
+const { companionOverlayTabs, mockUseApp, noop } = vi.hoisted(() => ({
+  companionOverlayTabs: new Set([
+    "companion",
+    "skills",
+    "character",
+    "character-select",
+    "settings",
+    "plugins",
+    "advanced",
+    "actions",
+    "triggers",
+    "fine-tuning",
+    "trajectories",
+    "runtime",
+    "database",
+    "logs",
+    "security",
+    "apps",
+    "connectors",
+    "knowledge",
+    "lifo",
+    "stream",
+    "wallets",
+  ]),
   mockUseApp: vi.fn(),
   noop: vi.fn(),
 }));
@@ -80,6 +106,12 @@ vi.mock("../../src/components/CharacterView", () => ({
 vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () =>
     React.createElement("section", null, "CompanionView Ready"),
+}));
+
+vi.mock("../../src/components/CompanionShell", () => ({
+  COMPANION_OVERLAY_TABS: companionOverlayTabs,
+  CompanionShell: ({ tab }: { tab: string }) =>
+    React.createElement("main", null, `CompanionShell Ready: ${tab}`),
 }));
 
 vi.mock("../../src/components/TriggersView", () => ({
@@ -233,6 +265,14 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   return textOf(mains[0]);
 }
 
+function expectedShellTab(tab: Tab): string {
+  const routedTab = !APPS_ENABLED && tab === "apps" ? "chat" : tab;
+  const companionShellTab = routedTab === "chat" ? "companion" : routedTab;
+  return companionOverlayTabs.has(companionShellTab)
+    ? companionShellTab
+    : "companion";
+}
+
 function requireTree(
   tree: TestRenderer.ReactTestRenderer | null,
 ): TestRenderer.ReactTestRenderer {
@@ -310,30 +350,6 @@ describe("pages navigation smoke (e2e)", () => {
     });
     const renderedTree = requireTree(tree);
 
-    const expectedByPrimaryTab: Record<string, string> = {
-      chat: "ChatView Ready",
-      companion: "CompanionView Ready",
-      stream: "StreamView Ready",
-      character: "CharacterView Ready",
-      wallets: "InventoryView Ready",
-      knowledge: "KnowledgeView Ready",
-      connectors: "ConnectorsPageView Ready",
-      triggers: "TriggersView Ready",
-      apps: "AppsPageView Ready",
-      settings: "SettingsView Ready",
-      advanced: "PluginsPageView Ready",
-      plugins: "PluginsPageView Ready",
-      skills: "SkillsView Ready",
-      actions: "CustomActionsView Ready",
-      "fine-tuning": "FineTuningView Ready",
-      trajectories: "TrajectoriesView Ready",
-      runtime: "RuntimeView Ready",
-      database: "DatabasePageView Ready",
-      logs: "LogsPageView Ready",
-      voice: "SettingsView Ready",
-      cloud: "MiladyCloudDashboard Ready",
-    };
-
     // Navigate by directly setting state.tab (nav buttons are inside the mocked Header)
     for (const group of getTabGroups(false)) {
       const nextTab = group.tabs[0];
@@ -342,7 +358,9 @@ describe("pages navigation smoke (e2e)", () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(expectedByPrimaryTab[nextTab]);
+      expect(content).toContain(
+        `CompanionShell Ready: ${expectedShellTab(nextTab)}`,
+      );
       expectValidContent(content);
     }
 
@@ -374,27 +392,27 @@ describe("pages navigation smoke (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    const expectedByTab: Array<{ tab: Tab; token: string }> = [
-      { tab: "chat", token: "ChatView Ready" },
-      { tab: "companion", token: "CompanionView Ready" },
-      { tab: "apps", token: "AppsPageView Ready" },
-      { tab: "character", token: "CharacterView Ready" },
-      { tab: "wallets", token: "InventoryView Ready" },
-      { tab: "knowledge", token: "KnowledgeView Ready" },
-      { tab: "connectors", token: "ConnectorsPageView Ready" },
-      { tab: "triggers", token: "TriggersView Ready" },
-      { tab: "plugins", token: "PluginsPageView Ready" },
-      { tab: "skills", token: "SkillsView Ready" },
-      { tab: "actions", token: "CustomActionsView Ready" },
-      { tab: "advanced", token: "PluginsPageView Ready" },
-      { tab: "fine-tuning", token: "FineTuningView Ready" },
-      { tab: "trajectories", token: "TrajectoriesView Ready" },
-      { tab: "voice", token: "SettingsView Ready" },
-      { tab: "runtime", token: "RuntimeView Ready" },
-      { tab: "database", token: "DatabasePageView Ready" },
-      { tab: "lifo", token: "LifoSandboxView Ready" },
-      { tab: "settings", token: "SettingsView Ready" },
-      { tab: "logs", token: "LogsPageView Ready" },
+    const tabsToVerify: Tab[] = [
+      "chat",
+      "companion",
+      "apps",
+      "character",
+      "wallets",
+      "knowledge",
+      "connectors",
+      "triggers",
+      "plugins",
+      "skills",
+      "actions",
+      "advanced",
+      "fine-tuning",
+      "trajectories",
+      "voice",
+      "runtime",
+      "database",
+      "lifo",
+      "settings",
+      "logs",
     ];
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
@@ -403,13 +421,15 @@ describe("pages navigation smoke (e2e)", () => {
     });
     const renderedTree = requireTree(tree);
 
-    for (const entry of expectedByTab) {
-      state.tab = entry.tab;
+    for (const tab of tabsToVerify) {
+      state.tab = tab;
       await act(async () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(entry.token);
+      expect(content).toContain(
+        `CompanionShell Ready: ${expectedShellTab(tab)}`,
+      );
       expectValidContent(content);
     }
 

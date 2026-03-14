@@ -159,12 +159,20 @@ describe("link-browser-server.mjs script", () => {
 // ---------------------------------------------------------------------------
 
 describe("package.json postinstall hook", () => {
-  it("includes postinstall script referencing link-browser-server", async () => {
+  it("delegates postinstall to repo setup, which includes browser linking", async () => {
     const pkgPath = path.resolve(process.cwd(), "package.json");
     const pkg = JSON.parse(await fs.readFile(pkgPath, "utf-8")) as {
       scripts?: Record<string, string>;
     };
     expect(pkg.scripts?.postinstall).toBeDefined();
-    expect(pkg.scripts?.postinstall).toContain("link-browser-server");
+    expect(pkg.scripts?.postinstall).toContain("run-repo-setup");
+
+    const repoSetupPath = path.resolve(
+      process.cwd(),
+      "scripts",
+      "run-repo-setup.mjs",
+    );
+    const repoSetup = await fs.readFile(repoSetupPath, "utf-8");
+    expect(repoSetup).toContain("scripts/link-browser-server.mjs");
   });
 });

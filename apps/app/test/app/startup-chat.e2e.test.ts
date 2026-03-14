@@ -6,7 +6,30 @@ import type { ReactTestInstance } from "react-test-renderer";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUseApp } = vi.hoisted(() => ({
+const { companionOverlayTabs, mockUseApp } = vi.hoisted(() => ({
+  companionOverlayTabs: new Set([
+    "companion",
+    "skills",
+    "character",
+    "character-select",
+    "settings",
+    "plugins",
+    "advanced",
+    "actions",
+    "triggers",
+    "fine-tuning",
+    "trajectories",
+    "runtime",
+    "database",
+    "logs",
+    "security",
+    "apps",
+    "connectors",
+    "knowledge",
+    "lifo",
+    "stream",
+    "wallets",
+  ]),
   mockUseApp: vi.fn(),
 }));
 
@@ -80,6 +103,11 @@ vi.mock("../../src/components/StreamView", () => ({
 vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () => React.createElement("div", null, "CompanionView"),
 }));
+vi.mock("../../src/components/CompanionShell", () => ({
+  COMPANION_OVERLAY_TABS: companionOverlayTabs,
+  CompanionShell: ({ tab }: { tab: string }) =>
+    React.createElement("main", null, `CompanionShell:${tab}`),
+}));
 
 import { App } from "../../src/App";
 
@@ -92,11 +120,10 @@ function setViewportWidth(width: number): void {
   });
 }
 
-function buttonText(node: ReactTestInstance): string {
+function textOf(node: ReactTestInstance): string {
   return node.children
-    .filter((child): child is string => typeof child === "string")
-    .join("")
-    .trim();
+    .map((child) => (typeof child === "string" ? child : textOf(child)))
+    .join("");
 }
 
 describe("app startup routing (e2e)", () => {
@@ -133,12 +160,9 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const renderedText = tree?.root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
+    const renderedText = tree ? textOf(tree.root) : "";
 
-    expect(renderedText).toContain("ChatView");
+    expect(renderedText).toContain("CompanionShell:companion");
     expect(renderedText).not.toContain("AvatarLoader");
     expect(renderedText).not.toContain("OnboardingWizard");
     expect(renderedText).not.toContain("PairingView");
@@ -168,13 +192,10 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const renderedText = tree?.root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
+    const renderedText = tree ? textOf(tree.root) : "";
 
-    expect(renderedText).toContain("InventoryView");
-    expect(renderedText).not.toContain("ChatView");
+    expect(renderedText).toContain("CompanionShell:wallets");
+    expect(renderedText).not.toContain("CompanionShell:companion");
   });
 
   it("keeps legacy inventory path mapped to wallets", () => {
@@ -183,7 +204,7 @@ describe("app startup routing (e2e)", () => {
     expect(tabFromPath("/inventory")).toBe("wallets");
   });
 
-  it("uses mobile chat drawers on narrow viewports", async () => {
+  it("renders the companion shell on narrow viewports", async () => {
     setViewportWidth(390);
 
     let tree = undefined as unknown as TestRenderer.ReactTestRenderer;
@@ -191,42 +212,8 @@ describe("app startup routing (e2e)", () => {
       tree = TestRenderer.create(React.createElement(App));
     });
 
-    const root = tree?.root;
-    const buttons = root.findAllByType("button");
-    const chatDrawerButton = buttons.find((node) =>
-      buttonText(node).includes("Chats"),
-    );
-    const statusDrawerButton = buttons.find((node) =>
-      buttonText(node).includes("Status"),
-    );
-    expect(chatDrawerButton).toBeDefined();
-    expect(statusDrawerButton).toBeDefined();
-
-    let renderedText = root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
-    expect(renderedText).not.toContain("ConversationsSidebar");
-    expect(renderedText).not.toContain("AutonomousPanel");
-
-    await act(async () => {
-      chatDrawerButton?.props.onClick();
-    });
-
-    renderedText = root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
-    expect(renderedText).toContain("ConversationsSidebar");
-
-    await act(async () => {
-      statusDrawerButton?.props.onClick();
-    });
-
-    renderedText = root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
-    expect(renderedText).toContain("AutonomousPanel");
+    const renderedText = tree ? textOf(tree.root) : "";
+    expect(renderedText).toContain("CompanionShell:companion");
+    expect(renderedText).not.toContain("AvatarLoader");
   });
 });

@@ -102,7 +102,30 @@ type AppHarnessState = {
   [key: string]: unknown;
 };
 
-const { mockUseApp } = vi.hoisted(() => ({
+const { companionOverlayTabs, mockUseApp } = vi.hoisted(() => ({
+  companionOverlayTabs: new Set([
+    "companion",
+    "skills",
+    "character",
+    "character-select",
+    "settings",
+    "plugins",
+    "advanced",
+    "actions",
+    "triggers",
+    "fine-tuning",
+    "trajectories",
+    "runtime",
+    "database",
+    "logs",
+    "security",
+    "apps",
+    "connectors",
+    "knowledge",
+    "lifo",
+    "stream",
+    "wallets",
+  ]),
   mockUseApp: vi.fn(),
 }));
 
@@ -200,7 +223,9 @@ vi.mock("../../src/components/StreamView", () => ({
   StreamView: () => React.createElement("div", null, "StreamView"),
 }));
 vi.mock("../../src/components/CompanionShell", () => ({
-  CompanionShell: () => React.createElement("div", null, "CompanionShell"),
+  COMPANION_OVERLAY_TABS: companionOverlayTabs,
+  CompanionShell: ({ tab }: { tab: string }) =>
+    React.createElement("main", null, `CompanionShell:${tab}`),
   useCompanionShell: () => ({}),
 }));
 vi.mock("../../src/components/PermissionsSection", () => ({
@@ -444,12 +469,9 @@ describe("app startup onboarding flow (e2e)", () => {
 
     expect(state.onboardingComplete).toBe(true);
 
-    const renderedText = renderedTree.root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
+    const renderedText = textOf(renderedTree.root);
 
-    expect(renderedText).toContain("ChatView");
-    expect(renderedText).toContain("Header");
+    expect(renderedText).toContain("CompanionShell:companion");
+    expect(renderedText).not.toContain("OnboardingWizard");
   });
 });
