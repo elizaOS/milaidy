@@ -27,35 +27,6 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-
-/**
- * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
- * These are only used as structural types for the SwarmCoordinator callbacks;
- * no runtime import is needed.
- */
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
-type SwarmEvent = Record<string, any>;
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
-type TaskContext = Record<string, any>;
-interface CoordinationLLMResponse {
-  action: string;
-  reasoning: string;
-  response?: string;
-  useKeys?: boolean;
-  keys?: string[];
-}
-interface TaskCompletionSummary {
-  sessionId: string;
-  label: string;
-  agentType: string;
-  originalTask: string;
-  status: string;
-  completionSummary: string;
-  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
-  [key: string]: any;
-}
-
-import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
 import { getGlobalAwarenessRegistry } from "../awareness/registry";
@@ -84,6 +55,7 @@ import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
+import { getBundledRuntimePluginIds } from "../runtime/release-plugin-policy";
 import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
@@ -213,6 +185,41 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+
+/**
+ * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
+ * These are only used as structural types for the SwarmCoordinator callbacks;
+ * no runtime import is needed.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
+type SwarmEvent = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
+type TaskContext = Record<string, any>;
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
+interface TaskCompletionSummary {
+  sessionId: string;
+  label: string;
+  agentType: string;
+  originalTask: string;
+  status: string;
+  completionSummary: string;
+  [key: string]: unknown;
+}
+
+type PiAiPluginModule = typeof import("@elizaos/plugin-pi-ai");
+let _piAiPluginModule: PiAiPluginModule | null = null;
+async function loadPiAiPluginModule(): Promise<PiAiPluginModule> {
+  if (!_piAiPluginModule) {
+    _piAiPluginModule = await import("@elizaos/plugin-pi-ai");
+  }
+  return _piAiPluginModule;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -698,6 +705,27 @@ export function findOwnPackageRoot(startDir: string): string {
     dir = parent;
   }
   return startDir;
+}
+
+function getReleaseBundledPluginIds(): Set<string> {
+  const packageRoot = findOwnPackageRoot(
+    import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
+  );
+  const packageJsonPath = path.join(packageRoot, "package.json");
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+    };
+    return new Set(
+      getBundledRuntimePluginIds(Object.keys(pkg.dependencies ?? {})),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to resolve bundled release plugins from package.json: ${err instanceof Error ? err.message : err}`,
+    );
+    return new Set();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -6833,6 +6861,7 @@ async function handleRequest(
     // P1 §7 — explicit provider allowlist
     const VALID_PROVIDERS = new Set([
       "miladycloud",
+      "elizacloud",
       "pi-ai",
       "openai-codex",
       "openai-subscription",
@@ -6849,6 +6878,10 @@ async function handleRequest(
       error(res, "Invalid provider", 400);
       return;
     }
+
+    // Normalize legacy alias — "elizacloud" → "miladycloud"
+    const normalizedProvider =
+      provider === "elizacloud" ? "miladycloud" : provider;
 
     // P0 §3 — race guard: reject concurrent provider switch requests
     if (providerSwitchInProgress) {
@@ -6953,7 +6986,7 @@ async function handleRequest(
 
     try {
       // P0 §4 — input validation for direct API key providers
-      if (PROVIDER_ENV_KEYS[provider]) {
+      if (PROVIDER_ENV_KEYS[normalizedProvider]) {
         const trimmedKey =
           typeof body.apiKey === "string" ? body.apiKey.trim() : "";
         if (!trimmedKey) {
@@ -6970,7 +7003,7 @@ async function handleRequest(
         body.apiKey = trimmedKey;
       }
 
-      if (provider === "miladycloud") {
+      if (normalizedProvider === "miladycloud") {
         // Switching TO miladycloud for inference
         clearPiAi();
         await clearSubscriptions();
@@ -6984,7 +7017,7 @@ async function handleRequest(
           process.env.ELIZAOS_CLOUD_API_KEY = config.cloud.apiKey;
           process.env.ELIZAOS_CLOUD_ENABLED = "true";
         }
-      } else if (provider === "pi-ai") {
+      } else if (normalizedProvider === "pi-ai") {
         // Switching TO pi-ai credentials mode
         disableCloudInference();
         await clearSubscriptions();
@@ -7002,8 +7035,8 @@ async function handleRequest(
         vars.MILADY_USE_PI_AI = "1";
         envRoot.vars = vars;
       } else if (
-        provider === "openai-codex" ||
-        provider === "openai-subscription"
+        normalizedProvider === "openai-codex" ||
+        normalizedProvider === "openai-subscription"
       ) {
         // Switching TO OpenAI subscription — keep cloud for RPC
         clearPiAi();
@@ -7030,7 +7063,7 @@ async function handleRequest(
             `[api] Failed to apply OpenAI subscription creds: ${err instanceof Error ? err.message : err}`,
           );
         }
-      } else if (provider === "anthropic-subscription") {
+      } else if (normalizedProvider === "anthropic-subscription") {
         // Switching TO Anthropic subscription — keep cloud for RPC
         clearPiAi();
         disableCloudInference();
@@ -7056,13 +7089,13 @@ async function handleRequest(
             `[api] Failed to apply Anthropic subscription creds: ${err instanceof Error ? err.message : err}`,
           );
         }
-      } else if (PROVIDER_ENV_KEYS[provider]) {
+      } else if (PROVIDER_ENV_KEYS[normalizedProvider]) {
         // Switching TO a direct API key provider — keep cloud for RPC
         clearPiAi();
         disableCloudInference();
         await clearSubscriptions();
         clearSubscriptionProviderConfig(config);
-        const envKey = PROVIDER_ENV_KEYS[provider];
+        const envKey = PROVIDER_ENV_KEYS[normalizedProvider];
         clearOtherApiKeys(envKey);
         const apiKey = body.apiKey;
         if (!apiKey) {
@@ -7077,7 +7110,7 @@ async function handleRequest(
       saveMiladyConfig(config);
 
       // Schedule runtime restart so the new provider takes effect.
-      scheduleRuntimeRestart(`provider switch to ${provider}`);
+      scheduleRuntimeRestart(`provider switch to ${normalizedProvider}`);
       // Keep the lock briefly in restart-capable environments to prevent
       // double-submits from racing with restart-required propagation.
       if (ctx?.onRestart) {
@@ -7374,7 +7407,7 @@ async function handleRequest(
     let piAiDefaultModel: string | null = null;
 
     try {
-      const piAi = await listPiAiModelOptions();
+      const piAi = await (await loadPiAiPluginModule()).listPiAiModelOptions();
       piAiModels = piAi.models;
       piAiDefaultModel = piAi.defaultModelSpec ?? null;
     } catch (err) {
@@ -7944,8 +7977,7 @@ async function handleRequest(
       getPluginManager: () => requirePluginManager(state.runtime),
       getLoadedPluginNames: () =>
         state.runtime?.plugins.map((plugin) => plugin.name) ?? [],
-      getBundledPluginIds: () =>
-        new Set(state.plugins.map((plugin) => plugin.id)),
+      getBundledPluginIds: () => getReleaseBundledPluginIds(),
     })
   ) {
     return;

@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   applyExtensionlessJsExportAliases,
+  applyMissingLifecycleScriptPatch,
   applyNobleHashesCompat,
   applyPatchToPackageJson,
   applyProperLockfileSignalExitCompat,
@@ -17,6 +18,7 @@ import {
   findPackageJsonPaths,
   patchBunExports,
   patchExtensionlessJsExports,
+  patchMissingLifecycleScript,
   patchNobleHashesCompat,
   patchProperLockfileSignalExitCompat,
 } from "./patch-bun-exports.mjs";
@@ -346,6 +348,82 @@ describe("patch-bun-exports", () => {
 
       const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
       expect(updated.exports["./sha256"]).toBe("./sha256.js");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyMissingLifecycleScriptPatch removes broken postinstall hooks when the target file is missing", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@elizaos/plugin-fake",
+            scripts: {
+              postinstall: "node ./scripts/missing-hook.mjs",
+              build: "bun run build.ts",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const patched = applyMissingLifecycleScriptPatch(
+        pkgPath,
+        "postinstall",
+        "./scripts/missing-hook.mjs",
+      );
+      expect(patched).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.scripts.postinstall).toBeUndefined();
+      expect(updated.scripts.build).toBe("bun run build.ts");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchMissingLifecycleScript patches package copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@elizaos/plugin-fake",
+            scripts: {
+              postinstall: "node ./scripts/missing-hook.mjs",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchMissingLifecycleScript(
+        tmp,
+        "@elizaos/plugin-fake",
+        "postinstall",
+        "./scripts/missing-hook.mjs",
+        (msg) => logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("missing-hook.mjs"))).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.scripts).toBeUndefined();
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

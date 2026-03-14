@@ -214,6 +214,14 @@ jobs:
       - name: Ensure avatar assets
         run: node scripts/ensure-avatars.mjs
 
+      - name: Cache Whisper models
+        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/milady/whisper
+          key: whisper-model-${{ matrix.platform.artifact-name }}-${{ hashFiles('apps/app/electrobun/scripts/build-whisper.sh', 'apps/app/electrobun/scripts/build-whisper-universal.sh') }}
+          restore-keys: whisper-model-${{ matrix.platform.artifact-name }}-
+
       - name: Align version with release tag
         run: |
           node -e "
@@ -257,14 +265,12 @@ jobs:
           fi
 
       - name: Build renderer (vite)
-        # vite output is arch-neutral JS/CSS/HTML, but bun install here may pull
-        # native optional deps, so keep the Intel build on an explicit x64 path.
+        # vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install
+        # above rather than repeating bun install in apps/app for every release job.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun install --ignore-scripts
             arch -x86_64 bunx vite build
           else
-            bun install --ignore-scripts
             bunx vite build
           fi
         working-directory: apps/app
@@ -424,6 +430,13 @@ jobs:
             fs.cpSync(src, dest, { recursive: true });
             console.log('Materialized local electrobun package:', dest, '<-', src);
           "
+
+      - name: Cache local electrobun core downloads
+        uses: actions/cache@v4
+        with:
+          path: apps/app/electrobun/node_modules/electrobun/.cache
+          key: electrobun-core-${{ matrix.platform.artifact-name }}-${{ hashFiles('apps/app/electrobun/package.json') }}
+          restore-keys: electrobun-core-${{ matrix.platform.artifact-name }}-
 
       - name: Ensure Windows rcedit binary is available for Electrobun
         if: matrix.platform.os == 'windows'

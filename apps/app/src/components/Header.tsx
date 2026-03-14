@@ -1,15 +1,7 @@
 import { LanguageDropdown } from "@milady/app-core/components";
 import { getTabGroups, type TabGroup } from "@milady/app-core/navigation";
 import { IconTooltip as IconButtonTooltip } from "@milady/ui";
-import {
-  AlertTriangle,
-  Bug,
-  CircleDollarSign,
-  Menu,
-  Monitor,
-  Smartphone,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Bug, CircleDollarSign, Menu, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppContext";
@@ -46,8 +38,6 @@ export function Header({ mobileLeft }: HeaderProps) {
     setTab,
     plugins,
     loadDropStatus,
-    uiShellMode,
-    setUiShellMode,
     uiLanguage,
     setUiLanguage,
     t,
@@ -107,19 +97,6 @@ export function Header({ mobileLeft }: HeaderProps) {
   // Minimum 44px touch targets for mobile
   const iconBtnBase =
     "inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border/50 bg-bg/50 backdrop-blur-md cursor-pointer text-sm leading-none hover:border-accent hover:text-accent font-medium hover:-translate-y-0.5 transition-all duration-300 hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95 rounded-xl text-txt shadow-sm";
-
-  // Shell mode toggle (companion vs native)
-  const shellMode = uiShellMode ?? "companion";
-  const isNativeShell = shellMode === "native";
-  const shellToggleActionLabel = isNativeShell
-    ? t("header.switchToCompanion")
-    : t("header.switchToNative");
-
-  const handleShellToggle = () => {
-    const nextMode = shellMode === "companion" ? "native" : "companion";
-    setUiShellMode(nextMode);
-    setTab(nextMode === "companion" ? "companion" : "chat");
-  };
 
   return (
     <>
@@ -212,22 +189,6 @@ export function Header({ mobileLeft }: HeaderProps) {
             </div>
 
             <div className="hidden sm:flex items-center gap-2 shrink-0">
-              <IconButtonTooltip label={shellToggleActionLabel}>
-                <button
-                  type="button"
-                  onClick={handleShellToggle}
-                  className={iconBtnBase}
-                  aria-label={shellToggleActionLabel}
-                  data-testid="ui-shell-toggle"
-                >
-                  {isNativeShell ? (
-                    <Smartphone className="w-5 h-5" />
-                  ) : (
-                    <Monitor className="w-5 h-5" />
-                  )}
-                </button>
-              </IconButtonTooltip>
-
               <IconButtonTooltip
                 label={t("header.reportBug")}
                 shortcut="Shift+?"
@@ -248,13 +209,11 @@ export function Header({ mobileLeft }: HeaderProps) {
               <AgentModeDropdown />
 
               {/* Language Selector */}
-              {!isNativeShell && (
-                <LanguageDropdown
-                  uiLanguage={uiLanguage}
-                  setUiLanguage={setUiLanguage}
-                  t={t}
-                />
-              )}
+              <LanguageDropdown
+                uiLanguage={uiLanguage}
+                setUiLanguage={setUiLanguage}
+                t={t}
+              />
             </div>
 
             {/* Mobile Hamburger */}
@@ -357,44 +316,24 @@ export function Header({ mobileLeft }: HeaderProps) {
               <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
                 <div className="flex flex-col gap-2 justify-between">
                   <AgentModeDropdown />
-                  {!isNativeShell && (
-                    <LanguageDropdown
-                      uiLanguage={uiLanguage}
-                      setUiLanguage={setUiLanguage}
-                      t={t}
-                    />
-                  )}
-                  <div className="flex gap-2">
-                    <IconButtonTooltip label={shellToggleActionLabel}>
-                      <button
-                        type="button"
-                        onClick={handleShellToggle}
-                        className={iconBtnBase}
-                        aria-label={shellToggleActionLabel}
-                        data-testid="ui-shell-toggle"
-                      >
-                        {isNativeShell ? (
-                          <Smartphone className="w-5 h-5" />
-                        ) : (
-                          <Monitor className="w-5 h-5" />
-                        )}
-                      </button>
-                    </IconButtonTooltip>
-
-                    <IconButtonTooltip
-                      label={t("header.reportBug")}
-                      shortcut="Shift+?"
+                  <LanguageDropdown
+                    uiLanguage={uiLanguage}
+                    setUiLanguage={setUiLanguage}
+                    t={t}
+                  />
+                  <IconButtonTooltip
+                    label={t("header.reportBug")}
+                    shortcut="Shift+?"
+                  >
+                    <button
+                      type="button"
+                      onClick={openBugReport}
+                      aria-label={t("header.reportBug")}
+                      className={iconBtnBase}
                     >
-                      <button
-                        type="button"
-                        onClick={openBugReport}
-                        aria-label={t("header.reportBug")}
-                        className={iconBtnBase}
-                      >
-                        <Bug className="w-5 h-5" />
-                      </button>
-                    </IconButtonTooltip>
-                  </div>
+                      <Bug className="w-5 h-5" />
+                    </button>
+                  </IconButtonTooltip>
                 </div>
               </div>
             </div>

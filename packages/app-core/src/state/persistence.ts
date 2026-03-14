@@ -4,11 +4,9 @@ import {
   normalizeLanguage,
   type UiLanguage,
 } from "../i18n";
-import type { UiShellMode } from "./types";
 import { normalizeAvatarIndex } from "./vrm";
 
 const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
-const UI_SHELL_MODE_STORAGE_KEY = "milady:ui-shell-mode";
 
 export function loadUiLanguage(): UiLanguage {
   try {
@@ -22,29 +20,6 @@ export function loadUiLanguage(): UiLanguage {
 export function saveUiLanguage(language: UiLanguage): void {
   try {
     localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, normalizeLanguage(language));
-  } catch {
-    // ignore
-  }
-}
-
-function normalizeUiShellMode(mode: unknown): UiShellMode {
-  return mode === "native" ? "native" : "companion";
-}
-export { normalizeUiShellMode };
-
-export function loadUiShellMode(): UiShellMode {
-  try {
-    return normalizeUiShellMode(
-      localStorage.getItem(UI_SHELL_MODE_STORAGE_KEY),
-    );
-  } catch {
-    return "companion";
-  }
-}
-
-export function saveUiShellMode(mode: UiShellMode): void {
-  try {
-    localStorage.setItem(UI_SHELL_MODE_STORAGE_KEY, normalizeUiShellMode(mode));
   } catch {
     // ignore
   }

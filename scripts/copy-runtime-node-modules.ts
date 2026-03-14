@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   discoverAlwaysBundledPackages,
   discoverRuntimePackages,
+  shouldBundleDiscoveredPackage,
 } from "./runtime-package-manifest";
 
 type Options = {
@@ -52,6 +53,16 @@ const TRACKED_PACKAGE_CACHE = path.join(
 );
 const DEP_SKIP = new Set(["typescript", "@types/node", "lucide-react"]);
 const ALWAYS_HOISTED_PACKAGES = new Set(["@elizaos/core"]);
+const PACKAGED_DEPENDENCY_SKIPS = new Map<string, Set<string>>([
+  [
+    "@elizaos/plugin-cron",
+    new Set([
+      // The desktop/runtime bundle does not expose the Eliza CLI surface.
+      // Cron only imports plugin-cli to register commands at module load.
+      "@elizaos/plugin-cli",
+    ]),
+  ],
+]);
 const PLATFORM_ALIASES = new Map<string, string>([
   ["android", "android"],
   ["aix", "aix"],
@@ -333,7 +344,48 @@ function copyPackageDir(
     filter: shouldCopyPackageEntry,
   });
   pruneCopiedPackageDir(dest);
+  patchCopiedPackageRuntimeSurface(name, dest);
   return true;
+}
+
+export function shouldSkipPackagedDependency(
+  requesterName: string,
+  dependencyName: string,
+): boolean {
+  return (
+    PACKAGED_DEPENDENCY_SKIPS.get(requesterName)?.has(dependencyName) ?? false
+  );
+}
+
+export function stripPackagedCronCliRegistration(source: string): string {
+  return source.replace(
+    'import { defineCliCommand, registerCliCommand } from "@elizaos/plugin-cli";',
+    [
+      "// Packaged desktop/runtime bundles do not expose the Eliza CLI registry.",
+      "const defineCliCommand = () => null;",
+      "const registerCliCommand = () => {};",
+    ].join("\n"),
+  );
+}
+
+function patchCopiedPackageRuntimeSurface(
+  name: string,
+  packageDir: string,
+): void {
+  if (name !== "@elizaos/plugin-cron") {
+    return;
+  }
+
+  const cronEntryPath = path.join(packageDir, "dist", "index.js");
+  if (!fs.existsSync(cronEntryPath)) {
+    return;
+  }
+
+  const original = fs.readFileSync(cronEntryPath, "utf8");
+  const rewritten = stripPackagedCronCliRegistration(original);
+  if (rewritten !== original) {
+    fs.writeFileSync(cronEntryPath, rewritten);
+  }
 }
 
 export function shouldCopyPackageEntry(entry: string): boolean {
@@ -829,7 +881,19 @@ function main(): void {
       entry.spec,
     ]),
   );
-  const discovered = new Set(discoverRuntimePackages(scanDir));
+  const filteredOptionalPlugins = new Set<string>();
+  const discovered = new Set(
+    discoverRuntimePackages(scanDir).filter((packageName) => {
+      const shouldBundle = shouldBundleDiscoveredPackage(
+        packageName,
+        alwaysBundled,
+      );
+      if (!shouldBundle) {
+        filteredOptionalPlugins.add(packageName);
+      }
+      return shouldBundle;
+    }),
+  );
   const queue: QueueEntry[] = [...new Set([...alwaysBundled, ...discovered])]
     .sort()
     .map((name) => ({
@@ -904,6 +968,10 @@ function main(): void {
     }
 
     for (const dep of getRuntimeDependencyEntries(resolved.packageJsonPath)) {
+      if (shouldSkipPackagedDependency(name, dep.name)) {
+        continue;
+      }
+
       queue.push({
         name: dep.name,
         spec: dep.spec,
@@ -931,6 +999,12 @@ function main(): void {
   if (missingDiscovered.size > 0) {
     console.warn(
       `[runtime-copy] skipped unresolved optional package(s): ${[...missingDiscovered].sort().join(", ")}`,
+    );
+  }
+
+  if (filteredOptionalPlugins.size > 0) {
+    console.log(
+      `[runtime-copy] excluded post-release plugin package(s): ${[...filteredOptionalPlugins].sort().join(", ")}`,
     );
   }
 }

@@ -164,6 +164,43 @@ export function applyNobleHashesCompat(pkgPath) {
 }
 
 /**
+ * Remove a lifecycle script when it references a file that is missing from the
+ * published package tarball. This is used for upstream packages that ship a
+ * broken postinstall hook.
+ */
+export function applyMissingLifecycleScriptPatch(
+  pkgPath,
+  scriptName,
+  relativeTarget,
+) {
+  if (!existsSync(pkgPath)) return false;
+
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const lifecycleScripts = pkg.scripts;
+  const lifecycleCommand = lifecycleScripts?.[scriptName];
+  if (
+    !lifecycleScripts ||
+    typeof lifecycleCommand !== "string" ||
+    !lifecycleCommand.includes(relativeTarget)
+  ) {
+    return false;
+  }
+
+  const dir = dirname(pkgPath);
+  if (existsSync(resolve(dir, relativeTarget))) {
+    return false;
+  }
+
+  delete lifecycleScripts[scriptName];
+  if (Object.keys(lifecycleScripts).length === 0) {
+    delete pkg.scripts;
+  }
+
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  return true;
+}
+
+/**
  * Patch all copies of pkgName under root (node_modules and Bun cache).
  * Logs when a file is patched. Used by postinstall in patch-deps.mjs.
  */
@@ -210,6 +247,30 @@ export function patchNobleHashesCompat(root, log = console.log) {
       patched = true;
       log(
         "[patch-deps] Patched @noble/hashes exports: restored legacy ethers-compatible sha256/sha512/ripemd160 shims.",
+      );
+    }
+  }
+  return patched;
+}
+
+/**
+ * Patch all copies of pkgName so a broken lifecycle hook is removed when the
+ * referenced script file is missing from the installed package.
+ */
+export function patchMissingLifecycleScript(
+  root,
+  pkgName,
+  scriptName,
+  relativeTarget,
+  log = console.log,
+) {
+  const candidates = findPackageJsonPaths(root, pkgName);
+  let patched = false;
+  for (const pkgPath of candidates) {
+    if (applyMissingLifecycleScriptPatch(pkgPath, scriptName, relativeTarget)) {
+      patched = true;
+      log(
+        `[patch-deps] Patched ${pkgName} ${scriptName}: removed lifecycle hook referencing missing ${relativeTarget}.`,
       );
     }
   }

@@ -1,3 +1,4 @@
+import { classifyRegistryPluginRelease } from "../runtime/release-plugin-policy";
 import type { PluginManagerLike } from "../services/plugin-manager-types";
 import { parseClampedInteger } from "../utils/number-parsing";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
@@ -45,6 +46,7 @@ export async function handleRegistryRoutes(
           .replace(/^@[^/]+\/plugin-/, "")
           .replace(/^@[^/]+\//, "")
           .replace(/^plugin-/, "");
+        const bundled = bundledIds.has(shortId);
         return {
           ...plugin,
           installed: installedNames.has(plugin.name),
@@ -54,7 +56,12 @@ export async function handleRegistryRoutes(
           loaded:
             loadedNames.has(plugin.name) ||
             loadedNames.has(plugin.name.replace("@elizaos/", "")),
-          bundled: bundledIds.has(shortId),
+          bundled,
+          compatibility: classifyRegistryPluginRelease({
+            packageName: plugin.name,
+            bundledPluginIds: bundledIds,
+            kind: plugin.kind,
+          }),
         };
       });
       json(res, { count: plugins.length, plugins });

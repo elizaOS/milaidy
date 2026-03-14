@@ -1,8 +1,8 @@
 /**
  * Companion shell — renders tab views as overlay panels on top of CompanionView.
  *
- * Used when `uiShellMode === "companion"`. The native tabbed layout in App.tsx
- * handles `uiShellMode === "native"`.
+ * This is the canonical Milady desktop shell. Legacy chat/native entry points
+ * now resolve into this surface instead of maintaining competing layouts.
  */
 
 import type { Tab } from "@milady/app-core/navigation";
@@ -67,7 +67,7 @@ export function CompanionShell({ tab }: CompanionShellProps) {
     f.isStream ||
     f.isWallets;
 
-  const close = () => setTab("companion");
+  const close = () => setTab("chat");
 
   return (
     <div className="relative w-full h-[100vh] overflow-hidden bg-[#0a0c12]">

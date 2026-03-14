@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getBundledRuntimePackages } from "../src/runtime/release-plugin-policy";
 
 const JS_FILE_RE = /\.(?:[cm]?js)$/i;
 const IMPORT_SPECIFIER_RE =
@@ -38,6 +39,26 @@ export function extractBarePackageSpecifiers(source: string): string[] {
   return [...found].sort();
 }
 
+export function isRuntimePluginPackage(packageName: string): boolean {
+  if (!packageName) return false;
+  if (packageName.startsWith("plugin-")) return true;
+  if (!packageName.startsWith("@")) return false;
+
+  const [, scopedName] = packageName.split("/");
+  return scopedName?.startsWith("plugin-") ?? false;
+}
+
+export function shouldBundleDiscoveredPackage(
+  packageName: string,
+  alwaysBundled: ReadonlySet<string>,
+): boolean {
+  if (!isRuntimePluginPackage(packageName)) {
+    return true;
+  }
+
+  return alwaysBundled.has(packageName);
+}
+
 export function discoverRuntimePackages(scanDir: string): string[] {
   const found = new Set<string>();
 
@@ -66,11 +87,5 @@ export function discoverAlwaysBundledPackages(
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
     dependencies?: Record<string, string>;
   };
-  const deps = Object.keys(pkg.dependencies ?? {});
-  return deps
-    .filter(
-      (name) =>
-        name.startsWith("@elizaos/") || name.startsWith("@milady/plugin-"),
-    )
-    .sort();
+  return getBundledRuntimePackages(Object.keys(pkg.dependencies ?? {}));
 }

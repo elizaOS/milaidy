@@ -148,11 +148,21 @@ export function computeStreamingDelta(
   if (incoming.length <= 3) return incoming;
 
   const maxOverlap = Math.min(existing.length, incoming.length);
+  const eLen = existing.length;
   for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-    if (existing.endsWith(incoming.slice(0, overlap))) {
-      const delta = incoming.slice(overlap);
-      if (!delta && overlap === incoming.length) return "";
-      return delta;
+    // Compare existing's suffix against incoming's prefix without allocating
+    // a substring on every iteration (avoids O(n²) allocations in the worst case).
+    const eStart = eLen - overlap;
+    let match = true;
+    for (let i = 0; i < overlap; i++) {
+      if (existing.charCodeAt(eStart + i) !== incoming.charCodeAt(i)) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      if (overlap === incoming.length) return "";
+      return incoming.slice(overlap);
     }
   }
   return incoming;

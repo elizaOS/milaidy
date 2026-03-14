@@ -1,7 +1,9 @@
 #!/usr/bin/env -S node --import tsx
 
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type PackFile = { path: string };
 type PackResult = { files?: PackFile[] };
@@ -10,8 +12,14 @@ const requiredPaths = [
   "dist/index.js",
   "dist/entry.js",
   "dist/build-info.json",
+  "scripts/run-repo-setup.mjs",
+  "scripts/patch-deps.mjs",
+  "scripts/ensure-vision-deps.mjs",
+  "scripts/lib/patch-bun-exports.mjs",
 ];
 const forbiddenPrefixes = ["dist/Milady.app/"];
+const orchestratorPackageName = "@elizaos/plugin-agent-orchestrator";
+const orchestratorBrokenLifecycleTarget = "./scripts/ensure-node-pty.mjs";
 const requiredWorkflowSnippets = [
   'BUN_VERSION: "1.3.9"',
   "name: Validate Release Inputs",
@@ -63,6 +71,22 @@ const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
 ];
+const localPackHotspotPaths = [
+  "dist/node_modules",
+  "apps/app/dist/vrms",
+  "apps/app/dist/animations",
+];
+
+type RootPackageJson = {
+  bundleDependencies?: string[];
+  bundledDependencies?: string[];
+  files?: string[];
+  scripts?: Record<string, string>;
+};
+
+type DependencyPackageJson = {
+  scripts?: Record<string, string>;
+};
 
 function runPackDry(): PackResult[] {
   const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
@@ -73,6 +97,165 @@ function runPackDry(): PackResult[] {
   return JSON.parse(raw) as PackResult[];
 }
 
+export function findLocalPackHotspots(
+  candidates = localPackHotspotPaths,
+  pathExists: (candidate: string) => boolean = existsSync,
+): string[] {
+  return candidates.filter((candidate) => pathExists(candidate));
+}
+
+export function shouldSkipExactPackDryRun(
+  hotspots: string[],
+  env = process.env,
+): boolean {
+  if (hotspots.length === 0) {
+    return false;
+  }
+
+  if (env.CI || env.GITHUB_ACTIONS) {
+    return false;
+  }
+
+  if (env.MILADY_FORCE_PACK_DRY_RUN === "1") {
+    return false;
+  }
+
+  return true;
+}
+
+export function isPackPathCoveredByFilesList(
+  packPath: string,
+  filesList: string[],
+): boolean {
+  const normalizedPath = packPath.replaceAll("\\", "/");
+  return filesList.some((entry) => {
+    const normalizedEntry = entry.replaceAll("\\", "/").replace(/\/$/, "");
+    return (
+      normalizedPath === normalizedEntry ||
+      normalizedPath.startsWith(`${normalizedEntry}/`)
+    );
+  });
+}
+
+export function bundlesDependency(
+  pkg: RootPackageJson,
+  dependencyName: string,
+): boolean {
+  const bundled = [
+    ...(pkg.bundleDependencies ?? []),
+    ...(pkg.bundledDependencies ?? []),
+  ];
+  return bundled.includes(dependencyName);
+}
+
+export function hasLifecycleScriptReferencingMissingFile(
+  pkg: DependencyPackageJson,
+  packageDir: string,
+  scriptName: string,
+  relativeTarget: string,
+  pathExists: (candidate: string) => boolean = existsSync,
+): boolean {
+  const lifecycleCommand = pkg.scripts?.[scriptName];
+  if (
+    typeof lifecycleCommand !== "string" ||
+    !lifecycleCommand.includes(relativeTarget)
+  ) {
+    return false;
+  }
+
+  return !pathExists(resolve(packageDir, relativeTarget));
+}
+function runFastLocalPackCheck(hotspots: string[]) {
+  console.warn(
+    "release-check: skipping exact npm pack --dry-run because local desktop build artifacts are present and package.json whitelists broad build directories:",
+  );
+  for (const hotspot of hotspots) {
+    console.warn(`  - ${hotspot}`);
+  }
+  console.warn(
+    "release-check: package.json files includes 'dist' and 'apps/app/dist', so a local pack dry-run has to walk those trees. Set MILADY_FORCE_PACK_DRY_RUN=1 to run the exact pack check anyway.",
+  );
+
+  const rootPackage = JSON.parse(
+    readFileSync("package.json", "utf8"),
+  ) as RootPackageJson;
+  const includedFiles = rootPackage.files ?? [];
+  const missing = requiredPaths.filter((path) => !existsSync(path));
+  const uncovered = requiredPaths.filter(
+    (path) => !isPackPathCoveredByFilesList(path, includedFiles),
+  );
+  const forbidden = forbiddenPrefixes.filter((prefix) =>
+    existsSync(prefix.replace(/\/$/, "")),
+  );
+
+  if (missing.length > 0 || uncovered.length > 0 || forbidden.length > 0) {
+    if (missing.length > 0) {
+      console.error("release-check: missing files in publish roots:");
+      for (const path of missing) {
+        console.error(`  - ${path}`);
+      }
+    }
+    if (uncovered.length > 0) {
+      console.error(
+        "release-check: package.json files does not whitelist required publish files:",
+      );
+      for (const path of uncovered) {
+        console.error(`  - ${path}`);
+      }
+    }
+    if (forbidden.length > 0) {
+      console.error("release-check: forbidden files present in publish roots:");
+      for (const prefix of forbidden) {
+        console.error(`  - ${prefix}`);
+      }
+    }
+    process.exit(1);
+  }
+
+  console.log("release-check: local publish-root sanity check looks OK.");
+}
+
+function assertBundledAgentOrchestratorInstallFix() {
+  const rootPackage = JSON.parse(
+    readFileSync("package.json", "utf8"),
+  ) as RootPackageJson;
+  if (!bundlesDependency(rootPackage, orchestratorPackageName)) {
+    console.error(
+      "release-check: package.json must bundle @elizaos/plugin-agent-orchestrator until the upstream tarball stops shipping a broken postinstall hook.",
+    );
+    process.exit(1);
+  }
+
+  const orchestratorPackageJsonPath = resolve(
+    "node_modules",
+    "@elizaos",
+    "plugin-agent-orchestrator",
+    "package.json",
+  );
+  if (!existsSync(orchestratorPackageJsonPath)) {
+    console.error(
+      "release-check: node_modules/@elizaos/plugin-agent-orchestrator/package.json is missing. Run bun install before publishing.",
+    );
+    process.exit(1);
+  }
+
+  const orchestratorPackage = JSON.parse(
+    readFileSync(orchestratorPackageJsonPath, "utf8"),
+  ) as DependencyPackageJson;
+  if (
+    hasLifecycleScriptReferencingMissingFile(
+      orchestratorPackage,
+      dirname(orchestratorPackageJsonPath),
+      "postinstall",
+      orchestratorBrokenLifecycleTarget,
+    )
+  ) {
+    console.error(
+      "release-check: @elizaos/plugin-agent-orchestrator still references missing scripts/ensure-node-pty.mjs. Run `node scripts/patch-deps.mjs` or `bun run postinstall` before publishing.",
+    );
+    process.exit(1);
+  }
+}
 function assertReleaseWorkflowHasNotaryWrapper() {
   const workflow = readFileSync(
     ".github/workflows/release-electrobun.yml",
@@ -260,6 +443,10 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
     'MOUNT_POINT="$(attach_dmg_with_retry "$DMG_PATH")"',
     'DIRECT_WGPU_DYLIB="$APP_BUNDLE/Contents/MacOS/libwebgpu_dawn.dylib"',
     'echo "WGPU : direct app bundle -> $DIRECT_WGPU_DYLIB"',
+    "assert_packaged_archive_asset()",
+    'echo "Packaged renderer asset check PASSED (wrapper archive)."',
+    'echo "Launcher: $' + "{LAUNCHER_PATH:-<unset>}" + '"',
+    'local launcher_stdout="$' + "{LAUNCHER_STDOUT:-}" + '"',
     "Launcher exited before the first health probe; continuing to wait for packaged app handoff...",
     'dump_failure_diagnostics "backend startup log reported a failure"',
     'dump_failure_diagnostics "backend never reported a started port"',
@@ -284,6 +471,12 @@ function main() {
   assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
+  assertBundledAgentOrchestratorInstallFix();
+  const localHotspots = findLocalPackHotspots();
+  if (shouldSkipExactPackDryRun(localHotspots)) {
+    runFastLocalPackCheck(localHotspots);
+    return;
+  }
   const results = runPackDry();
   const files = results.flatMap((entry) => entry.files ?? []);
   const paths = new Set(files.map((file) => file.path));
@@ -312,4 +505,6 @@ function main() {
   console.log("release-check: npm pack contents look OK.");
 }
 
-main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(appDir, "..", "..");
 const rtScript = path.join(repoRoot, "scripts", "rt.mjs");
+const repoSetupScript = path.join(repoRoot, "scripts", "run-repo-setup.mjs");
 
 function run(command, args, cwd) {
   return new Promise((resolve, reject) => {
@@ -30,7 +31,12 @@ function run(command, args, cwd) {
   });
 }
 
-await run(process.execPath, [rtScript, "run", "install:build"], repoRoot);
+await run(
+  process.execPath,
+  [rtScript, "install", "--ignore-scripts"],
+  repoRoot,
+);
+await run(process.execPath, [repoSetupScript], repoRoot);
 await run(process.execPath, [path.join(__dirname, "plugin-build.mjs")], appDir);
 await run(process.execPath, [rtScript, "install", "--ignore-scripts"], appDir);
 await run(process.execPath, [rtScript, "run", "build:web"], appDir);

@@ -55,7 +55,7 @@ vi.mock("lucide-react", () => ({
 }));
 
 describe("Header", () => {
-  it("renders agent name and shell toggle", async () => {
+  it("renders agent name without a shell-mode toggle", async () => {
     // Mock the useApp hook return value
     const mockUseApp = {
       t: (k: string) => k,
@@ -77,8 +77,6 @@ describe("Header", () => {
       plugins: [],
       uiLanguage: "en",
       setUiLanguage: vi.fn(),
-      uiShellMode: "native",
-      setUiShellMode: vi.fn(),
     };
 
     // @ts-expect-error - test uses a narrowed subset of the full app context type.
@@ -97,8 +95,13 @@ describe("Header", () => {
     const agentName = root.findByProps({ "data-testid": "agent-name" });
     expect(agentName.children).toContain("Milady");
 
-    // Check shell toggle button
-    const shellToggle = root.findByProps({ "data-testid": "ui-shell-toggle" });
-    expect(shellToggle).toBeDefined();
+    expect(
+      root.findAll(
+        (node) =>
+          typeof node.props === "object" &&
+          node.props !== null &&
+          node.props["data-testid"] === "ui-shell-toggle",
+      ),
+    ).toHaveLength(0);
   });
 });

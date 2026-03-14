@@ -114,16 +114,16 @@ describe("header status", () => {
     expect(agentName?.children).toContain("Milady");
   });
 
-  it("renders shell toggle button", async () => {
+  it("renders mobile navigation menu button", async () => {
     let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(Header));
     });
     expect(tree).toBeDefined();
-    const shellToggle = tree?.root.findByProps({
-      "data-testid": "ui-shell-toggle",
+    const mobileMenuButton = tree?.root.findByProps({
+      "aria-label": "Open navigation menu",
     });
-    expect(shellToggle).toBeDefined();
+    expect(mobileMenuButton).toBeDefined();
   });
 
   it("renders bug report button with aria-label", async () => {

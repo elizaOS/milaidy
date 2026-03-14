@@ -16,7 +16,11 @@ import Electrobun, {
   WGPU,
   webgpu,
 } from "electrobun/bun";
-import { pushApiBaseToRenderer, resolveExternalApiBase } from "./api-base";
+import {
+  pushApiBaseToRenderer,
+  resolveDesktopRuntimeMode,
+  resolveInitialApiBase,
+} from "./api-base";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
 import { disposeNativeModules, initializeNativeModules } from "./native/index";
@@ -28,6 +32,7 @@ import {
 } from "./native/mac-window-effects";
 import { getPermissionManager } from "./native/permissions";
 import { checkWebGpuSupport } from "./native/webgpu-browser-support";
+import { readBuiltPreloadScript } from "./preload-validation";
 import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 
@@ -271,14 +276,16 @@ async function startRendererServer(): Promise<string> {
   // where the renderer fetches /api/auth/status relative to the static server.
   // If the agent falls back to a dynamic port, apiBaseUpdate messages will
   // update window.__MILADY_API_BASE__ and the client will pick it up lazily.
-  const agentPort = Number(process.env.MILADY_PORT) || 2138;
-  // Use 127.0.0.1 explicitly: on Windows 11, "localhost" resolves to ::1 (IPv6)
-  // by default, but the agent server binds to 127.0.0.1 (IPv4), causing ECONNREFUSED.
-  const agentApiBase = `http://127.0.0.1:${agentPort}`;
+  const initialApiBase = resolveInitialApiBase(
+    process.env as Record<string, string | undefined>,
+  );
 
   // Inject the API base into index.html so it's available before React mounts.
   function injectApiBaseIntoHtml(html: string): string {
-    const script = `<script>window.__MILADY_API_BASE__=${JSON.stringify(agentApiBase)};</script>`;
+    if (!initialApiBase) {
+      return html;
+    }
+    const script = `<script>window.__MILADY_API_BASE__=${JSON.stringify(initialApiBase)};</script>`;
     // Inject before </head> if present, otherwise before <body>
     if (html.includes("</head>")) {
       return html.replace("</head>", `${script}</head>`);
@@ -367,16 +374,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
   // Read the pre-built webview bridge preload (built by `bun run build:preload`).
   // The preload runs in the webview context after Electrobun's built-in preload,
   // setting up Milady's direct Electrobun RPC bridge on the window.
-  const preloadPath = path.join(import.meta.dir, "preload.js");
-  const preload = fs.existsSync(preloadPath)
-    ? fs.readFileSync(preloadPath, "utf8")
-    : null;
-
-  if (!preload) {
-    console.warn(
-      "[Main] preload.js not found — run `bun run build:preload` first. window.__MILADY_ELECTROBUN_RPC__ will be unavailable.",
-    );
-  }
+  const preload = readBuiltPreloadScript(import.meta.dir);
 
   const win = new BrowserWindow({
     title: "Milady",
@@ -541,28 +539,31 @@ function wireRpcAndModules(
 // ============================================================================
 
 function injectApiBase(win: BrowserWindow): void {
-  const resolution = resolveExternalApiBase(
+  const runtimeResolution = resolveDesktopRuntimeMode(
     process.env as Record<string, string | undefined>,
   );
 
-  if (resolution.invalidSources.length > 0) {
+  if (runtimeResolution.externalApi.invalidSources.length > 0) {
     console.warn(
-      `[Main] Invalid API base env vars: ${resolution.invalidSources.join(", ")}`,
+      `[Main] Invalid API base env vars: ${runtimeResolution.externalApi.invalidSources.join(", ")}`,
     );
   }
 
-  // If we have an external API base, push it to the renderer.
-  if (resolution.base) {
-    pushApiBaseToRenderer(win, resolution.base, process.env.MILADY_API_TOKEN);
+  if (
+    runtimeResolution.mode === "external" &&
+    runtimeResolution.externalApi.base
+  ) {
+    pushApiBaseToRenderer(
+      win,
+      runtimeResolution.externalApi.base,
+      process.env.MILADY_API_TOKEN,
+    );
     return;
   }
 
-  // Otherwise fall back to the agent's local server URL.
   const agent = getAgentManager();
-  const port = agent.getPort();
-  if (port) {
-    pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
-  }
+  const port = agent.getPort() ?? (Number(process.env.MILADY_PORT) || 2138);
+  pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
 }
 
 // ============================================================================
@@ -590,20 +591,25 @@ async function syncPermissionsToRestApi(
 }
 
 async function startAgent(win: BrowserWindow): Promise<void> {
+  const runtimeResolution = resolveDesktopRuntimeMode(
+    process.env as Record<string, string | undefined>,
+  );
+
+  if (runtimeResolution.mode !== "local") {
+    console.log(
+      `[Main] Skipping embedded agent startup (${runtimeResolution.mode} mode)`,
+    );
+    injectApiBase(win);
+    return;
+  }
+
   const agent = getAgentManager();
 
   try {
     const status = await agent.start();
 
-    // If agent started and no external API base is configured,
-    // push the agent's local API base to the renderer.
     if (status.state === "running" && status.port) {
-      const resolution = resolveExternalApiBase(
-        process.env as Record<string, string | undefined>,
-      );
-      if (!resolution.base) {
-        pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
-      }
+      pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.
       // Pass startup=true so the backend skips scheduling a restart for
@@ -767,11 +773,17 @@ function checkWebGpuBrowserSupport(): void {
 async function main(): Promise<void> {
   console.log("[Main] Starting Milady (Electrobun)...");
   const normalizedModuleDir = import.meta.dir.replaceAll("\\", "/");
+  const runtimeResolution = resolveDesktopRuntimeMode(
+    process.env as Record<string, string | undefined>,
+  );
   // Structured startup environment block — visible in CI logs and milady-startup.log
   console.log(
     `[Env] platform=${process.platform} arch=${process.arch} bun=${Bun.version} ` +
       `execPath=${process.execPath} cwd=${process.cwd()} moduleDir=${import.meta.dir} ` +
       `packaged=${!normalizedModuleDir.includes("/src/")} argv=${process.argv.slice(1).join(" ")}`,
+  );
+  console.log(
+    `[Env] desktopRuntimeMode=${runtimeResolution.mode} externalApi=${runtimeResolution.externalApi.base ?? "none"}`,
   );
   initializeBundledWebGPU();
   checkWebGpuBrowserSupport();

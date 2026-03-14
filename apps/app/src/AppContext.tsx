@@ -84,6 +84,8 @@ import {
   formatSearchBullet,
   formatStartupErrorDetail,
   type GamePostMessageAuthPayload,
+  getVrmBackgroundUrl,
+  getVrmUrl,
   LIFECYCLE_MESSAGES,
   type LifecycleAction,
   type LoadConversationMessagesResult,
@@ -92,10 +94,8 @@ import {
   loadChatMode,
   loadChatVoiceMuted,
   loadUiLanguage,
-  loadUiShellMode,
   normalizeAvatarIndex,
   normalizeCustomActionName,
-  normalizeUiShellMode,
   ONBOARDING_PERMISSION_LABELS,
   type OnboardingNextOptions,
   type OnboardingStep,
@@ -111,11 +111,9 @@ import {
   saveChatMode,
   saveChatVoiceMuted,
   saveUiLanguage,
-  saveUiShellMode,
   shouldApplyFinalStreamText,
-  type UiShellMode,
 } from "@milady/app-core/state";
-import { resolveApiUrl } from "@milady/app-core/utils";
+import { resolveApiUrl, resolveAppAssetUrl } from "@milady/app-core/utils";
 import {
   type ReactNode,
   useCallback,
@@ -174,11 +172,9 @@ export {
   loadChatMode,
   loadChatVoiceMuted,
   loadUiLanguage,
-  loadUiShellMode,
   normalizeAvatarIndex,
   normalizeCustomActionName,
   normalizeStreamComparisonText,
-  normalizeUiShellMode,
   ONBOARDING_PERMISSION_LABELS,
   type OnboardingNextOptions,
   type OnboardingStep,
@@ -198,9 +194,7 @@ export {
   saveChatMode,
   saveChatVoiceMuted,
   saveUiLanguage,
-  saveUiShellMode,
   shouldApplyFinalStreamText,
-  type UiShellMode,
   useApp,
   VRM_COUNT,
 } from "@milady/app-core/state";
@@ -217,8 +211,6 @@ import {
 export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
   const [tab, setTabRaw] = useState<Tab>("chat");
-  const [uiShellMode, setUiShellModeState] =
-    useState<UiShellMode>(loadUiShellMode);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -783,14 +775,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ).setUiLanguage(uiLanguage);
     }
   }, [uiLanguage]);
-
-  const setUiShellMode = useCallback((mode: UiShellMode) => {
-    setUiShellModeState(normalizeUiShellMode(mode));
-  }, []);
-
-  useEffect(() => {
-    saveUiShellMode(uiShellMode);
-  }, [uiShellMode]);
 
   // ── Navigation ─────────────────────────────────────────────────────
 
@@ -3616,7 +3600,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatLastUsage: setChatLastUsage,
         chatMode: setChatMode,
         chatAvatarSpeaking: setChatAvatarSpeaking,
-        uiShellMode: setUiShellModeState,
         uiLanguage: setUiLanguageState,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
@@ -3811,9 +3794,143 @@ export function AppProvider({ children }: { children: ReactNode }) {
         detail,
       };
     };
+    const describeAssetFailure = (err: unknown): StartupErrorState => ({
+      reason: "asset-missing",
+      phase: "initializing-agent",
+      message: "Required companion assets could not be loaded during startup.",
+      detail: formatStartupErrorDetail(err),
+    });
     const STARTUP_WARN_PREFIX = "[milady][startup:init]";
     const logStartupWarning = (scope: string, err: unknown) => {
       console.warn(`${STARTUP_WARN_PREFIX} ${scope}`, err);
+    };
+    const verifyStartupAssetUrl = async (
+      label: string,
+      url: string,
+    ): Promise<void> => {
+      const attempts: RequestInit[] = [
+        { method: "HEAD", cache: "no-store" },
+        { cache: "no-store" },
+      ];
+      let failureDetail = "";
+
+      for (const init of attempts) {
+        try {
+          const response = await fetch(url, init);
+          const protocol = (() => {
+            try {
+              return new URL(url, window.location.href).protocol;
+            } catch {
+              return "";
+            }
+          })();
+          if (response.ok || (protocol === "file:" && response.status === 0)) {
+            return;
+          }
+          failureDetail = `${response.status} ${response.statusText}`.trim();
+        } catch (err) {
+          failureDetail = formatStartupErrorDetail(err);
+        }
+      }
+
+      throw new Error(
+        `${label} could not be loaded from ${url}${
+          failureDetail ? ` (${failureDetail})` : ""
+        }`,
+      );
+    };
+    const resolveStartupAvatarAssets = async (): Promise<{
+      selectedVrmIndex: number;
+      customVrmUrl: string;
+      customBackgroundUrl: string;
+    }> => {
+      const defaultBundledIndex = 1;
+      let resolvedIndex = loadAvatarIndex();
+      let customVrmUrl = "";
+      let customBackgroundUrl = "";
+
+      try {
+        const cfg = await client.getConfig();
+        const ui = cfg.ui as Record<string, unknown> | undefined;
+        if (ui?.avatarIndex != null) {
+          resolvedIndex = normalizeAvatarIndex(Number(ui.avatarIndex));
+        }
+      } catch (err) {
+        logStartupWarning("failed to load config for avatar selection", err);
+      }
+
+      if (resolvedIndex === 0) {
+        const nextCustomVrmUrl = resolveApiUrl(
+          `/api/avatar/vrm?t=${Date.now()}`,
+        );
+        const hasCustomVrm = await client.hasCustomVrm();
+        if (hasCustomVrm) {
+          try {
+            await verifyStartupAssetUrl("Custom avatar", nextCustomVrmUrl);
+            customVrmUrl = nextCustomVrmUrl;
+          } catch (err) {
+            logStartupWarning(
+              "custom avatar unavailable; falling back to bundled default",
+              err,
+            );
+            resolvedIndex = defaultBundledIndex;
+          }
+        } else {
+          logStartupWarning(
+            "custom avatar missing; falling back to bundled default",
+            "custom avatar HEAD probe returned false",
+          );
+          resolvedIndex = defaultBundledIndex;
+        }
+
+        if (resolvedIndex === 0) {
+          const nextCustomBackgroundUrl = resolveApiUrl(
+            `/api/avatar/background?t=${Date.now()}`,
+          );
+          const hasCustomBackground = await client.hasCustomBackground();
+          if (hasCustomBackground) {
+            try {
+              await verifyStartupAssetUrl(
+                "Custom background",
+                nextCustomBackgroundUrl,
+              );
+              customBackgroundUrl = nextCustomBackgroundUrl;
+            } catch (err) {
+              logStartupWarning(
+                "custom background unavailable; using bundled fallback",
+                err,
+              );
+            }
+          }
+        }
+      }
+
+      if (resolvedIndex > 0) {
+        await verifyStartupAssetUrl(
+          `Bundled avatar MILADY-${String(resolvedIndex).padStart(2, "0")}`,
+          getVrmUrl(resolvedIndex),
+        );
+        await verifyStartupAssetUrl(
+          `Bundled background MILADY-${String(resolvedIndex).padStart(2, "0")}`,
+          getVrmBackgroundUrl(resolvedIndex),
+        );
+      } else if (!customBackgroundUrl) {
+        await verifyStartupAssetUrl(
+          "Bundled default background",
+          getVrmBackgroundUrl(defaultBundledIndex),
+        );
+      }
+
+      await verifyStartupAssetUrl(
+        "Default idle animation",
+        resolveAppAssetUrl("animations/idle.glb"),
+      );
+
+      return {
+        selectedVrmIndex: resolvedIndex,
+        customVrmUrl,
+        customBackgroundUrl,
+      };
     };
 
     const initApp = async () => {
@@ -3839,6 +3956,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupPhase("starting-backend");
       setAuthRequired(false);
       setConnected(false);
+      setCustomVrmUrl("");
+      setCustomBackgroundUrl("");
       const backendStartedAt = Date.now();
       let lastBackendError: unknown = null;
 
@@ -4004,6 +4123,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setStartupError(
           describeAgentFailure(lastAgentError, true, lastAgentDiagnostics),
         );
+        setOnboardingLoading(false);
+        return;
+      }
+
+      try {
+        const avatarAssets = await resolveStartupAvatarAssets();
+        setSelectedVrmIndex(avatarAssets.selectedVrmIndex);
+        setCustomVrmUrl(avatarAssets.customVrmUrl);
+        setCustomBackgroundUrl(avatarAssets.customBackgroundUrl);
+      } catch (err) {
+        setStartupError(describeAssetFailure(err));
         setOnboardingLoading(false);
         return;
       }
@@ -4451,35 +4581,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logStartupWarning("failed to load wallet addresses", err);
       }
 
-      // Restore avatar selection from config (server-persisted under "ui")
-      let resolvedIndex = loadAvatarIndex();
-      try {
-        const cfg = await client.getConfig();
-        const ui = cfg.ui as Record<string, unknown> | undefined;
-        if (ui?.avatarIndex != null) {
-          resolvedIndex = normalizeAvatarIndex(Number(ui.avatarIndex));
-          setSelectedVrmIndex(resolvedIndex);
-        }
-      } catch (err) {
-        logStartupWarning("failed to load config for avatar selection", err);
-      }
-      // If custom avatar selected, verify the file still exists on the server
-      if (resolvedIndex === 0) {
-        const hasVrm = await client.hasCustomVrm();
-        if (hasVrm) {
-          setCustomVrmUrl(resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`));
-        } else {
-          setSelectedVrmIndex(1);
-        }
-        // Restore custom background if one was uploaded
-        const hasBg = await client.hasCustomBackground();
-        if (hasBg) {
-          setCustomBackgroundUrl(
-            resolveApiUrl(`/api/avatar/background?t=${Date.now()}`),
-          );
-        }
-      }
-
       // Cloud polling — always run the initial poll unconditionally so we can
       // discover a pre-existing API key / connection. If connected, start the
       // recurring interval too.
@@ -4612,7 +4713,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     t,
     // State
     tab,
-    uiShellMode,
     uiLanguage,
     connected,
     agentStatus,
@@ -4836,7 +4936,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Actions
     setTab,
-    setUiShellMode,
     setUiLanguage,
     handleStart,
     handleStop,

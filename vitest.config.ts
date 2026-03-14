@@ -204,6 +204,7 @@ export default defineConfig({
       "scripts/**/*.test.ts",
       "apps/**/*.test.ts",
       "apps/**/*.test.tsx",
+      "packages/app-core/src/state/parsers.test.ts",
       "apps/app/test/app/lifecycle-lock.test.ts",
       "apps/app/test/app/api-client-timeout.test.ts",
       "apps/app/test/app/startup-backend-missing.e2e.test.ts",
@@ -219,11 +220,7 @@ export default defineConfig({
       "test/health-endpoint.e2e.test.ts",
     ],
     setupFiles: ["test/setup.ts"],
-    exclude: [
-      "dist/**",
-      "**/node_modules/**",
-      "**/*.live.test.ts",
-    ],
+    exclude: ["dist/**", "**/node_modules/**", "**/*.live.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
