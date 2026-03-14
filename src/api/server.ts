@@ -209,8 +209,7 @@ interface TaskCompletionSummary {
   originalTask: string;
   status: string;
   completionSummary: string;
-  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 type PiAiPluginModule = typeof import("@elizaos/plugin-pi-ai");

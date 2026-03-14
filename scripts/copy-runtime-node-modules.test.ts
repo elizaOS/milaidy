@@ -16,6 +16,8 @@ import {
   selectResolvedCandidate,
   shouldCopyPackageEntry,
   shouldKeepPackageRelativePath,
+  shouldSkipPackagedDependency,
+  stripPackagedCronCliRegistration,
 } from "./copy-runtime-node-modules";
 
 describe("inferVersionFromBunEntryPath", () => {
@@ -140,6 +142,46 @@ describe("getRuntimeDependencies", () => {
       { name: "git-workspace-service", spec: "0.4.4" },
       { name: "pty-manager", spec: "1.9.5" },
     ]);
+  });
+});
+
+describe("packaged dependency overrides", () => {
+  it("skips plugin-cli when packaging plugin-cron for desktop/runtime", () => {
+    expect(
+      shouldSkipPackagedDependency(
+        "@elizaos/plugin-cron",
+        "@elizaos/plugin-cli",
+      ),
+    ).toBe(true);
+    expect(
+      shouldSkipPackagedDependency(
+        "@elizaos/plugin-cron",
+        "@elizaos/plugin-openai",
+      ),
+    ).toBe(false);
+    expect(
+      shouldSkipPackagedDependency(
+        "@elizaos/plugin-browser",
+        "@elizaos/plugin-cli",
+      ),
+    ).toBe(false);
+  });
+
+  it("replaces cron CLI registration with packaged no-op shims", () => {
+    const source = [
+      'import { defineCliCommand, registerCliCommand } from "@elizaos/plugin-cli";',
+      'registerCliCommand(defineCliCommand("cron", "Cron", () => {}));',
+    ].join("\n");
+
+    expect(stripPackagedCronCliRegistration(source)).toContain(
+      "const defineCliCommand = () => null;",
+    );
+    expect(stripPackagedCronCliRegistration(source)).toContain(
+      "const registerCliCommand = () => {};",
+    );
+    expect(stripPackagedCronCliRegistration(source)).not.toContain(
+      "@elizaos/plugin-cli",
+    );
   });
 });
 
