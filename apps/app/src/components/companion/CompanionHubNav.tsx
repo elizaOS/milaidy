@@ -25,7 +25,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("character")}
           style={
             {
@@ -47,7 +47,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("skills")}
           style={
             {
@@ -69,7 +69,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("knowledge")}
           style={
             {
@@ -91,7 +91,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("connectors")}
           style={
             {
@@ -113,7 +113,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("plugins")}
           style={
             {
@@ -135,7 +135,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("apps")}
           style={
             {
@@ -155,7 +155,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("wallets")}
           style={
             {
@@ -177,7 +177,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("stream")}
           style={
             {
@@ -197,7 +197,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("lifo")}
           style={
             {
@@ -217,7 +217,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("settings")}
           style={
             {
@@ -239,7 +239,7 @@ export function CompanionHubNav({
       <div className="flex flex-row-reverse items-center gap-3 group">
         <button
           type="button"
-          className="flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
+          className="cursor-pointer flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(56,189,248,0.2)] focus:outline-none focus:ring-2 focus:ring-sky-400/50 relative overflow-hidden"
           onClick={() => setTab("advanced")}
           style={
             {
