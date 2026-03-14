@@ -57,8 +57,6 @@ import type {
 import type { UiLanguage } from "../i18n";
 import type { Tab } from "../navigation";
 
-export type UiShellMode = "companion" | "native";
-
 export type OnboardingStep =
   | "wakeUp"
   | "language"
@@ -206,7 +204,6 @@ export interface ChatTurnUsage extends ChatTokenUsage {
 export interface AppState {
   // Core
   tab: Tab;
-  uiShellMode: UiShellMode;
   uiLanguage: UiLanguage;
   connected: boolean;
   agentStatus: AgentStatus | null;
@@ -257,6 +254,7 @@ export interface AppState {
   conversationMessages: ConversationMessage[];
   autonomousEvents: StreamEventEnvelope[];
   autonomousLatestEventId: string | null;
+  // biome-ignore lint/suspicious/noExplicitAny: app-core keeps this app-owned replay map structural without importing app-local types.
   autonomousRunHealthByRunId: Record<string, any>; // defined in autonomy-events.ts in app
   /** Active PTY coding agent sessions from the SwarmCoordinator. */
   ptySessions: CodingAgentSession[];
@@ -509,7 +507,6 @@ export const AGENT_READY_TIMEOUT_MS = 90_000;
 export interface AppActions {
   // Navigation
   setTab: (tab: Tab) => void;
-  setUiShellMode: (mode: UiShellMode) => void;
   setUiLanguage: (language: UiLanguage) => void;
 
   // Lifecycle
@@ -670,6 +667,7 @@ export interface AppActions {
   copyToClipboard: (text: string) => Promise<void>;
 
   // Translations
+  // biome-ignore lint/suspicious/noExplicitAny: translation interpolation values are intentionally open-ended.
   t: (key: string, values?: Record<string, any>) => string;
 }
 

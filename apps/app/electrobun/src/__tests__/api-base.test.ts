@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeApiBase, resolveExternalApiBase } from "../api-base";
+import {
+  normalizeApiBase,
+  resolveDesktopRuntimeMode,
+  resolveExternalApiBase,
+  resolveInitialApiBase,
+} from "../api-base";
 
 describe("normalizeApiBase", () => {
   it("returns null for undefined input", () => {
@@ -158,5 +163,59 @@ describe("resolveExternalApiBase", () => {
       MILADY_API_BASE: "  http://localhost:2138  ",
     });
     expect(result.base).toBe("http://localhost:2138");
+  });
+});
+
+describe("resolveDesktopRuntimeMode", () => {
+  it("uses external mode when an external API base is configured", () => {
+    const result = resolveDesktopRuntimeMode({
+      MILADY_DESKTOP_API_BASE: "https://api.milady.ai",
+      MILADY_DESKTOP_SKIP_EMBEDDED_AGENT: "1",
+    });
+
+    expect(result.mode).toBe("external");
+    expect(result.externalApi.base).toBe("https://api.milady.ai");
+    expect(result.externalApi.source).toBe("MILADY_DESKTOP_API_BASE");
+  });
+
+  it("uses disabled mode when embedded startup is explicitly skipped", () => {
+    const result = resolveDesktopRuntimeMode({
+      MILADY_DESKTOP_SKIP_EMBEDDED_AGENT: "true",
+    });
+
+    expect(result.mode).toBe("disabled");
+    expect(result.externalApi.base).toBeNull();
+  });
+
+  it("defaults to local mode when no external base or skip flag is set", () => {
+    const result = resolveDesktopRuntimeMode({});
+
+    expect(result.mode).toBe("local");
+    expect(result.externalApi.base).toBeNull();
+  });
+});
+
+describe("resolveInitialApiBase", () => {
+  it("returns the external API base in external mode", () => {
+    expect(
+      resolveInitialApiBase({
+        MILADY_DESKTOP_API_BASE: "https://api.milady.ai/v1",
+      }),
+    ).toBe("https://api.milady.ai");
+  });
+
+  it("returns the local port in local mode", () => {
+    expect(resolveInitialApiBase({ MILADY_PORT: "4242" })).toBe(
+      "http://127.0.0.1:4242",
+    );
+  });
+
+  it("keeps the local API base in disabled mode for manually managed runtimes", () => {
+    expect(
+      resolveInitialApiBase({
+        MILADY_DESKTOP_SKIP_EMBEDDED_AGENT: "1",
+        MILADY_PORT: "5151",
+      }),
+    ).toBe("http://127.0.0.1:5151");
   });
 });

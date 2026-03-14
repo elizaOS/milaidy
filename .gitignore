@@ -49,9 +49,10 @@ plugins/plugin-blooio/
 .git-workspace/
 IDENTITY.md
 USER.md
-.tgz
+*.tgz
 .eliza/
 .eliza.broken.*/
+.milady-repo-setup.lock
 .turbo/
 skills/*
 !skills/README.md

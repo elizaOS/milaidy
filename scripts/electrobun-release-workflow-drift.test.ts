@@ -23,6 +23,10 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/macos-direct-launcher.c",
 );
+const MACOS_SMOKE_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/smoke-test.sh",
+);
 const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
   "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
@@ -216,6 +220,21 @@ describe("Electrobun release workflow drift", () => {
     );
 
     expect(buildScript).toContain("-std=c++17");
+  });
+
+  it("validates renderer assets from the wrapped macOS runtime archive before launch", () => {
+    const smokeScript = fs.readFileSync(MACOS_SMOKE_SCRIPT_PATH, "utf8");
+
+    expect(smokeScript).toContain("assert_packaged_archive_asset()");
+    expect(smokeScript).toContain(
+      'echo "Packaged renderer asset check PASSED (wrapper archive)."',
+    );
+    expect(smokeScript).toContain(
+      'echo "Launcher: $' + "{LAUNCHER_PATH:-<unset>}" + '"',
+    );
+    expect(smokeScript).toContain(
+      'local launcher_stdout="$' + "{LAUNCHER_STDOUT:-}" + '"',
+    );
   });
 
   it("launches the staged macOS app via absolute bun and main.js paths", () => {

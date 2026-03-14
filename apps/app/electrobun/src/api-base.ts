@@ -13,6 +13,8 @@ type ExternalApiBaseEnvKey =
   | "MILADY_ELECTRON_API_BASE"
   | "MILADY_ELECTRON_TEST_API_BASE";
 
+export type DesktopRuntimeMode = "local" | "external" | "disabled";
+
 const EXTERNAL_API_BASE_ENV_KEYS: readonly ExternalApiBaseEnvKey[] = [
   "MILADY_DESKTOP_TEST_API_BASE",
   "MILADY_DESKTOP_API_BASE",
@@ -26,6 +28,11 @@ export interface ExternalApiBaseResolution {
   base: string | null;
   source: ExternalApiBaseEnvKey | null;
   invalidSources: ExternalApiBaseEnvKey[];
+}
+
+export interface DesktopRuntimeModeResolution {
+  mode: DesktopRuntimeMode;
+  externalApi: ExternalApiBaseResolution;
 }
 
 export function normalizeApiBase(raw: string | undefined): string | null {
@@ -58,6 +65,43 @@ export function resolveExternalApiBase(
   }
 
   return { base: null, source: null, invalidSources };
+}
+
+function isEnabledFlag(raw: string | undefined): boolean {
+  const normalized = raw?.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
+export function resolveDesktopRuntimeMode(
+  env: Record<string, string | undefined>,
+): DesktopRuntimeModeResolution {
+  const externalApi = resolveExternalApiBase(env);
+  if (externalApi.base) {
+    return { mode: "external", externalApi };
+  }
+
+  if (isEnabledFlag(env.MILADY_DESKTOP_SKIP_EMBEDDED_AGENT)) {
+    return { mode: "disabled", externalApi };
+  }
+
+  return { mode: "local", externalApi };
+}
+
+export function resolveInitialApiBase(
+  env: Record<string, string | undefined>,
+): string | null {
+  const resolution = resolveDesktopRuntimeMode(env);
+  if (resolution.mode === "external") {
+    return resolution.externalApi.base;
+  }
+
+  const agentPort = Number(env.MILADY_PORT) || 2138;
+  return `http://127.0.0.1:${agentPort}`;
 }
 
 /**

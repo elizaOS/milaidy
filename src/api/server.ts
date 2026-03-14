@@ -84,6 +84,7 @@ import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
+import { getBundledRuntimePluginIds } from "../runtime/release-plugin-policy";
 import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
@@ -698,6 +699,27 @@ export function findOwnPackageRoot(startDir: string): string {
     dir = parent;
   }
   return startDir;
+}
+
+function getReleaseBundledPluginIds(): Set<string> {
+  const packageRoot = findOwnPackageRoot(
+    import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
+  );
+  const packageJsonPath = path.join(packageRoot, "package.json");
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+    };
+    return new Set(
+      getBundledRuntimePluginIds(Object.keys(pkg.dependencies ?? {})),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to resolve bundled release plugins from package.json: ${err instanceof Error ? err.message : err}`,
+    );
+    return new Set();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -7949,8 +7971,7 @@ async function handleRequest(
       getPluginManager: () => requirePluginManager(state.runtime),
       getLoadedPluginNames: () =>
         state.runtime?.plugins.map((plugin) => plugin.name) ?? [],
-      getBundledPluginIds: () =>
-        new Set(state.plugins.map((plugin) => plugin.id)),
+      getBundledPluginIds: () => getReleaseBundledPluginIds(),
     })
   ) {
     return;

@@ -46,13 +46,17 @@ describe("runtime-package-manifest", () => {
   });
 
   it("discovers always-bundled plugin scopes from package.json", () => {
-    expect(discoverAlwaysBundledPackages(repoPackageJson)).toEqual(
+    const bundled = discoverAlwaysBundledPackages(repoPackageJson);
+
+    expect(bundled).toEqual(
       expect.arrayContaining([
         "@elizaos/core",
         "@elizaos/plugin-agent-orchestrator",
-        "@elizaos/plugin-bnb-identity",
-        "@elizaos/plugin-streaming-base",
+        "@elizaos/plugin-openai",
+        "@elizaos/plugin-ollama",
       ]),
     );
+    expect(bundled).not.toContain("@elizaos/plugin-bnb-identity");
+    expect(bundled).not.toContain("@elizaos/plugin-streaming-base");
   });
 });

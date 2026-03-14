@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bundlesDependency,
   findLocalPackHotspots,
+  hasLifecycleScriptReferencingMissingFile,
+  isPackPathCoveredByFilesList,
   shouldSkipExactPackDryRun,
 } from "./release-check";
 
@@ -43,6 +46,72 @@ describe("release-check local pack behavior", () => {
         GITHUB_ACTIONS: "",
         MILADY_FORCE_PACK_DRY_RUN: "",
       }),
+    ).toBe(false);
+  });
+});
+
+describe("release-check package guards", () => {
+  it("treats parent directory file entries as covering required publish files", () => {
+    expect(
+      isPackPathCoveredByFilesList("dist/index.js", [
+        "dist",
+        "scripts/run-repo-setup.mjs",
+      ]),
+    ).toBe(true);
+    expect(
+      isPackPathCoveredByFilesList("scripts/lib/patch-bun-exports.mjs", [
+        "dist",
+        "scripts/run-repo-setup.mjs",
+      ]),
+    ).toBe(false);
+  });
+
+  it("accepts both bundleDependencies and bundledDependencies spellings", () => {
+    expect(
+      bundlesDependency(
+        {
+          bundleDependencies: ["@elizaos/plugin-agent-orchestrator"],
+        },
+        "@elizaos/plugin-agent-orchestrator",
+      ),
+    ).toBe(true);
+    expect(
+      bundlesDependency(
+        {
+          bundledDependencies: ["@elizaos/plugin-agent-orchestrator"],
+        },
+        "@elizaos/plugin-agent-orchestrator",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags lifecycle hooks that reference missing files", () => {
+    expect(
+      hasLifecycleScriptReferencingMissingFile(
+        {
+          scripts: {
+            postinstall: "node ./scripts/ensure-node-pty.mjs",
+          },
+        },
+        "/tmp/plugin-agent-orchestrator",
+        "postinstall",
+        "./scripts/ensure-node-pty.mjs",
+        () => false,
+      ),
+    ).toBe(true);
+
+    expect(
+      hasLifecycleScriptReferencingMissingFile(
+        {
+          scripts: {
+            postinstall: "node ./scripts/ensure-node-pty.mjs",
+          },
+        },
+        "/tmp/plugin-agent-orchestrator",
+        "postinstall",
+        "./scripts/ensure-node-pty.mjs",
+        () => true,
+      ),
     ).toBe(false);
   });
 });

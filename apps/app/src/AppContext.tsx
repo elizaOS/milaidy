@@ -94,10 +94,8 @@ import {
   loadChatMode,
   loadChatVoiceMuted,
   loadUiLanguage,
-  loadUiShellMode,
   normalizeAvatarIndex,
   normalizeCustomActionName,
-  normalizeUiShellMode,
   ONBOARDING_PERMISSION_LABELS,
   type OnboardingNextOptions,
   type OnboardingStep,
@@ -113,9 +111,7 @@ import {
   saveChatMode,
   saveChatVoiceMuted,
   saveUiLanguage,
-  saveUiShellMode,
   shouldApplyFinalStreamText,
-  type UiShellMode,
 } from "@milady/app-core/state";
 import { resolveApiUrl, resolveAppAssetUrl } from "@milady/app-core/utils";
 import {
@@ -176,11 +172,9 @@ export {
   loadChatMode,
   loadChatVoiceMuted,
   loadUiLanguage,
-  loadUiShellMode,
   normalizeAvatarIndex,
   normalizeCustomActionName,
   normalizeStreamComparisonText,
-  normalizeUiShellMode,
   ONBOARDING_PERMISSION_LABELS,
   type OnboardingNextOptions,
   type OnboardingStep,
@@ -200,9 +194,7 @@ export {
   saveChatMode,
   saveChatVoiceMuted,
   saveUiLanguage,
-  saveUiShellMode,
   shouldApplyFinalStreamText,
-  type UiShellMode,
   useApp,
   VRM_COUNT,
 } from "@milady/app-core/state";
@@ -219,8 +211,6 @@ import {
 export function AppProvider({ children }: { children: ReactNode }) {
   // --- Core state ---
   const [tab, setTabRaw] = useState<Tab>("chat");
-  const [uiShellMode, setUiShellModeState] =
-    useState<UiShellMode>(loadUiShellMode);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -785,14 +775,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ).setUiLanguage(uiLanguage);
     }
   }, [uiLanguage]);
-
-  const setUiShellMode = useCallback((mode: UiShellMode) => {
-    setUiShellModeState(normalizeUiShellMode(mode));
-  }, []);
-
-  useEffect(() => {
-    saveUiShellMode(uiShellMode);
-  }, [uiShellMode]);
 
   // ── Navigation ─────────────────────────────────────────────────────
 
@@ -3618,7 +3600,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatLastUsage: setChatLastUsage,
         chatMode: setChatMode,
         chatAvatarSpeaking: setChatAvatarSpeaking,
-        uiShellMode: setUiShellModeState,
         uiLanguage: setUiLanguageState,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
@@ -4732,7 +4713,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     t,
     // State
     tab,
-    uiShellMode,
     uiLanguage,
     connected,
     agentStatus,
@@ -4956,7 +4936,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Actions
     setTab,
-    setUiShellMode,
     setUiLanguage,
     handleStart,
     handleStop,

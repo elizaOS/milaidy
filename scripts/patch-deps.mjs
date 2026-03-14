@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   patchBunExports,
   patchExtensionlessJsExports,
+  patchMissingLifecycleScript,
   patchNobleHashesCompat,
   patchProperLockfileSignalExitCompat,
 } from "./lib/patch-bun-exports.mjs";
@@ -30,6 +31,12 @@ const root = resolve(__dirname, "..");
 // Logic lives in scripts/lib/patch-bun-exports.mjs (testable).
 // ---------------------------------------------------------------------------
 patchBunExports(root, "@elizaos/plugin-coding-agent");
+patchMissingLifecycleScript(
+  root,
+  "@elizaos/plugin-agent-orchestrator",
+  "postinstall",
+  "./scripts/ensure-node-pty.mjs",
+);
 
 // @noble/curves and @noble/hashes publish ".js" subpath exports, while ethers
 // imports extensionless paths like "@noble/curves/secp256k1" and

@@ -1120,6 +1120,14 @@ export interface RegistryPlugin {
   installedVersion: string | null;
   loaded: boolean;
   bundled: boolean;
+  compatibility?: {
+    releaseAvailability: "bundled" | "post-release";
+    installSurface: "runtime" | "app";
+    postReleaseInstallable: boolean;
+    requiresDesktopRuntime: boolean;
+    requiresLocalRuntime: boolean;
+    note?: string;
+  };
 }
 
 export interface RegistrySearchResult {

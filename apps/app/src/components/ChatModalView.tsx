@@ -45,16 +45,21 @@ type ChatModalLayoutVariant = "full-overlay" | "companion-dock";
 interface ChatModalViewProps {
   variant?: ChatModalLayoutVariant;
   onRequestClose?: () => void;
+  showSidebar?: boolean;
+  onSidebarClose?: () => void;
 }
 
 export function ChatModalView({
   variant = "full-overlay",
+  showSidebar = false,
+  onSidebarClose,
 }: ChatModalViewProps) {
   const { activeConversationId } = useApp();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const isNarrow = useIsNarrowViewport();
   const isCompanionDock = variant === "companion-dock";
+  const companionSidebarVisible = isCompanionDock && showSidebar && !isNarrow;
 
   useEffect(() => {
     if (!isNarrow) {
@@ -82,9 +87,22 @@ export function ChatModalView({
         className="flex-1 flex flex-col min-h-0 relative rounded-2xl overflow-hidden bg-transparent"
         data-chat-game-shell
       >
+        {isCompanionDock && showSidebar && isNarrow && (
+          <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm">
+            <ConversationsSidebar mobile onClose={onSidebarClose} />
+          </div>
+        )}
         <div className="flex-1 flex min-h-0">
           <aside
-            className={`w-[276px] shrink-0 border-r border-white/10 flex flex-col bg-black/20 ${mobileSidebarOpen ? "block" : isCompanionDock ? "hidden" : "hidden md:flex"}`}
+            className={`w-[276px] shrink-0 border-r border-white/10 flex flex-col bg-black/20 ${
+              mobileSidebarOpen
+                ? "block"
+                : companionSidebarVisible
+                  ? "hidden md:flex"
+                  : isCompanionDock
+                    ? "hidden"
+                    : "hidden md:flex"
+            }`}
             data-chat-game-sidebar
           >
             <ConversationsSidebar variant="game-modal" />

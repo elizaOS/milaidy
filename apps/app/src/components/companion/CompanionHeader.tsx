@@ -46,7 +46,10 @@ export interface CompanionHeaderProps {
   evmShort: string | null;
   solShort: string | null;
   // Character / UI
-  handleSwitchToNativeShell: () => void;
+  conversationsOpen: boolean;
+  autonomyOpen: boolean;
+  toggleConversations: () => void;
+  toggleAutonomy: () => void;
   uiLanguage: UiLanguage;
   setUiLanguage: (language: UiLanguage) => void;
   // Translator
@@ -72,7 +75,10 @@ export function CompanionHeader(props: CompanionHeaderProps) {
     miladyCloudTopUpUrl,
     evmShort,
     solShort,
-    handleSwitchToNativeShell,
+    conversationsOpen,
+    autonomyOpen,
+    toggleConversations,
+    toggleAutonomy,
     uiLanguage,
     setUiLanguage,
     t,
@@ -265,10 +271,15 @@ export function CompanionHeader(props: CompanionHeaderProps) {
         <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-full px-1.5 py-1.5 backdrop-blur-xl shadow-xl hover:border-white/20 transition-all">
           <button
             type="button"
-            onClick={handleSwitchToNativeShell}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 text-white/80 hover:text-white hover:bg-white/20 border border-transparent hover:border-white/30 transition-all"
-            title={t("companion.switchToNativeUi")}
-            data-testid="ui-shell-toggle"
+            onClick={toggleConversations}
+            className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+              conversationsOpen
+                ? "bg-white/20 text-white border-white/30"
+                : "bg-white/5 text-white/80 border-transparent hover:text-white hover:bg-white/20 hover:border-white/30"
+            }`}
+            title={t("conversations.chats")}
+            aria-label={t("conversations.chats")}
+            data-testid="companion-conversations-toggle"
           >
             <svg
               width="16"
@@ -281,9 +292,35 @@ export function CompanionHeader(props: CompanionHeaderProps) {
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <rect x="3" y="4" width="18" height="14" rx="2" />
-              <line x1="8" y1="20" x2="16" y2="20" />
-              <line x1="12" y1="18" x2="12" y2="20" />
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleAutonomy}
+            className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
+              autonomyOpen
+                ? "bg-white/20 text-white border-white/30"
+                : "bg-white/5 text-white/80 border-transparent hover:text-white hover:bg-white/20 hover:border-white/30"
+            }`}
+            title={t("autonomouspanel.Current")}
+            aria-label={t("autonomouspanel.Current")}
+            data-testid="companion-autonomy-toggle"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 3v18h18" />
+              <path d="m7 14 4-4 3 3 5-6" />
             </svg>
           </button>
 

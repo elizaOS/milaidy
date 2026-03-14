@@ -5,6 +5,7 @@ import {
   getVrmUrl,
   useApp,
 } from "../AppContext";
+import { AutonomousPanel } from "./AutonomousPanel";
 import { ChatModalView } from "./ChatModalView";
 import { CompanionHeader } from "./companion/CompanionHeader";
 import { CompanionHubNav } from "./companion/CompanionHubNav";
@@ -18,7 +19,6 @@ export function CompanionView() {
     uiLanguage,
     setUiLanguage,
     setTab,
-    setUiShellMode,
     // Header properties
     agentStatus,
     miladyCloudEnabled,
@@ -68,10 +68,14 @@ export function CompanionView() {
     ? `${walletAddresses.solanaAddress.slice(0, 4)}...${walletAddresses.solanaAddress.slice(-4)}`
     : null;
   const [cameraZoomed, setCameraZoomed] = useState(true);
-  const handleSwitchToNativeShell = useCallback(() => {
-    setUiShellMode("native");
-    setTab("chat");
-  }, [setTab, setUiShellMode]);
+  const [conversationsOpen, setConversationsOpen] = useState(false);
+  const [autonomyOpen, setAutonomyOpen] = useState(false);
+  const toggleConversations = useCallback(() => {
+    setConversationsOpen((open) => !open);
+  }, []);
+  const toggleAutonomy = useCallback(() => {
+    setAutonomyOpen((open) => !open);
+  }, []);
 
   const safeSelectedVrmIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
   const vrmPath =
@@ -127,20 +131,37 @@ export function CompanionView() {
           miladyCloudTopUpUrl={miladyCloudTopUpUrl}
           evmShort={evmShort}
           solShort={solShort}
-          handleSwitchToNativeShell={handleSwitchToNativeShell}
+          conversationsOpen={conversationsOpen}
+          autonomyOpen={autonomyOpen}
+          toggleConversations={toggleConversations}
+          toggleAutonomy={toggleAutonomy}
           uiLanguage={uiLanguage}
           setUiLanguage={setUiLanguage}
           t={t}
         />
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[45%] z-20 pointer-events-auto">
-          <ChatModalView variant="companion-dock" />
+        <div
+          className={`absolute bottom-6 left-1/2 -translate-x-1/2 w-full h-[45%] z-20 pointer-events-auto ${
+            conversationsOpen ? "max-w-5xl" : "max-w-3xl"
+          }`}
+        >
+          <ChatModalView
+            variant="companion-dock"
+            showSidebar={conversationsOpen}
+            onSidebarClose={() => setConversationsOpen(false)}
+          />
         </div>
 
         {/* Main Content Area */}
         <div className="flex-1 grid grid-cols-[1fr_auto] gap-6 min-h-0 relative">
           {/* Center (Empty to show character) */}
           <div className="w-full h-full" />
+
+          {autonomyOpen && (
+            <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[60] w-[min(420px,calc(100vw-3rem))] h-[min(70vh,760px)] overflow-hidden rounded-2xl border border-white/10 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl pointer-events-auto">
+              <AutonomousPanel mobile onClose={() => setAutonomyOpen(false)} />
+            </div>
+          )}
 
           {/* Right Panel: Actions + Game HUD Menu */}
           <aside className="fixed top-1/2 -translate-y-1/2 right-6 flex flex-col items-end gap-4 z-[60]">
