@@ -1785,7 +1785,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       <div key={param.key} id={`field-${param.key}`}>
                         <label
                           htmlFor={`input-${param.key}`}
-                          className="text-[11px] tracking-wider text-muted block mb-2"
+                          className="text-[11px] tracking-wider text-muted block mb-1"
                         >
                           {param.key}
                         </label>
