@@ -136,7 +136,9 @@ describe("Electrobun release workflow drift", () => {
 
     expect(workflow).toContain("name: Cache Whisper models");
     expect(workflow).toContain("path: ~/.cache/milady/whisper");
-    expect(workflow).toContain("restore-keys: whisper-model-${{ matrix.platform.artifact-name }}-");
+    expect(workflow).toContain(
+      "restore-keys: whisper-model-$" + "{{ matrix.platform.artifact-name }}-",
+    );
     expect(workflow).toContain(
       "# vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install",
     );

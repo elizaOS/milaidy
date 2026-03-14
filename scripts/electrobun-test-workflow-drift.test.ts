@@ -47,9 +47,12 @@ describe("Electrobun test workflow drift", () => {
   it("does not rerun postinstall in jobs that already use plain bun install", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Install dependencies\n        run: bun install");
+    expect(workflow).toContain(
+      "name: Install dependencies\n        run: bun install",
+    );
     expect(workflow).not.toContain(
-      "name: Install dependencies\n        run: bun install\n        env:\n          npm_config_python: ${{ env.pythonLocation }}/bin/python3\n\n      - name: Run repository postinstall patches",
+      "name: Install dependencies\n        run: bun install\n        env:\n          npm_config_python: $" +
+        "{{ env.pythonLocation }}/bin/python3\n\n      - name: Run repository postinstall patches",
     );
     expect(workflow).not.toContain(
       "name: Install dependencies\n        run: bun install\n\n      - name: Run repository postinstall patches",

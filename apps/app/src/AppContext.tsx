@@ -3879,7 +3879,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (resolvedIndex === 0) {
-        const nextCustomVrmUrl = resolveApiUrl(`/api/avatar/vrm?t=${Date.now()}`);
+        const nextCustomVrmUrl = resolveApiUrl(
+          `/api/avatar/vrm?t=${Date.now()}`,
+        );
         const hasCustomVrm = await client.hasCustomVrm();
         if (hasCustomVrm) {
           try {
