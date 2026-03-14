@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   discoverAlwaysBundledPackages,
   extractBarePackageSpecifiers,
+  isRuntimePluginPackage,
   normalizePackageName,
+  shouldBundleDiscoveredPackage,
 } from "./runtime-package-manifest";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,14 +47,51 @@ describe("runtime-package-manifest", () => {
     ]);
   });
 
+  it("recognizes scoped and unscoped runtime plugin packages", () => {
+    expect(isRuntimePluginPackage("@elizaos/plugin-openai")).toBe(true);
+    expect(isRuntimePluginPackage("@milady/plugin-custom-rtmp")).toBe(true);
+    expect(isRuntimePluginPackage("@homunculuslabs/plugin-zai")).toBe(true);
+    expect(isRuntimePluginPackage("plugin-local-only")).toBe(true);
+    expect(isRuntimePluginPackage("@elizaos/core")).toBe(false);
+    expect(isRuntimePluginPackage("chalk")).toBe(false);
+  });
+
   it("discovers always-bundled plugin scopes from package.json", () => {
-    expect(discoverAlwaysBundledPackages(repoPackageJson)).toEqual(
+    const bundled = discoverAlwaysBundledPackages(repoPackageJson);
+
+    expect(bundled).toEqual(
       expect.arrayContaining([
         "@elizaos/core",
         "@elizaos/plugin-agent-orchestrator",
-        "@elizaos/plugin-bnb-identity",
-        "@elizaos/plugin-streaming-base",
+        "@elizaos/plugin-openai",
+        "@elizaos/plugin-ollama",
       ]),
     );
+    expect(bundled).not.toContain("@elizaos/plugin-bnb-identity");
+    expect(bundled).not.toContain("@elizaos/plugin-streaming-base");
+  });
+
+  it("excludes discovered post-release plugin packages from the baseline bundle", () => {
+    const alwaysBundled = new Set([
+      "@elizaos/plugin-openai",
+      "@elizaos/plugin-ollama",
+    ]);
+
+    expect(
+      shouldBundleDiscoveredPackage("@elizaos/plugin-openai", alwaysBundled),
+    ).toBe(true);
+    expect(
+      shouldBundleDiscoveredPackage(
+        "@elizaos/plugin-twitch-streaming",
+        alwaysBundled,
+      ),
+    ).toBe(false);
+    expect(
+      shouldBundleDiscoveredPackage(
+        "@homunculuslabs/plugin-zai",
+        alwaysBundled,
+      ),
+    ).toBe(false);
+    expect(shouldBundleDiscoveredPackage("chalk", alwaysBundled)).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ const REASON_LABELS: Record<StartupErrorState["reason"], string> = {
   "backend-unreachable": "Backend Unreachable",
   "agent-timeout": "Agent Timeout",
   "agent-error": "Agent Error",
+  "asset-missing": "Asset Missing",
 };
 
 const APP_ORIGIN_URL = "https://app.milady.ai";

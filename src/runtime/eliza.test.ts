@@ -69,6 +69,7 @@ import {
   configureLocalEmbeddingPlugin,
   deduplicatePluginActions,
   findRuntimePluginExport,
+  getPgliteRecoveryAction,
   isEnvKeyAllowedForForwarding,
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
@@ -2702,5 +2703,93 @@ describe("cleanStalePglitePid", () => {
       .then(() => true)
       .catch(() => false);
     expect(exists).toBe(false);
+  });
+});
+
+describe("getPgliteRecoveryAction", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-recovery-test-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("retries without reset when a lock error comes from a stale pid file", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "999999999\n/tmp/pglite\n5432\n");
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: database is locked"),
+      tmpDir,
+    );
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+
+    expect(action).toBe("retry-without-reset");
+    expect(exists).toBe(false);
+  });
+
+  it("fails fast when a lock error points at a live owner process", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: lock file already exists"),
+      tmpDir,
+    );
+
+    expect(action).toBe("fail-active-lock");
+  });
+
+  it("fails fast when pid ownership cannot be confirmed", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "12345\n/tmp/pglite\n5432\n");
+
+    const origKill = process.kill;
+    process.kill = ((pid: number, signal?: number) => {
+      if (signal === 0) {
+        const err = new Error("EPERM") as NodeJS.ErrnoException;
+        err.code = "EPERM";
+        throw err;
+      }
+      return origKill.call(process, pid, signal);
+    }) as typeof process.kill;
+
+    try {
+      const action = getPgliteRecoveryAction(
+        new Error("PGlite adapter crashed: database is locked"),
+        tmpDir,
+      );
+      expect(action).toBe("fail-active-lock");
+    } finally {
+      process.kill = origKill;
+    }
+  });
+
+  it("still resets for corruption errors even when a pid file exists", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: database disk image is malformed"),
+      tmpDir,
+    );
+
+    expect(action).toBe("reset-data-dir");
+  });
+
+  it("returns none for unrelated startup errors", () => {
+    const action = getPgliteRecoveryAction(
+      new Error("Connection refused"),
+      tmpDir,
+    );
+
+    expect(action).toBe("none");
   });
 });

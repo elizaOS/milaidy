@@ -199,6 +199,19 @@ export function Header(_props: HeaderProps) {
                   )}
                 </button>
               </IconButtonTooltip>
+              <IconButtonTooltip
+                label={t("header.reportBug")}
+                shortcut="Shift+?"
+              >
+                <button
+                  type="button"
+                  onClick={openBugReport}
+                  aria-label={t("header.reportBug")}
+                  className={iconBtnBase}
+                >
+                  <Bug className="w-5 h-5" />
+                </button>
+              </IconButtonTooltip>
             </div>
 
             <div className="hidden md:flex items-center gap-2 shrink-0">

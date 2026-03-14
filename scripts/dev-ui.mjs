@@ -30,6 +30,7 @@ import {
   coerceBoolean,
   resolveOnchainPreference,
 } from "./lib/dev-ui-onchain.mjs";
+import { buildVisionDepsFailureMessage } from "./lib/dev-ui-vision.mjs";
 
 const API_PORT = 31337;
 const UI_PORT = 2138;
@@ -940,9 +941,10 @@ killPort(UI_PORT);
 // Ensure vision dependencies are installed
 try {
   execSync("node scripts/ensure-vision-deps.mjs", { stdio: "inherit" });
-} catch (_err) {
+} catch (error) {
+  process.env.MILADY_VISION_DEPS_STATUS = "degraded";
   console.warn(
-    `\n  ${orange("[milady]")} ${dim("Failed to auto-install vision dependencies")}`,
+    buildVisionDepsFailureMessage(error, "node scripts/ensure-vision-deps.mjs"),
   );
 }
 

@@ -25,4 +25,29 @@ describe("Electrobun startup bootstrap", () => {
     expect(createWindowIndex).toBeGreaterThan(-1);
     expect(menuIndex).toBeGreaterThan(createWindowIndex);
   });
+
+  it("validates the built preload before creating the BrowserWindow", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+    const validateIndex = source.indexOf(
+      "const preload = readBuiltPreloadScript(import.meta.dir);",
+    );
+    const browserWindowIndex = source.indexOf("const win = new BrowserWindow(");
+
+    expect(validateIndex).toBeGreaterThan(-1);
+    expect(browserWindowIndex).toBeGreaterThan(validateIndex);
+  });
+
+  it("resolves the initial renderer API base from desktop runtime mode", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+
+    expect(source).toContain("resolveDesktopRuntimeMode");
+    expect(source).toContain("resolveInitialApiBase");
+  });
+
+  it("guards embedded agent startup behind local runtime mode", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+
+    expect(source).toContain('if (runtimeResolution.mode !== "local")');
+    expect(source).toContain("[Main] Skipping embedded agent startup");
+  });
 });

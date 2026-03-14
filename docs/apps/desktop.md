@@ -1,10 +1,10 @@
 ---
 title: Desktop App (Electrobun)
 sidebarTitle: Desktop App
-description: Install and use the Milady desktop application on macOS, Windows, and Linux with embedded agent runtime and native features.
+description: Install and use the Milady desktop application on macOS, Windows, and Linux with native features and configurable local or remote runtime connectivity.
 ---
 
-The Milady desktop app wraps the web dashboard in a native Electrobun shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and an embedded agent runtime that requires no separate server.
+The Milady desktop app wraps the companion UI in a native Electrobun shell, adding system-level features like tray icons, global keyboard shortcuts, native notifications, and native OS capability bridges. Electrobun can either launch the canonical Milady runtime locally or connect the UI to an already-running local or remote runtime.
 
 ## Download and Install
 
@@ -41,23 +41,30 @@ bun run dev:desktop
 
 In development mode, the Electrobun app resolves the Milady distribution from the repository root's `dist/` directory. In packaged builds, assets are copied into the app bundle under `Resources/app/milady-dist/`.
 
-## Embedded Agent Runtime
+## Desktop Runtime Modes
 
-The desktop app embeds the full Milady agent runtime directly in the Electrobun host process. No separate server or CLI is needed.
+Electrobun is a native shell, not a separate runtime architecture. Desktop, VPS, sandboxed, and CLI/server deployments all use the same Milady runtime entrypoint. The shell chooses one of three runtime modes at startup:
+
+| Mode | Behavior |
+|------|----------|
+| `local` | Spawn the canonical Milady runtime locally as a child Bun process |
+| `external` | Do not spawn a local runtime; point the renderer at an explicit API base |
+| `disabled` | Do not auto-start a local runtime; still point the renderer at the expected local API base for a manually managed server |
 
 ### Startup Sequence
 
-On startup, the `AgentManager` singleton performs these steps:
+On startup, the Electrobun shell and `AgentManager` coordinate these steps:
 
-1. **Resolve distribution path** -- In dev mode, looks six directories up from `__dirname` to find `dist/`. In packaged builds, loads from `process.resourcesPath/milady-dist/`.
-2. **Start the API server** -- Dynamically imports `server.js` and calls `startApiServer()` on the configured port. The server starts immediately so the UI can bootstrap while the runtime initializes.
-3. **Send port to renderer** -- The port is injected into the renderer via `window.__MILADY_API_BASE__` so the UI's API client can connect.
-4. **Start the Eliza runtime** -- Dynamically imports `eliza.js` and calls `startEliza({ headless: true })` to boot in headless mode.
-5. **Attach runtime to API server** -- Calls `updateRuntime()` so the API server can broadcast status and restore conversations.
+1. **Resolve the runtime bundle** -- In dev mode, Electrobun finds the repository root `dist/` bundle. In packaged builds, the runtime is copied into `Resources/app/milady-dist/`.
+2. **Resolve desktop runtime mode** -- Environment variables decide whether the shell should use `local`, `external`, or `disabled` runtime mode.
+3. **Bootstrap the renderer with an API base** -- The static renderer server injects `window.__MILADY_API_BASE__` into `index.html` before React mounts so the UI never falls back to the static server for `/api/*` requests.
+4. **If mode is `local`, spawn the canonical runtime** -- Electrobun launches `bun run entry.js start` as a child process, waits for `/api/health`, and then pushes the actual bound port to the renderer.
+5. **If mode is `external`, connect only** -- Electrobun does not start a child runtime. The renderer uses the normalized external API base and optional API token.
+6. **If mode is `disabled`, wait for a manually managed local runtime** -- Electrobun does not auto-start the child runtime, but the renderer still targets the expected local API base so a separately managed server can satisfy requests.
 
 ### Port Configuration
 
-The API server port is determined by the `MILADY_PORT` environment variable (default: **2138**). The injection into the renderer happens both immediately after the port is known and on every subsequent page reload via the `did-finish-load` event.
+The expected local API port is determined by `MILADY_PORT` (default: **2138**). In `local` mode the child runtime is started with that port request, but if the runtime binds a different port Electrobun detects it from stdout and updates the renderer API base dynamically. In `disabled` mode, the same expected local port is used for a separately managed local server.
 
 ### Agent Status States
 
@@ -71,19 +78,18 @@ The embedded agent reports its state to the UI via IPC:
 | `stopped` | Agent has been shut down |
 | `error` | Agent encountered a fatal error |
 
-### HTTP Restart
+### Runtime Mode Overrides
 
-The API server supports `POST /api/agent/restart`. When triggered, the embedded agent stops the current runtime (without stopping the API server), boots a fresh runtime that picks up the latest config from disk, attaches it to the API server, and notifies the renderer via IPC.
-
-### External API Override
-
-For testing or connecting to a remote agent:
+For testing, remote connectivity, or locally managed runtime workflows:
 
 | Environment Variable | Effect |
 |---------------------|--------|
-| `MILADY_DESKTOP_TEST_API_BASE` | Use a remote API server instead of the embedded agent |
-| `MILADY_DESKTOP_SKIP_EMBEDDED_AGENT=1` | Disable embedded agent startup (no API connection) |
+| `MILADY_DESKTOP_TEST_API_BASE` | Use this API base and switch to `external` mode |
+| `MILADY_DESKTOP_API_BASE` | Use this API base and switch to `external` mode |
 | `MILADY_ELECTRON_TEST_API_BASE` | Legacy fallback for older test harnesses |
+| `MILADY_ELECTRON_API_BASE` | Legacy fallback for older desktop setups |
+| `MILADY_API_BASE_URL` / `MILADY_API_BASE` | Generic API-base fallback vars; also switch to `external` mode |
+| `MILADY_DESKTOP_SKIP_EMBEDDED_AGENT=1` | Switch to `disabled` mode; do not auto-start the child runtime |
 | `MILADY_API_TOKEN` | Inject an API authentication token into the renderer |
 
 ## Native Modules
@@ -92,16 +98,16 @@ The desktop app registers **10 native modules** via IPC, each providing platform
 
 ### Agent
 
-Embedded agent runtime management via the `AgentManager` class.
+Local embedded runtime management via the `AgentManager` class.
 
 | IPC Channel | Description |
 |------------|-------------|
-| `agent:start` | Start the agent runtime and API server (idempotent) |
-| `agent:stop` | Stop the agent runtime and close the API server |
+| `agent:start` | Start the local child runtime when desktop mode is `local` |
+| `agent:stop` | Stop the local child runtime |
 | `agent:restart` | Stop and restart the runtime, picking up config changes |
 | `agent:status` | Get the current `AgentStatus` object |
 
-The agent also emits `agent:status` events to the renderer whenever state changes.
+In `external` and `disabled` mode, `agent:start` rejects instead of spawning the embedded runtime. The agent also emits `agent:status` events to the renderer whenever local-runtime state changes.
 
 ### Desktop Manager
 

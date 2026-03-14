@@ -13,6 +13,14 @@ const SECRET_LIKE_TOKEN_PATTERNS = [
   /(?:^|[^A-Za-z0-9_])(password|secret|api[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key)\s*[:=]\s*["'][^"']{8,}/i,
 ];
 
+function extractAddedDiffLines(diffChunks) {
+  return diffChunks
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .map((line) => line.slice(1))
+    .join("\n");
+}
+
 function normalizeExecError(error) {
   return {
     ok: false,
@@ -114,21 +122,22 @@ export function decisionFromFindings({ classification, issues }) {
 
 export function scanDiffTextForBlockedPatterns(diffChunks) {
   const issues = [];
+  const addedLines = extractAddedDiffLines(diffChunks);
 
-  if (ANY_TYPE_PATTERN.test(diffChunks)) {
+  if (ANY_TYPE_PATTERN.test(addedLines)) {
     issues.push(
       "Potential `any` usage introduced or modified. Verify strict typing is necessary.",
     );
   }
 
-  if (/@ts-ignore/.test(diffChunks)) {
+  if (/@ts-ignore/.test(addedLines)) {
     issues.push(
       "`@ts-ignore` usage detected. Prefer explicit narrowing or guards.",
     );
   }
 
   for (const pattern of SECRET_LIKE_TOKEN_PATTERNS) {
-    if (pattern.test(diffChunks)) {
+    if (pattern.test(addedLines)) {
       issues.push(
         "Potential secret-like string in diff; verify no credentials or secrets were added.",
       );

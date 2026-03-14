@@ -23,6 +23,10 @@ const MACOS_DIRECT_LAUNCHER_SOURCE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/macos-direct-launcher.c",
 );
+const MACOS_SMOKE_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/smoke-test.sh",
+);
 const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
   "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
@@ -71,6 +75,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
     );
+    expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
       "name: Setup Node.js (macOS Intel via Rosetta)",
     );
@@ -124,6 +129,26 @@ describe("Electrobun release workflow drift", () => {
       "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
     );
     expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
+    expect(workflow).toContain("name: Cache local electrobun core downloads");
+    expect(workflow).toContain(
+      "path: apps/app/electrobun/node_modules/electrobun/.cache",
+    );
+  });
+
+  it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Cache Whisper models");
+    expect(workflow).toContain("path: ~/.cache/milady/whisper");
+    expect(workflow).toContain(
+      "restore-keys: whisper-model-$" + "{{ matrix.platform.artifact-name }}-",
+    );
+    expect(workflow).toContain(
+      "# vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install",
+    );
+    expect(workflow).not.toContain(
+      "name: Build renderer (vite)\n        # vite output is arch-neutral JS/CSS/HTML, but bun install here may pull",
+    );
   });
 
   it("keeps updater transport files off the public GitHub release asset list", () => {
@@ -195,6 +220,21 @@ describe("Electrobun release workflow drift", () => {
     );
 
     expect(buildScript).toContain("-std=c++17");
+  });
+
+  it("validates renderer assets from the wrapped macOS runtime archive before launch", () => {
+    const smokeScript = fs.readFileSync(MACOS_SMOKE_SCRIPT_PATH, "utf8");
+
+    expect(smokeScript).toContain("assert_packaged_archive_asset()");
+    expect(smokeScript).toContain(
+      'echo "Packaged renderer asset check PASSED (wrapper archive)."',
+    );
+    expect(smokeScript).toContain(
+      'echo "Launcher: $' + "{LAUNCHER_PATH:-<unset>}" + '"',
+    );
+    expect(smokeScript).toContain(
+      'local launcher_stdout="$' + "{LAUNCHER_STDOUT:-}" + '"',
+    );
   });
 
   it("launches the staged macOS app via absolute bun and main.js paths", () => {

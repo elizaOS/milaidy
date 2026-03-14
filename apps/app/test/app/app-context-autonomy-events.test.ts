@@ -3,12 +3,13 @@
 import type { StreamEventEnvelope } from "@milady/app-core/api";
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockClient, wsHandlers } = vi.hoisted(() => {
+const { fetchMock, mockClient, wsHandlers } = vi.hoisted(() => {
   const handlers = new Map<string, (data: Record<string, unknown>) => void>();
 
   return {
+    fetchMock: vi.fn(),
     wsHandlers: handlers,
     mockClient: {
       hasToken: vi.fn(() => false),
@@ -85,6 +86,7 @@ const { mockClient, wsHandlers } = vi.hoisted(() => {
       sendWsMessage: vi.fn(),
       connectWs: vi.fn(),
       disconnectWs: vi.fn(),
+      saveStreamSettings: vi.fn(async () => undefined),
       onWsEvent: vi.fn(
         (type: string, handler: (data: Record<string, unknown>) => void) => {
           handlers.set(type, handler);
@@ -115,6 +117,8 @@ const { mockClient, wsHandlers } = vi.hoisted(() => {
         triggers: [],
         todos: [],
       })),
+      hasCustomVrm: vi.fn(async () => false),
+      hasCustomBackground: vi.fn(async () => false),
     },
   };
 });
@@ -133,6 +137,8 @@ type ProbeApi = {
       string,
       { status: string; missingSeqs: number[] }
     >;
+    startupPhase: ReturnType<typeof useApp>["startupPhase"];
+    startupError: ReturnType<typeof useApp>["startupError"];
   };
 };
 
@@ -154,6 +160,8 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
             ],
           ),
         ),
+        startupPhase: app.startupPhase,
+        startupError: app.startupError,
       }),
     });
   }, [app, props]);
@@ -199,6 +207,8 @@ async function waitFor(assertion: () => void): Promise<void> {
 }
 
 describe("AppContext autonomy replay", () => {
+  const originalFetch = globalThis.fetch;
+
   beforeEach(() => {
     window.history.replaceState({}, "", "/chat");
     Object.assign(window, {
@@ -208,6 +218,17 @@ describe("AppContext autonomy replay", () => {
       clearInterval: globalThis.clearInterval,
     });
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
+    Object.defineProperty(globalThis, "fetch", {
+      value: fetchMock,
+      writable: true,
+      configurable: true,
+    });
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    });
 
     wsHandlers.clear();
 
@@ -291,6 +312,7 @@ describe("AppContext autonomy replay", () => {
     mockClient.sendWsMessage.mockImplementation(() => {});
     mockClient.connectWs.mockImplementation(() => {});
     mockClient.disconnectWs.mockImplementation(() => {});
+    mockClient.saveStreamSettings.mockResolvedValue(undefined);
     mockClient.onWsEvent.mockImplementation(
       (type: string, handler: (data: Record<string, unknown>) => void) => {
         wsHandlers.set(type, handler);
@@ -316,6 +338,16 @@ describe("AppContext autonomy replay", () => {
       tasks: [],
       triggers: [],
       todos: [],
+    });
+    mockClient.hasCustomVrm.mockResolvedValue(false);
+    mockClient.hasCustomBackground.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "fetch", {
+      value: originalFetch,
+      writable: true,
+      configurable: true,
     });
   });
 
@@ -357,6 +389,12 @@ describe("AppContext autonomy replay", () => {
 
     await flush();
     await flush();
+    await waitFor(() => {
+      const snapshot = probe?.snapshot();
+      expect(snapshot?.startupPhase).toBe("ready");
+      expect(snapshot?.startupError).toBeNull();
+      expect(wsHandlers.has("agent_event")).toBe(true);
+    });
 
     await act(async () => {
       emitWs("agent_event", makeWsEvent("evt-1", "run-1", 1));
@@ -410,6 +448,12 @@ describe("AppContext autonomy replay", () => {
 
     await flush();
     await flush();
+    await waitFor(() => {
+      const snapshot = probe?.snapshot();
+      expect(snapshot?.startupPhase).toBe("ready");
+      expect(snapshot?.startupError).toBeNull();
+      expect(wsHandlers.has("agent_event")).toBe(true);
+    });
 
     await act(async () => {
       emitWs("agent_event", makeWsEvent("evt-1", "run-2", 1));

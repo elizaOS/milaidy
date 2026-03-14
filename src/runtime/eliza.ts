@@ -56,38 +56,24 @@ import {
 import * as pluginAgentOrchestrator from "@elizaos/plugin-agent-orchestrator";
 import * as pluginAgentSkills from "@elizaos/plugin-agent-skills";
 import * as pluginAnthropic from "@elizaos/plugin-anthropic";
-import * as pluginBrowser from "@elizaos/plugin-browser";
-import * as pluginCli from "@elizaos/plugin-cli";
-import * as pluginComputeruse from "@elizaos/plugin-computeruse";
 import * as pluginCron from "@elizaos/plugin-cron";
-import * as pluginDiscord from "@elizaos/plugin-discord";
-import * as pluginEdgeTts from "@elizaos/plugin-edge-tts";
-import * as pluginElevenlabs from "@elizaos/plugin-elevenlabs";
 import * as pluginElizacloud from "@elizaos/plugin-elizacloud";
 import * as pluginExperience from "@elizaos/plugin-experience";
 import * as pluginForm from "@elizaos/plugin-form";
-import * as pluginGoogleGenai from "@elizaos/plugin-google-genai";
-import * as pluginGroq from "@elizaos/plugin-groq";
 import * as pluginKnowledge from "@elizaos/plugin-knowledge";
 import * as pluginLocalEmbedding from "@elizaos/plugin-local-embedding";
 import * as pluginOllama from "@elizaos/plugin-ollama";
 import * as pluginOpenai from "@elizaos/plugin-openai";
-import * as pluginOpenrouter from "@elizaos/plugin-openrouter";
 import * as pluginPdf from "@elizaos/plugin-pdf";
 import * as pluginPersonality from "@elizaos/plugin-personality";
 import * as pluginPluginManager from "@elizaos/plugin-plugin-manager";
 import * as pluginRolodex from "@elizaos/plugin-rolodex";
 import * as pluginSecretsManager from "@elizaos/plugin-secrets-manager";
 import * as pluginShell from "@elizaos/plugin-shell";
-// Static plugin imports - plugins with proper type declarations are imported
-// statically to enable TypeScript type checking. Plugins without types or not
-// installed will fall back to dynamic import at runtime.
 import * as pluginSql from "@elizaos/plugin-sql";
-import * as pluginTelegram from "@elizaos/plugin-telegram";
 import * as pluginTodo from "@elizaos/plugin-todo";
 import * as pluginTrajectoryLogger from "@elizaos/plugin-trajectory-logger";
 import * as pluginTrust from "@elizaos/plugin-trust";
-import * as pluginTwitch from "@elizaos/plugin-twitch";
 import {
   debugLogResolvedContext,
   validateRuntimeContext,
@@ -125,15 +111,12 @@ import { createMiladyPlugin } from "./milady-plugin";
 import { installDatabaseTrajectoryLogger } from "./trajectory-persistence";
 
 /**
- * Map of @elizaos plugin names to their statically imported modules.
+ * Map of baseline bundled @elizaos plugin names to their statically imported
+ * modules.
  *
- * Note: Some OPTIONAL_CORE_PLUGINS are intentionally excluded from static imports:
- * - plugin-cua, plugin-obsidian, plugin-code, plugin-repoprompt, plugin-claude-code-workbench:
- *   These are specialized workflow plugins that may not be installed or have optional deps.
- * - plugin-vision: Feature-gated with heavy native dependencies (TensorFlow, canvas).
- *
- * Excluded plugins fall through to dynamic import() which works in Node.js/CLI.
- * For Electron builds, these plugins should be explicitly included if needed.
+ * Post-release plugins are intentionally excluded so the packaged runtime can
+ * ship a smaller baseline bundle. Those plugins fall through to dynamic
+ * import() and can be installed later via the plugin installer.
  */
 const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-sql": pluginSql,
@@ -151,20 +134,9 @@ const STATIC_ELIZA_PLUGINS: Record<string, unknown> = {
   "@elizaos/plugin-pdf": pluginPdf,
   "@elizaos/plugin-openai": pluginOpenai,
   "@elizaos/plugin-anthropic": pluginAnthropic,
-  "@elizaos/plugin-google-genai": pluginGoogleGenai,
-  "@elizaos/plugin-groq": pluginGroq,
-  "@elizaos/plugin-openrouter": pluginOpenrouter,
   "@elizaos/plugin-ollama": pluginOllama,
   "@elizaos/plugin-elizacloud": pluginElizacloud,
   "@elizaos/plugin-trust": pluginTrust,
-  "@elizaos/plugin-browser": pluginBrowser,
-  "@elizaos/plugin-discord": pluginDiscord,
-  "@elizaos/plugin-twitch": pluginTwitch,
-  "@elizaos/plugin-computeruse": pluginComputeruse,
-  "@elizaos/plugin-cli": pluginCli,
-  "@elizaos/plugin-telegram": pluginTelegram,
-  "@elizaos/plugin-elevenlabs": pluginElevenlabs,
-  "@elizaos/plugin-edge-tts": pluginEdgeTts,
   "@elizaos/plugin-todo": pluginTodo,
   "@elizaos/plugin-personality": pluginPersonality,
   "@elizaos/plugin-experience": pluginExperience,
@@ -2126,13 +2098,23 @@ export function applyDatabaseConfigToEnv(config: MiladyConfig): void {
   }
 }
 
-/**
- * Check for and remove a stale postmaster.pid in the PGlite data directory.
- * The pid file is stale if the recorded process is no longer running.
- */
-export function cleanStalePglitePid(dataDir: string): void {
+type PglitePidFileStatus =
+  | "missing"
+  | "active"
+  | "active-unconfirmed"
+  | "cleared-stale"
+  | "cleared-malformed"
+  | "check-failed";
+
+type PgliteRecoveryAction =
+  | "none"
+  | "retry-without-reset"
+  | "reset-data-dir"
+  | "fail-active-lock";
+
+function reconcilePglitePidFile(dataDir: string): PglitePidFileStatus {
   const pidPath = path.join(dataDir, "postmaster.pid");
-  if (!existsSync(pidPath)) return;
+  if (!existsSync(pidPath)) return "missing";
 
   try {
     const content = readFileSync(pidPath, "utf-8");
@@ -2143,7 +2125,7 @@ export function cleanStalePglitePid(dataDir: string): void {
       // Malformed pid file — remove it
       unlinkSync(pidPath);
       logger.warn(`[milady] Removed malformed PGlite postmaster.pid`);
-      return;
+      return "cleared-malformed";
     }
 
     // Check if the process is still alive
@@ -2153,6 +2135,7 @@ export function cleanStalePglitePid(dataDir: string): void {
       logger.info(
         `[milady] PGlite postmaster.pid references running process ${pid} — leaving intact`,
       );
+      return "active";
     } catch (killErr: unknown) {
       const code = (killErr as NodeJS.ErrnoException).code;
       if (code === "ESRCH") {
@@ -2161,19 +2144,30 @@ export function cleanStalePglitePid(dataDir: string): void {
         logger.warn(
           `[milady] Removed stale PGlite postmaster.pid (process ${pid} not running)`,
         );
+        return "cleared-stale";
       } else {
         // EPERM or other — process may be alive under a different user,
         // leave the file alone to avoid data directory corruption
         logger.warn(
           `[milady] Cannot confirm postmaster.pid staleness (${code}) — leaving intact`,
         );
+        return "active-unconfirmed";
       }
     }
   } catch (err) {
     logger.warn(
       `[milady] Failed to check PGlite postmaster.pid: ${formatError(err)}`,
     );
+    return "check-failed";
   }
+}
+
+/**
+ * Check for and remove a stale postmaster.pid in the PGlite data directory.
+ * The pid file is stale if the recorded process is no longer running.
+ */
+export function cleanStalePglitePid(dataDir: string): void {
+  void reconcilePglitePidFile(dataDir);
 }
 
 function collectErrorMessages(err: unknown): string[] {
@@ -2213,6 +2207,19 @@ function collectErrorMessages(err: unknown): string[] {
   return messages;
 }
 
+function isPgliteLockError(err: unknown): boolean {
+  const haystack = collectErrorMessages(err).join("\n").toLowerCase();
+  if (!haystack) return false;
+
+  const hasPglite = haystack.includes("pglite");
+  const hasSqlite = haystack.includes("sqlite");
+  const hasLockSignal =
+    haystack.includes("database is locked") ||
+    haystack.includes("lock file already exists");
+
+  return hasLockSignal && (hasPglite || hasSqlite);
+}
+
 /** @internal Exported for testing. */
 export function isRecoverablePgliteInitError(err: unknown): boolean {
   const haystack = collectErrorMessages(err).join("\n").toLowerCase();
@@ -2240,6 +2247,35 @@ export function isRecoverablePgliteInitError(err: unknown): boolean {
   if (hasAbort && hasPglite) return true;
   if (hasRecoverableStorageSignal && (hasPglite || hasSqlite)) return true;
   return false;
+}
+
+/** @internal Exported for testing. */
+export function getPgliteRecoveryAction(
+  err: unknown,
+  dataDir: string,
+): PgliteRecoveryAction {
+  if (!isRecoverablePgliteInitError(err)) return "none";
+  if (!isPgliteLockError(err)) return "reset-data-dir";
+
+  const pidStatus = reconcilePglitePidFile(dataDir);
+  if (
+    pidStatus === "active" ||
+    pidStatus === "active-unconfirmed" ||
+    pidStatus === "check-failed"
+  ) {
+    return "fail-active-lock";
+  }
+  if (pidStatus === "cleared-stale" || pidStatus === "cleared-malformed") {
+    return "retry-without-reset";
+  }
+  return "reset-data-dir";
+}
+
+function createActivePgliteLockError(dataDir: string, err: unknown): Error {
+  return new Error(
+    `PGLite data dir is already in use at ${dataDir}. Close the other Milady process or set a different PGLITE_DATA_DIR before retrying.`,
+    { cause: err },
+  );
 }
 
 function resolveActivePgliteDataDir(config: MiladyConfig): string | null {
@@ -2295,19 +2331,35 @@ async function initializeDatabaseAdapter(
     );
   } catch (err) {
     const pgliteDataDir = resolveActivePgliteDataDir(config);
-    if (!pgliteDataDir || !isRecoverablePgliteInitError(err)) {
+    if (!pgliteDataDir) {
       throw err;
     }
 
-    logger.warn(
-      `[milady] PGLite init failed (${formatError(err)}). Resetting local DB at ${pgliteDataDir} and retrying once.`,
-    );
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    const recoveryAction = getPgliteRecoveryAction(err, pgliteDataDir);
+    if (recoveryAction === "none") {
+      throw err;
+    }
+    if (recoveryAction === "fail-active-lock") {
+      throw createActivePgliteLockError(pgliteDataDir, err);
+    }
+
+    if (recoveryAction === "retry-without-reset") {
+      logger.warn(
+        `[milady] PGLite init failed (${formatError(err)}). Cleared a stale PGLite lock in ${pgliteDataDir} and retrying without resetting data.`,
+      );
+    } else {
+      logger.warn(
+        `[milady] PGLite init failed (${formatError(err)}). Resetting local DB at ${pgliteDataDir} and retrying once.`,
+      );
+      await resetPgliteDataDir(pgliteDataDir);
+      process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    }
 
     await runtime.adapter.init();
     logger.info(
-      "[milady] Database adapter recovered after resetting PGLite data",
+      recoveryAction === "retry-without-reset"
+        ? "[milady] Database adapter recovered after clearing a stale PGLite lock"
+        : "[milady] Database adapter recovered after resetting PGLite data",
     );
   }
 
@@ -2736,15 +2788,32 @@ async function registerSqlPluginWithRecovery(
 
   if (registerError) {
     const pgliteDataDir = resolveActivePgliteDataDir(config);
-    if (!pgliteDataDir || !isRecoverablePgliteInitError(registerError)) {
+    if (!pgliteDataDir) {
       throw registerError;
     }
 
-    logger.warn(
-      `[milady] SQL plugin registration failed (${formatError(registerError)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying once.`,
+    const recoveryAction = getPgliteRecoveryAction(
+      registerError,
+      pgliteDataDir,
     );
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    if (recoveryAction === "none") {
+      throw registerError;
+    }
+    if (recoveryAction === "fail-active-lock") {
+      throw createActivePgliteLockError(pgliteDataDir, registerError);
+    }
+
+    if (recoveryAction === "retry-without-reset") {
+      logger.warn(
+        `[milady] SQL plugin registration failed (${formatError(registerError)}). Cleared a stale PGLite lock in ${pgliteDataDir} and retrying without resetting data.`,
+      );
+    } else {
+      logger.warn(
+        `[milady] SQL plugin registration failed (${formatError(registerError)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying once.`,
+      );
+      await resetPgliteDataDir(pgliteDataDir);
+      process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    }
 
     try {
       await runtime.registerPlugin(sqlPlugin.plugin);
@@ -4094,17 +4163,22 @@ export async function startEliza(
     await initializeRuntimeServices();
   } catch (err) {
     const pgliteDataDir = resolveActivePgliteDataDir(config);
-    const canRecover =
-      !opts?.pgliteRecoveryAttempted &&
-      pgliteDataDir &&
-      isRecoverablePgliteInitError(err);
+    const recoveryAction =
+      !opts?.pgliteRecoveryAttempted && pgliteDataDir
+        ? getPgliteRecoveryAction(err, pgliteDataDir)
+        : "none";
 
-    if (!canRecover || !pgliteDataDir) {
+    if (!pgliteDataDir || recoveryAction === "none") {
       throw err;
+    }
+    if (recoveryAction === "fail-active-lock") {
+      throw createActivePgliteLockError(pgliteDataDir, err);
     }
 
     logger.warn(
-      `[milady] Runtime migrations failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup once.`,
+      recoveryAction === "retry-without-reset"
+        ? `[milady] Runtime migrations failed (${formatError(err)}). Cleared a stale PGLite lock in ${pgliteDataDir} and retrying startup once without resetting data.`
+        : `[milady] Runtime migrations failed (${formatError(err)}). Resetting local PGLite DB at ${pgliteDataDir} and retrying startup once.`,
     );
     try {
       await shutdownRuntime(runtime, "PGLite recovery");
@@ -4112,8 +4186,10 @@ export async function startEliza(
       // Ignore cleanup errors — retry creates a fresh runtime anyway.
     }
 
-    await resetPgliteDataDir(pgliteDataDir);
-    process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    if (recoveryAction === "reset-data-dir") {
+      await resetPgliteDataDir(pgliteDataDir);
+      process.env.PGLITE_DATA_DIR = pgliteDataDir;
+    }
 
     return await startEliza({
       ...opts,

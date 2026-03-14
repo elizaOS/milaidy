@@ -115,6 +115,11 @@ describe("registry routes", () => {
           installedVersion: "1.2.3",
           loaded: true,
           bundled: true,
+          compatibility: {
+            releaseAvailability: "bundled",
+            installSurface: "runtime",
+            postReleaseInstallable: false,
+          },
         },
       ],
     });

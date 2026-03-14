@@ -27,35 +27,6 @@ import {
   type Task,
   type UUID,
 } from "@elizaos/core";
-
-/**
- * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
- * These are only used as structural types for the SwarmCoordinator callbacks;
- * no runtime import is needed.
- */
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
-type SwarmEvent = Record<string, any>;
-// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
-type TaskContext = Record<string, any>;
-interface CoordinationLLMResponse {
-  action: string;
-  reasoning: string;
-  response?: string;
-  useKeys?: boolean;
-  keys?: string[];
-}
-interface TaskCompletionSummary {
-  sessionId: string;
-  label: string;
-  agentType: string;
-  originalTask: string;
-  status: string;
-  completionSummary: string;
-  // biome-ignore lint/suspicious/noExplicitAny: legacy coordinator summary
-  [key: string]: any;
-}
-
-import { listPiAiModelOptions } from "@elizaos/plugin-pi-ai";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
 import { getGlobalAwarenessRegistry } from "../awareness/registry";
@@ -84,6 +55,7 @@ import {
   buildTestHandler,
   registerCustomActionLive,
 } from "../runtime/custom-actions";
+import { getBundledRuntimePluginIds } from "../runtime/release-plugin-policy";
 import {
   isBlockedPrivateOrLinkLocalIp,
   normalizeHostLike,
@@ -214,6 +186,41 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
+
+/**
+ * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
+ * These are only used as structural types for the SwarmCoordinator callbacks;
+ * no runtime import is needed.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator event payload
+type SwarmEvent = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: legacy coordinator task context
+type TaskContext = Record<string, any>;
+interface CoordinationLLMResponse {
+  action: string;
+  reasoning: string;
+  response?: string;
+  useKeys?: boolean;
+  keys?: string[];
+}
+interface TaskCompletionSummary {
+  sessionId: string;
+  label: string;
+  agentType: string;
+  originalTask: string;
+  status: string;
+  completionSummary: string;
+  [key: string]: unknown;
+}
+
+type PiAiPluginModule = typeof import("@elizaos/plugin-pi-ai");
+let _piAiPluginModule: PiAiPluginModule | null = null;
+async function loadPiAiPluginModule(): Promise<PiAiPluginModule> {
+  if (!_piAiPluginModule) {
+    _piAiPluginModule = await import("@elizaos/plugin-pi-ai");
+  }
+  return _piAiPluginModule;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -711,6 +718,27 @@ export function findOwnPackageRoot(startDir: string): string {
     dir = parent;
   }
   return startDir;
+}
+
+function getReleaseBundledPluginIds(): Set<string> {
+  const packageRoot = findOwnPackageRoot(
+    import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
+  );
+  const packageJsonPath = path.join(packageRoot, "package.json");
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+    };
+    return new Set(
+      getBundledRuntimePluginIds(Object.keys(pkg.dependencies ?? {})),
+    );
+  } catch (err) {
+    logger.warn(
+      `[milady-api] Failed to resolve bundled release plugins from package.json: ${err instanceof Error ? err.message : err}`,
+    );
+    return new Set();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -7611,7 +7639,7 @@ async function handleRequest(
     let piAiDefaultModel: string | null = null;
 
     try {
-      const piAi = await listPiAiModelOptions();
+      const piAi = await (await loadPiAiPluginModule()).listPiAiModelOptions();
       piAiModels = piAi.models;
       piAiDefaultModel = piAi.defaultModelSpec ?? null;
     } catch (err) {
@@ -8181,8 +8209,7 @@ async function handleRequest(
       getPluginManager: () => requirePluginManager(state.runtime),
       getLoadedPluginNames: () =>
         state.runtime?.plugins.map((plugin) => plugin.name) ?? [],
-      getBundledPluginIds: () =>
-        new Set(state.plugins.map((plugin) => plugin.id)),
+      getBundledPluginIds: () => getReleaseBundledPluginIds(),
     })
   ) {
     return;
