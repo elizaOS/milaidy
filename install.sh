@@ -2,7 +2,7 @@
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  milAIdy installer — macOS / Linux / WSL / Git Bash                      ║
 # ║                                                                          ║
-# ║  curl -fsSL https://milady-ai.github.io/milaidy/install.sh | bash               ║
+# ║  curl -fsSL https://milady-ai.github.io/milady/install.sh | bash               ║
 # ║                                                                          ║
 # ║  Or, with custom domain:                                                ║
 # ║    curl -fsSL https://get.milady.ai | bash                              ║
@@ -14,15 +14,21 @@
 #   1. Detects OS, architecture, and environment (WSL, Git Bash, etc.)
 #   2. Checks for Node.js >= 22.12.0 (offers to install if missing)
 #   3. Checks for a package manager (npm or bun)
-#   4. Installs milaidy globally
-#   5. Runs `milaidy setup` to initialize the workspace
+#   4. Installs milady globally
+#   5. Runs `milady setup` to initialize the workspace
 #
 # Environment variables:
-#   MILAIDY_SKIP_SETUP=1         Skip the post-install `milaidy setup` step
-#   MILAIDY_USE_BUN=1            Prefer bun over npm for installation
-#   MILAIDY_VERSION=<ver>        Install a specific version (default: latest)
-#   MILAIDY_LOCAL_TARBALL=<path> Install from a local .tgz (dev/testing)
-#   MILAIDY_NONINTERACTIVE=1     Skip all prompts (assume yes)
+#   MILADY_SKIP_SETUP=1         Skip the post-install `milady setup` step
+#   MILADY_USE_BUN=1            Prefer bun over npm for installation
+#   MILADY_VERSION=<ver>        Install a specific version (default: latest)
+#   MILADY_LOCAL_TARBALL=<path> Install from a local .tgz (dev/testing)
+#   MILADY_NONINTERACTIVE=1     Skip all prompts (assume yes)
+#
+# Desktop app install:
+#   curl -fsSL https://get.milady.ai | bash -s -- --desktop
+#
+#   This downloads the latest Milady.app from GitHub Releases and copies
+#   it to /Applications (macOS only).
 
 set -euo pipefail
 
@@ -50,7 +56,7 @@ step()    { printf "\n${BOLD}${CYAN}> %s${RESET}\n" "$*"; }
 
 # Returns 0 (true) when we can prompt the user interactively.
 can_prompt() {
-  [[ "${MILAIDY_NONINTERACTIVE:-0}" != "1" ]] && [[ -t 0 ]]
+  [[ "${MILADY_NONINTERACTIVE:-0}" != "1" ]] && [[ -t 0 ]]
 }
 
 # Prompt with a default answer; returns 0 for yes, 1 for no.
@@ -469,7 +475,7 @@ install_node() {
 DETECTED_PM=""
 
 check_package_manager() {
-  local prefer_bun="${MILAIDY_USE_BUN:-0}"
+  local prefer_bun="${MILADY_USE_BUN:-0}"
 
   if [[ "$prefer_bun" == "1" ]] && command -v bun &>/dev/null; then
     local bun_version
@@ -509,29 +515,29 @@ check_package_manager() {
   exit 1
 }
 
-# ── Install milaidy ─────────────────────────────────────────────────────────
+# ── Install milady ─────────────────────────────────────────────────────────
 
-install_milaidy() {
+install_milady() {
   local pm="$1"
-  local version="${MILAIDY_VERSION:-latest}"
-  local pkg="milaidy"
-  local local_tarball="${MILAIDY_LOCAL_TARBALL:-}"
+  local version="${MILADY_VERSION:-latest}"
+  local pkg="miladyai"
+  local local_tarball="${MILADY_LOCAL_TARBALL:-}"
 
   if [[ "$version" != "latest" ]]; then
-    pkg="milaidy@${version}"
+    pkg="miladyai@${version}"
   fi
 
-  step "Installing milaidy"
+  step "Installing milady"
 
   # Check if already installed at desired version
-  if command -v milaidy &>/dev/null; then
+  if command -v milady &>/dev/null; then
     local current_version
-    current_version="$(milaidy --version 2>/dev/null | tail -1)"
+    current_version="$(milady --version 2>/dev/null | tail -1)"
     if [[ "$version" == "latest" || "$current_version" == "$version" ]]; then
-      success "milaidy ${current_version} already installed"
+      success "milady ${current_version} already installed"
       return 0
     fi
-    info "Upgrading milaidy ${current_version} -> ${version}"
+    info "Upgrading milady ${current_version} -> ${version}"
   fi
 
   # Local tarball install (for development/testing)
@@ -557,12 +563,12 @@ install_milaidy() {
   # Verify installation — rehash PATH on Windows shells
   hash -r 2>/dev/null || true
 
-  if command -v milaidy &>/dev/null; then
+  if command -v milady &>/dev/null; then
     local installed_version
-    installed_version="$(milaidy --version 2>/dev/null | tail -1)"
-    success "milaidy ${installed_version} installed"
+    installed_version="$(milady --version 2>/dev/null | tail -1)"
+    success "milady ${installed_version} installed"
   else
-    error "milaidy command not found after installation."
+    error "milady command not found after installation."
     error ""
     error "The global bin directory is probably not in your PATH."
     case "$DETECTED_OS" in
@@ -579,16 +585,167 @@ install_milaidy() {
   fi
 }
 
+# ── Desktop app install (macOS) ──────────────────────────────────────────────
+
+GITHUB_REPO="milady-ai/milady"
+
+install_desktop_app() {
+  step "Installing Milady desktop app"
+
+  if [[ "$DETECTED_OS" != "macos" ]]; then
+    error "Desktop app install via this script is only supported on macOS."
+    error "For Windows, download the .exe from:"
+    error "  https://github.com/${GITHUB_REPO}/releases/latest"
+    exit 1
+  fi
+
+  local version="${MILADY_VERSION:-latest}"
+  local arch="$DETECTED_ARCH"
+  local dmg_pattern
+
+  # Determine which DMG to download based on architecture
+  if [[ "$arch" == "arm64" ]]; then
+    dmg_pattern="arm64"
+  else
+    dmg_pattern="x64"
+  fi
+
+  info "Detecting latest release..."
+
+  local release_url
+  if [[ "$version" == "latest" ]]; then
+    release_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+  else
+    release_url="https://api.github.com/repos/${GITHUB_REPO}/releases/tags/v${version}"
+  fi
+
+  local release_json
+  release_json="$(fetch_url "$release_url" 2>/dev/null)" || {
+    error "Failed to fetch release info from GitHub."
+    error "Check https://github.com/${GITHUB_REPO}/releases"
+    exit 1
+  }
+
+  # Extract DMG download URL matching our architecture
+  local dmg_url
+  dmg_url="$(printf '%s' "$release_json" \
+    | grep -o '"browser_download_url":\s*"[^"]*\.dmg"' \
+    | grep -i "$dmg_pattern" \
+    | head -1 \
+    | sed 's/"browser_download_url":\s*"//;s/"$//')"
+
+  if [[ -z "$dmg_url" ]]; then
+    # Fallback: try any DMG
+    dmg_url="$(printf '%s' "$release_json" \
+      | grep -o '"browser_download_url":\s*"[^"]*\.dmg"' \
+      | head -1 \
+      | sed 's/"browser_download_url":\s*"//;s/"$//')"
+  fi
+
+  if [[ -z "$dmg_url" ]]; then
+    error "No .dmg found in the release assets."
+    error "Download manually from: https://github.com/${GITHUB_REPO}/releases/latest"
+    exit 1
+  fi
+
+  local dmg_name
+  dmg_name="$(basename "$dmg_url")"
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  local dmg_path="${tmpdir}/${dmg_name}"
+
+  info "Downloading ${dmg_name}..."
+  if [[ "$FETCH_CMD" == "curl" ]]; then
+    curl -fSL --progress-bar -o "$dmg_path" "$dmg_url"
+  else
+    wget --show-progress -qO "$dmg_path" "$dmg_url"
+  fi
+
+  info "Mounting DMG..."
+  local mount_point
+  mount_point="$(hdiutil attach "$dmg_path" -nobrowse -noautoopen 2>/dev/null \
+    | tail -1 | awk '{print $NF}')" || {
+    # Sometimes the mount point path has spaces
+    mount_point="$(hdiutil attach "$dmg_path" -nobrowse -noautoopen 2>/dev/null \
+      | grep '/Volumes/' | sed 's/.*\(\/Volumes\/.*\)/\1/')"
+  }
+
+  if [[ -z "$mount_point" ]] || [[ ! -d "$mount_point" ]]; then
+    error "Failed to mount DMG."
+    rm -rf "$tmpdir"
+    exit 1
+  fi
+
+  # Find the .app bundle in the mounted volume
+  local app_path
+  app_path="$(find "$mount_point" -maxdepth 1 -name '*.app' -print -quit 2>/dev/null)"
+
+  if [[ -z "$app_path" ]]; then
+    error "No .app bundle found in the DMG."
+    hdiutil detach "$mount_point" -quiet 2>/dev/null || true
+    rm -rf "$tmpdir"
+    exit 1
+  fi
+
+  local app_name
+  app_name="$(basename "$app_path")"
+
+  # Remove existing version if present
+  if [[ -d "/Applications/${app_name}" ]]; then
+    warn "Removing existing /Applications/${app_name}..."
+    rm -rf "/Applications/${app_name}" 2>/dev/null || {
+      info "Need admin privileges to replace existing app..."
+      sudo rm -rf "/Applications/${app_name}"
+    }
+  fi
+
+  info "Copying ${app_name} to /Applications..."
+  cp -R "$app_path" /Applications/ 2>/dev/null || {
+    info "Need admin privileges to copy to /Applications..."
+    sudo cp -R "$app_path" /Applications/
+  }
+
+  # Remove quarantine attribute so Gatekeeper doesn't block it
+  xattr -cr "/Applications/${app_name}" 2>/dev/null || \
+    sudo xattr -cr "/Applications/${app_name}" 2>/dev/null || true
+
+  # Clean up
+  hdiutil detach "$mount_point" -quiet 2>/dev/null || true
+  rm -rf "$tmpdir"
+
+  success "${app_name} installed to /Applications"
+  info "You can launch it from Spotlight or your Applications folder."
+
+  # ── Optional macOS system tools ───────────────────────────────────────────
+  # imagesnap: enables camera capture for VisionService
+  if command -v brew &>/dev/null; then
+    if ! command -v imagesnap &>/dev/null; then
+      if confirm "Install imagesnap for camera support? (requires Homebrew)" "Y"; then
+        brew install imagesnap
+        success "imagesnap installed — camera capture enabled"
+      else
+        info "Skipping imagesnap. Camera features will be unavailable."
+        info "Install later with: brew install imagesnap"
+      fi
+    else
+      success "imagesnap already installed"
+    fi
+  else
+    info "Homebrew not found — skipping imagesnap."
+    info "Install Homebrew and then run: brew install imagesnap"
+  fi
+}
+
 # ── Post-install setup ───────────────────────────────────────────────────────
 
 run_setup() {
-  if [[ "${MILAIDY_SKIP_SETUP:-0}" == "1" ]]; then
-    info "Skipping setup (MILAIDY_SKIP_SETUP=1)"
+  if [[ "${MILADY_SKIP_SETUP:-0}" == "1" ]]; then
+    info "Skipping setup (MILADY_SKIP_SETUP=1)"
     return 0
   fi
 
-  step "Initializing milaidy workspace"
-  milaidy setup
+  step "Initializing milady workspace"
+  milady setup
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -601,14 +758,43 @@ main() {
   printf "${BOLD}${CYAN}  +--------------------------------------+${RESET}\n"
   printf "\n"
 
+  # Parse arguments
+  local install_desktop=false
+  for arg in "$@"; do
+    case "$arg" in
+      --desktop) install_desktop=true ;;
+      --help|-h)
+        printf "Usage: install.sh [--desktop]\n\n"
+        printf "  ${CYAN}--desktop${RESET}   Download and install the Milady desktop app (macOS)\n"
+        printf "  ${DIM}(no flag)${RESET}   Install the milady CLI via npm/bun\n\n"
+        exit 0
+        ;;
+    esac
+  done
+
   detect_fetch
   detect_system
+
+  # ── Desktop app install path ─────────────────────────────────────────────
+  if [[ "$install_desktop" == "true" ]]; then
+    install_desktop_app
+
+    printf "\n"
+    printf "${BOLD}${GREEN}  ======================================${RESET}\n"
+    printf "${BOLD}${GREEN}  Desktop app installed!${RESET}\n"
+    printf "${BOLD}${GREEN}  ======================================${RESET}\n"
+    printf "\n"
+    printf "  Open Milady from your Applications folder or Spotlight.\n\n"
+    exit 0
+  fi
+
+  # ── CLI install path ─────────────────────────────────────────────────────
 
   # If on Windows but NOT in a bash-capable shell, direct to PowerShell script
   if [[ "$DETECTED_OS" == "windows" && -z "$DETECTED_ENV" ]]; then
     error "This bash script requires Git Bash, MSYS2, WSL, or Cygwin on Windows."
     error "For native Windows, use PowerShell instead:"
-    error "  irm https://milady-ai.github.io/milaidy/install.ps1 | iex"
+    error "  irm https://milady-ai.github.io/milady/install.ps1 | iex"
     exit 1
   fi
 
@@ -634,8 +820,8 @@ main() {
   check_package_manager
   local pm="$DETECTED_PM"
 
-  # ── Step 3: Install milaidy ──────────────────────────────────────────────
-  install_milaidy "$pm"
+  # ── Step 3: Install milady ──────────────────────────────────────────────
+  install_milady "$pm"
 
   # ── Step 4: Setup ────────────────────────────────────────────────────────
   run_setup
@@ -647,10 +833,10 @@ main() {
   printf "${BOLD}${GREEN}  ======================================${RESET}\n"
   printf "\n"
   printf "  Get started:\n"
-  printf "    ${CYAN}milaidy start${RESET}        Start the agent runtime\n"
-  printf "    ${CYAN}milaidy setup${RESET}        Re-run workspace setup\n"
-  printf "    ${CYAN}milaidy configure${RESET}    Configuration guidance\n"
-  printf "    ${CYAN}milaidy --help${RESET}       Show all commands\n"
+  printf "    ${CYAN}milady start${RESET}        Start the agent runtime\n"
+  printf "    ${CYAN}milady setup${RESET}        Re-run workspace setup\n"
+  printf "    ${CYAN}milady configure${RESET}    Configuration guidance\n"
+  printf "    ${CYAN}milady --help${RESET}       Show all commands\n"
   printf "\n"
   printf "  Docs: ${BLUE}https://docs.milady.ai${RESET}\n"
   printf "\n"
