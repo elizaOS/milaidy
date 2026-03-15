@@ -1614,17 +1614,30 @@ export function CharacterView({
                         }
                       }}
                       onKeyDown={(e) => {
-                        const keys = SIDEBAR_TABS.map((tab) => tab.key);
-                        const idx = keys.indexOf(key);
+                        const tabKeys = SIDEBAR_TABS.map((tab) => tab.key);
+                        const idx = tabKeys.indexOf(key);
+                        let target: ActiveSection | undefined;
                         if (e.key === "ArrowDown") {
                           e.preventDefault();
-                          const next = keys[(idx + 1) % keys.length];
-                          setActiveSection(next);
+                          target = tabKeys[(idx + 1) % tabKeys.length];
                         } else if (e.key === "ArrowUp") {
                           e.preventDefault();
-                          const prev =
-                            keys[(idx - 1 + keys.length) % keys.length];
-                          setActiveSection(prev);
+                          target =
+                            tabKeys[
+                              (idx - 1 + tabKeys.length) % tabKeys.length
+                            ];
+                        }
+                        if (target) {
+                          setActiveSection(target);
+                          if (
+                            target === "styleRules" &&
+                            customizeStep === "examples"
+                          ) {
+                            setCustomizeStep("core");
+                          }
+                          document
+                            .getElementById(`notebook-tab-${target}`)
+                            ?.focus();
                         }
                       }}
                       id={`notebook-tab-${key}`}
