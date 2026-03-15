@@ -3792,6 +3792,19 @@ export class MiladyClient {
     );
   }
 
+  async updateKnowledgeDocument(
+    documentId: string,
+    data: { filename?: string; content?: string },
+  ): Promise<{ ok: boolean; documentId: string; filename: string }> {
+    return this.fetch(
+      `/api/knowledge/documents/${encodeURIComponent(documentId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
   async uploadKnowledgeDocument(data: {
     content: string;
     filename: string;

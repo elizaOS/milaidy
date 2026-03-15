@@ -180,18 +180,18 @@ function UploadZone({
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold"
+          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-accent hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
         >
           {t("knowledgeview.ChooseFiles")}
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold"
+          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-txt hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
           onClick={() => folderInputRef.current?.click()}
           disabled={uploading}
         >
@@ -200,7 +200,7 @@ function UploadZone({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold hover:text-txt"
+          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-txt hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
           onClick={() => setShowUrlInput(!showUrlInput)}
           disabled={uploading}
         >
@@ -387,15 +387,24 @@ function DocumentCard({
 function DocumentDetailModal({
   documentId,
   onClose,
+  onDocumentUpdated,
 }: {
   documentId: string;
   onClose: () => void;
+  onDocumentUpdated?: () => void;
 }) {
   const { t } = useApp();
   const [doc, setDoc] = useState<KnowledgeDocument | null>(null);
   const [fragments, setFragments] = useState<KnowledgeFragment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit state
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editingContent, setEditingContent] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -413,6 +422,14 @@ function DocumentDetailModal({
 
       setDoc(docRes.document);
       setFragments(fragRes.fragments);
+      setEditTitle(
+        String(docRes.document.filename || ""),
+      );
+      setEditContent(
+        typeof docRes.document.content === "string"
+          ? docRes.document.content
+          : (docRes.document.content as { text?: string })?.text ?? "",
+      );
       setLoading(false);
     }
 
@@ -430,19 +447,104 @@ function DocumentDetailModal({
     };
   }, [documentId]);
 
+  const handleSaveTitle = useCallback(async () => {
+    if (!editTitle.trim() || saving) return;
+    setSaving(true);
+    try {
+      await client.updateKnowledgeDocument(documentId, {
+        filename: editTitle.trim(),
+      });
+      setDoc((prev) =>
+        prev ? { ...prev, filename: editTitle.trim() } : prev,
+      );
+      setEditingTitle(false);
+      onDocumentUpdated?.();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update title",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [documentId, editTitle, saving, onDocumentUpdated]);
+
+  const handleSaveContent = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await client.updateKnowledgeDocument(documentId, {
+        content: editContent,
+      });
+      // Reload fragments since they'll be regenerated
+      const fragRes = await client.getKnowledgeFragments(documentId);
+      setFragments(fragRes.fragments);
+      setEditingContent(false);
+      onDocumentUpdated?.();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update content",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [documentId, editContent, saving, onDocumentUpdated]);
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 animate-in fade-in duration-200">
       <div className="bg-card/90 border border-border/50 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden backdrop-blur-xl">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border/30 bg-black/10">
-          <h2 className="text-lg font-bold text-txt tracking-wide">
-            {loading ? "Loading..." : doc?.filename || "Document"}
-          </h2>
+          {editingTitle ? (
+            <div className="flex items-center gap-2 flex-1 mr-3">
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="h-9 bg-bg border-accent/50 text-sm font-bold"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveTitle();
+                  if (e.key === "Escape") setEditingTitle(false);
+                }}
+                autoFocus
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 text-accent hover:border-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+                onClick={handleSaveTitle}
+                disabled={saving}
+              >
+                {saving ? "..." : "Save"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-[11px] text-muted hover:text-txt"
+                onClick={() => {
+                  setEditingTitle(false);
+                  setEditTitle(String(doc?.filename || ""));
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="text-lg font-bold text-txt tracking-wide hover:text-accent transition-colors cursor-pointer bg-transparent border-none p-0"
+              onClick={() => setEditingTitle(true)}
+              title="Click to edit title"
+            >
+              {loading ? "Loading..." : doc?.filename || "Document"}
+              <span className="ml-2 text-muted/50 text-xs font-normal">
+                ✎
+              </span>
+            </button>
+          )}
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 text-muted hover:bg-white/10 hover:text-txt rounded-full transition-all"
+            className="h-8 w-8 text-muted hover:bg-white/10 hover:text-txt rounded-full transition-all shrink-0"
           >
             ✕
           </Button>
@@ -518,6 +620,80 @@ function DocumentDetailModal({
                 </div>
               </div>
 
+              {/* Editable Content */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+                  <h3 className="text-sm font-bold tracking-wide text-txt">
+                    Content
+                  </h3>
+                  {!editingContent ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 text-accent hover:border-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+                      onClick={() => setEditingContent(true)}
+                    >
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 text-accent hover:border-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+                        onClick={handleSaveContent}
+                        disabled={saving}
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-muted hover:text-txt"
+                        onClick={() => {
+                          setEditingContent(false);
+                          setEditContent(
+                            typeof doc.content === "string"
+                              ? doc.content
+                              : (doc.content as { text?: string })?.text ?? "",
+                          );
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {editingContent ? (
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full min-h-[200px] p-4 bg-card/60 border border-accent/30 rounded-xl text-[13px] text-txt/90 leading-relaxed resize-y focus:outline-none focus:border-accent/60 font-mono"
+                  />
+                ) : (
+                  <div
+                    className="p-4 bg-card/60 border border-accent/30 rounded-xl cursor-pointer hover:border-accent/50 transition-colors"
+                    onClick={() => setEditingContent(true)}
+                    title="Click to edit content"
+                  >
+                    <p className="text-[13px] text-txt/90 whitespace-pre-wrap leading-relaxed line-clamp-6">
+                      {typeof doc.content === "string"
+                        ? doc.content
+                        : (doc.content as { text?: string })?.text ??
+                          "No content available"}
+                    </p>
+                    {((typeof doc.content === "string" &&
+                      doc.content.length > 500) ||
+                      ((doc.content as { text?: string })?.text?.length ??
+                        0) > 500) && (
+                      <span className="text-[11px] text-accent/70 mt-2 inline-block">
+                        Click to view and edit full content...
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Fragments */}
               <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
                 <h3 className="text-sm font-bold tracking-wide text-txt">
@@ -531,7 +707,7 @@ function DocumentDetailModal({
                 {fragments.map((fragment, index) => (
                   <div
                     key={fragment.id}
-                    className="p-4 bg-card/60 border border-white/5 shadow-sm rounded-xl hover:border-accent/30 transition-colors"
+                    className="p-4 bg-card/60 border border-accent/30 shadow-sm rounded-xl hover:border-accent/50 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-[11px] font-bold tracking-widest uppercase text-muted">
@@ -549,7 +725,7 @@ function DocumentDetailModal({
                   </div>
                 ))}
                 {fragments.length === 0 && (
-                  <div className="text-center py-12 text-muted bg-black/10 rounded-xl border border-dashed border-white/10">
+                  <div className="text-center py-12 text-muted bg-black/10 rounded-xl border border-dashed border-accent/20">
                     {t("knowledgeview.NoFragmentsFound")}
                   </div>
                 )}
@@ -1039,13 +1215,13 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={searching}
-              className="h-9 bg-bg border-border text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
+              className="h-9 bg-bg border-accent/50 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
             />
             <Button
               type="submit"
-              variant="default"
+              variant="outline"
               size="sm"
-              className="h-9 px-4 shadow-sm"
+              className="h-9 px-4 shadow-sm border-border/50 bg-bg/50 backdrop-blur-md text-accent hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
               disabled={!searchQuery.trim() || searching}
             >
               {searching
@@ -1124,6 +1300,7 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
         <DocumentDetailModal
           documentId={selectedDocId}
           onClose={() => setSelectedDocId(null)}
+          onDocumentUpdated={loadData}
         />
       )}
     </div>

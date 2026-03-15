@@ -817,6 +817,85 @@ export async function handleKnowledgeRoutes(
     return true;
   }
 
+  // ── PATCH /api/knowledge/documents/:id ──────────────────────────────────
+  if (method === "PATCH" && docIdMatch) {
+    const documentId = decodeURIComponent(docIdMatch[1]) as UUID;
+
+    const body = await readJsonBody<{
+      filename?: string;
+      content?: string;
+    }>(req, res, { maxBytes: KNOWLEDGE_UPLOAD_MAX_BODY_BYTES });
+    if (!body) return true;
+
+    if (!body.filename && body.content === undefined) {
+      error(res, "At least one of filename or content is required");
+      return true;
+    }
+
+    // Load the existing document
+    const documents = await knowledgeService.getMemories({
+      tableName: "documents",
+      roomId: agentId,
+      count: 10000,
+    });
+
+    const document = documents.find((d) => d.id === documentId);
+    if (!document) {
+      error(res, "Document not found", 404);
+      return true;
+    }
+
+    const metadata = (document.metadata as Record<string, unknown>) ?? {};
+    const oldFilename = (metadata.filename as string) || "document";
+    const contentType =
+      (metadata.fileType as string) ||
+      (metadata.contentType as string) ||
+      "text/plain";
+
+    if (body.filename) {
+      metadata.filename = body.filename;
+      metadata.title = body.filename;
+    }
+
+    // Delete old document + fragments
+    const oldFragmentIds = await listKnowledgeFragmentsForDocument(
+      knowledgeService,
+      agentId,
+      documentId,
+    );
+    for (const fragmentId of oldFragmentIds) {
+      await knowledgeService.deleteMemory(fragmentId);
+    }
+    await knowledgeService.deleteMemory(documentId);
+
+    // Re-create with updated content/metadata
+    const contentToStore =
+      body.content !== undefined
+        ? body.content
+        : typeof document.content === "string"
+          ? document.content
+          : ((document.content as { text?: string })?.text ?? "");
+
+    const result = await knowledgeService.addKnowledge({
+      agentId,
+      worldId: agentId,
+      roomId: agentId,
+      entityId: agentId,
+      clientDocumentId: "" as UUID,
+      contentType,
+      originalFilename: (metadata.filename as string) || oldFilename,
+      content: contentToStore,
+      metadata,
+    });
+
+    json(res, {
+      ok: true,
+      documentId: result.clientDocumentId,
+      filename: metadata.filename || oldFilename,
+    });
+    return true;
+  }
+
   // ── DELETE /api/knowledge/documents/:id ─────────────────────────────────
   if (method === "DELETE" && docIdMatch) {
     const documentId = decodeURIComponent(docIdMatch[1]) as UUID;
