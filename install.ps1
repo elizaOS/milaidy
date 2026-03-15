@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    milAIdy installer for Windows PowerShell.
+    Milady installer for Windows PowerShell.
 
 .DESCRIPTION
     Checks for Node.js >= 22.12.0, installs it if needed, then installs
@@ -89,7 +89,7 @@ function Confirm-Prompt {
 
 Write-Host ""
 Write-Host "  +--------------------------------------+" -ForegroundColor Cyan
-Write-Host "  |       milAIdy installer              |" -ForegroundColor Cyan
+Write-Host "  |       Milady installer              |" -ForegroundColor Cyan
 Write-Host "  |  cute agents for the acceleration    |" -ForegroundColor Cyan
 Write-Host "  +--------------------------------------+" -ForegroundColor Cyan
 Write-Host ""

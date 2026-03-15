@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  milAIdy installer — macOS / Linux / WSL / Git Bash                      ║
+# ║  Milady installer — macOS / Linux / WSL / Git Bash                      ║
 # ║                                                                          ║
 # ║  curl -fsSL https://milady-ai.github.io/milady/install.sh | bash               ║
 # ║                                                                          ║
@@ -753,7 +753,7 @@ run_setup() {
 main() {
   printf "\n"
   printf "${BOLD}${CYAN}  +--------------------------------------+${RESET}\n"
-  printf "${BOLD}${CYAN}  |       ${RESET}${BOLD}milAIdy installer${RESET}${BOLD}${CYAN}              |${RESET}\n"
+  printf "${BOLD}${CYAN}  |       ${RESET}${BOLD}Milady installer${RESET}${BOLD}${CYAN}              |${RESET}\n"
   printf "${BOLD}${CYAN}  |  ${RESET}cute agents for the acceleration${BOLD}${CYAN}   |${RESET}\n"
   printf "${BOLD}${CYAN}  +--------------------------------------+${RESET}\n"
   printf "\n"
