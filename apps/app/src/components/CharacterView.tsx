@@ -855,7 +855,6 @@ export function CharacterView({
     : "p-5 border border-border/40 bg-card/40 backdrop-blur-xl rounded-2xl shadow-sm";
   const sectionCls =
     sceneOverlay && !inModal ? "relative z-10 mt-4 px-1" : `mt-4 ${cardCls}`;
-  const hintCls = "text-[11px] text-muted";
   const scrollPaneCls =
     "min-h-0 overflow-y-auto pr-1 [scrollbar-gutter:stable] custom-scrollbar";
 
@@ -1273,54 +1272,48 @@ export function CharacterView({
 
                 {/* ── Chat Examples (About Me + Examples mode) ── */}
                 {activeSection === "aboutMe" && customizeStep === "examples" && (
-                  <div className="flex flex-col gap-3" data-testid="character-chat-examples-card">
+                  <div className="flex flex-col gap-2" data-testid="character-chat-examples-card">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.chatExamples")}</span>
-                        <span className="rounded-full border border-[#d6d3c6]/40 dark:border-white/5 bg-white/60 dark:bg-black/10 px-2 py-0.5 text-[11px] font-medium text-[#6d737a] dark:text-muted">
-                          {t("characterview.HowTheAgentResp")}
-                        </span>
-                      </div>
+                      <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.chatExamples")}</span>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent"
+                        className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
                         onClick={() => void handleGenerate("chatExamples", "replace")}
                         disabled={generating === "chatExamples"}
                       >
                         {generating === "chatExamples" ? "generating..." : "generate"}
                       </Button>
                     </div>
-                    <div className={`${scrollPaneCls} flex flex-col gap-3`}>
+                    <div className={`${scrollPaneCls} flex flex-col gap-2`}>
                       {(d.messageExamples ?? []).map((convo, ci) => (
                         <div
                           key={convo.examples.map((msg) => `${msg.name}:${msg.content?.text ?? ""}`).join("|")}
-                          className="rounded-xl border border-[#d6d3c6]/40 dark:border-border/40 bg-white/50 dark:bg-white/5 p-4"
+                          className="rounded-lg border border-[#d6d3c6]/40 dark:border-border/30 p-2.5"
                         >
-                          <div className="mb-3 flex items-center justify-between border-b border-[#d6d3c6]/40 dark:border-border/30 pb-2">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-[#9ca3af] dark:text-muted/60">
                               {t("characterview.conversation")} {ci + 1}
                             </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-[10px] font-bold text-muted hover:bg-danger/10 hover:text-danger"
+                            <button
+                              type="button"
+                              className="text-[#9ca3af] hover:text-red-500 transition-colors"
                               onClick={() => {
                                 const updated = [...(d.messageExamples ?? [])];
                                 updated.splice(ci, 1);
                                 handleFieldEdit("messageExamples", updated);
                               }}
                             >
-                              {t("characterview.remove")}
-                            </Button>
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+                            </button>
                           </div>
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-1.5">
                             {convo.examples.map((msg, mi) => (
-                              <div key={`${msg.name}:${msg.content?.text ?? ""}`} className="flex items-center gap-3">
-                                <span className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}>
+                              <div key={`${msg.name}:${msg.content?.text ?? ""}`} className="flex items-center gap-2">
+                                <span className={`w-10 shrink-0 text-right text-[9px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-[#9ca3af] dark:text-muted" : "text-accent"}`}>
                                   {msg.name === "{{user1}}" ? "user" : "agent"}
                                 </span>
-                                <Input
+                                <input
                                   type="text"
                                   value={msg.content?.text ?? ""}
                                   onChange={(e) => {
@@ -1330,7 +1323,7 @@ export function CharacterView({
                                     updated[ci] = convoClone;
                                     handleFieldEdit("messageExamples", updated);
                                   }}
-                                  className="h-9 flex-1 rounded-lg border-[#d6d3c6]/60 dark:border-border/40 bg-white/60 dark:bg-white/5 font-mono text-xs text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
+                                  className="h-7 flex-1 rounded-md border border-[#d6d3c6]/40 dark:border-border/30 bg-white/60 dark:bg-white/5 px-2 font-mono text-[11px] text-[#1e2329] dark:text-[hsl(40,10%,84%)] outline-none focus:border-accent"
                                 />
                               </div>
                             ))}
@@ -1338,7 +1331,7 @@ export function CharacterView({
                         </div>
                       ))}
                       {(d.messageExamples ?? []).length === 0 && (
-                        <div className={`${hintCls} rounded-xl border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-3 text-center text-[11px] text-[#9ca3af] dark:text-muted`}>
+                        <div className="rounded-md border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-2 text-center text-[11px] text-[#9ca3af] dark:text-muted">
                           {t("characterview.noChatExamplesYet")}
                         </div>
                       )}
@@ -1348,28 +1341,23 @@ export function CharacterView({
 
                 {/* ── Post Examples (Directions + Examples mode) ── */}
                 {activeSection === "directions" && customizeStep === "examples" && (
-                  <div className="flex flex-col gap-3" data-testid="character-post-examples-card">
+                  <div className="flex flex-col gap-2" data-testid="character-post-examples-card">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.postExamples")}</span>
-                        <span className="rounded-full border border-[#d6d3c6]/40 dark:border-white/5 bg-white/60 dark:bg-black/10 px-2 py-0.5 text-[11px] font-medium text-[#6d737a] dark:text-muted">
-                          {t("characterview.SocialMediaVoice")}
-                        </span>
-                      </div>
+                      <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.postExamples")}</span>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent"
+                        className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
                         onClick={() => void handleGenerate("postExamples", "replace")}
                         disabled={generating === "postExamples"}
                       >
                         {generating === "postExamples" ? "generating..." : "generate"}
                       </Button>
                     </div>
-                    <div className={`${scrollPaneCls} flex flex-col gap-2`}>
+                    <div className={`${scrollPaneCls} flex flex-col gap-1.5`}>
                       {(d.postExamples ?? []).map((post: string, pi: number) => (
-                        <div key={post || `post-${pi}`} className="flex items-center gap-2">
-                          <Input
+                        <div key={post || `post-${pi}`} className="group flex items-center gap-1.5">
+                          <input
                             type="text"
                             value={post}
                             onChange={(e) => {
@@ -1377,40 +1365,38 @@ export function CharacterView({
                               updated[pi] = e.target.value;
                               handleFieldEdit("postExamples", updated);
                             }}
-                            className="h-9 flex-1 rounded-lg border-[#d6d3c6]/60 dark:border-border/40 bg-white/60 dark:bg-white/5 font-mono text-xs text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
+                            className="h-7 flex-1 rounded-md border border-[#d6d3c6]/40 dark:border-border/30 bg-white/60 dark:bg-white/5 px-2 font-mono text-[11px] text-[#1e2329] dark:text-[hsl(40,10%,84%)] outline-none focus:border-accent"
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
+                          <button
+                            type="button"
+                            className="shrink-0 text-[#9ca3af] opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
                             onClick={() => {
                               const updated = [...(d.postExamples ?? [])];
                               updated.splice(pi, 1);
                               handleFieldEdit("postExamples", updated);
                             }}
                           >
-                            ×
-                          </Button>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+                          </button>
                         </div>
                       ))}
                       {(d.postExamples ?? []).length === 0 && (
-                        <div className={`${hintCls} rounded-xl border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-3 text-center text-[11px] text-[#9ca3af] dark:text-muted`}>
+                        <div className="rounded-md border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-2 text-center text-[11px] text-[#9ca3af] dark:text-muted">
                           {t("characterview.noPostExamplesYet")}
                         </div>
                       )}
                     </div>
-                    <div className="border-t border-[#d6d3c6]/40 dark:border-border/30 pt-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="self-start rounded-md border border-transparent text-[11px] font-bold text-accent hover:border-accent/30 hover:bg-accent/10"
+                    <div className="border-t border-[#d6d3c6]/40 dark:border-border/30 pt-2">
+                      <button
+                        type="button"
+                        className="text-[10px] font-bold text-accent hover:underline"
                         onClick={() => {
                           const updated = [...(d.postExamples ?? []), ""];
                           handleFieldEdit("postExamples", updated);
                         }}
                       >
                         {t("characterview.AddPost")}
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 )}
