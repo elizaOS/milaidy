@@ -1097,30 +1097,34 @@ export function CharacterView({
             <div className={`${bookPageCls} flex flex-1 flex-col rounded-l-xl border-r border-border/30 text-[#1e2329] dark:text-[hsl(40,10%,84%)]`}>
               {/* Mode toggle: Core / Examples */}
               <div className="flex items-center gap-2 border-b border-[#d6d3c6]/50 dark:border-border/30 px-5 py-3">
-                <Button
+                <button
                   type="button"
-                  variant={customizeStep === "core" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 rounded-lg px-3 text-xs font-semibold"
+                  className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    customizeStep === "core"
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-white/60 dark:bg-white/10 text-[#6d737a] dark:text-muted border border-[#d6d3c6]/50 dark:border-border/30 hover:bg-white dark:hover:bg-white/15"
+                  }`}
                   onClick={() => setCustomizeStep("core")}
                 >
                   {t("characterview.core")}
-                </Button>
+                </button>
                 {activeSection !== "styleRules" && (
-                  <Button
+                  <button
                     type="button"
-                    variant={customizeStep === "examples" ? "default" : "outline"}
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs font-semibold"
+                    className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                      customizeStep === "examples"
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-white/60 dark:bg-white/10 text-[#6d737a] dark:text-muted border border-[#d6d3c6]/50 dark:border-border/30 hover:bg-white dark:hover:bg-white/15"
+                    }`}
                     onClick={() => setCustomizeStep("examples")}
                   >
                     {t("characterview.examples")}
-                  </Button>
+                  </button>
                 )}
               </div>
 
               {/* Content area */}
-              <div className="flex-1 overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
+              <div className="flex flex-1 flex-col overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
                 {/* ── About Me (Core) ── */}
                 {activeSection === "aboutMe" && customizeStep === "core" && (
                   <div className="flex flex-1 flex-col gap-3" data-testid="character-core-editor">
@@ -1272,8 +1276,8 @@ export function CharacterView({
                   <div className="flex flex-col gap-3" data-testid="character-chat-examples-card">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.chatExamples")}</span>
-                        <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+                        <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.chatExamples")}</span>
+                        <span className="rounded-full border border-[#d6d3c6]/40 dark:border-white/5 bg-white/60 dark:bg-black/10 px-2 py-0.5 text-[11px] font-medium text-[#6d737a] dark:text-muted">
                           {t("characterview.HowTheAgentResp")}
                         </span>
                       </div>
@@ -1291,9 +1295,9 @@ export function CharacterView({
                       {(d.messageExamples ?? []).map((convo, ci) => (
                         <div
                           key={convo.examples.map((msg) => `${msg.name}:${msg.content?.text ?? ""}`).join("|")}
-                          className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
+                          className="rounded-xl border border-[#d6d3c6]/40 dark:border-border/40 bg-white/50 dark:bg-white/5 p-4"
                         >
-                          <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
+                          <div className="mb-3 flex items-center justify-between border-b border-[#d6d3c6]/40 dark:border-border/30 pb-2">
                             <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
                               {t("characterview.conversation")} {ci + 1}
                             </span>
@@ -1326,7 +1330,7 @@ export function CharacterView({
                                     updated[ci] = convoClone;
                                     handleFieldEdit("messageExamples", updated);
                                   }}
-                                  className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                                  className="h-9 flex-1 rounded-lg border-[#d6d3c6]/60 dark:border-border/40 bg-white/60 dark:bg-white/5 font-mono text-xs text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
                                 />
                               </div>
                             ))}
@@ -1334,7 +1338,7 @@ export function CharacterView({
                         </div>
                       ))}
                       {(d.messageExamples ?? []).length === 0 && (
-                        <div className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}>
+                        <div className={`${hintCls} rounded-xl border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-3 text-center text-[11px] text-[#9ca3af] dark:text-muted`}>
                           {t("characterview.noChatExamplesYet")}
                         </div>
                       )}
@@ -1347,8 +1351,8 @@ export function CharacterView({
                   <div className="flex flex-col gap-3" data-testid="character-post-examples-card">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.postExamples")}</span>
-                        <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+                        <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.postExamples")}</span>
+                        <span className="rounded-full border border-[#d6d3c6]/40 dark:border-white/5 bg-white/60 dark:bg-black/10 px-2 py-0.5 text-[11px] font-medium text-[#6d737a] dark:text-muted">
                           {t("characterview.SocialMediaVoice")}
                         </span>
                       </div>
@@ -1373,7 +1377,7 @@ export function CharacterView({
                               updated[pi] = e.target.value;
                               handleFieldEdit("postExamples", updated);
                             }}
-                            className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                            className="h-9 flex-1 rounded-lg border-[#d6d3c6]/60 dark:border-border/40 bg-white/60 dark:bg-white/5 font-mono text-xs text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
                           />
                           <Button
                             variant="ghost"
@@ -1390,12 +1394,12 @@ export function CharacterView({
                         </div>
                       ))}
                       {(d.postExamples ?? []).length === 0 && (
-                        <div className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}>
+                        <div className={`${hintCls} rounded-xl border border-dashed border-[#d6d3c6]/60 dark:border-border/30 py-3 text-center text-[11px] text-[#9ca3af] dark:text-muted`}>
                           {t("characterview.noPostExamplesYet")}
                         </div>
                       )}
                     </div>
-                    <div className="border-t border-border/40 pt-3">
+                    <div className="border-t border-[#d6d3c6]/40 dark:border-border/30 pt-3">
                       <Button
                         variant="ghost"
                         size="sm"
