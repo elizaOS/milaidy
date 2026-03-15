@@ -19,13 +19,14 @@ import {
   type VoicePreset,
 } from "@milady/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@milady/ui";
-import { Lock, LockOpen, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { BookOpen, FileText, Lock, LockOpen, Palette, Volume2, VolumeX } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
 
 type StyleSectionKey = "all" | "chat" | "post";
-type CustomizeStep = "core" | "style" | "examples";
+type CustomizeStep = "core" | "examples";
+type ActiveSection = "aboutMe" | "directions" | "styleRules";
 const STYLE_SECTION_KEYS: StyleSectionKey[] = ["all", "chat", "post"];
 const STYLE_SECTION_PLACEHOLDERS: Record<StyleSectionKey, string> = {
   all: "Add shared rule",
@@ -854,7 +855,6 @@ export function CharacterView({
   const editorCardCls = `${cardCls} flex min-h-0 flex-col overflow-hidden`;
   const sectionCls =
     sceneOverlay && !inModal ? "relative z-10 mt-4 px-1" : `mt-4 ${cardCls}`;
-  const labelCls = "font-medium text-xs text-muted mb-1 block";
   const hintCls = "text-[11px] text-muted";
   const scrollPaneCls =
     "min-h-0 overflow-y-auto pr-1 [scrollbar-gutter:stable] custom-scrollbar";
@@ -896,182 +896,189 @@ export function CharacterView({
       : `${inModal || sceneOverlay ? "pb-8" : ""} ${
           sceneOverlay ? "relative z-10" : ""
         }`;
-  const coreFieldsPanel = (
-    <div className={`${editorCardCls} min-h-[24rem]`} data-testid="character-core-editor">
-      <div className="flex min-h-0 flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className={labelCls}>{t("characterview.aboutMe")}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
-            onClick={() => void handleGenerate("bio")}
-            disabled={generating === "bio"}
+  /* ── Notebook section collapse state ── */
+  const [notebookOpen, setNotebookOpen] = useState<Record<string, boolean>>({
+    aboutMe: true,
+    directions: false,
+    styleAll: false,
+    styleChat: false,
+    stylePost: false,
+  });
+  const toggleSection = (key: string) =>
+    setNotebookOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const notebookCls = sceneOverlay
+    ? "border border-white/10 bg-black/20 backdrop-blur-md rounded-xl shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
+    : "border border-border/50 bg-card/80 backdrop-blur-xl rounded-xl shadow-sm";
+
+  const notebookSectionRow = (
+    key: string,
+    label: string,
+    isFirst: boolean,
+    actions?: ReactNode,
+    content?: ReactNode,
+  ) => (
+    <div key={key} data-testid={`notebook-section-${key}`}>
+      {!isFirst && <div className="mx-4 h-px bg-border/30" />}
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 px-5 py-3 text-left transition-colors hover:bg-bg/40"
+        onClick={() => toggleSection(key)}
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-txt">
+          <span
+            className={`inline-block text-[10px] text-muted transition-transform duration-200 ${notebookOpen[key] ? "rotate-90" : ""}`}
           >
-            {generating === "bio" ? "generating..." : "regenerate"}
-          </Button>
-        </div>
+            ▶
+          </span>
+          {label}
+        </span>
+        {actions}
+      </button>
+      {notebookOpen[key] && (
+        <div className="px-5 pb-4">{content}</div>
+      )}
+    </div>
+  );
+
+  const notebookPanel = (
+    <div
+      className={`${notebookCls} flex flex-col overflow-hidden`}
+      data-testid="character-notebook"
+    >
+      {/* ── About Me ── */}
+      {notebookSectionRow(
+        "aboutMe",
+        t("characterview.aboutMe"),
+        true,
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+          onClick={(e) => { e.stopPropagation(); void handleGenerate("bio"); }}
+          disabled={generating === "bio"}
+        >
+          {generating === "bio" ? "generating..." : "regenerate"}
+        </Button>,
         <Textarea
           value={bioText}
           rows={6}
           placeholder={t("characterview.describeWhoYourAg")}
           onChange={(e) => handleFieldEdit("bio", e.target.value)}
-          className="min-h-[10rem] flex-1 resize-none overflow-y-auto rounded-lg border-border/50 bg-bg p-3 text-sm leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
-        />
-      </div>
+          className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 text-sm leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+        />,
+      )}
 
-      <div className="flex min-h-0 flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className={labelCls}>{t("characterview.directionsAndThing")}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
-            onClick={() => void handleGenerate("system")}
-            disabled={generating === "system"}
-          >
-            {generating === "system" ? "generating..." : "regenerate"}
-          </Button>
-        </div>
+      {/* ── Directions & Things to Remember ── */}
+      {notebookSectionRow(
+        "directions",
+        t("characterview.directionsAndThing"),
+        false,
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+          onClick={(e) => { e.stopPropagation(); void handleGenerate("system"); }}
+          disabled={generating === "system"}
+        >
+          {generating === "system" ? "generating..." : "regenerate"}
+        </Button>,
         <Textarea
           value={d.system ?? ""}
           rows={7}
           maxLength={10000}
           placeholder={t("characterview.writeInFirstPerso")}
           onChange={(e) => handleFieldEdit("system", e.target.value)}
-          className="min-h-[10rem] flex-1 resize-none overflow-y-auto rounded-lg border-border/50 bg-bg p-3 font-mono text-xs leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
-        />
-      </div>
-    </div>
-  );
-  const styleEditorPanel = (
-    <div
-      className={`${editorCardCls} min-h-[24rem]`}
-      data-testid="character-customize-sidebar"
-    >
-      <div
-        className="flex min-h-0 flex-col gap-3"
-        data-testid="character-style-editor"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-bold tracking-wide text-txt">
-            {t("characterview.StyleRules")}
-          </div>
+          className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 font-mono text-xs leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+        />,
+      )}
+
+      {/* ── Style Rules (one section per key) ── */}
+      {STYLE_SECTION_KEYS.map((key) => {
+        const sectionKey = `style${key.charAt(0).toUpperCase()}${key.slice(1)}` as string;
+        const items = d.style?.[key] ?? [];
+        return notebookSectionRow(
+          sectionKey,
+          `${t("characterview.StyleRules")} — ${key} (${items.length})`,
+          false,
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="h-7 shrink-0 rounded-md px-2.5 text-[11px] font-bold"
-            onClick={() => void handleGenerate("style", "replace")}
+            className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+            onClick={(e) => { e.stopPropagation(); void handleGenerate("style", "replace"); }}
             disabled={generating === "style"}
           >
             {generating === "style" ? "generating..." : "regenerate"}
-          </Button>
-        </div>
-
-        <div
-          className="grid min-h-0 flex-1 gap-3 xl:grid-cols-1 2xl:grid-cols-3"
-          data-testid="character-style-editor-scroll"
-        >
-          {STYLE_SECTION_KEYS.map((key) => {
-            const items = d.style?.[key] ?? [];
-            return (
-              <div
-                key={key}
-                className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border/30 bg-bg/30"
-                data-testid={`style-section-${key}`}
-              >
-                <div className="flex items-center justify-between gap-2 border-b border-border/20 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
-                      {key}
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
-                      {items.length} rule{items.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={`${scrollPaneCls} flex-1 p-3 pr-2`}>
-                  <div className="flex flex-col gap-2">
-                    {items.length > 0 ? (
-                      items.map((item, index) => (
-                        <div
-                          key={getStyleEntryRenderKey(key, items, item, index)}
-                          className="flex items-start gap-2 rounded-md border border-border/20 bg-bg/50 p-2"
-                          data-testid={`style-entry-${key}-${index}`}
-                        >
-                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-muted/70">
-                            {index + 1}
-                          </span>
-                          <Textarea
-                            value={styleEntryDrafts[key]?.[index] ?? item}
-                            rows={2}
-                            onChange={(e) =>
-                              handleStyleEntryDraftChange(
-                                key,
-                                index,
-                                e.target.value,
-                              )
-                            }
-                            onBlur={() => handleCommitStyleEntry(key, index)}
-                            className="min-h-[72px] min-w-0 flex-1 resize-none rounded-md border-border/40 bg-bg p-2 text-xs leading-relaxed text-txt focus-visible:border-accent/50 focus-visible:ring-accent/50"
-                            data-testid={`style-entry-editor-${key}-${index}`}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
-                            onClick={() => handleRemoveStyleEntry(key, index)}
-                            title={t("characterview.remove")}
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))
-                    ) : (
-                      <div
-                        className={`${hintCls} rounded-md border border-dashed border-border/30 bg-bg/40 px-3 py-2`}
-                      >
-                        {STYLE_SECTION_EMPTY_STATES[key]}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-border/20 p-3">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      value={pendingStyleEntries[key]}
-                      placeholder={STYLE_SECTION_PLACEHOLDERS[key]}
-                      onChange={(e) =>
-                        handlePendingStyleEntryChange(key, e.target.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddStyleEntry(key);
-                        }
-                      }}
-                      className="h-8 min-w-0 flex-1 rounded-md border-border/40 bg-bg focus-visible:border-accent focus-visible:ring-accent/50"
-                      data-testid={`style-entry-input-${key}`}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 shrink-0 rounded-md px-3 text-[11px] font-bold"
-                      onClick={() => handleAddStyleEntry(key)}
-                      disabled={!pendingStyleEntries[key].trim()}
+          </Button>,
+          <div className="flex flex-col gap-2" data-testid={`style-section-${key}`}>
+            <div className={`${scrollPaneCls} max-h-[20rem]`}>
+              <div className="flex flex-col gap-2">
+                {items.length > 0 ? (
+                  items.map((item, index) => (
+                    <div
+                      key={getStyleEntryRenderKey(key, items, item, index)}
+                      className="flex items-start gap-2 rounded-lg border border-border/25 bg-bg/40 p-2.5"
+                      data-testid={`style-entry-${key}-${index}`}
                     >
-                      + add
-                    </Button>
+                      <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
+                        {index + 1}
+                      </span>
+                      <Textarea
+                        value={styleEntryDrafts[key]?.[index] ?? item}
+                        rows={2}
+                        onChange={(e) =>
+                          handleStyleEntryDraftChange(key, index, e.target.value)
+                        }
+                        onBlur={() => handleCommitStyleEntry(key, index)}
+                        className="min-h-[60px] min-w-0 flex-1 resize-none rounded-md border-border/30 bg-bg/60 p-2 text-xs leading-relaxed text-txt focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                        data-testid={`style-entry-editor-${key}-${index}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
+                        onClick={() => handleRemoveStyleEntry(key, index)}
+                        title={t("characterview.remove")}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className={`${hintCls} rounded-md border border-dashed border-border/30 bg-bg/30 px-3 py-2`}>
+                    {STYLE_SECTION_EMPTY_STATES[key]}
                   </div>
-                </div>
+                )}
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                value={pendingStyleEntries[key]}
+                placeholder={STYLE_SECTION_PLACEHOLDERS[key]}
+                onChange={(e) => handlePendingStyleEntryChange(key, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddStyleEntry(key);
+                  }
+                }}
+                className="h-8 min-w-0 flex-1 rounded-md border-border/30 bg-bg/60 focus-visible:border-accent focus-visible:ring-accent/50"
+                data-testid={`style-entry-input-${key}`}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 rounded-md px-3 text-[11px] font-bold"
+                onClick={() => handleAddStyleEntry(key)}
+                disabled={!pendingStyleEntries[key].trim()}
+              >
+                + add
+              </Button>
+            </div>
+          </div>,
+        );
+      })}
     </div>
   );
   const chatExamplesPanel = (
@@ -1440,15 +1447,6 @@ export function CharacterView({
               </Button>
               <Button
                 type="button"
-                variant={customizeStep === "style" ? "default" : "outline"}
-                size="sm"
-                className="h-8 rounded-lg px-3 text-xs font-semibold xl:hidden"
-                onClick={() => setCustomizeStep("style")}
-              >
-                {t("characterview.style")}
-              </Button>
-              <Button
-                type="button"
                 variant={customizeStep === "examples" ? "default" : "outline"}
                 size="sm"
                 className="h-8 rounded-lg px-3 text-xs font-semibold"
@@ -1470,16 +1468,10 @@ export function CharacterView({
             </div>
           ) : (
             <div
-              className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)_minmax(0,32rem)] xl:items-start xl:gap-6"
+              className="mx-auto w-full max-w-2xl"
               data-testid="character-customize-grid"
             >
-              <div className={customizeStep === "style" ? "hidden xl:block" : "block"}>
-                {coreFieldsPanel}
-              </div>
-              <div aria-hidden className="hidden xl:block" />
-              <div className={customizeStep === "core" ? "hidden xl:block" : "block"}>
-                {styleEditorPanel}
-              </div>
+              {notebookPanel}
             </div>
           )}
         </div>
