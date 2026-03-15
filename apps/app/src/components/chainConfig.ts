@@ -78,6 +78,11 @@ export interface ChainConfig {
 
   /** Alternative chain name strings that resolve to this config. */
   nameVariants: string[];
+
+  /* ── Branding ──────────────────────────────── */
+
+  /** Brand color for the chain (hex string, e.g. `"#627eea"`). */
+  color: string;
 }
 
 /* ── Registry ──────────────────────────────────────────────────────── */
@@ -107,6 +112,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "bsc",
     nameVariants: ["bsc", "bnb chain", "bnb smart chain"],
+    color: "#f3ba2f",
   },
 
   avax: {
@@ -130,6 +136,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "avalanche",
     nameVariants: ["avax", "avalanche", "c-chain", "avalanche c-chain"],
+    color: "#e84142",
   },
 
   solana: {
@@ -155,6 +162,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: SOLANA_ADDRESS_RE,
     dexScreenerChainId: "solana",
     nameVariants: ["solana", "sol"],
+    color: "#9945ff",
   },
 
   ethereum: {
@@ -178,6 +186,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "ethereum",
     nameVariants: ["ethereum", "mainnet", "eth"],
+    color: "#627eea",
   },
 
   base: {
@@ -200,6 +209,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "base",
     nameVariants: ["base"],
+    color: "#0052ff",
   },
 
   arbitrum: {
@@ -222,6 +232,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "arbitrum",
     nameVariants: ["arbitrum"],
+    color: "#12aaff",
   },
 
   optimism: {
@@ -244,6 +255,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "optimism",
     nameVariants: ["optimism"],
+    color: "#ff0420",
   },
 
   polygon: {
@@ -267,6 +279,7 @@ export const CHAIN_CONFIGS: Record<ChainKey, ChainConfig> = {
     addressRegex: HEX_ADDRESS_RE,
     dexScreenerChainId: "polygon",
     nameVariants: ["polygon"],
+    color: "#8247e5",
   },
 };
 
