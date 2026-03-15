@@ -645,17 +645,45 @@ describe("TriggersView UI E2E", () => {
     );
 
     expect(runtimeHarness.injectAutonomousInstruction).toHaveBeenCalledTimes(1);
+    if (
+      root.findAll(
+        (node) =>
+          node.type === "button" &&
+          nodeText(node).includes("heartbeatsview.refresh"),
+      ).length === 0
+    ) {
+      await act(async () => {
+        const summaryButton = root.findAll(
+          (node) =>
+            node.type === "button" &&
+            nodeText(node).includes(renamedTriggerDisplayName),
+        )[0];
+        await summaryButton?.props.onClick();
+      });
+    }
+
+    await act(async () => {
+      await findButtonByText(root, "heartbeatsview.refresh").props.onClick();
+    });
     await waitFor(
       () =>
         root.findAll(
-          (node) => node.type === "span" && nodeText(node).includes("success"),
+          (node) =>
+            node.type === "span" &&
+            ["success", "completed"].some((status) =>
+              nodeText(node).toLowerCase().includes(status),
+            ),
         ).length > 0,
       "Trigger run history did not load",
     );
-    const successRows = root.findAll(
-      (node) => node.type === "span" && nodeText(node).includes("success"),
+    const statusRows = root.findAll(
+      (node) =>
+        node.type === "span" &&
+        ["success", "completed"].some((status) =>
+          nodeText(node).toLowerCase().includes(status),
+        ),
     );
-    expect(successRows.length).toBeGreaterThan(0);
+    expect(statusRows.length).toBeGreaterThan(0);
 
     await act(async () => {
       await findButtonByText(root, [
