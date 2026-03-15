@@ -162,12 +162,9 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install --ignore-scripts
+        run: bun install
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
-
-      - name: Run repository postinstall patches
-        run: bun run postinstall
 
       - name: Build
         run: bun run build
@@ -284,16 +281,13 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install --ignore-scripts
+        run: bun install
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
 
-      - name: Run repository postinstall patches
-        run: bun run postinstall
-
       - name: Build core dist (server bundle)
         run: |
-          bunx tsdown || true
+          bunx tsdown
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
@@ -398,12 +392,9 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
-        run: bun install --ignore-scripts
+        run: bun install
         env:
           npm_config_python: ${{ env.pythonLocation }}/bin/python3
-
-      - name: Run repository postinstall patches
-        run: bun run postinstall
 
       - name: Build and smoke test packaged macOS app
         env:
