@@ -793,14 +793,14 @@ export function SettingsView({
         <div className="mx-auto max-w-5xl">
           <div className="sticky top-0 z-20 mb-5 rounded-[1.35rem] border border-border/50 bg-bg/80 px-3 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-border/60 bg-card/70 px-3 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent/50">
+                <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
                 <Input
                   type="text"
                   placeholder={t("settings.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-xl border-border/60 bg-card/70 pl-10 pr-3 text-sm shadow-sm"
+                  className="h-9 flex-1 min-w-0 border-0 bg-transparent py-0 pr-0 pl-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
               <button
