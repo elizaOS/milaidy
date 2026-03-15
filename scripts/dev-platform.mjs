@@ -2,24 +2,36 @@
 /**
  * dev:desktop — Full Milady desktop development environment.
  *
- * Runs in parallel:
- *   1. API server (bun --watch on port 31337)
- *   2. Vite (build --watch) — continuously rebuilds the renderer to apps/app/dist/
- *   3. Electrobun (dev) — watches bun-side + ../dist, relaunches on change
+ * 1. Blocking vite build (renderer assets for electrobun)
+ * 2. Then starts in parallel:
+ *    - API server (bun --watch on port 31337)
+ *    - Electrobun (dev) — bundles renderer from ../dist, watches for changes
+ *
+ * Electrobun watches ../dist (via electrobun.config.ts watch config),
+ * so subsequent vite rebuilds trigger an electrobun reload automatically.
+ * Run `bun run vite build` in apps/app/ to push UI changes to the desktop.
  *
  * Pass --no-api to skip the backend (e.g. if running it separately).
  *
  * Ctrl-C cleanly kills all processes.
  */
 
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
+const appDir = path.join(repoRoot, "apps/app");
+const electrobunDir = path.join(appDir, "electrobun");
 const skipApi = process.argv.includes("--no-api");
 
+// Step 1: blocking vite build so electrobun has renderer assets to bundle
+console.log("\n[milady] Building renderer...");
+execSync("bun run vite build", { cwd: appDir, stdio: "inherit" });
+console.log("[milady] Renderer ready.\n");
+
+// Step 2: start API + electrobun in parallel
 const services = [
   ...(!skipApi
     ? [
@@ -36,18 +48,11 @@ const services = [
       ]
     : []),
   {
-    name: "vite",
-    cmd: "bun",
-    args: ["run", "vite", "build", "--watch"],
-    cwd: path.join(repoRoot, "apps/app"),
-    env: {},
-  },
-  {
     name: "electrobun",
     cmd: "bun",
     args: ["run", "dev"],
-    cwd: path.join(repoRoot, "apps/app/electrobun"),
-    env: {},
+    cwd: electrobunDir,
+    env: { ELECTROBUN_SKIP_CODESIGN: "1" },
   },
 ];
 
@@ -63,7 +68,7 @@ function prefixStream(name, stream) {
 }
 
 console.log(
-  `\nMilady desktop dev${skipApi ? " (no API)" : ""}\n` +
+  `Milady desktop dev${skipApi ? " (no API)" : ""}\n` +
     `  Services: ${services.map((s) => s.name).join(", ")}\n`,
 );
 
