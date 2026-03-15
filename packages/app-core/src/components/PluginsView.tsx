@@ -2114,7 +2114,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 data-testid="connectors-settings-content"
                 className="space-y-4"
               >
-                {visiblePlugins.map((plugin) => {
+                {(desktopConnectorLayout
+                  ? visiblePlugins.filter((p) => p.id === connectorSelectedId)
+                  : visiblePlugins
+                ).map((plugin) => {
                   const hasParams =
                     (plugin.parameters?.length ?? 0) > 0 &&
                     plugin.id !== "__ui-showcase__";
