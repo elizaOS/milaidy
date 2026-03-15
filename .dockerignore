@@ -1,0 +1,23 @@
+# ── Docker build context exclusions ──────────────────────────────────────────
+# Exclude heavy dirs that aren't needed in any Dockerfile.
+# The full image (Dockerfile.cloud-full) reinstalls deps inside the builder stage.
+
+node_modules
+.git
+*.log
+.env*
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test / CI artifacts
+coverage
+.nyc_output
+__tests__
+*.test.ts
+*.spec.ts
+
+# OS junk
+.DS_Store
+Thumbs.db

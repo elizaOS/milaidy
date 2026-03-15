@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# elizaOS Cloud Full Image — Milady Server + Cloud Agent Bridge
+#
+# Multi-stage build that produces a production image with:
+#   1. Milady API server + dashboard UI (port 2138)
+#   2. Cloud-agent bridge daemon (port 31337 + compat 18790)
+#
+# Replaces the deleted Dockerfile.cloud-full-ui.
+# Target: <3GB image size.
+#
+# Build (from repo root):
+#   docker build -f deploy/Dockerfile.cloud-full -t milady/agent:cloud-full .
+#
+# Run:
+#   docker run -p 2138:2138 -p 31337:31337 -p 18790:18790 \
+#     -e ELIZAOS_CLOUD_API_KEY=eliza_xxx \
+#     milady/agent:cloud-full
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:22-bookworm AS builder
+
+# Install Bun (matches upstream build tooling)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy dependency manifests first for better layer caching
+COPY package.json bun.lock* .npmrc ./
+COPY apps/app/package.json ./apps/app/package.json
+COPY scripts ./scripts
+
+# Install all dependencies (including dev for build)
+RUN bun install --frozen-lockfile
+
+# Copy full source and build everything
+COPY . .
+RUN bun run build
+
+# ── Stage 2: Production ──────────────────────────────────────────────────────
+FROM node:22-bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates tini && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy built milady server + runtime
+COPY --from=builder /app/dist/ ./dist/
+COPY --from=builder /app/milady.mjs ./
+COPY --from=builder /app/package.json ./
+
+# Copy frontend build
+COPY --from=builder /app/apps/app/dist/ ./apps/app/dist/
+
+# Copy cloud-agent package (pre-built)
+COPY --from=builder /app/packages/cloud-agent/dist/ ./packages/cloud-agent/dist/
+COPY --from=builder /app/packages/cloud-agent/package.json ./packages/cloud-agent/
+COPY --from=builder /app/packages/cloud-agent/bin/ ./packages/cloud-agent/bin/
+
+# Copy production node_modules (server.js imports external packages)
+# Prune to just the packages we need
+COPY --from=builder /app/node_modules/ ./node_modules/
+
+# Copy the entrypoint script
+COPY deploy/cloud-full-entrypoint.sh ./entrypoint.sh
+
+ARG BUILD_VERSION=dev
+ARG BUILD_SHA=unknown
+ENV BUILD_VERSION=${BUILD_VERSION}
+ENV BUILD_SHA=${BUILD_SHA}
+
+ENV NODE_ENV=production
+ENV PORT=2138
+ENV BRIDGE_PORT=31337
+ENV BRIDGE_COMPAT_PORT=18790
+ENV MILADY_API_BIND="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+  CMD curl -f http://localhost:${PORT}/health || exit 1
+
+EXPOSE 2138 31337 18790
+
+# Security: run as non-root
+RUN useradd -m agent && chown -R agent:agent /app
+USER agent
+
+# Use tini for proper signal handling with multiple processes
+ENTRYPOINT ["tini", "--"]
+CMD ["bash", "./entrypoint.sh"]
