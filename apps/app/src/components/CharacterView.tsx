@@ -865,10 +865,15 @@ export function CharacterView({
   ];
 
   const bookPageCls = sceneOverlay
-    ? "bg-[#fefcf6]/95 dark:bg-[hsl(220,14%,16%)]/95 backdrop-blur-md"
-    : "bg-[#fefcf6] dark:bg-[hsl(220,14%,16%)]";
-
-  const bookSidebarCls = "bg-[#2a2d35] dark:bg-[hsl(220,16%,8%)]"; // Always opaque
+    ? "relative overflow-hidden bg-[linear-gradient(180deg,rgba(255,251,242,0.98)_0%,rgba(243,233,214,0.96)_100%)] backdrop-blur-md dark:bg-[linear-gradient(180deg,rgba(46,43,38,0.98)_0%,rgba(31,28,25,0.96)_100%)]"
+    : "relative overflow-hidden bg-[linear-gradient(180deg,#fffaf1_0%,#f4ead7_100%)] dark:bg-[linear-gradient(180deg,hsl(35,14%,18%)_0%,hsl(35,10%,13%)_100%)]";
+  const bookSidebarCls =
+    "relative overflow-hidden bg-[linear-gradient(180deg,#333842_0%,#23272f_42%,#191c22_100%)] dark:bg-[linear-gradient(180deg,hsl(220,14%,15%)_0%,hsl(220,16%,10%)_42%,hsl(220,20%,7%)_100%)]";
+  const notebookShellCls =
+    "relative isolate flex h-[34.75rem] w-full max-w-[29rem] overflow-visible";
+  const notebookFrameCls = sceneOverlay
+    ? "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/20 bg-[#f8f0df]/70 shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.5)]"
+    : "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/14 bg-[#f8f0df] shadow-[0_26px_60px_rgba(36,28,18,0.2),inset_0_1px_0_rgba(255,255,255,0.58)]";
 
   if (characterLoading && !characterData) {
     return (
@@ -1089,19 +1094,34 @@ export function CharacterView({
         <div className="mt-3 flex justify-end">
           {/* ── Book container ── */}
           <div
-            className="flex h-[34rem] w-full max-w-md overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+            className={notebookShellCls}
             data-testid="character-notebook"
           >
+            <div className="pointer-events-none absolute inset-x-5 bottom-[-1.2rem] top-6 rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(35,27,18,0.12)_0%,rgba(16,12,9,0.32)_100%)] blur-xl" />
+            <div className="pointer-events-none absolute inset-[0.35rem] translate-x-2 translate-y-2 rounded-[1.9rem] border border-[#d7c5a4]/50 bg-[linear-gradient(180deg,rgba(251,246,235,0.86)_0%,rgba(236,224,198,0.7)_100%)] shadow-[0_12px_26px_rgba(62,44,21,0.12)]" />
+            <div className="pointer-events-none absolute bottom-[-0.95rem] left-8 h-14 w-4 rounded-b-sm bg-[linear-gradient(180deg,#ddb45e_0%,#be8530_100%)] [clip-path:polygon(0_0,100%_0,100%_78%,50%_100%,0_78%)] shadow-[0_10px_20px_rgba(141,97,34,0.28)]" />
+            <div className={notebookFrameCls}>
+              <div className="pointer-events-none absolute left-4 top-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)]" />
+              <div className="pointer-events-none absolute bottom-4 left-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)]" />
+              <div className="pointer-events-none absolute right-4 top-4 h-2 w-2 rounded-full border border-white/10 bg-white/10 shadow-[0_0_0_2px_rgba(255,255,255,0.03)]" />
+              <div className="pointer-events-none absolute bottom-4 right-4 h-2 w-2 rounded-full border border-white/10 bg-white/10 shadow-[0_0_0_2px_rgba(255,255,255,0.03)]" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(104,77,39,0.07)_100%)]" />
+              <div className="pointer-events-none absolute bottom-3 right-[4.95rem] top-3 w-[0.7rem] rounded-full bg-[linear-gradient(90deg,rgba(116,92,55,0.16)_0%,rgba(255,255,255,0.5)_45%,rgba(112,88,52,0.2)_100%)] shadow-[inset_0_0_7px_rgba(89,67,37,0.16),0_0_18px_rgba(255,246,220,0.16)]" />
             {/* ── Book page (left) ── */}
-            <div className={`${bookPageCls} flex flex-1 flex-col rounded-l-xl border-r border-border/30 text-[#1e2329] dark:text-[hsl(40,10%,84%)]`}>
+            <div
+              className={`${bookPageCls} flex flex-1 flex-col rounded-l-[1.75rem] border-r border-[#cdbb98]/60 text-[#1e2329] dark:border-white/[0.08] dark:text-[hsl(40,10%,84%)]`}
+            >
+              <div className="pointer-events-none absolute inset-[0.7rem] rounded-[1.25rem] border border-[#efe3cc]/85 shadow-[inset_0_0_0_1px_rgba(207,184,141,0.24)] dark:border-white/5 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0)_36%),linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0)_24%),repeating-linear-gradient(0deg,rgba(168,139,87,0.035)_0px,rgba(168,139,87,0.035)_1px,transparent_1px,transparent_11px)] opacity-85 dark:opacity-25" />
+              <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-5 bg-[linear-gradient(90deg,rgba(123,98,61,0)_0%,rgba(123,98,61,0.08)_55%,rgba(255,255,255,0.14)_100%)] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.03)_60%,rgba(255,255,255,0.08)_100%)]" />
               {/* Mode toggle: Core / Examples */}
-              <div className="flex items-center gap-2 border-b border-[#d6d3c6]/50 dark:border-border/30 px-5 py-3">
+              <div className="relative z-10 flex items-end gap-2 bg-[linear-gradient(180deg,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0)_100%)] px-5 pb-3 pt-4 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0)_100%)]">
                 <button
                   type="button"
-                  className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                  className={`relative h-9 rounded-b-md rounded-t-[1rem] border px-3.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
                     customizeStep === "core"
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-white/60 dark:bg-white/10 text-[#6d737a] dark:text-muted border border-[#d6d3c6]/50 dark:border-border/30 hover:bg-white dark:hover:bg-white/15"
+                      ? "border-[#c59b47] bg-[linear-gradient(180deg,#f4cf79_0%,#d69f45_100%)] text-[#2d2418] shadow-[0_10px_18px_rgba(137,97,36,0.22)]"
+                      : "border-[#d4c6ad]/90 bg-[linear-gradient(180deg,rgba(255,252,245,0.96)_0%,rgba(243,235,222,0.82)_100%)] text-[#7b7365] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,240,226,0.9)_100%)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.04)_100%)] dark:text-muted dark:shadow-none dark:hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.05)_100%)]"
                   }`}
                   onClick={() => setCustomizeStep("core")}
                 >
@@ -1110,20 +1130,21 @@ export function CharacterView({
                 {activeSection !== "styleRules" && (
                   <button
                     type="button"
-                    className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    className={`relative h-9 rounded-b-md rounded-t-[1rem] border px-3.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
                       customizeStep === "examples"
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-white/60 dark:bg-white/10 text-[#6d737a] dark:text-muted border border-[#d6d3c6]/50 dark:border-border/30 hover:bg-white dark:hover:bg-white/15"
+                        ? "border-[#c59b47] bg-[linear-gradient(180deg,#f4cf79_0%,#d69f45_100%)] text-[#2d2418] shadow-[0_10px_18px_rgba(137,97,36,0.22)]"
+                        : "border-[#d4c6ad]/90 bg-[linear-gradient(180deg,rgba(255,252,245,0.96)_0%,rgba(243,235,222,0.82)_100%)] text-[#7b7365] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,240,226,0.9)_100%)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.04)_100%)] dark:text-muted dark:shadow-none dark:hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.05)_100%)]"
                     }`}
                     onClick={() => setCustomizeStep("examples")}
                   >
                     {t("characterview.examples")}
                   </button>
                 )}
+                <div className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-[linear-gradient(90deg,rgba(209,193,165,0)_0%,rgba(209,193,165,0.92)_10%,rgba(209,193,165,0.92)_90%,rgba(209,193,165,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_10%,rgba(255,255,255,0.08)_90%,rgba(255,255,255,0)_100%)]" />
               </div>
 
               {/* Content area */}
-              <div className="flex flex-1 flex-col overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
+              <div className="relative z-10 flex flex-1 flex-col overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
                 {/* ── About Me (Core) ── */}
                 {activeSection === "aboutMe" && customizeStep === "core" && (
                   <div className="flex flex-1 flex-col gap-3" data-testid="character-core-editor">
@@ -1405,10 +1426,13 @@ export function CharacterView({
 
             {/* ── Sidebar (right) ── */}
             <div
-              className={`${bookSidebarCls} flex w-14 flex-col items-center rounded-r-xl py-3`}
+              className={`${bookSidebarCls} flex w-20 flex-col items-center rounded-r-[1.75rem] border-l border-white/[0.08] py-3`}
               role="tablist"
               aria-orientation="vertical"
             >
+              <div className="pointer-events-none absolute inset-x-2 top-2 h-10 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_100%)] blur-sm" />
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-white/[0.08]" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-black/35" />
               {SIDEBAR_TABS.map(({ key, icon: Icon, labelKey }) => {
                 const isActive = activeSection === key;
                 return (
@@ -1417,10 +1441,8 @@ export function CharacterView({
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-3.5 transition-colors border-b border-white/[0.06] last:border-b-0 ${
-                      isActive
-                        ? "text-accent"
-                        : "text-[#8a8d95] hover:text-white/80"
+                    className={`relative flex w-full items-center justify-center px-2 py-3.5 transition-colors border-b border-white/[0.06] last:border-b-0 ${
+                      isActive ? "text-[#f7e7bf]" : "text-[#999da7] hover:text-white/80"
                     }`}
                     onClick={() => {
                       setActiveSection(key);
@@ -1444,17 +1466,27 @@ export function CharacterView({
                     id={`notebook-tab-${key}`}
                     data-testid={`notebook-tab-${key}`}
                   >
-                    {/* Active indicator bar */}
                     {isActive && (
-                      <div className="absolute top-1 bottom-1 left-0 w-[3px] rounded-r-full bg-accent" />
+                      <div className="absolute inset-y-2 left-0 w-[4px] rounded-r-full bg-[#d4a14c] shadow-[0_0_12px_rgba(212,161,76,0.45)]" />
                     )}
-                    <Icon className="h-4.5 w-4.5" />
-                    <span className="text-center text-[8px] leading-tight font-medium">
-                      {t(labelKey)}
-                    </span>
+                    <div className="relative z-10 flex flex-col items-center gap-1.5">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
+                          isActive
+                            ? "border-[#f0ce85]/55 bg-[radial-gradient(circle_at_30%_30%,rgba(255,236,195,0.28)_0%,rgba(255,236,195,0.05)_42%,rgba(255,255,255,0)_100%)] shadow-[0_0_18px_rgba(220,176,90,0.22)]"
+                            : "border-white/10 bg-white/[0.03]"
+                        }`}
+                      >
+                        <Icon className="h-4.5 w-4.5" />
+                      </div>
+                      <span className="max-w-[4.1rem] text-center text-[8px] font-semibold uppercase tracking-[0.16em] leading-[1.22]">
+                        {t(labelKey)}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
+            </div>
             </div>
           </div>
         </div>
