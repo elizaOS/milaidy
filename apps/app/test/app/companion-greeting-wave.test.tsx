@@ -302,7 +302,12 @@ describe("companion greeting wave", () => {
     vi.restoreAllMocks();
   });
 
-  async function renderAppWithShellMode(mode: "companion" | "native"): Promise<{
+  async function renderAppWithShellMode(
+    mode: "companion" | "native",
+    options?: {
+      bootstrapConversation?: boolean;
+    },
+  ): Promise<{
     api: ProbeApi;
     tree: TestRenderer.ReactTestRenderer;
     events: AppEmoteEventDetail[];
@@ -334,6 +339,15 @@ describe("companion greeting wave", () => {
 
     await waitFor(() => {
       expect(api).not.toBeNull();
+      if (options?.bootstrapConversation) {
+        expect(mockClient.createConversation).toHaveBeenCalledWith(
+          "New Chat",
+          expect.objectContaining({
+            bootstrapGreeting: true,
+          }),
+        );
+        return;
+      }
       expect(mockClient.getConversationMessages).toHaveBeenCalledWith(
         "conv-existing",
       );
@@ -373,6 +387,35 @@ describe("companion greeting wave", () => {
       duration: 2.5,
       loop: false,
       showOverlay: false,
+    });
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it("shows the wave emoji for the bootstrap greeting on initial companion load", async () => {
+    mockClient.listConversations.mockResolvedValue({
+      conversations: [],
+    });
+
+    const { tree, events } = await renderAppWithShellMode("companion", {
+      bootstrapConversation: true,
+    });
+
+    expect(events).toHaveLength(0);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1400);
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      emoteId: "wave",
+      path: "/animations/emotes/waving-both-hands.glb",
+      duration: 2.5,
+      loop: false,
+      showOverlay: true,
     });
 
     await act(async () => {

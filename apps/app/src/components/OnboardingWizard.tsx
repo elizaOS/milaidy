@@ -83,6 +83,7 @@ export function OnboardingWizard() {
         worldUrl={worldUrl}
         fallbackPreviewUrl={fallbackPreview}
         cameraProfile="companion_close"
+        initialCompanionZoomNormalized={1}
         t={t}
       />
 

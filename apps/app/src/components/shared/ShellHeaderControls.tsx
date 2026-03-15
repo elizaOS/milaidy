@@ -62,8 +62,14 @@ interface ShellHeaderControlsProps {
   t: ShellHeaderTranslator;
   children?: ReactNode;
   rightExtras?: ReactNode;
+  trailingExtras?: ReactNode;
   className?: string;
   controlsVariant?: "native" | "companion";
+  languageDropdownClassName?: string;
+  languageDropdownWrapperTestId?: string;
+  themeToggleClassName?: string;
+  themeToggleWrapperClassName?: string;
+  themeToggleWrapperTestId?: string;
 }
 
 export function ShellHeaderControls({
@@ -76,8 +82,14 @@ export function ShellHeaderControls({
   t,
   children,
   rightExtras,
+  trailingExtras,
   className,
   controlsVariant = "native",
+  languageDropdownClassName,
+  languageDropdownWrapperTestId,
+  themeToggleClassName,
+  themeToggleWrapperClassName,
+  themeToggleWrapperTestId,
 }: ShellHeaderControlsProps) {
   const isMobileViewport = useIsMobileShellViewport();
   const shellOptions: Array<{
@@ -128,7 +140,7 @@ export function ShellHeaderControls({
                 onClick={() => onShellViewChange(view)}
                 className={`inline-flex h-9 min-w-[44px] items-center justify-center px-3 transition-all duration-200 ${edgeClass} ${
                   selected
-                    ? "border border-[#d8a108]/40 bg-bg-muted/85 text-[#8a6500] shadow-sm dark:border-accent/25 dark:bg-bg/85 dark:text-[#f0b232]"
+                    ? "border border-[#d8a108]/30 bg-bg/55 text-[#8a6500] shadow-sm dark:border-accent/25 dark:bg-bg/85 dark:text-[#f0b232]"
                     : "border border-transparent bg-transparent text-muted-strong hover:border-border/70 hover:bg-bg/85 hover:text-txt dark:text-muted dark:hover:border-border/60 dark:hover:bg-bg-hover/80 dark:hover:text-txt"
                 }`}
                 aria-label={label}
@@ -145,22 +157,36 @@ export function ShellHeaderControls({
 
       <div className="min-w-0 flex-1">{children}</div>
 
-      <div className="flex shrink-0 items-center justify-end gap-2">
+      <div
+        className="flex shrink-0 items-center justify-end gap-2"
+        data-testid="shell-header-right-controls"
+      >
         {rightExtras}
-        <LanguageDropdown
-          uiLanguage={uiLanguage}
-          setUiLanguage={setUiLanguage}
-          t={t}
-          variant={controlsVariant}
-          triggerClassName="!h-10 !min-h-10 !rounded-xl !px-3.5 sm:!px-3.5 leading-none"
-        />
-        <ThemeToggle
-          uiTheme={uiTheme}
-          setUiTheme={setUiTheme}
-          t={t}
-          variant={controlsVariant}
-          className="!h-10 !w-10 !min-h-10 !min-w-10"
-        />
+        <div
+          className={`shrink-0 ${languageDropdownClassName ?? ""}`}
+          data-testid={languageDropdownWrapperTestId}
+        >
+          <LanguageDropdown
+            uiLanguage={uiLanguage}
+            setUiLanguage={setUiLanguage}
+            t={t}
+            variant={controlsVariant}
+            triggerClassName="!h-10 !min-h-10 !rounded-xl !px-3.5 sm:!px-3.5 leading-none"
+          />
+        </div>
+        <div
+          className={`shrink-0 ${themeToggleWrapperClassName ?? ""}`}
+          data-testid={themeToggleWrapperTestId}
+        >
+          <ThemeToggle
+            uiTheme={uiTheme}
+            setUiTheme={setUiTheme}
+            t={t}
+            variant={controlsVariant}
+            className={`!h-10 !w-10 !min-h-10 !min-w-10 ${themeToggleClassName ?? ""}`}
+          />
+        </div>
+        {trailingExtras}
       </div>
     </div>
   );

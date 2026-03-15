@@ -33,6 +33,7 @@ export interface LanguageDropdownProps {
   /** Optional extra className on the trigger button */
   triggerClassName?: string;
   variant?: "native" | "companion";
+  menuPlacement?: "bottom-end" | "top-end";
 }
 
 export function LanguageDropdown({
@@ -42,23 +43,33 @@ export function LanguageDropdown({
   className,
   triggerClassName,
   variant = "native",
+  menuPlacement = "bottom-end",
 }: LanguageDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
-    null,
-  );
+  const [menuPos, setMenuPos] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+  } | null>(null);
 
   // Compute dropdown position from trigger button rect (for companion portal)
   const updateMenuPos = useCallback(() => {
     if (variant !== "companion" || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    if (menuPlacement === "top-end") {
+      setMenuPos({
+        bottom: window.innerHeight - rect.top + 4,
+        right: window.innerWidth - rect.right,
+      });
+      return;
+    }
     setMenuPos({
       top: rect.bottom + 4,
       right: window.innerWidth - rect.right,
     });
-  }, [variant]);
+  }, [menuPlacement, variant]);
 
   // Close on outside click
   useEffect(() => {
@@ -94,15 +105,22 @@ export function LanguageDropdown({
   const triggerClass = `inline-flex items-center gap-1.5 h-9 px-2 sm:px-3 border border-border/50 bg-bg/50 backdrop-blur-md text-[11px] sm:text-xs font-medium cursor-pointer transition-all duration-300 text-txt hover:border-accent hover:text-txt rounded-md shadow-sm ${open ? "border-accent text-txt bg-accent/5" : ""} ${triggerClassName ?? ""}`;
   const optionClass = (selected: boolean) =>
     `w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-bg-hover cursor-pointer ${selected ? "text-txt bg-accent/5 font-medium" : "text-txt"}`;
+  const inlineMenuPositionClass =
+    menuPlacement === "top-end"
+      ? "absolute bottom-full right-0 mb-1 z-50"
+      : "absolute top-full right-0 mt-1 z-50";
 
   const menuContent = open && (
     <ul
       id="lang-dropdown-portal"
-      className={`w-36 rounded-lg bg-bg-elevated border border-border shadow-xl overflow-hidden py-1 ${variant === "companion" ? "fixed" : "absolute top-full right-0 mt-1 z-50"}`}
+      className={`w-36 rounded-lg bg-bg-elevated border border-border shadow-xl overflow-hidden py-1 ${variant === "companion" ? "fixed" : inlineMenuPositionClass}`}
       style={
         variant === "companion" && menuPos
           ? {
-              top: menuPos.top,
+              ...(menuPos.top !== undefined ? { top: menuPos.top } : {}),
+              ...(menuPos.bottom !== undefined
+                ? { bottom: menuPos.bottom }
+                : {}),
               right: menuPos.right,
               zIndex: 10001,
               backdropFilter: "blur(24px)",

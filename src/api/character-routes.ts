@@ -1,5 +1,7 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { logger, ModelType } from "@elizaos/core";
+import type { MiladyConfig } from "../config/types";
+import type { AgentConfig } from "../config/types.agents";
 import { CharacterSchema } from "../config/zod-schema";
 import type { RouteRequestContext } from "./route-helpers";
 
@@ -7,7 +9,6 @@ interface CharacterGenerateContext {
   name?: string;
   system?: string;
   bio?: string;
-  topics?: string[];
   style?: { all?: string[]; chat?: string[]; post?: string[] };
   postExamples?: string[];
 }
@@ -17,18 +18,75 @@ type CharacterGenerateField =
   | "system"
   | "style"
   | "chatExamples"
-  | "postExamples"
-  | "interests";
+  | "postExamples";
 type CharacterGenerateMode = "append" | "replace";
 
 export interface CharacterRouteState {
   runtime: AgentRuntime | null;
   agentName: string;
+  config?: MiladyConfig;
 }
 
 export interface CharacterRouteContext extends RouteRequestContext {
   state: CharacterRouteState;
   pickRandomNames: (count: number) => string[];
+  saveConfig?: (config: MiladyConfig) => void;
+}
+
+function syncRuntimeCharacterToConfig(
+  state: CharacterRouteState,
+  saveConfig?: (config: MiladyConfig) => void,
+): void {
+  const runtime = state.runtime;
+  const config = state.config;
+  if (!runtime || !config) return;
+
+  if (!config.agents) config.agents = {};
+  const existingList = config.agents.list ?? [];
+  const primaryAgent: AgentConfig = existingList[0] ?? {
+    id: "main",
+    default: true,
+  };
+  const character = runtime.character;
+  const nextAgent: AgentConfig = {
+    ...primaryAgent,
+    ...(character.name ? { name: character.name } : {}),
+    ...(Array.isArray(character.bio) ? { bio: [...character.bio] } : {}),
+    ...(typeof character.system === "string"
+      ? { system: character.system }
+      : {}),
+    ...(Array.isArray(character.adjectives)
+      ? { adjectives: [...character.adjectives] }
+      : {}),
+    ...(character.style
+      ? {
+          style: {
+            ...(Array.isArray(character.style.all)
+              ? { all: [...character.style.all] }
+              : {}),
+            ...(Array.isArray(character.style.chat)
+              ? { chat: [...character.style.chat] }
+              : {}),
+            ...(Array.isArray(character.style.post)
+              ? { post: [...character.style.post] }
+              : {}),
+          },
+        }
+      : {}),
+    ...(Array.isArray(character.postExamples)
+      ? { postExamples: [...character.postExamples] }
+      : {}),
+    ...(Array.isArray(character.messageExamples)
+      ? {
+          messageExamples: JSON.parse(
+            JSON.stringify(character.messageExamples),
+          ) as AgentConfig["messageExamples"],
+        }
+      : {}),
+  };
+
+  config.agents.list = [nextAgent, ...existingList.slice(1)];
+  saveConfig?.(config);
 }
 
 function buildCharacterSummary(ctx: CharacterGenerateContext): string {
@@ -36,7 +94,6 @@ function buildCharacterSummary(ctx: CharacterGenerateContext): string {
     ctx.name ? `Name: ${ctx.name}` : "",
     ctx.system ? `System prompt: ${ctx.system}` : "",
     ctx.bio ? `Bio: ${ctx.bio}` : "",
-    ctx.topics?.length ? `Topics: ${ctx.topics.join(", ")}` : "",
     ctx.style?.all?.length ? `Style rules: ${ctx.style.all.join("; ")}` : "",
   ]
     .filter(Boolean)
@@ -52,10 +109,6 @@ function buildGeneratePrompt(
 
   if (field === "bio") {
     return `Given this character:\n${charSummary}\n\nWrite a concise, compelling bio for this character (3-4 short paragraphs, one per line). Use their current interests and info to expand the bio into something more interesting and unique. Just output the bio lines, nothing else. Match the character's voice and personality.`;
-  }
-
-  if (field === "interests") {
-    return `Given this character:\n${charSummary}\n\nBased on the character's bio and current topics, generate 5-10 additional unique topics or interests that fit this character perfectly but aren't in the current list. Just output a JSON array of strings, nothing else.`;
   }
 
   if (field === "system") {
@@ -116,12 +169,6 @@ const CHARACTER_SCHEMA_FIELDS = [
     description: "Personality adjectives (e.g. curious, witty)",
   },
   {
-    key: "topics",
-    type: "string[]",
-    label: "Topics",
-    description: "Topics the agent is knowledgeable about",
-  },
-  {
     key: "style",
     type: "object",
     label: "Style",
@@ -170,6 +217,7 @@ export async function handleCharacterRoutes(
     method,
     pathname,
     state,
+    saveConfig,
     readJsonBody,
     json,
     error,
@@ -188,7 +236,6 @@ export async function handleCharacterRoutes(
       if (character.bio) merged.bio = character.bio;
       if (character.system) merged.system = character.system;
       if (character.adjectives) merged.adjectives = character.adjectives;
-      if (character.topics) merged.topics = character.topics;
       if (character.style) merged.style = character.style;
       if (character.messageExamples)
         merged.messageExamples = character.messageExamples;
@@ -227,7 +274,6 @@ export async function handleCharacterRoutes(
       if (body.system != null) character.system = String(body.system);
       if (body.adjectives != null)
         character.adjectives = body.adjectives as string[];
-      if (body.topics != null) character.topics = body.topics as string[];
       if (body.style != null)
         character.style = body.style as NonNullable<typeof character.style>;
       if (body.messageExamples != null)
@@ -236,6 +282,19 @@ export async function handleCharacterRoutes(
         >;
       if (body.postExamples != null)
         character.postExamples = body.postExamples as string[];
+    }
+
+    try {
+      syncRuntimeCharacterToConfig(state, saveConfig);
+    } catch (err) {
+      error(
+        res,
+        err instanceof Error
+          ? `Failed to persist character: ${err.message}`
+          : "Failed to persist character",
+        500,
+      );
+      return true;
     }
 
     if (body.name) state.agentName = String(body.name);
@@ -275,8 +334,7 @@ export async function handleCharacterRoutes(
       body.field !== "system" &&
       body.field !== "style" &&
       body.field !== "chatExamples" &&
-      body.field !== "postExamples" &&
-      body.field !== "interests"
+      body.field !== "postExamples"
     ) {
       error(res, `Unknown field: ${body.field}`, 400);
       return true;

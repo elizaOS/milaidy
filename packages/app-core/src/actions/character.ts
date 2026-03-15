@@ -35,7 +35,6 @@ export async function loadCharacter(
         : (character.bio ?? ""),
       system: character.system ?? "",
       adjectives: character.adjectives ?? [],
-      topics: character.topics ?? [],
       style: {
         all: character.style?.all ?? [],
         chat: character.style?.chat ?? [],
@@ -64,8 +63,6 @@ export function prepareDraftForSave(
   }
   if (Array.isArray(result.adjectives) && result.adjectives.length === 0)
     delete result.adjectives;
-  if (Array.isArray(result.topics) && result.topics.length === 0)
-    delete result.topics;
   if (Array.isArray(result.postExamples) && result.postExamples.length === 0)
     delete result.postExamples;
   if (

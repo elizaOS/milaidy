@@ -19,7 +19,6 @@ import {
 } from "./inventory";
 import { InventoryToolbar } from "./inventory/InventoryToolbar";
 import { NftGrid } from "./inventory/NftGrid";
-import { PortfolioHeader } from "./inventory/PortfolioHeader";
 import { TokensTable } from "./inventory/TokensTable";
 import { useInventoryData } from "./inventory/useInventoryData";
 
@@ -47,6 +46,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     getBscTradePreflight,
     getBscTradeQuote,
     getBscTradeTxStatus,
+    copyToClipboard,
     t,
   } = useApp();
 
@@ -81,8 +81,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     allNfts,
     focusedChainError,
     focusedChainName,
-    focusedNativeBalance,
-    focusedNativeSymbol,
     visibleRows,
     totalUsd,
     visibleChainErrors,
@@ -223,6 +221,14 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     [trackedTokens, setActionNotice, t],
   );
 
+  const handleCopyAddress = useCallback(
+    async (address: string) => {
+      await copyToClipboard(address);
+      setActionNotice(t("wallet.addressCopied"), "success", 2000);
+    },
+    [copyToClipboard, setActionNotice, t],
+  );
+
   // ════════════════════════════════════════════════════════════════════
   // Render
   // ════════════════════════════════════════════════════════════════════
@@ -270,28 +276,59 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     );
   }
 
-  // ── Two-panel layout ───────────────────────────────────────────
+  // ── Wallet layout ───────────────────────────────────────────────
   return (
     <div
-      className={`two-panel-layout w-full ${inModal ? "p-6 h-full overflow-y-auto" : ""}`}
+      className={`flex min-h-full w-full flex-col ${inModal ? "p-6 h-full overflow-y-auto" : ""}`}
     >
-      <PortfolioHeader
+      <InventoryToolbar
+        t={t}
         totalUsd={totalUsd}
-        nativeBalance={chainFocus === "all" ? null : focusedNativeBalance}
-        nativeSymbol={chainFocus === "all" ? null : focusedNativeSymbol}
-        addresses={addresses}
+        inventoryView={inventoryView}
+        inventorySort={inventorySort}
         chainFocus={chainFocus}
+        walletBalances={walletBalances}
+        walletNfts={walletNfts}
+        setState={setState}
         onChainChange={(chain) => setState("inventoryChainFocus", chain)}
-        inlineError={inlineError}
-        warning={headerWarning}
         loadBalances={loadBalances}
-        goToRpcSettings={goToRpcSettings}
+        loadNfts={loadNfts}
       />
 
-      <div className="two-panel-right">
+      <div className="mt-3 flex flex-col gap-2">
         {walletError && (
-          <div className="mt-3 px-3.5 py-2.5 border border-danger bg-[rgba(231,76,60,0.06)] text-xs text-danger">
+          <div className="border-l-2 border-danger/70 pl-3 py-1 text-xs text-danger">
             {walletError}
+          </div>
+        )}
+
+        {inlineError?.message && (
+          <div className="flex items-center gap-2 border-l-2 border-danger/70 pl-3 py-1 text-[11px] text-danger">
+            <span>{inlineError.message}</span>
+            <button
+              type="button"
+              className="text-[11px] font-medium text-danger underline cursor-pointer"
+              onClick={() => void loadBalances()}
+              title={inlineError.retryTitle ?? t("common.retry")}
+            >
+              {t("common.retry")}
+            </button>
+          </div>
+        )}
+
+        {headerWarning && (
+          <div className="border-l-2 border-accent/70 pl-3 py-1 text-[11px]">
+            <div className="font-semibold text-txt-strong">
+              {headerWarning.title}
+            </div>
+            <div className="mt-1 text-muted">{headerWarning.body}</div>
+            <button
+              type="button"
+              className="mt-1 text-[11px] font-medium text-accent cursor-pointer"
+              onClick={goToRpcSettings}
+            >
+              {headerWarning.actionLabel}
+            </button>
           </div>
         )}
 
@@ -306,18 +343,9 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             getBscTradeTxStatus={getBscTradeTxStatus}
           />
         )}
+      </div>
 
-        <InventoryToolbar
-          t={t}
-          inventoryView={inventoryView}
-          inventorySort={inventorySort}
-          walletBalances={walletBalances}
-          walletNfts={walletNfts}
-          setState={setState}
-          loadBalances={loadBalances}
-          loadNfts={loadNfts}
-        />
-
+      <div className="mt-4 flex min-h-[58vh] flex-1 flex-col">
         {inventoryView === "tokens" ? (
           <TokensTable
             t={t}
@@ -326,6 +354,8 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             visibleRows={visibleRows}
             visibleChainErrors={visibleChainErrors}
             inventoryChainFocus={inventoryChainFocus ?? "all"}
+            addresses={addresses}
+            onCopyAddress={handleCopyAddress}
             handleUntrackToken={handleUntrackToken}
           />
         ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   CHAT_AVATAR_VOICE_EVENT,
   type ChatAvatarVoiceEventDetail,
@@ -49,25 +49,18 @@ export function useChatAvatarVoiceBridge({
   usingAudioAnalysis = false,
   onSpeakingChange,
 }: ChatAvatarVoiceBridgeOptions): void {
-  const voice = useMemo(
-    () =>
-      normalizeChatAvatarVoice({
-        mouthOpen,
-        isSpeaking: isSpeaking && !usingAudioAnalysis,
-      }),
-    [isSpeaking, mouthOpen, usingAudioAnalysis],
-  );
+  const voice = normalizeChatAvatarVoice({
+    mouthOpen,
+    isSpeaking: isSpeaking && !usingAudioAnalysis,
+  });
   const lastVoiceRef = useRef<ChatAvatarVoiceEventDetail>(CHAT_AVATAR_SILENCE);
-  const speakingChangeRef = useRef(onSpeakingChange);
-
-  speakingChangeRef.current = onSpeakingChange;
+  const emitSpeakingChange = useEffectEvent((nextIsSpeaking: boolean) => {
+    onSpeakingChange?.(nextIsSpeaking);
+  });
 
   useEffect(() => {
-    if (
-      lastVoiceRef.current.isSpeaking !== voice.isSpeaking &&
-      speakingChangeRef.current
-    ) {
-      speakingChangeRef.current(voice.isSpeaking);
+    if (lastVoiceRef.current.isSpeaking !== voice.isSpeaking) {
+      emitSpeakingChange(voice.isSpeaking);
     }
     if (isSameChatAvatarVoice(lastVoiceRef.current, voice)) {
       return;
@@ -78,8 +71,8 @@ export function useChatAvatarVoiceBridge({
 
   useEffect(() => {
     return () => {
-      if (lastVoiceRef.current.isSpeaking && speakingChangeRef.current) {
-        speakingChangeRef.current(false);
+      if (lastVoiceRef.current.isSpeaking) {
+        emitSpeakingChange(false);
       }
       if (isSameChatAvatarVoice(lastVoiceRef.current, CHAT_AVATAR_SILENCE)) {
         return;

@@ -19,6 +19,10 @@ export interface ThemedSelectProps<T extends string = string> {
   groups: ThemedSelectGroup<T>[];
   onChange: (id: T) => void;
   placeholder?: string;
+  menuPlacement?: "top" | "bottom";
+  className?: string;
+  triggerClassName?: string;
+  menuClassName?: string;
 }
 
 export function ThemedSelect<T extends string>({
@@ -26,6 +30,10 @@ export function ThemedSelect<T extends string>({
   groups,
   onChange,
   placeholder = "select...",
+  menuPlacement = "bottom",
+  className = "",
+  triggerClassName = "",
+  menuClassName = "",
 }: ThemedSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -61,16 +69,21 @@ export function ThemedSelect<T extends string>({
     }
   }
 
+  const menuStyle =
+    menuPlacement === "top"
+      ? { bottom: "calc(100% + 0.125rem)" }
+      : { top: "calc(100% + 0.125rem)" };
+
   return (
     <div
       ref={ref}
-      className={`relative flex-1 min-w-0 ${open ? "z-[100]" : ""}`}
+      className={`relative min-w-0 w-full ${open ? "z-[100]" : ""} ${className}`}
     >
       <Button
         type="button"
         variant="outline"
         size="sm"
-        className="w-full flex items-center justify-between px-2.5 py-1.5 h-8 border-border bg-card text-xs text-left cursor-pointer hover:border-accent shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
+        className={`flex h-12 w-full items-center justify-between border-border bg-card px-2.5 py-1.5 text-left text-xs shadow-sm hover:border-accent focus-visible:ring-1 focus-visible:ring-accent ${triggerClassName}`}
         onClick={() => setOpen(!open)}
       >
         <span className="truncate">{currentLabel}</span>
@@ -82,7 +95,10 @@ export function ThemedSelect<T extends string>({
       </Button>
 
       {open && (
-        <div className="absolute z-50 left-0 right-0 mt-0.5 max-h-[280px] overflow-y-auto border border-border bg-card shadow-lg rounded-md">
+        <div
+          className={`absolute left-0 right-0 z-50 max-h-[280px] overflow-y-auto rounded-md border border-border bg-card shadow-lg ${menuClassName}`}
+          style={menuStyle}
+        >
           {groups.map((g) => (
             <div key={g.label}>
               <div className="px-2.5 py-1 text-[10px] font-semibold text-muted bg-bg-muted sticky top-0">

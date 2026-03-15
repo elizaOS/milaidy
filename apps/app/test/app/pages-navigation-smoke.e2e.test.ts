@@ -177,7 +177,7 @@ vi.mock("../../src/components/KnowledgeView", () => ({
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
-vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 

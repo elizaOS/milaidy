@@ -527,11 +527,25 @@ describe("TriggersView UI E2E", () => {
         ).length === 0 &&
         root.findAll(
           (node) =>
-            node.type === "button" &&
-            nodeText(node).includes("Create Heartbeat"),
+            node.type === "button" && nodeText(node).includes("New Heartbeat"),
         ).length === 1,
       "Trigger list did not finish initial loading",
     );
+
+    await act(async () => {
+      await findButtonByText(root, "New Heartbeat").props.onClick();
+    });
+
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "button" &&
+            nodeText(node).includes("Create Heartbeat"),
+        ).length === 1,
+      "Trigger editor modal did not open",
+    );
+
     const displayNameInput = findInputByPlaceholder(
       root,
       "triggersview.eGDailyDigestH",
@@ -564,7 +578,7 @@ describe("TriggersView UI E2E", () => {
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
-      await findButtonByText(root, triggerDisplayName).props.onClick();
+      await findButtonByText(root, "Edit").props.onClick();
     });
     await waitFor(
       () =>
@@ -607,10 +621,6 @@ describe("TriggersView UI E2E", () => {
     );
 
     expect(runtimeHarness.injectAutonomousInstruction).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      await findButtonByText(root, "triggersview.RunHistory").props.onClick();
-    });
     await waitFor(
       () =>
         root.findAll(
@@ -622,6 +632,19 @@ describe("TriggersView UI E2E", () => {
       (node) => node.type === "span" && nodeText(node).includes("success"),
     );
     expect(successRows.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      await findButtonByText(root, "Edit").props.onClick();
+    });
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "button" &&
+            nodeText(node).includes("triggersview.Delete"),
+        ).length === 1,
+      "Trigger editor did not reopen for delete",
+    );
 
     await act(async () => {
       await findButtonByText(root, "triggersview.Delete").props.onClick();

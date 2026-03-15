@@ -46,8 +46,6 @@ export type AgentConfig = {
   style?: { all?: string[]; chat?: string[]; post?: string[] };
   /** Personality adjectives. Set during onboarding from the chosen style preset. */
   adjectives?: string[];
-  /** Topics the agent engages with. Set during onboarding from the chosen style preset. */
-  topics?: string[];
   /** Example social media posts demonstrating the agent's voice. */
   postExamples?: string[];
   /** Example social media posts in Chinese (zh-CN) demonstrating the agent's voice. */

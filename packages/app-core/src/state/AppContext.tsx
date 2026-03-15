@@ -976,23 +976,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const scheduleGreetingWave = useCallback(() => {
+  const scheduleGreetingWave = useCallback((showOverlay = false) => {
     if (typeof window === "undefined") return;
     if (greetingEmoteTimerRef.current != null) {
       window.clearTimeout(greetingEmoteTimerRef.current);
     }
     greetingEmoteTimerRef.current = window.setTimeout(() => {
-      dispatchAppEmoteEvent(GREETING_WAVE_EMOTE);
+      dispatchAppEmoteEvent({
+        ...GREETING_WAVE_EMOTE,
+        showOverlay,
+      });
       greetingEmoteTimerRef.current = null;
     }, GREETING_EMOTE_DELAY_MS);
   }, []);
 
-  const scheduleGreetingWaveForCompanion = useCallback(() => {
-    if (uiShellMode !== "companion") {
-      return;
-    }
-    scheduleGreetingWave();
-  }, [scheduleGreetingWave, uiShellMode]);
+  const scheduleGreetingWaveForCompanion = useCallback(
+    (showOverlay = false) => {
+      if (uiShellMode !== "companion") {
+        return;
+      }
+      scheduleGreetingWave(showOverlay);
+    },
+    [scheduleGreetingWave, uiShellMode],
+  );
 
   useEffect(() => {
     return () => {
@@ -1128,7 +1134,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setUiShellModeState("native");
       if (view === "character") {
-        setTab("character");
+        setTab("character-select");
         return;
       }
 
@@ -1607,7 +1613,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : (character.bio ?? ""),
         system: character.system ?? "",
         adjectives: character.adjectives ?? [],
-        topics: character.topics ?? [],
         style: {
           all: character.style?.all ?? [],
           chat: character.style?.chat ?? [],
@@ -1738,7 +1743,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /** Request an agent greeting for a conversation and add it to messages. */
   const fetchGreeting = useCallback(
-    async (convId: string): Promise<boolean> => {
+    async (
+      convId: string,
+      options?: {
+        showOverlay?: boolean;
+      },
+    ): Promise<boolean> => {
       if (greetingInFlightConversationRef.current === convId) {
         return false;
       }
@@ -1749,7 +1759,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.text) {
           greetingFiredRef.current = true;
           if (data.persisted === true) {
-            scheduleGreetingWaveForCompanion();
+            scheduleGreetingWaveForCompanion(options?.showOverlay === true);
           }
           if (activeConversationIdRef.current === convId) {
             setConversationMessages((prev: ConversationMessage[]) => {
@@ -1793,14 +1803,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const requestGreetingWhenRunning = useCallback(
-    async (convId: string | null): Promise<void> => {
+    async (
+      convId: string | null,
+      options?: {
+        showOverlay?: boolean;
+      },
+    ): Promise<void> => {
       if (!convId || greetingFiredRef.current) {
         return;
       }
       try {
         const status = await client.getStatus();
         if (status.state === "running" && !greetingFiredRef.current) {
-          await fetchGreeting(convId);
+          await fetchGreeting(convId, options);
         }
       } catch (err) {
         console.warn(
@@ -1890,7 +1905,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (greetingText) {
         greetingFiredRef.current = true;
         if (greeting?.persisted === true) {
-          scheduleGreetingWaveForCompanion();
+          scheduleGreetingWaveForCompanion(true);
         }
         const nextMessages = [
           {
@@ -1976,7 +1991,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const s = await client.restartAgent();
       setAgentStatus(s);
       const greetConvId = await hydrateInitialConversationState();
-      await requestGreetingWhenRunning(greetConvId);
+      await requestGreetingWhenRunning(greetConvId, { showOverlay: true });
       setPendingRestart(false);
       setPendingRestartReasons([]);
       void loadPlugins();
@@ -3792,7 +3807,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const handleCharacterArrayInput = useCallback(
-    (field: "adjectives" | "topics" | "postExamples", value: string) => {
+    (field: "adjectives" | "postExamples", value: string) => {
       const items = value
         .split("\n")
         .map((s: string) => s.trim())
@@ -3915,7 +3930,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         systemPrompt,
         style: style?.style,
         adjectives: style?.adjectives,
-        topics: style?.topics,
         postExamples: style?.postExamples,
         messageExamples: style?.messageExamples,
         cloudProvider: elizaCloudProvisioned
@@ -3943,7 +3957,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
       const greetConvId = await hydrateInitialConversationState();
-      await requestGreetingWhenRunning(greetConvId);
+      await requestGreetingWhenRunning(greetConvId, { showOverlay: true });
       setOnboardingComplete(true);
       setTab("chat");
     } catch (err) {
@@ -4843,7 +4857,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStartupPhase("ready");
       setOnboardingLoading(false);
       if (greetConvId) {
-        void requestGreetingWhenRunning(greetConvId);
+        void requestGreetingWhenRunning(greetConvId, { showOverlay: true });
       }
 
       void loadWorkbench();

@@ -4,6 +4,7 @@
 
 import { Keyboard } from "@capacitor/keyboard";
 import {
+  AvatarLoader,
   AppsPageView,
   ConnectionFailedBanner,
   ConnectorsPageView,
@@ -28,7 +29,6 @@ import { isIOS, isLifoPopoutValue, isNative } from "@milady/app-core/platform";
 import { useApp } from "@milady/app-core/state";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AdvancedPageView } from "./components/AdvancedPageView";
-import { AvatarLoader } from "./components/avatar/AvatarLoader";
 import { CharacterView } from "./components/CharacterView";
 import { ChatView } from "./components/ChatView";
 import { CompanionShell } from "./components/CompanionShell";

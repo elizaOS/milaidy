@@ -218,13 +218,15 @@ describe("VrmStage", () => {
     );
   });
 
-  it("waves after the avatar reveal starts when the stage switches characters", async () => {
+  it("waves after the initial avatar reveal starts when enabled", async () => {
     vi.useFakeTimers();
-    const emoteEvents: Array<Record<string, unknown>> = [];
-    const handleAppEmote = (event: Event) => {
-      emoteEvents.push((event as CustomEvent<Record<string, unknown>>).detail);
+    const playEmote = vi.fn();
+    const engine = {
+      playEmote,
+      setPaused: vi.fn(),
+      setCameraAnimation: vi.fn(),
+      setPointerParallaxEnabled: vi.fn(),
     };
-    window.addEventListener("milady:app-emote", handleAppEmote);
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
@@ -238,6 +240,70 @@ describe("VrmStage", () => {
             t: (key: string) => key,
           }),
         );
+      });
+
+      await act(async () => {
+        const ready = viewerPropsRef.current?.onEngineReady as
+          | ((value: unknown) => void)
+          | undefined;
+        ready?.(engine);
+      });
+
+      await act(async () => {
+        const onRevealStart = viewerPropsRef.current?.onRevealStart as
+          | (() => void)
+          | undefined;
+        onRevealStart?.();
+      });
+
+      expect(playEmote).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(650);
+      });
+
+      expect(playEmote).toHaveBeenCalledTimes(1);
+      expect(playEmote).toHaveBeenCalledWith(
+        "/animations/emotes/waving-both-hands.glb",
+        2.5,
+        false,
+      );
+    } finally {
+      await act(async () => {
+        tree?.unmount();
+      });
+    }
+  });
+
+  it("waves after the avatar reveal starts when the stage switches characters", async () => {
+    vi.useFakeTimers();
+    const playEmote = vi.fn();
+    const engine = {
+      playEmote,
+      setPaused: vi.fn(),
+      setCameraAnimation: vi.fn(),
+      setPointerParallaxEnabled: vi.fn(),
+    };
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    try {
+      await act(async () => {
+        tree = TestRenderer.create(
+          React.createElement(VrmStage, {
+            vrmPath: "/vrms/milady-1.vrm.gz",
+            fallbackPreviewUrl: "/vrms/previews/milady-1.png",
+            playWaveOnAvatarChange: true,
+            t: (key: string) => key,
+          }),
+        );
+      });
+
+      await act(async () => {
+        const ready = viewerPropsRef.current?.onEngineReady as
+          | ((value: unknown) => void)
+          | undefined;
+        ready?.(engine);
       });
 
       await act(async () => {
@@ -258,28 +324,25 @@ describe("VrmStage", () => {
         onRevealStart?.();
       });
 
-      expect(emoteEvents).toHaveLength(0);
+      expect(playEmote).not.toHaveBeenCalled();
 
       await act(async () => {
         vi.advanceTimersByTime(649);
       });
 
-      expect(emoteEvents).toHaveLength(0);
+      expect(playEmote).not.toHaveBeenCalled();
 
       await act(async () => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(emoteEvents).toHaveLength(1);
-      expect(emoteEvents[0]).toMatchObject({
-        emoteId: "wave",
-        path: "/animations/emotes/waving-both-hands.glb",
-        duration: 2.5,
-        loop: false,
-        showOverlay: false,
-      });
+      expect(playEmote).toHaveBeenCalledTimes(1);
+      expect(playEmote).toHaveBeenCalledWith(
+        "/animations/emotes/waving-both-hands.glb",
+        2.5,
+        false,
+      );
     } finally {
-      window.removeEventListener("milady:app-emote", handleAppEmote);
       await act(async () => {
         tree?.unmount();
       });

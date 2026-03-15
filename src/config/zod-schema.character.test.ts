@@ -33,7 +33,6 @@ describe("CharacterSchema", () => {
       bio: "A test agent.",
       system: "You are a test agent.",
       adjectives: ["curious", "witty"],
-      topics: ["AI", "testing"],
       style: {
         all: ["Be concise."],
         chat: ["Be casual."],
@@ -111,20 +110,6 @@ describe("CharacterSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects topic that is empty string", () => {
-    const result = CharacterSchema.safeParse({
-      topics: ["valid", ""],
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects topic longer than 200 characters", () => {
-    const result = CharacterSchema.safeParse({
-      topics: ["T".repeat(201)],
-    });
-    expect(result.success).toBe(false);
-  });
-
   it("rejects unknown fields in style (strict mode)", () => {
     const result = CharacterSchema.safeParse({
       style: {
@@ -182,13 +167,6 @@ describe("CharacterSchema", () => {
   it("rejects non-array types for adjectives", () => {
     const result = CharacterSchema.safeParse({
       adjectives: "not-an-array",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects non-array types for topics", () => {
-    const result = CharacterSchema.safeParse({
-      topics: "not-an-array",
     });
     expect(result.success).toBe(false);
   });

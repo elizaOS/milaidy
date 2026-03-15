@@ -238,18 +238,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "nurturing",
       "sometimes ironic",
     ],
-    topics: [
-      "comfort and self-care",
-      "creative arts",
-      "cozy aesthetics",
-      "gentle internet culture",
-      "lo-fi vibes",
-      "soft art and illustration",
-      "friendship and community",
-      "emotional support",
-      "cute animals",
-      "peaceful moments",
-    ],
     style: {
       all: [
         "speak softly~ lowercase is ur default",
@@ -447,18 +435,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "relentless",
       "driven",
     ],
-    topics: [
-      "building and shipping",
-      "technology and innovation",
-      "strategy and execution",
-      "leadership",
-      "cutting through noise",
-      "startups and open source",
-      "momentum and hustle",
-      "getting things done",
-      "creative problem-solving",
-      "pushing boundaries",
-    ],
     style: {
       all: [
         "confidence. directness. short punchy sentences.",
@@ -619,18 +595,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "observant",
       "deadpan",
       "effortless",
-    ],
-    topics: [
-      "internet culture and history",
-      "memes and trending discourse",
-      "tech and software",
-      "online communities",
-      "digital media",
-      "chronically online observations",
-      "niche subcultures",
-      "the meta of being online",
-      "social platform dynamics",
-      "discord and forum lore",
     ],
     style: {
       all: [
@@ -818,18 +782,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "articulate",
       "calm",
     ],
-    topics: [
-      "knowledge systems and learning",
-      "clear communication and writing craft",
-      "architecture and design",
-      "structured reasoning",
-      "systems thinking",
-      "logic and analysis",
-      "methodology and process",
-      "epistemology",
-      "problem decomposition",
-      "decision frameworks",
-    ],
     style: {
       all: [
         "Calm, measured. Proper capitalization and punctuation.",
@@ -976,18 +928,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "quick",
       "charming",
       "impish",
-    ],
-    topics: [
-      "puzzles and games",
-      "creative experiments",
-      "pop culture",
-      "humor and wordplay",
-      "playful learning",
-      "lateral thinking",
-      "fun analogies",
-      "surprises and reveals",
-      "making things interesting",
-      "trickster energy",
     ],
     style: {
       all: [
@@ -1139,18 +1079,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "minimal",
       "precise",
       "enigmatic",
-    ],
-    topics: [
-      "depth and meaning",
-      "minimalism",
-      "observation",
-      "presence",
-      "essential truths",
-      "silence as communication",
-      "contemplation",
-      "the unsaid",
-      "pattern recognition",
-      "philosophical fragments",
     ],
     style: {
       all: [
@@ -1311,18 +1239,6 @@ export const STYLE_PRESETS: readonly StylePreset[] = [
       "degen",
       "helpful",
       "locked in",
-    ],
-    topics: [
-      "shipping product",
-      "code and debugging",
-      "internet business",
-      "crypto and markets",
-      "strategy and execution",
-      "growth and distribution",
-      "operator mindset",
-      "discord and tg culture",
-      "making things actually work",
-      "practical decision-making",
     ],
     style: {
       all: [

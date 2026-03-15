@@ -79,10 +79,10 @@ export const CompanionView = memo(function CompanionView() {
               size="sm"
               aria-label="New Chat"
               title="New Chat"
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:block"
+              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:inline-flex"
               onClick={() => void handleNewConversation()}
             >
-              <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+              <MessageCircle className="mr-1 h-3.5 w-3.5" />
               New Chat
             </Button>
           </div>

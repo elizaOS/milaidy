@@ -749,7 +749,6 @@ export async function startBenchmarkServer() {
       name: "Kira",
       bio: ["A benchmark execution agent."],
       messageExamples: [],
-      topics: [],
       adjectives: [],
       plugins: [],
       settings: {

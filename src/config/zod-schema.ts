@@ -286,7 +286,6 @@ export const CharacterSchema = z
     bio: z.union([z.string(), z.array(z.string())]).optional(),
     system: z.string().max(10000).optional(),
     adjectives: z.array(z.string().min(1).max(100)).optional(),
-    topics: z.array(z.string().min(1).max(200)).optional(),
     style: CharacterStyleSchema,
     messageExamples: z.array(MessageExampleGroupSchema).optional(),
     postExamples: z.array(z.string()).optional(),

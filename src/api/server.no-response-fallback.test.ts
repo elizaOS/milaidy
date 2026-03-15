@@ -121,4 +121,38 @@ describe("conversation no-response fallback", () => {
       agentName: "Reimu",
     });
   });
+
+  it("uses the character default post when chat generation returns only a stage direction", async () => {
+    updateRuntime(runtime);
+    createMemory.mockClear();
+    getMemories.mockClear();
+    handleMessage.mockResolvedValueOnce({
+      responseContent: { text: "*waves warmly*" },
+      responseMessages: [],
+    });
+
+    const created = await req(port, "POST", "/api/conversations", {
+      title: "Stage direction fallback thread",
+    });
+    expect(created.status).toBe(200);
+    const conversationId = String(
+      (created.data.conversation as { id?: string } | undefined)?.id ?? "",
+    );
+    expect(conversationId).not.toBe("");
+
+    const response = await req(
+      port,
+      "POST",
+      `/api/conversations/${conversationId}/messages`,
+      {
+        text: "hello again",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.data).toMatchObject({
+      text: "Reimu default fallback post.",
+      agentName: "Reimu",
+    });
+  });
 });

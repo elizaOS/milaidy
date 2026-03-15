@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "@milady/app-core/styles/xterm.css";
 import {
   client,
@@ -48,7 +48,7 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
   const [sessionKey, setSessionKey] = useState(0);
 
   const popoutMode = false;
-  const lifoSessionId = useMemo(() => generateLifoSessionId(), []);
+  const [lifoSessionId] = useState(() => generateLifoSessionId());
   const [controllerOnline, setControllerOnline] = useState(false);
   const controllerOnlineRef = useRef(false);
   controllerOnlineRef.current = controllerOnline;
@@ -70,18 +70,12 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
     });
   }, []);
 
-  const screenPreviewUrl = useMemo(
-    () =>
-      screenPreviewBase64
-        ? `data:image/png;base64,${screenPreviewBase64}`
-        : null,
-    [screenPreviewBase64],
-  );
+  const screenPreviewUrl = screenPreviewBase64
+    ? `data:image/png;base64,${screenPreviewBase64}`
+    : null;
   const noVncEndpoint = browserEndpoints?.noVncEndpoint ?? null;
-  const safeNoVncEndpoint = useMemo(() => {
-    if (!noVncEndpoint) return null;
-    return isSafeEndpointUrl(noVncEndpoint) ? noVncEndpoint : null;
-  }, [noVncEndpoint]);
+  const safeNoVncEndpoint =
+    noVncEndpoint && isSafeEndpointUrl(noVncEndpoint) ? noVncEndpoint : null;
   const noVncActive = Boolean(safeNoVncEndpoint) && !noVncFailed;
 
   const { broadcastSyncMessage } = useLifoSync({

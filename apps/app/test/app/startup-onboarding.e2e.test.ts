@@ -21,7 +21,6 @@ type AppHarnessState = {
       system: string;
       style: { all: string[]; chat: string[]; post: string[] };
       adjectives: string[];
-      topics: string[];
       postExamples: string[];
       messageExamples: Array<
         Array<{ name: string; content: { text: string } }>
@@ -225,7 +224,7 @@ vi.mock("../../src/components/PairingView", () => ({
 vi.mock("../../src/components/ChatView", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
-vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 vi.mock("../../src/components/CompanionView", () => ({
@@ -277,7 +276,6 @@ function onboardingOptions() {
         system: "You are {{name}}",
         style: { all: [], chat: [], post: [] },
         adjectives: [],
-        topics: [],
         postExamples: [],
         messageExamples: [[{ name: "User", content: { text: "hello" } }]],
       },

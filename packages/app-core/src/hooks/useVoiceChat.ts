@@ -11,7 +11,14 @@
 import type { PluginListenerHandle } from "@capacitor/core";
 import { Capacitor } from "@capacitor/core";
 import { TalkMode } from "@milady/capacitor-talkmode";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { VoiceConfig } from "../api/client";
 import { getElectrobunRendererRpc } from "../bridge/electrobun-rpc";
 import { resolveApiUrl } from "../utils";
@@ -408,12 +415,17 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
   const enabledRef = useRef(false);
   const listeningModeRef = useRef<VoiceCaptureMode>("idle");
   const transcriptBufferRef = useRef("");
-  const onTranscriptRef = useRef(options.onTranscript);
-  const onTranscriptPreviewRef = useRef(options.onTranscriptPreview);
-  const onPlaybackStartRef = useRef(options.onPlaybackStart);
-  onTranscriptRef.current = options.onTranscript;
-  onTranscriptPreviewRef.current = options.onTranscriptPreview;
-  onPlaybackStartRef.current = options.onPlaybackStart;
+  const emitTranscript = useEffectEvent((text: string) => {
+    options.onTranscript(text);
+  });
+  const emitTranscriptPreview = useEffectEvent(
+    (text: string, event: VoiceTranscriptPreviewEvent) => {
+      options.onTranscriptPreview?.(text, event);
+    },
+  );
+  const emitPlaybackStart = useEffectEvent((event: VoicePlaybackStartEvent) => {
+    options.onPlaybackStart?.(event);
+  });
 
   const effectiveVoiceConfig = useMemo(
     () =>
@@ -616,15 +628,15 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       const normalized = collapseWhitespace(transcript);
       if (!normalized) return;
 
-      const nextText =
-        sttBackendRef.current === "talkmode"
-          ? mergeStreamingText(transcriptBufferRef.current, normalized)
-          : mergeStreamingText(transcriptBufferRef.current, normalized);
+      const nextText = mergeStreamingText(
+        transcriptBufferRef.current,
+        normalized,
+      );
       if (nextText === transcriptBufferRef.current) return;
 
       transcriptBufferRef.current = nextText;
       setInterimTranscript(nextText);
-      onTranscriptPreviewRef.current?.(nextText, {
+      emitTranscriptPreview(nextText, {
         mode,
         isFinal,
       });
@@ -800,7 +812,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
   const finalizeRecognition = useCallback((submit: boolean) => {
     const transcript = collapseWhitespace(transcriptBufferRef.current);
     if (submit && transcript) {
-      onTranscriptRef.current(transcript);
+      emitTranscript(transcript);
     }
 
     transcriptBufferRef.current = "";
@@ -1098,7 +1110,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         );
 
         source.start(0);
-        onPlaybackStartRef.current?.({
+        emitPlaybackStart({
           text,
           segment: task.segment,
           provider: "elevenlabs",
@@ -1134,7 +1146,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         activeTaskFinishRef.current = finish;
 
         if (!synth) {
-          onPlaybackStartRef.current?.({
+          emitPlaybackStart({
             text,
             segment: task.segment,
             provider: "browser",
@@ -1151,7 +1163,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         utterance.pitch = 1.0;
         utterance.onstart = () => {
           if (generation !== generationRef.current) return;
-          onPlaybackStartRef.current?.({
+          emitPlaybackStart({
             text,
             segment: task.segment,
             provider: "browser",

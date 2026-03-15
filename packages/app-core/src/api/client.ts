@@ -540,7 +540,6 @@ export interface OnboardingData {
     post: string[];
   };
   adjectives?: string[];
-  topics?: string[];
   postExamples?: string[];
   messageExamples?: MessageExample[][];
   // Cloud-specific
@@ -1551,7 +1550,6 @@ export interface CharacterData {
   bio?: string | string[];
   system?: string;
   adjectives?: string[];
-  topics?: string[];
   style?: {
     all?: string[];
     chat?: string[];
@@ -3325,7 +3323,6 @@ export class MiladyClient {
       name?: string;
       system?: string;
       bio?: string;
-      topics?: string[];
       style?: { all?: string[]; chat?: string[]; post?: string[] };
       postExamples?: string[];
     },
@@ -4404,6 +4401,15 @@ export class MiladyClient {
     return trimmed;
   }
 
+  private normalizeGreetingText(text: string): string {
+    const stripped = stripAssistantStageDirections(text);
+    const trimmed = stripped.trim();
+    if (trimmed.length === 0 || /^\(?no response\)?$/i.test(trimmed)) {
+      return "";
+    }
+    return trimmed;
+  }
+
   private normalizeConversationMessage(
     message: ConversationMessage,
   ): ConversationMessage {
@@ -4534,16 +4540,17 @@ export class MiladyClient {
     };
 
     while (true) {
-      let readResult: ReadableStreamReadResult<Uint8Array>;
+      let done = false;
+      let value: Uint8Array | undefined;
       try {
-        readResult = await reader.read();
+        ({ done, value } = await reader.read());
       } catch (streamErr) {
         console.warn("[api-client] SSE stream interrupted:", streamErr);
         break;
       }
-      if (readResult.done) break;
+      if (done || !value) break;
 
-      buffer += decoder.decode(readResult.value, { stream: true });
+      buffer += decoder.decode(value, { stream: true });
       let eventBreak = findSseEventBreak(buffer);
       while (eventBreak) {
         const rawEvent = buffer.slice(0, eventBreak.index);
@@ -4652,7 +4659,7 @@ export class MiladyClient {
       ...response,
       greeting: {
         ...response.greeting,
-        text: this.normalizeAssistantText(response.greeting.text),
+        text: this.normalizeGreetingText(response.greeting.text),
       },
     };
   }
@@ -4758,7 +4765,7 @@ export class MiladyClient {
     });
     return {
       ...response,
-      text: this.normalizeAssistantText(response.text),
+      text: this.normalizeGreetingText(response.text),
     };
   }
 

@@ -8,7 +8,6 @@ export interface StylePreset {
   bio: string[];
   system: string;
   adjectives: string[];
-  topics: string[];
   style: {
     all: string[];
     chat: string[];

@@ -323,11 +323,11 @@ describe("InventoryView unified wallets", () => {
     const content = text(tree?.root);
     expect(content).not.toContain("wallet.portfolio");
     expect(content).not.toContain("All Chains");
+    expect(content).toContain("wallet.tokens");
+    expect(content).toContain("wallet.nfts");
     expect(content).toContain("wallet.all");
     expect(content).toContain("tokenstable.nativeGasEthereum");
     expect(content).toContain("tokenstable.nativeGasSolana");
-    expect(content).toContain("EVM");
-    expect(content).toContain("Solana");
     expect(
       tree?.root.findAll(
         (node) =>
@@ -341,7 +341,15 @@ describe("InventoryView unified wallets", () => {
     const ctx = createContext({
       walletBalances: createEmptyWalletBalances(),
       t: (key: string) =>
-        key === "wallet.noTokensFound" ? "No balances" : key,
+        key === "wallet.noTokensFound"
+          ? "No tokens yet. Send your agent some tokens!"
+          : key === "wallet.emptyTokensCta"
+            ? "Use the wallet addresses below to fund this agent."
+            : key === "wallet.copyEvmAddress"
+              ? "Copy EVM address"
+              : key === "wallet.copySolanaAddress"
+                ? "Copy Solana address"
+                : key,
     });
     mockUseApp.mockImplementation(() => ctx);
 
@@ -351,7 +359,9 @@ describe("InventoryView unified wallets", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("No balances");
+    expect(content).toContain("No tokens yet. Send your agent some tokens!");
+    expect(content).toContain("Copy EVM address");
+    expect(content).toContain("Copy Solana address");
     expect(content).not.toContain("tokenstable.nativeGasEthereum");
     expect(content).not.toContain("tokenstable.nativeGasSolana");
   });
@@ -365,15 +375,15 @@ describe("InventoryView unified wallets", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
 
-    const bscButton = tree?.root.findAll(
+    const chainSelect = tree?.root.findAll(
       (node) =>
-        node.type === "button" &&
-        node.props["data-testid"] === "wallet-focus-bsc",
+        node.type === "select" &&
+        node.props["data-testid"] === "wallet-chain-select",
     )[0];
-    expect(bscButton).toBeDefined();
+    expect(chainSelect).toBeDefined();
 
     await act(async () => {
-      bscButton.props.onClick();
+      chainSelect.props.onChange({ target: { value: "bsc" } });
     });
     expect(ctx.setState).toHaveBeenCalledWith("inventoryChainFocus", "bsc");
 
