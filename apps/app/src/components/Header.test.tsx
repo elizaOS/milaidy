@@ -112,9 +112,7 @@ describe("Header", () => {
     expect(String(activeDesktopToggle.props.className)).toContain(
       "text-[#8a6500]",
     );
-    expect(String(activeDesktopToggle.props.className)).toContain(
-      "bg-bg-muted/85",
-    );
+    expect(String(activeDesktopToggle.props.className)).toContain("bg-bg/55");
     expect(String(activeDesktopToggle.props.className)).toContain(
       "dark:text-[#f0b232]",
     );

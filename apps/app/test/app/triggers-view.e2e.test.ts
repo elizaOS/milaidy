@@ -408,12 +408,17 @@ function nodeText(node: TestRenderer.ReactTestInstance): string {
 
 function findButtonByText(
   root: TestRenderer.ReactTestInstance,
-  label: string,
+  label: string | string[],
 ): TestRenderer.ReactTestInstance {
+  const labels = Array.isArray(label) ? label : [label];
   const matches = root.findAll(
-    (node) => node.type === "button" && nodeText(node).includes(label),
+    (node) =>
+      node.type === "button" &&
+      labels.some((candidate) => nodeText(node).includes(candidate)),
   );
-  if (!matches[0]) throw new Error(`Button "${label}" not found`);
+  if (!matches[0]) {
+    throw new Error(`Button "${labels.join('" or "')}" not found`);
+  }
   return matches[0];
 }
 
@@ -527,13 +532,18 @@ describe("TriggersView UI E2E", () => {
         ).length === 0 &&
         root.findAll(
           (node) =>
-            node.type === "button" && nodeText(node).includes("New Heartbeat"),
+            node.type === "button" &&
+            (nodeText(node).includes("New Heartbeat") ||
+              nodeText(node).includes("heartbeatsview.newHeartbeat")),
         ).length === 1,
       "Trigger list did not finish initial loading",
     );
 
     await act(async () => {
-      await findButtonByText(root, "New Heartbeat").props.onClick();
+      await findButtonByText(root, [
+        "New Heartbeat",
+        "heartbeatsview.newHeartbeat",
+      ]).props.onClick();
     });
 
     await waitFor(
@@ -541,7 +551,8 @@ describe("TriggersView UI E2E", () => {
         root.findAll(
           (node) =>
             node.type === "button" &&
-            nodeText(node).includes("Create Heartbeat"),
+            (nodeText(node).includes("Create Heartbeat") ||
+              nodeText(node).includes("heartbeatsview.createHeartbeat")),
         ).length === 1,
       "Trigger editor modal did not open",
     );
@@ -565,7 +576,10 @@ describe("TriggersView UI E2E", () => {
     });
 
     await act(async () => {
-      await findButtonByText(root, "Create Heartbeat").props.onClick();
+      await findButtonByText(root, [
+        "Create Heartbeat",
+        "heartbeatsview.createHeartbeat",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
