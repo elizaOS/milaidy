@@ -11,7 +11,6 @@ import {
 import React, {
   type ReactElement,
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -366,11 +365,6 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
     [client, loadTriggerHealth, loadTriggerRuns, loadTriggers],
   );
 
-  useEffect(() => {
-    void loadTriggers();
-    void loadTriggerHealth();
-  }, [loadTriggers, loadTriggerHealth]);
-
   const appContext = useMemo<TriggerViewContextShape>(
     () => ({
       t: (k: string) => k,
@@ -456,6 +450,18 @@ async function flush(): Promise<void> {
   });
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  message: string,
+  attempts = 20,
+): Promise<void> {
+  for (let index = 0; index < attempts; index += 1) {
+    if (predicate()) return;
+    await flush();
+  }
+  throw new Error(message);
+}
+
 describe("TriggersView UI E2E", () => {
   let server: { port: number; close: () => Promise<void> } | null = null;
   let runtimeHarness: TriggerRuntimeHarness;
@@ -518,6 +524,13 @@ describe("TriggersView UI E2E", () => {
     await flush();
 
     const root = tree?.root;
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) => node.type === "span" && nodeText(node) === "0 configured",
+        ).length === 1,
+      "Trigger list did not finish initial loading",
+    );
     const displayNameInput = findInputByPlaceholder(
       root,
       "triggersview.eGDailyDigestH",
@@ -539,22 +552,26 @@ describe("TriggersView UI E2E", () => {
     await act(async () => {
       await findButtonByText(root, "Create Heartbeat").props.onClick();
     });
-    await flush();
-
-    expect(
-      root.findAll(
-        (node) => node.type === "span" && nodeText(node) === triggerDisplayName,
-      ).length,
-    ).toBe(1);
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) => node.type === "span" && nodeText(node) === triggerDisplayName,
+        ).length === 1,
+      "Created trigger did not appear in the list",
+    );
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
       await findButtonByText(root, "triggersview.Edit").props.onClick();
     });
     await flush();
+    const editDisplayNameInput = findInputByPlaceholder(
+      root,
+      "triggersview.eGDailyDigestH",
+    );
 
     await act(async () => {
-      displayNameInput.props.onChange({
+      editDisplayNameInput.props.onChange({
         target: { value: renamedTriggerDisplayName },
       });
     });
@@ -562,27 +579,35 @@ describe("TriggersView UI E2E", () => {
     await act(async () => {
       await findButtonByText(root, "Save Changes").props.onClick();
     });
-    await flush();
-
-    expect(
-      root.findAll(
-        (node) =>
-          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
-      ).length,
-    ).toBe(1);
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
+        ).length === 1,
+      "Updated trigger name did not appear in the list",
+    );
 
     await act(async () => {
       await findButtonByText(root, "triggersview.RunNow").props.onClick();
     });
-    await flush();
+    await waitFor(
+      () => runtimeHarness.injectAutonomousInstruction.mock.calls.length === 1,
+      "Trigger execution was not dispatched",
+    );
 
     expect(runtimeHarness.injectAutonomousInstruction).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await findButtonByText(root, "Runs").props.onClick();
     });
-    await flush();
-
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) => node.type === "span" && nodeText(node).includes("success"),
+        ).length > 0,
+      "Trigger run history did not load",
+    );
     const successRows = root.findAll(
       (node) => node.type === "span" && nodeText(node).includes("success"),
     );
@@ -591,13 +616,13 @@ describe("TriggersView UI E2E", () => {
     await act(async () => {
       await findButtonByText(root, "triggersview.Delete").props.onClick();
     });
-    await flush();
-
-    expect(
-      root.findAll(
-        (node) =>
-          node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
-      ).length,
-    ).toBe(0);
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "span" && nodeText(node) === renamedTriggerDisplayName,
+        ).length === 0,
+      "Deleted trigger still appeared in the list",
+    );
   });
 });

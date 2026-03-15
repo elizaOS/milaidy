@@ -387,9 +387,7 @@ export function HeartbeatsView() {
               className="h-9 px-4 py-1.5 text-sm shadow-sm"
               style={accentFg}
               disabled={triggersSaving}
-              onClick={() => {
-                void onSubmit();
-              }}
+              onClick={onSubmit}
             >
               {triggersSaving
                 ? "Saving…"
@@ -494,11 +492,11 @@ export function HeartbeatsView() {
                         variant="outline"
                         size="sm"
                         className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-accent"
-                        onClick={() => {
-                          void updateTrigger(trigger.id, {
+                        onClick={() =>
+                          updateTrigger(trigger.id, {
                             enabled: !trigger.enabled,
-                          });
-                        }}
+                          })
+                        }
                       >
                         {trigger.enabled ? "Disable" : "Enable"}
                       </Button>
@@ -506,9 +504,7 @@ export function HeartbeatsView() {
                         variant="outline"
                         size="sm"
                         className="h-7 px-2 py-1 text-[11px] shadow-sm hover:border-accent"
-                        onClick={() => {
-                          void runTriggerNow(trigger.id);
-                        }}
+                        onClick={() => runTriggerNow(trigger.id)}
                       >
                         {t("triggersview.RunNow")}
                       </Button>
@@ -531,19 +527,17 @@ export function HeartbeatsView() {
                         variant="outline"
                         size="sm"
                         className="h-7 px-2 py-1 text-[11px] text-danger shadow-sm hover:border-danger"
-                        onClick={() => {
-                          void (async () => {
-                            const confirmed = await confirmDesktopAction({
-                              title: "Delete Heartbeat",
-                              message: `Delete "${trigger.displayName}"?`,
-                              confirmLabel: "Delete",
-                              cancelLabel: "Cancel",
-                              type: "warning",
-                            });
-                            if (confirmed) {
-                              await deleteTrigger(trigger.id);
-                            }
-                          })();
+                        onClick={async () => {
+                          const confirmed = await confirmDesktopAction({
+                            title: "Delete Heartbeat",
+                            message: `Delete "${trigger.displayName}"?`,
+                            confirmLabel: "Delete",
+                            cancelLabel: "Cancel",
+                            type: "warning",
+                          });
+                          if (confirmed) {
+                            await deleteTrigger(trigger.id);
+                          }
                         }}
                       >
                         {t("triggersview.Delete")}
