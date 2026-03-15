@@ -440,9 +440,14 @@ export interface UpdateTriggerRequest {
   maxRuns?: number;
 }
 
+export interface MessageExampleContent {
+  text: string;
+  actions?: string[];
+}
+
 export interface MessageExample {
   user: string;
-  content: { text: string };
+  content: MessageExampleContent;
 }
 
 export interface ProviderOption {
@@ -1550,13 +1555,14 @@ export interface CharacterData {
   bio?: string | string[];
   system?: string;
   adjectives?: string[];
+  topics?: string[];
   style?: {
     all?: string[];
     chat?: string[];
     post?: string[];
   };
   messageExamples?: Array<{
-    examples: Array<{ name: string; content: { text: string } }>;
+    examples: Array<{ name: string; content: MessageExampleContent }>;
   }>;
   postExamples?: string[];
 }
