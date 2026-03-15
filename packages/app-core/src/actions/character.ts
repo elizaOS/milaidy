@@ -35,6 +35,7 @@ export async function loadCharacter(
         : (character.bio ?? ""),
       system: character.system ?? "",
       adjectives: character.adjectives ?? [],
+      topics: character.topics ?? [],
       style: {
         all: character.style?.all ?? [],
         chat: character.style?.chat ?? [],
@@ -76,6 +77,9 @@ export function prepareDraftForSave(
     (s) => s.trim().length > 0,
   );
   if (adjectives.length > 0) result.adjectives = adjectives;
+
+  const topics = (draft.topics ?? []).filter((s) => s.trim().length > 0);
+  if (topics.length > 0) result.topics = topics;
 
   const postExamples = (draft.postExamples ?? []).filter(
     (s) => s.trim().length > 0,
