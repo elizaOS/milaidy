@@ -1,0 +1,76 @@
+{
+  "name": "@elizaos/cloud-agent",
+  "version": "0.1.0",
+  "description": "ElizaOS cloud agent daemon - bridge, health, and snapshot services for containerized agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "cloud-agent": "./bin/cloud-agent.mjs",
+    "elizaos-cloud-agent": "./bin/cloud-agent.mjs"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./bridge": {
+      "import": "./dist/bridge/index.js",
+      "types": "./dist/bridge/index.d.ts"
+    },
+    "./health": {
+      "import": "./dist/health/index.js",
+      "types": "./dist/health/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=2.0.0-alpha.30"
+  },
+  "peerDependenciesMeta": {
+    "@elizaos/core": {
+      "optional": true
+    },
+    "@elizaos/plugin-sql": {
+      "optional": true
+    },
+    "@elizaos/plugin-elizacloud": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elizaOS/eliza",
+    "directory": "packages/cloud-agent"
+  },
+  "keywords": [
+    "elizaos",
+    "cloud-agent",
+    "bridge",
+    "json-rpc",
+    "ai-agent"
+  ]
+}
