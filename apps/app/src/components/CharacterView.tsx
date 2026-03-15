@@ -866,10 +866,10 @@ export function CharacterView({
   ];
 
   const bookPageCls = sceneOverlay
-    ? "bg-bg-accent/90 backdrop-blur-md"
-    : "bg-bg-accent";
+    ? "bg-[#fefcf6]/95 dark:bg-[hsl(220,14%,16%)]/95 backdrop-blur-md"
+    : "bg-[#fefcf6] dark:bg-[hsl(220,14%,16%)]";
 
-  const bookSidebarCls = "bg-bg-elevated"; // Always opaque per spec
+  const bookSidebarCls = "bg-[#2a2d35] dark:bg-[hsl(220,16%,8%)]"; // Always opaque
 
   if (characterLoading && !characterData) {
     return (
@@ -1090,11 +1090,11 @@ export function CharacterView({
         <div className="mt-3 flex justify-end">
           {/* ── Book container ── */}
           <div
-            className="flex w-full max-w-3xl overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+            className="flex h-[34rem] w-full max-w-xl overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
             data-testid="character-notebook"
           >
             {/* ── Book page (left) ── */}
-            <div className={`${bookPageCls} flex max-h-[70vh] flex-1 flex-col rounded-l-xl border-r border-border border-t-2 border-t-accent/20`}>
+            <div className={`${bookPageCls} flex flex-1 flex-col rounded-l-xl border-r border-border/30 text-[#1e2329] dark:text-[hsl(40,10%,84%)]`}>
               {/* Mode toggle: Core / Examples */}
               <div className="flex items-center gap-2 border-b border-border/30 px-5 py-3">
                 <Button
@@ -1418,7 +1418,7 @@ export function CharacterView({
 
             {/* ── Sidebar (right) ── */}
             <div
-              className={`${bookSidebarCls} flex w-12 flex-col items-center rounded-r-xl py-4 xl:w-16`}
+              className={`${bookSidebarCls} flex w-14 flex-col items-center rounded-r-xl py-3`}
               role="tablist"
               aria-orientation="vertical"
             >
@@ -1430,10 +1430,10 @@ export function CharacterView({
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    className={`relative flex w-full flex-col items-center gap-1 px-1 py-3 transition-colors ${
+                    className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-3.5 transition-colors border-b border-white/[0.06] last:border-b-0 ${
                       isActive
                         ? "text-accent"
-                        : "text-muted hover:text-muted-strong"
+                        : "text-[#8a8d95] hover:text-white/80"
                     }`}
                     onClick={() => {
                       setActiveSection(key);
@@ -1461,8 +1461,8 @@ export function CharacterView({
                     {isActive && (
                       <div className="absolute top-1 bottom-1 left-0 w-[3px] rounded-r-full bg-accent" />
                     )}
-                    <Icon className="h-5 w-5" />
-                    <span className="hidden text-center text-[10px] leading-tight font-medium xl:block">
+                    <Icon className="h-4.5 w-4.5" />
+                    <span className="text-center text-[8px] leading-tight font-medium">
                       {t(labelKey)}
                     </span>
                   </button>
