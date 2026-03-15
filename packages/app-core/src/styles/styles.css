@@ -3,6 +3,8 @@
 @import "./anime.css";
 @import "./onboarding-game.css";
 
+@custom-variant dark (&:is(.dark *));
+
 /*
  * Map the existing theme CSS custom properties to Tailwind theme tokens.
  * Using @theme inline so Tailwind inlines var() references rather than

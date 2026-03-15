@@ -98,7 +98,7 @@ export function ShellHeaderControls({
     >
       <div className="flex shrink-0 items-center">
         <fieldset
-          className="inline-flex items-center gap-1 rounded-[18px] border border-white/25 bg-white/70 p-1 shadow-[0_10px_24px_rgba(15,23,42,0.16)] backdrop-blur-md dark:border-white/12 dark:bg-white/10"
+          className="inline-flex items-center gap-1 rounded-[18px] border border-white/25 bg-white/70 p-1 shadow-[0_10px_24px_rgba(15,23,42,0.16)] backdrop-blur-md dark:border-[hsl(220_12%_22%/0.5)] dark:bg-[hsl(220_16%_12%/0.6)]"
           data-testid="ui-shell-toggle"
           aria-label={t("header.switchToNative")}
         >
@@ -116,8 +116,8 @@ export function ShellHeaderControls({
                 onClick={() => onShellModeChange(mode)}
                 className={`inline-flex h-9 min-w-[44px] items-center justify-center px-3 transition-all duration-200 ${segmentShapeClass} ${
                   selected
-                    ? "border border-[#f0b232]/45 bg-white/95 text-[#f0b232] shadow-[0_0_18px_rgba(240,178,50,0.22),inset_0_1px_0_rgba(255,255,255,0.95)] dark:bg-white/14 dark:text-[#f0b232] dark:border-[#f0b232]/35"
-                    : "border border-transparent bg-transparent text-[#d4a11e]/80 hover:bg-white/65 hover:text-[#f0b232] dark:text-[#f0b232]/70 dark:hover:bg-white/10 dark:hover:text-[#f0b232]"
+                    ? "border border-[#f0b232]/45 bg-white/95 text-[#f0b232] shadow-[0_0_18px_rgba(240,178,50,0.22),inset_0_1px_0_rgba(255,255,255,0.95)] dark:bg-[hsl(220_14%_20%)] dark:text-[#f0b232] dark:border-[#f0b232]/35 dark:shadow-[0_0_18px_rgba(240,178,50,0.15)]"
+                    : "border border-transparent bg-transparent text-[#d4a11e]/80 hover:bg-white/65 hover:text-[#f0b232] dark:text-[#f0b232]/70 dark:hover:bg-[hsl(220_12%_22%)] dark:hover:text-[#f0b232]"
                 }`}
                 aria-label={label}
                 aria-pressed={selected}
