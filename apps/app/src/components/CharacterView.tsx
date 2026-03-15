@@ -904,7 +904,7 @@ export function CharacterView({
   "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
   const rootCls =
     sceneOverlay && !inModal
-      ? "relative z-10 flex min-h-full flex-col justify-end pb-4"
+      ? "relative z-10 flex min-h-full flex-col justify-end items-end pb-4"
       : `${inModal || sceneOverlay ? "pb-8" : ""} ${
           sceneOverlay ? "relative z-10" : ""
         }`;
