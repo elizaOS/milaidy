@@ -1,5 +1,5 @@
 /**
- * Settings view — full-page settings sections with a large-screen jump rail.
+ * Settings view — two-panel layout with section navigator and active section.
  */
 
 import {
@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SectionCard,
 } from "@milady/ui";
 import {
   AlertTriangle,
@@ -124,56 +123,47 @@ function SettingsSidebar({
   sections,
   activeSection,
   onSectionChange,
+  searchQuery,
+  onSearchChange,
 }: {
   sections: SettingsSectionDef[];
   activeSection: string;
   onSectionChange: (id: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }) {
   const { t } = useApp();
-
   return (
-    <aside className="hidden w-80 shrink-0 self-start border-r border-border/50 bg-bg/35 backdrop-blur-xl xl:sticky xl:top-0 xl:flex">
-      <div className="flex flex-1 flex-col p-5">
-        <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
-          {t("settingsview.JumpToSection")}
-        </div>
-
-        <nav className="flex flex-col gap-2 pr-1">
-          {sections.map((section) => {
-            const Icon = section.icon;
-            const isActive = activeSection === section.id;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => onSectionChange(section.id)}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
-                  isActive
-                    ? "border-accent/40 bg-accent/12 text-txt shadow-[0_10px_30px_rgba(var(--accent),0.08)]"
-                    : "border-transparent text-muted hover:border-border/60 hover:bg-card/55 hover:text-txt"
-                }`}
-              >
-                <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-                    isActive
-                      ? "border-accent/30 bg-accent/18 text-txt-strong"
-                      : "border-border/50 bg-bg-accent/80 text-muted"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold leading-snug text-current">
-                    {t(section.label)}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </nav>
+    <div className="two-panel-left">
+      <div className="relative mb-3">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+        <Input
+          type="text"
+          placeholder={t("settings.searchPlaceholder")}
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="h-8 w-full rounded-lg border-border/60 bg-bg/50 pl-8 pr-3 text-xs"
+        />
       </div>
-    </aside>
+      <nav className="flex flex-col gap-1.5">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const isActive = activeSection === section.id;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onSectionChange(section.id)}
+              aria-current={isActive ? "page" : undefined}
+              className={`two-panel-item flex items-center gap-2.5 w-full text-left ${isActive ? "is-selected" : ""}`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-medium truncate">{t(section.label)}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 
@@ -540,6 +530,23 @@ function AdvancedSection() {
   );
 }
 
+/* ── Active Section Renderer ─────────────────────────────────────────── */
+
+function renderActiveSection(sectionId: string) {
+  switch (sectionId) {
+    case "ai-model": return <ProviderSwitcher />;
+    case "cloud": return <CloudDashboard />;
+    case "coding-agents": return <CodingAgentSettingsSection />;
+    case "wallet-rpc": return <ConfigPageView embedded />;
+    case "media": return <MediaSettingsSection />;
+    case "voice": return <VoiceConfigView />;
+    case "permissions": return <PermissionsSection />;
+    case "updates": return <UpdatesSection />;
+    case "advanced": return <AdvancedSection />;
+    default: return null;
+  }
+}
+
 /* ── SettingsView ─────────────────────────────────────────────────────── */
 
 export function SettingsView({
@@ -551,44 +558,12 @@ export function SettingsView({
   onClose?: () => void;
   initialSection?: string;
 } = {}) {
-  const { t } = useApp();
+  const { t, loadPlugins, setTab } = useApp();
   const [activeSection, setActiveSection] = useState(
     initialSection ?? "ai-model",
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const shellRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
 
-  const {
-    // Eliza Cloud
-    elizaCloudEnabled,
-    elizaCloudConnected,
-    elizaCloudCredits,
-    elizaCloudCreditsLow,
-    elizaCloudCreditsCritical,
-    elizaCloudTopUpUrl,
-    elizaCloudUserId,
-    elizaCloudLoginBusy,
-    elizaCloudLoginError,
-    elizaCloudDisconnecting,
-    // Plugins
-    plugins,
-    pluginSaving,
-    pluginSaveSuccess,
-    // Actions
-    loadPlugins,
-    handlePluginToggle,
-    setTab,
-    loadUpdateStatus: _loadUpdateStatus,
-    handlePluginConfigSave,
-    handleCloudLogin,
-    handleCloudDisconnect,
-    setState,
-  } = useApp();
-  const handleClose = useCallback(
-    () => onClose?.() ?? setTab(inModal ? "companion" : "chat"),
-    [inModal, onClose, setTab],
-  );
   const visibleSections = useMemo(
     () =>
       SETTINGS_SECTIONS.filter((section) =>
@@ -596,257 +571,60 @@ export function SettingsView({
       ),
     [searchQuery, t],
   );
-  const visibleSectionIds = useMemo(
-    () => new Set(visibleSections.map((section) => section.id)),
-    [visibleSections],
-  );
 
   useEffect(() => {
     void loadPlugins();
   }, [loadPlugins]);
 
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    scrollContainerRef.current = inModal
-      ? shell
-      : (shell.closest('[data-shell-scroll-region="true"]') ?? shell);
-  }, [inModal]);
-
-  const handleSectionChange = useCallback((sectionId: string) => {
-    setActiveSection(sectionId);
-    if (shellRef.current) {
-      const element = shellRef.current.querySelector(`#${sectionId}`);
-      if (element instanceof HTMLElement) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  }, []);
-
+  // If current active section gets filtered out, switch to first visible
   useEffect(() => {
     if (visibleSections.length === 0) return;
-    if (!visibleSectionIds.has(activeSection)) {
+    const visibleIds = new Set(visibleSections.map((s) => s.id));
+    if (!visibleIds.has(activeSection)) {
       setActiveSection(visibleSections[0].id);
     }
-  }, [activeSection, visibleSectionIds, visibleSections]);
+  }, [activeSection, visibleSections]);
 
+  // Navigate to initial section when provided
   useEffect(() => {
     if (!initialSection) return;
-    handleSectionChange(initialSection);
-  }, [handleSectionChange, initialSection]);
+    setActiveSection(initialSection);
+  }, [initialSection]);
 
-  // Update active section based on scroll position
-  useEffect(() => {
-    const shell = shellRef.current;
-    const root = scrollContainerRef.current;
-    if (!shell || !root) return;
+  const activeSectionDef = SETTINGS_SECTIONS.find((s) => s.id === activeSection);
 
-    const handleScroll = () => {
-      const sections = visibleSections
-        .map((s) => {
-          const el = shell.querySelector(`#${s.id}`);
-          return { id: s.id, el };
-        })
-        .filter(
-          (s): s is { id: string; el: HTMLElement } =>
-            s.el instanceof HTMLElement,
-        );
-
-      if (sections.length === 0) return;
-
-      // If user scrolled to the very bottom, highlight the last section
-      if (
-        root.scrollHeight - Math.ceil(root.scrollTop) <=
-        root.clientHeight + 10
-      ) {
-        setActiveSection(sections[sections.length - 1].id);
-        return;
-      }
-
-      const rootRect = root.getBoundingClientRect();
-      let currentSection = sections[0].id;
-
-      for (const { id, el } of sections) {
-        const elRect = el.getBoundingClientRect();
-        // If the section's top is visible or scrolled past (allowing a 150px offset)
-        if (elRect.top - rootRect.top <= 150) {
-          currentSection = id;
-        }
-      }
-
-      setActiveSection((prev) =>
-        prev !== currentSection ? currentSection : prev,
-      );
-    };
-
-    root.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-
-    return () => root.removeEventListener("scroll", handleScroll);
-  }, [visibleSections]);
-
-  /* ── Sections content (shared between both layouts) ────────────────── */
-  const sectionsContent = (
-    <>
-      {visibleSectionIds.has("ai-model") && (
-        <SectionCard
-          id="ai-model"
-          title={t("settings.aiModel")}
-          description={t("settings.aiModelDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <ProviderSwitcher />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("coding-agents") && (
-        <SectionCard
-          id="coding-agents"
-          title={t("settings.codingAgents")}
-          description={t("settings.codingAgentsDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <CodingAgentSettingsSection />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("cloud") && (
-        <section
-          id="cloud"
-          className="bg-bg rounded-2xl border border-border/50 overflow-hidden relative"
-        >
-          <CloudDashboard />
-        </section>
-      )}
-
-      {visibleSectionIds.has("wallet-rpc") && (
-        <SectionCard
-          id="wallet-rpc"
-          title={t("settings.walletRpc")}
-          description={t("settings.walletRpcDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <ConfigPageView embedded />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("media") && (
-        <SectionCard
-          id="media"
-          title={t("settings.mediaGeneration")}
-          description={t("settings.mediaDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <MediaSettingsSection />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("voice") && (
-        <SectionCard
-          id="voice"
-          title={t("settings.speechInterface")}
-          description={t("settings.speechDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <VoiceConfigView />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("permissions") && (
-        <SectionCard
-          id="permissions"
-          title={t("settings.permissionsCapabilities")}
-          description={t("settings.permissionsDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <PermissionsSection />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("updates") && (
-        <SectionCard
-          id="updates"
-          title={t("settings.softwareUpdates")}
-          description={t("settings.updatesDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <UpdatesSection />
-        </SectionCard>
-      )}
-
-      {visibleSectionIds.has("advanced") && (
-        <SectionCard
-          id="advanced"
-          title={t("settings.advancedSettings")}
-          description={t("settings.advancedDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <AdvancedSection />
-        </SectionCard>
-      )}
-
-      {visibleSections.length === 0 && (
-        <SectionCard
-          id="settings-empty"
-          title={t("settingsview.NoMatchingSettings")}
-          description={t("settings.noMatchingSettingsDescription")}
-          className="p-4 sm:p-5 lg:p-6"
-        >
-          <button
-            type="button"
-            className="settings-button inline-flex items-center rounded-lg border border-border text-sm font-medium text-txt transition-colors hover:bg-bg-hover"
-            onClick={() => setSearchQuery("")}
-          >
-            {t("settingsview.ClearSearch")}
-          </button>
-        </SectionCard>
-      )}
-    </>
-  );
   return (
-    <div
-      ref={shellRef}
-      className={`settings-shell flex min-h-full min-w-0 w-full flex-row items-start ${inModal ? "h-full min-h-0 overflow-y-auto bg-transparent" : "bg-bg"}`}
-    >
+    <div className={`two-panel-layout w-full ${inModal ? "p-4 sm:p-6" : ""}`}>
       <SettingsSidebar
         sections={visibleSections}
         activeSection={activeSection}
-        onSectionChange={handleSectionChange}
+        onSectionChange={setActiveSection}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
-
-      <div
-        className={`settings-page-content flex-1 min-w-0 scroll-smooth ${inModal ? "px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6" : "px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"}`}
-      >
-        <div className={`${inModal ? "max-w-5xl" : "max-w-5xl"} mx-auto`}>
-          <div className="sticky top-0 z-20 mb-5 rounded-[1.35rem] border border-border/50 bg-bg/80 px-3 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                <Input
-                  type="text"
-                  placeholder={t("settings.searchPlaceholder")}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-xl border-border/60 bg-card/70 pl-10 pr-3 text-sm shadow-sm"
-                />
-              </div>
-              <button
-                type="button"
-                className="settings-icon-button inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted transition-all hover:border-accent hover:text-txt hover:shadow-sm"
-                onClick={handleClose}
-                aria-label="Close settings"
-                title={t("settingsview.CloseSettings")}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <div className="two-panel-right">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-txt-strong">{t(activeSectionDef?.label ?? "")}</h2>
+            {activeSectionDef?.description && (
+              <p className="text-xs text-muted mt-0.5">{t(activeSectionDef.description)}</p>
+            )}
           </div>
-
-          <div className="space-y-6 pb-20 pt-1 sm:space-y-8 sm:pt-2">
-            {sectionsContent}
-          </div>
+          {inModal && onClose && (
+            <button type="button" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border text-muted transition-colors hover:text-txt" onClick={onClose} aria-label="Close settings">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+        {renderActiveSection(activeSection)}
+        {visibleSections.length === 0 && (
+          <div className="py-8 text-center text-sm text-muted">
+            {t("settingsview.NoMatchingSettings")}
+            <button type="button" className="ml-2 text-txt hover:underline" onClick={() => setSearchQuery("")}>
+              {t("settingsview.ClearSearch")}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
