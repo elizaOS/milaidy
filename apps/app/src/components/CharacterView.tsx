@@ -322,6 +322,7 @@ export function CharacterView({
     setState,
     onboardingOptions,
     selectedVrmIndex,
+    t,
     // Registry / Drop
     registryStatus,
     registryLoading,
