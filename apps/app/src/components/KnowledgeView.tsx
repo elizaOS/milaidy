@@ -897,7 +897,7 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
         }
 
         setActionNotice(
-          `Uploaded ${successful}/${uploadQueue.length} files. ${failures.length} failed. ${failures[0]}${skippedSummary}${refreshSummary}`,
+          `Uploaded ${successful}/${uploadQueue.length} files. ${failures.length} failed.${failures.length > 0 ? ` ${failures[0]}` : ""}${skippedSummary}${refreshSummary}`,
           successful > 0 ? "info" : "error",
           7000,
         );
