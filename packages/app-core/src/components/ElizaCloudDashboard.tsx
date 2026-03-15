@@ -764,8 +764,8 @@ export function CloudDashboard() {
   if (!elizaCloudConnected) {
     return (
       <div className="flex flex-col items-center justify-center max-w-md mx-auto px-4 py-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mb-5 border border-accent/20">
-          <Zap className="w-6 h-6 text-txt" />
+        <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center mb-5 border border-accent/20">
+          <Zap className="w-4 h-4 text-txt" />
         </div>
         <p className="text-sm text-muted mb-6 leading-relaxed">
           {t("elizaclouddashboard.ScaleYourAgents")}
@@ -806,8 +806,8 @@ export function CloudDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
-              <LayoutDashboard className="w-5 h-5 text-accent-fg" />
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
+              <LayoutDashboard className="w-4 h-4 text-accent-fg" />
             </div>
             <h1 className="text-3xl font-bold text-txt-strong tracking-tight">
               {t("elizaclouddashboard.CloudDashboard")}
