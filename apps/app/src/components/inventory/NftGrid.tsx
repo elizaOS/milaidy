@@ -24,28 +24,28 @@ export function NftGrid({
 
   if (walletNftsLoading) {
     return (
-      <div className="text-center py-10 text-muted italic text-xs">
+      <div className="flex flex-1 items-center justify-center text-center text-muted italic text-xs">
         {t("wallet.loadingNfts")}
       </div>
     );
   }
   if (!walletNfts) {
     return (
-      <div className="text-center py-10 text-muted italic text-xs">
+      <div className="flex flex-1 items-center justify-center text-center text-muted italic text-xs">
         {t("wallet.noNftData")}
       </div>
     );
   }
   if (allNfts.length === 0) {
     return (
-      <div className="text-center py-10 text-muted italic text-xs">
+      <div className="flex flex-1 items-center justify-center text-center text-muted italic text-xs">
         {t("wallet.noNftsFound")}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 mt-3 max-h-[60vh] overflow-y-auto">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 overflow-y-auto">
       {allNfts.map((nft, idx) => {
         const icon = chainIcon(nft.chain);
         const key = `${nft.chain}-${nft.name}-${idx}`;

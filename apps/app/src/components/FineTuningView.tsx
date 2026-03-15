@@ -14,7 +14,7 @@ import { formatTime } from "@milady/app-core/components";
 import { useApp } from "@milady/app-core/state";
 import { confirmDesktopAction } from "@milady/app-core/utils";
 import { Button, Input } from "@milady/ui";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   parsePositiveFloat,
   parsePositiveInteger,
@@ -131,20 +131,12 @@ export function FineTuningView() {
     [],
   );
 
-  const selectedJob = useMemo(
-    () => jobs.find((job) => job.id === selectedJobId) ?? null,
-    [jobs, selectedJobId],
-  );
-  const selectedModel = useMemo(
-    () => models.find((model) => model.id === selectedModelId) ?? null,
-    [models, selectedModelId],
-  );
-  const activeRunningJob = useMemo(
-    () =>
-      jobs.find((job) => job.status === "running" || job.status === "queued") ??
-      null,
-    [jobs],
-  );
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
+  const selectedModel =
+    models.find((model) => model.id === selectedModelId) ?? null;
+  const activeRunningJob =
+    jobs.find((job) => job.status === "running" || job.status === "queued") ??
+    null;
 
   const loadStatus = useCallback(async () => {
     const nextStatus = await client.getTrainingStatus();

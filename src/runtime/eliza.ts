@@ -2850,22 +2850,42 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // Resolve name: agents list → ui assistant → "Milady"
   const agentEntry = config.agents?.list?.[0];
   const name = agentEntry?.name ?? config.ui?.assistant?.name ?? "Milady";
+  const bundledPreset = (() => {
+    const presetByName: Record<string, string> = {
+      Reimu: "uwu~",
+      Marisa: "hell yeah",
+      Yukari: "lol k",
+      Sakuya: "Noted.",
+      Koishi: "hehe~",
+      Remilia: "...",
+      Reisen: "locked in",
+    };
+    const presetCatchphrase = presetByName[name.trim()];
+    if (!presetCatchphrase) return undefined;
+    return STYLE_PRESETS.find(
+      (preset) => preset.catchphrase === presetCatchphrase,
+    );
+  })();
 
   // Read personality fields from the agent config entry (set during
   // onboarding from the chosen style preset).  Fall back to generic
   // defaults when the preset data is not present (e.g. pre-onboarding
-  // bootstrap or configs created before this change).
-  const bio = agentEntry?.bio ?? [
-    "{{name}} is an AI assistant powered by Milady and elizaOS.",
-  ];
+  // bootstrap or configs created before this change). For built-in default
+  // characters, fall back to the bundled preset so legacy name-only configs
+  // still retain their default posts/messages.
+  const bio = agentEntry?.bio ??
+    bundledPreset?.bio ?? [
+      "{{name}} is an AI assistant powered by Milady and elizaOS.",
+    ];
   const systemPrompt =
     agentEntry?.system ??
+    bundledPreset?.system ??
     "You are {{name}}, an autonomous AI agent powered by elizaOS.";
-  const style = agentEntry?.style;
-  const adjectives = agentEntry?.adjectives;
-  const topics = agentEntry?.topics;
-  const postExamples = agentEntry?.postExamples;
-  const messageExamples = agentEntry?.messageExamples;
+  const style = agentEntry?.style ?? bundledPreset?.style;
+  const adjectives = agentEntry?.adjectives ?? bundledPreset?.adjectives;
+  const postExamples = agentEntry?.postExamples ?? bundledPreset?.postExamples;
+  const messageExamples =
+    agentEntry?.messageExamples ?? bundledPreset?.messageExamples;
 
   // Collect secrets from process.env (API keys the plugins need)
   const secretKeys = [
@@ -2966,7 +2986,6 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     system: systemPrompt,
     ...(style ? { style } : {}),
     ...(adjectives ? { adjectives } : {}),
-    ...(topics ? { topics } : {}),
     ...(postExamples ? { postExamples } : {}),
     ...(mappedExamples ? { messageExamples: mappedExamples } : {}),
     secrets,
@@ -3392,7 +3411,6 @@ async function runFirstTimeSetup(config: MiladyConfig): Promise<MiladyConfig> {
     agentConfigEntry.system = chosenTemplate.system;
     agentConfigEntry.style = chosenTemplate.style;
     agentConfigEntry.adjectives = chosenTemplate.adjectives;
-    agentConfigEntry.topics = chosenTemplate.topics;
     agentConfigEntry.postExamples = chosenTemplate.postExamples;
     agentConfigEntry.messageExamples = chosenTemplate.messageExamples;
   }

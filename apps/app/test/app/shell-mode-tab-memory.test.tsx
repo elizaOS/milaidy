@@ -194,7 +194,7 @@ describe("shell view routing", () => {
     });
 
     expect(api?.getSnapshot()).toEqual({
-      tab: "character",
+      tab: "character-select",
       uiShellMode: "native",
     });
   });

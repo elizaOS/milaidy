@@ -8,7 +8,6 @@
  *   - Trajectories: LLM call viewer and analysis
  *   - Runtime: Runtime object inspection
  *   - Databases: Tables/media/vector browser
- *   - Lifo: Browser-native terminal sandbox
  *   - Logs: Runtime log viewer
  */
 
@@ -24,7 +23,6 @@ import { useApp } from "@milady/app-core/state";
 import React, { type ReactNode, useState } from "react";
 import { CustomActionsView } from "./CustomActionsView";
 import { FineTuningView } from "./FineTuningView";
-import { LifoSandboxView } from "./LifoSandboxView";
 import { TrajectoriesView } from "./TrajectoriesView";
 import { TrajectoryDetailView } from "./TrajectoryDetailView";
 
@@ -35,7 +33,6 @@ type SubTab =
   | "trajectories"
   | "runtime"
   | "database"
-  | "lifo"
   | "logs"
   | "security";
 
@@ -62,11 +59,6 @@ const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
     label: "Database",
     description: "Tables, media, and vector browser",
   },
-  // {
-  //   id: "lifo",
-  //   label: "Lifo",
-  //   description: "Browser-native shell sandbox and file explorer",
-  // },
   { id: "logs", label: "Logs", description: "Runtime and service logs" },
 ];
 
@@ -163,23 +155,6 @@ const SUBTAB_ICONS: Record<string, ReactNode> = {
       <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
     </svg>
   ),
-  lifo: (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  ),
   logs: (
     <svg
       width="20"
@@ -230,8 +205,6 @@ function mapTabToSubTab(tab: Tab): SubTab {
       return "runtime";
     case "database":
       return "database";
-    case "lifo":
-      return "lifo";
     case "logs":
       return "logs";
     default:
@@ -277,8 +250,6 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         return <RuntimeView />;
       case "database":
         return <DatabasePageView />;
-      case "lifo":
-        return <LifoSandboxView />;
       case "logs":
         return <LogsPageView />;
       default:

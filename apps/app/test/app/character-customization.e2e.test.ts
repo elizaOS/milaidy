@@ -3,7 +3,7 @@
  *
  * Tests cover:
  * 1. Identity editing (name, bio, system prompt)
- * 2. Topic and voice editing layout
+ * 2. Voice picker placement and editing layout
  * 3. Style configuration
  * 4. Avatar selection
  * 5. Save functionality
@@ -75,7 +75,6 @@ function createCharacterTestServer(): Promise<{
     bio: string[];
     system: string;
     adjectives: string[];
-    topics: string[];
     style: { all: string[]; chat: string[]; post: string[] };
   };
 }> {
@@ -84,7 +83,6 @@ function createCharacterTestServer(): Promise<{
     bio: ["A helpful AI assistant"],
     system: "You are a helpful assistant",
     adjectives: ["friendly", "helpful"],
-    topics: ["technology", "science"],
     style: {
       all: ["Be concise"],
       chat: ["Use casual tone"],
@@ -122,7 +120,6 @@ function createCharacterTestServer(): Promise<{
       if (body.bio) character.bio = body.bio as string[];
       if (body.system) character.system = body.system as string;
       if (body.adjectives) character.adjectives = body.adjectives as string[];
-      if (body.topics) character.topics = body.topics as string[];
       if (body.style) character.style = body.style as typeof character.style;
       if (body.avatar !== undefined) character.avatar = body.avatar as number;
       json(res, { ok: true, character });
@@ -164,7 +161,6 @@ function createCharacterTestServer(): Promise<{
           bio: character.bio,
           system: character.system,
           adjectives: character.adjectives,
-          topics: character.topics,
           style: character.style,
         }),
       });
@@ -234,15 +230,6 @@ describe("Character API", () => {
     expect(getCharacter().adjectives).toEqual(newAdj);
   });
 
-  it("PUT /api/character updates topics", async () => {
-    const newTopics = ["AI", "machine learning", "neural networks"];
-    const { status } = await req(port, "PUT", "/api/character", {
-      topics: newTopics,
-    });
-    expect(status).toBe(200);
-    expect(getCharacter().topics).toEqual(newTopics);
-  });
-
   it("PUT /api/character updates style rules", async () => {
     const newStyle = {
       all: ["Be precise", "Use examples"],
@@ -288,7 +275,6 @@ vi.mock("@milady/app-core/api", () => ({
       bio: ["Bio line 1"],
       system: "System prompt",
       adjectives: ["friendly"],
-      topics: ["tech"],
       style: { all: [], chat: [], post: [] },
     }),
     getConfig: vi.fn().mockResolvedValue({
@@ -344,7 +330,6 @@ type CharacterData = {
   bio: string | string[];
   system: string;
   adjectives: string[];
-  topics: string[];
   style: { all: string[]; chat: string[]; post: string[] };
   messageExamples?: Array<{
     examples: Array<{ name: string; content: { text: string } }>;
@@ -353,6 +338,7 @@ type CharacterData = {
 };
 
 type CharacterState = {
+  tab: "character" | "character-select";
   characterLoading: boolean;
   characterData: CharacterData | null;
   characterDraft: CharacterData | null;
@@ -368,7 +354,6 @@ type CharacterState = {
       bio: string[];
       system: string;
       adjectives: string[];
-      topics: string[];
       style: { all: string[]; chat: string[]; post: string[] };
       postExamples: string[];
       messageExamples: Array<
@@ -392,7 +377,6 @@ function createCharacterUIState(): CharacterState {
     bio: ["Reimu is soft and friendly"],
     system: "You are Reimu",
     adjectives: ["friendly", "helpful"],
-    topics: ["technology", "art"],
     style: { all: ["Rule 1"], chat: ["Chat rule"], post: ["Post rule"] },
     messageExamples: [
       {
@@ -406,6 +390,7 @@ function createCharacterUIState(): CharacterState {
   };
 
   return {
+    tab: "character-select",
     characterLoading: false,
     characterData: charData,
     characterDraft: { ...charData },
@@ -422,7 +407,6 @@ function createCharacterUIState(): CharacterState {
           bio: ["{{name}} is soft and friendly"],
           system: "You are {{name}}",
           adjectives: ["friendly", "helpful"],
-          topics: ["technology", "art"],
           style: { all: ["Rule 1"], chat: ["Chat rule"], post: ["Post rule"] },
           postExamples: [],
           messageExamples: [
@@ -438,7 +422,6 @@ function createCharacterUIState(): CharacterState {
           bio: ["{{name}} is precise"],
           system: "You are {{name}}, exact and calm.",
           adjectives: ["precise", "calm"],
-          topics: ["systems", "writing"],
           style: { all: ["Be exact"], chat: ["Stay calm"], post: ["Be clear"] },
           postExamples: [],
           messageExamples: [
@@ -473,9 +456,6 @@ function prepareCharacterDraftForSave(draft: CharacterData) {
 
   if (Array.isArray(prepared.adjectives) && prepared.adjectives.length === 0) {
     delete prepared.adjectives;
-  }
-  if (Array.isArray(prepared.topics) && prepared.topics.length === 0) {
-    delete prepared.topics;
   }
   if (
     Array.isArray(prepared.postExamples) &&
@@ -521,6 +501,9 @@ describe("CharacterView UI", () => {
       uiLanguage: "en",
       t: (k: string) => k,
       ...state,
+      setTab: vi.fn((tab: CharacterState["tab"]) => {
+        state.tab = tab;
+      }),
       loadCharacter: vi.fn(),
       loadRegistryStatus: vi.fn(),
       loadDropStatus: vi.fn(),
@@ -601,6 +584,10 @@ describe("CharacterView UI", () => {
   });
 
   it("starts in roster mode even when the saved draft differs from the selected preset", async () => {
+    state.characterDraft = {
+      ...(state.characterDraft as CharacterData),
+      system: "Custom system override",
+    };
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
@@ -613,9 +600,30 @@ describe("CharacterView UI", () => {
       ) ?? [],
     ).toHaveLength(0);
     expect(state.characterDraft?.name).toBe("Reimu");
-    expect(state.characterDraft?.bio).toBe("Reimu is soft and friendly");
-    expect(state.characterDraft?.system).toBe("You are Reimu");
+    expect(state.characterDraft?.bio).toEqual(["Reimu is soft and friendly"]);
+    expect(state.characterDraft?.system).toBe("Custom system override");
     expect(state.selectedVrmIndex).toBe(1);
+  });
+
+  it("opens the detailed editor when explicitly routed to the character tab", async () => {
+    state.tab = "character";
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CharacterView));
+    });
+
+    expect(
+      tree?.root.findAll(
+        (node) => node.props["data-testid"] === "character-customize-grid",
+      ) ?? [],
+    ).toHaveLength(1);
+    expect(
+      tree?.root.findAll(
+        (node) => node.props["data-testid"] === "character-roster-grid",
+      ) ?? [],
+    ).toHaveLength(0);
   });
 
   it("removes adjective editors from the character screen", async () => {
@@ -636,12 +644,18 @@ describe("CharacterView UI", () => {
     expect(adjectiveLabels).toHaveLength(0);
   });
 
-  it("renders topics above voice and splits style and examples into parallel columns", async () => {
+  it("keeps the voice picker in roster mode and hides it while customizing", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
       tree = TestRenderer.create(React.createElement(CharacterView));
     });
+
+    expect(
+      tree?.root.findAll(
+        (node) => node.props["data-testid"] === "character-voice-picker",
+      ) ?? [],
+    ).toHaveLength(1);
 
     const customizeButton = tree?.root.find(
       (node) => node.props["data-testid"] === "character-customize-toggle",
@@ -656,33 +670,16 @@ describe("CharacterView UI", () => {
         (node) => node.props["data-testid"] === "character-roster-grid",
       ) ?? [],
     ).toHaveLength(0);
-
-    const customizeSidebar = tree?.root.find(
-      (node) => node.props["data-testid"] === "character-customize-sidebar",
-    );
-    const sidebarSections =
-      customizeSidebar?.findAll(
-        (node) =>
-          node.props["data-testid"] === "character-topics-card" ||
-          node.props["data-testid"] === "character-voice-card",
-      ) ?? [];
-
-    expect(sidebarSections.map((node) => node.props["data-testid"])).toEqual([
-      "character-topics-card",
-      "character-voice-card",
-    ]);
-    expect(
-      tree?.root.find(
-        (node) => node.props["data-testid"] === "character-examples-grid",
-      ),
-    ).toBeDefined();
     expect(
       tree?.root.findAll(
-        (node) =>
-          node.props["data-testid"] === "character-chat-examples-card" ||
-          node.props["data-testid"] === "character-post-examples-card",
-      ),
-    ).toHaveLength(2);
+        (node) => node.props["data-testid"] === "character-voice-picker",
+      ) ?? [],
+    ).toHaveLength(0);
+    expect(
+      tree?.root.findAll(
+        (node) => node.props["data-testid"] === "character-customize-grid",
+      ) ?? [],
+    ).toHaveLength(1);
     expect(
       tree?.root.findAll(
         (node) =>
@@ -875,18 +872,16 @@ describe("CharacterView UI", () => {
     expect(state.characterDraft?.system).toBe(
       "You are Sakuya, exact and calm.",
     );
-    expect(state.characterDraft?.topics).toEqual(["systems", "writing"]);
     expect(state.selectedVrmIndex).toBe(4);
   });
 
-  it("preserves deep custom character settings on load instead of forcing preset defaults", async () => {
+  it("preserves deep custom character settings on load while staying in roster mode", async () => {
     state.characterData = {
       name: "Reimu",
       username: "Reimu",
       bio: ["Custom bio line"],
       system: "Custom Reimu system",
       adjectives: ["friendly", "helpful", "wildcard"],
-      topics: ["technology", "art", "custom lore"],
       style: {
         all: ["Custom all rule"],
         chat: ["Custom chat rule"],
@@ -913,19 +908,14 @@ describe("CharacterView UI", () => {
       tree?.root.findAll(
         (node) => node.props["data-testid"] === "character-customize-grid",
       ) ?? [],
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       tree?.root.findAll(
         (node) => node.props["data-testid"] === "character-roster-grid",
       ) ?? [],
-    ).toHaveLength(0);
+    ).toHaveLength(1);
     expect(state.characterDraft?.bio).toEqual(["Custom bio line"]);
     expect(state.characterDraft?.system).toBe("Custom Reimu system");
-    expect(state.characterDraft?.topics).toEqual([
-      "technology",
-      "art",
-      "custom lore",
-    ]);
   });
 
   it("renders save button", async () => {
@@ -954,6 +944,9 @@ describe("CharacterView UI", () => {
       uiLanguage: "en",
       t: (k: string) => k,
       ...state,
+      setTab: vi.fn((tab: CharacterState["tab"]) => {
+        state.tab = tab;
+      }),
       loadCharacter: vi.fn(),
       loadRegistryStatus: vi.fn(),
       loadDropStatus: vi.fn(),
@@ -1016,7 +1009,6 @@ describe("CharacterView UI", () => {
       bio: "  First line  \n\n Second line ",
       system: "Be exact.",
       adjectives: ["precise", "calm"],
-      topics: ["systems", "writing"],
       style: {
         all: ["Be exact"],
         chat: ["Stay calm"],
@@ -1053,7 +1045,6 @@ describe("CharacterView UI", () => {
       bio: ["First line", "Second line"],
       system: "Be exact.",
       adjectives: ["precise", "calm"],
-      topics: ["systems", "writing"],
       style: {
         all: ["Be exact"],
         chat: ["Stay calm"],
@@ -1161,13 +1152,6 @@ describe("Character Edit Integration", () => {
     mockSetField("adjectives", newAdj);
 
     expect(state.characterData?.adjectives).toContain("creative");
-  });
-
-  it("removing topic updates state", async () => {
-    const mockSetField = mockUseApp().setCharacterField;
-    mockSetField("topics", []);
-
-    expect(state.characterData?.topics).toEqual([]);
   });
 
   it("updating style rules works for all categories", async () => {

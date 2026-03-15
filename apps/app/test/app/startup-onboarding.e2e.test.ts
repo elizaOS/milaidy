@@ -21,7 +21,6 @@ type AppHarnessState = {
       system: string;
       style: { all: string[]; chat: string[]; post: string[] };
       adjectives: string[];
-      topics: string[];
       postExamples: string[];
       messageExamples: Array<
         Array<{ name: string; content: { text: string } }>
@@ -121,7 +120,6 @@ const { companionOverlayTabs, mockUseApp } = vi.hoisted(() => ({
     "apps",
     "connectors",
     "knowledge",
-    "lifo",
     "stream",
     "wallets",
   ]),
@@ -216,16 +214,13 @@ vi.mock("../../src/components/InventoryView", () => ({
 vi.mock("../../src/components/KnowledgeView", () => ({
   KnowledgeView: () => React.createElement("div", null, "KnowledgeView"),
 }));
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () => React.createElement("div", null, "LifoSandboxView"),
-}));
 vi.mock("../../src/components/PairingView", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
 vi.mock("../../src/components/ChatView", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
-vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 vi.mock("../../src/components/CompanionView", () => ({
@@ -277,7 +272,6 @@ function onboardingOptions() {
         system: "You are {{name}}",
         style: { all: [], chat: [], post: [] },
         adjectives: [],
-        topics: [],
         postExamples: [],
         messageExamples: [[{ name: "User", content: { text: "hello" } }]],
       },

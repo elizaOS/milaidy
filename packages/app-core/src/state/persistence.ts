@@ -120,7 +120,6 @@ function normalizeLastNativeTab(tab: unknown): Tab {
     case "voice":
     case "runtime":
     case "database":
-    case "lifo":
     case "settings":
     case "logs":
     case "security":

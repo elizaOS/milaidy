@@ -1,5 +1,10 @@
 import { useRenderGuard } from "@milady/app-core/hooks";
-import { getVrmPreviewUrl, getVrmUrl, useApp } from "@milady/app-core/state";
+import {
+  getVrmPreviewUrl,
+  getVrmUrl,
+  useApp,
+  VRM_COUNT,
+} from "@milady/app-core/state";
 import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import {
   createContext,
@@ -10,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import type { VrmEngine } from "./avatar/VrmEngine";
@@ -117,11 +123,12 @@ function CompanionSceneSurface({
   children?: ReactNode;
 }) {
   useRenderGuard("CompanionSceneHost");
-  const { selectedVrmIndex, customVrmUrl, uiTheme, t } = useApp();
+  const { selectedVrmIndex, customVrmUrl, uiTheme, t, tab } = useApp();
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const vrmEngineRef = useRef<VrmEngine | null>(null);
+  const stageEnginesRef = useRef(new Set<VrmEngine>());
   const companionZoomRef = useRef(DEFAULT_COMPANION_ZOOM);
   const companionZoomHydratedRef = useRef(false);
+  const dragOrbitRef = useRef({ yaw: 0, pitch: 0 });
   const dragStateRef = useRef<{
     active: boolean;
     pointerId: number | null;
@@ -153,13 +160,23 @@ function CompanionSceneSurface({
     const nextZoom = clampCompanionZoom(value);
     companionZoomRef.current = nextZoom;
     persistCompanionZoom(nextZoom);
-    vrmEngineRef.current?.setCompanionZoomNormalized(nextZoom);
+    for (const engine of stageEnginesRef.current) {
+      engine.setCompanionZoomNormalized(nextZoom);
+    }
   }, []);
 
   const handleStageEngineReady = useCallback((engine: VrmEngine) => {
-    vrmEngineRef.current = engine;
     engine.setCompanionZoomNormalized(companionZoomRef.current);
   }, []);
+
+  const handleStageLayerEngineReady = useCallback(
+    (_vrmPath: string, engine: VrmEngine) => {
+      stageEnginesRef.current.add(engine);
+      engine.setCompanionZoomNormalized(companionZoomRef.current);
+      engine.setDragOrbitTarget(dragOrbitRef.current.yaw, dragOrbitRef.current.pitch);
+    },
+    [],
+  );
 
   const handlePointerDownCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -188,7 +205,10 @@ function CompanionSceneSurface({
           startX: 0,
           startY: 0,
         };
-        vrmEngineRef.current?.resetDragOrbit();
+        dragOrbitRef.current = { yaw: 0, pitch: 0 };
+        for (const engine of stageEnginesRef.current) {
+          engine.resetDragOrbit();
+        }
         event.preventDefault?.();
         return;
       }
@@ -247,7 +267,10 @@ function CompanionSceneSurface({
       const deltaY = event.clientY - dragState.startY;
       const yaw = (deltaX / width) * 1.35;
       const pitch = (-deltaY / height) * 0.85;
-      vrmEngineRef.current?.setDragOrbitTarget(yaw, pitch);
+      dragOrbitRef.current = { yaw, pitch };
+      for (const engine of stageEnginesRef.current) {
+        engine.setDragOrbitTarget(yaw, pitch);
+      }
       event.preventDefault();
     },
     [active, interactive, setCompanionZoom],
@@ -304,7 +327,10 @@ function CompanionSceneSurface({
         startX: 0,
         startY: 0,
       };
-      vrmEngineRef.current?.resetDragOrbit();
+      dragOrbitRef.current = { yaw: 0, pitch: 0 };
+      for (const engine of stageEnginesRef.current) {
+        engine.resetDragOrbit();
+      }
     },
     [],
   );
@@ -348,8 +374,17 @@ function CompanionSceneSurface({
       startX: 0,
       startY: 0,
     };
-    vrmEngineRef.current?.resetDragOrbit();
+    dragOrbitRef.current = { yaw: 0, pitch: 0 };
+    for (const engine of stageEnginesRef.current) {
+      engine.resetDragOrbit();
+    }
   }, [active, interactive]);
+
+  useEffect(() => {
+    return () => {
+      stageEnginesRef.current.clear();
+    };
+  }, []);
 
   const safeSelectedVrmIndex = selectedVrmIndex > 0 ? selectedVrmIndex : 1;
   const vrmPath =
@@ -364,6 +399,18 @@ function CompanionSceneSurface({
     uiTheme === "dark"
       ? resolveAppAssetUrl("worlds/companion-night.spz")
       : resolveAppAssetUrl("worlds/companion-day.spz");
+  const preloadAvatars = useMemo(() => {
+    if (tab !== "character" && tab !== "character-select") {
+      return [];
+    }
+    return Array.from({ length: VRM_COUNT }, (_, index) => {
+      const avatarIndex = index + 1;
+      return {
+        vrmPath: getVrmUrl(avatarIndex),
+        fallbackPreviewUrl: getVrmPreviewUrl(avatarIndex),
+      };
+    });
+  }, [tab]);
 
   return (
     <div
@@ -396,8 +443,10 @@ function CompanionSceneSurface({
           vrmPath={vrmPath}
           worldUrl={worldUrl}
           fallbackPreviewUrl={fallbackPreviewUrl}
+          preloadAvatars={preloadAvatars}
           cameraProfile="companion"
           onEngineReady={handleStageEngineReady}
+          onLayerEngineReady={handleStageLayerEngineReady}
           playWaveOnAvatarChange
           t={t}
         />

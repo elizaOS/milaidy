@@ -408,6 +408,61 @@ export function normalizePluginId(id: string): string {
   return id.replace(/^@[^/]+\/plugin-/, "");
 }
 
+function buildInlinePluginConfigModel(
+  plugin: PluginInfo | null,
+  values: Record<string, unknown>,
+): {
+  hasConfigurableParams: boolean;
+  hints: Record<string, ConfigUiHint>;
+  mergedValues: Record<string, unknown>;
+  schema: JsonSchemaObject | null;
+  setKeys: Set<string>;
+} {
+  const pluginParams = plugin?.parameters ?? [];
+  const hasConfigurableParams = pluginParams.length > 0;
+  if (!hasConfigurableParams || !plugin?.id) {
+    return {
+      hasConfigurableParams: false,
+      hints: {},
+      mergedValues: values,
+      schema: null,
+      setKeys: new Set<string>(),
+    };
+  }
+
+  const auto = paramsToSchema(pluginParams, plugin.id);
+  if (plugin.configUiHints) {
+    for (const [key, serverHint] of Object.entries(plugin.configUiHints)) {
+      auto.hints[key] = { ...auto.hints[key], ...serverHint };
+    }
+  }
+
+  const initialValues: Record<string, unknown> = {};
+  const setKeys = new Set<string>();
+  for (const param of pluginParams) {
+    if (param.isSet) {
+      setKeys.add(param.key);
+    }
+    if (param.isSet && !param.sensitive && param.currentValue != null) {
+      initialValues[param.key] = param.currentValue;
+    }
+  }
+
+  for (const [key, value] of Object.entries(values)) {
+    if (value != null && value !== "") {
+      setKeys.add(key);
+    }
+  }
+
+  return {
+    hasConfigurableParams: true,
+    hints: auto.hints,
+    mergedValues: { ...initialValues, ...values },
+    schema: auto.schema as JsonSchemaObject,
+    setKeys,
+  };
+}
+
 function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
   const pluginId = normalizePluginId(rawPluginId);
   const [plugin, setPlugin] = useState<PluginInfo | null>(null);
@@ -450,53 +505,11 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
     void fetchPlugin();
   }, [fetchPlugin]);
 
-  // Build schema + hints — keyed on plugin.id to avoid recomputing on
-  // every fetch (the PluginInfo object is a new reference each time).
-  const pluginParams = plugin?.parameters;
-  const pluginHints = plugin?.configUiHints;
-  const pluginIdResolved = plugin?.id;
-  const { schema, hints } = useMemo(() => {
-    if (!pluginParams || pluginParams.length === 0 || !pluginIdResolved) {
-      return { schema: null, hints: {} as Record<string, ConfigUiHint> };
-    }
-    const auto = paramsToSchema(pluginParams, pluginIdResolved);
-    if (pluginHints) {
-      for (const [key, serverHint] of Object.entries(pluginHints)) {
-        auto.hints[key] = { ...auto.hints[key], ...serverHint };
-      }
-    }
-    return auto;
-  }, [pluginParams, pluginHints, pluginIdResolved]);
-
-  // Initialize values from current server values
-  const initialValues = useMemo(() => {
-    if (!pluginParams) return {};
-    const v: Record<string, unknown> = {};
-    for (const p of pluginParams) {
-      if (p.isSet && !p.sensitive && p.currentValue != null) {
-        v[p.key] = p.currentValue;
-      }
-    }
-    return v;
-  }, [pluginParams]);
-
-  const mergedValues = useMemo(
-    () => ({ ...initialValues, ...values }),
-    [initialValues, values],
-  );
-
-  const setKeys = useMemo(() => {
-    const s = new Set<string>();
-    if (pluginParams) {
-      for (const p of pluginParams) {
-        if (p.isSet) s.add(p.key);
-      }
-    }
-    for (const [k, v] of Object.entries(values)) {
-      if (v != null && v !== "") s.add(k);
-    }
-    return s;
-  }, [pluginParams, values]);
+  const { hasConfigurableParams, hints, mergedValues, schema, setKeys } =
+    useMemo(
+      () => buildInlinePluginConfigModel(plugin, values),
+      [plugin, values],
+    );
 
   const handleChange = useCallback((key: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -630,10 +643,10 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
       </div>
 
       {/* Form — always shown so user can configure before enabling */}
-      {schema && plugin.parameters.length > 0 ? (
+      {schema && hasConfigurableParams ? (
         <div className="p-3">
           <ConfigRenderer
-            schema={schema as JsonSchemaObject}
+            schema={schema}
             hints={hints}
             values={mergedValues}
             setKeys={setKeys}
@@ -650,7 +663,7 @@ function InlinePluginConfig({ pluginId: rawPluginId }: { pluginId: string }) {
 
       {/* Footer */}
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border flex-wrap">
-        {schema && plugin.parameters.length > 0 && (
+        {schema && hasConfigurableParams && (
           <Button
             variant="default"
             size="sm"

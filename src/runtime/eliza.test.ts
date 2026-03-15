@@ -1538,10 +1538,21 @@ describe("buildCharacterFromConfig", () => {
     const char = buildCharacterFromConfig(config);
 
     expect(char.name).toBe("Reimu");
-    // Bio and system use defaults with {{name}} placeholders
     expect(Array.isArray(char.bio)).toBe(true);
     expect((char.bio as string[])[0]).toContain("{{name}}");
     expect(char.system).toContain("{{name}}");
+    expect(char.postExamples.length).toBeGreaterThan(0);
+  });
+
+  it("backfills bundled preset posts for default named characters", () => {
+    const config = {
+      agents: { list: [{ id: "main", name: "Sakuya" }] },
+    } as MiladyConfig;
+    const char = buildCharacterFromConfig(config);
+
+    expect(char.name).toBe("Sakuya");
+    expect(char.postExamples.length).toBeGreaterThan(0);
+    expect(char.messageExamples.length).toBeGreaterThan(0);
   });
 });
 

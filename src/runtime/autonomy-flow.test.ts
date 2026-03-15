@@ -169,7 +169,6 @@ async function createHarness(): Promise<Harness> {
       name: "AutonomyTestAgent",
       bio: ["Deterministic autonomy flow test agent."],
       messageExamples: [],
-      topics: [],
       adjectives: [],
       plugins: [],
       settings: {

@@ -204,10 +204,6 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   apiBaseUpdate: "apiBaseUpdate",
   shareTargetReceived: "shareTargetReceived",
 
-  // LIFO
-  "lifo:getPipState": "lifoGetPipState",
-  "lifo:setPip": "lifoSetPip",
-
   // GPU Window
   "gpuWindow:create": "gpuWindowCreate",
   "gpuWindow:destroy": "gpuWindowDestroy",

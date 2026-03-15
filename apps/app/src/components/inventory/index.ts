@@ -24,8 +24,6 @@ export {
 } from "./constants";
 export { InventoryToolbar } from "./InventoryToolbar";
 export { NftGrid } from "./NftGrid";
-export { PortfolioHeader } from "./PortfolioHeader";
-export { StatusDot } from "./StatusDot";
 export { TokenLogo } from "./TokenLogo";
 export { TokensTable } from "./TokensTable";
 export { useInventoryData } from "./useInventoryData";

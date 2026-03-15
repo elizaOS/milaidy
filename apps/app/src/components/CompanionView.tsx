@@ -2,7 +2,7 @@ import { useRenderGuard } from "@milady/app-core/hooks";
 import { useApp } from "@milady/app-core/state";
 import { Button } from "@milady/ui";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
-import { memo, useCallback, useEffect } from "react";
+import { memo, useEffect } from "react";
 import { ChatModalView } from "./ChatModalView";
 import { CompanionHeader } from "./companion/CompanionHeader";
 import {
@@ -25,13 +25,6 @@ export const CompanionView = memo(function CompanionView() {
   } = useApp();
   const hasSharedCompanionScene = useSharedCompanionScene();
 
-  const handleShellViewChange = useCallback(
-    (view: "companion" | "character" | "desktop") => {
-      switchShellView(view);
-    },
-    [switchShellView],
-  );
-
   useEffect(() => {
     setState("chatMode", "simple");
   }, [setState]);
@@ -40,7 +33,7 @@ export const CompanionView = memo(function CompanionView() {
     <div className="absolute inset-0 z-10 flex flex-col pointer-events-none">
       <CompanionHeader
         activeShellView="companion"
-        onShellViewChange={handleShellViewChange}
+        onShellViewChange={switchShellView}
         uiLanguage={uiLanguage}
         setUiLanguage={setUiLanguage}
         uiTheme={uiTheme}
@@ -79,10 +72,10 @@ export const CompanionView = memo(function CompanionView() {
               size="sm"
               aria-label="New Chat"
               title="New Chat"
-              className="flex h-8 min-h-8 items-center rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:flex"
+              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:inline-flex"
               onClick={() => void handleNewConversation()}
             >
-              <MessageCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <MessageCircle className="mr-1 h-3.5 w-3.5" />
               New Chat
             </Button>
           </div>

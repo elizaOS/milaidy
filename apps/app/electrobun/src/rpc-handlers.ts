@@ -20,10 +20,6 @@ import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
 import { getSwabbleManager } from "./native/swabble";
 import { getTalkModeManager } from "./native/talkmode";
-import type { PipState } from "./rpc-schema";
-
-// PiP state (simple in-memory store — no dedicated manager needed)
-let pipState: PipState = { enabled: false };
 
 /** Push current OS permission states to the agent REST API in-process. */
 async function syncPermissionsToRestApi(): Promise<void> {
@@ -399,17 +395,6 @@ export function registerRpcHandlers(
     },
     contextMenuSaveAsCommand: async (params: { text: string }) => {
       sendToWebview("contextMenu:saveAsCommand", { text: params.text });
-    },
-
-    // ---- LIFO (PiP) ----
-    lifoGetPipState: async () => pipState,
-    lifoSetPip: async (params: PipState) => {
-      pipState = params;
-      if (params.enabled) {
-        desktop.setAlwaysOnTop({ flag: true });
-      } else {
-        desktop.setAlwaysOnTop({ flag: false });
-      }
     },
 
     // ---- GPU Window ----

@@ -9,33 +9,23 @@ import {
   type VoiceConfig,
 } from "@milady/app-core/api";
 import {
-  ConfigRenderer,
-  defaultRegistry,
-  type JsonSchemaObject,
-} from "@milady/app-core/config";
-import {
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
 } from "@milady/app-core/events";
 import { getVrmPreviewUrl, useApp } from "@milady/app-core/state";
-import type { ConfigUiHint } from "@milady/app-core/types";
-import { alertDesktopMessage } from "@milady/app-core/utils";
 import {
   PREMADE_VOICES,
   sanitizeApiKey,
   type VoicePreset,
 } from "@milady/app-core/voice";
-import { Button, Input, TagEditor, Textarea, ThemedSelect } from "@milady/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Input, Textarea, ThemedSelect } from "@milady/ui";
+import { Lock, LockOpen, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
 
-type CharacterConversation = NonNullable<
-  CharacterData["messageExamples"]
->[number];
-type CharacterMessage = CharacterConversation["examples"][number];
 type StyleSectionKey = "all" | "chat" | "post";
-
+type CustomizeStep = "core" | "style" | "examples";
 const STYLE_SECTION_KEYS: StyleSectionKey[] = ["all", "chat", "post"];
 const STYLE_SECTION_PLACEHOLDERS: Record<StyleSectionKey, string> = {
   all: "Add shared rule",
@@ -47,7 +37,35 @@ const STYLE_SECTION_EMPTY_STATES: Record<StyleSectionKey, string> = {
   chat: "No chat rules yet.",
   post: "No post rules yet.",
 };
-
+const VOICE_SELECT_GROUPS = [
+  {
+    label: "Female",
+    items: PREMADE_VOICES.filter((preset) => preset.gender === "female").map(
+      (preset) => ({
+        id: preset.id,
+        text: preset.name,
+      }),
+    ),
+  },
+  {
+    label: "Male",
+    items: PREMADE_VOICES.filter((preset) => preset.gender === "male").map(
+      (preset) => ({
+        id: preset.id,
+        text: preset.name,
+      }),
+    ),
+  },
+  {
+    label: "Character",
+    items: PREMADE_VOICES.filter((preset) => preset.gender === "character").map(
+      (preset) => ({
+        id: preset.id,
+        text: preset.name,
+      }),
+    ),
+  },
+];
 const CHARACTER_PRESET_META: Record<
   string,
   {
@@ -87,7 +105,6 @@ function buildCharacterFromPreset(
     bio: preset.bio.map((line) => replaceCharacterToken(line, name)),
     system: replaceCharacterToken(preset.system, name),
     adjectives: [...preset.adjectives],
-    topics: [...preset.topics],
     style: {
       all: [...preset.style.all],
       chat: [...preset.style.chat],
@@ -122,7 +139,6 @@ function buildCharacterDraftFromPreset(
       : (character.bio ?? ""),
     system: character.system ?? "",
     adjectives: character.adjectives ?? [],
-    topics: character.topics ?? [],
     style: {
       all: character.style?.all ?? [],
       chat: character.style?.chat ?? [],
@@ -147,7 +163,6 @@ function normalizeCharacterDraftForComparison(
           : "",
     system: (character?.system ?? "").trim(),
     adjectives: [...(character?.adjectives ?? [])],
-    topics: [...(character?.topics ?? [])],
     style: {
       all: [...(character?.style?.all ?? [])],
       chat: [...(character?.style?.chat ?? [])],
@@ -211,12 +226,8 @@ function findMatchingRosterEntry(
     if (entry.avatarIndex === avatarIndex) score += 3;
 
     const draftAdjectives = new Set(character.adjectives ?? []);
-    const draftTopics = new Set(character.topics ?? []);
     for (const adjective of entry.preset.adjectives) {
       if (draftAdjectives.has(adjective)) score += 1;
-    }
-    for (const topic of entry.preset.topics) {
-      if (draftTopics.has(topic)) score += 1;
     }
 
     if (
@@ -285,61 +296,6 @@ function getStyleEntryRenderKey(
   return `${section}:${item}:${occurrence}`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function readStringArray(value: unknown): string[] | null {
-  if (!Array.isArray(value)) return null;
-  const out = value.filter((item): item is string => typeof item === "string");
-  return out.length > 0 ? out : [];
-}
-
-function parseImportedMessage(value: unknown): CharacterMessage | null {
-  if (!isRecord(value)) return null;
-  const speaker =
-    typeof value.user === "string"
-      ? value.user
-      : typeof value.name === "string"
-        ? value.name
-        : "{{user1}}";
-  const content = value.content;
-  const contentText =
-    isRecord(content) && typeof content.text === "string"
-      ? content.text
-      : typeof value.text === "string"
-        ? value.text
-        : "";
-  return {
-    name: speaker,
-    content: { text: contentText },
-  };
-}
-
-function parseImportedMessageExamples(
-  value: unknown,
-): CharacterData["messageExamples"] {
-  if (!Array.isArray(value)) return [];
-  const conversations: CharacterConversation[] = [];
-  for (const convo of value) {
-    const source = Array.isArray(convo)
-      ? convo
-      : isRecord(convo) && Array.isArray(convo.examples)
-        ? convo.examples
-        : null;
-    if (!source) continue;
-    const examples: CharacterMessage[] = [];
-    for (const message of source) {
-      const parsed = parseImportedMessage(message);
-      if (parsed) examples.push(parsed);
-    }
-    if (examples.length > 0) {
-      conversations.push({ examples });
-    }
-  }
-  return conversations;
-}
-
 /* ── CharacterView ──────────────────────────────────────────────────── */
 
 export function CharacterView({
@@ -350,6 +306,8 @@ export function CharacterView({
   sceneOverlay?: boolean;
 } = {}) {
   const {
+    tab,
+    setTab,
     characterData,
     characterDraft,
     characterLoading,
@@ -384,8 +342,6 @@ export function CharacterView({
     void loadDropStatus();
   }, [loadCharacter, loadRegistryStatus, loadDropStatus]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleFieldEdit = useCallback(
     <K extends keyof CharacterData>(field: K, value: CharacterData[K]) => {
       handleCharacterFieldInput(field, value);
@@ -398,116 +354,6 @@ export function CharacterView({
       handleCharacterStyleInput(key, value);
     },
     [handleCharacterStyleInput],
-  );
-
-  /* ── Import / Export ────────────────────────────────────────────── */
-  const handleExport = useCallback(() => {
-    const d = characterDraft;
-    const exportData = {
-      name: d.name ?? "",
-      bio:
-        typeof d.bio === "string"
-          ? d.bio.split("\n").filter(Boolean)
-          : (d.bio ?? []),
-      system: d.system ?? "",
-      style: {
-        all: d.style?.all ?? [],
-        chat: d.style?.chat ?? [],
-        post: d.style?.post ?? [],
-      },
-      adjectives: d.adjectives ?? [],
-      topics: d.topics ?? [],
-      messageExamples: (d.messageExamples ?? []).map((convo) =>
-        (convo.examples ?? []).map((msg) => ({
-          user: msg.name,
-          content: { text: msg.content?.text ?? "" },
-        })),
-      ),
-      postExamples: d.postExamples ?? [],
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(d.name ?? "character").toLowerCase().replace(/\s+/g, "-")}.character.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [characterDraft]);
-
-  const handleImport = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const rawText = reader.result;
-          if (typeof rawText !== "string") throw new Error("invalid file");
-          const parsed: unknown = JSON.parse(rawText);
-          if (!isRecord(parsed)) throw new Error("invalid file");
-
-          if (typeof parsed.name === "string") {
-            handleCharacterFieldInput("name", parsed.name);
-          }
-          if (typeof parsed.bio === "string") {
-            handleCharacterFieldInput("bio", parsed.bio);
-          } else {
-            const bio = readStringArray(parsed.bio);
-            if (bio) {
-              handleCharacterFieldInput("bio", bio.join("\n"));
-            }
-          }
-          if (typeof parsed.system === "string") {
-            handleCharacterFieldInput("system", parsed.system);
-          }
-
-          const adjectives = readStringArray(parsed.adjectives);
-          if (adjectives) handleCharacterFieldInput("adjectives", adjectives);
-          const topics = readStringArray(parsed.topics);
-          if (topics) handleCharacterFieldInput("topics", topics);
-
-          if (isRecord(parsed.style)) {
-            const all = readStringArray(parsed.style.all);
-            if (all) handleCharacterStyleInput("all", all.join("\n"));
-            else if (typeof parsed.style.all === "string")
-              handleCharacterStyleInput("all", parsed.style.all);
-
-            const chat = readStringArray(parsed.style.chat);
-            if (chat) handleCharacterStyleInput("chat", chat.join("\n"));
-            else if (typeof parsed.style.chat === "string")
-              handleCharacterStyleInput("chat", parsed.style.chat);
-
-            const post = readStringArray(parsed.style.post);
-            if (post) handleCharacterStyleInput("post", post.join("\n"));
-            else if (typeof parsed.style.post === "string")
-              handleCharacterStyleInput("post", parsed.style.post);
-          }
-
-          const messageExamples =
-            parseImportedMessageExamples(parsed.messageExamples) ?? [];
-          if (messageExamples.length > 0) {
-            handleCharacterFieldInput("messageExamples", messageExamples);
-          }
-
-          const postExamples = readStringArray(parsed.postExamples);
-          if (postExamples)
-            handleCharacterFieldInput("postExamples", postExamples);
-          setSelectedCharacterId(null);
-          setCustomOverridesEnabled(true);
-        } catch {
-          void alertDesktopMessage({
-            title: "Invalid Character File",
-            message: "Invalid JSON file.",
-            type: "error",
-          });
-        }
-      };
-      reader.readAsText(file);
-      e.target.value = "";
-    },
-    [handleCharacterFieldInput, handleCharacterStyleInput],
   );
 
   /* ── Character generation state ─────────────────────────────────── */
@@ -526,6 +372,7 @@ export function CharacterView({
     chat: [],
     post: [],
   });
+  const [customizeStep, setCustomizeStep] = useState<CustomizeStep>("core");
   const [customOverridesEnabled, setCustomOverridesEnabled] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
@@ -546,6 +393,7 @@ export function CharacterView({
   const [selectedVoicePresetId, setSelectedVoicePresetId] = useState<
     string | null
   >(null);
+  const [voiceSelectionLocked, setVoiceSelectionLocked] = useState(false);
 
   useEffect(() => {
     if (onboardingOptions?.styles?.length) {
@@ -571,7 +419,7 @@ export function CharacterView({
   }, [onboardingOptions?.styles]);
 
   const characterRoster = resolveRosterEntries(rosterStyles);
-  const visibleCharacterRoster = characterRoster;
+  const visibleCharacterRoster = characterRoster.slice(0, 4);
   const currentCharacter = hasCharacterContent(characterDraft)
     ? characterDraft
     : characterData;
@@ -581,6 +429,7 @@ export function CharacterView({
     selectedCharacterId,
     characterRoster,
   );
+  const detailedEditMode = tab === "character";
 
   /* Load voice config on mount */
   useEffect(() => {
@@ -598,7 +447,7 @@ export function CharacterView({
             const preset = PREMADE_VOICES.find(
               (p) => p.voiceId === tts.elevenlabs?.voiceId,
             );
-            setSelectedVoicePresetId(preset?.id ?? "custom");
+            setSelectedVoicePresetId(preset?.id ?? null);
           }
         }
       } catch {
@@ -607,16 +456,6 @@ export function CharacterView({
       setVoiceLoading(false);
     })();
   }, []);
-
-  const handleVoiceFieldChange = useCallback(
-    (key: string, value: string | number) => {
-      setVoiceConfig((prev) => ({
-        ...prev,
-        elevenlabs: { ...(prev.elevenlabs ?? {}), [key]: value },
-      }));
-    },
-    [],
-  );
 
   const handleSelectPreset = useCallback((preset: VoicePreset) => {
     setSelectedVoicePresetId(preset.id);
@@ -646,27 +485,34 @@ export function CharacterView({
       handleFieldEdit("bio", nextCharacter.bio ?? "");
       handleFieldEdit("system", nextCharacter.system ?? "");
       handleFieldEdit("adjectives", nextCharacter.adjectives ?? []);
-      handleFieldEdit("topics", nextCharacter.topics ?? []);
       handleFieldEdit(
         "style",
         nextCharacter.style ?? { all: [], chat: [], post: [] },
       );
       handleFieldEdit("messageExamples", nextCharacter.messageExamples ?? []);
       handleFieldEdit("postExamples", nextCharacter.postExamples ?? []);
-      applyVoicePresetForEntry(entry);
     },
-    [applyVoicePresetForEntry, handleFieldEdit],
+    [handleFieldEdit],
   );
 
   const commitCharacterSelection = useCallback(
     (entry: CharacterRosterEntry, applyDefaults: boolean) => {
       setSelectedCharacterId(entry.id);
       setState("selectedVrmIndex", entry.avatarIndex);
+      if (!voiceSelectionLocked && selectedCharacterId !== entry.id) {
+        applyVoicePresetForEntry(entry);
+      }
       if (applyDefaults) {
         applyCharacterDefaults(entry);
       }
     },
-    [applyCharacterDefaults, setState],
+    [
+      applyCharacterDefaults,
+      applyVoicePresetForEntry,
+      selectedCharacterId,
+      setState,
+      voiceSelectionLocked,
+    ],
   );
 
   const handleTestVoice = useCallback(
@@ -730,7 +576,6 @@ export function CharacterView({
       name: d.name ?? "",
       system: d.system ?? "",
       bio: bioText,
-      topics: d.topics ?? [],
       style: d.style ?? { all: [], chat: [], post: [] },
       postExamples: d.postExamples ?? [],
     }),
@@ -915,7 +760,9 @@ export function CharacterView({
 
   const handleCustomOverridesChange = useCallback(
     (enabled: boolean) => {
+      setTab(enabled ? "character" : "character-select");
       setCustomOverridesEnabled(enabled);
+      setCustomizeStep("core");
       if (enabled) return;
 
       const activeEntry = resolveActiveRosterEntry(
@@ -928,8 +775,21 @@ export function CharacterView({
         setSelectedCharacterId(activeEntry.id);
       }
     },
-    [characterRoster, currentCharacter, selectedCharacterId, selectedVrmIndex],
+    [
+      characterRoster,
+      currentCharacter,
+      selectedCharacterId,
+      selectedVrmIndex,
+      setTab,
+    ],
   );
+
+  useEffect(() => {
+    setCustomOverridesEnabled(detailedEditMode);
+    if (detailedEditMode) {
+      setCustomizeStep("core");
+    }
+  }, [detailedEditMode]);
 
   useEffect(() => {
     if (
@@ -957,7 +817,7 @@ export function CharacterView({
       activeEntry,
     );
     setSelectedCharacterId(activeEntry.id);
-    setCustomOverridesEnabled(!matchesFactory);
+    setCustomOverridesEnabled(detailedEditMode);
     if (matchesFactory) {
       commitCharacterSelection(activeEntry, true);
     }
@@ -966,6 +826,7 @@ export function CharacterView({
     characterRoster,
     commitCharacterSelection,
     currentCharacter,
+    detailedEditMode,
     selectedCharacterId,
     selectedVrmIndex,
   ]);
@@ -998,22 +859,13 @@ export function CharacterView({
   const scrollPaneCls =
     "min-h-0 overflow-y-auto pr-1 [scrollbar-gutter:stable] custom-scrollbar";
 
-  /* Hidden file input for import */
-  const fileInput = (
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept=".json"
-      className="hidden"
-      onChange={handleImport}
-    />
-  );
-
   if (characterLoading && !characterData) {
     return (
       <div className={sectionCls}>
         <div className="text-center py-6 text-[var(--muted)] text-[13px]">
-          {t("characterview.loadingCharacterDa")}
+          {t("characterview.loadingCharacterDa", {
+            defaultValue: "Loading character data...",
+          })}
         </div>
       </div>
     );
@@ -1029,30 +881,418 @@ export function CharacterView({
   const activeVoicePreset =
     PREMADE_VOICES.find((preset) => preset.id === selectedVoicePresetId) ??
     null;
+  const voiceSelectValue = selectedVoicePresetId ?? null;
   const combinedSaveError = voiceSaveError ?? characterSaveError;
   const customizationActionLabel = customOverridesEnabled
-    ? t("characterview.backToCharacterSelect")
-    : t("characterview.customize");
+    ? t("characterview.backToCharacterSelect", {
+        defaultValue: "Back to Character Select",
+      })
+    : t("characterview.customize", { defaultValue: "Customize" });
   const characterRosterGridCls =
-    "flex flex-wrap items-start justify-center gap-3";
+    "flex flex-wrap items-start justify-center gap-y-1";
+  const rosterSlantClipPath =
+    "polygon(32px 0, 100% 0, calc(100% - 32px) 100%, 0 100%)";
+  const insetShadowClipPath =
+    "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
   const rootCls =
     sceneOverlay && !inModal
       ? "relative z-10 flex min-h-full flex-col justify-end pb-4"
       : `${inModal || sceneOverlay ? "pb-8" : ""} ${
           sceneOverlay ? "relative z-10" : ""
         }`;
+  const coreFieldsPanel = (
+    <div
+      className={`${editorCardCls} min-h-[24rem]`}
+      data-testid="character-core-editor"
+    >
+      <div className="flex min-h-0 flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className={labelCls}>
+            {t("characterview.aboutMe", { defaultValue: "About Me" })}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+            onClick={() => void handleGenerate("bio")}
+            disabled={generating === "bio"}
+          >
+            {generating === "bio" ? "generating..." : "regenerate"}
+          </Button>
+        </div>
+        <Textarea
+          value={bioText}
+          rows={6}
+          placeholder={t("characterview.describeWhoYourAg", {
+            defaultValue: "Describe who your agent is...",
+          })}
+          onChange={(e) => handleFieldEdit("bio", e.target.value)}
+          className="min-h-[10rem] flex-1 resize-none overflow-y-auto rounded-lg border-border/50 bg-bg p-3 text-sm leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+        />
+      </div>
+
+      <div className="flex min-h-0 flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className={labelCls}>
+            {t("characterview.directionsAndThing", {
+              defaultValue: "System Prompt",
+            })}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+            onClick={() => void handleGenerate("system")}
+            disabled={generating === "system"}
+          >
+            {generating === "system" ? "generating..." : "regenerate"}
+          </Button>
+        </div>
+        <Textarea
+          value={d.system ?? ""}
+          rows={7}
+          maxLength={10000}
+          placeholder={t("characterview.writeInFirstPerso", {
+            defaultValue: "Write in first person...",
+          })}
+          onChange={(e) => handleFieldEdit("system", e.target.value)}
+          className="min-h-[10rem] flex-1 resize-none overflow-y-auto rounded-lg border-border/50 bg-bg p-3 font-mono text-xs leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+        />
+      </div>
+    </div>
+  );
+  const styleEditorPanel = (
+    <div
+      className={`${editorCardCls} min-h-[24rem]`}
+      data-testid="character-customize-sidebar"
+    >
+      <div
+        className="flex min-h-0 flex-col gap-3"
+        data-testid="character-style-editor"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-bold tracking-wide text-txt">
+            {t("characterview.StyleRules", {
+              defaultValue: "Style Rules",
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 rounded-md px-2.5 text-[11px] font-bold"
+            onClick={() => void handleGenerate("style", "replace")}
+            disabled={generating === "style"}
+          >
+            {generating === "style" ? "generating..." : "regenerate"}
+          </Button>
+        </div>
+
+        <div
+          className="grid min-h-0 flex-1 gap-3 xl:grid-cols-1 2xl:grid-cols-3"
+          data-testid="character-style-editor-scroll"
+        >
+          {STYLE_SECTION_KEYS.map((key) => {
+            const items = d.style?.[key] ?? [];
+            return (
+              <div
+                key={key}
+                className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border/30 bg-bg/30"
+                data-testid={`style-section-${key}`}
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-border/20 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                      {key}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
+                      {items.length} rule{items.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`${scrollPaneCls} flex-1 p-3 pr-2`}>
+                  <div className="flex flex-col gap-2">
+                    {items.length > 0 ? (
+                      items.map((item, index) => (
+                        <div
+                          key={getStyleEntryRenderKey(key, items, item, index)}
+                          className="flex items-start gap-2 rounded-md border border-border/20 bg-bg/50 p-2"
+                          data-testid={`style-entry-${key}-${index}`}
+                        >
+                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-muted/70">
+                            {index + 1}
+                          </span>
+                          <Textarea
+                            value={styleEntryDrafts[key]?.[index] ?? item}
+                            rows={2}
+                            onChange={(e) =>
+                              handleStyleEntryDraftChange(
+                                key,
+                                index,
+                                e.target.value,
+                              )
+                            }
+                            onBlur={() => handleCommitStyleEntry(key, index)}
+                            className="min-h-[72px] min-w-0 flex-1 resize-none rounded-md border-border/40 bg-bg p-2 text-xs leading-relaxed text-txt focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                            data-testid={`style-entry-editor-${key}-${index}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
+                            onClick={() => handleRemoveStyleEntry(key, index)}
+                            title={t("characterview.remove", {
+                              defaultValue: "Remove",
+                            })}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div
+                        className={`${hintCls} rounded-md border border-dashed border-border/30 bg-bg/40 px-3 py-2`}
+                      >
+                        {STYLE_SECTION_EMPTY_STATES[key]}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-border/20 p-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={pendingStyleEntries[key]}
+                      placeholder={STYLE_SECTION_PLACEHOLDERS[key]}
+                      onChange={(e) =>
+                        handlePendingStyleEntryChange(key, e.target.value)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddStyleEntry(key);
+                        }
+                      }}
+                      className="h-8 min-w-0 flex-1 rounded-md border-border/40 bg-bg focus-visible:border-accent focus-visible:ring-accent/50"
+                      data-testid={`style-entry-input-${key}`}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 rounded-md px-3 text-[11px] font-bold"
+                      onClick={() => handleAddStyleEntry(key)}
+                      disabled={!pendingStyleEntries[key].trim()}
+                    >
+                      + add
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+  const chatExamplesPanel = (
+    <div
+      className={`${editorCardCls} min-h-[24rem]`}
+      data-testid="character-chat-examples-card"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          <div className="text-sm font-bold tracking-wide text-txt">
+            {t("characterview.chatExamples", {
+              defaultValue: "Chat Examples",
+            })}
+          </div>
+          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+            {t("characterview.HowTheAgentResp", {
+              defaultValue: "How the agent responds in chat",
+            })}
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
+          onClick={() => void handleGenerate("chatExamples", "replace")}
+          disabled={generating === "chatExamples"}
+        >
+          {generating === "chatExamples" ? "generating..." : "generate"}
+        </Button>
+      </div>
+
+      <div className={`${scrollPaneCls} flex flex-1 flex-col gap-3 pr-2`}>
+        {(d.messageExamples ?? []).map((convo, ci) => (
+          <div
+            key={convo.examples
+              .map((msg) => `${msg.name}:${msg.content?.text ?? ""}`)
+              .join("|")}
+            className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
+          >
+            <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                {t("characterview.conversation", {
+                  defaultValue: "Conversation",
+                })}{" "}
+                {ci + 1}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] font-bold text-muted transition-all hover:bg-danger/10 hover:text-danger"
+                onClick={() => {
+                  const updated = [...(d.messageExamples ?? [])];
+                  updated.splice(ci, 1);
+                  handleFieldEdit("messageExamples", updated);
+                }}
+              >
+                {t("characterview.remove", {
+                  defaultValue: "Remove",
+                })}
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {convo.examples.map((msg, mi) => (
+                <div
+                  key={`${msg.name}:${msg.content?.text ?? ""}`}
+                  className="flex items-center gap-3"
+                >
+                  <span
+                    className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}
+                  >
+                    {msg.name === "{{user1}}" ? "user" : "agent"}
+                  </span>
+                  <Input
+                    type="text"
+                    value={msg.content?.text ?? ""}
+                    onChange={(e) => {
+                      const updated = [...(d.messageExamples ?? [])];
+                      const convoClone = {
+                        examples: [...updated[ci].examples],
+                      };
+                      convoClone.examples[mi] = {
+                        ...convoClone.examples[mi],
+                        content: { text: e.target.value },
+                      };
+                      updated[ci] = convoClone;
+                      handleFieldEdit("messageExamples", updated);
+                    }}
+                    className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {(d.messageExamples ?? []).length === 0 && (
+          <div
+            className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
+          >
+            {t("characterview.noChatExamplesYet", {
+              defaultValue: "No chat examples yet.",
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const postExamplesPanel = (
+    <div
+      className={`${editorCardCls} min-h-[24rem]`}
+      data-testid="character-post-examples-card"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          <div className="text-sm font-bold tracking-wide text-txt">
+            {t("characterview.postExamples", {
+              defaultValue: "Post Examples",
+            })}
+          </div>
+          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+            {t("characterview.SocialMediaVoice", {
+              defaultValue: "Social media voice and style",
+            })}
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
+          onClick={() => void handleGenerate("postExamples", "replace")}
+          disabled={generating === "postExamples"}
+        >
+          {generating === "postExamples" ? "generating..." : "generate"}
+        </Button>
+      </div>
+
+      <div className={`${scrollPaneCls} flex flex-1 flex-col gap-2 pr-2`}>
+        {(d.postExamples ?? []).map((post: string, pi: number) => (
+          <div key={post || `post-${pi}`} className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={post}
+              onChange={(e) => {
+                const updated = [...(d.postExamples ?? [])];
+                updated[pi] = e.target.value;
+                handleFieldEdit("postExamples", updated);
+              }}
+              className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
+              onClick={() => {
+                const updated = [...(d.postExamples ?? [])];
+                updated.splice(pi, 1);
+                handleFieldEdit("postExamples", updated);
+              }}
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+        {(d.postExamples ?? []).length === 0 && (
+          <div
+            className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
+          >
+            {t("characterview.noPostExamplesYet", {
+              defaultValue: "No post examples yet.",
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/40 pt-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start rounded-md border border-transparent text-[11px] font-bold text-accent transition-all hover:border-accent/30 hover:bg-accent/10"
+          onClick={() => {
+            const updated = [...(d.postExamples ?? []), ""];
+            handleFieldEdit("postExamples", updated);
+          }}
+        >
+          {t("characterview.AddPost", { defaultValue: "Add Post" })}
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className={rootCls}>
-      {fileInput}
-
       {/* ═══ ON-CHAIN IDENTITY ═══ */}
       {hasWallet && (
         <div className={sectionCls}>
           {!isRegistered && !dropLive && (
             <div className="flex flex-col gap-3">
               <div className="text-[12px] text-[var(--muted)]">
-                {t("characterview.RegisterYourAgent")}
+                {t("characterview.RegisterYourAgent", {
+                  defaultValue: "Register your agent on-chain",
+                })}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1085,11 +1325,13 @@ export function CharacterView({
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-[12px]">
                   <span className="text-green-400 font-bold tracking-wide">
-                    {t("characterview.Registered")}
+                    {t("characterview.Registered", {
+                      defaultValue: "Registered",
+                    })}
                   </span>
                   <span className="text-muted/50">|</span>
                   <span className="text-muted font-medium">
-                    {t("characterview.Token")}
+                    {t("characterview.Token", { defaultValue: "Token #" })}
                     {registryStatus.tokenId}
                   </span>
                   <span className="text-muted/50">|</span>
@@ -1098,10 +1340,14 @@ export function CharacterView({
                 {nameOutOfSync && (
                   <div className="flex items-center gap-3 bg-amber-400/10 border border-amber-400/20 px-3 py-2 rounded-lg">
                     <span className="text-[11px] text-amber-400/80 font-medium tracking-wide">
-                      {t("characterview.OnChainName")}{" "}
+                      {t("characterview.OnChainName", {
+                        defaultValue: "On-chain name",
+                      })}{" "}
                       <strong className="text-amber-400">{onChainName}</strong>{" "}
-                      {t("characterview.DiffersFrom")}{" "}
-                      <strong className="text-amber-400">{currentName}"</strong>
+                      {t("characterview.DiffersFrom", {
+                        defaultValue: "differs from",
+                      })}{" "}
+                      <strong className="text-amber-400">{currentName}</strong>
                     </span>
                     <Button
                       variant="outline"
@@ -1120,12 +1366,14 @@ export function CharacterView({
                   </span>
                 )}
                 <a
-                  href={`https://etherscan.io/token/${registryStatus.walletAddress}`}
+                  href={`https://etherscan.io/address/${registryStatus.walletAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[11px] underline text-[var(--accent)]"
                 >
-                  {t("characterview.viewOnEtherscan")}
+                  {t("characterview.viewOnEtherscan", {
+                    defaultValue: "View on Etherscan",
+                  })}
                 </a>
               </div>
             </div>
@@ -1135,7 +1383,9 @@ export function CharacterView({
       {hasWallet && userMinted && !isRegistered && (
         <div className={sectionCls}>
           <div className="text-[12px] text-[var(--ok,#16a34a)]">
-            {t("characterview.MintedFromCollecti")}
+            {t("characterview.MintedFromCollecti", {
+              defaultValue: "Minted from collection",
+            })}
           </div>
         </div>
       )}
@@ -1152,34 +1402,60 @@ export function CharacterView({
                     <button
                       key={entry.id}
                       type="button"
-                      className={`group relative min-w-0 w-[10.5rem] overflow-hidden rounded-2xl border-2 text-center transition-all ${
+                      className={`group relative -mx-3 min-w-0 w-[9.75rem] text-center transition-all duration-300 ease-out ${
                         isSelected
-                          ? "border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.35)]"
-                          : sceneOverlay
-                            ? "border-transparent bg-transparent hover:border-white/15"
-                            : "border-transparent bg-transparent hover:border-border/30"
+                          ? "z-100 scale-[1.00] opacity-100"
+                          : "scale-[1.00] opacity-70 hover:scale-[1.00] hover:opacity-100"
                       }`}
                       onClick={() => handleSelectCharacter(entry)}
                       data-testid={`character-preset-${entry.id}`}
                     >
-                      <div className="relative aspect-square w-full">
-                        <img
-                          src={getVrmPreviewUrl(entry.avatarIndex)}
-                          alt={entry.name}
-                          className="h-full w-full object-cover object-center"
-                        />
-                        <span
-                          className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${
-                            isSelected
-                              ? "border-yellow-300/70 bg-black/70 text-yellow-200"
-                              : "border-white/10 bg-black/55 text-white/80 backdrop-blur-sm"
-                          }`}
+                      <div
+                        className={`relative h-[10rem] w-full p-[2px] transition-all duration-300 ${
+                          isSelected
+                            ? "bg-yellow-400 shadow-[0_0_28px_rgba(250,204,21,0.32)]"
+                            : sceneOverlay
+                              ? "bg-white/10 hover:bg-white/35"
+                              : "bg-border/20 hover:bg-border/60"
+                        }`}
+                        style={{
+                          clipPath: rosterSlantClipPath,
+                        }}
+                      >
+                        <div
+                          className="relative h-full w-full overflow-hidden"
+                          style={{
+                            clipPath: rosterSlantClipPath,
+                          }}
                         >
-                          {entry.preset.catchphrase}
-                        </span>
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent p-2">
-                          <div className="rounded-lg bg-black/55 px-2 py-1 text-sm font-semibold text-white backdrop-blur-sm">
-                            {entry.name}
+                          {isSelected && (
+                            <div
+                              className="pointer-events-none absolute -inset-3 bg-yellow-300/15 blur-xl"
+                              style={{ clipPath: rosterSlantClipPath }}
+                            />
+                          )}
+                          <img
+                            src={getVrmPreviewUrl(entry.avatarIndex)}
+                            alt={entry.name}
+                            className={`h-full w-full object-cover transition-transform duration-300 ease-out ${
+                              isSelected
+                                ? "scale-[1.04]"
+                                : "scale-100 group-hover:scale-[1.02]"
+                            }`}
+                          />
+                          <div className="absolute inset-x-0 bottom-0">
+                            <div
+                              className={`px-2 py-1 text-sm font-semibold text-white transition-all ${
+                                isSelected
+                                  ? "bg-black/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                                  : "bg-black/62"
+                              }`}
+                              style={{
+                                clipPath: insetShadowClipPath,
+                              }}
+                            >
+                              {entry.name}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1197,664 +1473,74 @@ export function CharacterView({
       ) : null}
 
       {customOverridesEnabled && (
-        <>
+        <div className="mt-3 flex flex-col gap-4">
           <div
-            className="mt-4 grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
-            data-testid="character-customize-grid"
+            className="flex items-center justify-start"
+            data-testid="character-edit-toolbar"
           >
-            <div className="grid min-h-0 gap-6 xl:h-[50rem] xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className={editorCardCls}>
-                <div className="flex items-center justify-between">
-                  <span className={labelCls}>{t("characterview.aboutMe")}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] font-bold text-accent hover:bg-accent/10 border border-transparent hover:border-accent/30 transition-all rounded-md"
-                    onClick={() => void handleGenerate("bio")}
-                    disabled={generating === "bio"}
-                  >
-                    {generating === "bio" ? "generating..." : "regenerate"}
-                  </Button>
-                </div>
-                <Textarea
-                  value={bioText}
-                  rows={6}
-                  placeholder={t("characterview.describeWhoYourAg")}
-                  onChange={(e) => handleFieldEdit("bio", e.target.value)}
-                  className="min-h-0 flex-1 resize-none overflow-y-auto rounded-xl border-border/50 bg-bg/50 p-3 text-sm leading-relaxed shadow-inner backdrop-blur-md focus-visible:border-accent focus-visible:ring-accent/50"
-                />
-              </div>
-
-              <div className={editorCardCls}>
-                <div className="flex items-center justify-between">
-                  <span className={labelCls}>
-                    {t("characterview.directionsAndThing")}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] font-bold text-accent hover:bg-accent/10 border border-transparent hover:border-accent/30 transition-all rounded-md"
-                    onClick={() => void handleGenerate("system")}
-                    disabled={generating === "system"}
-                  >
-                    {generating === "system" ? "generating..." : "regenerate"}
-                  </Button>
-                </div>
-                <Textarea
-                  value={d.system ?? ""}
-                  rows={7}
-                  maxLength={10000}
-                  placeholder={t("characterview.writeInFirstPerso")}
-                  onChange={(e) => handleFieldEdit("system", e.target.value)}
-                  className="min-h-0 flex-1 resize-none overflow-y-auto rounded-xl border-border/50 bg-bg/50 p-3 font-mono text-xs leading-relaxed shadow-inner backdrop-blur-md focus-visible:border-accent focus-visible:ring-accent/50"
-                />
-              </div>
-            </div>
-
-            <div
-              className="grid min-h-0 gap-6 xl:h-[50rem] xl:grid-rows-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
-              data-testid="character-customize-sidebar"
-            >
-              <div
-                className={editorCardCls}
-                data-testid="character-topics-card"
+            <div className="inline-flex items-center gap-2">
+              <Button
+                type="button"
+                variant={customizeStep === "core" ? "default" : "outline"}
+                size="sm"
+                className="h-8 rounded-lg px-3 text-xs font-semibold"
+                onClick={() => setCustomizeStep("core")}
               >
-                <TagEditor
-                  className="min-h-0 flex-1"
-                  label={t("characterview.topics")}
-                  items={d.topics ?? []}
-                  onChange={(items) =>
-                    handleCharacterArrayInput("topics", items.join("\n"))
-                  }
-                  placeholder={t("characterview.addTopic")}
-                  listClassName={`flex-1 ${scrollPaneCls}`}
-                />
-              </div>
-
-              <div
-                className={`${editorCardCls} relative z-20`}
-                data-testid="character-voice-card"
+                {t("characterview.core", { defaultValue: "Core" })}
+              </Button>
+              <Button
+                type="button"
+                variant={customizeStep === "style" ? "default" : "outline"}
+                size="sm"
+                className="h-8 rounded-lg px-3 text-xs font-semibold xl:hidden"
+                onClick={() => setCustomizeStep("style")}
               >
-                <div className="mb-4 border-b border-border/40 pb-3 text-sm font-bold tracking-wide text-txt">
-                  {t("characterview.Voice")}
-                </div>
-
-                {voiceLoading ? (
-                  <div className="flex flex-1 items-center justify-center rounded-xl border border-white/5 bg-black/5 py-8 text-center text-[13px] text-muted animate-pulse">
-                    {t("characterview.LoadingVoiceConfig")}
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className={`${scrollPaneCls} flex flex-1 flex-col gap-5 pr-2`}
-                    >
-                      <div className="max-w-lg text-xs leading-relaxed text-muted/80">
-                        {t("characterview.ChooseTheSpeaking")}
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <span className={labelCls}>
-                          {t("characterview.voice")}
-                        </span>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <ThemedSelect
-                            value={
-                              selectedVoicePresetId === "custom"
-                                ? "__custom__"
-                                : (selectedVoicePresetId ?? null)
-                            }
-                            groups={[
-                              {
-                                label: "Female",
-                                items: PREMADE_VOICES.filter(
-                                  (preset) => preset.gender === "female",
-                                ).map((preset) => ({
-                                  id: preset.id,
-                                  text: preset.name,
-                                  hint: preset.hint,
-                                })),
-                              },
-                              {
-                                label: "Male",
-                                items: PREMADE_VOICES.filter(
-                                  (preset) => preset.gender === "male",
-                                ).map((preset) => ({
-                                  id: preset.id,
-                                  text: preset.name,
-                                  hint: preset.hint,
-                                })),
-                              },
-                              {
-                                label: "Character",
-                                items: PREMADE_VOICES.filter(
-                                  (preset) => preset.gender === "character",
-                                ).map((preset) => ({
-                                  id: preset.id,
-                                  text: preset.name,
-                                  hint: preset.hint,
-                                })),
-                              },
-                              {
-                                label: "Other",
-                                items: [
-                                  {
-                                    id: "__custom__",
-                                    text: "Custom voice ID...",
-                                  },
-                                ],
-                              },
-                            ]}
-                            onChange={(id) => {
-                              if (id === "__custom__") {
-                                setSelectedVoicePresetId("custom");
-                              } else {
-                                const preset = PREMADE_VOICES.find(
-                                  (voicePreset) => voicePreset.id === id,
-                                );
-                                if (preset) handleSelectPreset(preset);
-                              }
-                            }}
-                            placeholder={t("characterview.selectAVoice")}
-                          />
-                          {activeVoicePreset &&
-                            (voiceTesting ? (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="h-9 px-4 font-bold rounded-xl shadow-sm"
-                                onClick={handleStopTest}
-                              >
-                                {t("characterview.stop")}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="h-9 px-4 font-bold border border-white/5 shadow-sm hover:shadow-[0_0_10px_rgba(255,255,255,0.1)] transition-all rounded-xl"
-                                onClick={() =>
-                                  handleTestVoice(activeVoicePreset.previewUrl)
-                                }
-                              >
-                                {t("characterview.preview")}
-                              </Button>
-                            ))}
-                        </div>
-                      </div>
-
-                      {selectedVoicePresetId === "custom" && (
-                        <div className="flex flex-col gap-2">
-                          <span className={labelCls}>
-                            {t("characterview.voiceID")}
-                          </span>
-                          <Input
-                            type="text"
-                            value={voiceConfig.elevenlabs?.voiceId ?? ""}
-                            placeholder={t("characterview.pasteElevenLabsVoi")}
-                            onChange={(e) =>
-                              handleVoiceFieldChange("voiceId", e.target.value)
-                            }
-                            className="h-9 w-full rounded-xl border-border/50 bg-bg/50 font-mono text-[13px] shadow-inner backdrop-blur-md transition-all focus-visible:border-accent focus-visible:ring-accent/50"
-                          />
-                        </div>
-                      )}
-
-                      <details className="group">
-                        <summary className="flex cursor-pointer list-none select-none items-center gap-2 rounded-xl border border-white/5 bg-black/5 p-3 text-xs font-bold transition-colors hover:bg-black/10 [&::-webkit-details-marker]:hidden">
-                          <span className="inline-block text-accent transition-transform group-open:rotate-90">
-                            &#9654;
-                          </span>
-
-                          {t("characterview.advancedVoiceSetti")}
-                        </summary>
-                        <div className="mt-4 rounded-xl border border-border/20 bg-black/10 p-4 shadow-inner">
-                          <ConfigRenderer
-                            schema={
-                              {
-                                type: "object",
-                                properties: {
-                                  modelId: {
-                                    type: "string",
-                                    enum: [
-                                      "",
-                                      "eleven_flash_v2_5",
-                                      "eleven_turbo_v2_5",
-                                      "eleven_multilingual_v2",
-                                      "eleven_turbo_v2",
-                                      "eleven_monolingual_v1",
-                                    ],
-                                  },
-                                  stability: {
-                                    type: "number",
-                                    minimum: 0,
-                                    maximum: 1,
-                                  },
-                                  similarityBoost: {
-                                    type: "number",
-                                    minimum: 0,
-                                    maximum: 1,
-                                  },
-                                  speed: {
-                                    type: "number",
-                                    minimum: 0.5,
-                                    maximum: 2,
-                                  },
-                                },
-                              } satisfies JsonSchemaObject
-                            }
-                            hints={{
-                              modelId: {
-                                label: "Model",
-                                type: "select",
-                                width: "full",
-                                options: [
-                                  { value: "", label: "Default (Flash v2.5)" },
-                                  {
-                                    value: "eleven_flash_v2_5",
-                                    label: "Flash v2.5 (Fastest)",
-                                  },
-                                  {
-                                    value: "eleven_turbo_v2_5",
-                                    label: "Turbo v2.5",
-                                  },
-                                  {
-                                    value: "eleven_multilingual_v2",
-                                    label: "Multilingual v2",
-                                  },
-                                  {
-                                    value: "eleven_turbo_v2",
-                                    label: "Turbo v2",
-                                  },
-                                  {
-                                    value: "eleven_monolingual_v1",
-                                    label: "Monolingual v1",
-                                  },
-                                ],
-                              } satisfies ConfigUiHint,
-                              stability: {
-                                label: "Stability",
-                                type: "number",
-                                width: "third",
-                                placeholder: "0.5",
-                                step: 0.05,
-                              } satisfies ConfigUiHint,
-                              similarityBoost: {
-                                label: "Similarity",
-                                type: "number",
-                                width: "third",
-                                placeholder: "0.75",
-                                step: 0.05,
-                              } satisfies ConfigUiHint,
-                              speed: {
-                                label: "Speed",
-                                type: "number",
-                                width: "third",
-                                placeholder: "1.0",
-                                step: 0.1,
-                              } satisfies ConfigUiHint,
-                            }}
-                            values={{
-                              modelId: voiceConfig.elevenlabs?.modelId ?? "",
-                              stability:
-                                voiceConfig.elevenlabs?.stability ?? "",
-                              similarityBoost:
-                                voiceConfig.elevenlabs?.similarityBoost ?? "",
-                              speed: voiceConfig.elevenlabs?.speed ?? "",
-                            }}
-                            registry={defaultRegistry}
-                            onChange={(key, value) => {
-                              handleVoiceFieldChange(
-                                key,
-                                key === "modelId"
-                                  ? String(value)
-                                  : typeof value === "number"
-                                    ? value
-                                    : parseFloat(String(value)) || 0,
-                              );
-                            }}
-                          />
-                        </div>
-                      </details>
-                    </div>
-
-                    <div className="border-t border-border/40 pt-4 text-xs text-muted">
-                      Voice settings save with the character.
-                    </div>
-                  </>
-                )}
-              </div>
+                {t("characterview.style", { defaultValue: "Style" })}
+              </Button>
+              <Button
+                type="button"
+                variant={customizeStep === "examples" ? "default" : "outline"}
+                size="sm"
+                className="h-8 rounded-lg px-3 text-xs font-semibold"
+                onClick={() => setCustomizeStep("examples")}
+              >
+                {t("characterview.examples", { defaultValue: "Examples" })}
+              </Button>
             </div>
           </div>
 
-          <div
-            className="mt-4 flex flex-col gap-6"
-            data-testid="character-style-examples-grid"
-          >
+          {customizeStep === "examples" ? (
             <div
-              className={`${editorCardCls} lg:h-[36rem] xl:h-[38rem]`}
-              data-testid="character-style-editor"
-            >
-              <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                  <div className="font-bold text-sm tracking-wide text-txt">
-                    {t("characterview.StyleRules")}
-                  </div>
-                  <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium tracking-wide text-muted">
-                    {t("characterview.CommunicationGuid")}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
-                  onClick={() => void handleGenerate("style", "replace")}
-                  disabled={generating === "style"}
-                >
-                  {generating === "style" ? "generating..." : "regenerate"}
-                </Button>
-              </div>
-
-              <div
-                className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2 xl:grid-cols-3"
-                data-testid="character-style-editor-scroll"
-              >
-                {STYLE_SECTION_KEYS.map((key) => {
-                  const items = d.style?.[key] ?? [];
-                  return (
-                    <div
-                      key={key}
-                      className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/40 bg-black/10 shadow-inner"
-                      data-testid={`style-section-${key}`}
-                    >
-                      <div className="flex items-center justify-between gap-2 border-b border-border/30 px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
-                            {key}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
-                            {items.length} rule{items.length === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className={`${scrollPaneCls} flex-1 p-4 pr-2`}>
-                        <div className="flex flex-col gap-2">
-                          {items.length > 0 ? (
-                            items.map((item, index) => (
-                              <div
-                                key={getStyleEntryRenderKey(
-                                  key,
-                                  items,
-                                  item,
-                                  index,
-                                )}
-                                className="flex items-start gap-3 rounded-lg border border-border/30 bg-bg/40 p-3"
-                                data-testid={`style-entry-${key}-${index}`}
-                              >
-                                <span className="mt-0.5 shrink-0 text-[10px] font-bold text-muted/70">
-                                  {index + 1}
-                                </span>
-                                <Textarea
-                                  value={styleEntryDrafts[key]?.[index] ?? item}
-                                  rows={2}
-                                  onChange={(e) =>
-                                    handleStyleEntryDraftChange(
-                                      key,
-                                      index,
-                                      e.target.value,
-                                    )
-                                  }
-                                  onBlur={() =>
-                                    handleCommitStyleEntry(key, index)
-                                  }
-                                  className="min-h-[88px] min-w-0 flex-1 resize-none rounded-lg border-border/50 bg-bg/50 p-2 text-xs leading-relaxed text-txt shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
-                                  data-testid={`style-entry-editor-${key}-${index}`}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
-                                  onClick={() =>
-                                    handleRemoveStyleEntry(key, index)
-                                  }
-                                  title={t("characterview.remove")}
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                            ))
-                          ) : (
-                            <div
-                              className={`${hintCls} rounded-lg border border-dashed border-border/40 bg-bg/30 px-3 py-2`}
-                            >
-                              {STYLE_SECTION_EMPTY_STATES[key]}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="border-t border-border/30 p-4">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="text"
-                            value={pendingStyleEntries[key]}
-                            placeholder={STYLE_SECTION_PLACEHOLDERS[key]}
-                            onChange={(e) =>
-                              handlePendingStyleEntryChange(key, e.target.value)
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleAddStyleEntry(key);
-                              }
-                            }}
-                            className="h-9 min-w-0 flex-1 rounded-xl border-border/50 bg-bg/50 shadow-inner backdrop-blur-md transition-all focus-visible:border-accent focus-visible:ring-accent/50"
-                            data-testid={`style-entry-input-${key}`}
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9 shrink-0 border-border/50 bg-bg/50 px-3 text-[11px] font-bold text-txt shadow-inner transition-all hover:border-accent/40 hover:text-txt"
-                            onClick={() => handleAddStyleEntry(key)}
-                            disabled={!pendingStyleEntries[key].trim()}
-                          >
-                            + add
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div
-              className="grid min-h-0 grid-cols-1 gap-6 lg:h-[36rem] lg:grid-cols-2 xl:h-[38rem]"
+              className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)_minmax(0,24rem)] xl:items-start xl:gap-6"
               data-testid="character-examples-grid"
             >
+              {chatExamplesPanel}
+              <div aria-hidden className="hidden xl:block" />
+              {postExamplesPanel}
+            </div>
+          ) : (
+            <div
+              className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)_minmax(0,32rem)] xl:items-start xl:gap-6"
+              data-testid="character-customize-grid"
+            >
               <div
-                className={editorCardCls}
-                data-testid="character-chat-examples-card"
+                className={
+                  customizeStep === "style" ? "hidden xl:block" : "block"
+                }
               >
-                <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                    <div className="text-sm font-bold tracking-wide text-txt">
-                      {t("characterview.chatExamples")}
-                    </div>
-                    <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
-                      {t("characterview.HowTheAgentResp")}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
-                    onClick={() =>
-                      void handleGenerate("chatExamples", "replace")
-                    }
-                    disabled={generating === "chatExamples"}
-                  >
-                    {generating === "chatExamples"
-                      ? "generating..."
-                      : "generate"}
-                  </Button>
-                </div>
-
-                <div
-                  className={`${scrollPaneCls} flex flex-1 flex-col gap-3 pr-2`}
-                >
-                  {(d.messageExamples ?? []).map((convo, ci) => (
-                    <div
-                      key={convo.examples
-                        .map((msg) => `${msg.name}:${msg.content?.text ?? ""}`)
-                        .join("|")}
-                      className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
-                    >
-                      <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
-                          {t("characterview.conversation")} {ci + 1}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[10px] font-bold text-muted transition-all hover:bg-danger/10 hover:text-danger"
-                          onClick={() => {
-                            const updated = [...(d.messageExamples ?? [])];
-                            updated.splice(ci, 1);
-                            handleFieldEdit("messageExamples", updated);
-                          }}
-                        >
-                          {t("characterview.remove")}
-                        </Button>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        {convo.examples.map((msg, mi) => (
-                          <div
-                            key={`${msg.name}:${msg.content?.text ?? ""}`}
-                            className="flex items-center gap-3"
-                          >
-                            <span
-                              className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}
-                            >
-                              {msg.name === "{{user1}}" ? "user" : "agent"}
-                            </span>
-                            <Input
-                              type="text"
-                              value={msg.content?.text ?? ""}
-                              onChange={(e) => {
-                                const updated = [...(d.messageExamples ?? [])];
-                                const convoClone = {
-                                  examples: [...updated[ci].examples],
-                                };
-                                convoClone.examples[mi] = {
-                                  ...convoClone.examples[mi],
-                                  content: { text: e.target.value },
-                                };
-                                updated[ci] = convoClone;
-                                handleFieldEdit("messageExamples", updated);
-                              }}
-                              className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {(d.messageExamples ?? []).length === 0 && (
-                    <div
-                      className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
-                    >
-                      {t("characterview.noChatExamplesYet")}
-                    </div>
-                  )}
-                </div>
+                {coreFieldsPanel}
               </div>
-
+              <div aria-hidden className="hidden xl:block" />
               <div
-                className={editorCardCls}
-                data-testid="character-post-examples-card"
+                className={
+                  customizeStep === "core" ? "hidden xl:block" : "block"
+                }
               >
-                <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                    <div className="text-sm font-bold tracking-wide text-txt">
-                      {t("characterview.postExamples")}
-                    </div>
-                    <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
-                      {t("characterview.SocialMediaVoice")}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
-                    onClick={() =>
-                      void handleGenerate("postExamples", "replace")
-                    }
-                    disabled={generating === "postExamples"}
-                  >
-                    {generating === "postExamples"
-                      ? "generating..."
-                      : "generate"}
-                  </Button>
-                </div>
-
-                <div
-                  className={`${scrollPaneCls} flex flex-1 flex-col gap-2 pr-2`}
-                >
-                  {(d.postExamples ?? []).map((post: string, pi: number) => (
-                    <div
-                      key={post || `post-${pi}`}
-                      className="flex items-center gap-2"
-                    >
-                      <Input
-                        type="text"
-                        value={post}
-                        onChange={(e) => {
-                          const updated = [...(d.postExamples ?? [])];
-                          updated[pi] = e.target.value;
-                          handleFieldEdit("postExamples", updated);
-                        }}
-                        className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
-                        onClick={() => {
-                          const updated = [...(d.postExamples ?? [])];
-                          updated.splice(pi, 1);
-                          handleFieldEdit("postExamples", updated);
-                        }}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                  {(d.postExamples ?? []).length === 0 && (
-                    <div
-                      className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
-                    >
-                      {t("characterview.noPostExamplesYet")}
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-border/40 pt-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="self-start rounded-md border border-transparent text-[11px] font-bold text-accent transition-all hover:border-accent/30 hover:bg-accent/10"
-                    onClick={() => {
-                      const updated = [...(d.postExamples ?? []), ""];
-                      handleFieldEdit("postExamples", updated);
-                    }}
-                  >
-                    {t("characterview.AddPost")}
-                  </Button>
-                </div>
+                {styleEditorPanel}
               </div>
             </div>
-          </div>
-        </>
+          )}
+        </div>
       )}
 
       <div className={`${sectionCls} relative z-10`}>
@@ -1873,42 +1559,82 @@ export function CharacterView({
           </div>
         )}
 
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-          <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-              onClick={() => {
-                setSelectedCharacterId(null);
-                setCustomOverridesEnabled(false);
-                void loadCharacter();
-              }}
-              disabled={characterLoading}
-            >
-              {characterLoading ? "loading..." : t("characterview.reload")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-              onClick={() => fileInputRef.current?.click()}
-              title={t("characterview.importCharacterJso")}
-            >
-              {t("characterview.import")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-              onClick={handleExport}
-              title={t("characterview.exportAsCharacter")}
-            >
-              {t("characterview.export")}
-            </Button>
+        <div className="relative flex flex-col gap-3 md:min-h-10 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-center md:justify-start">
+            {!customOverridesEnabled ? (
+              <div
+                className="flex min-w-0 items-center gap-2"
+                data-testid="character-voice-picker"
+              >
+                <Button
+                  type="button"
+                  variant={voiceSelectionLocked ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8 rounded-full border-border/50 bg-bg/65 p-0 shadow-inner backdrop-blur-sm"
+                  onClick={() => setVoiceSelectionLocked((value) => !value)}
+                  aria-label={
+                    voiceSelectionLocked
+                      ? "Unlock voice selection"
+                      : "Lock voice selection"
+                  }
+                  title={
+                    voiceSelectionLocked
+                      ? "Voice stays pinned when switching characters"
+                      : "Lock current voice"
+                  }
+                >
+                  {voiceSelectionLocked ? (
+                    <Lock className="h-3.5 w-3.5" />
+                  ) : (
+                    <LockOpen className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <ThemedSelect
+                  value={voiceSelectValue}
+                  groups={VOICE_SELECT_GROUPS}
+                  onChange={(id) => {
+                    const preset = PREMADE_VOICES.find(
+                      (voicePreset) => voicePreset.id === id,
+                    );
+                    if (preset) handleSelectPreset(preset);
+                  }}
+                  placeholder={t("characterview.selectAVoice", {
+                    defaultValue: "Select a voice",
+                  })}
+                  menuPlacement="top"
+                  className="w-[11rem] max-w-[58vw]"
+                  triggerClassName="h-8 rounded-full border-border/50 bg-bg/65 px-4 py-0 text-[11px] shadow-inner backdrop-blur-sm"
+                  menuClassName="border-border/60 bg-bg/92 shadow-2xl backdrop-blur-md"
+                />
+                <Button
+                  type="button"
+                  variant={voiceTesting ? "destructive" : "outline"}
+                  size="icon"
+                  className="h-8 w-8 rounded-full border-border/50 bg-bg/65 p-0 shadow-inner backdrop-blur-sm"
+                  onClick={() =>
+                    voiceTesting
+                      ? handleStopTest()
+                      : activeVoicePreset
+                        ? handleTestVoice(activeVoicePreset.previewUrl)
+                        : undefined
+                  }
+                  aria-label={
+                    voiceTesting ? "Stop voice preview" : "Preview voice"
+                  }
+                  title={voiceTesting ? "Stop voice preview" : "Preview voice"}
+                  disabled={!activeVoicePreset || voiceLoading}
+                >
+                  {voiceTesting ? (
+                    <VolumeX className="h-3.5 w-3.5" />
+                  ) : (
+                    <Volume2 className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center md:absolute md:left-1/2 md:top-1/2 md:z-10 md:-translate-x-1/2 md:-translate-y-1/2">
             <Button
               size="lg"
               className="rounded-xl px-8 text-[13px] font-bold tracking-wider shadow-[0_0_15px_rgba(var(--accent),0.2)] transition-all hover:shadow-[0_0_20px_rgba(var(--accent),0.4)]"

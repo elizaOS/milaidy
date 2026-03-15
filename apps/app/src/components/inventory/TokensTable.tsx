@@ -4,8 +4,14 @@
 
 import type { EvmChainBalance } from "@milady/app-core/api";
 import type { createTranslator } from "@milady/app-core/i18n";
+import { Button } from "@milady/ui";
 import { chainIcon, formatBalance, type TokenRow } from "./constants";
 import { TokenLogo } from "./TokenLogo";
+
+interface WalletCopyAddress {
+  label: string;
+  address: string;
+}
 
 export interface TokensTableProps {
   t: ReturnType<typeof createTranslator>;
@@ -14,6 +20,8 @@ export interface TokensTableProps {
   visibleRows: TokenRow[];
   visibleChainErrors: EvmChainBalance[];
   inventoryChainFocus: string;
+  addresses: WalletCopyAddress[];
+  onCopyAddress: (address: string) => Promise<void> | void;
   handleUntrackToken: (address: string) => void;
 }
 
@@ -24,6 +32,8 @@ export function TokensTable({
   visibleRows,
   visibleChainErrors,
   inventoryChainFocus,
+  addresses,
+  onCopyAddress,
   handleUntrackToken,
 }: TokensTableProps) {
   const renderChainErrors = () =>
@@ -70,14 +80,35 @@ export function TokensTable({
 
   if (visibleRows.length === 0) {
     return (
-      <>
-        <div className="text-center py-8 text-muted italic text-xs">
-          {walletBalances
-            ? t("wallet.noTokensFound")
-            : t("wallet.noDataRefresh")}
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+        <div className="max-w-md space-y-2">
+          <div className="text-base font-medium text-txt-strong">
+            {walletBalances
+              ? t("wallet.noTokensFound")
+              : t("wallet.noDataRefresh")}
+          </div>
+          <div className="text-xs text-muted">{t("wallet.emptyTokensCta")}</div>
         </div>
+        {addresses.length > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {addresses.map((item) => (
+              <Button
+                key={`${item.label}-${item.address}`}
+                variant="outline"
+                size="sm"
+                data-testid={`wallet-copy-${item.label.toLowerCase()}-address`}
+                className="h-8 px-3 text-xs shadow-sm hover:border-accent hover:text-txt"
+                onClick={() => void onCopyAddress(item.address)}
+              >
+                {item.label === "EVM"
+                  ? t("wallet.copyEvmAddress")
+                  : t("wallet.copySolanaAddress")}
+              </Button>
+            ))}
+          </div>
+        )}
         {renderChainErrors()}
-      </>
+      </div>
     );
   }
 

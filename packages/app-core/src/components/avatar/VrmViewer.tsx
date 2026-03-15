@@ -148,17 +148,15 @@ export function VrmViewer(props: VrmViewerProps) {
         if (!mountedRef.current) return;
         engine.setMouthOpen(mouthOpenRef.current);
         engine.setSpeaking(isSpeakingRef.current);
-        if (onEngineStateRef.current) {
-          const now = performance.now();
-          if (now - lastStateEmitMsRef.current >= 250) {
-            lastStateEmitMsRef.current = now;
-            const state = engine.getState();
-            if (state.revealStarted && !revealStartedRef.current) {
-              revealStartedRef.current = true;
-              onRevealStartRef.current?.();
-            }
-            onEngineStateRef.current(state);
+        const now = performance.now();
+        if (now - lastStateEmitMsRef.current >= 250) {
+          lastStateEmitMsRef.current = now;
+          const state = engine.getState();
+          if (state.revealStarted && !revealStartedRef.current) {
+            revealStartedRef.current = true;
+            onRevealStartRef.current?.();
           }
+          onEngineStateRef.current?.(state);
         }
       },
       {

@@ -18,13 +18,13 @@ import {
   RefreshCw,
   Server,
   Shield,
-  Wallet,
   Terminal,
   Trash2,
+  Wallet,
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   type CloudBillingCheckoutResponse,
   type CloudBillingSettings,
@@ -197,7 +197,9 @@ function readBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function normalizeBillingSummary(raw: CloudBillingSummary): CloudBillingSummary {
+function normalizeBillingSummary(
+  raw: CloudBillingSummary,
+): CloudBillingSummary {
   const source = unwrapBillingData(raw);
   return {
     ...raw,
@@ -226,7 +228,9 @@ function normalizeBillingSummary(raw: CloudBillingSummary): CloudBillingSummary 
   };
 }
 
-function normalizeBillingSettings(raw: CloudBillingSettings): CloudBillingSettings {
+function normalizeBillingSettings(
+  raw: CloudBillingSettings,
+): CloudBillingSettings {
   const source = unwrapBillingData(raw);
   return {
     ...raw,
@@ -249,13 +253,74 @@ function getBillingLimits(
   return isRecord(rawSettings?.limits) ? rawSettings.limits : {};
 }
 
-function resolveCheckoutUrl(response: CloudBillingCheckoutResponse): string | null {
+function resolveCheckoutUrl(
+  response: CloudBillingCheckoutResponse,
+): string | null {
   return (
     readString(response.checkoutUrl) ??
     readString(response.url) ??
     readString((response as Record<string, unknown>).hostedUrl) ??
     null
   );
+}
+
+interface AutoTopUpFormState {
+  amount: string;
+  dirty: boolean;
+  enabled: boolean;
+  sourceKey: string;
+  threshold: string;
+}
+
+type AutoTopUpFormAction =
+  | { type: "hydrate"; next: AutoTopUpFormState; force?: boolean }
+  | { type: "setAmount"; value: string }
+  | { type: "setEnabled"; value: boolean }
+  | { type: "setThreshold"; value: string };
+
+function buildAutoTopUpFormState(
+  billingSummary: CloudBillingSummary | null,
+  billingSettings: CloudBillingSettings | null,
+): AutoTopUpFormState {
+  const autoTopUp = getBillingAutoTopUp(billingSettings);
+  const minimumTopUp =
+    readNumber(
+      (billingSummary as Record<string, unknown> | null)?.minimumTopUp,
+    ) ?? 1;
+  const enabled = readBoolean(autoTopUp.enabled) ?? false;
+  const amount = String(readNumber(autoTopUp.amount) ?? minimumTopUp);
+  const threshold = String(readNumber(autoTopUp.threshold) ?? 5);
+  return {
+    amount,
+    dirty: false,
+    enabled,
+    sourceKey: JSON.stringify([enabled, amount, threshold]),
+    threshold,
+  };
+}
+
+function autoTopUpFormReducer(
+  state: AutoTopUpFormState,
+  action: AutoTopUpFormAction,
+): AutoTopUpFormState {
+  switch (action.type) {
+    case "hydrate":
+      if (!action.force && state.dirty) {
+        return state;
+      }
+      if (state.sourceKey === action.next.sourceKey && !state.dirty) {
+        return state;
+      }
+      return action.next;
+    case "setAmount":
+      return { ...state, amount: action.value, dirty: true };
+    case "setEnabled":
+      return { ...state, enabled: action.value, dirty: true };
+    case "setThreshold":
+      return { ...state, threshold: action.value, dirty: true };
+    default:
+      return state;
+  }
 }
 
 export function CloudDashboard() {
@@ -284,25 +349,25 @@ export function CloudDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
-  const [billingSummary, setBillingSummary] = useState<CloudBillingSummary | null>(
-    null,
-  );
-  const [billingSettings, setBillingSettings] = useState<CloudBillingSettings | null>(
-    null,
-  );
+  const [billingSummary, setBillingSummary] =
+    useState<CloudBillingSummary | null>(null);
+  const [billingSettings, setBillingSettings] =
+    useState<CloudBillingSettings | null>(null);
   const [billingAmount, setBillingAmount] = useState("25");
-  const [autoTopUpEnabled, setAutoTopUpEnabled] = useState(false);
-  const [autoTopUpAmount, setAutoTopUpAmount] = useState("25");
-  const [autoTopUpThreshold, setAutoTopUpThreshold] = useState("5");
+  const [autoTopUpForm, dispatchAutoTopUpForm] = useReducer(
+    autoTopUpFormReducer,
+    buildAutoTopUpFormState(null, null),
+  );
   const [billingSettingsBusy, setBillingSettingsBusy] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutSession, setCheckoutSession] =
     useState<CloudBillingCheckoutResponse | null>(null);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [cryptoBusy, setCryptoBusy] = useState(false);
-  const [cryptoQuote, setCryptoQuote] = useState<Record<string, unknown> | null>(
-    null,
-  );
+  const [cryptoQuote, setCryptoQuote] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [cryptoPayBusy, setCryptoPayBusy] = useState(false);
   const [cryptoPayResult, setCryptoPayResult] = useState<string | null>(null);
   const [cloudAgents, setCloudAgents] = useState<CloudCompatAgent[]>([]);
@@ -316,6 +381,9 @@ export function CloudDashboard() {
   const [deployAgentName, setDeployAgentName] = useState("");
   const [deploying, setDeploying] = useState(false);
   const mountedRef = useRef(true);
+  const autoTopUpEnabled = autoTopUpForm.enabled;
+  const autoTopUpAmount = autoTopUpForm.amount;
+  const autoTopUpThreshold = autoTopUpForm.threshold;
 
   const fetchCloudAgents = useCallback(async () => {
     setAgentsLoading(true);
@@ -339,13 +407,12 @@ export function CloudDashboard() {
     setBillingLoading(true);
     setBillingError(null);
     try {
-      const [summaryResponse, settingsResponse] =
-        await Promise.all([
-          client.getCloudBillingSummary().catch((err) => ({ __error: err })),
-          client.getCloudBillingSettings().catch((err) => ({
-            __error: err,
-          })),
-        ]);
+      const [summaryResponse, settingsResponse] = await Promise.all([
+        client.getCloudBillingSummary().catch((err) => ({ __error: err })),
+        client.getCloudBillingSettings().catch((err) => ({
+          __error: err,
+        })),
+      ]);
 
       if (!mountedRef.current) return;
 
@@ -378,15 +445,10 @@ export function CloudDashboard() {
   }, []);
 
   useEffect(() => {
-    const autoTopUp = getBillingAutoTopUp(billingSettings);
-    const minimumTopUp =
-      readNumber((billingSummary as Record<string, unknown> | null)?.minimumTopUp) ??
-      1;
-    setAutoTopUpEnabled(readBoolean(autoTopUp.enabled) ?? false);
-    setAutoTopUpAmount(
-      String(readNumber(autoTopUp.amount) ?? minimumTopUp),
-    );
-    setAutoTopUpThreshold(String(readNumber(autoTopUp.threshold) ?? 5));
+    dispatchAutoTopUpForm({
+      type: "hydrate",
+      next: buildAutoTopUpFormState(billingSummary, billingSettings),
+    });
   }, [billingSettings, billingSummary]);
 
   const handleDeleteAgent = useCallback(
@@ -472,7 +534,11 @@ export function CloudDashboard() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadDropStatus(), fetchCloudAgents(), fetchBillingData()]);
+    await Promise.all([
+      loadDropStatus(),
+      fetchCloudAgents(),
+      fetchBillingData(),
+    ]);
     setTimeout(() => setRefreshing(false), 600);
   }, [fetchBillingData, fetchCloudAgents, loadDropStatus]);
 
@@ -486,7 +552,9 @@ export function CloudDashboard() {
     const maxThreshold = readNumber(limits.maxThreshold) ?? 1000;
     const hasPaymentMethod =
       readBoolean(getBillingAutoTopUp(billingSettings).hasPaymentMethod) ??
-      readBoolean((billingSummary as Record<string, unknown> | null)?.hasPaymentMethod) ??
+      readBoolean(
+        (billingSummary as Record<string, unknown> | null)?.hasPaymentMethod,
+      ) ??
       false;
 
     if (!Number.isFinite(amount) || amount < minAmount || amount > maxAmount) {
@@ -530,7 +598,13 @@ export function CloudDashboard() {
         },
       });
       if (!mountedRef.current) return;
-      setBillingSettings(normalizeBillingSettings(response));
+      const normalizedSettings = normalizeBillingSettings(response);
+      setBillingSettings(normalizedSettings);
+      dispatchAutoTopUpForm({
+        type: "hydrate",
+        next: buildAutoTopUpFormState(billingSummary, normalizedSettings),
+        force: true,
+      });
       await fetchBillingData();
       setActionNotice("Billing settings updated.", "success", 3200);
     } catch (err) {
@@ -558,8 +632,9 @@ export function CloudDashboard() {
 
   const handleStartCheckout = useCallback(async () => {
     const minimumTopUp =
-      readNumber((billingSummary as Record<string, unknown> | null)?.minimumTopUp) ??
-      1;
+      readNumber(
+        (billingSummary as Record<string, unknown> | null)?.minimumTopUp,
+      ) ?? 1;
     const amountUsd = Number(billingAmount);
     if (!Number.isFinite(amountUsd) || amountUsd < minimumTopUp) {
       setActionNotice(
@@ -608,8 +683,9 @@ export function CloudDashboard() {
 
   const handleCreateCryptoQuote = useCallback(async () => {
     const minimumTopUp =
-      readNumber((billingSummary as Record<string, unknown> | null)?.minimumTopUp) ??
-      1;
+      readNumber(
+        (billingSummary as Record<string, unknown> | null)?.minimumTopUp,
+      ) ?? 1;
     const amountUsd = Number(billingAmount);
     if (!Number.isFinite(amountUsd) || amountUsd < minimumTopUp) {
       setActionNotice(
@@ -626,7 +702,9 @@ export function CloudDashboard() {
       const response = await client.createCloudBillingCryptoQuote({
         amountUsd,
         walletAddress:
-          walletAddresses?.evmAddress ?? walletAddresses?.solanaAddress ?? undefined,
+          walletAddresses?.evmAddress ??
+          walletAddresses?.solanaAddress ??
+          undefined,
       });
       setCryptoQuote(response as Record<string, unknown>);
     } catch (err) {
@@ -662,7 +740,11 @@ export function CloudDashboard() {
     }
 
     if (!payToAddress || !amount) {
-      setActionNotice("Crypto quote is missing transfer details.", "error", 4200);
+      setActionNotice(
+        "Crypto quote is missing transfer details.",
+        "error",
+        4200,
+      );
       return;
     }
 
@@ -677,10 +759,17 @@ export function CloudDashboard() {
       });
 
       if (result.executed && result.execution?.hash) {
-        setCryptoPayResult(`Submitted ${currency} payment: ${result.execution.hash}`);
-        setActionNotice("Crypto payment submitted from the agent wallet.", "success");
+        setCryptoPayResult(
+          `Submitted ${currency} payment: ${result.execution.hash}`,
+        );
+        setActionNotice(
+          "Crypto payment submitted from the agent wallet.",
+          "success",
+        );
       } else if (result.requiresUserSignature) {
-        setCryptoPayResult("Cloud returned an unsigned payment request. Sign it from the wallet flow to complete payment.");
+        setCryptoPayResult(
+          "Cloud returned an unsigned payment request. Sign it from the wallet flow to complete payment.",
+        );
         setActionNotice(
           "This wallet requires user-sign mode for crypto payment.",
           "info",
@@ -725,17 +814,22 @@ export function CloudDashboard() {
   const activeView = cloudDashboardView;
   const cloudBalance = billingSummary?.balance ?? elizaCloudCredits ?? 0;
   const cloudCurrency = billingSummary?.currency ?? "USD";
-  const fallbackBillingUrl = billingSummary?.topUpUrl ?? elizaCloudTopUpUrl ?? null;
+  const fallbackBillingUrl =
+    billingSummary?.topUpUrl ?? elizaCloudTopUpUrl ?? null;
   const minimumTopUp =
-    readNumber((billingSummary as Record<string, unknown> | null)?.minimumTopUp) ??
-    1;
+    readNumber(
+      (billingSummary as Record<string, unknown> | null)?.minimumTopUp,
+    ) ?? 1;
   const billingAutoTopUp = getBillingAutoTopUp(billingSettings);
   const billingLimits = getBillingLimits(billingSettings);
   const autoTopUpHasPaymentMethod =
     readBoolean(billingAutoTopUp.hasPaymentMethod) ??
-    readBoolean((billingSummary as Record<string, unknown> | null)?.hasPaymentMethod) ??
+    readBoolean(
+      (billingSummary as Record<string, unknown> | null)?.hasPaymentMethod,
+    ) ??
     false;
-  const autoTopUpMinAmount = readNumber(billingLimits.minAmount) ?? minimumTopUp;
+  const autoTopUpMinAmount =
+    readNumber(billingLimits.minAmount) ?? minimumTopUp;
   const autoTopUpMaxAmount = readNumber(billingLimits.maxAmount) ?? 1000;
   const autoTopUpMinThreshold = readNumber(billingLimits.minThreshold) ?? 0;
   const autoTopUpMaxThreshold = readNumber(billingLimits.maxThreshold) ?? 1000;
@@ -956,7 +1050,12 @@ export function CloudDashboard() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAutoTopUpEnabled((prev) => !prev)}
+                      onClick={() =>
+                        dispatchAutoTopUpForm({
+                          type: "setEnabled",
+                          value: !autoTopUpEnabled,
+                        })
+                      }
                       className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${
                         autoTopUpEnabled
                           ? "border-accent bg-accent"
@@ -993,7 +1092,12 @@ export function CloudDashboard() {
                         max={String(autoTopUpMaxThreshold)}
                         step="1"
                         value={autoTopUpThreshold}
-                        onChange={(event) => setAutoTopUpThreshold(event.target.value)}
+                        onChange={(event) =>
+                          dispatchAutoTopUpForm({
+                            type: "setThreshold",
+                            value: event.target.value,
+                          })
+                        }
                         className="rounded-xl bg-bg"
                       />
                     </div>
@@ -1011,7 +1115,12 @@ export function CloudDashboard() {
                         max={String(autoTopUpMaxAmount)}
                         step="1"
                         value={autoTopUpAmount}
-                        onChange={(event) => setAutoTopUpAmount(event.target.value)}
+                        onChange={(event) =>
+                          dispatchAutoTopUpForm({
+                            type: "setAmount",
+                            value: event.target.value,
+                          })
+                        }
                         className="rounded-xl bg-bg"
                       />
                     </div>
@@ -1029,7 +1138,11 @@ export function CloudDashboard() {
                     <Button
                       variant="outline"
                       className="rounded-2xl border-border/50"
-                      disabled={billingSettingsBusy || billingLoading}
+                      disabled={
+                        billingSettingsBusy ||
+                        billingLoading ||
+                        !autoTopUpForm.dirty
+                      }
                       onClick={() => void handleSaveBillingSettings()}
                     >
                       {billingSettingsBusy ? (
@@ -1097,7 +1210,9 @@ export function CloudDashboard() {
                           min={String(minimumTopUp)}
                           step="1"
                           value={billingAmount}
-                          onChange={(event) => setBillingAmount(event.target.value)}
+                          onChange={(event) =>
+                            setBillingAmount(event.target.value)
+                          }
                           className="rounded-xl bg-bg"
                         />
                       </div>
@@ -1168,7 +1283,7 @@ export function CloudDashboard() {
                           t("elizaclouddashboard.CryptoQuoteReady")}
                       </div>
                       <div className="text-muted">
-                        {(readString(cryptoQuote.currency) ?? "USDC")}{" "}
+                        {readString(cryptoQuote.currency) ?? "USDC"}{" "}
                         {readString(cryptoQuote.amount) ?? "0"} on{" "}
                         {readString(cryptoQuote.network) ?? "selected network"}
                       </div>
@@ -1210,7 +1325,8 @@ export function CloudDashboard() {
                           cryptoPayBusy ||
                           !hasAgentWallet ||
                           !hasWalletFunds ||
-                          readString(cryptoQuote.network)?.toLowerCase() !== "bsc" ||
+                          readString(cryptoQuote.network)?.toLowerCase() !==
+                            "bsc" ||
                           !readString(cryptoQuote.payToAddress) ||
                           !readString(cryptoQuote.amount)
                         }
@@ -1268,7 +1384,9 @@ export function CloudDashboard() {
                 <Button
                   variant="link"
                   className="settings-compact-button w-full text-xs text-txt justify-start px-3 h-auto"
-                  onClick={() => void openExternalUrl(ELIZA_CLOUD_INSTANCES_URL)}
+                  onClick={() =>
+                    void openExternalUrl(ELIZA_CLOUD_INSTANCES_URL)
+                  }
                 >
                   {t("elizaclouddashboard.AdvancedDashboard")}
                   <ExternalLink className="w-3 h-3 ml-2" />
@@ -1400,7 +1518,8 @@ export function CloudDashboard() {
                       {t("elizaclouddashboard.CloudUserID")}
                     </span>
                     <code className="text-xs text-txt-strong break-all font-mono">
-                      {elizaCloudUserId || t("elizaclouddashboard.NotAvailable")}
+                      {elizaCloudUserId ||
+                        t("elizaclouddashboard.NotAvailable")}
                     </code>
                   </div>
 
@@ -1408,7 +1527,9 @@ export function CloudDashboard() {
                     <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
                       {t("elizaclouddashboard.AvailableBalance")}
                     </div>
-                    <div className={`mt-2 text-3xl font-bold ${creditStatusColor}`}>
+                    <div
+                      className={`mt-2 text-3xl font-bold ${creditStatusColor}`}
+                    >
                       ${cloudBalance.toFixed(2)}
                     </div>
                     <div className="mt-2 text-xs text-muted">

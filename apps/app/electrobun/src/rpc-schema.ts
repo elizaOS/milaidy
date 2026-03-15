@@ -222,12 +222,6 @@ export interface TalkModeConfig {
   voiceId?: string;
 }
 
-// -- LIFO (PiP) --
-export interface PipState {
-  enabled: boolean;
-  windowId?: string;
-}
-
 // -- File Dialog --
 export interface FileDialogOptions {
   title?: string;
@@ -802,10 +796,6 @@ export type MiladyRPCSchema = {
         params: undefined;
         response: { views: GpuViewInfo[] };
       };
-
-      // ---- LIFO (PiP) ----
-      lifoGetPipState: { params: undefined; response: PipState };
-      lifoSetPip: { params: PipState; response: undefined };
     };
     // biome-ignore lint/complexity/noBannedTypes: empty message schema placeholder for future audio streaming
     messages: {
@@ -1117,10 +1107,6 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "contextMenu:createSkill": "contextMenuCreateSkill",
   "contextMenu:quoteInChat": "contextMenuQuoteInChat",
   "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
-
-  // LIFO
-  "lifo:getPipState": "lifoGetPipState",
-  "lifo:setPip": "lifoSetPip",
 
   // GPU Window
   "gpuWindow:create": "gpuWindowCreate",

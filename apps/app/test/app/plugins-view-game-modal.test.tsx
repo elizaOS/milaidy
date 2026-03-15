@@ -180,16 +180,23 @@ describe("PluginsView game modal", () => {
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: narrowViewport,
-        media: query,
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
+      value: vi.fn().mockImplementation((query: string) => {
+        const matches = query.includes("max-width: 600px")
+          ? narrowViewport
+          : query.includes("min-width: 1024px")
+            ? !narrowViewport
+            : false;
+        return {
+          matches,
+          media: query,
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        };
+      }),
     });
     Object.defineProperty(window, "__MILADY_ELECTROBUN_RPC__", {
       configurable: true,
@@ -238,6 +245,42 @@ describe("PluginsView game modal", () => {
     expect(text(tree?.root)).toContain("Connectors");
   });
 
+  it("renders connectors in a settings-style layout when social mode is inline", async () => {
+    mockUseApp.mockReturnValue(
+      baseContext([
+        createPlugin("discord", "Discord", "connector"),
+        createPlugin("telegram", "Telegram", "connector", {
+          enabled: false,
+        }),
+      ]),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "social" }),
+      );
+    });
+
+    expect(
+      tree?.root.findAll(
+        (node) => node.props?.["data-testid"] === "plugins-view-social",
+      ).length,
+    ).toBe(1);
+    expect(
+      tree?.root.findAll(
+        (node) => node.props?.["data-testid"] === "connectors-settings-sidebar",
+      ).length,
+    ).toBe(1);
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-game-modal")).length,
+    ).toBe(0);
+    expect(text(tree?.root)).toContain("All (2)");
+    expect(text(tree?.root)).toContain("Enabled (1)");
+    expect(text(tree?.root)).toContain("Discord");
+    expect(text(tree?.root)).toContain("Telegram");
+  });
+
   it("uses list/detail mobile panes on narrow viewport", async () => {
     narrowViewport = true;
     let tree: TestRenderer.ReactTestRenderer;
@@ -278,6 +321,47 @@ describe("PluginsView game modal", () => {
 
     expect(getListPane().props.className.includes("is-hidden")).toBe(false);
     expect(getDetailPane().props.className.includes("is-hidden")).toBe(true);
+  });
+
+  it("shows connectors as collapsed inline sections on mobile and expands in place", async () => {
+    narrowViewport = true;
+    mockUseApp.mockReturnValue(
+      baseContext([
+        createPlugin("discord", "Discord", "connector"),
+        createPlugin("telegram", "Telegram", "connector", {
+          enabled: false,
+        }),
+      ]),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PluginsView, { inModal: true, mode: "social" }),
+      );
+    });
+
+    expect(
+      tree?.root.findAll(
+        (node) => node.props?.["data-testid"] === "connectors-settings-sidebar",
+      ).length,
+    ).toBe(0);
+    expect(text(tree?.root)).not.toContain("Save Settings");
+    expect(
+      tree?.root.findAll((node) => hasClass(node, "plugins-game-back-btn"))
+        .length,
+    ).toBe(0);
+
+    const discordHeader = tree?.root.findAll(
+      (node) => node.props?.["data-testid"] === "connector-header-discord",
+    )[0];
+    await act(async () => {
+      discordHeader.props.onClick();
+    });
+
+    expect(text(tree?.root)).toContain("Save Settings");
+    expect(text(tree?.root)).toContain("Test Connection");
+    expect(text(tree?.root)).toContain("Collapse");
   });
 
   it("re-selects the first visible plugin when the selected one is filtered out", async () => {

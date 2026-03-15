@@ -1,3 +1,4 @@
+import { LanguageDropdown, ThemeToggle } from "@milady/app-core/components";
 import { getTabGroups, type TabGroup } from "@milady/app-core/navigation";
 import { useApp } from "@milady/app-core/state";
 import { AlertTriangle, CircleDollarSign, Menu } from "lucide-react";
@@ -77,10 +78,12 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
   }, []);
 
   const streamingEnabled = useMemo(
-    () => plugins.some((p) => p.id === "streaming-base" && p.enabled),
+    () =>
+      plugins.some(
+        (plugin) => plugin.id === "streaming-base" && plugin.enabled,
+      ),
     [plugins],
   );
-
   const tabGroups = useMemo(
     () => getTabGroups(streamingEnabled),
     [streamingEnabled],
@@ -109,12 +112,6 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
       ? t("header.elizaCloudConnected")
       : `$${elizaCloudCredits.toFixed(2)}`;
 
-  const handleShellViewChange = (
-    view: "companion" | "character" | "desktop",
-  ) => {
-    switchShellView(view);
-  };
-
   const openCloudBilling = () => {
     setState("cloudDashboardView", "billing");
     setTab("settings");
@@ -130,7 +127,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
           <button
             type="button"
             data-testid="header-cloud-credits-desktop"
-            className={`hidden shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-11 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-txt hover:shadow-sm md:inline-flex ${elizaCloudCredits === null ? "border-muted text-muted" : creditColor}`}
+            className={`hidden shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-11 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-txt hover:shadow-sm sm:inline-flex ${elizaCloudCredits === null ? "border-muted text-muted" : creditColor}`}
             title={t("header.CloudCreditsBalanc")}
             onClick={openCloudBilling}
           >
@@ -168,7 +165,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
 
     if (placement === "desktop") {
       return (
-        <span className="hidden shrink-0 items-center gap-1 px-2.5 py-1.5 h-11 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs md:inline-flex">
+        <span className="hidden shrink-0 items-center gap-1 px-2.5 py-1.5 h-11 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs sm:inline-flex">
           <AlertTriangle className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">
             {t("header.cloudDisconnected")}
@@ -196,6 +193,32 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
     );
   };
 
+  const renderMobileMenuThemeToggle = () => (
+    <div
+      data-testid="header-theme-toggle-mobile"
+      className="flex items-center justify-end"
+    >
+      <ThemeToggle
+        uiTheme={uiTheme}
+        setUiTheme={setUiTheme}
+        t={t}
+        className="!h-11 !w-11 !min-h-11 !min-w-11"
+      />
+    </div>
+  );
+
+  const renderMobileMenuLanguageDropdown = () => (
+    <div data-testid="header-language-dropdown-mobile" className="shrink-0">
+      <LanguageDropdown
+        uiLanguage={uiLanguage}
+        setUiLanguage={setUiLanguage}
+        t={t}
+        menuPlacement="top-end"
+        triggerClassName="!h-11 !min-h-11 !rounded-xl !px-3.5"
+      />
+    </div>
+  );
+
   useEffect(() => {
     if (shellMode !== "native") return;
     setState("chatMode", "power");
@@ -217,34 +240,44 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
       >
         <ShellHeaderControls
           activeShellView={activeShellView}
-          onShellViewChange={handleShellViewChange}
+          onShellViewChange={switchShellView}
           uiLanguage={uiLanguage}
           setUiLanguage={setUiLanguage}
           uiTheme={uiTheme}
           setUiTheme={setUiTheme}
           t={t}
-          rightExtras={
-            <>
-              {renderCloudCredits("desktop")}
-              {showNavigationMenu ? (
-                <button
-                  type="button"
-                  className={`md:hidden ${HEADER_ICON_BUTTON_CLASSNAME}`}
-                  onClick={() => setMobileMenuOpen(true)}
-                  aria-label="Open navigation menu"
-                  aria-expanded={mobileMenuOpen}
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-              ) : null}
-            </>
+          languageDropdownClassName={
+            showNavigationMenu ? "hidden sm:inline-flex" : undefined
+          }
+          languageDropdownWrapperTestId={
+            showNavigationMenu ? "header-language-dropdown-desktop" : undefined
+          }
+          themeToggleWrapperClassName={
+            showNavigationMenu ? "hidden sm:flex" : undefined
+          }
+          themeToggleWrapperTestId={
+            showNavigationMenu ? "header-theme-toggle-desktop" : undefined
+          }
+          rightExtras={renderCloudCredits("desktop")}
+          trailingExtras={
+            showNavigationMenu ? (
+              <button
+                type="button"
+                className={`sm:hidden ${HEADER_ICON_BUTTON_CLASSNAME}`}
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={mobileMenuOpen}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            ) : null
           }
         >
           {mobileLeft ? (
-            <div className="flex md:hidden">{mobileLeft}</div>
+            <div className="flex sm:hidden">{mobileLeft}</div>
           ) : null}
           {showNavigationMenu ? (
-            <nav className="hidden md:flex flex-1 items-center justify-left gap-1 overflow-x-auto whitespace-nowrap px-2 scrollbar-hide">
+            <nav className="hidden sm:flex flex-1 items-center justify-left gap-1 overflow-x-auto whitespace-nowrap px-2 scrollbar-hide">
               {tabGroups.map((group: TabGroup) => {
                 const primaryTab = group.tabs[0];
                 const isActive = group.tabs.includes(tab);
@@ -253,7 +286,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
                   <button
                     type="button"
                     key={group.label}
-                    className={`inline-flex items-center justify-center gap-1.5 shrink-0 px-3 lg:px-4 py-2 text-[12px] bg-transparent border border-transparent cursor-pointer transition-all duration-300 rounded-full ${
+                    className={`inline-flex items-center justify-center gap-0 xl:gap-1.5 shrink-0 px-2.5 md:px-3 xl:px-4 py-2 text-[12px] bg-transparent border border-transparent cursor-pointer transition-all duration-300 rounded-full ${
                       isActive
                         ? "text-accent-fg dark:text-txt-strong font-bold bg-accent dark:bg-accent/15 shadow-[0_0_15px_rgba(var(--accent),0.28)] border-accent/50 dark:border-accent/40 ring-1 ring-inset ring-white/18 dark:ring-accent/25"
                         : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
@@ -261,8 +294,16 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
                     onClick={() => setTab(primaryTab)}
                     title={group.description}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden lg:inline">
+                    <span
+                      data-testid={`header-nav-icon-${primaryTab}`}
+                      className="inline-flex md:hidden xl:inline-flex"
+                    >
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <span
+                      data-testid={`header-nav-label-${primaryTab}`}
+                      className="hidden md:inline"
+                    >
                       {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
                     </span>
                   </button>
@@ -276,7 +317,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
       {/* Mobile Menu Overlay */}
       {showNavigationMenu && mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-[140] md:hidden"
+          className="fixed inset-0 z-[140] sm:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
@@ -291,50 +332,58 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
 
           {/* Menu Panel */}
           <div className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-bg border-l border-border shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col">
-            <div className="flex-1 overflow-y-auto py-3 px-3">
-              <div className="flex flex-col gap-3">
-                {renderCloudCredits("mobile-menu")}
-                {tabGroups.map((group: TabGroup, index) => {
-                  const primaryTab = group.tabs[0];
-                  const isActive = group.tabs.includes(tab);
-                  const Icon = group.icon;
-                  return (
-                    <button
-                      key={group.label}
-                      type="button"
-                      className={`w-full flex items-center gap-3 px-3 py-3.5 border rounded-xl text-[14px] font-medium transition-all duration-300 cursor-pointer min-h-[48px] ${
-                        isActive
-                          ? "border-accent/50 bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.24)] ring-1 ring-inset ring-white/18"
-                          : "border-transparent bg-transparent text-txt hover:border-border/50 hover:bg-bg-hover"
-                      }`}
-                      style={{ animationDelay: `${index * 50}ms` }}
-                      onClick={() => {
-                        setTab(primaryTab);
-                        setMobileMenuOpen(false);
-                      }}
-                    >
-                      <span
-                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
-                          isActive ? "bg-accent/20" : "bg-bg-accent"
+            <div className="flex flex-1 flex-col py-3 px-3">
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex flex-col gap-1">
+                  {tabGroups.map((group: TabGroup, index) => {
+                    const primaryTab = group.tabs[0];
+                    const isActive = group.tabs.includes(tab);
+                    const Icon = group.icon;
+                    return (
+                      <button
+                        key={group.label}
+                        type="button"
+                        className={`w-full flex items-center gap-3 px-3 py-3.5 border rounded-xl text-[14px] font-medium transition-all duration-300 cursor-pointer min-h-[48px] ${
+                          isActive
+                            ? "border-accent/50 bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.24)] ring-1 ring-inset ring-white/18"
+                            : "border-transparent bg-transparent text-txt hover:border-border/50 hover:bg-bg-hover"
                         }`}
+                        style={{ animationDelay: `${index * 50}ms` }}
+                        onClick={() => {
+                          setTab(primaryTab);
+                          setMobileMenuOpen(false);
+                        }}
                       >
-                        <Icon
-                          className={`w-4 h-4 ${isActive ? "text-txt" : "text-muted"}`}
-                        />
-                      </span>
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">
-                          {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
-                        </div>
-                        {group.description && (
-                          <div className="text-[11px] text-muted mt-0.5">
-                            {group.description}
+                        <span
+                          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                            isActive ? "bg-accent/20" : "bg-bg-accent"
+                          }`}
+                        >
+                          <Icon
+                            className={`w-4 h-4 ${isActive ? "text-txt" : "text-muted"}`}
+                          />
+                        </span>
+                        <div className="flex-1 text-left">
+                          <div className="font-medium">
+                            {t(NAV_LABEL_I18N_KEY[group.label] ?? group.label)}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                          {group.description && (
+                            <div className="text-[11px] text-muted mt-0.5">
+                              {group.description}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-3 border-t border-border/50 pt-3">
+                {renderCloudCredits("mobile-menu")}
+                <div className="flex items-center justify-end gap-2">
+                  {renderMobileMenuLanguageDropdown()}
+                  {renderMobileMenuThemeToggle()}
+                </div>
               </div>
             </div>
           </div>

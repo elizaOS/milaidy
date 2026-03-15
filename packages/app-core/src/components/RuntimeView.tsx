@@ -7,7 +7,7 @@
  * - Explicit load order metadata
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   client,
   type RuntimeDebugSnapshot,
@@ -239,7 +239,7 @@ export function RuntimeView() {
   const [maxObjectEntries, setMaxObjectEntries] = useState(1000);
 
   const sectionData = snapshot?.sections[activeSection] ?? null;
-  const rootPath = useMemo(() => `$${activeSection}`, [activeSection]);
+  const rootPath = `$${activeSection}`;
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);

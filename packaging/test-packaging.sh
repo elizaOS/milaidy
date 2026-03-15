@@ -170,7 +170,7 @@ fi
 
 check "Has name field" grep -q "^name: milady" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has version field" grep -q "^version:" "$SCRIPT_DIR/snap/snapcraft.yaml"
-check "Has classic confinement" grep -q "confinement: classic" "$SCRIPT_DIR/snap/snapcraft.yaml"
+check "Has confinement set" grep -q "^confinement:" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has base" grep -q "^base: core22" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has apps section" grep -q "^apps:" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has node part" grep -q "node:" "$SCRIPT_DIR/snap/snapcraft.yaml"

@@ -49,6 +49,13 @@ function buildControlledSseResponse(initialChunk: string): {
   };
 }
 
+function buildJsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 describe("MiladyClient streaming chat endpoints", () => {
   const originalFetch = globalThis.fetch;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -361,6 +368,23 @@ describe("MiladyClient streaming chat endpoints", () => {
       kind: "http",
       status: 401,
       path: "/api/chat/stream",
+    });
+  });
+
+  test("preserves empty greeting text instead of converting it to the generic error", async () => {
+    fetchMock.mockResolvedValue(
+      buildJsonResponse({
+        text: "",
+        agentName: "Milady",
+        generated: false,
+      }),
+    );
+
+    const client = new MiladyClient("http://localhost:2138");
+    await expect(client.requestGreeting("conv-empty")).resolves.toEqual({
+      text: "",
+      agentName: "Milady",
+      generated: false,
     });
   });
 });

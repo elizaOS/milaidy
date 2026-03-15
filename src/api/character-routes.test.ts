@@ -1,5 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { MiladyConfig } from "../config/types";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   type CharacterRouteState,
@@ -12,7 +13,7 @@ function createRuntimeStub(): AgentRuntime {
     bio: ["Initial bio"],
     system: "System prompt",
     adjectives: ["curious"],
-    topics: ["ai"],
+    topics: ["art", "philosophy"],
     style: { all: ["be concise"], chat: [], post: [] },
     messageExamples: [
       {
@@ -34,12 +35,19 @@ function createRuntimeStub(): AgentRuntime {
 describe("character routes", () => {
   let state: CharacterRouteState;
   let pickRandomNames: ReturnType<typeof vi.fn>;
+  let saveConfig: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     pickRandomNames = vi.fn(() => ["Reimu"]);
+    saveConfig = vi.fn();
     state = {
       runtime: createRuntimeStub(),
       agentName: "Milady",
+      config: {
+        agents: {
+          list: [{ id: "main", default: true, name: "Milady" }],
+        },
+      } as MiladyConfig,
     };
   });
 
@@ -55,6 +63,7 @@ describe("character routes", () => {
         method: ctx.method,
         pathname: ctx.pathname,
         state: ctx.runtime,
+        saveConfig,
         readJsonBody: async () => ctx.readJsonBody(),
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
@@ -137,6 +146,22 @@ describe("character routes", () => {
     ).toEqual(messageExamples);
   });
 
+  test("updates topics", async () => {
+    const topics = ["crypto", "memes", "fashion"];
+
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: { topics },
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (state.runtime as unknown as { character: Record<string, unknown> })
+        .character.topics,
+    ).toEqual(topics);
+  });
+
   test("persists the full character payload including username across save and reload", async () => {
     const fullCharacter = {
       name: "Sakuya",
@@ -144,7 +169,7 @@ describe("character routes", () => {
       bio: ["new bio", "second line"],
       system: "new system",
       adjectives: ["precise", "calm"],
-      topics: ["systems", "writing"],
+      topics: ["time", "duty"],
       style: {
         all: ["Be exact"],
         chat: ["Stay calm"],
@@ -188,6 +213,68 @@ describe("character routes", () => {
     expect(getResult.payload).toMatchObject({
       agentName: "Sakuya",
       character: fullCharacter,
+    });
+  });
+
+  test("round-trips topics through PUT and GET", async () => {
+    const topics = ["crypto", "memes", "fashion"];
+
+    const putResult = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: { topics },
+    });
+
+    expect(putResult.status).toBe(200);
+    expect(
+      (state.runtime as unknown as { character: Record<string, unknown> })
+        .character.topics,
+    ).toEqual(topics);
+
+    const getResult = await invoke({
+      method: "GET",
+      pathname: "/api/character",
+    });
+
+    expect(getResult.status).toBe(200);
+    expect(getResult.payload).toMatchObject({
+      character: expect.objectContaining({ topics }),
+    });
+  });
+
+  test("syncs character post examples into config so they survive restart", async () => {
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: {
+        name: "Reimu",
+        postExamples: ["default fallback post"],
+        messageExamples: [
+          {
+            examples: [
+              { name: "{{user1}}", content: { text: "hi" } },
+              { name: "Reimu", content: { text: "hello" } },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
+    expect(state.config?.agents?.list?.[0]).toMatchObject({
+      id: "main",
+      default: true,
+      name: "Reimu",
+      postExamples: ["default fallback post"],
+      messageExamples: [
+        {
+          examples: [
+            { name: "{{user1}}", content: { text: "hi" } },
+            { name: "Reimu", content: { text: "hello" } },
+          ],
+        },
+      ],
     });
   });
 

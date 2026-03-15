@@ -7,6 +7,7 @@
  */
 
 import {
+  type ConversationChannelType,
   type ConversationMessage,
   client,
   type ImageAttachment,
@@ -57,53 +58,62 @@ interface ChatViewProps {
   variant?: ChatViewVariant;
 }
 
-export function ChatView({ variant = "default" }: ChatViewProps) {
-  const { setTimeout } = useTimeout();
+interface CompanionCarryoverState {
+  expiresAtMs: number;
+  fadeStartsAtMs: number;
+  messages: ConversationMessage[];
+}
 
-  const isGameModal = variant === "game-modal";
-  const autoAssistantSpeechEnabled = isGameModal;
-  const showComposerVoiceToggle = false;
+function findLatestAssistantMessage(messages: ConversationMessage[]) {
+  return [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant" && message.text.trim());
+}
+
+function useChatVoiceController(options: {
+  agentVoiceMuted: boolean;
+  chatFirstTokenReceived: boolean;
+  chatInput: string;
+  chatSending: boolean;
+  conversationMessages: ConversationMessage[];
+  elizaCloudConnected: boolean;
+  handleChatEdit: (messageId: string, text: string) => Promise<boolean>;
+  handleChatSend: (channelType?: ConversationChannelType) => Promise<void>;
+  isComposerLocked: boolean;
+  isGameModal: boolean;
+  setState: ReturnType<typeof useApp>["setState"];
+  uiLanguage: string;
+}) {
+  const { setTimeout } = useTimeout();
   const {
-    agentStatus,
-    activeConversationId,
+    agentVoiceMuted,
+    chatFirstTokenReceived,
     chatInput,
     chatSending,
-    chatFirstTokenReceived,
-    companionMessageCutoffTs,
     conversationMessages,
-    handleChatSend,
-    handleChatStop,
-    handleChatEdit,
     elizaCloudConnected,
+    handleChatEdit,
+    handleChatSend,
+    isComposerLocked,
+    isGameModal,
     setState,
-    droppedFiles,
-    shareIngestNotice,
-    chatAgentVoiceMuted: agentVoiceMuted,
-    selectedVrmIndex,
-    chatPendingImages,
-    setChatPendingImages,
     uiLanguage,
-    ptySessions,
-    t,
-  } = useApp();
-
-  const messagesRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const previousCompanionCutoffTsRef = useRef(companionMessageCutoffTs);
-  const previousGameModalVisibleMsgsRef = useRef<ConversationMessage[]>([]);
-  const previousActiveConversationIdRef = useRef(activeConversationId);
-  const companionVoiceInitializedRef = useRef(false);
-  const [imageDragOver, setImageDragOver] = useState(false);
-  const [companionNowMs, setCompanionNowMs] = useState(() => Date.now());
-  const [companionCarryover, setCompanionCarryover] = useState<{
-    messages: ConversationMessage[];
-    fadeStartsAtMs: number;
-    expiresAtMs: number;
-  } | null>(null);
-
-  // ── Voice config (ElevenLabs / browser TTS) ────────────────────────
+  } = options;
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig | null>(null);
+  const [voiceLatency, setVoiceLatency] = useState<{
+    firstSegmentCached: boolean | null;
+    speechEndToFirstTokenMs: number | null;
+    speechEndToVoiceStartMs: number | null;
+  } | null>(null);
+  const pendingVoiceTurnRef = useRef<{
+    expiresAtMs: number;
+    firstSegmentCached?: boolean;
+    firstTokenAtMs?: number;
+    speechEndedAtMs: number;
+    voiceStartedAtMs?: number;
+  } | null>(null);
+  const suppressedAssistantSpeechIdRef = useRef<string | null>(null);
+  const voiceDraftBaseInputRef = useRef("");
 
   const loadVoiceConfig = useCallback(async () => {
     try {
@@ -118,12 +128,10 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     }
   }, []);
 
-  // Load saved voice config on mount so the correct TTS provider is used
   useEffect(() => {
     void loadVoiceConfig();
   }, [loadVoiceConfig]);
 
-  // Keep chat voice config synchronized when Settings/Character voice is saved.
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -143,28 +151,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       window.removeEventListener(VOICE_CONFIG_UPDATED_EVENT, handler);
   }, [loadVoiceConfig]);
 
-  // ── Derived composer state ──────────────────────────────────────
-  const isAgentStarting =
-    agentStatus?.state === "starting" || agentStatus?.state === "restarting";
-  const isComposerLocked = chatSending || isAgentStarting;
-
-  // ── Voice chat ────────────────────────────────────────────────────
-  const pendingVoiceTurnRef = useRef<{
-    speechEndedAtMs: number;
-    expiresAtMs: number;
-    firstTokenAtMs?: number;
-    voiceStartedAtMs?: number;
-    firstSegmentCached?: boolean;
-  } | null>(null);
-  const voiceDraftBaseInputRef = useRef("");
-  const suppressedAssistantSpeechIdRef = useRef<string | null>(null);
-
-  const [voiceLatency, setVoiceLatency] = useState<{
-    speechEndToFirstTokenMs: number | null;
-    speechEndToVoiceStartMs: number | null;
-    firstSegmentCached: boolean | null;
-  } | null>(null);
-
   const composeVoiceDraft = useCallback((transcript: string) => {
     const base = voiceDraftBaseInputRef.current.trim();
     const spoken = transcript.trim();
@@ -181,21 +167,20 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       if (!composedText) return;
       const speechEndedAtMs = nowMs();
       pendingVoiceTurnRef.current = {
-        speechEndedAtMs,
         expiresAtMs: speechEndedAtMs + 15000,
+        speechEndedAtMs,
       };
       setVoiceLatency(null);
       setState("chatInput", composedText);
       setTimeout(() => void handleChatSend("VOICE_DM"), 50);
     },
-    [composeVoiceDraft, isComposerLocked, setState, handleChatSend, setTimeout],
+    [composeVoiceDraft, handleChatSend, isComposerLocked, setState, setTimeout],
   );
 
   const handleVoiceTranscriptPreview = useCallback(
     (text: string) => {
       if (isComposerLocked) return;
-      const composedText = composeVoiceDraft(text);
-      setState("chatInput", composedText);
+      setState("chatInput", composeVoiceDraft(text));
     },
     [composeVoiceDraft, isComposerLocked, setState],
   );
@@ -213,26 +198,25 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       pending.voiceStartedAtMs = event.startedAtMs;
       pending.firstSegmentCached = event.cached;
 
-      const silenceMs = Math.max(
-        0,
-        Math.round(event.startedAtMs - pending.speechEndedAtMs),
-      );
       setVoiceLatency((prev) => ({
-        speechEndToFirstTokenMs: prev?.speechEndToFirstTokenMs ?? null,
-        speechEndToVoiceStartMs: silenceMs,
         firstSegmentCached: event.cached,
+        speechEndToFirstTokenMs: prev?.speechEndToFirstTokenMs ?? null,
+        speechEndToVoiceStartMs: Math.max(
+          0,
+          Math.round(event.startedAtMs - pending.speechEndedAtMs),
+        ),
       }));
     },
     [],
   );
 
   const voice = useVoiceChat({
-    onTranscript: handleVoiceTranscript,
-    onTranscriptPreview: handleVoiceTranscriptPreview,
-    onPlaybackStart: handleVoicePlaybackStart,
     cloudConnected: elizaCloudConnected,
     interruptOnSpeech: isGameModal,
     lang: uiLanguage === "zh-CN" ? "zh-CN" : "en-US",
+    onPlaybackStart: handleVoicePlaybackStart,
+    onTranscript: handleVoiceTranscript,
+    onTranscriptPreview: handleVoiceTranscriptPreview,
     voiceConfig,
   });
   const {
@@ -242,19 +226,11 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     stopListening,
     stopSpeaking,
   } = voice;
-  const handleChatAvatarSpeakingChange = useCallback(
-    (isSpeaking: boolean) => {
-      setState("chatAvatarSpeaking", isSpeaking);
-    },
-    [setState],
-  );
 
   const beginVoiceCapture = useCallback(
     (mode: Exclude<VoiceCaptureMode, "idle"> = "compose") => {
       if (isComposerLocked || voice.isListening) return;
-      const latestAssistant = [...conversationMessages]
-        .reverse()
-        .find((message) => message.role === "assistant" && message.text.trim());
+      const latestAssistant = findLatestAssistantMessage(conversationMessages);
       suppressedAssistantSpeechIdRef.current = latestAssistant?.id ?? null;
       voiceDraftBaseInputRef.current = chatInput;
       stopSpeaking();
@@ -271,9 +247,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
   );
 
   const endVoiceCapture = useCallback(
-    (options?: { submit?: boolean }) => {
+    (captureOptions?: { submit?: boolean }) => {
       if (!voice.isListening) return;
-      void stopListening(options);
+      void stopListening(captureOptions);
     },
     [stopListening, voice.isListening],
   );
@@ -295,21 +271,90 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     [handleChatEdit, stopSpeaking],
   );
 
-  const agentName = agentStatus?.agentName ?? "Agent";
-  const msgs = conversationMessages;
-  const visibleMsgs = useMemo(
-    () =>
-      msgs.filter(
-        (msg) =>
-          !(
-            chatSending &&
-            !chatFirstTokenReceived &&
-            msg.role === "assistant" &&
-            !msg.text.trim()
-          ) && !isRoutineCodingAgentMessage(msg),
+  useEffect(() => {
+    if (!isGameModal || agentVoiceMuted || voice.isListening) return;
+    const latestAssistant = findLatestAssistantMessage(conversationMessages);
+    if (!latestAssistant) return;
+    if (suppressedAssistantSpeechIdRef.current === latestAssistant.id) return;
+
+    queueAssistantSpeech(
+      latestAssistant.id,
+      latestAssistant.text,
+      !chatSending,
+    );
+    suppressedAssistantSpeechIdRef.current = null;
+  }, [
+    agentVoiceMuted,
+    chatSending,
+    conversationMessages,
+    isGameModal,
+    queueAssistantSpeech,
+    voice.isListening,
+  ]);
+
+  useEffect(() => {
+    if (!agentVoiceMuted) return;
+    stopSpeaking();
+  }, [agentVoiceMuted, stopSpeaking]);
+
+  useEffect(() => {
+    const pending = pendingVoiceTurnRef.current;
+    if (!pending || !chatFirstTokenReceived) return;
+    if (nowMs() > pending.expiresAtMs) {
+      pendingVoiceTurnRef.current = null;
+      return;
+    }
+    if (pending.firstTokenAtMs != null) return;
+
+    const firstTokenAtMs = nowMs();
+    pending.firstTokenAtMs = firstTokenAtMs;
+    setVoiceLatency((prev) => ({
+      firstSegmentCached: prev?.firstSegmentCached ?? null,
+      speechEndToFirstTokenMs: Math.max(
+        0,
+        Math.round(firstTokenAtMs - pending.speechEndedAtMs),
       ),
-    [chatFirstTokenReceived, chatSending, msgs],
-  );
+      speechEndToVoiceStartMs: prev?.speechEndToVoiceStartMs ?? null,
+    }));
+  }, [chatFirstTokenReceived]);
+
+  return {
+    beginVoiceCapture,
+    endVoiceCapture,
+    handleEditMessage,
+    handleSpeakMessage,
+    stopSpeaking,
+    voice,
+    voiceLatency,
+  };
+}
+
+function useGameModalMessages(options: {
+  activeConversationId: string | null;
+  agentVoiceMuted: boolean;
+  companionMessageCutoffTs: number;
+  isGameModal: boolean;
+  setState: ReturnType<typeof useApp>["setState"];
+  stopSpeaking: () => void;
+  visibleMsgs: ConversationMessage[];
+}) {
+  const {
+    activeConversationId,
+    agentVoiceMuted,
+    companionMessageCutoffTs,
+    isGameModal,
+    setState,
+    stopSpeaking,
+    visibleMsgs,
+  } = options;
+  const previousCompanionCutoffTsRef = useRef(companionMessageCutoffTs);
+  const previousGameModalVisibleMsgsRef = useRef<ConversationMessage[]>([]);
+  const previousActiveConversationIdRef = useRef(activeConversationId);
+  const companionVoiceInitializedRef = useRef(false);
+  const [companionNowMs, setCompanionNowMs] = useState(() => Date.now());
+  const [companionCarryover, setCompanionCarryover] =
+    useState<CompanionCarryoverState | null>(null);
+
   const gameModalRecentMsgs = useMemo(
     () =>
       visibleMsgs.filter(
@@ -321,10 +366,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     if (gameModalRecentMsgs.length > 0) {
       return gameModalRecentMsgs;
     }
-
-    // When the companion view is opened against an older active thread, the
-    // persisted cutoff can hide every message. Fall back to the latest visible
-    // thread context so switching shells keeps the same conversation alive.
     return visibleMsgs.slice(-COMPANION_VISIBLE_MESSAGE_LIMIT);
   }, [gameModalRecentMsgs, visibleMsgs]);
   const gameModalVisibleMsgs = useMemo(
@@ -338,8 +379,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     if (remainingMs <= 0) return 0;
     return Math.max(0, remainingMs / COMPANION_HISTORY_FADE_MS);
   }, [companionCarryover, companionNowMs]);
-  const agentAvatarSrc =
-    selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
 
   useEffect(() => {
     if (!isGameModal) {
@@ -390,10 +429,10 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       if (carryoverMessages.length > 0) {
         const startedAtMs = Date.now();
         setCompanionCarryover({
-          messages: carryoverMessages,
-          fadeStartsAtMs: startedAtMs + COMPANION_HISTORY_HOLD_MS,
           expiresAtMs:
             startedAtMs + COMPANION_HISTORY_HOLD_MS + COMPANION_HISTORY_FADE_MS,
+          fadeStartsAtMs: startedAtMs + COMPANION_HISTORY_HOLD_MS,
+          messages: carryoverMessages,
         });
       } else {
         setCompanionCarryover(null);
@@ -423,35 +462,108 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     }
   }, [companionCarryover, companionNowMs]);
 
-  useEffect(() => {
-    if (!autoAssistantSpeechEnabled || agentVoiceMuted || voice.isListening)
-      return;
+  return {
+    companionCarryover,
+    gameModalCarryoverOpacity,
+    gameModalVisibleMsgs,
+  };
+}
 
-    const latestAssistant = [...msgs]
-      .reverse()
-      .find((message) => message.role === "assistant");
-    if (!latestAssistant || !latestAssistant.text.trim()) return;
-    if (suppressedAssistantSpeechIdRef.current === latestAssistant.id) return;
-
-    queueAssistantSpeech(
-      latestAssistant.id,
-      latestAssistant.text,
-      !chatSending,
-    );
-    suppressedAssistantSpeechIdRef.current = null;
-  }, [
-    autoAssistantSpeechEnabled,
-    msgs,
+export function ChatView({ variant = "default" }: ChatViewProps) {
+  const isGameModal = variant === "game-modal";
+  const showComposerVoiceToggle = false;
+  const {
+    agentStatus,
+    activeConversationId,
+    chatInput,
     chatSending,
-    agentVoiceMuted,
-    queueAssistantSpeech,
-    voice.isListening,
-  ]);
+    chatFirstTokenReceived,
+    companionMessageCutoffTs,
+    conversationMessages,
+    handleChatSend,
+    handleChatStop,
+    handleChatEdit,
+    elizaCloudConnected,
+    setState,
+    droppedFiles,
+    shareIngestNotice,
+    chatAgentVoiceMuted: agentVoiceMuted,
+    selectedVrmIndex,
+    chatPendingImages,
+    setChatPendingImages,
+    uiLanguage,
+    ptySessions,
+    t,
+  } = useApp();
 
-  useEffect(() => {
-    if (!agentVoiceMuted) return;
-    stopSpeaking();
-  }, [agentVoiceMuted, stopSpeaking]);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageDragOver, setImageDragOver] = useState(false);
+
+  // ── Derived composer state ──────────────────────────────────────
+  const isAgentStarting =
+    agentStatus?.state === "starting" || agentStatus?.state === "restarting";
+  const isComposerLocked = chatSending || isAgentStarting;
+  const {
+    beginVoiceCapture,
+    endVoiceCapture,
+    handleEditMessage,
+    handleSpeakMessage,
+    stopSpeaking,
+    voice,
+    voiceLatency,
+  } = useChatVoiceController({
+    agentVoiceMuted,
+    chatFirstTokenReceived,
+    chatInput,
+    chatSending,
+    conversationMessages,
+    elizaCloudConnected,
+    handleChatEdit,
+    handleChatSend,
+    isComposerLocked,
+    isGameModal,
+    setState,
+    uiLanguage,
+  });
+  const handleChatAvatarSpeakingChange = useCallback(
+    (isSpeaking: boolean) => {
+      setState("chatAvatarSpeaking", isSpeaking);
+    },
+    [setState],
+  );
+
+  const agentName = agentStatus?.agentName ?? "Agent";
+  const msgs = conversationMessages;
+  const visibleMsgs = useMemo(
+    () =>
+      msgs.filter(
+        (msg) =>
+          !(
+            chatSending &&
+            !chatFirstTokenReceived &&
+            msg.role === "assistant" &&
+            !msg.text.trim()
+          ) && !isRoutineCodingAgentMessage(msg),
+      ),
+    [chatFirstTokenReceived, chatSending, msgs],
+  );
+  const {
+    companionCarryover,
+    gameModalCarryoverOpacity,
+    gameModalVisibleMsgs,
+  } = useGameModalMessages({
+    activeConversationId,
+    agentVoiceMuted,
+    companionMessageCutoffTs,
+    isGameModal,
+    setState,
+    stopSpeaking,
+    visibleMsgs,
+  });
+  const agentAvatarSrc =
+    selectedVrmIndex > 0 ? getVrmPreviewUrl(selectedVrmIndex) : null;
 
   useChatAvatarVoiceBridge({
     mouthOpen: voice.mouthOpen,
@@ -459,37 +571,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     usingAudioAnalysis: voice.usingAudioAnalysis,
     onSpeakingChange: handleChatAvatarSpeakingChange,
   });
-
-  useEffect(() => {
-    const pending = pendingVoiceTurnRef.current;
-    if (!pending || !chatFirstTokenReceived) return;
-    if (nowMs() > pending.expiresAtMs) {
-      pendingVoiceTurnRef.current = null;
-      return;
-    }
-    if (pending.firstTokenAtMs != null) return;
-
-    const firstTokenAtMs = nowMs();
-    pending.firstTokenAtMs = firstTokenAtMs;
-    const ttftMs = Math.max(
-      0,
-      Math.round(firstTokenAtMs - pending.speechEndedAtMs),
-    );
-
-    setVoiceLatency((prev) => ({
-      speechEndToFirstTokenMs: ttftMs,
-      speechEndToVoiceStartMs: prev?.speechEndToVoiceStartMs ?? null,
-      firstSegmentCached: prev?.firstSegmentCached ?? null,
-    }));
-  }, [chatFirstTokenReceived]);
-
-  useEffect(() => {
-    const pending = pendingVoiceTurnRef.current;
-    if (!pending) return;
-    if (nowMs() > pending.expiresAtMs) {
-      pendingVoiceTurnRef.current = null;
-    }
-  }, []);
 
   // Auto-scroll on new messages. Use instant scroll when already near the
   // bottom (or when the user is actively sending) to prevent the visible
@@ -738,7 +819,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                   message={msg}
                   isGrouped={isGrouped}
                   agentName={agentName}
-                  agentAvatarSrc={agentAvatarSrc}
                   onSpeak={handleSpeakMessage}
                   onEdit={handleEditMessage}
                 />

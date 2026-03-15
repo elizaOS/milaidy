@@ -206,7 +206,7 @@ vi.mock("../../src/components/KnowledgeView", () => ({
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
-vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 
@@ -241,11 +241,6 @@ vi.mock("../../src/components/TrajectoriesView", () => ({
 vi.mock("../../src/components/TrajectoryDetailView", () => ({
   TrajectoryDetailView: () =>
     React.createElement("section", null, "TrajectoryDetailView Ready"),
-}));
-
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () =>
-    React.createElement("section", null, "LifoSandboxView Ready"),
 }));
 
 vi.mock("@milady/app-core/hooks", async () => {
@@ -343,6 +338,14 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
+function requireTree(
+  tree: TestRenderer.ReactTestRenderer | null | undefined,
+): TestRenderer.ReactTestRenderer {
+  expect(tree).toBeTruthy();
+  if (!tree) throw new Error("expected test renderer instance");
+  return tree;
+}
+
 function expectValidContent(content: string): void {
   expect(content.trim().length).toBeGreaterThan(0);
   const invalidPatterns = [
@@ -413,21 +416,18 @@ describe("shell mode switching (e2e)", () => {
       { tab: "runtime", token: "AdvancedPageView Ready" },
       { tab: "database", token: "AdvancedPageView Ready" },
       { tab: "logs", token: "AdvancedPageView Ready" },
-      { tab: "lifo", token: "AdvancedPageView Ready" },
     ];
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     for (const { tab, token } of nativeTabs) {
       state.tab = tab;
       await act(async () => {
-        tree?.update(React.createElement(App));
+        tree.update(React.createElement(App));
       });
-      const text = textOf(tree.root);
+      const text = textOf(requireTree(tree).root);
       expect(text).toContain(token);
       expectValidContent(text);
     }
@@ -452,13 +452,11 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
 
     state.tab = "companion";
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
-    let text = textOf(tree.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -474,9 +472,9 @@ describe("shell mode switching (e2e)", () => {
     for (const tab of companionCases) {
       state.tab = tab;
       await act(async () => {
-        tree?.update(React.createElement(App));
+        tree.update(React.createElement(App));
       });
-      text = textOf(tree.root);
+      text = textOf(requireTree(tree).root);
       expect(text).toContain("CompanionView Ready");
       expect(text).not.toContain("Header");
       expectValidContent(text);
@@ -499,7 +497,7 @@ describe("shell mode switching (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
 
     // 1. Start in native mode on chat
     state.uiShellMode = "native";
@@ -507,9 +505,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
-    let text = textOf(tree.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("ChatView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -517,9 +513,9 @@ describe("shell mode switching (e2e)", () => {
     // 2. Navigate to settings in native mode
     state.tab = "settings";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("SettingsView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -528,9 +524,9 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
     state.tab = "companion";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     // Companion mode should NOT render the native Header
     expect(text).not.toContain("Header");
@@ -539,9 +535,9 @@ describe("shell mode switching (e2e)", () => {
     // 4. Navigate around in companion mode — still stays on companion shell
     state.tab = "skills";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -549,9 +545,9 @@ describe("shell mode switching (e2e)", () => {
     // 5. Navigate to settings in companion mode — still companion shell
     state.tab = "settings";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -560,9 +556,9 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("ChatView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -576,9 +572,9 @@ describe("shell mode switching (e2e)", () => {
     ] as Tab[]) {
       state.tab = nextTab;
       await act(async () => {
-        tree?.update(React.createElement(App));
+        tree.update(React.createElement(App));
       });
-      text = textOf(tree.root);
+      text = textOf(requireTree(tree).root);
       expect(text).toContain("Header");
       expectValidContent(text);
     }
@@ -603,12 +599,10 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
     state.tab = "companion";
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     // Rapid-fire: every tab still renders the companion shell while in companion mode
     const rapidTabs: Tab[] = [
       "companion",
@@ -621,9 +615,9 @@ describe("shell mode switching (e2e)", () => {
     for (const tab of rapidTabs) {
       state.tab = tab;
       await act(async () => {
-        tree?.update(React.createElement(App));
+        tree.update(React.createElement(App));
       });
-      const text = textOf(tree.root);
+      const text = textOf(requireTree(tree).root);
       expect(text).toContain("CompanionView Ready");
       expect(text).not.toContain("Header");
       expectValidContent(text);
@@ -646,23 +640,21 @@ describe("shell mode switching (e2e)", () => {
     const errorSpy = vi.spyOn(console, "error");
     const warnSpy = vi.spyOn(console, "warn");
 
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
     state.tab = "chat";
     state.uiShellMode = "native";
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     // Toggle 5 times
     for (let i = 0; i < 5; i++) {
       const isCompanion = i % 2 === 0;
       state.uiShellMode = isCompanion ? "companion" : "native";
       state.tab = isCompanion ? "companion" : "chat";
       await act(async () => {
-        tree?.update(React.createElement(App));
+        tree.update(React.createElement(App));
       });
-      const text = textOf(tree.root);
+      const text = textOf(requireTree(tree).root);
       if (isCompanion) {
         expect(text).toContain("CompanionView Ready");
         expect(text).not.toContain("Header");
@@ -685,25 +677,23 @@ describe("shell mode switching (e2e)", () => {
   });
 
   it("keeps the shared companion scene mounted while shell mode changes", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
 
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     state.uiShellMode = "companion";
     state.tab = "companion";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
 
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
 
     expect(sceneHostState.mounts).toBe(1);
@@ -712,21 +702,19 @@ describe("shell mode switching (e2e)", () => {
   });
 
   it("routes companion mode back to the companion shell even if the tab state says character", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
 
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     state.tab = "character";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
 
-    let text = textOf(tree.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("Header");
     expect(text).toContain("CharacterView Ready");
     expect(sceneHostState.activeHistory.at(-1)).toBe(true);
@@ -735,10 +723,10 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
     state.tab = "character";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
 
-    text = textOf(tree.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expect(sceneHostState.activeHistory.at(-1)).toBe(true);
@@ -746,15 +734,13 @@ describe("shell mode switching (e2e)", () => {
   });
 
   it("disables iOS native scrolling only while the companion shell is visible", async () => {
-    let tree: TestRenderer.ReactTestRenderer | null = null;
+    let tree!: TestRenderer.ReactTestRenderer;
 
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    if (!tree) throw new Error("failed to render App");
-
     expect(mockKeyboardSetScroll).toHaveBeenLastCalledWith({
       isDisabled: false,
     });
@@ -762,7 +748,7 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
     state.tab = "settings";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
     expect(mockKeyboardSetScroll).toHaveBeenLastCalledWith({
       isDisabled: true,
@@ -771,7 +757,7 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "companion";
     state.tab = "companion";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
     expect(mockKeyboardSetScroll).toHaveBeenLastCalledWith({
       isDisabled: true,
@@ -780,7 +766,7 @@ describe("shell mode switching (e2e)", () => {
     state.uiShellMode = "native";
     state.tab = "chat";
     await act(async () => {
-      tree?.update(React.createElement(App));
+      tree.update(React.createElement(App));
     });
     expect(mockKeyboardSetScroll).toHaveBeenLastCalledWith({
       isDisabled: false,

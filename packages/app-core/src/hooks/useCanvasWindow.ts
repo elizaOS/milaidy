@@ -91,8 +91,9 @@ export function useCanvasWindow(
     height: number;
   } | null>(null);
 
-  // RAF handle for position-sync loop.
-  const rafRef = useRef<number | null>(null);
+  const syncFrameRef = useRef<number | null>(null);
+  const trackingFrameRef = useRef<number | null>(null);
+  const animationTrackerCountRef = useRef(0);
 
   // ---------------------------------------------------------------------------
   // Sync position/size to the placeholder div
@@ -127,22 +128,35 @@ export function useCanvasWindow(
     });
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // RAF loop — keeps the window aligned during scrolls/animations
-  // ---------------------------------------------------------------------------
-
-  const startRafLoop = useCallback(() => {
-    const loop = () => {
+  const scheduleSyncBounds = useCallback(() => {
+    if (trackingFrameRef.current !== null || syncFrameRef.current !== null) {
+      return;
+    }
+    syncFrameRef.current = requestAnimationFrame(() => {
+      syncFrameRef.current = null;
       syncBounds();
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
+    });
   }, [syncBounds]);
 
-  const stopRafLoop = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+  const startTrackingBounds = useCallback(() => {
+    if (trackingFrameRef.current !== null) {
+      return;
+    }
+    const loop = () => {
+      syncBounds();
+      trackingFrameRef.current = requestAnimationFrame(loop);
+    };
+    trackingFrameRef.current = requestAnimationFrame(loop);
+  }, [syncBounds]);
+
+  const stopTrackingBounds = useCallback(() => {
+    if (trackingFrameRef.current !== null) {
+      cancelAnimationFrame(trackingFrameRef.current);
+      trackingFrameRef.current = null;
+    }
+    if (syncFrameRef.current !== null) {
+      cancelAnimationFrame(syncFrameRef.current);
+      syncFrameRef.current = null;
     }
   }, []);
 
@@ -202,25 +216,101 @@ export function useCanvasWindow(
         setWindowId(id);
         lastBoundsRef.current = null; // Force a setBounds on next sync.
         setIsReady(true);
-        startRafLoop();
+        scheduleSyncBounds();
       })
       .catch((err: unknown) => {
         console.warn("[useCanvasWindow] canvas:createWindow failed", err);
       });
 
+    const isTrackedTarget = (target: EventTarget | null) => {
+      const trackedElement = containerRef.current;
+      return (
+        trackedElement !== null &&
+        target instanceof Node &&
+        trackedElement.contains(target)
+      );
+    };
+    const handleViewportChange = () => {
+      scheduleSyncBounds();
+    };
+    const startAnimationTracking = (event: Event) => {
+      if (!isTrackedTarget(event.target)) {
+        return;
+      }
+      animationTrackerCountRef.current += 1;
+      startTrackingBounds();
+    };
+    const stopAnimationTracking = (event: Event) => {
+      if (!isTrackedTarget(event.target)) {
+        return;
+      }
+      animationTrackerCountRef.current = Math.max(
+        0,
+        animationTrackerCountRef.current - 1,
+      );
+      if (animationTrackerCountRef.current === 0) {
+        stopTrackingBounds();
+        scheduleSyncBounds();
+      }
+    };
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    window.addEventListener("transitionstart", startAnimationTracking, true);
+    window.addEventListener("transitionend", stopAnimationTracking, true);
+    window.addEventListener("transitioncancel", stopAnimationTracking, true);
+    window.addEventListener("animationstart", startAnimationTracking, true);
+    window.addEventListener("animationend", stopAnimationTracking, true);
+    window.addEventListener("animationcancel", stopAnimationTracking, true);
+    window.visualViewport?.addEventListener("resize", handleViewportChange);
+    window.visualViewport?.addEventListener("scroll", handleViewportChange);
+
     // ResizeObserver: pick up size changes from layout shifts.
     let ro: ResizeObserver | null = null;
     if (el && typeof ResizeObserver !== "undefined") {
       ro = new ResizeObserver(() => {
-        syncBounds();
+        scheduleSyncBounds();
       });
       ro.observe(el);
     }
 
     return () => {
       destroyed = true;
-      stopRafLoop();
+      animationTrackerCountRef.current = 0;
+      stopTrackingBounds();
       ro?.disconnect();
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+      window.removeEventListener(
+        "transitionstart",
+        startAnimationTracking,
+        true,
+      );
+      window.removeEventListener("transitionend", stopAnimationTracking, true);
+      window.removeEventListener(
+        "transitioncancel",
+        stopAnimationTracking,
+        true,
+      );
+      window.removeEventListener(
+        "animationstart",
+        startAnimationTracking,
+        true,
+      );
+      window.removeEventListener("animationend", stopAnimationTracking, true);
+      window.removeEventListener(
+        "animationcancel",
+        stopAnimationTracking,
+        true,
+      );
+      window.visualViewport?.removeEventListener(
+        "resize",
+        handleViewportChange,
+      );
+      window.visualViewport?.removeEventListener(
+        "scroll",
+        handleViewportChange,
+      );
 
       const id = createdId ?? windowIdRef.current;
       if (id) {
@@ -236,7 +326,7 @@ export function useCanvasWindow(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, startRafLoop, stopRafLoop, syncBounds]);
+  }, [enabled, scheduleSyncBounds, startTrackingBounds, stopTrackingBounds]);
 
   // ---------------------------------------------------------------------------
   // Public API

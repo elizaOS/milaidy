@@ -26,7 +26,6 @@ const { companionOverlayTabs, mockUseApp, noop } = vi.hoisted(() => ({
     "apps",
     "connectors",
     "knowledge",
-    "lifo",
     "stream",
     "wallets",
   ]),
@@ -139,8 +138,8 @@ vi.mock("../../src/components/CompanionView", () => ({
 
 vi.mock("../../src/components/CompanionShell", () => ({
   COMPANION_OVERLAY_TABS: companionOverlayTabs,
-  CompanionShell: ({ tab }: { tab: string }) =>
-    React.createElement("main", null, `CompanionShell Ready: ${tab}`),
+  CompanionShell: () =>
+    React.createElement("main", null, "CompanionShell Ready"),
 }));
 
 vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
@@ -177,7 +176,7 @@ vi.mock("../../src/components/KnowledgeView", () => ({
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
 
-vi.mock("../../src/components/avatar/AvatarLoader", () => ({
+vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 
@@ -210,10 +209,6 @@ vi.mock("../../src/components/TrajectoryDetailView", () => ({
     React.createElement("section", null, "TrajectoryDetailView Ready"),
 }));
 
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () =>
-    React.createElement("section", null, "LifoSandboxView Ready"),
-}));
 vi.mock("@milady/app-core/hooks", async () => {
   const actual = await vi.importActual<typeof import("@milady/app-core/hooks")>(
     "@milady/app-core/hooks",
@@ -285,10 +280,6 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   const mains = tree.root.findAll((node) => node.type === "main");
   expect(mains.length).toBeGreaterThan(0);
   return textOf(mains[0]);
-}
-
-function expectedShellTab(_tab: Tab): string {
-  return "companion";
 }
 
 function requireTree(
@@ -377,9 +368,7 @@ describe("pages navigation smoke (e2e)", () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(
-        `CompanionShell Ready: ${expectedShellTab(nextTab)}`,
-      );
+      expect(content).toContain("CompanionShell Ready");
       expectValidContent(content);
     }
 
@@ -429,7 +418,6 @@ describe("pages navigation smoke (e2e)", () => {
       "voice",
       "runtime",
       "database",
-      "lifo",
       "settings",
       "logs",
     ];
@@ -446,9 +434,7 @@ describe("pages navigation smoke (e2e)", () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(
-        `CompanionShell Ready: ${expectedShellTab(tab)}`,
-      );
+      expect(content).toContain("CompanionShell Ready");
       expectValidContent(content);
     }
 

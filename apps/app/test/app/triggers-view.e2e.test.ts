@@ -408,12 +408,17 @@ function nodeText(node: TestRenderer.ReactTestInstance): string {
 
 function findButtonByText(
   root: TestRenderer.ReactTestInstance,
-  label: string,
+  label: string | string[],
 ): TestRenderer.ReactTestInstance {
+  const labels = Array.isArray(label) ? label : [label];
   const matches = root.findAll(
-    (node) => node.type === "button" && nodeText(node).includes(label),
+    (node) =>
+      node.type === "button" &&
+      labels.some((candidate) => nodeText(node).includes(candidate)),
   );
-  if (!matches[0]) throw new Error(`Button "${label}" not found`);
+  if (!matches[0]) {
+    throw new Error(`Button "${labels.join('" or "')}" not found`);
+  }
   return matches[0];
 }
 
@@ -528,10 +533,30 @@ describe("TriggersView UI E2E", () => {
         root.findAll(
           (node) =>
             node.type === "button" &&
-            nodeText(node).includes("Create Heartbeat"),
+            (nodeText(node).includes("New Heartbeat") ||
+              nodeText(node).includes("heartbeatsview.newHeartbeat")),
         ).length === 1,
       "Trigger list did not finish initial loading",
     );
+
+    await act(async () => {
+      await findButtonByText(root, [
+        "New Heartbeat",
+        "heartbeatsview.newHeartbeat",
+      ]).props.onClick();
+    });
+
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "button" &&
+            (nodeText(node).includes("Create Heartbeat") ||
+              nodeText(node).includes("heartbeatsview.createHeartbeat")),
+        ).length === 1,
+      "Trigger editor modal did not open",
+    );
+
     const displayNameInput = findInputByPlaceholder(
       root,
       "triggersview.eGDailyDigestH",
@@ -551,7 +576,10 @@ describe("TriggersView UI E2E", () => {
     });
 
     await act(async () => {
-      await findButtonByText(root, "Create Heartbeat").props.onClick();
+      await findButtonByText(root, [
+        "Create Heartbeat",
+        "heartbeatsview.createHeartbeat",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
@@ -564,13 +592,19 @@ describe("TriggersView UI E2E", () => {
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
-      await findButtonByText(root, triggerDisplayName).props.onClick();
+      await findButtonByText(root, [
+        "Edit",
+        "triggersview.Edit",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
         root.findAll(
           (node) =>
-            node.type === "button" && nodeText(node).includes("Save Changes"),
+            node.type === "button" &&
+            (nodeText(node).includes("Save Changes") ||
+              nodeText(node).includes("heartbeatsview.saveChanges") ||
+              nodeText(node).includes("heartbeatsview.editHeartbeat")),
         ).length === 1,
       "Trigger editor did not enter edit mode",
     );
@@ -586,7 +620,11 @@ describe("TriggersView UI E2E", () => {
     });
 
     await act(async () => {
-      await findButtonByText(root, "Save Changes").props.onClick();
+      await findButtonByText(root, [
+        "Save Changes",
+        "heartbeatsview.saveChanges",
+        "heartbeatsview.editHeartbeat",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
@@ -607,21 +645,61 @@ describe("TriggersView UI E2E", () => {
     );
 
     expect(runtimeHarness.injectAutonomousInstruction).toHaveBeenCalledTimes(1);
+    if (
+      root.findAll(
+        (node) =>
+          node.type === "button" &&
+          nodeText(node).includes("heartbeatsview.refresh"),
+      ).length === 0
+    ) {
+      await act(async () => {
+        const summaryButton = root.findAll(
+          (node) =>
+            node.type === "button" &&
+            nodeText(node).includes(renamedTriggerDisplayName),
+        )[0];
+        await summaryButton?.props.onClick();
+      });
+    }
 
     await act(async () => {
-      await findButtonByText(root, "triggersview.RunHistory").props.onClick();
+      await findButtonByText(root, "heartbeatsview.refresh").props.onClick();
     });
     await waitFor(
       () =>
         root.findAll(
-          (node) => node.type === "span" && nodeText(node).includes("success"),
+          (node) =>
+            node.type === "span" &&
+            ["success", "completed"].some((status) =>
+              nodeText(node).toLowerCase().includes(status),
+            ),
         ).length > 0,
       "Trigger run history did not load",
     );
-    const successRows = root.findAll(
-      (node) => node.type === "span" && nodeText(node).includes("success"),
+    const statusRows = root.findAll(
+      (node) =>
+        node.type === "span" &&
+        ["success", "completed"].some((status) =>
+          nodeText(node).toLowerCase().includes(status),
+        ),
     );
-    expect(successRows.length).toBeGreaterThan(0);
+    expect(statusRows.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      await findButtonByText(root, [
+        "Edit",
+        "triggersview.Edit",
+      ]).props.onClick();
+    });
+    await waitFor(
+      () =>
+        root.findAll(
+          (node) =>
+            node.type === "button" &&
+            nodeText(node).includes("triggersview.Delete"),
+        ).length === 1,
+      "Trigger editor did not reopen for delete",
+    );
 
     await act(async () => {
       await findButtonByText(root, "triggersview.Delete").props.onClick();

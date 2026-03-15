@@ -46,6 +46,31 @@ function hasEmbedding(
   return memory.embedding !== null;
 }
 
+interface VectorGraph2DBounds {
+  minX: number;
+  minY: number;
+  rangeX: number;
+  rangeY: number;
+}
+
+interface VectorGraph2DLayout {
+  bounds: VectorGraph2DBounds;
+  points: [number, number][];
+  typeColors: Record<string, string>;
+  withEmbeddings: Array<MemoryRecord & { embedding: number[] }>;
+}
+
+const VECTOR_GRAPH_2D_PALETTE = [
+  "#6cf",
+  "#f59e0b",
+  "#10b981",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+];
+
 /** Try to parse a JSON content field, returning the text content or the raw string. */
 function parseContent(val: unknown): string {
   if (typeof val !== "string") return String(val ?? "");
@@ -122,6 +147,64 @@ function rowToMemory(row: Record<string, unknown>): MemoryRecord {
     embedding: parseEmbedding(embeddingVal),
     raw: row,
   };
+}
+
+function buildVectorGraph2DLayout(
+  memories: MemoryRecord[],
+): VectorGraph2DLayout | null {
+  const withEmbeddings = memories.filter(hasEmbedding);
+  if (withEmbeddings.length < 2) {
+    return null;
+  }
+
+  const points = projectTo2D(withEmbeddings.map((memory) => memory.embedding));
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of points) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  const typeColors: Record<string, string> = {};
+  const types = [...new Set(withEmbeddings.map((memory) => memory.type))];
+  for (let index = 0; index < types.length; index += 1) {
+    typeColors[types[index]] =
+      VECTOR_GRAPH_2D_PALETTE[index % VECTOR_GRAPH_2D_PALETTE.length];
+  }
+
+  return {
+    bounds: {
+      minX,
+      minY,
+      rangeX: maxX - minX || 1,
+      rangeY: maxY - minY || 1,
+    },
+    points,
+    typeColors,
+    withEmbeddings,
+  };
+}
+
+function toVectorGraph2DScreenX(
+  x: number,
+  width: number,
+  padding: number,
+  bounds: VectorGraph2DBounds,
+): number {
+  return padding + ((x - bounds.minX) / bounds.rangeX) * (width - 2 * padding);
+}
+
+function toVectorGraph2DScreenY(
+  y: number,
+  height: number,
+  padding: number,
+  bounds: VectorGraph2DBounds,
+): number {
+  return padding + ((y - bounds.minY) / bounds.rangeY) * (height - 2 * padding);
 }
 
 // ── PCA projection utilities ───────────────────────────────────────────
@@ -226,28 +309,12 @@ function VectorGraph({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const [points, setPoints] = useState<[number, number][]>([]);
-
-  // Keep embeddings subset for the graph — memoize to avoid recomputation
-  const withEmbeddings = useMemo(
-    () => memories.filter(hasEmbedding),
-    [memories],
-  );
-
-  useEffect(() => {
-    if (withEmbeddings.length < 2) {
-      setPoints([]);
-      return;
-    }
-    const vecs = withEmbeddings.map((m) => m.embedding);
-    const projected = projectTo2D(vecs);
-    setPoints(projected);
-  }, [withEmbeddings]);
+  const graph = useMemo(() => buildVectorGraph2DLayout(memories), [memories]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container || points.length === 0) return;
+    if (!canvas || !container || !graph) return;
 
     const rect = container.getBoundingClientRect();
     const W = rect.width;
@@ -262,25 +329,7 @@ function VectorGraph({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Compute bounds
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    for (const [x, y] of points) {
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-    const rangeX = maxX - minX || 1;
-    const rangeY = maxY - minY || 1;
     const pad = 40;
-
-    const toScreenX = (x: number) =>
-      pad + ((x - minX) / rangeX) * (W - 2 * pad);
-    const toScreenY = (y: number) =>
-      pad + ((y - minY) / rangeY) * (H - 2 * pad);
 
     // Background
     const style = getComputedStyle(document.documentElement);
@@ -319,29 +368,22 @@ function VectorGraph({
     ctx.fillText("PC2", 0, 0);
     ctx.restore();
 
-    // Collect unique types for color mapping
-    const types = [...new Set(withEmbeddings.map((m) => m.type))];
-    const typeColors: Record<string, string> = {};
-    const palette = [
-      accentColor,
-      "#f59e0b",
-      "#10b981",
-      "#ef4444",
-      "#8b5cf6",
-      "#ec4899",
-      "#06b6d4",
-      "#84cc16",
-    ];
-    for (let i = 0; i < types.length; i++) {
-      typeColors[types[i]] = palette[i % palette.length];
-    }
-
     // Draw points
-    for (let i = 0; i < points.length; i++) {
-      const sx = toScreenX(points[i][0]);
-      const sy = toScreenY(points[i][1]);
-      const mem = withEmbeddings[i];
-      const color = typeColors[mem.type] || accentColor;
+    for (let i = 0; i < graph.points.length; i++) {
+      const sx = toVectorGraph2DScreenX(
+        graph.points[i][0],
+        W,
+        pad,
+        graph.bounds,
+      );
+      const sy = toVectorGraph2DScreenY(
+        graph.points[i][1],
+        H,
+        pad,
+        graph.bounds,
+      );
+      const memory = graph.withEmbeddings[i];
+      const color = graph.typeColors[memory.type] || accentColor;
       const isHovered = hoveredIdx === i;
 
       ctx.beginPath();
@@ -359,12 +401,22 @@ function VectorGraph({
     }
 
     // Tooltip for hovered point
-    if (hoveredIdx !== null && hoveredIdx < points.length) {
-      const sx = toScreenX(points[hoveredIdx][0]);
-      const sy = toScreenY(points[hoveredIdx][1]);
-      const mem = withEmbeddings[hoveredIdx];
+    if (hoveredIdx !== null && hoveredIdx < graph.points.length) {
+      const sx = toVectorGraph2DScreenX(
+        graph.points[hoveredIdx][0],
+        W,
+        pad,
+        graph.bounds,
+      );
+      const sy = toVectorGraph2DScreenY(
+        graph.points[hoveredIdx][1],
+        H,
+        pad,
+        graph.bounds,
+      );
+      const memory = graph.withEmbeddings[hoveredIdx];
       const label =
-        mem.content.slice(0, 60) + (mem.content.length > 60 ? "..." : "");
+        memory.content.slice(0, 60) + (memory.content.length > 60 ? "..." : "");
 
       ctx.font = "11px sans-serif";
       const metrics = ctx.measureText(label);
@@ -383,27 +435,28 @@ function VectorGraph({
     }
 
     // Legend
+    const types = Object.keys(graph.typeColors);
     if (types.length > 1) {
       let lx = pad;
       const ly = H - 4;
       ctx.font = "10px sans-serif";
       ctx.textAlign = "left";
-      for (const t of types) {
-        if (!t || t === "undefined") continue;
-        ctx.fillStyle = typeColors[t];
+      for (const type of types) {
+        if (!type || type === "undefined") continue;
+        ctx.fillStyle = graph.typeColors[type];
         ctx.fillRect(lx, ly - 8, 8, 8);
         ctx.fillStyle = mutedColor;
-        ctx.fillText(t, lx + 11, ly);
-        lx += ctx.measureText(t).width + 24;
+        ctx.fillText(type, lx + 11, ly);
+        lx += ctx.measureText(type).width + 24;
       }
     }
-  }, [points, hoveredIdx, withEmbeddings]);
+  }, [graph, hoveredIdx]);
 
   // Mouse interaction
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas || points.length === 0) return;
+      if (!canvas || !graph) return;
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -412,29 +465,21 @@ function VectorGraph({
       const H = rect.height;
       const pad = 40;
 
-      let minX = Infinity,
-        maxX = -Infinity,
-        minY = Infinity,
-        maxY = -Infinity;
-      for (const [x, y] of points) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-      const rangeX = maxX - minX || 1;
-      const rangeY = maxY - minY || 1;
-
-      const toScreenX = (x: number) =>
-        pad + ((x - minX) / rangeX) * (W - 2 * pad);
-      const toScreenY = (y: number) =>
-        pad + ((y - minY) / rangeY) * (H - 2 * pad);
-
       let closest = -1;
       let closestDist = 15; // max pixel distance
-      for (let i = 0; i < points.length; i++) {
-        const sx = toScreenX(points[i][0]);
-        const sy = toScreenY(points[i][1]);
+      for (let i = 0; i < graph.points.length; i++) {
+        const sx = toVectorGraph2DScreenX(
+          graph.points[i][0],
+          W,
+          pad,
+          graph.bounds,
+        );
+        const sy = toVectorGraph2DScreenY(
+          graph.points[i][1],
+          H,
+          pad,
+          graph.bounds,
+        );
         const dist = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
         if (dist < closestDist) {
           closestDist = dist;
@@ -443,16 +488,21 @@ function VectorGraph({
       }
       setHoveredIdx(closest >= 0 ? closest : null);
     },
-    [points],
+    [graph],
   );
 
   const handleClick = useCallback(() => {
-    if (hoveredIdx !== null && hoveredIdx < withEmbeddings.length) {
-      onSelect(withEmbeddings[hoveredIdx]);
+    if (
+      graph &&
+      hoveredIdx !== null &&
+      hoveredIdx < graph.withEmbeddings.length
+    ) {
+      onSelect(graph.withEmbeddings[hoveredIdx]);
     }
-  }, [hoveredIdx, withEmbeddings, onSelect]);
+  }, [graph, hoveredIdx, onSelect]);
 
-  if (withEmbeddings.length < 2) {
+  if (!graph) {
+    const withEmbeddings = memories.filter(hasEmbedding);
     return (
       <div className="text-center py-16">
         <div className="text-[var(--muted)] text-sm mb-2">
@@ -468,7 +518,8 @@ function VectorGraph({
   return (
     <div ref={containerRef} className="w-full">
       <div className="text-[11px] text-[var(--muted)] mb-2">
-        {withEmbeddings.length} {t("vectorbrowserview.vectorsProjectedTo")}
+        {graph.withEmbeddings.length}{" "}
+        {t("vectorbrowserview.vectorsProjectedTo")}
       </div>
       <canvas
         ref={canvasRef}

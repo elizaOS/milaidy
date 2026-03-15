@@ -43,7 +43,6 @@ export function ChatAvatar({
   const [engineReady, setEngineReady] = useState(false);
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
-  const fallbackVrmPathRef = useRef(vrmPath);
 
   const avatarVisible = engineReady || vrmLoaded || showFallback;
 
@@ -64,17 +63,10 @@ export function ChatAvatar({
     }
   }, []);
 
-  // If a VRM fails to load, show the selected static preview in the sidebar.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the loading UI when the requested VRM changes.
   useEffect(() => {
-    fallbackVrmPathRef.current = vrmPath;
     setVrmLoaded(false);
     setShowFallback(false);
-    const timer = window.setTimeout(() => {
-      if (fallbackVrmPathRef.current === vrmPath) {
-        setShowFallback(true);
-      }
-    }, 4000);
-    return () => window.clearTimeout(timer);
   }, [vrmPath]);
 
   useEffect(() => {

@@ -363,6 +363,8 @@ describe("CompanionView", () => {
     });
 
     expect(setCompanionZoomNormalized).toHaveBeenCalledWith(1);
+    setDragOrbitTarget.mockClear();
+    resetDragOrbit.mockClear();
 
     expect(tree).not.toBeNull();
     const root = tree?.root.findByProps({
@@ -432,6 +434,7 @@ describe("CompanionView", () => {
         setCompanionZoomNormalized: vi.fn(),
       });
     });
+    setDragOrbitTarget.mockClear();
 
     const root = tree?.root.findByProps({
       "data-testid": "companion-root",
@@ -537,15 +540,14 @@ describe("CompanionView", () => {
         setCompanionZoomNormalized,
       });
     });
+    setCompanionZoomNormalized.mockClear();
 
     const root = tree?.root.findByProps({
       "data-testid": "companion-root",
     });
     const focusedTextEntry = document.createElement("textarea");
-    Object.defineProperty(document, "activeElement", {
-      configurable: true,
-      value: focusedTextEntry,
-    });
+    document.body.appendChild(focusedTextEntry);
+    focusedTextEntry.focus();
     const preventDefault = vi.fn();
 
     await act(async () => {
@@ -557,9 +559,10 @@ describe("CompanionView", () => {
       });
     });
 
-    expect(setCompanionZoomNormalized).toHaveBeenCalledTimes(1);
-    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(1);
+    expect(document.activeElement).toBe(focusedTextEntry);
+    expect(setCompanionZoomNormalized).not.toHaveBeenCalled();
     expect(preventDefault).toHaveBeenCalledTimes(1);
+    focusedTextEntry.remove();
   });
 
   it("zooms the companion camera from pinch input", async () => {

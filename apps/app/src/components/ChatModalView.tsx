@@ -45,7 +45,6 @@ type ChatModalLayoutVariant = "full-overlay" | "companion-dock";
 
 interface ChatModalViewProps {
   variant?: ChatModalLayoutVariant;
-  onRequestClose?: () => void;
   showSidebar?: boolean;
   onSidebarClose?: () => void;
 }

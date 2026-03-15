@@ -636,7 +636,7 @@ export interface AppActions {
     value: CharacterData[K],
   ) => void;
   handleCharacterArrayInput: (
-    field: "adjectives" | "topics" | "postExamples",
+    field: "adjectives" | "postExamples",
     value: string,
   ) => void;
   handleCharacterStyleInput: (

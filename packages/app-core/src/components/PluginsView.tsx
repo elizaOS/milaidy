@@ -874,6 +874,149 @@ function subgroupForPlugin(plugin: PluginInfo): string {
 
 type StatusFilter = "all" | "enabled" | "disabled";
 type PluginsViewMode = "all" | "connectors" | "streaming" | "social";
+type SubgroupTag = { id: string; label: string; count: number };
+
+function comparePlugins(left: PluginInfo, right: PluginInfo): number {
+  if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
+  if (left.enabled && right.enabled) {
+    const leftNeedsConfig =
+      left.parameters?.some(
+        (param: PluginParamDef) => param.required && !param.isSet,
+      ) ?? false;
+    const rightNeedsConfig =
+      right.parameters?.some(
+        (param: PluginParamDef) => param.required && !param.isSet,
+      ) ?? false;
+    if (leftNeedsConfig !== rightNeedsConfig) {
+      return leftNeedsConfig ? -1 : 1;
+    }
+  }
+  return (left.name ?? "").localeCompare(right.name ?? "");
+}
+
+function matchesPluginFilters(
+  plugin: PluginInfo,
+  searchLower: string,
+  statusFilter: StatusFilter,
+): boolean {
+  const matchesStatus =
+    statusFilter === "all" ||
+    (statusFilter === "enabled" && plugin.enabled) ||
+    (statusFilter === "disabled" && !plugin.enabled);
+  const matchesSearch =
+    !searchLower ||
+    (plugin.name ?? "").toLowerCase().includes(searchLower) ||
+    (plugin.description ?? "").toLowerCase().includes(searchLower) ||
+    (plugin.tags ?? []).some((tag) =>
+      (tag ?? "").toLowerCase().includes(searchLower),
+    ) ||
+    plugin.id.toLowerCase().includes(searchLower);
+  return matchesStatus && matchesSearch;
+}
+
+function sortPlugins(
+  filteredPlugins: PluginInfo[],
+  pluginOrder: string[],
+  allowCustomOrder: boolean,
+): PluginInfo[] {
+  if (!allowCustomOrder || pluginOrder.length === 0) {
+    return [...filteredPlugins].sort(comparePlugins);
+  }
+
+  const orderMap = new Map(pluginOrder.map((id, index) => [id, index]));
+  return [...filteredPlugins].sort((left, right) => {
+    const leftIndex = orderMap.get(left.id);
+    const rightIndex = orderMap.get(right.id);
+    if (leftIndex != null && rightIndex != null) return leftIndex - rightIndex;
+    if (leftIndex != null) return -1;
+    if (rightIndex != null) return 1;
+    return comparePlugins(left, right);
+  });
+}
+
+function buildPluginListState(options: {
+  allowCustomOrder: boolean;
+  effectiveSearch: string;
+  effectiveStatusFilter: StatusFilter;
+  isConnectorLikeMode: boolean;
+  mode: PluginsViewMode;
+  pluginOrder: string[];
+  plugins: PluginInfo[];
+  showSubgroupFilters: boolean;
+  subgroupFilter: string;
+}): {
+  categoryPlugins: PluginInfo[];
+  enabledCount: number;
+  nonDbPlugins: PluginInfo[];
+  sorted: PluginInfo[];
+  subgroupTags: SubgroupTag[];
+  visiblePlugins: PluginInfo[];
+} {
+  const {
+    allowCustomOrder,
+    effectiveSearch,
+    effectiveStatusFilter,
+    isConnectorLikeMode,
+    mode,
+    pluginOrder,
+    plugins,
+    showSubgroupFilters,
+    subgroupFilter,
+  } = options;
+  const categoryPlugins = plugins.filter(
+    (plugin) =>
+      plugin.category !== "database" &&
+      !ALWAYS_ON_PLUGIN_IDS.has(plugin.id) &&
+      (!isConnectorLikeMode || plugin.category === "connector") &&
+      (mode !== "streaming" || plugin.category === "streaming"),
+  );
+  const nonDbPlugins = [SHOWCASE_PLUGIN, ...categoryPlugins];
+  const searchLower = effectiveSearch.toLowerCase();
+  const sorted = sortPlugins(
+    categoryPlugins.filter((plugin) =>
+      matchesPluginFilters(plugin, searchLower, effectiveStatusFilter),
+    ),
+    pluginOrder,
+    allowCustomOrder,
+  );
+  const enabledCount = categoryPlugins.filter(
+    (plugin) => plugin.enabled,
+  ).length;
+
+  const subgroupCounts: Record<string, number> = {};
+  const visiblePlugins: PluginInfo[] = [];
+  for (const plugin of sorted) {
+    const subgroup = subgroupForPlugin(plugin);
+    subgroupCounts[subgroup] = (subgroupCounts[subgroup] ?? 0) + 1;
+    if (
+      !showSubgroupFilters ||
+      subgroupFilter === "all" ||
+      subgroup === subgroupFilter
+    ) {
+      visiblePlugins.push(plugin);
+    }
+  }
+
+  const subgroupTags = [
+    { id: "all", label: "All", count: sorted.length },
+    ...SUBGROUP_DISPLAY_ORDER.filter(
+      (subgroupId) => (subgroupCounts[subgroupId] ?? 0) > 0,
+    ).map((subgroupId) => ({
+      id: subgroupId,
+      label: SUBGROUP_LABELS[subgroupId],
+      count: subgroupCounts[subgroupId] ?? 0,
+    })),
+  ];
+
+  return {
+    categoryPlugins,
+    enabledCount,
+    nonDbPlugins,
+    sorted,
+    subgroupTags,
+    visiblePlugins,
+  };
+}
 
 /* ── Shared PluginListView ─────────────────────────────────────────── */
 
@@ -995,109 +1138,42 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     }
   }, [pluginOrder]);
 
-  // ── Derived data ───────────────────────────────────────────────────
-
-  /** Plugins shown in the unified view (hide always-on internals + database-only entries). */
-  const categoryPlugins = useMemo(
-    () =>
-      plugins.filter(
-        (p: PluginInfo) =>
-          p.category !== "database" &&
-          !ALWAYS_ON_PLUGIN_IDS.has(p.id) &&
-          (!isConnectorLikeMode || p.category === "connector") &&
-          (mode !== "streaming" || p.category === "streaming"),
-      ),
-    [plugins, isConnectorLikeMode, mode],
-  );
-
-  const nonDbPlugins = useMemo(() => {
-    const real = categoryPlugins;
-    return [SHOWCASE_PLUGIN, ...real];
-  }, [categoryPlugins]);
-
-  const filtered = useMemo(() => {
-    const searchLower = effectiveSearch.toLowerCase();
-    return categoryPlugins.filter((p: PluginInfo) => {
-      const matchesStatus =
-        effectiveStatusFilter === "all" ||
-        (effectiveStatusFilter === "enabled" && p.enabled) ||
-        (effectiveStatusFilter === "disabled" && !p.enabled);
-      const matchesSearch =
-        !searchLower ||
-        (p.name ?? "").toLowerCase().includes(searchLower) ||
-        (p.description ?? "").toLowerCase().includes(searchLower) ||
-        (p.tags ?? []).some((tag) => (tag ?? "").toLowerCase().includes(searchLower)) ||
-        (p.id ?? "").toLowerCase().includes(searchLower);
-      return matchesStatus && matchesSearch;
-    });
-  }, [categoryPlugins, effectiveSearch, effectiveStatusFilter]);
-
-  const sorted = useMemo(() => {
-    const defaultSort = (a: PluginInfo, b: PluginInfo) => {
-      if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-      if (a.enabled && b.enabled) {
-        const aNeedsConfig =
-          a.parameters?.some((p: PluginParamDef) => p.required && !p.isSet) ??
-          false;
-        const bNeedsConfig =
-          b.parameters?.some((p: PluginParamDef) => p.required && !p.isSet) ??
-          false;
-        if (aNeedsConfig !== bNeedsConfig) return aNeedsConfig ? -1 : 1;
-      }
-      return (a.name ?? "").localeCompare(b.name ?? "");
-    };
-    if (!allowCustomOrder || pluginOrder.length === 0) {
-      return [...filtered].sort(defaultSort);
-    }
-    // Custom order: sort by position, unknowns at end in default order
-    const orderMap = new Map(pluginOrder.map((id, i) => [id, i]));
-    return [...filtered].sort((a, b) => {
-      const ai = orderMap.get(a.id);
-      const bi = orderMap.get(b.id);
-      if (ai != null && bi != null) return ai - bi;
-      if (ai != null) return -1;
-      if (bi != null) return 1;
-      return defaultSort(a, b);
-    });
-  }, [allowCustomOrder, filtered, pluginOrder]);
-
-  const enabledCount = useMemo(
-    () => categoryPlugins.filter((p: PluginInfo) => p.enabled).length,
-    [categoryPlugins],
-  );
-
-  const pluginsWithSubgroup = useMemo(
-    () =>
-      sorted.map((plugin) => ({
-        plugin,
-        subgroup: subgroupForPlugin(plugin),
-      })),
-    [sorted],
-  );
-
   const [subgroupFilter, setSubgroupFilter] = useState<string>("all");
   const showSubgroupFilters =
     mode !== "connectors" && mode !== "streaming" && mode !== "social";
   const showDesktopSubgroupSidebar = showSubgroupFilters;
-
-  const subgroupCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const { subgroup } of pluginsWithSubgroup) {
-      counts[subgroup] = (counts[subgroup] ?? 0) + 1;
-    }
-    return counts;
-  }, [pluginsWithSubgroup]);
-
-  const subgroupTags = useMemo(() => {
-    const dynamicTags = SUBGROUP_DISPLAY_ORDER.filter(
-      (sg) => (subgroupCounts[sg] ?? 0) > 0,
-    ).map((sg) => ({
-      id: sg,
-      label: SUBGROUP_LABELS[sg],
-      count: subgroupCounts[sg] ?? 0,
-    }));
-    return [{ id: "all", label: "All", count: sorted.length }, ...dynamicTags];
-  }, [sorted.length, subgroupCounts]);
+  const {
+    categoryPlugins,
+    enabledCount,
+    nonDbPlugins,
+    sorted,
+    subgroupTags,
+    visiblePlugins,
+  } = useMemo(
+    () =>
+      buildPluginListState({
+        allowCustomOrder,
+        effectiveSearch,
+        effectiveStatusFilter,
+        isConnectorLikeMode,
+        mode,
+        pluginOrder,
+        plugins,
+        showSubgroupFilters,
+        subgroupFilter,
+      }),
+    [
+      allowCustomOrder,
+      effectiveSearch,
+      effectiveStatusFilter,
+      isConnectorLikeMode,
+      mode,
+      pluginOrder,
+      plugins,
+      showSubgroupFilters,
+      subgroupFilter,
+    ],
+  );
 
   useEffect(() => {
     if (!showSubgroupFilters) return;
@@ -1106,14 +1182,6 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       setSubgroupFilter("all");
     }
   }, [showSubgroupFilters, subgroupFilter, subgroupTags]);
-
-  const visiblePlugins = useMemo(() => {
-    if (!showSubgroupFilters) return sorted;
-    if (subgroupFilter === "all") return sorted;
-    return pluginsWithSubgroup
-      .filter(({ subgroup }) => subgroup === subgroupFilter)
-      .map(({ plugin }) => plugin);
-  }, [showSubgroupFilters, pluginsWithSubgroup, sorted, subgroupFilter]);
 
   const renderSubgroupFilterButton = useCallback(
     (
@@ -1432,7 +1500,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           <img
             src={imageSrc}
             alt=""
-            className={options?.className ?? "w-5 h-5 rounded-sm object-contain"}
+            className={
+              options?.className ?? "w-5 h-5 rounded-sm object-contain"
+            }
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
@@ -1753,13 +1823,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
   // Resolve the plugin whose settings dialog is currently open.
   // Exclude ai-provider plugins — those are configured in Settings.
-  const settingsDialogPlugin = useMemo(() => {
-    for (const id of pluginSettingsOpen) {
-      const p = nonDbPlugins.find((pl: PluginInfo) => pl.id === id);
-      if (p?.parameters && p.parameters.length > 0) return p;
-    }
-    return null;
-  }, [pluginSettingsOpen, nonDbPlugins]);
+  const settingsDialogPlugin =
+    Array.from(pluginSettingsOpen)
+      .map((id) => nonDbPlugins.find((plugin) => plugin.id === id) ?? null)
+      .find((plugin) => (plugin?.parameters?.length ?? 0) > 0) ?? null;
 
   // ── Game-modal state ──────────────────────────────────────────────
   const [gameSelectedId, setGameSelectedId] = useState<string | null>(null);
@@ -1806,7 +1873,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
   useEffect(() => {
     if (!isSocialMode || !inModal) return;
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function")
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    )
       return;
 
     const media = window.matchMedia("(min-width: 1024px)");
@@ -1845,6 +1915,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     if (!connectorSelectedId) return;
     setConnectorExpandedIds(new Set([connectorSelectedId]));
   }, [connectorSelectedId, desktopConnectorLayout, inModal, isSocialMode]);
+
+  useEffect(() => {
+    if (!isSocialMode || !inModal || desktopConnectorLayout) return;
+    setConnectorExpandedIds(new Set());
+  }, [desktopConnectorLayout, inModal, isSocialMode]);
 
   const scrollConnectorIntoView = useCallback((pluginId: string) => {
     const element = connectorSectionRefs.current[pluginId];
@@ -1893,44 +1968,81 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     return (
       <div
         data-testid="plugins-view-social"
-        className="flex min-h-full min-w-0 w-full flex-col bg-bg lg:flex-row"
+        className={`flex min-h-full min-w-0 w-full flex-col bg-bg ${
+          desktopConnectorLayout ? "md:flex-row" : ""
+        }`}
       >
-        <aside
-          data-testid="connectors-settings-sidebar"
-          className="hidden lg:flex lg:w-[22rem] lg:shrink-0 lg:border-r lg:border-border/50 lg:bg-bg/35 lg:backdrop-blur-xl"
-        >
-          <div className="flex min-h-full flex-1 flex-col lg:sticky lg:top-0 lg:max-h-screen">
-            <div className="border-b border-border/40 px-5 py-5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
-                Connectors
+        {desktopConnectorLayout && (
+          <aside
+            data-testid="connectors-settings-sidebar"
+            className="flex w-[22rem] shrink-0 border-r border-border/50 bg-bg/35 backdrop-blur-xl"
+          >
+            <div className="flex min-h-full flex-1 flex-col sticky top-0 max-h-screen">
+              <div className="border-b border-border/40 px-5 py-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
+                  Connectors
+                </div>
+                <div className="mt-2 text-sm text-muted">
+                  {enabledCount} enabled of {categoryPlugins.length}
+                </div>
               </div>
-              <div className="mt-2 text-sm text-muted">
-                {enabledCount} enabled of {categoryPlugins.length}
-              </div>
-            </div>
-            <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-              {visiblePlugins.map((plugin) => {
-                const isSelected = connectorSelectedId === plugin.id;
-                const isExpanded = connectorExpandedIds.has(plugin.id);
-                const isToggleBusy = togglingPlugins.has(plugin.id);
-                const toggleDisabled =
-                  isToggleBusy || (hasPluginToggleInFlight && !isToggleBusy);
+              <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
+                {visiblePlugins.map((plugin) => {
+                  const isSelected = connectorSelectedId === plugin.id;
+                  const isExpanded = connectorExpandedIds.has(plugin.id);
+                  const isToggleBusy = togglingPlugins.has(plugin.id);
+                  const toggleDisabled =
+                    isToggleBusy || (hasPluginToggleInFlight && !isToggleBusy);
 
-                return (
-                  <div
-                    key={plugin.id}
-                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition-all ${
-                      isSelected
-                        ? "border-accent/40 bg-accent/10 text-txt shadow-[0_10px_30px_rgba(var(--accent),0.08)]"
-                        : "border-transparent bg-transparent text-muted hover:border-border/60 hover:bg-card/55 hover:text-txt"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      onClick={() => handleConnectorSelect(plugin.id)}
-                      aria-current={isSelected ? "page" : undefined}
+                  return (
+                    <div
+                      key={plugin.id}
+                      className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition-all ${
+                        isSelected
+                          ? "border-accent/40 bg-accent/10 text-txt shadow-[0_10px_30px_rgba(var(--accent),0.08)]"
+                          : "border-transparent bg-transparent text-muted hover:border-border/60 hover:bg-card/55 hover:text-txt"
+                      }`}
                     >
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        onClick={() => handleConnectorSelect(plugin.id)}
+                        aria-current={isSelected ? "page" : undefined}
+                      >
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${
+                            isSelected
+                              ? "border-accent/30 bg-accent/18 text-txt-strong"
+                              : "border-border/50 bg-bg-accent/80 text-muted"
+                          }`}
+                        >
+                          {renderResolvedIcon(plugin, {
+                            className: "w-4 h-4 rounded-sm object-contain",
+                            emojiClassName: "text-sm",
+                          })}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none">
+                          {plugin.name}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-[0.16em] transition-colors ${
+                          plugin.enabled
+                            ? "border-accent bg-accent text-accent-fg"
+                            : "border-border bg-transparent text-muted hover:border-accent/40 hover:text-txt"
+                        } ${
+                          toggleDisabled
+                            ? "cursor-not-allowed opacity-60"
+                            : "cursor-pointer"
+                        }`}
+                        onClick={() =>
+                          void handleTogglePlugin(plugin.id, !plugin.enabled)
+                        }
+                        disabled={toggleDisabled}
+                      >
+                        {isToggleBusy ? "..." : plugin.enabled ? "ON" : "OFF"}
+                      </button>
                       <span
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
                           isSelected
@@ -1945,39 +2057,19 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none">
                         {plugin.name}
+                        className={`shrink-0 text-muted transition-transform ${
+                          isExpanded ? "rotate-90" : ""
+                        }`}
+                      >
+                        <ChevronRight className="h-4 w-4" />
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-[0.16em] transition-colors ${
-                        plugin.enabled
-                          ? "border-accent bg-accent text-accent-fg"
-                          : "border-border bg-transparent text-muted hover:border-accent/40 hover:text-txt"
-                      } ${
-                        toggleDisabled
-                          ? "cursor-not-allowed opacity-60"
-                          : "cursor-pointer"
-                      }`}
-                      onClick={() =>
-                        void handleTogglePlugin(plugin.id, !plugin.enabled)
-                      }
-                      disabled={toggleDisabled}
-                    >
-                      {isToggleBusy ? "..." : plugin.enabled ? "ON" : "OFF"}
-                    </button>
-                    <span
-                      className={`shrink-0 text-muted transition-transform ${
-                        isExpanded ? "rotate-90" : ""
-                      }`}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </span>
-                  </div>
-                );
-              })}
-            </nav>
-          </div>
-        </aside>
+                    </div>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="sticky top-0 z-20 border-b border-border/50 bg-bg/85 px-4 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl sm:px-6 lg:px-8">
@@ -2037,7 +2129,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               >
                 {visiblePlugins.map((plugin) => {
                   const hasParams =
-                    (plugin.parameters?.length ?? 0) > 0 && plugin.id !== "__ui-showcase__";
+                    (plugin.parameters?.length ?? 0) > 0 &&
+                    plugin.id !== "__ui-showcase__";
                   const isExpanded = connectorExpandedIds.has(plugin.id);
                   const isSelected = connectorSelectedId === plugin.id;
                   const setCount = hasParams
@@ -2071,7 +2164,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           type="button"
                           data-testid={`connector-header-${plugin.id}`}
                           className="flex min-w-0 flex-1 items-start gap-3 text-left"
-                          onClick={() => handleConnectorSectionToggle(plugin.id)}
+                          onClick={() =>
+                            handleConnectorSectionToggle(plugin.id)
+                          }
                         >
                           <span
                             className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
@@ -2122,7 +2217,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                       : "border-warn/30 bg-warn/10 text-warn"
                                   }`}
                                 >
-                                  {plugin.loadError ? "Load failed" : "Not installed"}
+                                  {plugin.loadError
+                                    ? "Load failed"
+                                    : "Not installed"}
                                 </span>
                               )}
                             </span>
@@ -2142,19 +2239,33 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                 : "cursor-pointer"
                             }`}
                             onClick={() =>
-                              void handleTogglePlugin(plugin.id, !plugin.enabled)
+                              void handleTogglePlugin(
+                                plugin.id,
+                                !plugin.enabled,
+                              )
                             }
                             disabled={toggleDisabled}
                           >
-                            {isToggleBusy ? "..." : plugin.enabled ? "ON" : "OFF"}
+                            {isToggleBusy
+                              ? "..."
+                              : plugin.enabled
+                                ? "ON"
+                                : "OFF"}
                           </button>
                           <button
                             type="button"
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 text-muted transition-colors hover:border-accent/40 hover:text-txt"
-                            onClick={() => handleConnectorSectionToggle(plugin.id)}
+                            className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                              isExpanded
+                                ? "border-accent/40 bg-accent/10 text-txt"
+                                : "border-border/50 text-muted hover:border-accent/40 hover:text-txt"
+                            }`}
+                            onClick={() =>
+                              handleConnectorSectionToggle(plugin.id)
+                            }
                             aria-expanded={isExpanded}
                             aria-label={`${isExpanded ? "Collapse" : "Expand"} ${plugin.name}`}
                           >
+                            <span>{isExpanded ? "Collapse" : "Expand"}</span>
                             <ChevronRight
                               className={`h-4 w-4 transition-transform ${
                                 isExpanded ? "rotate-90" : ""
@@ -2217,7 +2328,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             !plugin.loadError && (
                               <div className="mb-4 rounded-2xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-txt">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                  <div>Install this connector to activate it in the runtime.</div>
+                                  <div>
+                                    Install this connector to activate it in the
+                                    runtime.
+                                  </div>
                                   <Button
                                     variant="default"
                                     size="sm"
@@ -2231,8 +2345,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                     }
                                   >
                                     {installingPlugins.has(plugin.id)
-                                      ? installProgress.get(plugin.npmName ?? "")
-                                          ?.message || "Installing..."
+                                      ? installProgress.get(
+                                          plugin.npmName ?? "",
+                                        )?.message || "Installing..."
                                       : "Install Plugin"}
                                   </Button>
                                 </div>
@@ -2277,7 +2392,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                         : "border-border/40 bg-card/40 hover:border-accent/40"
                                 }`}
                                 disabled={testResult?.loading}
-                                onClick={() => void handleTestConnection(plugin.id)}
+                                onClick={() =>
+                                  void handleTestConnection(plugin.id)
+                                }
                               >
                                 {testResult?.loading
                                   ? "Testing..."
@@ -2299,14 +2416,18 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                   Reset
                                 </Button>
                                 <Button
-                                  variant={saveSuccess ? "default" : "secondary"}
+                                  variant={
+                                    saveSuccess ? "default" : "secondary"
+                                  }
                                   size="sm"
                                   className={`h-8 rounded-xl px-4 text-[11px] font-bold transition-all ${
                                     saveSuccess
                                       ? "bg-ok text-ok-fg hover:bg-ok/90"
                                       : "bg-accent text-accent-fg hover:bg-accent/90"
                                   }`}
-                                  onClick={() => void handleConfigSave(plugin.id)}
+                                  onClick={() =>
+                                    void handleConfigSave(plugin.id)
+                                  }
                                   disabled={isSaving}
                                 >
                                   {isSaving
@@ -2605,13 +2726,13 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         {showToolbar && (
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className="relative flex-1 min-w-[220px]">
-            <Input
-              type="text"
-              className="w-full bg-card/60 backdrop-blur-md shadow-inner pr-8 h-9 rounded-xl focus-visible:ring-accent border-border/40"
-              placeholder={searchPlaceholder}
-              value={pluginSearch}
-              onChange={(e) => setState("pluginSearch", e.target.value)}
-            />
+              <Input
+                type="text"
+                className="w-full bg-card/60 backdrop-blur-md shadow-inner pr-8 h-9 rounded-xl focus-visible:ring-accent border-border/40"
+                placeholder={searchPlaceholder}
+                value={pluginSearch}
+                onChange={(e) => setState("pluginSearch", e.target.value)}
+              />
               {pluginSearch && (
                 <Button
                   variant="ghost"
@@ -2689,20 +2810,20 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
         {/* Plugin grid */}
         <div className="overflow-y-auto">
-        {sorted.length === 0 ? (
-          <div className="text-center py-10 px-5 text-muted border border-dashed border-border">
-            {effectiveSearch
-              ? `No ${resultLabel} match your search.`
-              : `No ${resultLabel} available.`}
-          </div>
-        ) : visiblePlugins.length === 0 ? (
-          <div className="text-center py-10 px-5 text-muted border border-dashed border-border">
-            {showSubgroupFilters
-              ? "No plugins match this tag filter."
-              : `No ${resultLabel} match your filters.`}
-          </div>
-        ) : (
-          renderPluginGrid(visiblePlugins)
+          {sorted.length === 0 ? (
+            <div className="text-center py-10 px-5 text-muted border border-dashed border-border">
+              {effectiveSearch
+                ? `No ${resultLabel} match your search.`
+                : `No ${resultLabel} available.`}
+            </div>
+          ) : visiblePlugins.length === 0 ? (
+            <div className="text-center py-10 px-5 text-muted border border-dashed border-border">
+              {showSubgroupFilters
+                ? "No plugins match this tag filter."
+                : `No ${resultLabel} match your filters.`}
+            </div>
+          ) : (
+            renderPluginGrid(visiblePlugins)
           )}
         </div>
       </div>

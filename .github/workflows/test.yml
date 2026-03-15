@@ -1,10 +1,10 @@
 name: Tests
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -39,15 +39,14 @@ jobs:
       - name: Install setuptools for distutils (Python 3.12+)
         run: pip install setuptools
 
-      - name: Install canvas native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+      - name: Install native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # WHY cache global Bun cache: avoids re-downloading tarballs; we do not cache node_modules (upload cost > gain).
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -65,9 +64,6 @@ jobs:
         env:
           SKIP_AVATAR_CLONE: "1"
           MILADY_NO_VISION_DEPS: "1"
-
-      - name: Run unit tests
-        run: bunx vitest run --config vitest.unit.config.ts
 
       - name: Run unit tests with coverage
         run: bun run test:coverage
@@ -101,7 +97,7 @@ jobs:
         run: pip install setuptools
 
       - name: Install canvas native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -151,7 +147,7 @@ jobs:
         run: pip install setuptools
 
       - name: Install canvas native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -188,7 +184,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install canvas native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       # WHY useblacksmith: colocated cache avoids nodejs.org download timeouts on Blacksmith runners.
       - name: Setup Node.js
@@ -248,7 +244,7 @@ jobs:
 
       - name: Install canvas native dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       # WHY split: Blacksmith has colocated Node cache; GitHub-hosted macOS needs v3 to avoid v4 timeouts.
       - name: Setup Node.js (Blacksmith)
@@ -291,7 +287,7 @@ jobs:
 
       - name: Build core dist (server bundle)
         run: |
-          bunx tsdown || true
+          bunx tsdown
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
@@ -441,7 +437,7 @@ jobs:
 
       - name: Install canvas native dependencies
         if: steps.cloud.outputs.enabled == 'true'
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       - name: Setup Bun
         if: steps.cloud.outputs.enabled == 'true'
@@ -489,7 +485,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install canvas native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev build-essential libpixman-1-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev libpixman-1-dev librsvg2-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

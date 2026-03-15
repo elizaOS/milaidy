@@ -1,8 +1,7 @@
+import { AvatarLoader } from "@milady/app-core/components/AvatarLoader";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
-
-import { AvatarLoader } from "../../src/components/avatar/AvatarLoader";
 
 function renderedText(tree: TestRenderer.ReactTestRenderer): string {
   return tree.root
