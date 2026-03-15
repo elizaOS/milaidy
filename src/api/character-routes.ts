@@ -236,6 +236,7 @@ export async function handleCharacterRoutes(
       if (character.bio) merged.bio = character.bio;
       if (character.system) merged.system = character.system;
       if (character.adjectives) merged.adjectives = character.adjectives;
+      if (character.topics) merged.topics = character.topics;
       if (character.style) merged.style = character.style;
       if (character.messageExamples)
         merged.messageExamples = character.messageExamples;
@@ -274,6 +275,7 @@ export async function handleCharacterRoutes(
       if (body.system != null) character.system = String(body.system);
       if (body.adjectives != null)
         character.adjectives = body.adjectives as string[];
+      if (body.topics != null) character.topics = body.topics as string[];
       if (body.style != null)
         character.style = body.style as NonNullable<typeof character.style>;
       if (body.messageExamples != null)
