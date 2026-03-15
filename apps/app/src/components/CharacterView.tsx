@@ -1090,13 +1090,13 @@ export function CharacterView({
         <div className="mt-3 flex justify-end">
           {/* ── Book container ── */}
           <div
-            className="flex h-[34rem] w-full max-w-xl overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+            className="flex h-[34rem] w-full max-w-md overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
             data-testid="character-notebook"
           >
             {/* ── Book page (left) ── */}
             <div className={`${bookPageCls} flex flex-1 flex-col rounded-l-xl border-r border-border/30 text-[#1e2329] dark:text-[hsl(40,10%,84%)]`}>
               {/* Mode toggle: Core / Examples */}
-              <div className="flex items-center gap-2 border-b border-border/30 px-5 py-3">
+              <div className="flex items-center gap-2 border-b border-[#d6d3c6]/50 dark:border-border/30 px-5 py-3">
                 <Button
                   type="button"
                   variant={customizeStep === "core" ? "default" : "outline"}
@@ -1123,9 +1123,9 @@ export function CharacterView({
               <div className="flex-1 overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
                 {/* ── About Me (Core) ── */}
                 {activeSection === "aboutMe" && customizeStep === "core" && (
-                  <div className="flex flex-col gap-3" data-testid="character-core-editor">
+                  <div className="flex flex-1 flex-col gap-3" data-testid="character-core-editor">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted">{t("characterview.aboutMe")}</span>
+                      <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.aboutMe")}</span>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1138,19 +1138,18 @@ export function CharacterView({
                     </div>
                     <Textarea
                       value={bioText}
-                      rows={6}
                       placeholder={t("characterview.describeWhoYourAg")}
                       onChange={(e) => handleFieldEdit("bio", e.target.value)}
-                      className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 text-sm leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+                      className="flex-1 resize-none overflow-y-auto rounded-lg border-[#d6d3c6] dark:border-border/40 bg-white/60 dark:bg-white/5 p-3 font-mono text-xs leading-relaxed text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
                     />
                   </div>
                 )}
 
                 {/* ── Directions (Core) ── */}
                 {activeSection === "directions" && customizeStep === "core" && (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-1 flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted">{t("characterview.directionsAndThing")}</span>
+                      <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.directionsAndThing")}</span>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1163,24 +1162,23 @@ export function CharacterView({
                     </div>
                     <Textarea
                       value={d.system ?? ""}
-                      rows={7}
                       maxLength={10000}
                       placeholder={t("characterview.writeInFirstPerso")}
                       onChange={(e) => handleFieldEdit("system", e.target.value)}
-                      className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 font-mono text-xs leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+                      className="flex-1 resize-none overflow-y-auto rounded-lg border-[#d6d3c6] dark:border-border/40 bg-white/60 dark:bg-white/5 p-3 font-mono text-xs leading-relaxed text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
                     />
                   </div>
                 )}
 
                 {/* ── Style Rules (Core) ── */}
                 {activeSection === "styleRules" && customizeStep === "core" && (
-                  <div className="flex flex-col gap-4" data-testid="character-style-editor">
+                  <div className="flex flex-col gap-3" data-testid="character-style-editor">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.StyleRules")}</span>
+                      <span className="text-xs font-medium text-[#6d737a] dark:text-muted">{t("characterview.StyleRules")}</span>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 rounded-md px-2.5 text-[11px] font-bold"
+                        className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
                         onClick={() => void handleGenerate("style", "replace")}
                         disabled={generating === "style"}
                       >
@@ -1192,48 +1190,47 @@ export function CharacterView({
                       return (
                         <div
                           key={key}
-                          className="flex flex-col gap-2 rounded-lg border border-border/30 bg-bg/30 p-3"
+                          className="flex flex-col gap-1.5"
                           data-testid={`style-section-${key}`}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">{key}</span>
-                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
+                          <div className="flex items-center gap-2 border-b border-[#d6d3c6]/60 dark:border-border/30 pb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#6d737a] dark:text-muted">{key}</span>
+                            <span className="text-[9px] font-medium uppercase tracking-wider text-[#9ca3af] dark:text-muted/60">
                               {items.length} rule{items.length === 1 ? "" : "s"}
                             </span>
                           </div>
-                          <div className={`${scrollPaneCls} max-h-[16rem]`}>
-                            <div className="flex flex-col gap-2">
+                          <div className={`${scrollPaneCls} max-h-[12rem]`}>
+                            <div className="flex flex-col gap-1">
                               {items.length > 0 ? (
                                 items.map((item, index) => (
                                   <div
                                     key={getStyleEntryRenderKey(key, items, item, index)}
-                                    className="flex items-start gap-2 rounded-lg border border-border/25 bg-bg/40 p-2.5"
+                                    className="group flex items-start gap-2 rounded-md border border-[#d6d3c6]/40 dark:border-border/20 bg-white/50 dark:bg-white/3 px-2.5 py-2"
                                     data-testid={`style-entry-${key}-${index}`}
                                   >
-                                    <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
+                                    <span className="mt-0.5 shrink-0 text-[10px] font-bold text-accent">
                                       {index + 1}
                                     </span>
                                     <Textarea
                                       value={styleEntryDrafts[key]?.[index] ?? item}
-                                      rows={2}
+                                      rows={1}
                                       onChange={(e) => handleStyleEntryDraftChange(key, index, e.target.value)}
                                       onBlur={() => handleCommitStyleEntry(key, index)}
-                                      className="min-h-[60px] min-w-0 flex-1 resize-none rounded-md border-border/30 bg-bg/60 p-2 text-xs leading-relaxed text-txt focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                                      className="min-h-[2rem] min-w-0 flex-1 resize-none rounded border-0 bg-transparent p-0 font-mono text-xs leading-relaxed text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:ring-0"
                                       data-testid={`style-entry-editor-${key}-${index}`}
                                     />
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
+                                    <button
+                                      type="button"
+                                      className="mt-0.5 shrink-0 text-[#9ca3af] opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
                                       onClick={() => handleRemoveStyleEntry(key, index)}
                                       title={t("characterview.remove")}
                                     >
-                                      ×
-                                    </Button>
+                                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+                                    </button>
                                   </div>
                                 ))
                               ) : (
-                                <div className={`${hintCls} rounded-md border border-dashed border-border/30 bg-bg/30 px-3 py-2`}>
+                                <div className="rounded-md border border-dashed border-[#d6d3c6]/60 dark:border-border/30 px-3 py-2 text-[11px] text-[#9ca3af] dark:text-muted">
                                   {STYLE_SECTION_EMPTY_STATES[key]}
                                 </div>
                               )}
@@ -1251,13 +1248,13 @@ export function CharacterView({
                                   handleAddStyleEntry(key);
                                 }
                               }}
-                              className="h-8 min-w-0 flex-1 rounded-md border-border/30 bg-bg/60 focus-visible:border-accent focus-visible:ring-accent/50"
+                              className="h-7 min-w-0 flex-1 rounded-md border-[#d6d3c6]/60 dark:border-border/30 bg-white/50 dark:bg-white/5 text-xs text-[#1e2329] dark:text-[hsl(40,10%,84%)] focus-visible:border-accent focus-visible:ring-accent/50"
                               data-testid={`style-entry-input-${key}`}
                             />
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="h-8 shrink-0 rounded-md px-3 text-[11px] font-bold"
+                              className="h-7 shrink-0 rounded-md px-2 text-[10px] font-bold text-accent"
                               onClick={() => handleAddStyleEntry(key)}
                               disabled={!pendingStyleEntries[key].trim()}
                             >
