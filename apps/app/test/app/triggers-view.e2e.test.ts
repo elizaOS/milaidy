@@ -603,6 +603,7 @@ describe("TriggersView UI E2E", () => {
           (node) =>
             node.type === "button" &&
             (nodeText(node).includes("Save Changes") ||
+              nodeText(node).includes("heartbeatsview.saveChanges") ||
               nodeText(node).includes("heartbeatsview.editHeartbeat")),
         ).length === 1,
       "Trigger editor did not enter edit mode",
@@ -621,6 +622,7 @@ describe("TriggersView UI E2E", () => {
     await act(async () => {
       await findButtonByText(root, [
         "Save Changes",
+        "heartbeatsview.saveChanges",
         "heartbeatsview.editHeartbeat",
       ]).props.onClick();
     });
@@ -656,7 +658,10 @@ describe("TriggersView UI E2E", () => {
     expect(successRows.length).toBeGreaterThan(0);
 
     await act(async () => {
-      await findButtonByText(root, "Edit").props.onClick();
+      await findButtonByText(root, [
+        "Edit",
+        "triggersview.Edit",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
