@@ -1094,7 +1094,7 @@ export function CharacterView({
             data-testid="character-notebook"
           >
             {/* ── Book page (left) ── */}
-            <div className={`${bookPageCls} flex min-h-[28rem] flex-1 flex-col rounded-l-xl border-r border-border border-t-2 border-t-accent/20`}>
+            <div className={`${bookPageCls} flex max-h-[70vh] flex-1 flex-col rounded-l-xl border-r border-border border-t-2 border-t-accent/20`}>
               {/* Mode toggle: Core / Examples */}
               <div className="flex items-center gap-2 border-b border-border/30 px-5 py-3">
                 <Button
