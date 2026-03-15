@@ -853,7 +853,6 @@ export function CharacterView({
   const cardCls = sceneOverlay
     ? "p-5 border border-white/10 bg-black/15 backdrop-blur-md rounded-2xl shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
     : "p-5 border border-border/40 bg-card/40 backdrop-blur-xl rounded-2xl shadow-sm";
-  const editorCardCls = `${cardCls} flex min-h-0 flex-col overflow-hidden`;
   const sectionCls =
     sceneOverlay && !inModal ? "relative z-10 mt-4 px-1" : `mt-4 ${cardCls}`;
   const hintCls = "text-[11px] text-muted";
@@ -909,176 +908,6 @@ export function CharacterView({
       : `${inModal || sceneOverlay ? "pb-8" : ""} ${
           sceneOverlay ? "relative z-10" : ""
         }`;
-  const chatExamplesPanel = (
-    <div
-      className={`${editorCardCls} min-h-[24rem]`}
-      data-testid="character-chat-examples-card"
-    >
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="text-sm font-bold tracking-wide text-txt">
-            {t("characterview.chatExamples")}
-          </div>
-          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
-            {t("characterview.HowTheAgentResp")}
-          </span>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
-          onClick={() => void handleGenerate("chatExamples", "replace")}
-          disabled={generating === "chatExamples"}
-        >
-          {generating === "chatExamples" ? "generating..." : "generate"}
-        </Button>
-      </div>
-
-      <div className={`${scrollPaneCls} flex flex-1 flex-col gap-3 pr-2`}>
-        {(d.messageExamples ?? []).map((convo, ci) => (
-          <div
-            key={convo.examples
-              .map((msg) => `${msg.name}:${msg.content?.text ?? ""}`)
-              .join("|")}
-            className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
-          >
-            <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
-                {t("characterview.conversation")} {ci + 1}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-[10px] font-bold text-muted transition-all hover:bg-danger/10 hover:text-danger"
-                onClick={() => {
-                  const updated = [...(d.messageExamples ?? [])];
-                  updated.splice(ci, 1);
-                  handleFieldEdit("messageExamples", updated);
-                }}
-              >
-                {t("characterview.remove")}
-              </Button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {convo.examples.map((msg, mi) => (
-                <div
-                  key={`${msg.name}:${msg.content?.text ?? ""}`}
-                  className="flex items-center gap-3"
-                >
-                  <span
-                    className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}
-                  >
-                    {msg.name === "{{user1}}" ? "user" : "agent"}
-                  </span>
-                  <Input
-                    type="text"
-                    value={msg.content?.text ?? ""}
-                    onChange={(e) => {
-                      const updated = [...(d.messageExamples ?? [])];
-                      const convoClone = {
-                        examples: [...updated[ci].examples],
-                      };
-                      convoClone.examples[mi] = {
-                        ...convoClone.examples[mi],
-                        content: { text: e.target.value },
-                      };
-                      updated[ci] = convoClone;
-                      handleFieldEdit("messageExamples", updated);
-                    }}
-                    className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {(d.messageExamples ?? []).length === 0 && (
-          <div
-            className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
-          >
-            {t("characterview.noChatExamplesYet")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-  const postExamplesPanel = (
-    <div
-      className={`${editorCardCls} min-h-[24rem]`}
-      data-testid="character-post-examples-card"
-    >
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="text-sm font-bold tracking-wide text-txt">
-            {t("characterview.postExamples")}
-          </div>
-          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
-            {t("characterview.SocialMediaVoice")}
-          </span>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent shadow-inner transition-all hover:border-accent/40 hover:text-accent"
-          onClick={() => void handleGenerate("postExamples", "replace")}
-          disabled={generating === "postExamples"}
-        >
-          {generating === "postExamples" ? "generating..." : "generate"}
-        </Button>
-      </div>
-
-      <div className={`${scrollPaneCls} flex flex-1 flex-col gap-2 pr-2`}>
-        {(d.postExamples ?? []).map((post: string, pi: number) => (
-          <div key={post || `post-${pi}`} className="flex items-center gap-2">
-            <Input
-              type="text"
-              value={post}
-              onChange={(e) => {
-                const updated = [...(d.postExamples ?? [])];
-                updated[pi] = e.target.value;
-                handleFieldEdit("postExamples", updated);
-              }}
-              className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md transition-all focus-visible:border-accent/50 focus-visible:ring-accent/50"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
-              onClick={() => {
-                const updated = [...(d.postExamples ?? [])];
-                updated.splice(pi, 1);
-                handleFieldEdit("postExamples", updated);
-              }}
-            >
-              ×
-            </Button>
-          </div>
-        ))}
-        {(d.postExamples ?? []).length === 0 && (
-          <div
-            className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
-          >
-            {t("characterview.noPostExamplesYet")}
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-border/40 pt-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start rounded-md border border-transparent text-[11px] font-bold text-accent transition-all hover:border-accent/30 hover:bg-accent/10"
-          onClick={() => {
-            const updated = [...(d.postExamples ?? []), ""];
-            handleFieldEdit("postExamples", updated);
-          }}
-        >
-          {t("characterview.AddPost")}
-        </Button>
-      </div>
-    </div>
-  );
-
   return (
     <div className={rootCls}>
       {/* ═══ ON-CHAIN IDENTITY ═══ */}
@@ -1292,7 +1121,298 @@ export function CharacterView({
 
               {/* Content area */}
               <div className="flex-1 overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
-                {/* TODO: Content wired in Task 4 */}
+                {/* ── About Me (Core) ── */}
+                {activeSection === "aboutMe" && customizeStep === "core" && (
+                  <div className="flex flex-col gap-3" data-testid="character-core-editor">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted">{t("characterview.aboutMe")}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+                        onClick={() => void handleGenerate("bio")}
+                        disabled={generating === "bio"}
+                      >
+                        {generating === "bio" ? "generating..." : "regenerate"}
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={bioText}
+                      rows={6}
+                      placeholder={t("characterview.describeWhoYourAg")}
+                      onChange={(e) => handleFieldEdit("bio", e.target.value)}
+                      className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 text-sm leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+                    />
+                  </div>
+                )}
+
+                {/* ── Directions (Core) ── */}
+                {activeSection === "directions" && customizeStep === "core" && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted">{t("characterview.directionsAndThing")}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 rounded-md px-2 text-[10px] font-bold text-accent"
+                        onClick={() => void handleGenerate("system")}
+                        disabled={generating === "system"}
+                      >
+                        {generating === "system" ? "generating..." : "regenerate"}
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={d.system ?? ""}
+                      rows={7}
+                      maxLength={10000}
+                      placeholder={t("characterview.writeInFirstPerso")}
+                      onChange={(e) => handleFieldEdit("system", e.target.value)}
+                      className="min-h-[10rem] resize-none overflow-y-auto rounded-lg border-border/40 bg-bg/60 p-3 font-mono text-xs leading-relaxed focus-visible:border-accent focus-visible:ring-accent/50"
+                    />
+                  </div>
+                )}
+
+                {/* ── Style Rules (Core) ── */}
+                {activeSection === "styleRules" && customizeStep === "core" && (
+                  <div className="flex flex-col gap-4" data-testid="character-style-editor">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.StyleRules")}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 rounded-md px-2.5 text-[11px] font-bold"
+                        onClick={() => void handleGenerate("style", "replace")}
+                        disabled={generating === "style"}
+                      >
+                        {generating === "style" ? "generating..." : "regenerate"}
+                      </Button>
+                    </div>
+                    {STYLE_SECTION_KEYS.map((key) => {
+                      const items = d.style?.[key] ?? [];
+                      return (
+                        <div
+                          key={key}
+                          className="flex flex-col gap-2 rounded-lg border border-border/30 bg-bg/30 p-3"
+                          data-testid={`style-section-${key}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">{key}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
+                              {items.length} rule{items.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          <div className={`${scrollPaneCls} max-h-[16rem]`}>
+                            <div className="flex flex-col gap-2">
+                              {items.length > 0 ? (
+                                items.map((item, index) => (
+                                  <div
+                                    key={getStyleEntryRenderKey(key, items, item, index)}
+                                    className="flex items-start gap-2 rounded-lg border border-border/25 bg-bg/40 p-2.5"
+                                    data-testid={`style-entry-${key}-${index}`}
+                                  >
+                                    <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
+                                      {index + 1}
+                                    </span>
+                                    <Textarea
+                                      value={styleEntryDrafts[key]?.[index] ?? item}
+                                      rows={2}
+                                      onChange={(e) => handleStyleEntryDraftChange(key, index, e.target.value)}
+                                      onBlur={() => handleCommitStyleEntry(key, index)}
+                                      className="min-h-[60px] min-w-0 flex-1 resize-none rounded-md border-border/30 bg-bg/60 p-2 text-xs leading-relaxed text-txt focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                                      data-testid={`style-entry-editor-${key}-${index}`}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
+                                      onClick={() => handleRemoveStyleEntry(key, index)}
+                                      title={t("characterview.remove")}
+                                    >
+                                      ×
+                                    </Button>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className={`${hintCls} rounded-md border border-dashed border-border/30 bg-bg/30 px-3 py-2`}>
+                                  {STYLE_SECTION_EMPTY_STATES[key]}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="text"
+                              value={pendingStyleEntries[key]}
+                              placeholder={STYLE_SECTION_PLACEHOLDERS[key]}
+                              onChange={(e) => handlePendingStyleEntryChange(key, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddStyleEntry(key);
+                                }
+                              }}
+                              className="h-8 min-w-0 flex-1 rounded-md border-border/30 bg-bg/60 focus-visible:border-accent focus-visible:ring-accent/50"
+                              data-testid={`style-entry-input-${key}`}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 shrink-0 rounded-md px-3 text-[11px] font-bold"
+                              onClick={() => handleAddStyleEntry(key)}
+                              disabled={!pendingStyleEntries[key].trim()}
+                            >
+                              + add
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── Chat Examples (About Me + Examples mode) ── */}
+                {activeSection === "aboutMe" && customizeStep === "examples" && (
+                  <div className="flex flex-col gap-3" data-testid="character-chat-examples-card">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.chatExamples")}</span>
+                        <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+                          {t("characterview.HowTheAgentResp")}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent"
+                        onClick={() => void handleGenerate("chatExamples", "replace")}
+                        disabled={generating === "chatExamples"}
+                      >
+                        {generating === "chatExamples" ? "generating..." : "generate"}
+                      </Button>
+                    </div>
+                    <div className={`${scrollPaneCls} flex flex-col gap-3`}>
+                      {(d.messageExamples ?? []).map((convo, ci) => (
+                        <div
+                          key={convo.examples.map((msg) => `${msg.name}:${msg.content?.text ?? ""}`).join("|")}
+                          className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
+                        >
+                          <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                              {t("characterview.conversation")} {ci + 1}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] font-bold text-muted hover:bg-danger/10 hover:text-danger"
+                              onClick={() => {
+                                const updated = [...(d.messageExamples ?? [])];
+                                updated.splice(ci, 1);
+                                handleFieldEdit("messageExamples", updated);
+                              }}
+                            >
+                              {t("characterview.remove")}
+                            </Button>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            {convo.examples.map((msg, mi) => (
+                              <div key={`${msg.name}:${msg.content?.text ?? ""}`} className="flex items-center gap-3">
+                                <span className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}>
+                                  {msg.name === "{{user1}}" ? "user" : "agent"}
+                                </span>
+                                <Input
+                                  type="text"
+                                  value={msg.content?.text ?? ""}
+                                  onChange={(e) => {
+                                    const updated = [...(d.messageExamples ?? [])];
+                                    const convoClone = { examples: [...updated[ci].examples] };
+                                    convoClone.examples[mi] = { ...convoClone.examples[mi], content: { text: e.target.value } };
+                                    updated[ci] = convoClone;
+                                    handleFieldEdit("messageExamples", updated);
+                                  }}
+                                  className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {(d.messageExamples ?? []).length === 0 && (
+                        <div className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}>
+                          {t("characterview.noChatExamplesYet")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Post Examples (Directions + Examples mode) ── */}
+                {activeSection === "directions" && customizeStep === "examples" && (
+                  <div className="flex flex-col gap-3" data-testid="character-post-examples-card">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold tracking-wide text-txt">{t("characterview.postExamples")}</span>
+                        <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+                          {t("characterview.SocialMediaVoice")}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 border-border/50 bg-bg/50 text-[11px] font-bold text-accent"
+                        onClick={() => void handleGenerate("postExamples", "replace")}
+                        disabled={generating === "postExamples"}
+                      >
+                        {generating === "postExamples" ? "generating..." : "generate"}
+                      </Button>
+                    </div>
+                    <div className={`${scrollPaneCls} flex flex-col gap-2`}>
+                      {(d.postExamples ?? []).map((post: string, pi: number) => (
+                        <div key={post || `post-${pi}`} className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={post}
+                            onChange={(e) => {
+                              const updated = [...(d.postExamples ?? [])];
+                              updated[pi] = e.target.value;
+                              handleFieldEdit("postExamples", updated);
+                            }}
+                            className="h-9 flex-1 rounded-lg border-border/50 bg-bg/50 text-xs shadow-inner backdrop-blur-md focus-visible:border-accent/50 focus-visible:ring-accent/50"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
+                            onClick={() => {
+                              const updated = [...(d.postExamples ?? [])];
+                              updated.splice(pi, 1);
+                              handleFieldEdit("postExamples", updated);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                      {(d.postExamples ?? []).length === 0 && (
+                        <div className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}>
+                          {t("characterview.noPostExamplesYet")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t border-border/40 pt-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="self-start rounded-md border border-transparent text-[11px] font-bold text-accent hover:border-accent/30 hover:bg-accent/10"
+                        onClick={() => {
+                          const updated = [...(d.postExamples ?? []), ""];
+                          handleFieldEdit("postExamples", updated);
+                        }}
+                      >
+                        {t("characterview.AddPost")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
