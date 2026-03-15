@@ -11,6 +11,7 @@
 
 import { ChevronDown, X } from "lucide-react";
 import React, { useCallback, useRef, useState } from "react";
+import { Switch } from "../components/ui-switch";
 import { useApp } from "../state";
 import type { DynamicValue } from "../types";
 import type { FieldRenderer, FieldRenderProps } from "./config-catalog";
@@ -270,42 +271,27 @@ function BooleanFieldInner({ fp: props }: { fp: FieldRenderProps }) {
 
   const [localVal, setLocalVal] = useState(initialVal);
 
-  const handleToggle = () => {
-    const next = !localVal;
-    setLocalVal(next);
-    props.onChange(String(next));
-    fireAction(props, "change");
-  };
-
   return (
-    <button
-      type="button"
-      className="flex items-center gap-2.5 cursor-pointer bg-transparent border-none p-0 group"
-      disabled={props.readonly}
-      onClick={() => {
-        handleToggle();
-        fireAction(props, "click");
-      }}
-      data-config-key={props.key}
-      data-field-type="boolean"
-    >
-      <div
-        className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 ${
-          localVal ? "bg-[var(--accent)]" : "bg-[var(--muted)] opacity-40"
-        }`}
-      >
-        <div
-          className={`absolute top-[3px] w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200 ${
-            localVal ? "left-[21px]" : "left-[3px]"
-          }`}
-        />
-      </div>
+    <div className="flex items-center gap-2.5">
+      <Switch
+        checked={localVal}
+        onChange={(next) => {
+          setLocalVal(next);
+          props.onChange(String(next));
+          fireAction(props, "change");
+        }}
+        disabled={props.readonly}
+        size="compact"
+        data-config-key={props.key}
+        data-field-type="boolean"
+        className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]"
+      />
       <span
-        className={`text-xs transition-colors ${localVal ? "text-[var(--text)] font-medium" : "text-[var(--muted)]"}`}
+        className={`text-xs font-medium ${localVal ? "text-[var(--text)]" : "text-[var(--muted)]"}`}
       >
         {localVal ? "Enabled" : "Disabled"}
       </span>
-    </button>
+    </div>
   );
 }
 
