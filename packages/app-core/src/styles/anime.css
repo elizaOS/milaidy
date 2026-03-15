@@ -3353,9 +3353,9 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 16px 10px;
-  width: 100px;
-  min-width: 100px;
+  padding: 12px 8px;
+  width: 68px;
+  min-width: 68px;
   background: rgba(4, 5, 10, 0.92);
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   overflow-y: auto;
@@ -3851,9 +3851,10 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: 72px;
-  height: 54px;
-  border-radius: 10px;
+  width: 48px;
+  height: 40px;
+  padding: 10px 8px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--s-text-muted, rgba(185, 183, 200, 0.55));
@@ -3866,8 +3867,8 @@
 }
 
 .settings-icon-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -3897,10 +3898,10 @@
 }
 
 .settings-icon-label {
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: inherit;
 }
 
