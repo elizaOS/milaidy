@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
- * dev:desktop — Start the full Milady desktop development environment.
+ * dev:desktop — Full Milady desktop development environment.
  *
  * Runs in parallel:
- *   1. Vite (build --watch) — continuously rebuilds the renderer to apps/app/dist/
- *   2. Electrobun (dev --watch) — watches bun-side + ../dist, relaunches on change
+ *   1. API server (bun --watch on port 31337)
+ *   2. Vite (build --watch) — continuously rebuilds the renderer to apps/app/dist/
+ *   3. Electrobun (dev) — watches bun-side + ../dist, relaunches on change
  *
- * Ctrl-C cleanly kills both processes.
+ * Pass --no-api to skip the backend (e.g. if running it separately).
+ *
+ * Ctrl-C cleanly kills all processes.
  */
 
 import { spawn } from "node:child_process";
@@ -15,8 +18,23 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
+const skipApi = process.argv.includes("--no-api");
 
 const services = [
+  ...(!skipApi
+    ? [
+        {
+          name: "api",
+          cmd: "bun",
+          args: ["--watch", "src/runtime/dev-server.ts"],
+          cwd: repoRoot,
+          env: {
+            MILADY_PORT: "31337",
+            MILADY_HEADLESS: "1",
+          },
+        },
+      ]
+    : []),
   {
     name: "vite",
     cmd: "bun",
@@ -44,7 +62,10 @@ function prefixStream(name, stream) {
   });
 }
 
-console.log(`\nMilady desktop dev\n`);
+console.log(
+  `\nMilady desktop dev${skipApi ? " (no API)" : ""}\n` +
+    `  Services: ${services.map((s) => s.name).join(", ")}\n`,
+);
 
 const children = [];
 
