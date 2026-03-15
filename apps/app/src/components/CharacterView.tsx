@@ -892,7 +892,7 @@ export function CharacterView({
   const rosterSlantClipPath =
     "polygon(32px 0, 100% 0, calc(100% - 32px) 100%, 0 100%)";
   const insetShadowClipPath =
-  "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
+    "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
   const rootCls =
     sceneOverlay && !inModal
       ? "relative z-10 flex min-h-full flex-col justify-end pb-4"
@@ -900,7 +900,10 @@ export function CharacterView({
           sceneOverlay ? "relative z-10" : ""
         }`;
   const coreFieldsPanel = (
-        <div className={`${editorCardCls} min-h-[24rem]`} data-testid="character-core-editor">
+    <div
+      className={`${editorCardCls} min-h-[24rem]`}
+      data-testid="character-core-editor"
+    >
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className={labelCls}>
@@ -1519,11 +1522,19 @@ export function CharacterView({
               className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,23rem)_minmax(0,1fr)_minmax(0,32rem)] xl:items-start xl:gap-6"
               data-testid="character-customize-grid"
             >
-              <div className={customizeStep === "style" ? "hidden xl:block" : "block"}>
+              <div
+                className={
+                  customizeStep === "style" ? "hidden xl:block" : "block"
+                }
+              >
                 {coreFieldsPanel}
               </div>
               <div aria-hidden className="hidden xl:block" />
-              <div className={customizeStep === "core" ? "hidden xl:block" : "block"}>
+              <div
+                className={
+                  customizeStep === "core" ? "hidden xl:block" : "block"
+                }
+              >
                 {styleEditorPanel}
               </div>
             </div>
@@ -1605,7 +1616,9 @@ export function CharacterView({
                       ? handleTestVoice(activeVoicePreset.previewUrl)
                       : undefined
                 }
-                aria-label={voiceTesting ? "Stop voice preview" : "Preview voice"}
+                aria-label={
+                  voiceTesting ? "Stop voice preview" : "Preview voice"
+                }
                 title={voiceTesting ? "Stop voice preview" : "Preview voice"}
                 disabled={!activeVoicePreset || voiceLoading}
               >
