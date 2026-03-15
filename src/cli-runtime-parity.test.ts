@@ -64,8 +64,6 @@ describe("onboarding presets parity (CLI ↔ GUI)", () => {
       expect(preset.system.length).toBeGreaterThan(0);
       expect(Array.isArray(preset.adjectives)).toBe(true);
       expect(preset.adjectives.length).toBeGreaterThan(0);
-      expect(Array.isArray(preset.topics)).toBe(true);
-      expect(preset.topics.length).toBeGreaterThan(0);
       expect(preset.style).toBeDefined();
       expect(Array.isArray(preset.style.all)).toBe(true);
       expect(Array.isArray(preset.style.chat)).toBe(true);

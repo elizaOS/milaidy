@@ -11,7 +11,6 @@ describe("prepareDraftForSave", () => {
       system: "Act composed.",
       bio: " first line \n\n second line ",
       adjectives: ["precise", "", "calm"],
-      topics: ["timekeeping", " "],
       postExamples: ["Mission report", ""],
       style: {
         all: ["Be exact"],
@@ -57,7 +56,6 @@ describe("prepareDraftForSave", () => {
       system: "Act composed.",
       bio: ["first line", "second line"],
       adjectives: ["precise", "calm"],
-      topics: ["timekeeping"],
       postExamples: ["Mission report"],
       style: {
         all: ["Be exact"],
@@ -87,7 +85,6 @@ describe("prepareDraftForSave", () => {
     const draft = {
       bio: " \n ",
       adjectives: ["", " "],
-      topics: [" "],
       postExamples: [" "],
       style: {
         all: [],

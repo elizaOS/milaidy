@@ -8009,7 +8009,6 @@ async function handleRequest(
         post?: string[];
       };
     if (body.adjectives) agent.adjectives = body.adjectives as string[];
-    if (body.topics) agent.topics = body.topics as string[];
     if (body.postExamples) agent.postExamples = body.postExamples as string[];
     if (body.messageExamples) {
       // Normalise to the {examples: [{name, content}]} format that @elizaos/core expects.
