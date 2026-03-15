@@ -18,6 +18,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockUseApp, noop } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
   noop: vi.fn(),
+  sceneHostState: {
+    activeHistory: [] as boolean[],
+    mounts: 0,
+    unmounts: 0,
+  },
 }));
 
 /* ── Mock every leaf component ────────────────────────────────────── */
@@ -127,6 +132,31 @@ vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () =>
     React.createElement("section", null, "CompanionView Ready"),
 }));
+
+vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    SharedCompanionScene: ({
+      active,
+      children,
+    }: {
+      active: boolean;
+      children: React.ReactNode;
+    }) => {
+      const { useEffect } = React;
+      useEffect(() => {
+        sceneHostState.mounts += 1;
+        return () => {
+          sceneHostState.unmounts += 1;
+        };
+      }, []);
+      sceneHostState.activeHistory.push(active);
+      return React.createElement(React.Fragment, null, children);
+    },
+    CompanionSceneHost: () => null,
+    useSharedCompanionScene: () => true,
+  };
+});
 
 vi.mock("../../src/components/companion/VrmStage", () => ({
   VrmStage: () => React.createElement("div", null, "VrmStage Ready"),
@@ -326,6 +356,9 @@ describe("shell mode switching (e2e)", () => {
     state = makeState();
     mockUseApp.mockReset();
     mockUseApp.mockImplementation(() => state);
+    sceneHostState.activeHistory = [];
+    sceneHostState.mounts = 0;
+    sceneHostState.unmounts = 0;
   });
 
   // --- Native shell: every tab renders valid content ---
@@ -622,5 +655,32 @@ describe("shell mode switching (e2e)", () => {
     ).toBe(0);
     errorSpy.mockRestore();
     warnSpy.mockRestore();
+  });
+
+  it("keeps the shared companion scene mounted while shell mode changes", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    state.uiShellMode = "native";
+    state.tab = "chat";
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(App));
+    });
+    if (!tree) throw new Error("failed to render App");
+
+    state.uiShellMode = "companion";
+    state.tab = "companion";
+    await act(async () => {
+      tree?.update(React.createElement(App));
+    });
+
+    state.uiShellMode = "native";
+    state.tab = "chat";
+    await act(async () => {
+      tree?.update(React.createElement(App));
+    });
+
+    expect(sceneHostState.mounts).toBe(1);
+    expect(sceneHostState.unmounts).toBe(0);
+    expect(sceneHostState.activeHistory).toEqual([false, true, false]);
   });
 });

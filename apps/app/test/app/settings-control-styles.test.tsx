@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolve } from "node:path";
 import {
   CloudConnectionStatus,
   CloudSourceModeToggle,
@@ -20,6 +20,19 @@ function blockFor(css: string, selector: string): string {
   const match = css.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`));
   return match?.[1] ?? "";
 }
+
+const animeCssPath = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "packages",
+  "app-core",
+  "src",
+  "styles",
+  "anime.css",
+);
 
 describe("settings control styles", () => {
   it("renders the cloud source toggle as a rounded segmented control", async () => {
@@ -78,10 +91,7 @@ describe("settings control styles", () => {
   });
 
   it("keeps settings accent foreground text mapped to the actual foreground", () => {
-    const css = readFileSync(
-      join(process.cwd(), "packages/app-core/src/styles/anime.css"),
-      "utf8",
-    );
+    const css = readFileSync(animeCssPath, "utf8");
 
     const accentForegroundBlock = blockFor(
       css,
@@ -95,5 +105,11 @@ describe("settings control styles", () => {
     expect(accentForegroundBlock).toContain("color: var(--accent-foreground);");
     expect(gridButtonBlock).toContain("border-radius: var(--radius-lg);");
     expect(gridButtonBlock).not.toContain("clip-path");
+  });
+
+  it("uses a dark accent foreground for yellow settings buttons", () => {
+    const css = readFileSync(animeCssPath, "utf8");
+
+    expect(css).toContain("--accent-foreground: #1a1f26;");
   });
 });

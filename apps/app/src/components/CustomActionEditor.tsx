@@ -835,7 +835,7 @@ export function CustomActionEditor({
                   }}
                   className={`px-3 py-1.5 text-xs border cursor-pointer ${
                     handlerType === type
-                      ? "border-accent bg-accent text-white"
+                      ? "border-accent bg-accent text-[var(--accent-foreground,#1a1f26)]"
                       : "border-border text-muted hover:text-txt"
                   }`}
                 >

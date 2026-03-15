@@ -1514,7 +1514,7 @@
   "knowledgeview.ChooseFiles": "选择文件",
   "knowledgeview.ChooseFolder": "选择文件夹",
   "knowledgeview.AddFromURL": "从网址添加",
-  "knowledgeview.IncludeAIImageDes": "包含 AI 图像描述（更多上下文，可能会增加成本）",
+  "knowledgeview.IncludeAIImageDes": "处理图片",
   "knowledgeview.PasteAURLToImpor": "粘贴 URL 以导入内容。 YouTube 链接将是\n            自动转录。",
   "knowledgeview.ImageURLsCanOptio": "图像 URL 可以选择使用 AI 描述提取，并且可以\n            增加成本。",
   "knowledgeview.Import": "进口",

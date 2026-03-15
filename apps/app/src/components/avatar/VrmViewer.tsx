@@ -18,6 +18,8 @@ import {
 const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milady-1.vrm");
 
 export type VrmViewerProps = {
+  /** When false the loaded scene stays resident but the render loop is paused */
+  active?: boolean;
   /** Path to the VRM file to load (default: bundled Miwaifus #1) */
   vrmPath?: string;
   mouthOpen: number;
@@ -57,6 +59,7 @@ export function VrmViewer(props: VrmViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<VrmEngine | null>(null);
   const mouthOpenRef = useRef<number>(props.mouthOpen);
+  const activeRef = useRef<boolean>(props.active ?? true);
   const isSpeakingRef = useRef<boolean>(props.isSpeaking ?? false);
   const interactiveRef = useRef<boolean>(props.interactive ?? false);
   const cameraProfileRef = useRef<CameraProfile>(props.cameraProfile ?? "chat");
@@ -90,6 +93,7 @@ export function VrmViewer(props: VrmViewerProps) {
   );
 
   mouthOpenRef.current = props.mouthOpen;
+  activeRef.current = props.active ?? true;
   isSpeakingRef.current = props.isSpeaking ?? false;
   interactiveRef.current = props.interactive ?? false;
   cameraProfileRef.current = props.cameraProfile ?? "chat";
@@ -160,6 +164,7 @@ export function VrmViewer(props: VrmViewerProps) {
         sparkOptimized: prefersWorldRendererRef.current,
       },
     );
+    engine.setPaused(!activeRef.current);
 
     // One-time initial camera/control setup (subsequent changes handled by effects).
     engine.setCameraProfile(cameraProfileRef.current);
@@ -207,6 +212,12 @@ export function VrmViewer(props: VrmViewerProps) {
   useEffect(() => {
     syncDebugRegistry();
   });
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setPaused(!(props.active ?? true));
+  }, [props.active]);
 
   useEffect(() => {
     const engine = engineRef.current;

@@ -91,6 +91,20 @@ vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () => React.createElement("div", null, "CompanionView"),
 }));
 
+vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    SharedCompanionScene: ({
+      children,
+    }: {
+      active: boolean;
+      children: React.ReactNode;
+    }) => React.createElement(React.Fragment, null, children),
+    CompanionSceneHost: () => null,
+    useSharedCompanionScene: () => true,
+  };
+});
+
 import { App } from "../../src/App";
 
 const ORIGINAL_INNER_WIDTH = window.innerWidth;

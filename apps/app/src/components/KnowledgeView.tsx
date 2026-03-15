@@ -45,10 +45,6 @@ const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
   ".webp",
   ".gif",
 ]);
-const DIRECTORY_INPUT_ATTRS = {
-  webkitdirectory: "",
-  directory: "",
-} as Record<string, string>;
 
 export type KnowledgeUploadFile = File & {
   webkitRelativePath?: string;
@@ -110,7 +106,6 @@ function UploadZone({
   const [includeImageDescriptions, setIncludeImageDescriptions] =
     useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -148,11 +143,7 @@ function UploadZone({
 
   return (
     <fieldset
-      className={`w-full xl:max-w-[34rem] rounded-xl border px-3 py-2.5 transition-all ${
-        dragOver
-          ? "border-accent bg-accent/5 shadow-[0_0_20px_rgba(var(--accent),0.12)]"
-          : "border-border/40 bg-card/20 hover:border-accent/30"
-      } ${uploading ? "opacity-60 pointer-events-none" : ""}`}
+      className="min-w-[min(22rem,100%)] flex-[1_1_26rem]"
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -169,47 +160,26 @@ function UploadZone({
         accept=".txt,.md,.pdf,.docx,.json,.csv,.xml,.html,.png,.jpg,.jpeg,.webp,.gif"
         onChange={handleFileSelect}
       />
-      <input
-        {...DIRECTORY_INPUT_ATTRS}
-        ref={folderInputRef}
-        type="file"
-        className="hidden"
-        multiple
-        accept=".txt,.md,.pdf,.docx,.json,.csv,.xml,.html,.png,.jpg,.jpeg,.webp,.gif"
-        onChange={handleFileSelect}
-      />
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Button
           variant="default"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold"
+          className="h-10 px-4 text-[11px] font-semibold"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
         >
           {t("knowledgeview.ChooseFiles")}
         </Button>
         <Button
-          variant="secondary"
-          size="sm"
-          className="h-8 px-3 text-[11px] font-semibold"
-          onClick={() => folderInputRef.current?.click()}
-          disabled={uploading}
-        >
-          {t("knowledgeview.ChooseFolder")}
-        </Button>
-        <Button
           variant="outline"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold hover:text-txt"
+          className="h-10 px-4 text-[11px] font-semibold hover:text-txt"
           onClick={() => setShowUrlInput(!showUrlInput)}
           disabled={uploading}
         >
           {t("knowledgeview.AddFromURL")}
         </Button>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted/80">
-        <label className="inline-flex items-center gap-2 cursor-pointer hover:text-muted transition-colors">
+        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-border/30 bg-bg/40 px-3 text-[11px] text-muted/80 transition-colors hover:text-muted">
           <input
             type="checkbox"
             checked={includeImageDescriptions}
@@ -219,40 +189,54 @@ function UploadZone({
           />
           {t("knowledgeview.IncludeAIImageDes")}
         </label>
-        {(dragOver || uploading) && (
-          <span className="font-medium text-txt/80">
-            {uploadStatus
-              ? `Uploading ${uploadStatus.current}/${uploadStatus.total}${uploadStatus.filename ? `: ${uploadStatus.filename}` : ""}`
-              : "Drop files or folders to upload"}
-          </span>
-        )}
       </div>
+      {(dragOver || uploading || showUrlInput) && (
+        <div
+          className={`mt-2 rounded-xl border px-3 py-2.5 transition-colors ${
+            dragOver
+              ? "border-border/50 bg-card/30"
+              : "border-border/30 bg-card/15"
+          } ${uploading ? "opacity-60" : ""}`}
+        >
+          {(dragOver || uploading) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted/80">
+              <span className="font-medium text-txt/80">
+                {uploadStatus
+                  ? `Uploading ${uploadStatus.current}/${uploadStatus.total}${uploadStatus.filename ? `: ${uploadStatus.filename}` : ""}`
+                  : "Drop files or folders to upload"}
+              </span>
+            </div>
+          )}
 
-      {showUrlInput && (
-        <div className="mt-3 rounded-lg border border-border/30 bg-black/5 p-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="mb-2 text-[11px] font-medium leading-relaxed text-muted">
-            {t("knowledgeview.PasteAURLToImpor")}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              type="url"
-              placeholder={t("knowledgeview.httpsExampleCom")}
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
-              disabled={uploading}
-              className="h-8 flex-1 bg-bg/60 border-border/50 text-xs shadow-none"
-            />
-            <Button
-              variant="default"
-              size="sm"
-              className="h-8 px-3 text-[11px] font-semibold"
-              onClick={handleUrlSubmit}
-              disabled={!urlInput.trim() || uploading}
+          {showUrlInput && (
+            <div
+              className={`${dragOver || uploading ? "mt-2" : ""} animate-in fade-in slide-in-from-top-2 duration-300`}
             >
-              {t("knowledgeview.Import")}
-            </Button>
-          </div>
+              <div className="mb-2 text-[11px] font-medium leading-relaxed text-muted">
+                {t("knowledgeview.PasteAURLToImpor")}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  type="url"
+                  placeholder={t("knowledgeview.httpsExampleCom")}
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
+                  disabled={uploading}
+                  className="h-10 flex-1 bg-bg/60 border-border/50 text-xs shadow-none"
+                />
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-10 px-4 text-[11px] font-semibold"
+                  onClick={handleUrlSubmit}
+                  disabled={!urlInput.trim() || uploading}
+                >
+                  {t("knowledgeview.Import")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </fieldset>
@@ -1005,8 +989,8 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
     <div
       className={
         inModal
-          ? "max-w-6xl mx-auto h-full overflow-y-auto pb-8"
-          : "max-w-6xl mx-auto"
+          ? "h-full w-full overflow-y-auto pb-8"
+          : "w-full"
       }
     >
       {isServiceLoading && (
@@ -1030,22 +1014,25 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-start">
-        <form className="min-w-0 flex-1" onSubmit={handleSearchSubmit}>
-          <div className="flex gap-2">
+      <div className="mb-6 flex flex-wrap items-start gap-2">
+        <form
+          className="min-w-[min(28rem,100%)] flex-[2_1_34rem]"
+          onSubmit={handleSearchSubmit}
+        >
+          <div className="flex items-stretch gap-2">
             <Input
               type="text"
               placeholder={t("knowledge.ui.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={searching}
-              className="h-9 bg-bg border-border text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
+              className="h-10 bg-bg border-border text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
             />
             <Button
               type="submit"
               variant="default"
               size="sm"
-              className="h-9 px-4 shadow-sm"
+              className="h-10 px-4 shadow-sm"
               disabled={!searchQuery.trim() || searching}
             >
               {searching

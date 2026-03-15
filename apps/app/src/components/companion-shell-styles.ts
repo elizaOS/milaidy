@@ -189,6 +189,11 @@ export function accentRgbVar(f: TabFlags) {
   return "123, 143, 181";
 }
 
+export function accentForegroundVar(f: TabFlags) {
+  if (f.isPluginsLike || f.isWallets) return "#1a1f26";
+  return "#ffffff";
+}
+
 /* ── View wrapper helpers ──────────────────────────────────────────── */
 
 export function viewWrapperOverflow(f: TabFlags) {
@@ -238,7 +243,7 @@ export function viewWrapperStyle(
       "--card": "rgba(255, 255, 255, 0.05)",
       "--border": "rgba(255, 255, 255, 0.08)",
       "--accent": accentVar(f),
-      "--accent-foreground": "#ffffff",
+      "--accent-foreground": accentForegroundVar(f),
       "--accent-subtle": accentSubtleVar(f),
       "--accent-rgb": accentRgbVar(f),
       "--muted": "rgba(255, 255, 255, 0.45)",
@@ -258,7 +263,7 @@ export function viewWrapperStyle(
     "--card": "rgba(255, 255, 255, 0.05)",
     "--border": f.isSkills ? "rgba(0,225,255,0.3)" : "rgba(255,255,255,0.08)",
     "--accent": accentColor,
-    "--accent-foreground": f.isSkills ? "#000000" : "#ffffff",
+    "--accent-foreground": accentForegroundVar(f),
     "--muted": "rgba(255, 255, 255, 0.55)",
     "--txt": "#ffffff",
   } as React.CSSProperties;

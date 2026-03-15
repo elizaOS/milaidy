@@ -24,7 +24,7 @@ export const CompanionShell = memo(function CompanionShell(
 ) {
   useRenderGuard("CompanionShell");
   return (
-    <div className="relative w-full h-[100vh] overflow-hidden bg-[#0a0c12]">
+    <div className="relative w-full h-[100vh] overflow-hidden">
       <CompanionView />
     </div>
   );

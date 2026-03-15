@@ -147,6 +147,20 @@ vi.mock("../../src/components/CompanionShell", () => ({
     React.createElement("main", null, `CompanionShell Ready: ${tab}`),
 }));
 
+vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    SharedCompanionScene: ({
+      children,
+    }: {
+      active: boolean;
+      children: React.ReactNode;
+    }) => React.createElement(React.Fragment, null, children),
+    CompanionSceneHost: () => null,
+    useSharedCompanionScene: () => true,
+  };
+});
+
 vi.mock("../../src/components/TriggersView", () => ({
   TriggersView: () =>
     React.createElement("section", null, "TriggersView Ready"),

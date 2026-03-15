@@ -173,6 +173,8 @@ vi.mock("three", () => {
   }
 
   class MockClock {
+    start = vi.fn();
+    stop = vi.fn();
     getDelta = vi.fn(() => 0.016);
   }
 
@@ -366,6 +368,7 @@ vi.mock("@sparkjsdev/spark", () => ({
     quaternion = { set: vi.fn(), identity: vi.fn() };
     scale = { setScalar: vi.fn() };
     worldModifier: unknown = null;
+    objectModifier: unknown = null;
     getBoundingBox = vi.fn(() => ({
       min: { y: 0 },
       getCenter: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
@@ -374,6 +377,7 @@ vi.mock("@sparkjsdev/spark", () => ({
     forEachSplat = vi.fn();
     update = vi.fn();
     updateGenerator = vi.fn();
+    updateVersion = vi.fn();
     dispose = vi.fn();
     constructor(options?: unknown) {
       hoisted.mockSplatMeshOptions.push(options ?? {});
@@ -383,14 +387,24 @@ vi.mock("@sparkjsdev/spark", () => ({
     Gsplat: { type: "Gsplat" },
     dynoBlock: vi.fn(() => ({ kind: "dynoBlock" })),
     dynoFloat: vi.fn((value = 0) => ({ value })),
+    dynoVec3: vi.fn((value = new MockVector3()) => ({ value })),
     dynoConst: vi.fn((_type: string, value: number) => ({ value })),
-    splitGsplat: vi.fn(() => ({ outputs: { y: {}, opacity: {} } })),
+    splitGsplat: vi.fn(() => ({
+      outputs: { center: {}, scales: {}, rgb: {}, opacity: {} },
+    })),
     combineGsplat: vi.fn((value: unknown) => value),
     add: vi.fn(() => ({})),
     sub: vi.fn(() => ({})),
     mul: vi.fn(() => ({})),
     div: vi.fn(() => ({})),
+    abs: vi.fn(() => ({})),
     clamp: vi.fn(() => ({})),
+    max: vi.fn(() => ({})),
+    mix: vi.fn(() => ({})),
+    smoothstep: vi.fn(() => ({})),
+    pow: vi.fn(() => ({})),
+    length: vi.fn(() => ({})),
+    swizzle: vi.fn(() => ({})),
   },
 }));
 
@@ -621,6 +635,21 @@ describe("VrmEngine", () => {
       expect(hoisted.mockRendererInstance.dispose).not.toHaveBeenCalled();
     });
 
+    it("pauses and resumes the render loop without disposing the scene", async () => {
+      const canvas = createMockCanvas();
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(1);
+
+      engine.setPaused(true);
+      expect(globalThis.cancelAnimationFrame).toHaveBeenCalledTimes(1);
+      expect(hoisted.mockRendererInstance.dispose).not.toHaveBeenCalled();
+
+      engine.setPaused(false);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(2);
+    });
+
     it("waits for the renderer to finish initializing", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
@@ -787,69 +816,40 @@ describe("VrmEngine", () => {
       expect(engineAny.companionZoomTarget).toBe(1);
     });
 
-    it("compacts companion world splats to the current camera-facing half", () => {
+    it("queues the first world reveal until the VRM is ready", async () => {
+      const canvas = createMockCanvas();
+      engine.setup(canvas, vi.fn());
+      await waitForEngineReady(engine);
+
       const engineAny = engine as unknown as {
-        camera: { position: { x: number; y: number; z: number } };
-        lookAtTarget: { x: number; y: number; z: number };
-        compactWorldSplatsToCameraFront: (
-          packedSplats: {
-            packedArray: Uint32Array;
-            extra: Record<string, unknown>;
-            numSplats: number;
-            needsUpdate: boolean;
-            forEachSplat: (
-              callback: (
-                index: number,
-                center: { x: number; y: number; z: number },
-              ) => void,
-            ) => void;
-          },
-          url: string,
-          worldAnchor: { x: number; y: number; z: number },
-        ) => number;
-      };
-      engineAny.camera = { position: { x: 0, y: 0, z: 0 } };
-      engineAny.lookAtTarget = { x: 0, y: 0, z: -1 };
-
-      const packedArray = new Uint32Array([
-        11, 12, 13, 14, 21, 22, 23, 24, 31, 32, 33, 34,
-      ]);
-      const sh1 = new Uint32Array([101, 102, 201, 202, 301, 302]);
-      const centers = [
-        { x: 0, y: 0, z: 0.8 },
-        { x: 0, y: 0, z: -1.0 },
-        { x: 0, y: 0, z: -0.1 },
-      ];
-      const packedSplats = {
-        packedArray,
-        extra: { sh1 },
-        numSplats: 3,
-        needsUpdate: false,
-        forEachSplat: (
-          callback: (
-            index: number,
-            center: { x: number; y: number; z: number },
-          ) => void,
-        ) => {
-          centers.forEach((center, index) => {
-            callback(index, center);
-          });
-        },
+        worldReveal: {
+          waitingForVrm: boolean;
+          syncToTeleport: boolean;
+          progress: number;
+          controller: {
+            mesh: {
+              objectModifier: unknown;
+              updateGenerator: ReturnType<typeof vi.fn>;
+              updateVersion: ReturnType<typeof vi.fn>;
+            };
+          };
+        } | null;
       };
 
-      const kept = engineAny.compactWorldSplatsToCameraFront(
-        packedSplats,
-        "/worlds/companion-day.spz",
-        { x: 0, y: 0, z: 0 },
-      );
+      await engine.setWorldUrl("/worlds/companion-day.spz");
 
-      expect(kept).toBe(2);
-      expect(packedSplats.numSplats).toBe(2);
-      expect(packedSplats.needsUpdate).toBe(true);
-      expect(Array.from(packedSplats.packedArray.slice(0, 8))).toEqual([
-        21, 22, 23, 24, 31, 32, 33, 34,
-      ]);
-      expect(Array.from(sh1.slice(0, 4))).toEqual([201, 202, 301, 302]);
+      expect(engineAny.worldReveal?.waitingForVrm).toBe(true);
+      expect(engineAny.worldReveal?.syncToTeleport).toBe(false);
+      expect(engineAny.worldReveal?.progress).toBe(0);
+      expect(
+        engineAny.worldReveal?.controller.mesh.objectModifier,
+      ).toBeTruthy();
+      expect(
+        engineAny.worldReveal?.controller.mesh.updateGenerator,
+      ).toHaveBeenCalled();
+      expect(
+        engineAny.worldReveal?.controller.mesh.updateVersion,
+      ).toHaveBeenCalled();
     });
 
     it("resize() handles zero or negative dimensions gracefully", async () => {
@@ -875,7 +875,6 @@ describe("VrmEngine", () => {
 
       expect(hoisted.mockSplatMeshOptions.at(-1)).toMatchObject({
         url: "/worlds/companion-day.spz",
-        maxSplats: 1_000_000,
       });
       expect(hoisted.mockSparkRendererOptions.at(-1)).toMatchObject({
         apertureAngle: 0,
@@ -931,11 +930,11 @@ describe("VrmEngine", () => {
       expect(dayPosition[1]).toBeCloseTo(-0.35, 5);
       expect(dayPosition[2]).toBeCloseTo(0, 5);
       expect(nightPosition[0]).toBeCloseTo(0, 5);
-      expect(nightPosition[1]).toBeCloseTo(-1.0, 5);
+      expect(nightPosition[1]).toBeCloseTo(-0.95, 5);
       expect(nightPosition[2]).toBeCloseTo(0, 5);
     });
 
-    it("syncs the first companion world reveal to the avatar teleport dissolve", async () => {
+    it("starts a pending world reveal when the teleport dissolve begins", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
       await waitForEngineReady(engine);
@@ -943,27 +942,36 @@ describe("VrmEngine", () => {
       await engine.setWorldUrl("/worlds/companion-day.spz");
 
       const engineAny = engine as unknown as {
-        worldTransition: {
+        teleportProgress: number;
+        startPendingWorldReveal: (syncToTeleport: boolean) => void;
+        worldReveal: {
+          waitingForVrm: boolean;
           syncToTeleport: boolean;
-          incoming: {
+          progress: number;
+          controller: {
             mesh: {
-              worldModifier: unknown;
+              objectModifier: unknown;
               updateGenerator: ReturnType<typeof vi.fn>;
             };
           };
         } | null;
       };
 
-      expect(engineAny.worldTransition?.syncToTeleport).toBe(true);
+      engineAny.teleportProgress = 0.35;
+      engineAny.startPendingWorldReveal(true);
+
+      expect(engineAny.worldReveal?.waitingForVrm).toBe(false);
+      expect(engineAny.worldReveal?.syncToTeleport).toBe(true);
+      expect(engineAny.worldReveal?.progress).toBeCloseTo(0.35);
       expect(
-        engineAny.worldTransition?.incoming.mesh.worldModifier,
+        engineAny.worldReveal?.controller.mesh.objectModifier,
       ).toBeTruthy();
       expect(
-        engineAny.worldTransition?.incoming.mesh.updateGenerator,
+        engineAny.worldReveal?.controller.mesh.updateGenerator,
       ).toHaveBeenCalled();
     });
 
-    it("dissolves only the world on theme swaps", async () => {
+    it("replaces the previous world immediately on theme swaps", async () => {
       const canvas = createMockCanvas();
       engine.setup(canvas, vi.fn());
       await waitForEngineReady(engine);
@@ -971,34 +979,50 @@ describe("VrmEngine", () => {
       await engine.setWorldUrl("/worlds/companion-day.spz");
 
       const engineAny = engine as unknown as {
+        vrmReady: boolean;
         worldMesh: {
           opacity: number;
+          objectModifier: unknown;
           dispose: ReturnType<typeof vi.fn>;
         } | null;
-        worldTransition: {
+        worldReveal: {
+          waitingForVrm: boolean;
           syncToTeleport: boolean;
-          outgoing: {
-            opacity: number;
-            dispose: ReturnType<typeof vi.fn>;
-          } | null;
+          progress: number;
+          controller: {
+            mesh: {
+              opacity: number;
+              objectModifier: unknown;
+              dispose: ReturnType<typeof vi.fn>;
+            };
+          };
         } | null;
-        updateWorldTransition: (stableDelta: number) => void;
+        updateWorldReveal: (stableDelta: number) => void;
       };
 
       const firstWorld = engineAny.worldMesh;
       expect(firstWorld).toBeTruthy();
 
+      engineAny.vrmReady = true;
       await engine.setWorldUrl("/worlds/companion-night.spz");
+      const secondWorld = engineAny.worldMesh;
 
-      expect(engineAny.worldTransition?.syncToTeleport).toBe(false);
-      expect(engineAny.worldTransition?.outgoing).toBe(firstWorld);
-
-      engineAny.updateWorldTransition(0.4);
-      expect(firstWorld?.opacity).toBeLessThan(1);
-
-      engineAny.updateWorldTransition(0.4);
+      expect(secondWorld).toBeTruthy();
+      expect(secondWorld).not.toBe(firstWorld);
       expect(firstWorld?.dispose).toHaveBeenCalled();
-      expect(engineAny.worldTransition).toBeNull();
+      expect(engineAny.worldReveal?.waitingForVrm).toBe(false);
+      expect(engineAny.worldReveal?.syncToTeleport).toBe(false);
+      expect(engineAny.worldReveal?.controller.mesh).toBe(secondWorld);
+      expect(
+        engineAny.worldReveal?.controller.mesh.objectModifier,
+      ).toBeTruthy();
+
+      engineAny.updateWorldReveal(0.4);
+      expect(engineAny.worldReveal?.progress ?? 0).toBeGreaterThan(0);
+      expect(engineAny.worldReveal?.progress ?? 1).toBeLessThan(1);
+      engineAny.updateWorldReveal(4);
+      expect(engineAny.worldReveal).toBeNull();
+      expect(secondWorld?.opacity).toBe(1);
     });
   });
 

@@ -1544,7 +1544,7 @@
   "knowledgeview.ChooseFiles": "Choose Files",
   "knowledgeview.ChooseFolder": "Choose Folder",
   "knowledgeview.AddFromURL": "Add from URL",
-  "knowledgeview.IncludeAIImageDes": "Include AI image descriptions (more context, may increase cost)",
+  "knowledgeview.IncludeAIImageDes": "Process Images",
   "knowledgeview.PasteAURLToImpor": "Paste a URL to import content. YouTube links will be\n            auto-transcribed.",
   "knowledgeview.ImageURLsCanOptio": "Image URLs can optionally use AI description extraction and may\n            increase costs.",
   "knowledgeview.Import": "Import",

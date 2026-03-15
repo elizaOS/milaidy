@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { cn } from "../../lib/utils";
 import { Button } from "./button";
 import { Input } from "./input";
 
@@ -18,6 +19,12 @@ export interface TagEditorProps {
   addLabel?: string;
   /** Label for the remove button. Defaults to "×". */
   removeLabel?: string;
+  /** Optional class for the root container. */
+  className?: string;
+  /** Optional class for the input row. */
+  inputRowClassName?: string;
+  /** Optional class for the scrollable tag list. */
+  listClassName?: string;
 }
 
 export function TagEditor({
@@ -27,6 +34,9 @@ export function TagEditor({
   placeholder = "add item...",
   addLabel = "+",
   removeLabel = "×",
+  className,
+  inputRowClassName,
+  listClassName,
 }: TagEditorProps) {
   const [inputValue, setInputValue] = useState("");
 
@@ -45,9 +55,9 @@ export function TagEditor({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn("flex min-h-0 flex-col gap-1.5", className)}>
       <span className="font-semibold text-xs">{label}</span>
-      <div className="flex items-center gap-1.5">
+      <div className={cn("flex items-center gap-1.5", inputRowClassName)}>
         <Input
           type="text"
           value={inputValue}
@@ -70,7 +80,13 @@ export function TagEditor({
           {addLabel}
         </Button>
       </div>
-      <div className="min-h-0 overflow-y-auto border border-border/40 bg-bg/50 backdrop-blur-sm rounded-xl p-2 flex flex-wrap gap-x-1.5 gap-y-1 content-start items-start">
+      <div
+        className={cn(
+          "min-h-0 overflow-y-auto rounded-xl border border-border/40 bg-bg/50 p-2 backdrop-blur-sm",
+          "flex flex-wrap content-start items-start gap-x-1.5 gap-y-1",
+          listClassName,
+        )}
+      >
         {items.map((item, i) => (
           <span
             key={item}

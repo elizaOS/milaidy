@@ -106,7 +106,9 @@ export function ShellHeaderControls({
           {shellOptions.map(({ mode, label, Icon }, index) => {
             const selected = activeShellMode === mode;
             const edgeClass =
-              index === 0 ? "rounded-l-xl rounded-r-none" : "rounded-l-none rounded-r-xl";
+              index === 0
+                ? "rounded-l-xl rounded-r-none"
+                : "rounded-l-none rounded-r-xl";
             return (
               <button
                 key={mode}

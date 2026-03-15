@@ -1514,7 +1514,7 @@
   "knowledgeview.ChooseFiles": "파일 선택",
   "knowledgeview.ChooseFolder": "폴더 선택",
   "knowledgeview.AddFromURL": "URL에서 추가",
-  "knowledgeview.IncludeAIImageDes": "AI 이미지 설명 포함(더 많은 맥락으로 인해 비용이 증가할 수 있음)",
+  "knowledgeview.IncludeAIImageDes": "이미지 처리",
   "knowledgeview.PasteAURLToImpor": "콘텐츠를 가져오려면 URL을 붙여넣으세요. 유튜브 링크는 됩니다\n            자동 전사되었습니다.",
   "knowledgeview.ImageURLsCanOptio": "이미지 URL은 선택적으로 AI 설명 추출을 사용할 수 있으며\n            비용을 증가시킵니다.",
   "knowledgeview.Import": "가져오기",

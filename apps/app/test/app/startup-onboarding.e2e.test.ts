@@ -245,6 +245,20 @@ vi.mock("../../src/components/CompanionShell", () => ({
   useCompanionShell: () => ({}),
 }));
 
+vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    SharedCompanionScene: ({
+      children,
+    }: {
+      active: boolean;
+      children: React.ReactNode;
+    }) => React.createElement(React.Fragment, null, children),
+    CompanionSceneHost: () => null,
+    useSharedCompanionScene: () => true,
+  };
+});
+
 import { App } from "../../src/App";
 
 function onboardingOptions() {

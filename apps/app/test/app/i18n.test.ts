@@ -37,6 +37,22 @@ describe("i18n helpers", () => {
     expect(zh("nav.wallets")).toBe("钱包");
   });
 
+  it("keeps the image processing upload label short in every locale", () => {
+    expect(MESSAGES.en["knowledgeview.IncludeAIImageDes"]).toBe(
+      "Process Images",
+    );
+    expect(MESSAGES.es["knowledgeview.IncludeAIImageDes"]).toBe(
+      "Procesar imágenes",
+    );
+    expect(MESSAGES.ko["knowledgeview.IncludeAIImageDes"]).toBe("이미지 처리");
+    expect(MESSAGES.pt["knowledgeview.IncludeAIImageDes"]).toBe(
+      "Processar imagens",
+    );
+    expect(MESSAGES["zh-CN"]["knowledgeview.IncludeAIImageDes"]).toBe(
+      "处理图片",
+    );
+  });
+
   it("keeps locale keys in sync between en and zh-CN", () => {
     const collectKeys = (obj: Record<string, string>): string[] => {
       return Object.keys(obj);

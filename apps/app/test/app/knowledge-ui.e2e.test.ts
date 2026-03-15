@@ -580,6 +580,33 @@ describe("KnowledgeView UI", () => {
     expect(searchInputs.length).toBeGreaterThanOrEqual(0);
   });
 
+  it("keeps yellow knowledge action buttons on a dark foreground", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(KnowledgeView));
+    });
+
+    const findButton = (label: string) =>
+      tree?.root
+        .findAllByType("button")
+        .find((node) => node.props.children === label);
+
+    const chooseFilesButton = findButton("knowledgeview.ChooseFiles");
+    const chooseFolderButton = findButton("knowledgeview.ChooseFolder");
+    const searchButton = findButton("knowledge.ui.search");
+
+    expect(chooseFolderButton).toBeUndefined();
+    expect(chooseFilesButton?.props.className).toContain("h-10");
+    expect(chooseFilesButton?.props.className).toContain(
+      "text-[var(--primary-foreground,#1a1f26)]",
+    );
+    expect(searchButton?.props.className).toContain("h-10");
+    expect(searchButton?.props.className).toContain(
+      "text-[var(--primary-foreground,#1a1f26)]",
+    );
+  });
+
   it("shows loading state when knowledgeLoading is true", async () => {
     state.knowledgeLoading = true;
 

@@ -3,7 +3,7 @@
  *
  * Tests cover:
  * 1. Identity editing (name, bio, system prompt)
- * 2. Personality tags (adjectives, topics)
+ * 2. Topic and voice editing layout
  * 3. Style configuration
  * 4. Avatar selection
  * 5. Save functionality
@@ -586,6 +586,67 @@ describe("CharacterView UI", () => {
         (node) => node.props["data-testid"] === "character-customize-grid",
       ) ?? [],
     ).toHaveLength(1);
+  });
+
+  it("removes adjective editors from the character screen", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CharacterView));
+    });
+
+    const adjectiveLabels =
+      tree?.root.findAll((node) =>
+        node.children?.some(
+          (child) =>
+            child === "Adjectives" || child === "characterview.adjectives",
+        ),
+      ) ?? [];
+
+    expect(adjectiveLabels).toHaveLength(0);
+  });
+
+  it("renders topics above voice and splits style and examples into parallel columns", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CharacterView));
+    });
+
+    const customizeSidebar = tree?.root.find(
+      (node) => node.props["data-testid"] === "character-customize-sidebar",
+    );
+    const sidebarSections =
+      customizeSidebar?.findAll(
+        (node) =>
+          node.props["data-testid"] === "character-topics-card" ||
+          node.props["data-testid"] === "character-voice-card",
+      ) ?? [];
+
+    expect(sidebarSections.map((node) => node.props["data-testid"])).toEqual([
+      "character-topics-card",
+      "character-voice-card",
+    ]);
+    expect(
+      tree?.root.find(
+        (node) => node.props["data-testid"] === "character-examples-grid",
+      ),
+    ).toBeDefined();
+    expect(
+      tree?.root.findAll(
+        (node) =>
+          node.props["data-testid"] === "character-chat-examples-card" ||
+          node.props["data-testid"] === "character-post-examples-card",
+      ),
+    ).toHaveLength(2);
+    expect(
+      tree?.root.findAll(
+        (node) =>
+          node.props["data-testid"] === "style-section-all" ||
+          node.props["data-testid"] === "style-section-chat" ||
+          node.props["data-testid"] === "style-section-post",
+      ),
+    ).toHaveLength(3);
   });
 
   it("turning custom off applies the selected character defaults and hides the editors", async () => {

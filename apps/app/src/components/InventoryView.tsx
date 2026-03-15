@@ -441,7 +441,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             type="button"
             className={`px-4 py-1.5 border cursor-pointer text-xs font-mono ${
               inModal
-                ? "border-[var(--accent)] bg-[var(--accent)] text-white rounded-md hover:opacity-90"
+                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] rounded-md hover:opacity-90"
                 : "border-accent bg-accent text-accent-fg hover:bg-accent-hover hover:border-accent-hover"
             }`}
             onClick={() => setTab("settings")}

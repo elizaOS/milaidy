@@ -3392,7 +3392,7 @@
 
   /* ── override global CSS variables for child components ── */
   --accent: #f0b232;
-  --accent-foreground: rgba(240, 238, 250, 0.93);
+  --accent-foreground: #1a1f26;
   --border: rgba(255, 255, 255, 0.1);
   --card: rgba(255, 255, 255, 0.03);
   --bg-hover: rgba(255, 255, 255, 0.06);

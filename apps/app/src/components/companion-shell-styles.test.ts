@@ -2,6 +2,7 @@ import type { Tab } from "@milady/app-core/navigation";
 import { describe, expect, it } from "vitest";
 import {
   ACCENT_COLORS,
+  accentForegroundVar,
   accentSubtleVar,
   accentVar,
   COMPANION_OVERLAY_TABS,
@@ -107,6 +108,12 @@ describe("derived style helpers", () => {
   it("keeps card surfaces non-transparent in base chat shell", () => {
     const style = viewWrapperStyle(tabFlags("chat"), "#7b8fb5");
     expect(style["--card"]).toBe("rgba(255, 255, 255, 0.05)");
+  });
+
+  it("uses dark accent foregrounds for yellow companion tabs", () => {
+    expect(accentForegroundVar(tabFlags("wallets"))).toBe("#1a1f26");
+    expect(accentForegroundVar(tabFlags("skills"))).toBe("#1a1f26");
+    expect(accentForegroundVar(tabFlags("knowledge"))).toBe("#ffffff");
   });
 });
 

@@ -42,6 +42,7 @@ import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { SharedCompanionScene } from "./components/companion/CompanionSceneHost";
 import { ShellOverlays } from "./components/ShellOverlays";
 import { StreamView } from "./components/StreamView";
 
@@ -138,7 +139,10 @@ export function App() {
       ? "chat"
       : shellMode === "companion" && tab === "chat"
         ? "companion"
-        : tab;
+      : tab;
+  const companionSceneActive =
+    COMPANION_ENABLED &&
+    (effectiveTab === "companion" || tab === "companion");
   const contextMenu = useContextMenu();
 
   useStreamPopoutNavigation(setTab);
@@ -280,73 +284,75 @@ export function App() {
   if (authRequired) return <PairingView />;
   if (!onboardingComplete) return <OnboardingWizard />;
 
-  /* ── Companion shell mode ─────────────────────────────────────────── */
-  if (shellMode === "companion" && COMPANION_OVERLAY_TABS.has(effectiveTab)) {
-    return (
-      <BugReportProvider value={bugReport}>
-        <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
-        <ShellOverlays actionNotice={actionNotice} />
-      </BugReportProvider>
-    );
-  }
+  const shellContent =
+    shellMode === "companion" && COMPANION_OVERLAY_TABS.has(effectiveTab) ? (
+      <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
+    ) : tab === "stream" ? (
+      <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
+        <Header />
+        <main className="flex-1 min-h-0 overflow-hidden">
+          <StreamView />
+        </main>
+      </div>
+    ) : isChat ? (
+      <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
+        <Header mobileLeft={mobileChatControls} />
+        <div className="flex flex-1 min-h-0 relative">
+          {isChatMobileLayout ? (
+            <>
+              <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-2 px-2">
+                <ChatView />
+              </main>
 
-  /* ── Native shell mode (all fork features intact) ─────────────────── */
+              {mobileConversationsOpen && (
+                <div className="fixed inset-0 z-[120] bg-bg">
+                  <ConversationsSidebar
+                    mobile
+                    onClose={() => setMobileConversationsOpen(false)}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <ConversationsSidebar />
+              <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-3 px-3 xl:px-5">
+                <ChatView />
+              </main>
+            </>
+          )}
+          <CustomActionsPanel
+            open={customActionsPanelOpen}
+            onClose={() => setCustomActionsPanelOpen(false)}
+            onOpenEditor={(action) => {
+              setEditingAction(action ?? null);
+              setCustomActionsEditorOpen(true);
+            }}
+          />
+        </div>
+      </div>
+    ) : (
+      <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
+        <Header />
+        <main
+          className={`flex-1 min-h-0 py-4 px-3 xl:py-6 xl:px-5 ${isAdvancedTab ? "overflow-hidden" : "overflow-y-auto"}`}
+        >
+          <ViewRouter />
+        </main>
+      </div>
+    );
+
+  const appShell = COMPANION_ENABLED ? (
+    <SharedCompanionScene active={companionSceneActive}>
+      {shellContent}
+    </SharedCompanionScene>
+  ) : (
+    shellContent
+  );
+
   return (
     <BugReportProvider value={bugReport}>
-      {tab === "stream" ? (
-        <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-          <Header />
-          <main className="flex-1 min-h-0 overflow-hidden">
-            <StreamView />
-          </main>
-        </div>
-      ) : isChat ? (
-        <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-          <Header mobileLeft={mobileChatControls} />
-          <div className="flex flex-1 min-h-0 relative">
-            {isChatMobileLayout ? (
-              <>
-                <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-2 px-2">
-                  <ChatView />
-                </main>
-
-                {mobileConversationsOpen && (
-                  <div className="fixed inset-0 z-[120] bg-bg">
-                    <ConversationsSidebar
-                      mobile
-                      onClose={() => setMobileConversationsOpen(false)}
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <ConversationsSidebar />
-                <main className="flex flex-col flex-1 min-w-0 overflow-visible pt-3 px-3 xl:px-5">
-                  <ChatView />
-                </main>
-              </>
-            )}
-            <CustomActionsPanel
-              open={customActionsPanelOpen}
-              onClose={() => setCustomActionsPanelOpen(false)}
-              onOpenEditor={(action) => {
-                setEditingAction(action ?? null);
-                setCustomActionsEditorOpen(true);
-              }}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-          <Header />
-          <main
-            className={`flex-1 min-h-0 py-4 px-3 xl:py-6 xl:px-5 ${isAdvancedTab ? "overflow-hidden" : "overflow-y-auto"}`}
-          >
-            <ViewRouter />
-          </main>
-        </div>
-      )}
+      {appShell}
       {/* Persistent game overlay — stays visible across all tabs */}
       {activeGameViewerUrl && gameOverlayEnabled && tab !== "apps" && (
         <GameViewOverlay />

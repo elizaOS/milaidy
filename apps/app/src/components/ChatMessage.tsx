@@ -20,21 +20,10 @@ interface ChatMessageProps {
   onDelete?: (messageId: string) => void;
 }
 
-function formatTime(timestamp?: number): string {
-  if (!timestamp) return "";
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-}
-
 export function ChatMessage({
   message,
   isGrouped = false,
   agentName = "Agent",
-  agentAvatarSrc,
   onCopy,
   onRetry,
   onDelete,
@@ -45,8 +34,6 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const isUser = message.role === "user";
-  const agentInitial = agentName.trim().charAt(0).toUpperCase() || "A";
-  const timestamp = formatTime(message.timestamp);
 
   const handleCopy = useCallback(() => {
     if (onCopy) {

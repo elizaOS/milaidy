@@ -1514,7 +1514,7 @@
   "knowledgeview.ChooseFiles": "Elija archivos",
   "knowledgeview.ChooseFolder": "Elegir carpeta",
   "knowledgeview.AddFromURL": "Agregar desde URL",
-  "knowledgeview.IncludeAIImageDes": "Incluya descripciones de imágenes de IA (más contexto, puede aumentar el costo)",
+  "knowledgeview.IncludeAIImageDes": "Procesar imágenes",
   "knowledgeview.PasteAURLToImpor": "Pegue una URL para importar contenido. Los enlaces de YouTube serán\n            transcrito automáticamente.",
   "knowledgeview.ImageURLsCanOptio": "Las URL de imágenes pueden utilizar opcionalmente la extracción de descripción de IA y pueden\n            aumentar los costos.",
   "knowledgeview.Import": "Importar",

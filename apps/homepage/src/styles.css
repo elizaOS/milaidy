@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme inline {
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;
+
+  --color-dark: #000000;
+  --color-dark-secondary: #0a0a0a;
+  --color-light: #f5f5f5;
+  --color-brand: #f0b90b;
+  --color-brand-hover: #d4a30a;
+  --color-accent: #0b35f1;
+  --color-text-light: #ffffff;
+  --color-text-dark: #000000;
+  --color-text-muted: #9ca3af;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-dark);
+  color: var(--color-text-light);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0%);
+  }
+
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical 25s linear infinite;
+}
+
+.border-sharp {
+  border: 1px solid var(--color-text-light);
+  border-radius: 2px;
+}
+
+.border-sharp-dark {
+  border: 1px solid var(--color-dark);
+  border-radius: 2px;
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand);
+}
+
+/* Page Level Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-left: 1px solid var(--color-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* Peekaboo — all animation driven by inline styles in Comparison.tsx */

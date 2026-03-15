@@ -16,6 +16,7 @@ import { VrmViewer } from "../avatar/VrmViewer";
 import type { TranslatorFn } from "./walletUtils";
 
 export const VrmStage = memo(function VrmStage({
+  active = true,
   vrmPath,
   worldUrl,
   fallbackPreviewUrl,
@@ -23,6 +24,7 @@ export const VrmStage = memo(function VrmStage({
   onEngineReady,
   t,
 }: {
+  active?: boolean;
   vrmPath: string;
   worldUrl?: string;
   fallbackPreviewUrl: string;
@@ -43,6 +45,7 @@ export const VrmStage = memo(function VrmStage({
   const handleVrmEngineReady = useCallback(
     (engine: VrmEngine) => {
       vrmEngineRef.current = engine;
+      engine.setPaused(!active);
       engine.setCameraAnimation({
         enabled: true,
         swayAmplitude: cameraProfile === "companion_close" ? 0.028 : 0.04,
@@ -53,7 +56,7 @@ export const VrmStage = memo(function VrmStage({
       engine.setPointerParallaxEnabled(false);
       onEngineReady?.(engine);
     },
-    [cameraProfile, onEngineReady],
+    [active, cameraProfile, onEngineReady],
   );
 
   const handleVrmEngineState = useCallback((state: VrmEngineState) => {
@@ -101,6 +104,10 @@ export const VrmStage = memo(function VrmStage({
   // Subscribe to WebSocket emote events so the companion avatar plays emotes
   // triggered from the EmotePicker or agent actions.
   useEffect(() => {
+    vrmEngineRef.current?.setPaused(!active);
+  }, [active]);
+
+  useEffect(() => {
     if (!vrmLoaded) return;
     return client.onWsEvent("emote", (data) => {
       const engine = vrmEngineRef.current;
@@ -136,6 +143,7 @@ export const VrmStage = memo(function VrmStage({
         }}
       >
         <VrmViewer
+          active={active}
           vrmPath={vrmPath}
           worldUrl={worldUrl}
           mouthOpen={chatAvatarVoice.mouthOpen}

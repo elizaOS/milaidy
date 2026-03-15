@@ -1,11 +1,6 @@
 import { getTabGroups, type TabGroup } from "@milady/app-core/navigation";
 import { useApp } from "@milady/app-core/state";
-import {
-  AlertTriangle,
-  CircleDollarSign,
-  Menu,
-  X
-} from "lucide-react";
+import { AlertTriangle, CircleDollarSign, Menu } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -87,11 +82,6 @@ export function Header(_props: HeaderProps) {
   const tabGroups = useMemo(
     () => getTabGroups(streamingEnabled),
     [streamingEnabled],
-  );
-
-  const activeGroup = useMemo(
-    () => tabGroups.find((group) => group.tabs.includes(tab)) ?? tabGroups[0],
-    [tab, tabGroups],
   );
 
   const creditColor = miladyCloudCreditsCritical

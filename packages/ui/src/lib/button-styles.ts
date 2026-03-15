@@ -7,7 +7,7 @@
  */
 
 export const btnPrimary =
-  "px-4 py-2 text-sm font-medium bg-[var(--accent)] text-[var(--accent-foreground)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default rounded-lg";
+  "px-4 py-2 text-sm font-medium bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border border-[var(--accent)] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-default rounded-lg";
 
 export const btnGhost =
   "px-3 py-1.5 text-xs bg-transparent text-[var(--muted)] border border-[var(--border)] cursor-pointer hover:text-[var(--txt)] hover:border-[var(--txt)] transition-colors disabled:opacity-40 disabled:cursor-default rounded-lg";

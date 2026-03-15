@@ -803,7 +803,7 @@ function MultiselectFieldInner({ fp: props }: { fp: FieldRenderProps }) {
               {!props.readonly && (
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center w-3.5 h-3.5 text-[10px] rounded-full hover:bg-[var(--accent)] hover:text-white transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 text-[10px] rounded-full hover:bg-[var(--accent)] hover:text-[var(--accent-foreground,#1a1f26)] transition-colors cursor-pointer"
                   onClick={() => remove(opt.value)}
                 >
                   ×

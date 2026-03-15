@@ -695,7 +695,7 @@ const ToggleComponent: ComponentFn = (props, _children, ctx, el) => {
       type="button"
       className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${
         pressed
-          ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+          ? "bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border-[var(--accent)]"
           : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
       }`}
       onClick={() => {
@@ -740,7 +740,7 @@ const ToggleGroupComponent: ComponentFn = (props, _children, ctx) => {
             type="button"
             className={`px-2.5 py-1 text-xs border cursor-pointer transition-colors ${
               active
-                ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+                ? "bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border-[var(--accent)]"
                 : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
             }`}
             onClick={() => toggle(item.value)}
@@ -770,7 +770,7 @@ const ButtonGroupComponent: ComponentFn = (props, _children, ctx) => {
             type="button"
             className={`px-3 py-1.5 text-xs border cursor-pointer transition-colors ${
               active
-                ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+                ? "bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border-[var(--accent)]"
                 : "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
             }`}
             onClick={() => setValue(btn.value)}
@@ -905,7 +905,7 @@ const AvatarComponent: ComponentFn = (props) => {
     .toUpperCase();
   return (
     <div
-      className={`${size} rounded-full bg-[var(--accent)] text-[var(--accent-foreground,#fff)] flex items-center justify-center font-bold shrink-0`}
+      className={`${size} rounded-full bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] flex items-center justify-center font-bold shrink-0`}
     >
       {initials}
     </div>
@@ -1052,7 +1052,7 @@ const ButtonComponent: ComponentFn = (props, _children, ctx, el) => {
   const variant = String(props.variant ?? "primary");
   const cls: Record<string, string> = {
     primary:
-      "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)] hover:opacity-90",
+      "bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border-[var(--accent)] hover:opacity-90",
     secondary:
       "bg-[var(--card)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--bg-hover)]",
     danger:
@@ -1186,7 +1186,7 @@ const PaginationComponent: ComponentFn = (props, _children, ctx) => {
           type="button"
           className={`px-2 py-1 text-xs border cursor-pointer ${
             page === current
-              ? "bg-[var(--accent)] text-[var(--accent-foreground,#fff)] border-[var(--accent)]"
+              ? "bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] border-[var(--accent)]"
               : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--bg-hover)]"
           }`}
           onClick={() => setValue(page)}
