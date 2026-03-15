@@ -1932,15 +1932,15 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       aria-current={isSelected ? "page" : undefined}
                     >
                       <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
                           isSelected
                             ? "border-accent/30 bg-accent/18 text-txt-strong"
                             : "border-border/50 bg-bg-accent/80 text-muted"
                         }`}
                       >
                         {renderResolvedIcon(plugin, {
-                          className: "w-4 h-4 rounded-sm object-contain",
-                          emojiClassName: "text-sm",
+                          className: "w-3 h-3 rounded-sm object-contain",
+                          emojiClassName: "text-[10px]",
                         })}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none">
@@ -2074,7 +2074,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           onClick={() => handleConnectorSectionToggle(plugin.id)}
                         >
                           <span
-                            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+                            className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
                               isSelected
                                 ? "border-accent/30 bg-accent/18 text-txt-strong"
                                 : "border-border/50 bg-bg-accent/80 text-muted"
@@ -2082,7 +2082,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           >
                             {renderResolvedIcon(plugin, {
                               className: "w-4 h-4 rounded-sm object-contain",
-                              emojiClassName: "text-base",
+                              emojiClassName: "text-xs",
                             })}
                           </span>
                           <span className="min-w-0 flex-1">
