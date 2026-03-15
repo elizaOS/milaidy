@@ -246,7 +246,7 @@ export function HeartbeatsView() {
   return (
     <div className="grid w-full gap-4 lg:grid-cols-3 lg:items-start">
       {/* ── Left column: form ── */}
-      <div className="rounded-xl border border-border bg-card p-[18px] shadow-sm lg:col-span-1 lg:sticky lg:top-0 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-1 lg:sticky lg:top-0 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto">
         {/* Header */}
         <div className="mb-4 flex items-start justify-between">
           <h2 className="text-base font-bold">
@@ -566,7 +566,7 @@ export function HeartbeatsView() {
       </div>
 
       {/* ── Right column: trigger list ── */}
-      <div className="rounded-xl border border-border bg-card p-[14px] shadow-sm lg:col-span-2 lg:h-[calc(100vh-80px)] lg:overflow-y-auto">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2 lg:h-[calc(100vh-80px)] lg:overflow-y-auto">
         <div className="mb-3 flex items-center justify-between px-1">
           <h2 className="text-sm font-bold">{t("nav.heartbeats")}</h2>
           <span className="text-xs text-muted">
