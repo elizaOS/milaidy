@@ -24,7 +24,6 @@ import { useApp } from "@milady/app-core/state";
 import React, { type ReactNode, useState } from "react";
 import { CustomActionsView } from "./CustomActionsView";
 import { FineTuningView } from "./FineTuningView";
-import { LifoSandboxView } from "./LifoSandboxView";
 import { TrajectoriesView } from "./TrajectoriesView";
 import { TrajectoryDetailView } from "./TrajectoryDetailView";
 
@@ -278,7 +277,7 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
       case "database":
         return <DatabasePageView />;
       case "lifo":
-        return <LifoSandboxView />;
+        return null;
       case "logs":
         return <LogsPageView />;
       default:

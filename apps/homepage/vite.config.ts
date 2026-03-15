@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(here, "dist"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
     target: "es2022",
   },
   server: {

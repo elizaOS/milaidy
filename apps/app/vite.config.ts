@@ -136,7 +136,8 @@ export default defineConfig({
       allow: [here, miladyRoot],
     },
     watch: {
-      usePolling: true,
+      // Polling is only needed in Docker/WSL where native fs events are unreliable
+      usePolling: process.env.MILADY_DEV_POLLING === "1",
     },
   },
 });

@@ -243,11 +243,6 @@ vi.mock("../../src/components/TrajectoryDetailView", () => ({
     React.createElement("section", null, "TrajectoryDetailView Ready"),
 }));
 
-vi.mock("../../src/components/LifoSandboxView", () => ({
-  LifoSandboxView: () =>
-    React.createElement("section", null, "LifoSandboxView Ready"),
-}));
-
 vi.mock("@milady/app-core/hooks", async () => {
   const actual = await vi.importActual<typeof import("@milady/app-core/hooks")>(
     "@milady/app-core/hooks",

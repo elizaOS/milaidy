@@ -73,29 +73,3 @@ jobs:
           name: snap-${{ matrix.arch }}
           path: ${{ steps.snapcraft.outputs.snap }}
           retention-days: 30
-
-  test-snap-distros:
-    name: Test on ${{ matrix.distro }}
-    needs: build-snap
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    strategy:
-      fail-fast: false
-      matrix:
-        distro:
-          - ubuntu:22.04
-          - ubuntu:24.04
-    steps:
-      - name: Download snap artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: snap-amd64
-
-      - name: Test snap installation in container
-        run: |
-          SNAP_FILE=$(ls *.snap | head -1)
-          echo "Testing $SNAP_FILE on ${{ matrix.distro }}"
-
-          # Verify the snap file is valid
-          file "$SNAP_FILE"
-          ls -lh "$SNAP_FILE"
-          echo "Snap package validated for ${{ matrix.distro }}"
