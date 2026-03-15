@@ -886,4 +886,175 @@ describe("knowledge routes", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(addKnowledgeMock).not.toHaveBeenCalled();
   });
+
+  // ── PATCH /api/knowledge/documents/:id ──────────────────────────────────
+
+  test("PATCH updates document filename and re-creates via addKnowledge", async () => {
+    const documentId = uuid(5001);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: documentId,
+            metadata: {
+              filename: "old-name.md",
+              fileType: "text/markdown",
+            },
+            content: { text: "original content" },
+            createdAt: 100,
+          }),
+        ];
+      }
+      // No fragments
+      return [];
+    });
+
+    addKnowledgeMock.mockResolvedValueOnce({
+      clientDocumentId: uuid(5002),
+      storedDocumentMemoryId: uuid(5003),
+      fragmentCount: 1,
+    });
+
+    const result = await invoke({
+      method: "PATCH",
+      pathname: `/api/knowledge/documents/${documentId}`,
+      body: { filename: "new-name.md" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      filename: "new-name.md",
+    });
+    // Should delete old document
+    expect(deleteMemoryMock).toHaveBeenCalledWith(documentId);
+    // Should re-create with updated metadata
+    expect(addKnowledgeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalFilename: "new-name.md",
+        content: "original content",
+      }),
+    );
+  });
+
+  test("PATCH updates document content and re-fragments", async () => {
+    const documentId = uuid(5100);
+    const fragmentId = uuid(5101);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: documentId,
+            metadata: {
+              filename: "keep-name.txt",
+              fileType: "text/plain",
+            },
+            content: { text: "old content" },
+            createdAt: 200,
+          }),
+        ];
+      }
+      // One fragment for this document
+      return [
+        buildMemory({
+          id: fragmentId,
+          metadata: { documentId },
+        }),
+      ];
+    });
+
+    addKnowledgeMock.mockResolvedValueOnce({
+      clientDocumentId: uuid(5102),
+      storedDocumentMemoryId: uuid(5103),
+      fragmentCount: 2,
+    });
+
+    const result = await invoke({
+      method: "PATCH",
+      pathname: `/api/knowledge/documents/${documentId}`,
+      body: { content: "updated content" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({ ok: true });
+    // Should delete old fragment + document
+    expect(deleteMemoryMock).toHaveBeenCalledWith(fragmentId);
+    expect(deleteMemoryMock).toHaveBeenCalledWith(documentId);
+    // Should re-create with new content
+    expect(addKnowledgeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalFilename: "keep-name.txt",
+        content: "updated content",
+      }),
+    );
+  });
+
+  test("PATCH updates both filename and content simultaneously", async () => {
+    const documentId = uuid(5200);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: documentId,
+            metadata: { filename: "old.md", fileType: "text/markdown" },
+            content: { text: "old body" },
+            createdAt: 300,
+          }),
+        ];
+      }
+      return [];
+    });
+
+    addKnowledgeMock.mockResolvedValueOnce({
+      clientDocumentId: uuid(5201),
+      storedDocumentMemoryId: uuid(5202),
+      fragmentCount: 3,
+    });
+
+    const result = await invoke({
+      method: "PATCH",
+      pathname: `/api/knowledge/documents/${documentId}`,
+      body: { filename: "renamed.md", content: "new body" },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      ok: true,
+      filename: "renamed.md",
+    });
+    expect(addKnowledgeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalFilename: "renamed.md",
+        content: "new body",
+      }),
+    );
+  });
+
+  test("PATCH returns 404 for non-existent document", async () => {
+    getMemoriesMock.mockResolvedValue([]);
+
+    const result = await invoke({
+      method: "PATCH",
+      pathname: `/api/knowledge/documents/${uuid(5300)}`,
+      body: { filename: "ghost.md" },
+    });
+
+    expect(result.status).toBe(404);
+    expect((result.payload as { error?: string }).error).toContain("not found");
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("PATCH rejects empty body with no filename or content", async () => {
+    const result = await invoke({
+      method: "PATCH",
+      pathname: `/api/knowledge/documents/${uuid(5400)}`,
+      body: {},
+    });
+
+    expect(result.status).toBe(400);
+    expect((result.payload as { error?: string }).error).toContain(
+      "filename or content",
+    );
+    expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
 });

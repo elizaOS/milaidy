@@ -422,13 +422,11 @@ function DocumentDetailModal({
 
       setDoc(docRes.document);
       setFragments(fragRes.fragments);
-      setEditTitle(
-        String(docRes.document.filename || ""),
-      );
+      setEditTitle(String(docRes.document.filename || ""));
       setEditContent(
         typeof docRes.document.content === "string"
           ? docRes.document.content
-          : (docRes.document.content as { text?: string })?.text ?? "",
+          : ((docRes.document.content as { text?: string })?.text ?? ""),
       );
       setLoading(false);
     }
@@ -454,15 +452,11 @@ function DocumentDetailModal({
       await client.updateKnowledgeDocument(documentId, {
         filename: editTitle.trim(),
       });
-      setDoc((prev) =>
-        prev ? { ...prev, filename: editTitle.trim() } : prev,
-      );
+      setDoc((prev) => (prev ? { ...prev, filename: editTitle.trim() } : prev));
       setEditingTitle(false);
       onDocumentUpdated?.();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update title",
-      );
+      setError(err instanceof Error ? err.message : "Failed to update title");
     } finally {
       setSaving(false);
     }
@@ -481,9 +475,7 @@ function DocumentDetailModal({
       setEditingContent(false);
       onDocumentUpdated?.();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update content",
-      );
+      setError(err instanceof Error ? err.message : "Failed to update content");
     } finally {
       setSaving(false);
     }
@@ -535,9 +527,7 @@ function DocumentDetailModal({
               title="Click to edit title"
             >
               {loading ? "Loading..." : doc?.filename || "Document"}
-              <span className="ml-2 text-muted/50 text-xs font-normal">
-                ✎
-              </span>
+              <span className="ml-2 text-muted/50 text-xs font-normal">✎</span>
             </button>
           )}
           <Button
@@ -655,7 +645,8 @@ function DocumentDetailModal({
                           setEditContent(
                             typeof doc.content === "string"
                               ? doc.content
-                              : (doc.content as { text?: string })?.text ?? "",
+                              : ((doc.content as { text?: string })?.text ??
+                                  ""),
                           );
                         }}
                       >
@@ -671,26 +662,27 @@ function DocumentDetailModal({
                     className="w-full min-h-[200px] p-4 bg-card/60 border border-accent/30 rounded-xl text-[13px] text-txt/90 leading-relaxed resize-y focus:outline-none focus:border-accent/60 font-mono"
                   />
                 ) : (
-                  <div
-                    className="p-4 bg-card/60 border border-accent/30 rounded-xl cursor-pointer hover:border-accent/50 transition-colors"
+                  <button
+                    type="button"
+                    className="w-full text-left p-4 bg-card/60 border border-accent/30 rounded-xl cursor-pointer hover:border-accent/50 transition-colors"
                     onClick={() => setEditingContent(true)}
                     title="Click to edit content"
                   >
                     <p className="text-[13px] text-txt/90 whitespace-pre-wrap leading-relaxed line-clamp-6">
                       {typeof doc.content === "string"
                         ? doc.content
-                        : (doc.content as { text?: string })?.text ??
-                          "No content available"}
+                        : ((doc.content as { text?: string })?.text ??
+                          "No content available")}
                     </p>
                     {((typeof doc.content === "string" &&
                       doc.content.length > 500) ||
-                      ((doc.content as { text?: string })?.text?.length ??
-                        0) > 500) && (
+                      ((doc.content as { text?: string })?.text?.length ?? 0) >
+                        500) && (
                       <span className="text-[11px] text-accent/70 mt-2 inline-block">
                         Click to view and edit full content...
                       </span>
                     )}
-                  </div>
+                  </button>
                 )}
               </div>
 
