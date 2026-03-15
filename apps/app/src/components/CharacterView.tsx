@@ -860,6 +860,18 @@ export function CharacterView({
   const scrollPaneCls =
     "min-h-0 overflow-y-auto pr-1 [scrollbar-gutter:stable] custom-scrollbar";
 
+  const SIDEBAR_TABS: { key: ActiveSection; icon: typeof FileText; labelKey: string }[] = [
+    { key: "aboutMe", icon: FileText, labelKey: "characterview.aboutMe" },
+    { key: "directions", icon: BookOpen, labelKey: "characterview.directionsAndThing" },
+    { key: "styleRules", icon: Palette, labelKey: "characterview.StyleRules" },
+  ];
+
+  const bookPageCls = sceneOverlay
+    ? "bg-bg-accent/90 backdrop-blur-md"
+    : "bg-bg-accent";
+
+  const bookSidebarCls = "bg-bg-elevated"; // Always opaque per spec
+
   if (characterLoading && !characterData) {
     return (
       <div className={sectionCls}>
@@ -1246,50 +1258,98 @@ export function CharacterView({
       ) : null}
 
       {customOverridesEnabled && (
-        <div className="mt-3 flex flex-col gap-4">
+        <div className="mt-3 flex justify-end">
+          {/* ── Book container ── */}
           <div
-            className="flex items-center justify-start"
-            data-testid="character-edit-toolbar"
+            className="flex w-full max-w-3xl overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+            data-testid="character-notebook"
           >
-            <div className="inline-flex items-center gap-2">
-              <Button
-                type="button"
-                variant={customizeStep === "core" ? "default" : "outline"}
-                size="sm"
-                className="h-8 rounded-lg px-3 text-xs font-semibold"
-                onClick={() => setCustomizeStep("core")}
-              >
-                {t("characterview.core")}
-              </Button>
-              <Button
-                type="button"
-                variant={customizeStep === "examples" ? "default" : "outline"}
-                size="sm"
-                className="h-8 rounded-lg px-3 text-xs font-semibold"
-                onClick={() => setCustomizeStep("examples")}
-              >
-                {t("characterview.examples")}
-              </Button>
+            {/* ── Book page (left) ── */}
+            <div className={`${bookPageCls} flex min-h-[28rem] flex-1 flex-col rounded-l-xl border-r border-border border-t-2 border-t-accent/20`}>
+              {/* Mode toggle: Core / Examples */}
+              <div className="flex items-center gap-2 border-b border-border/30 px-5 py-3">
+                <Button
+                  type="button"
+                  variant={customizeStep === "core" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs font-semibold"
+                  onClick={() => setCustomizeStep("core")}
+                >
+                  {t("characterview.core")}
+                </Button>
+                {activeSection !== "styleRules" && (
+                  <Button
+                    type="button"
+                    variant={customizeStep === "examples" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-xs font-semibold"
+                    onClick={() => setCustomizeStep("examples")}
+                  >
+                    {t("characterview.examples")}
+                  </Button>
+                )}
+              </div>
+
+              {/* Content area */}
+              <div className="flex-1 overflow-y-auto p-5 custom-scrollbar" role="tabpanel" aria-labelledby={`notebook-tab-${activeSection}`}>
+                {/* TODO: Content wired in Task 4 */}
+              </div>
+            </div>
+
+            {/* ── Sidebar (right) ── */}
+            <div
+              className={`${bookSidebarCls} flex w-12 flex-col items-center rounded-r-xl py-4 xl:w-16`}
+              role="tablist"
+              aria-orientation="vertical"
+            >
+              {SIDEBAR_TABS.map(({ key, icon: Icon, labelKey }) => {
+                const isActive = activeSection === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`relative flex w-full flex-col items-center gap-1 px-1 py-3 transition-colors ${
+                      isActive
+                        ? "text-accent"
+                        : "text-muted hover:text-muted-strong"
+                    }`}
+                    onClick={() => {
+                      setActiveSection(key);
+                      if (key === "styleRules" && customizeStep === "examples") {
+                        setCustomizeStep("core");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      const keys = SIDEBAR_TABS.map((tab) => tab.key);
+                      const idx = keys.indexOf(key);
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const next = keys[(idx + 1) % keys.length];
+                        setActiveSection(next);
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const prev = keys[(idx - 1 + keys.length) % keys.length];
+                        setActiveSection(prev);
+                      }
+                    }}
+                    id={`notebook-tab-${key}`}
+                    data-testid={`notebook-tab-${key}`}
+                  >
+                    {/* Active indicator bar */}
+                    {isActive && (
+                      <div className="absolute top-1 bottom-1 left-0 w-[3px] rounded-r-full bg-accent" />
+                    )}
+                    <Icon className="h-5 w-5" />
+                    <span className="hidden text-center text-[10px] leading-tight font-medium xl:block">
+                      {t(labelKey)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-
-          {customizeStep === "examples" ? (
-            <div
-              className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)_minmax(0,24rem)] xl:items-start xl:gap-6"
-              data-testid="character-examples-grid"
-            >
-              {chatExamplesPanel}
-              <div aria-hidden className="hidden xl:block" />
-              {postExamplesPanel}
-            </div>
-          ) : (
-            <div
-              className="mx-auto w-full max-w-2xl"
-              data-testid="character-customize-grid"
-            >
-              {notebookPanel}
-            </div>
-          )}
         </div>
       )}
 
