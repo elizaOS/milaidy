@@ -1002,11 +1002,6 @@ describe("Channel mapping — requests", () => {
     );
   });
 
-  it("lifo channels", () => {
-    expect(CHANNEL_TO_RPC_METHOD["lifo:getPipState"]).toBe("lifoGetPipState");
-    expect(CHANNEL_TO_RPC_METHOD["lifo:setPip"]).toBe("lifoSetPip");
-  });
-
   it("returns undefined for unknown channels", () => {
     expect(CHANNEL_TO_RPC_METHOD["unknown:channel"]).toBeUndefined();
     expect(CHANNEL_TO_RPC_METHOD[""]).toBeUndefined();
@@ -2151,18 +2146,6 @@ describe("Schema types — shape validation", () => {
     expect(item.id).toBe("quit");
     expect(item.label).toBe("Quit");
     expect(item.type).toBe("normal");
-  });
-
-  it("PipState has enabled boolean and optional windowId", () => {
-    const pip: import("../rpc-schema").PipState = {
-      enabled: true,
-      windowId: "win-1",
-    };
-    expect(typeof pip.enabled).toBe("boolean");
-    expect(pip.windowId).toBe("win-1");
-
-    const pipOff: import("../rpc-schema").PipState = { enabled: false };
-    expect(pipOff.windowId).toBeUndefined();
   });
 });
 
@@ -3386,42 +3369,6 @@ describe("RPC handler delegation — context menu", () => {
   });
 });
 
-// ---- 33. LIFO / PiP ----
-
-describe("RPC handler delegation — LIFO/PiP state", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("lifoGetPipState → returns current pipState with { enabled: boolean }", async () => {
-    const { handlers } = await captureHandlers();
-    const r = await handlers.lifoGetPipState();
-    expect(r).toHaveProperty("enabled");
-    expect(typeof (r as { enabled: boolean }).enabled).toBe("boolean");
-  });
-
-  it("lifoSetPip({ enabled: true }) → does not throw (sets always-on-top)", async () => {
-    const { handlers } = await captureHandlers();
-    await expect(handlers.lifoSetPip({ enabled: true })).resolves.not.toThrow();
-  });
-
-  it("lifoSetPip({ enabled: false }) → does not throw (clears always-on-top)", async () => {
-    const { handlers } = await captureHandlers();
-    await expect(
-      handlers.lifoSetPip({ enabled: false }),
-    ).resolves.not.toThrow();
-  });
-
-  it("lifoGetPipState after lifoSetPip({enabled: true}) reflects updated state", async () => {
-    // lifoGetPipState reads from module-level pipState; lifoSetPip writes it
-    // Both handlers captured from the same registerRpcHandlers call share the closure
-    const { handlers } = await captureHandlers();
-    await handlers.lifoSetPip({ enabled: true });
-    const r = await handlers.lifoGetPipState();
-    expect((r as { enabled: boolean }).enabled).toBe(true);
-  });
-});
-
 // ============================================================================
 // 34. Push event routing — sendToWebview → RPC send proxy
 // ============================================================================
@@ -4032,14 +3979,6 @@ describe.skip("INTERACTIVE: Context menu", () => {
   it.todo("Context menu 'Share' opens native share sheet");
   it.todo("Context menu closes when clicking elsewhere");
   it.todo("Context menu appears at cursor position");
-});
-
-describe.skip("INTERACTIVE: PiP / Always-on-top (LIFO)", () => {
-  it.todo("Enabling PiP mode makes the companion window always-on-top");
-  it.todo("PiP window stays above other applications");
-  it.todo("Disabling PiP mode returns window to normal z-order");
-  it.todo("PiP state persists across agent restarts within the session");
-  it.todo("PiP mode is correctly reflected in lifoGetPipState return value");
 });
 
 describe.skip("INTERACTIVE: Global keyboard shortcuts", () => {

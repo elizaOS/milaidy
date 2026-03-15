@@ -120,7 +120,6 @@ const { companionOverlayTabs, mockUseApp } = vi.hoisted(() => ({
     "apps",
     "connectors",
     "knowledge",
-    "lifo",
     "stream",
     "wallets",
   ]),

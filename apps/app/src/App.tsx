@@ -25,7 +25,7 @@ import {
 } from "@milady/app-core/hooks";
 import type { Tab } from "@milady/app-core/navigation";
 import { APPS_ENABLED, COMPANION_ENABLED } from "@milady/app-core/navigation";
-import { isIOS, isLifoPopoutValue, isNative } from "@milady/app-core/platform";
+import { isIOS, isNative } from "@milady/app-core/platform";
 import { useApp } from "@milady/app-core/state";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AdvancedPageView } from "./components/AdvancedPageView";
@@ -46,16 +46,14 @@ import { StreamView } from "./components/StreamView";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
-/** Check if we're in pop-out mode (StreamView only, no chrome).
- *  Legacy LIFO popout values are ignored so the normal app shell still loads. */
+/** Check if we're in pop-out mode (StreamView only, no chrome). */
 function useIsPopout(): boolean {
   const [popout] = useState(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(
       window.location.search || window.location.hash.split("?")[1] || "",
     );
-    if (!params.has("popout")) return false;
-    return !isLifoPopoutValue(params.get("popout"));
+    return params.has("popout");
   });
   return popout;
 }
@@ -165,7 +163,6 @@ function ViewRouter({
       case "trajectories":
       case "runtime":
       case "database":
-      case "lifo":
       case "logs":
       case "security":
         return (
