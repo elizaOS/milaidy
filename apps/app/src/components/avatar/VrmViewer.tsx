@@ -69,6 +69,7 @@ export function VrmViewer(props: VrmViewerProps) {
   const mountedRef = useRef(true);
   const currentVrmPathRef = useRef<string>("");
   const currentWorldPathRef = useRef<string>("");
+  const worldLoadPromiseRef = useRef<Promise<void> | null>(null);
   const pointerStateRef = useRef<{
     active: boolean;
     id: number | null;
@@ -250,6 +251,26 @@ export function VrmViewer(props: VrmViewerProps) {
       try {
         await engine.whenReady();
         if (!mountedRef.current || abortController.signal.aborted) return;
+        const worldUrl = props.worldUrl ?? "";
+        if (worldUrl) {
+          if (worldUrl !== currentWorldPathRef.current) {
+            currentWorldPathRef.current = worldUrl;
+            const worldLoadPromise = (async () => {
+              await engine.setWorldUrl(worldUrl);
+            })();
+            worldLoadPromiseRef.current = worldLoadPromise;
+            try {
+              await worldLoadPromise;
+            } finally {
+              if (worldLoadPromiseRef.current === worldLoadPromise) {
+                worldLoadPromiseRef.current = null;
+              }
+            }
+          } else if (worldLoadPromiseRef.current) {
+            await worldLoadPromiseRef.current;
+          }
+        }
+        if (!mountedRef.current || abortController.signal.aborted) return;
         await engine.loadVrmFromUrl(
           vrmUrl,
           vrmUrl.split("/").pop() ?? "avatar.vrm",
@@ -276,7 +297,7 @@ export function VrmViewer(props: VrmViewerProps) {
         currentVrmPathRef.current = "";
       }
     };
-  }, [props.vrmPath]);
+  }, [props.vrmPath, props.worldUrl]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -287,20 +308,28 @@ export function VrmViewer(props: VrmViewerProps) {
     currentWorldPathRef.current = worldUrl;
     const abortController = new AbortController();
 
-    void (async () => {
+    const worldLoadPromise = (async () => {
       try {
         await engine.whenReady();
         if (!mountedRef.current || abortController.signal.aborted) return;
         await engine.setWorldUrl(worldUrl || null);
       } catch (err) {
         console.warn("Failed to load splat world:", err);
+      } finally {
+        if (worldLoadPromiseRef.current === worldLoadPromise) {
+          worldLoadPromiseRef.current = null;
+        }
       }
     })();
+    worldLoadPromiseRef.current = worldLoadPromise;
 
     return () => {
       abortController.abort();
       if (currentWorldPathRef.current === worldUrl) {
         currentWorldPathRef.current = "";
+      }
+      if (worldLoadPromiseRef.current === worldLoadPromise) {
+        worldLoadPromiseRef.current = null;
       }
     };
   }, [props.worldUrl]);

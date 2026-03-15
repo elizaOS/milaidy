@@ -931,7 +931,7 @@ describe("VrmEngine", () => {
       expect(dayPosition[1]).toBeCloseTo(-0.35, 5);
       expect(dayPosition[2]).toBeCloseTo(0, 5);
       expect(nightPosition[0]).toBeCloseTo(0, 5);
-      expect(nightPosition[1]).toBeCloseTo(-0.95, 5);
+      expect(nightPosition[1]).toBeCloseTo(-1.0, 5);
       expect(nightPosition[2]).toBeCloseTo(0, 5);
     });
 

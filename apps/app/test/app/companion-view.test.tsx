@@ -53,6 +53,8 @@ vi.mock("@milady/app-core/utils", () => ({
 
 import { CompanionView } from "../../src/components/CompanionView";
 
+const COMPANION_ZOOM_STORAGE_KEY = "milady.companion.zoom.v1";
+
 function createContext() {
   return {
     t: (k: string) => k,
@@ -285,6 +287,8 @@ describe("CompanionView", () => {
       });
     });
 
+    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(1);
+
     expect(tree).not.toBeNull();
     const root = tree?.root.findByProps({
       "data-testid": "companion-root",
@@ -418,16 +422,19 @@ describe("CompanionView", () => {
 
     await act(async () => {
       root?.props.onWheelCapture({
-        deltaY: -120,
+        deltaY: 120,
         deltaMode: 0,
         preventDefault,
       });
     });
 
-    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(0);
     const lastZoom =
       setCompanionZoomNormalized.mock.calls.at(-1)?.[0] ?? Number.NaN;
-    expect(lastZoom).toBeCloseTo(1 / 6, 5);
+    expect(lastZoom).toBeCloseTo(5 / 6, 5);
+    expect(localStorage.setItem).toHaveBeenLastCalledWith(
+      COMPANION_ZOOM_STORAGE_KEY,
+      String(lastZoom),
+    );
     expect(preventDefault).toHaveBeenCalledTimes(1);
   });
 
@@ -472,8 +479,8 @@ describe("CompanionView", () => {
       });
     });
 
-    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(0);
     expect(setCompanionZoomNormalized).toHaveBeenCalledTimes(1);
+    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(1);
     expect(preventDefault).toHaveBeenCalledTimes(1);
   });
 
@@ -533,7 +540,7 @@ describe("CompanionView", () => {
         currentTarget,
         pointerType: "touch",
         pointerId: 12,
-        clientX: 540,
+        clientX: 260,
         clientY: 300,
         preventDefault: vi.fn(),
       });
@@ -541,9 +548,36 @@ describe("CompanionView", () => {
 
     const zoomCalls = setCompanionZoomNormalized.mock.calls
       .map(([value]: [number]) => value)
-      .filter((value) => value > 0);
+      .filter((value) => value < 1);
     expect(resetDragOrbit).toHaveBeenCalledTimes(1);
-    expect(zoomCalls.at(-1)).toBeGreaterThan(0.3);
+    expect(zoomCalls.at(-1)).toBeLessThan(0.9);
+  });
+
+  it("restores persisted companion zoom on mount", async () => {
+    localStorage.setItem(COMPANION_ZOOM_STORAGE_KEY, "0.62");
+    mockUseApp.mockReturnValue(createContext());
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CompanionView));
+    });
+
+    const setCompanionZoomNormalized = vi.fn();
+    await act(async () => {
+      const ready = viewerPropsRef.current?.onEngineReady as
+        | ((value: unknown) => void)
+        | undefined;
+      ready?.({
+        setCameraAnimation: vi.fn(),
+        setPointerParallaxEnabled: vi.fn(),
+        setDragOrbitTarget: vi.fn(),
+        resetDragOrbit: vi.fn(),
+        setCompanionZoomNormalized,
+      });
+    });
+
+    expect(tree).not.toBeNull();
+    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(0.62);
   });
 
   it("uses a dedicated non-selectable drag surface for camera orbit", async () => {

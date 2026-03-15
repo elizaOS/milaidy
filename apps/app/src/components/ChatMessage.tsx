@@ -67,52 +67,10 @@ export function ChatMessage({
       onMouseLeave={() => setShowActions(false)}
       aria-label={`${isUser ? "Your" : agentName} message`}
     >
-      {/* Avatar (AI only) */}
-      {!isUser &&
-        (isGrouped ? (
-          <div className="w-8 h-8 shrink-0" aria-hidden />
-        ) : (
-          <div className="w-8 h-8 shrink-0 rounded-full overflow-hidden border border-border bg-bg-hover shadow-sm">
-            {agentAvatarSrc ? (
-              <img
-                src={agentAvatarSrc}
-                alt={`${agentName} avatar`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-txt bg-accent-subtle">
-                {agentInitial}
-              </div>
-            )}
-          </div>
-        ))}
-
       {/* Message Bubble */}
       <div
         className={`max-w-[88%] sm:max-w-[80%] min-w-0 ${isUser ? "mr-1" : ""}`}
       >
-        {/* Sender Name */}
-        {!isGrouped && (
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className={`text-[12px] font-semibold ${isUser ? "text-muted-strong" : "text-txt"}`}
-            >
-              {isUser ? "You" : agentName}
-            </span>
-            {timestamp && (
-              <span className="text-[10px] text-muted">{timestamp}</span>
-            )}
-            {!isUser &&
-              typeof message.source === "string" &&
-              message.source &&
-              message.source !== "client_chat" && (
-                <span className="text-[10px] text-muted opacity-60">
-                  {t("chatmessage.via")} {message.source}
-                </span>
-              )}
-          </div>
-        )}
-
         {/* Message Content */}
         <div
           className={`relative group px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap break-words rounded-2xl ${

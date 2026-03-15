@@ -16,6 +16,8 @@ import { VrmStage } from "./companion/VrmStage";
 
 const COMPANION_ZOOM_WHEEL_SENSITIVITY = 1 / 720;
 const COMPANION_ZOOM_PINCH_SENSITIVITY = 2.35;
+const COMPANION_ZOOM_STORAGE_KEY = "milady.companion.zoom.v1";
+const DEFAULT_COMPANION_ZOOM = 1;
 const CAMERA_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, option, [contenteditable="true"], [data-no-camera-drag="true"]';
 const NON_TEXT_INPUT_TYPES = new Set([
@@ -72,6 +74,36 @@ function shouldIgnoreCameraDrag(target: EventTarget | null): boolean {
     : false;
 }
 
+function clampCompanionZoom(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function loadStoredCompanionZoom(): number {
+  if (typeof localStorage === "undefined") return DEFAULT_COMPANION_ZOOM;
+  try {
+    const raw = localStorage.getItem(COMPANION_ZOOM_STORAGE_KEY);
+    if (raw === null) return DEFAULT_COMPANION_ZOOM;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed)
+      ? clampCompanionZoom(parsed)
+      : DEFAULT_COMPANION_ZOOM;
+  } catch {
+    return DEFAULT_COMPANION_ZOOM;
+  }
+}
+
+function persistCompanionZoom(value: number): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(
+      COMPANION_ZOOM_STORAGE_KEY,
+      String(clampCompanionZoom(value)),
+    );
+  } catch {
+    // Ignore persistence failures so camera controls remain responsive.
+  }
+}
+
 export const CompanionView = memo(function CompanionView() {
   useRenderGuard("CompanionView");
   const {
@@ -88,7 +120,8 @@ export const CompanionView = memo(function CompanionView() {
   } = useApp();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const vrmEngineRef = useRef<VrmEngine | null>(null);
-  const companionZoomRef = useRef(0);
+  const companionZoomRef = useRef(DEFAULT_COMPANION_ZOOM);
+  const companionZoomHydratedRef = useRef(false);
   const dragStateRef = useRef<{
     active: boolean;
     pointerId: number | null;
@@ -110,6 +143,10 @@ export const CompanionView = memo(function CompanionView() {
     startDistance: 0,
     startZoom: 0,
   });
+  if (!companionZoomHydratedRef.current) {
+    companionZoomRef.current = loadStoredCompanionZoom();
+    companionZoomHydratedRef.current = true;
+  }
 
   const handleShellModeChange = useCallback(
     (mode: "companion" | "native") => {
@@ -123,8 +160,9 @@ export const CompanionView = memo(function CompanionView() {
     setState("chatMode", "simple");
   }, [setState]);
   const setCompanionZoom = useCallback((value: number) => {
-    const nextZoom = Math.max(0, Math.min(1, value));
+    const nextZoom = clampCompanionZoom(value);
     companionZoomRef.current = nextZoom;
+    persistCompanionZoom(nextZoom);
     vrmEngineRef.current?.setCompanionZoomNormalized(nextZoom);
   }, []);
   const handleStageEngineReady = useCallback((engine: VrmEngine) => {

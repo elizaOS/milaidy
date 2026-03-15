@@ -64,6 +64,7 @@ vi.mock("../../src/components/avatar/VrmEngine", () => {
 import { VrmViewer } from "../../src/components/avatar/VrmViewer";
 
 type MockVrmEngineInstance = {
+  setWorldUrl: ReturnType<typeof vi.fn>;
   loadVrmFromUrl: ReturnType<typeof vi.fn>;
   resolveReady: () => void;
 };
@@ -158,6 +159,67 @@ describe("VrmViewer", () => {
       "/vrms/milady-1.vrm",
       "milady-1.vrm",
     );
+
+    await act(async () => {
+      renderer?.unmount();
+    });
+  });
+
+  it("waits for the world load before revealing the VRM on initial world stages", async () => {
+    let renderer: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <VrmViewer
+          vrmPath="/vrms/milady-1.vrm"
+          worldUrl="/worlds/companion-day.spz"
+          mouthOpen={0}
+        />,
+        {
+          createNodeMock: (element) => {
+            if (element.type === "canvas") {
+              return {
+                getBoundingClientRect: () => ({
+                  width: 640,
+                  height: 480,
+                  top: 0,
+                  left: 0,
+                  bottom: 480,
+                  right: 640,
+                  x: 0,
+                  y: 0,
+                  toJSON: () => ({}),
+                }),
+              };
+            }
+            return null;
+          },
+        },
+      );
+    });
+
+    const [instance] = getMockInstances();
+    expect(instance).toBeTruthy();
+
+    await act(async () => {
+      instance?.resolveReady();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(instance?.setWorldUrl).toHaveBeenCalledWith(
+      "/worlds/companion-day.spz",
+    );
+    expect(instance?.loadVrmFromUrl).toHaveBeenCalledWith(
+      "/vrms/milady-1.vrm",
+      "milady-1.vrm",
+    );
+
+    const worldCallOrder =
+      instance?.setWorldUrl.mock.invocationCallOrder.at(-1) ?? 0;
+    const vrmCallOrder =
+      instance?.loadVrmFromUrl.mock.invocationCallOrder.at(-1) ?? 0;
+    expect(worldCallOrder).toBeLessThan(vrmCallOrder);
 
     await act(async () => {
       renderer?.unmount();

@@ -1,14 +1,10 @@
-import { LanguageDropdown, ThemeToggle } from "@milady/app-core/components";
 import { getTabGroups, type TabGroup } from "@milady/app-core/navigation";
 import { useApp } from "@milady/app-core/state";
-import { IconTooltip as IconButtonTooltip } from "@milady/ui";
 import {
   AlertTriangle,
   CircleDollarSign,
   Menu,
-  Monitor,
-  Smartphone,
-  X,
+  X
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -105,10 +101,6 @@ export function Header(_props: HeaderProps) {
       : "border-ok text-ok bg-ok/10";
 
   const shellMode = uiShellMode ?? "companion";
-  const isNativeShell = shellMode === "native";
-  const shellToggleActionLabel = isNativeShell
-    ? t("header.switchToCompanion")
-    : t("header.switchToNative");
 
   const handleShellModeChange = (mode: "companion" | "native") => {
     setUiShellMode(mode);
@@ -214,25 +206,6 @@ export function Header(_props: HeaderProps) {
 
           {/* Menu Panel */}
           <div className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-bg border-l border-border shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-accent">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-                  <activeGroup.icon className="w-4 h-4 text-accent-fg" />
-                </span>
-                <span className="text-sm font-semibold text-txt-strong">
-                  {t("nav.Menu")}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] border border-border/50 bg-card/50 backdrop-blur-sm text-txt cursor-pointer hover:border-accent hover:text-txt transition-all duration-300 hover:shadow-[0_0_15px_rgba(var(--accent),0.3)] hover:-translate-y-0.5 active:scale-95 rounded-xl"
-                onClick={() => setMobileMenuOpen(false)}
-                aria-label="Close navigation menu"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
             <div className="flex-1 overflow-y-auto py-3 px-3">
               <div className="flex flex-col gap-1">
                 {tabGroups.map((group: TabGroup, index) => {
@@ -277,52 +250,6 @@ export function Header(_props: HeaderProps) {
                   );
                 })}
               </div>
-
-              {/* Settings for Mobile */}
-              <div className="mt-4 pt-4 border-t border-border flex flex-col gap-3">
-                <div className="flex flex-col gap-2 justify-between">
-                  <LanguageDropdown
-                    uiLanguage={uiLanguage}
-                    setUiLanguage={setUiLanguage}
-                    t={t}
-                  />
-                  <ThemeToggle
-                    uiTheme={uiTheme}
-                    setUiTheme={setUiTheme}
-                    t={t}
-                  />
-                  <div className="flex gap-2">
-                    <IconButtonTooltip label={shellToggleActionLabel}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleShellModeChange(
-                            isNativeShell ? "companion" : "native",
-                          )
-                        }
-                        className={HEADER_ICON_BUTTON_CLASSNAME}
-                        aria-label={shellToggleActionLabel}
-                        data-testid="ui-shell-toggle"
-                      >
-                        {isNativeShell ? (
-                          <Smartphone className="w-5 h-5" />
-                        ) : (
-                          <Monitor className="w-5 h-5" />
-                        )}
-                      </button>
-                    </IconButtonTooltip>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-border p-3 text-[11px] text-muted text-center">
-              {t("nav.Press")}{" "}
-              <kbd className="px-1.5 py-0.5 bg-bg-accent border border-border rounded text-[10px] font-mono">
-                {t("nav.ESC")}
-              </kbd>{" "}
-              {t("nav.toClose")}
             </div>
           </div>
         </div>

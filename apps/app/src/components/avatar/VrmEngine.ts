@@ -27,7 +27,6 @@ import {
   type InteractionMode,
   VrmCameraManager,
 } from "./VrmCameraManager";
-import { VrmFootShadow } from "./VrmFootShadow";
 
 export type { CameraAnimationConfig, CameraProfile, InteractionMode };
 
@@ -143,10 +142,13 @@ const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
   speed: 0.8,
 };
 const COMPANION_WORLD_SCALE = 3;
-const COMPANION_DARK_WORLD_FLOOR_OFFSET_Y = -0.95;
+const COMPANION_DARK_WORLD_FLOOR_OFFSET_Y = -1.0;
 const COMPANION_LIGHT_WORLD_FLOOR_OFFSET_Y = -0.35;
 const COMPANION_WORLD_DISSOLVE_DURATION = 0.8;
 const COMPANION_WORLD_DISSOLVE_EDGE = 0.28;
+const COMPANION_WORLD_DISSOLVE_MIN_HEIGHT = 150;
+const TELEPORT_DISSOLVE_START_Y = -1.2;
+const TELEPORT_DISSOLVE_END_Y = 1.0;
 const COMPANION_DOF_APERTURE_SIZE = 0.04;
 const COMPANION_WORLD_MAX_SPLATS = 1_000_000;
 const COMPANION_WORLD_BEHIND_CAMERA_PADDING = 0.75;
@@ -464,7 +466,6 @@ export class VrmEngine {
   private speaking = false;
   private speakingStartTime = 0;
   private readonly blinkController = new VrmBlinkController();
-  private readonly footShadow = new VrmFootShadow();
   private readonly cameraManager = new VrmCameraManager();
   private emoteAction: THREE.AnimationAction | null = null;
   private emoteTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -609,8 +610,7 @@ export class VrmEngine {
       !dyno.sub ||
       !dyno.mul ||
       !dyno.div ||
-      !dyno.clamp ||
-      !("SplatModifier" in spark)
+      !dyno.clamp
     ) {
       return null;
     }
@@ -626,41 +626,39 @@ export class VrmEngine {
     const one = dyno.dynoConst("float", 1);
     const two = dyno.dynoConst("float", 2);
 
-    const modifier = new spark.SplatModifier(
-      dyno.dynoBlock(
-        { gsplat: dyno.Gsplat },
-        { gsplat: dyno.Gsplat },
-        ({ gsplat }) => {
-          if (!gsplat) {
-            throw new Error("Missing gsplat input for world dissolve");
-          }
-          const { y, opacity } = dyno.splitGsplat(gsplat).outputs;
-          const threshold = dyno.add(
-            dyno.sub(minYUniform, edgeUniform),
-            dyno.mul(
-              dyno.add(
-                dyno.sub(maxYUniform, minYUniform),
-                dyno.mul(edgeUniform, two),
-              ),
-              progressUniform,
+    const modifier = dyno.dynoBlock(
+      { gsplat: dyno.Gsplat },
+      { gsplat: dyno.Gsplat },
+      ({ gsplat }) => {
+        if (!gsplat) {
+          throw new Error("Missing gsplat input for world dissolve");
+        }
+        const { y, opacity } = dyno.splitGsplat(gsplat).outputs;
+        const threshold = dyno.add(
+          dyno.sub(minYUniform, edgeUniform),
+          dyno.mul(
+            dyno.add(
+              dyno.sub(maxYUniform, minYUniform),
+              dyno.mul(edgeUniform, two),
             ),
-          );
-          const revealAlpha = dyno.clamp(
-            dyno.div(dyno.sub(threshold, y), edgeUniform),
-            zero,
-            one,
-          );
-          return {
-            gsplat: dyno.combineGsplat({
-              gsplat,
-              opacity: dyno.mul(opacity, revealAlpha),
-            }),
-          };
-        },
-      ),
+            progressUniform,
+          ),
+        );
+        const revealAlpha = dyno.clamp(
+          dyno.div(dyno.sub(threshold, y), edgeUniform),
+          zero,
+          one,
+        );
+        return {
+          gsplat: dyno.combineGsplat({
+            gsplat,
+            opacity: dyno.mul(opacity, revealAlpha),
+          }),
+        };
+      },
     );
 
-    mesh.worldModifier = modifier;
+    mesh.worldModifier = modifier as SparkSplatMesh["worldModifier"];
     mesh.updateGenerator();
 
     return {
@@ -706,13 +704,15 @@ export class VrmEngine {
   private updateWorldTransition(stableDelta: number): void {
     const transition = this.worldTransition;
     if (!transition) return;
+    const avatarRevealActive =
+      this.revealStarted && this.teleportProgress < 0.999;
 
     const nextProgress = transition.syncToTeleport
-      ? this.revealStarted
-        ? this.teleportProgress
-        : this.vrmReady
-          ? 1
-          : 0
+      ? !this.vrmReady
+        ? 0
+        : avatarRevealActive
+          ? this.teleportProgress
+          : Math.min(1, transition.progress + stableDelta / transition.duration)
       : Math.min(1, transition.progress + stableDelta / transition.duration);
 
     transition.progress = nextProgress;
@@ -1161,7 +1161,6 @@ export class VrmEngine {
         const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
         fillLight.position.set(-1, 0.5, -1).normalize();
         scene.add(fillLight);
-        this.footShadow.create(scene);
         this.resize(canvas.clientWidth, canvas.clientHeight);
         this.initialized = true;
         this.loop();
@@ -1197,9 +1196,6 @@ export class VrmEngine {
     if (this.vrm?.scene.parent) {
       this.vrm.scene.parent.remove(this.vrm.scene);
       VRMUtils.deepDispose(this.vrm.scene);
-    }
-    if (this.scene) {
-      this.footShadow.dispose(this.scene);
     }
     if (this.controls) {
       this.controls.removeEventListener("start", this.handleControlStart);
@@ -1505,9 +1501,17 @@ export class VrmEngine {
       -worldCenterBottom.y * COMPANION_WORLD_SCALE + worldFloorOffsetY,
       -worldCenterBottom.z * COMPANION_WORLD_SCALE,
     );
+    const worldDissolveMinY = Math.min(
+      worldYExtents.minY * COMPANION_WORLD_SCALE + splat.position.y,
+      splat.position.y,
+    );
+    const worldDissolveMaxY = Math.max(
+      worldYExtents.maxY * COMPANION_WORLD_SCALE + splat.position.y,
+      worldDissolveMinY + COMPANION_WORLD_DISSOLVE_MIN_HEIGHT,
+    );
     const worldDissolve = this.createWorldDissolveController(spark, splat, {
-      minY: worldYExtents.minY * COMPANION_WORLD_SCALE + splat.position.y,
-      maxY: worldYExtents.maxY * COMPANION_WORLD_SCALE + splat.position.y,
+      minY: worldDissolveMinY,
+      maxY: worldDissolveMaxY,
     });
     const isInitialReveal = !outgoingWorld && !this.worldRevealCompleted;
     this.worldMesh = splat;
@@ -1721,8 +1725,10 @@ export class VrmEngine {
           // World-space Y from TSL
           const worldY = tsl.positionWorld.y;
 
-          // Sweep threshold: -0.2 → 2.0 as progress goes 0 → 1
-          const threshold = uProgress.mul(2.2).add(-0.2);
+          // Sweep threshold starts 1m lower than before.
+          const threshold = uProgress
+            .mul(TELEPORT_DISSOLVE_END_Y - TELEPORT_DISSOLVE_START_Y)
+            .add(TELEPORT_DISSOLVE_START_Y);
 
           // Distance above dissolve line
           const diff = worldY.sub(threshold);
@@ -1844,7 +1850,7 @@ float teleportNoiseHash(vec2 p) {
 ${shader.fragmentShader}
 `.replace(
             "#include <alphatest_fragment>",
-            `float teleportThreshold = mix(-0.2, 2.0, uTeleportProgress);
+            `float teleportThreshold = mix(${TELEPORT_DISSOLVE_START_Y.toFixed(1)}, ${TELEPORT_DISSOLVE_END_Y.toFixed(1)}, uTeleportProgress);
 float teleportDiff = vTeleportWorldPosition.y - teleportThreshold;
 float teleportRatio = clamp(teleportDiff / 0.3, 0.0, 1.0);
 float teleportNoise = teleportNoiseHash(vec2(
@@ -2055,7 +2061,6 @@ if (teleportNoise < teleportRatio) discard;
       this.vrm.update(stableDelta);
       this.applyAvatarHeadTracking(camera, stableDelta);
       this.refreshAvatarEyeTracking();
-      this.footShadow.update(this.vrm);
     }
     this.updateSparkDepthOfField(camera);
     renderer.render(scene, camera);

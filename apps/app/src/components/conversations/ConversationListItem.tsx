@@ -118,7 +118,7 @@ export function ConversationListItem({
             data-testid="conv-select"
             className={
               isGameModal
-                ? "flex flex-col flex-1 min-w-0 text-left cursor-pointer h-auto p-0 rounded-none bg-transparent border-none"
+                ? "flex flex-col flex-1 min-w-0 items-start justify-start text-left cursor-pointer h-auto p-0 rounded-none bg-transparent border-none"
                 : "flex items-center gap-2 flex-1 min-w-0 bg-transparent border-0 p-0 m-0 text-left h-auto cursor-pointer rounded-none"
             }
             onClick={() => {

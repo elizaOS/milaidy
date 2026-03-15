@@ -249,9 +249,19 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
       ),
     [companionMessageCutoffTs, visibleMsgs],
   );
+  const gameModalContextMsgs = useMemo(() => {
+    if (gameModalRecentMsgs.length > 0) {
+      return gameModalRecentMsgs;
+    }
+
+    // When the companion view is opened against an older active thread, the
+    // persisted cutoff can hide every message. Fall back to the latest visible
+    // thread context so switching shells keeps the same conversation alive.
+    return visibleMsgs.slice(-COMPANION_VISIBLE_MESSAGE_LIMIT);
+  }, [gameModalRecentMsgs, visibleMsgs]);
   const gameModalVisibleMsgs = useMemo(
-    () => gameModalRecentMsgs.slice(-COMPANION_VISIBLE_MESSAGE_LIMIT),
-    [gameModalRecentMsgs],
+    () => gameModalContextMsgs.slice(-COMPANION_VISIBLE_MESSAGE_LIMIT),
+    [gameModalContextMsgs],
   );
   const gameModalCarryoverOpacity = useMemo(() => {
     if (!companionCarryover) return 0;

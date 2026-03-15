@@ -236,6 +236,31 @@ describe("ChatView game-modal variant", () => {
     expect(text).toContain("five");
   });
 
+  it("falls back to the active thread when the cutoff hides every message", async () => {
+    mockUseApp.mockReturnValue(
+      createContext({
+        companionMessageCutoffTs: 999,
+        conversationMessages: [
+          { id: "m1", role: "assistant", text: "one", timestamp: 1 },
+          { id: "m2", role: "user", text: "two", timestamp: 2 },
+          { id: "m3", role: "assistant", text: "three", timestamp: 3 },
+        ],
+      }),
+    );
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(ChatView, { variant: "game-modal" }),
+      );
+    });
+
+    const text = textOf(tree?.root).toLowerCase();
+    expect(text).not.toContain("one");
+    expect(text).toContain("two");
+    expect(text).toContain("three");
+  });
+
   it("keeps mic and send controls usable in game-modal", async () => {
     const handleChatSend = vi.fn(async () => {});
     mockUseApp.mockReturnValue(
