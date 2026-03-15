@@ -146,6 +146,22 @@ describe("character routes", () => {
     ).toEqual(messageExamples);
   });
 
+  test("updates topics", async () => {
+    const topics = ["crypto", "memes", "fashion"];
+
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: { topics },
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (state.runtime as unknown as { character: Record<string, unknown> })
+        .character.topics,
+    ).toEqual(topics);
+  });
+
   test("persists the full character payload including username across save and reload", async () => {
     const fullCharacter = {
       name: "Sakuya",
