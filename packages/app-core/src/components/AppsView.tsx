@@ -20,6 +20,8 @@ import { useApp } from "../state";
 import { openExternalUrl } from "../utils";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
+const APP_BTN =
+  "border-border/50 bg-bg/50 backdrop-blur-md text-accent hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl";
 const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
 const HYPERSCAPE_COMMAND_OPTIONS = [
   "chat",
@@ -851,9 +853,9 @@ export function AppsView() {
         </div>
         <div className="flex flex-wrap gap-2 mt-1">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
-            className="px-4 py-2 shadow-[0_0_15px_rgba(var(--accent),0.3)] hover:shadow-[0_0_20px_rgba(var(--accent),0.5)] rounded-xl"
+            className={`px-4 py-2 shadow-sm ${APP_BTN}`}
             onClick={handleOpenCurrentGame}
           >
             {t("appsview.ResumeFullscreen")}
@@ -861,7 +863,7 @@ export function AppsView() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-xl shadow-sm"
+            className={`shadow-sm ${APP_BTN}`}
             onClick={handleOpenCurrentGameInNewTab}
           >
             {t("appsview.OpenInNewTab")}
@@ -876,9 +878,9 @@ export function AppsView() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
-            className="shadow-sm"
+            className={`shadow-sm ${APP_BTN}`}
             onClick={() => setSelectedAppName(null)}
           >
             {t("appsview.Back")}
@@ -925,9 +927,9 @@ export function AppsView() {
 
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="default"
+              variant="outline"
               size="sm"
-              className="shadow-sm"
+              className={`shadow-sm ${APP_BTN}`}
               disabled={busyApp === selectedApp.name}
               onClick={() => void handleLaunch(selectedApp)}
             >
@@ -935,9 +937,9 @@ export function AppsView() {
             </Button>
             {selectedAppHasActiveViewer ? (
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
-                className="shadow-sm"
+                className={`shadow-sm ${APP_BTN}`}
                 onClick={handleOpenCurrentGame}
               >
                 {t("appsview.ViewActiveSession")}
@@ -945,9 +947,9 @@ export function AppsView() {
             ) : null}
             {selectedAppHasActiveViewer ? (
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
-                className="shadow-sm"
+                className={`shadow-sm ${APP_BTN}`}
                 onClick={handleOpenCurrentGameInNewTab}
               >
                 {t("appsview.OpenViewerInNewT")}
@@ -1054,7 +1056,7 @@ export function AppsView() {
         <Button
           variant="outline"
           size="sm"
-          className="rounded-xl shadow-sm h-10"
+          className={`shadow-sm h-10 ${APP_BTN}`}
           onClick={() => void loadApps()}
         >
           {t("appsview.Refresh")}
@@ -1065,7 +1067,7 @@ export function AppsView() {
         <Button
           variant="outline"
           size="sm"
-          className="text-[11px]"
+          className={`text-[11px] ${APP_BTN}`}
           onClick={() => setShowActiveOnly((current) => !current)}
         >
           {showActiveOnly ? "Showing Active" : "Active Only"}
@@ -1136,9 +1138,9 @@ export function AppsView() {
                 </div>
 
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
-                  className="mt-2 rounded-xl shadow-sm self-start"
+                  className={`mt-2 shadow-sm self-start ${APP_BTN}`}
                   disabled={busyApp === app.name}
                   onClick={() => void handleLaunch(app)}
                 >
