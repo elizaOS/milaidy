@@ -21,7 +21,6 @@ interface ChatMessageProps {
   message: ConversationMessage;
   isGrouped?: boolean;
   agentName?: string;
-  agentAvatarSrc?: string | null;
   onCopy?: (text: string) => void;
   onSpeak?: (messageId: string, text: string) => void;
   onEdit?: (messageId: string, text: string) => Promise<boolean> | boolean;
@@ -188,8 +187,6 @@ export function ChatMessage({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [showActions, supportsHover]);
 
-  const actionsVisible = showActions;
-
   return (
     <article
       ref={articleRef}
@@ -268,7 +265,7 @@ export function ChatMessage({
           {!isEditing && (
             <div
               className={`absolute ${isUser ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 flex items-center gap-1 p-1 transition-opacity duration-200 ${
-                actionsVisible ? "opacity-100" : "pointer-events-none opacity-0"
+                showActions ? "opacity-100" : "pointer-events-none opacity-0"
               }`}
             >
               <Button

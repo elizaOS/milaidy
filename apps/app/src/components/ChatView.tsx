@@ -555,7 +555,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
     gameModalVisibleMsgs,
   } = useGameModalMessages({
     activeConversationId,
-    agentVoiceMuted: agentVoiceMuted,
+    agentVoiceMuted,
     companionMessageCutoffTs,
     isGameModal,
     setState,
@@ -819,7 +819,6 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                   message={msg}
                   isGrouped={isGrouped}
                   agentName={agentName}
-                  agentAvatarSrc={agentAvatarSrc}
                   onSpeak={handleSpeakMessage}
                   onEdit={handleEditMessage}
                 />

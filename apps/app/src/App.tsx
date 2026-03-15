@@ -366,7 +366,7 @@ export function App() {
   if (!onboardingComplete) return <OnboardingWizard />;
 
   const shellContent = companionShellVisible ? (
-    <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
+    <CompanionShell />
   ) : tab === "stream" ? (
     <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
       <Header />

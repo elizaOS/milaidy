@@ -6,7 +6,6 @@
  */
 
 import { useRenderGuard } from "@milady/app-core/hooks";
-import type { Tab } from "@milady/app-core/navigation";
 import { memo } from "react";
 import { CompanionView } from "./CompanionView";
 
@@ -14,14 +13,7 @@ export { COMPANION_OVERLAY_TABS } from "./companion-shell-styles";
 
 /* ── Main component ────────────────────────────────────────────────── */
 
-export interface CompanionShellProps {
-  tab: Tab;
-  actionNotice: { text: string; tone: string } | null;
-}
-
-export const CompanionShell = memo(function CompanionShell(
-  _props: CompanionShellProps,
-) {
+export const CompanionShell = memo(function CompanionShell() {
   useRenderGuard("CompanionShell");
   return (
     <div className="relative w-full h-[100vh] overflow-hidden">

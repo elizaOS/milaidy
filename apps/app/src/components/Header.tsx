@@ -112,12 +112,6 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
       ? t("header.elizaCloudConnected")
       : `$${elizaCloudCredits.toFixed(2)}`;
 
-  const handleShellViewChange = (
-    view: "companion" | "character" | "desktop",
-  ) => {
-    switchShellView(view);
-  };
-
   const openCloudBilling = () => {
     setState("cloudDashboardView", "billing");
     setTab("settings");
@@ -246,7 +240,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
       >
         <ShellHeaderControls
           activeShellView={activeShellView}
-          onShellViewChange={handleShellViewChange}
+          onShellViewChange={switchShellView}
           uiLanguage={uiLanguage}
           setUiLanguage={setUiLanguage}
           uiTheme={uiTheme}

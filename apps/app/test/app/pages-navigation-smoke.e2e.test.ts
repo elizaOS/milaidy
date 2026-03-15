@@ -139,8 +139,8 @@ vi.mock("../../src/components/CompanionView", () => ({
 
 vi.mock("../../src/components/CompanionShell", () => ({
   COMPANION_OVERLAY_TABS: companionOverlayTabs,
-  CompanionShell: ({ tab }: { tab: string }) =>
-    React.createElement("main", null, `CompanionShell Ready: ${tab}`),
+  CompanionShell: () =>
+    React.createElement("main", null, "CompanionShell Ready"),
 }));
 
 vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
@@ -287,10 +287,6 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   return textOf(mains[0]);
 }
 
-function expectedShellTab(_tab: Tab): string {
-  return "companion";
-}
-
 function requireTree(
   tree: TestRenderer.ReactTestRenderer | null,
 ): TestRenderer.ReactTestRenderer {
@@ -377,9 +373,7 @@ describe("pages navigation smoke (e2e)", () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(
-        `CompanionShell Ready: ${expectedShellTab(nextTab)}`,
-      );
+      expect(content).toContain("CompanionShell Ready");
       expectValidContent(content);
     }
 
@@ -446,9 +440,7 @@ describe("pages navigation smoke (e2e)", () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain(
-        `CompanionShell Ready: ${expectedShellTab(tab)}`,
-      );
+      expect(content).toContain("CompanionShell Ready");
       expectValidContent(content);
     }
 
