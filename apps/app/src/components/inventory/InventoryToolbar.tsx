@@ -2,12 +2,12 @@
  * Unified wallet header row: total, view toggle, chain filter, sort, refresh.
  */
 
-import type { createTranslator } from "@milady/app-core/i18n";
-import type { AppState } from "@milady/app-core/state";
 import type {
   WalletBalancesResponse,
   WalletNftsResponse,
 } from "@milady/app-core/api";
+import type { createTranslator } from "@milady/app-core/i18n";
+import type { AppState } from "@milady/app-core/state";
 import { Button } from "@milady/ui";
 import { CHAIN_CONFIGS, PRIMARY_CHAIN_KEYS } from "../chainConfig";
 

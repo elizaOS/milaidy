@@ -4,8 +4,8 @@
 
 import { Keyboard } from "@capacitor/keyboard";
 import {
-  AvatarLoader,
   AppsPageView,
+  AvatarLoader,
   ConnectionFailedBanner,
   ConnectorsPageView,
   ErrorBoundary,

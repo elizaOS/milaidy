@@ -343,6 +343,14 @@ function textOf(node: TestRenderer.ReactTestInstance): string {
     .join("");
 }
 
+function requireTree(
+  tree: TestRenderer.ReactTestRenderer | null | undefined,
+): TestRenderer.ReactTestRenderer {
+  expect(tree).toBeTruthy();
+  if (!tree) throw new Error("expected test renderer instance");
+  return tree;
+}
+
 function expectValidContent(content: string): void {
   expect(content.trim().length).toBeGreaterThan(0);
   const invalidPatterns = [
@@ -425,7 +433,7 @@ describe("shell mode switching (e2e)", () => {
       await act(async () => {
         tree.update(React.createElement(App));
       });
-      const text = textOf(tree!.root);
+      const text = textOf(requireTree(tree).root);
       expect(text).toContain(token);
       expectValidContent(text);
     }
@@ -454,7 +462,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    let text = textOf(tree!.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -472,7 +480,7 @@ describe("shell mode switching (e2e)", () => {
       await act(async () => {
         tree.update(React.createElement(App));
       });
-      text = textOf(tree!.root);
+      text = textOf(requireTree(tree).root);
       expect(text).toContain("CompanionView Ready");
       expect(text).not.toContain("Header");
       expectValidContent(text);
@@ -503,7 +511,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree = TestRenderer.create(React.createElement(App));
     });
-    let text = textOf(tree!.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("ChatView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -513,7 +521,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree.update(React.createElement(App));
     });
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("SettingsView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -524,7 +532,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree.update(React.createElement(App));
     });
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     // Companion mode should NOT render the native Header
     expect(text).not.toContain("Header");
@@ -535,7 +543,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree.update(React.createElement(App));
     });
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -545,7 +553,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree.update(React.createElement(App));
     });
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expectValidContent(text);
@@ -556,7 +564,7 @@ describe("shell mode switching (e2e)", () => {
     await act(async () => {
       tree.update(React.createElement(App));
     });
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("ChatView Ready");
     expect(text).toContain("Header");
     expectValidContent(text);
@@ -572,7 +580,7 @@ describe("shell mode switching (e2e)", () => {
       await act(async () => {
         tree.update(React.createElement(App));
       });
-      text = textOf(tree!.root);
+      text = textOf(requireTree(tree).root);
       expect(text).toContain("Header");
       expectValidContent(text);
     }
@@ -615,7 +623,7 @@ describe("shell mode switching (e2e)", () => {
       await act(async () => {
         tree.update(React.createElement(App));
       });
-      const text = textOf(tree!.root);
+      const text = textOf(requireTree(tree).root);
       expect(text).toContain("CompanionView Ready");
       expect(text).not.toContain("Header");
       expectValidContent(text);
@@ -652,7 +660,7 @@ describe("shell mode switching (e2e)", () => {
       await act(async () => {
         tree.update(React.createElement(App));
       });
-      const text = textOf(tree!.root);
+      const text = textOf(requireTree(tree).root);
       if (isCompanion) {
         expect(text).toContain("CompanionView Ready");
         expect(text).not.toContain("Header");
@@ -712,7 +720,7 @@ describe("shell mode switching (e2e)", () => {
       tree.update(React.createElement(App));
     });
 
-    let text = textOf(tree!.root);
+    let text = textOf(requireTree(tree).root);
     expect(text).toContain("Header");
     expect(text).toContain("CharacterView Ready");
     expect(sceneHostState.activeHistory.at(-1)).toBe(true);
@@ -724,7 +732,7 @@ describe("shell mode switching (e2e)", () => {
       tree.update(React.createElement(App));
     });
 
-    text = textOf(tree!.root);
+    text = textOf(requireTree(tree).root);
     expect(text).toContain("CompanionView Ready");
     expect(text).not.toContain("Header");
     expect(sceneHostState.activeHistory.at(-1)).toBe(true);

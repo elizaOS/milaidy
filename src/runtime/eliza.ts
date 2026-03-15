@@ -2873,9 +2873,10 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // bootstrap or configs created before this change). For built-in default
   // characters, fall back to the bundled preset so legacy name-only configs
   // still retain their default posts/messages.
-  const bio = agentEntry?.bio ?? bundledPreset?.bio ?? [
-    "{{name}} is an AI assistant powered by Milady and elizaOS.",
-  ];
+  const bio = agentEntry?.bio ??
+    bundledPreset?.bio ?? [
+      "{{name}} is an AI assistant powered by Milady and elizaOS.",
+    ];
   const systemPrompt =
     agentEntry?.system ??
     bundledPreset?.system ??
