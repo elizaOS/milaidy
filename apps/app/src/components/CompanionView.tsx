@@ -49,7 +49,7 @@ export const CompanionView = memo(function CompanionView() {
       >
         <div className="flex items-center justify-center">
           <div
-            className="inline-flex items-center gap-2"
+            className="inline-flex items-stretch gap-2"
             data-testid="companion-header-chat-controls"
           >
             <Button
@@ -61,15 +61,15 @@ export const CompanionView = memo(function CompanionView() {
               }
               aria-pressed={!chatAgentVoiceMuted}
               title={chatAgentVoiceMuted ? "Agent voice off" : "Agent voice on"}
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-txt shadow-sm backdrop-blur-sm hover:bg-bg-hover"
+              className="flex h-8 min-h-8 items-center rounded-full border border-border/50 bg-card/80 px-3 text-xs text-txt shadow-sm backdrop-blur-sm hover:bg-bg-hover"
               onClick={() =>
                 setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)
               }
             >
               {chatAgentVoiceMuted ? (
-                <VolumeX className="mr-1.5 h-3.5 w-3.5" />
+                <VolumeX className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               ) : (
-                <Volume2 className="mr-1.5 h-3.5 w-3.5" />
+                <Volume2 className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               )}
               Voice
             </Button>
@@ -79,10 +79,10 @@ export const CompanionView = memo(function CompanionView() {
               size="sm"
               aria-label="New Chat"
               title="New Chat"
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:block"
+              className="flex h-8 min-h-8 items-center rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:flex"
               onClick={() => void handleNewConversation()}
             >
-              <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+              <MessageCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               New Chat
             </Button>
           </div>
