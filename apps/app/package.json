@@ -33,8 +33,6 @@
     "@capacitor/keyboard": "8.0.0",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
-    "@lifo-sh/core": "0.4.4",
-    "@lifo-sh/ui": "0.4.2",
     "@milady/app-core": "workspace:*",
     "@milady/capacitor-agent": "workspace:*",
     "@milady/capacitor-camera": "workspace:*",

@@ -111,34 +111,13 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Align version with release tag
-        run: |
-          node -e "
-            const fs = require('fs');
-            const version = process.env.RELEASE_VERSION;
-            for (const file of [
-              'package.json',
-              'apps/app/package.json',
-              'apps/app/electrobun/package.json',
-            ]) {
-              try {
-                const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
-                pkg.version = version;
-                fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
-              } catch (e) {
-                console.warn('Could not update ' + file + ':', e.message);
-              }
-            }
-            const cfgPath = 'apps/app/electrobun/electrobun.config.ts';
-            let cfg = fs.readFileSync(cfgPath, 'utf8');
-            cfg = cfg.replace(/version:\s*\"[^\"]+\"/, 'version: \"' + version + '\"');
-            fs.writeFileSync(cfgPath, cfg);
-          "
+        run: node scripts/align-electrobun-version.mjs
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
       - name: Build core dist (server bundle)
         run: |
-          bunx tsdown || true
+          bunx tsdown
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
@@ -223,29 +202,7 @@ jobs:
           restore-keys: whisper-model-${{ matrix.platform.artifact-name }}-
 
       - name: Align version with release tag
-        run: |
-          node -e "
-            const fs = require('fs');
-            const version = process.env.RELEASE_VERSION;
-            for (const file of [
-              'package.json',
-              'apps/app/package.json',
-              'apps/app/electrobun/package.json',
-            ]) {
-              try {
-                const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
-                pkg.version = version;
-                fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
-              } catch (e) {
-                console.warn('Could not update ' + file + ':', e.message);
-              }
-            }
-            // Update version in electrobun.config.ts
-            const cfgPath = 'apps/app/electrobun/electrobun.config.ts';
-            let cfg = fs.readFileSync(cfgPath, 'utf8');
-            cfg = cfg.replace(/version:\s*\"[^\"]+\"/, 'version: \"' + version + '\"');
-            fs.writeFileSync(cfgPath, cfg);
-          "
+        run: node scripts/align-electrobun-version.mjs
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
@@ -255,11 +212,11 @@ jobs:
         # the x64 install.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bunx tsdown || true
+            arch -x86_64 bunx tsdown
             echo '{"type":"module"}' > dist/package.json
             arch -x86_64 node --import tsx scripts/write-build-info.ts
           else
-            bunx tsdown || true
+            bunx tsdown
             echo '{"type":"module"}' > dist/package.json
             node --import tsx scripts/write-build-info.ts
           fi

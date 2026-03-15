@@ -108,6 +108,11 @@ export default defineConfig({
       input: {
         main: path.resolve(here, "index.html"),
       },
+      output: {
+        manualChunks: {
+          "vendor-3d": ["three", "@pixiv/three-vrm", "@sparkjsdev/spark"],
+        },
+      },
     },
     commonjsOptions: {
       include: [/node_modules/],

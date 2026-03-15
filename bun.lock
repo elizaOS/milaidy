@@ -132,8 +132,6 @@
         "@capacitor/keyboard": "8.0.0",
         "@capacitor/preferences": "^8.0.1",
         "@capacitor/status-bar": "^8.0.1",
-        "@lifo-sh/core": "0.4.4",
-        "@lifo-sh/ui": "0.4.2",
         "@milady/app-core": "workspace:*",
         "@milady/capacitor-agent": "workspace:*",
         "@milady/capacitor-camera": "workspace:*",
@@ -1100,10 +1098,6 @@
 
     "@leichtgewicht/ip-codec": ["@leichtgewicht/ip-codec@2.0.5", "", {}, "sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw=="],
 
-    "@lifo-sh/core": ["@lifo-sh/core@0.4.4", "", { "peerDependencies": { "@lifo-sh/ui": "0.4.2" }, "optionalPeers": ["@lifo-sh/ui"] }, "sha512-MhbtIl+DaX8VXtAc1OjTIdPKTQpGMQoC6n7MsiS65NjTeS19tgwITuhGFBVfFd0f+2Sr8r6khZN2pafaWpz8JQ=="],
-
-    "@lifo-sh/ui": ["@lifo-sh/ui@0.4.2", "", { "dependencies": { "@lifo-sh/core": "0.4.4", "@xterm/addon-fit": "^0.10.0", "@xterm/addon-webgl": "^0.18.0", "@xterm/xterm": "^5.5.0" } }, "sha512-W2DYLBmJmdEv0FabsglyqgPPT1ife/Y2sNSHtHvQ2xeKq6YiAJ7t0EVwBMfB9IeOduyNdKFK6UNEbG9ujifaEA=="],
-
     "@lunchtable/plugin-ltcg": ["@lunchtable/plugin-ltcg@0.1.0", "", { "peerDependencies": { "@elizaos/core": ">=1.0.0" } }, "sha512-rLJ8+6/iIDFIQA9YVzNh3tn8KQ/GgzK//4XLZ0iupi4g8Jml1xGydY7C54njFvzc0lLAPPwn12mpE6LOOnNX2Q=="],
 
     "@lydell/node-pty": ["@lydell/node-pty@1.1.0", "", { "optionalDependencies": { "@lydell/node-pty-darwin-arm64": "1.1.0", "@lydell/node-pty-darwin-x64": "1.1.0", "@lydell/node-pty-linux-arm64": "1.1.0", "@lydell/node-pty-linux-x64": "1.1.0", "@lydell/node-pty-win32-arm64": "1.1.0", "@lydell/node-pty-win32-x64": "1.1.0" } }, "sha512-VDD8LtlMTOrPKWMXUAcB9+LTktzuunqrMwkYR1DMRBkS6LQrCt+0/Ws1o2rMml/n3guePpS7cxhHF7Nm5K4iMw=="],
@@ -1909,12 +1903,6 @@
     "@whiskeysockets/baileys": ["@whiskeysockets/baileys@7.0.0-rc.9", "", { "dependencies": { "@cacheable/node-cache": "^1.4.0", "@hapi/boom": "^9.1.3", "async-mutex": "^0.5.0", "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git", "lru-cache": "^11.1.0", "music-metadata": "^11.7.0", "p-queue": "^9.0.0", "pino": "^9.6", "protobufjs": "^7.2.4", "ws": "^8.13.0" }, "peerDependencies": { "audio-decode": "^2.1.3", "jimp": "^1.6.0", "link-preview-js": "^3.0.0", "sharp": "*" }, "optionalPeers": ["audio-decode", "jimp", "link-preview-js"] }, "sha512-YFm5gKXfDP9byCXCW3OPHKXLzrAKzolzgVUlRosHHgwbnf2YOO3XknkMm6J7+F0ns8OA0uuSBhgkRHTDtqkacw=="],
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.8.11", "", {}, "sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw=="],
-
-    "@xterm/addon-fit": ["@xterm/addon-fit@0.10.0", "", { "peerDependencies": { "@xterm/xterm": "^5.0.0" } }, "sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ=="],
-
-    "@xterm/addon-webgl": ["@xterm/addon-webgl@0.18.0", "", { "peerDependencies": { "@xterm/xterm": "^5.0.0" } }, "sha512-xCnfMBTI+/HKPdRnSOHaJDRqEpq2Ugy8LEj9GiY4J3zJObo3joylIFaMvzBwbYRg8zLtkO0KQaStCeSfoaI2/w=="],
-
-    "@xterm/xterm": ["@xterm/xterm@5.5.0", "", {}, "sha512-hqJHYaQb5OptNunnyAnkHyM8aCjZ1MEIDTQu1iIbbTD/xops91NB5yq1ZK/dC2JDbVWtF23zUtl9JE2NqwT87A=="],
 
     "abbrev": ["abbrev@1.1.1", "", {}, "sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q=="],
 

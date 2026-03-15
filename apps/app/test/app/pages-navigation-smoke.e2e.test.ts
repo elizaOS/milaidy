@@ -26,7 +26,6 @@ const { companionOverlayTabs, mockUseApp, noop } = vi.hoisted(() => ({
     "apps",
     "connectors",
     "knowledge",
-    "lifo",
     "stream",
     "wallets",
   ]),
@@ -419,7 +418,6 @@ describe("pages navigation smoke (e2e)", () => {
       "voice",
       "runtime",
       "database",
-      "lifo",
       "settings",
       "logs",
     ];

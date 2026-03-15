@@ -416,7 +416,6 @@ describe("shell mode switching (e2e)", () => {
       { tab: "runtime", token: "AdvancedPageView Ready" },
       { tab: "database", token: "AdvancedPageView Ready" },
       { tab: "logs", token: "AdvancedPageView Ready" },
-      { tab: "lifo", token: "AdvancedPageView Ready" },
     ];
 
     let tree!: TestRenderer.ReactTestRenderer;
