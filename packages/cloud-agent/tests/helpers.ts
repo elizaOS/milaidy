@@ -1,12 +1,21 @@
 /**
  * Shared test helpers for cloud-agent tests.
  *
- * Provides server lifecycle management and JSON-RPC request helpers.
- * Each test file should call `startTestServers()` in beforeAll and
- * `stopTestServers()` in afterAll.
+ * Instead of using the top-level start() function (which creates its own
+ * internal SnapshotManager), we compose servers from building blocks.
+ * This ensures the echo runtime and the bridge handlers share the same
+ * snapshot manager — so memories from message.send show up in /api/snapshot.
+ *
+ * This keeps tests fast, isolated, and focused on the bridge protocol
+ * without needing @elizaos/core API keys or database access.
  */
 
-import type { CloudAgentServers } from "../src/types.js";
+import * as http from "node:http";
+import type { CloudAgentRuntime, ChatMode, MemoryEntry } from "../src/types.js";
+import { SnapshotManager } from "../src/snapshot/manager.js";
+import { createBridgeServers } from "../src/bridge/server.js";
+import { createHealthServer } from "../src/health/server.js";
+import type { HandlerContext } from "../src/bridge/handlers.js";
 
 // ─── Port Allocation ────────────────────────────────────────────────────
 
@@ -15,46 +24,104 @@ export function getRandomPort(): number {
   return 40000 + Math.floor(Math.random() * 20000);
 }
 
+// ─── Mock Echo Runtime ──────────────────────────────────────────────────
+
+/**
+ * Create a deterministic echo runtime for testing.
+ * Returns "[echo] {input}" for every message and records memories
+ * via the shared snapshot manager (same one the handlers use).
+ */
+function createEchoRuntime(snapshot: SnapshotManager): CloudAgentRuntime {
+  return {
+    processMessage: async (
+      text: string,
+      _roomId: string,
+      _mode: ChatMode,
+    ): Promise<string> => {
+      const reply = `[echo] ${text}`;
+      snapshot.addExchange(text, reply);
+      return reply;
+    },
+
+    processMessageStream: async (
+      text: string,
+      _roomId: string,
+      _mode: ChatMode,
+      onChunk: (chunk: string) => void,
+    ): Promise<string> => {
+      const reply = `[echo] ${text}`;
+      onChunk(reply);
+      snapshot.addExchange(text, reply);
+      return reply;
+    },
+
+    getMemories: () => snapshot.memories,
+    getConfig: () => snapshot.config,
+  };
+}
+
 // ─── Server Lifecycle ───────────────────────────────────────────────────
 
 export interface TestServerHandles {
   healthPort: number;
   bridgePort: number;
-  servers: CloudAgentServers;
+  healthServer: http.Server;
+  bridgeServers: http.Server[];
+  shutdown: () => void;
 }
 
 /**
- * Start the cloud-agent servers on random ports.
- * The runtime will fall back to echo mode (no @elizaos/core in test env).
+ * Start the cloud-agent servers on random ports with a mock echo runtime.
+ *
+ * Composes servers directly from building blocks so the echo runtime
+ * and bridge handlers share the same SnapshotManager.
  */
 export async function startTestServers(): Promise<TestServerHandles> {
   const healthPort = getRandomPort();
   const bridgePort = getRandomPort();
 
-  // Dynamic import to avoid top-level evaluation issues
-  const { start } = await import("../src/index.js");
+  // Shared state
+  const snapshot = new SnapshotManager();
+  const runtime = createEchoRuntime(snapshot);
 
-  const servers = await start({
-    healthPort,
-    bridgePort,
-    // Use the same port for compat to avoid opening a third server
-    compatBridgePort: bridgePort,
+  // Handler context shared by bridge + health servers
+  const handlerCtx: HandlerContext = {
+    getRuntime: () => runtime,
+    snapshot,
+    bridgePorts: [bridgePort],
+    primaryBridgePort: bridgePort,
+  };
+
+  // Create servers
+  const healthServer = createHealthServer(healthPort, {
+    getRuntime: () => runtime,
+    snapshot,
+    bridgePorts: [bridgePort],
+    primaryBridgePort: bridgePort,
   });
 
-  // Wait for runtime init (echo mode is synchronous but wrapped in promise)
-  // and for servers to actually bind
+  const bridgeServers = createBridgeServers(handlerCtx);
+
+  function shutdown() {
+    healthServer.close();
+    for (const s of bridgeServers) {
+      s.close();
+    }
+  }
+
+  // Wait for servers to bind
   await waitForServer(healthPort, 5000);
   await waitForServer(bridgePort, 5000);
 
-  return { healthPort, bridgePort, servers };
+  return { healthPort, bridgePort, healthServer, bridgeServers, shutdown };
 }
 
 /**
  * Gracefully shut down test servers.
  */
 export function stopTestServers(handles: TestServerHandles | null): void {
-  if (handles?.servers) {
-    handles.servers.shutdown();
+  if (handles) {
+    handles.shutdown();
   }
 }
 
@@ -62,15 +129,15 @@ export function stopTestServers(handles: TestServerHandles | null): void {
  * Wait until a port is accepting connections (up to timeoutMs).
  */
 async function waitForServer(port: number, timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
     try {
       const res = await fetch(`http://localhost:${port}/health`);
       if (res.ok) return;
     } catch {
       // Not ready yet
     }
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error(`Server on port ${port} did not start within ${timeoutMs}ms`);
 }
