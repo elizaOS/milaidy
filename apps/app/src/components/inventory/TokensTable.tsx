@@ -66,7 +66,7 @@ export function TokensTable({
             return (
               <tr
                 key={`${row.chain}-${row.symbol}-${idx}`}
-                className={`border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors${row.isNative ? " wt__row--native" : ""}`}
+                className="border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors"
               >
                 {/* Logo */}
                 <td className="pl-3 pr-2 py-3 align-middle">
@@ -87,7 +87,7 @@ export function TokensTable({
                       </div>
                       <div className="text-[10px] text-muted leading-tight mt-0.5">
                         {row.isNative ? (
-                          <span className="wt__native-badge">
+                          <span className="text-[9px] bg-accent/15 text-accent px-1 py-0.5 rounded">
                             {t("tokenstable.nativeGas")}
                           </span>
                         ) : (
@@ -96,7 +96,7 @@ export function TokensTable({
                               {row.name}
                             </span>
                             {row.isTracked && (
-                              <span className="wt__native-badge">
+                              <span className="text-[9px] bg-accent/15 text-accent px-1 py-0.5 rounded">
                                 {t("wallet.manual")}
                               </span>
                             )}
@@ -127,7 +127,7 @@ export function TokensTable({
                     <button
                       type="button"
                       data-testid="wallet-token-untrack"
-                      className="wt__row-btn is-remove"
+                      className="text-[10px] text-danger hover:underline cursor-pointer bg-transparent border-none p-0"
                       title={t("wallet.removeManualTitle")}
                       onClick={() => handleUntrackToken(contractAddress)}
                     >
