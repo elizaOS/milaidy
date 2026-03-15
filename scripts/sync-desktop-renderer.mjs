@@ -22,8 +22,6 @@ const RENDERER_PATH_ARG =
   getArgValue("renderer-path") ||
   process.env.MILADY_DESKTOP_RENDERER_PATH ||
   null;
-const VARIANT =
-  getArgValue("variant") || process.env.VITE_APP_VARIANT || "base";
 const SKIP_BUILD = getBooleanArg("skip-build") || getBooleanArg("no-build");
 const WATCH = getBooleanArg("watch");
 const DEFAULT_APP_PATH = "/Applications/Milady-canary.app";
@@ -37,7 +35,7 @@ const DEFAULT_RENDERER_DIR = path.join(
 const TARGET_RENDERER = RENDERER_PATH_ARG
   ? path.resolve(RENDERER_PATH_ARG)
   : DEFAULT_RENDERER_DIR;
-const VARIANT_ENV = { ...process.env, VITE_APP_VARIANT: VARIANT };
+const BUILD_ENV = { ...process.env };
 
 let syncTimer = null;
 let rendererWatcher = null;
@@ -184,7 +182,7 @@ function runCommand(args) {
   const result = spawnSync(runner, args, {
     cwd: APP_DIR,
     stdio: "inherit",
-    env: VARIANT_ENV,
+    env: BUILD_ENV,
     encoding: "utf8",
   });
 
@@ -206,7 +204,7 @@ function runBuildWatch() {
 
   const proc = spawn(runner, ["vite", "build", "--watch"], {
     cwd: APP_DIR,
-    env: VARIANT_ENV,
+    env: BUILD_ENV,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
   });
@@ -250,14 +248,12 @@ function syncRendererBundle() {
   rmSync(TARGET_RENDERER, { recursive: true, force: true });
   mkdirSync(TARGET_RENDERER, { recursive: true });
   cpSync(DIST_DIR, TARGET_RENDERER, { recursive: true, force: true });
-  console.log(
-    `[milady-ui-sync] Synced ${DIST_DIR} -> ${TARGET_RENDERER} (VITE_APP_VARIANT=${VARIANT})`,
-  );
+  console.log(`[milady-ui-sync] Synced ${DIST_DIR} -> ${TARGET_RENDERER}`);
 }
 
 function printUsage() {
   console.log(
-    "Usage: node scripts/sync-desktop-renderer.mjs [--variant <base|full|companion>] [--app-path <path>] [--renderer-path <path>] [--skip-build] [--watch]",
+    "Usage: node scripts/sync-desktop-renderer.mjs [--app-path <path>] [--renderer-path <path>] [--skip-build] [--watch]",
   );
   console.log("Environment:");
   console.log(
@@ -266,10 +262,8 @@ function printUsage() {
   console.log(
     "  MILADY_DESKTOP_RENDERER_PATH  Override renderer folder directly",
   );
-  console.log("  VITE_APP_VARIANT             Defaults to base");
   console.log("\nExamples:");
   console.log("  node scripts/sync-desktop-renderer.mjs");
-  console.log("  VITE_APP_VARIANT=full node scripts/sync-desktop-renderer.mjs");
   console.log(
     "  node scripts/sync-desktop-renderer.mjs --app-path ~/Applications/Milady.app --skip-build",
   );
