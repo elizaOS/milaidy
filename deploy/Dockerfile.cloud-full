@@ -26,16 +26,13 @@ ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
 
-# Copy dependency manifests first for better layer caching
-COPY package.json bun.lock* .npmrc ./
-COPY apps/app/package.json ./apps/app/package.json
-COPY scripts ./scripts
+# Copy full source (monorepo workspaces need all package.json files present)
+COPY . .
 
 # Install all dependencies (including dev for build)
 RUN bun install --frozen-lockfile
 
-# Copy full source and build everything
-COPY . .
+# Build everything
 RUN bun run build
 
 # ── Stage 2: Production ──────────────────────────────────────────────────────
