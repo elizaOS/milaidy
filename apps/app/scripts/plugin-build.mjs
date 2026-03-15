@@ -43,7 +43,11 @@ function run(command, args, cwd) {
 const npmCommand = "bun";
 const npmArgs = ["run", "build"];
 
-for (const name of pluginNames) {
-  console.log(`[plugin:${name}] building...`);
-  await run(npmCommand, npmArgs, path.join(pluginsDir, name));
-}
+// Plugins have no inter-dependencies — build in parallel
+await Promise.all(
+  pluginNames.map(async (name) => {
+    console.log(`[plugin:${name}] building...`);
+    await run(npmCommand, npmArgs, path.join(pluginsDir, name));
+    console.log(`[plugin:${name}] done`);
+  }),
+);
