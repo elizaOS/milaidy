@@ -1,139 +1,110 @@
-# Eliza Cloud Deployment Runbook
+# Eliza Cloud Integration Runbook
 
-Use this runbook to put Eliza Cloud live for Milady at `https://elizacloud.ai`.
+Use this runbook when Milady should rely on the existing Eliza Cloud deployment at `https://elizacloud.ai`, with no separate Milady-hosted cloud control plane.
 
 ## Scope
 
-This deploy has two codebases:
+This integration has two codebases:
 
 1. `milady`
    The local app, onboarding flow, homepage, and remote-backend attach flow.
 
 2. `../eliza-cloud-v2`
-   The Eliza Cloud control plane that will run on Railway.
-   This is the only managed server/control-plane deploy for Eliza Cloud.
+   The existing Eliza Cloud control plane.
+   This remains the only managed server/control-plane deploy in the Milady hosted flow.
 
 ## Code state
 
 The code-side work is already in place:
 
 - Local / Cloud / Remote onboarding is wired in the Milady app.
-- Eliza Cloud branding and URL defaults are wired through the app.
+- Eliza Cloud URLs and managed-launch defaults are wired through the app.
 - Managed launches now hand off from `elizacloud.ai` to `app.milady.ai` with one-time launch sessions.
-- Railway config-as-code exists in `../eliza-cloud-v2/railway.toml`.
-- The Railway env template exists at `../eliza-cloud-v2/deploy/milady-cloud.railway.env.example`.
+- Browser-facing managed-launch exchange already happens directly against Eliza Cloud.
+- A Cloudflare Worker proxy template exists in `deploy/cloudflare/eliza-cloud-proxy/` if a Milady-owned browser origin is ever required.
 
-## What you need before touching Railway
+## What must already exist
 
-- A production Postgres database for `elizacloud.ai`
-- A production Redis instance (or Upstash REST credentials)
-- A Privy app for Eliza Cloud
-- At least one production AI provider key
+- A reachable Eliza Cloud deployment at `https://elizacloud.ai` or `https://www.elizacloud.ai`
 - A deployed Milady web frontend at `https://app.milady.ai`
-- DNS control for `milady.ai`
-- Railway project access
+- The Milady homepage and app pointing to Eliza Cloud login/dashboard URLs
 
-For full managed Eliza Cloud provisioning, you also need:
+For remote self-hosted backends, you also need:
 
-- AWS credentials and ECS/ECR/shared ALB resources
-- A wildcard TLS certificate for `*.containers.elizacloud.ai`
-- JWT signing keys plus a `GATEWAY_BOOTSTRAP_SECRET`
-- If you want hosted user apps, a domain policy such as `apps.elizacloud.ai`
+- A Milady backend reachable over HTTPS or Tailscale
+- `MILADY_API_TOKEN` on that backend
+- `MILADY_ALLOWED_ORIGINS` including the Milady web origins you plan to use
 
-## Railway enactment
+Recommended remote backend environment:
 
-1. Create a Railway project from `../eliza-cloud-v2`.
-2. Keep the root directory at the repo root.
-3. Confirm Railway detects `railway.toml`.
-4. Copy the variables from `../eliza-cloud-v2/deploy/milady-cloud.railway.env.example`.
-5. Replace every placeholder with production values.
-6. Set `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_API_URL` to `https://elizacloud.ai`.
-7. Set `NEXT_PUBLIC_MILADY_APP_URL` to `https://app.milady.ai`.
-8. Set `ELIZA_CLOUD_AGENT_BASE_DOMAIN` to the public managed-agent zone, for example `containers.elizacloud.ai`.
-9. If you are enabling hosted apps, set `APP_DOMAIN` to the hosted app zone you want to use.
-10. If you are enabling managed provisioning, fill the full AWS/ECS/JWT block before first public test.
+```bash
+MILADY_API_BIND=0.0.0.0
+MILADY_API_TOKEN=$(openssl rand -hex 32)
+MILADY_ALLOWED_ORIGINS=https://app.milady.ai,https://milady.ai,https://elizacloud.ai,https://www.elizacloud.ai
+```
 
-## DNS
+## Managed browser flow
 
-1. In Railway, attach the custom domain `elizacloud.ai`.
-2. Railway will issue the target record for the subdomain.
-3. In your DNS provider, create the `cloud` record exactly as Railway instructs.
-4. Wait for Railway to finish certificate provisioning before smoke testing login.
+1. User signs in at `https://elizacloud.ai/login?returnTo=%2Fdashboard%2Fmilady`
+2. User opens or creates an instance at `https://elizacloud.ai/dashboard/milady`
+3. Eliza Cloud redirects to `https://app.milady.ai` with `cloudLaunchSession` and `cloudLaunchBase`
+4. `app.milady.ai` exchanges that one-time session directly with `GET /api/v1/milady/launch-sessions/:sessionId`
+5. The Milady web client binds to the selected managed backend and skips onboarding
 
-If you also want hosted app subdomains, create the wildcard DNS you choose for `APP_DOMAIN`.
-Example: `*.apps.elizacloud.ai`.
+## Desktop/local flow
 
-If you also want container hostnames, create the wildcard DNS for `*.containers.elizacloud.ai` and make sure the wildcard certificate ARN in AWS matches that domain.
+- The local Milady backend keeps `/api/cloud/*` passthrough routes.
+- Those routes still forward to Eliza Cloud, but they exist only so the local runtime can persist the user's Eliza Cloud API key into local config and runtime state.
+- This is local app plumbing, not a separate hosted Milady service.
 
-Deploy the Milady app frontend separately at `app.milady.ai`. Eliza Cloud redirects there and exchanges a one-time launch session to attach the frontend to the selected managed backend.
+## Optional Cloudflare proxy
 
-## Auth and OAuth
+Use this only if you want a Milady-owned browser-facing proxy such as `https://cloud-api.milady.ai`.
 
-### Privy
+### Files
 
-Configure the Privy app used by Eliza Cloud with:
+- Worker: `deploy/cloudflare/eliza-cloud-proxy/worker.ts`
+- Wrangler template: `deploy/cloudflare/eliza-cloud-proxy/wrangler.toml.example`
 
-- Allowed domain: `elizacloud.ai`
-- App URL: `https://elizacloud.ai`
-- Webhook endpoint: `https://elizacloud.ai/api/privy/webhook`
+### Worker responsibilities
 
-### Provider callback URLs
+- Forward only browser-facing paths to Eliza Cloud:
+  - `/api/auth/cli-session`
+  - `/api/auth/cli-session/:sessionId`
+  - `/api/compat/*`
+  - `/api/v1/milady/launch-sessions/*`
+- Preserve `Authorization` and `X-Service-Key` headers.
+- Reflect CORS only for allowed Milady origins.
+- Keep Eliza Cloud as the only upstream control plane.
 
-Add the Eliza Cloud callbacks for every provider you actually enable:
+### Enactment
 
-- Generic OAuth providers: `https://elizacloud.ai/api/v1/oauth/{platform}/callback`
-- Twitter/X automation: `https://elizacloud.ai/api/v1/twitter/callback`
-- Discord bot OAuth: `https://elizacloud.ai/api/v1/discord/callback`
+1. Create a Cloudflare Worker from `deploy/cloudflare/eliza-cloud-proxy/worker.ts`
+2. Set `ELIZA_CLOUD_ORIGIN=https://www.elizacloud.ai`
+3. Set `ALLOWED_ORIGINS=https://app.milady.ai,https://milady.ai,http://localhost:5173,http://127.0.0.1:5173`
+4. Bind a route such as `cloud-api.milady.ai/*`
+5. If you use the proxy, update the Milady frontend/cloud config to use that origin for browser-managed calls only
 
-If you do not enable a provider yet, do not configure it yet.
+## Smoke test
 
-## Billing and email
-
-If billing is going live:
-
-- Stripe webhook endpoint: `https://elizacloud.ai/api/stripe/webhook`
-- Set all Stripe keys and price IDs in Railway
-
-If transactional email is going live:
-
-- Set SendGrid or SMTP credentials
-- Set the sender to a mailbox such as `noreply@elizacloud.ai`
-
-## Launch smoke test
-
-Run these checks after Railway finishes deploying and the custom domain is green:
+Run these checks against the live Eliza Cloud deployment:
 
 1. Open `https://elizacloud.ai/login?returnTo=%2Fdashboard%2Fmilady`
 2. Open `https://www.elizacloud.ai/auth/cli-login?session=test-session`
-3. Open `https://elizacloud.ai/api/health`
-4. Verify the homepage `Get the app` and `Eliza Cloud` CTAs on `milady`
-5. In the Milady app onboarding:
+3. Verify the homepage `Get the app` and `Eliza Cloud` CTA on `milady`
+4. In the Milady app onboarding:
    - `Local` starts a local backend
    - `Cloud -> Eliza Cloud` reaches Eliza Cloud
    - `Cloud -> Remote Milady` accepts backend URL + access key
-6. Test a real remote self-hosted backend using `MILADY_API_TOKEN`
-7. If managed provisioning is enabled, create one Eliza Cloud instance, launch it from `/dashboard/milady`, and confirm `app.milady.ai` opens already attached with onboarding skipped
+5. Test a real remote self-hosted backend using `MILADY_API_TOKEN`
+6. Create one Eliza Cloud instance, launch it from `/dashboard/milady`, and confirm `app.milady.ai` opens already attached with onboarding skipped
+7. If you enabled the optional Cloudflare proxy, repeat the browser-managed calls through the proxied origin
 
 ## What you still must do manually
 
-These actions are intentionally not automated inside the repo:
+These actions are intentionally external to the repo:
 
-- Create the Railway project and populate secrets
-- Create the production Postgres and Redis instances
-- Point DNS for `elizacloud.ai`
-- Configure Privy production domains and webhook
-- Configure any provider callback allowlists you enable
-- Configure Stripe webhook and live price IDs if billing is enabled
-- Configure AWS/ECS resources if managed provisioning is enabled
-
-## Fastest path to first production test
-
-If your goal is the first live Eliza Cloud smoke test with the fewest moving parts:
-
-1. Deploy only Eliza Cloud to Railway
-2. Set Postgres, Redis, Privy, `CRON_SECRET`, and one AI key
-3. Point `elizacloud.ai`
-4. Verify login and docs on the custom domain
-5. Test Milady app onboarding against `Cloud -> Eliza Cloud`
-
-Then add billing, hosted app domains, and managed AWS provisioning once the base Eliza Cloud deployment is stable.
+- Keep the upstream Eliza Cloud deployment healthy
+- Keep `app.milady.ai` deployed
+- Configure DNS for any optional proxy origin you choose
+- Configure `MILADY_ALLOWED_ORIGINS` on any remote self-hosted Milady backend you expose

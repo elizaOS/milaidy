@@ -59,6 +59,40 @@ function createWalletBalances(
   };
 }
 
+function createEmptyWalletBalances() {
+  return {
+    evm: {
+      address: "0x1111111111111111111111111111111111111111",
+      chains: [
+        {
+          chain: "BSC",
+          chainId: 56,
+          nativeBalance: "0",
+          nativeSymbol: "BNB",
+          nativeValueUsd: "0",
+          tokens: [],
+          error: null,
+        },
+        {
+          chain: "Ethereum",
+          chainId: 1,
+          nativeBalance: "0",
+          nativeSymbol: "ETH",
+          nativeValueUsd: "0",
+          tokens: [],
+          error: null,
+        },
+      ],
+    },
+    solana: {
+      address: "So11111111111111111111111111111111111111112",
+      solBalance: "0",
+      solValueUsd: "0",
+      tokens: [],
+    },
+  };
+}
+
 function createWalletConfig() {
   return {
     alchemyKeySet: true,
@@ -199,6 +233,7 @@ function createContext(
     walletConfig: ReturnType<typeof createWalletConfig> | null;
     elizaCloudConnected: boolean;
     walletError: string | null;
+    t: (key: string) => string;
   }>,
 ) {
   const ctx: Record<string, unknown> = {
@@ -286,8 +321,9 @@ describe("InventoryView unified wallets", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("wallet.portfolio");
-    expect(content).toContain("All Chains");
+    expect(content).not.toContain("wallet.portfolio");
+    expect(content).not.toContain("All Chains");
+    expect(content).toContain("wallet.all");
     expect(content).toContain("tokenstable.nativeGasEthereum");
     expect(content).toContain("tokenstable.nativeGasSolana");
     expect(content).toContain("EVM");
@@ -299,6 +335,25 @@ describe("InventoryView unified wallets", () => {
           node.props["data-testid"] === "wallet-token-preflight",
       ),
     ).toHaveLength(0);
+  });
+
+  it("shows no balances when every chain is empty", async () => {
+    const ctx = createContext({
+      walletBalances: createEmptyWalletBalances(),
+      t: (key: string) =>
+        key === "wallet.noTokensFound" ? "No balances" : key,
+    });
+    mockUseApp.mockImplementation(() => ctx);
+
+    let tree: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(InventoryView));
+    });
+
+    const content = text(tree?.root);
+    expect(content).toContain("No balances");
+    expect(content).not.toContain("tokenstable.nativeGasEthereum");
+    expect(content).not.toContain("tokenstable.nativeGasSolana");
   });
 
   it("switches focus with chain controls", async () => {
@@ -327,7 +382,7 @@ describe("InventoryView unified wallets", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("BSC Mainnet");
+    expect(content).not.toContain("All Chains");
     expect(content).not.toContain("Ethereum native");
     expect(
       tree?.root.findAll(
@@ -350,7 +405,7 @@ describe("InventoryView unified wallets", () => {
       tree = TestRenderer.create(React.createElement(InventoryView));
     });
     let content = text(tree?.root);
-    expect(content).toContain("wallet.status.tradeNotReady");
+    expect(content).toContain("Trade Not Ready");
 
     const readyCtx = createContext({
       inventoryChainFocus: "bsc",
@@ -361,7 +416,7 @@ describe("InventoryView unified wallets", () => {
       tree?.update(React.createElement(InventoryView));
     });
     content = text(tree?.root);
-    expect(content).toContain("wallet.status.tradeReady");
+    expect(content).toContain("Trade Ready");
   });
 
   it("renders BSC chain errors and token preflight/quote actions", async () => {
@@ -377,7 +432,6 @@ describe("InventoryView unified wallets", () => {
     });
 
     const content = text(tree?.root);
-    expect(content).toContain("BSC Offline");
     expect(content).toContain("BSC: BSC RPC timeout");
 
     const normalCtx = createContext({

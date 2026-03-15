@@ -65,6 +65,8 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
 
   // Close mobile menu on escape key
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setMobileMenuOpen(false);
@@ -100,11 +102,98 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
   const useMinimalHeaderChrome = transparent || activeShellView !== "desktop";
   const showNavigationMenu = activeShellView === "desktop";
   const showCloudCredits = activeShellView === "desktop";
+  const showCloudCreditsStatus =
+    showCloudCredits && (elizaCloudEnabled || elizaCloudConnected);
+  const cloudCreditsDisplay =
+    elizaCloudCredits === null
+      ? t("header.elizaCloudConnected")
+      : `$${elizaCloudCredits.toFixed(2)}`;
 
   const handleShellViewChange = (
     view: "companion" | "character" | "desktop",
   ) => {
     switchShellView(view);
+  };
+
+  const openCloudBilling = () => {
+    setState("cloudDashboardView", "billing");
+    setTab("settings");
+    setMobileMenuOpen(false);
+  };
+
+  const renderCloudCredits = (placement: "desktop" | "mobile-menu") => {
+    if (!showCloudCreditsStatus) return null;
+
+    if (elizaCloudConnected) {
+      if (placement === "desktop") {
+        return (
+          <button
+            type="button"
+            data-testid="header-cloud-credits-desktop"
+            className={`hidden shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-11 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-txt hover:shadow-sm md:inline-flex ${elizaCloudCredits === null ? "border-muted text-muted" : creditColor}`}
+            title={t("header.CloudCreditsBalanc")}
+            onClick={openCloudBilling}
+          >
+            <CircleDollarSign className="w-3.5 h-3.5" />
+            {cloudCreditsDisplay}
+          </button>
+        );
+      }
+
+      return (
+        <button
+          type="button"
+          data-testid="header-cloud-credits-mobile"
+          className={`flex w-full items-center justify-between gap-3 px-3 py-3 border rounded-xl text-left no-underline transition-all duration-200 hover:border-accent hover:text-txt ${elizaCloudCredits === null ? "border-muted text-muted" : creditColor}`}
+          title={t("header.CloudCreditsBalanc")}
+          onClick={openCloudBilling}
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <CircleDollarSign className="h-4 w-4 shrink-0" />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-medium font-sans text-txt">
+                {t("header.Cloud")}
+              </span>
+              <span className="truncate text-xs font-sans text-muted">
+                {t("header.CloudCreditsBalanc")}
+              </span>
+            </span>
+          </span>
+          <span className="shrink-0 font-mono text-sm">
+            {cloudCreditsDisplay}
+          </span>
+        </button>
+      );
+    }
+
+    if (placement === "desktop") {
+      return (
+        <span className="hidden shrink-0 items-center gap-1 px-2.5 py-1.5 h-11 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs md:inline-flex">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">
+            {t("header.cloudDisconnected")}
+          </span>
+          <span className="sm:hidden">{t("header.Cloud")}</span>
+        </span>
+      );
+    }
+
+    return (
+      <div
+        data-testid="header-cloud-credits-mobile"
+        className="flex w-full items-center gap-3 px-3 py-3 border border-danger text-danger bg-danger/10 rounded-xl"
+      >
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-current">
+            {t("header.Cloud")}
+          </div>
+          <div className="truncate text-xs text-danger/80">
+            {t("header.cloudDisconnected")}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -136,32 +225,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
           t={t}
           rightExtras={
             <>
-              {showCloudCredits &&
-                (elizaCloudEnabled || elizaCloudConnected) &&
-                (elizaCloudConnected ? (
-                  <button
-                    type="button"
-                    className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 h-11 border rounded-md font-mono text-[11px] sm:text-xs no-underline transition-all duration-200 hover:border-accent hover:text-txt hover:shadow-sm ${elizaCloudCredits === null ? "border-muted text-muted" : creditColor}`}
-                    title={t("header.CloudCreditsBalanc")}
-                    onClick={() => {
-                      setState("cloudDashboardView", "billing");
-                      setTab("settings");
-                    }}
-                  >
-                    <CircleDollarSign className="w-3.5 h-3.5" />
-                    {elizaCloudCredits === null
-                      ? t("header.elizaCloudConnected")
-                      : `$${elizaCloudCredits.toFixed(2)}`}
-                  </button>
-                ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 h-11 border border-danger text-danger bg-danger/10 rounded-md font-mono text-[11px] sm:text-xs">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
-                      {t("header.cloudDisconnected")}
-                    </span>
-                    <span className="sm:hidden">{t("header.Cloud")}</span>
-                  </span>
-                ))}
+              {renderCloudCredits("desktop")}
               {showNavigationMenu ? (
                 <button
                   type="button"
@@ -228,7 +292,8 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
           {/* Menu Panel */}
           <div className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-bg border-l border-border shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col">
             <div className="flex-1 overflow-y-auto py-3 px-3">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-3">
+                {renderCloudCredits("mobile-menu")}
                 {tabGroups.map((group: TabGroup, index) => {
                   const primaryTab = group.tabs[0];
                   const isActive = group.tabs.includes(tab);

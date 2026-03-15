@@ -3880,7 +3880,8 @@
 .settings-icon-btn.is-active {
   color: var(--s-text, rgba(238, 236, 248, 0.98));
   background: color-mix(in srgb, var(--s-accent) 10%, transparent);
-  box-shadow: inset 0 0 12px color-mix(in srgb, var(--s-accent) 12%, transparent);
+  box-shadow: inset 0 0 12px
+    color-mix(in srgb, var(--s-accent) 12%, transparent);
 }
 
 .settings-icon-btn.is-active::before {
@@ -4891,7 +4892,8 @@
   scrollbar-color: var(--pgi-border) transparent;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-panel::-webkit-scrollbar-thumb {
+.plugins-game-modal--inline
+  .plugins-game-detail-panel::-webkit-scrollbar-thumb {
   background: var(--pgi-border);
 }
 
@@ -5007,7 +5009,9 @@
   padding-left: 0;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-config [class*="tracking-wider"],
+.plugins-game-modal--inline
+  .plugins-game-detail-config
+  [class*="tracking-wider"],
 .plugins-game-modal--inline .plugins-game-detail-config label {
   color: var(--pgi-text) !important;
   font-weight: 600;
@@ -5020,7 +5024,9 @@
   opacity: 1 !important;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea) {
+.plugins-game-modal--inline
+  .plugins-game-detail-config
+  :is(input, select, textarea) {
   background: var(--pgi-surface) !important;
   border: 1px solid var(--pgi-border) !important;
   color: var(--pgi-text) !important;
@@ -5030,12 +5036,16 @@
   box-shadow: none !important;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea)::placeholder {
+.plugins-game-modal--inline
+  .plugins-game-detail-config
+  :is(input, select, textarea)::placeholder {
   color: var(--pgi-muted) !important;
   opacity: 0.6;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea):focus {
+.plugins-game-modal--inline
+  .plugins-game-detail-config
+  :is(input, select, textarea):focus {
   border-color: var(--pgi-accent) !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--pgi-accent) 20%, transparent) !important;
 }
@@ -5073,7 +5083,9 @@
   color: var(--pgi-muted) !important;
 }
 
-.plugins-game-modal--inline .plugins-game-detail-panel [class*="border-border"] {
+.plugins-game-modal--inline
+  .plugins-game-detail-panel
+  [class*="border-border"] {
   border-color: var(--pgi-border) !important;
 }
 
@@ -6259,7 +6271,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .phone-app-tile:hover .phone-app-icon {
@@ -6319,14 +6334,14 @@
   --tp-accent: var(--accent, #f0b232);
 
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: flex-start;
   min-height: 0;
   color: var(--tp-text);
 }
 
-.two-panel-left,
+.two-panel-top,
 .two-panel-right {
   border-radius: 12px;
   border: 1px solid var(--tp-border);
@@ -6334,22 +6349,8 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.two-panel-left {
-  position: sticky;
-  top: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  max-height: calc(100vh - 80px);
-  padding: 14px;
-}
-
-.two-panel-left::-webkit-scrollbar {
-  width: 4px;
-}
-
-.two-panel-left::-webkit-scrollbar-thumb {
-  background: var(--tp-border);
-  border-radius: 2px;
+.two-panel-top {
+  padding: 18px;
 }
 
 .two-panel-right {
@@ -6363,7 +6364,9 @@
   border: 1px solid var(--tp-border);
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
   background: transparent;
 }
 
@@ -6395,12 +6398,8 @@
 /* ── Two-panel responsive ────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .two-panel-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .two-panel-left {
-    position: static;
-    max-height: none;
+  .two-panel-top,
+  .two-panel-right {
+    padding: 14px;
   }
 }

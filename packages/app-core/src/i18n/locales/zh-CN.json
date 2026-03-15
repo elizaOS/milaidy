@@ -93,7 +93,7 @@
   "wallet.txStatus.pending": "待确认",
   "wallet.failedFetchQuote": "获取报价失败。",
   "wallet.noDataRefresh": "暂无数据，请点击刷新。",
-  "wallet.noTokensFound": "未找到代币。",
+  "wallet.noTokensFound": "没有余额。",
   "wallet.noNftsFound": "未找到 NFT。",
   "wallet.noNftData": "暂无 NFT 数据。",
   "wallet.noImage": "无图片",

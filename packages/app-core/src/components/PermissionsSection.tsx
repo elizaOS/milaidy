@@ -13,16 +13,7 @@
  */
 
 import { Button } from "@milady/ui";
-import {
-  Camera,
-  Check,
-  Cloud,
-  Mic,
-  Monitor,
-  MousePointer2,
-  Settings,
-  Terminal,
-} from "lucide-react";
+import { Check } from "lucide-react";
 import {
   type Dispatch,
   type SetStateAction,
@@ -45,6 +36,11 @@ import {
   isWebPlatform,
 } from "../platform";
 import { useApp } from "../state";
+import { PermissionIcon } from "./permissions/PermissionIcon";
+import {
+  StreamingPermissionsOnboardingView,
+  StreamingPermissionsSettingsView,
+} from "./permissions/StreamingPermissions";
 import { StatusBadge } from "./ui-badges";
 import { Switch } from "./ui-switch";
 
@@ -148,22 +144,6 @@ const PERMISSION_BADGE_LABELS: Record<
   restricted: { tone: "muted", label: "Restricted" },
   "not-applicable": { tone: "muted", label: "N/A" },
 };
-
-/** Icon mapping for permissions. */
-function PermissionIcon({ icon }: { icon: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    cursor: <MousePointer2 className="w-4 h-4" />,
-    monitor: <Monitor className="w-4 h-4" />,
-    mic: <Mic className="w-4 h-4" />,
-    camera: <Camera className="w-4 h-4" />,
-    terminal: <Terminal className="w-4 h-4" />,
-  };
-  return (
-    <span className="text-base">
-      {icons[icon] || <Settings className="w-4 h-4" />}
-    </span>
-  );
-}
 
 /** Individual permission row. */
 function PermissionRow({
@@ -336,337 +316,39 @@ function usePermissionActions(
   return { handleRequest, handleOpenSettings };
 }
 
-// ── Mobile streaming permission definitions ──────────────────────────
-
-interface MobilePermissionDef {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-}
-
-const MEDIA_PERMISSIONS: MobilePermissionDef[] = [
-  {
-    id: "camera",
-    name: "Camera",
-    description: "Stream video to your agent for vision tasks",
-    icon: "camera",
-  },
-  {
-    id: "microphone",
-    name: "Microphone",
-    description: "Stream audio for voice interaction with your agent",
-    icon: "mic",
-  },
-];
-
 /** Mobile (Capacitor) permission UI for streaming to cloud sandbox. */
 function MobilePermissionsView() {
   const { t } = useApp();
-  const [permStates, setPermStates] = useState<
-    Record<string, "granted" | "denied" | "prompt" | "unknown">
-  >({});
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setChecking(true);
-      const states: Record<
-        string,
-        "granted" | "denied" | "prompt" | "unknown"
-      > = {};
-      try {
-        // Attempt to use Capacitor Camera plugin for camera/mic permissions
-        const cap = (globalThis as Record<string, unknown>).Capacitor as
-          | { Plugins?: Record<string, unknown> }
-          | undefined;
-
-        if (cap?.Plugins) {
-          const cameraPlugin = cap.Plugins.MiladyCamera as
-            | {
-                checkPermissions?: () => Promise<{
-                  camera: string;
-                  microphone: string;
-                }>;
-              }
-            | undefined;
-          if (cameraPlugin?.checkPermissions) {
-            const camPerms = await cameraPlugin.checkPermissions();
-            states.camera = camPerms.camera as "granted" | "denied" | "prompt";
-            states.microphone = camPerms.microphone as
-              | "granted"
-              | "denied"
-              | "prompt";
-          }
-        }
-      } catch (err) {
-        console.error("Failed to check mobile permissions:", err);
-      }
-      if (!cancelled) {
-        setPermStates(states);
-        setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleRequestPermission = useCallback(async (id: string) => {
-    try {
-      const cap = (globalThis as Record<string, unknown>).Capacitor as
-        | { Plugins?: Record<string, unknown> }
-        | undefined;
-      if (!cap?.Plugins) return;
-
-      if (id === "camera" || id === "microphone") {
-        const cameraPlugin = cap.Plugins.MiladyCamera as
-          | {
-              requestPermissions?: () => Promise<{
-                camera: string;
-                microphone: string;
-              }>;
-            }
-          | undefined;
-        if (cameraPlugin?.requestPermissions) {
-          const result = await cameraPlugin.requestPermissions();
-          setPermStates((prev) => ({
-            ...prev,
-            camera: result.camera as "granted" | "denied" | "prompt",
-            microphone: result.microphone as "granted" | "denied" | "prompt",
-          }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to request mobile permission:", err);
-    }
-  }, []);
-
-  if (checking) {
-    return (
-      <div className="text-center py-6 text-[var(--muted)] text-xs">
-        {t("permissionssection.LoadingPermissions")}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6" data-testid="mobile-permissions">
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Cloud className="w-4 h-4 text-[var(--accent)]" />
-          <div className="font-bold text-sm">
-            {t("permissionssection.StreamingPermissions") ||
-              "Streaming Permissions"}
-          </div>
-        </div>
-        <div className="text-[11px] text-[var(--muted)] mb-3">
-          {t("permissionssection.MobileStreamingDesc") ||
-            "Your device streams camera, microphone, and screen to your Eliza Cloud agent for processing."}
-        </div>
-        <div className="border border-[var(--border)] bg-[var(--card)]">
-          {MEDIA_PERMISSIONS.map((def) => {
-            const status = permStates[def.id] ?? "unknown";
-            const isGranted = status === "granted";
-            return (
-              <div
-                key={def.id}
-                className="flex items-center gap-3 py-2.5 px-3 border-b border-[var(--border)] last:border-b-0"
-              >
-                <PermissionIcon icon={def.icon} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-[13px]">
-                      {def.name}
-                    </span>
-                    <StatusBadge
-                      label={
-                        isGranted
-                          ? "Granted"
-                          : status === "denied"
-                            ? "Denied"
-                            : "Not Set"
-                      }
-                      tone={
-                        isGranted
-                          ? "success"
-                          : status === "denied"
-                            ? "danger"
-                            : "warning"
-                      }
-                      withDot
-                      className="rounded-full font-semibold"
-                    />
-                  </div>
-                  <div className="text-[11px] text-[var(--muted)] mt-0.5 truncate">
-                    {def.description}
-                  </div>
-                </div>
-                {!isGranted && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-auto text-[11px] py-1 px-2.5"
-                    onClick={() => handleRequestPermission(def.id)}
-                  >
-                    {t("permissionssection.Grant") || "Grant"}
-                  </Button>
-                )}
-                {isGranted && <Check className="w-4 h-4 text-[var(--ok)]" />}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <StreamingPermissionsSettingsView
+      mode="mobile"
+      testId="mobile-permissions"
+      title={
+        t("permissionssection.StreamingPermissions") || "Streaming Permissions"
+      }
+      description={
+        t("permissionssection.MobileStreamingDesc") ||
+        "Your device streams camera, microphone, and screen to your Eliza Cloud agent for processing."
+      }
+    />
   );
 }
 
 /** Web browser permission UI — uses getUserMedia. */
 function WebPermissionsView() {
   const { t } = useApp();
-  const [permStates, setPermStates] = useState<
-    Record<string, "granted" | "denied" | "prompt" | "unknown">
-  >({});
-  const [checking, setChecking] = useState(true);
-
-  /** Check browser permission states. */
-  const checkBrowserPermissions = useCallback(async () => {
-    const states: Record<string, "granted" | "denied" | "prompt" | "unknown"> =
-      {};
-    try {
-      if (navigator.permissions) {
-        const [cam, mic] = await Promise.all([
-          navigator.permissions.query({ name: "camera" as PermissionName }),
-          navigator.permissions.query({ name: "microphone" as PermissionName }),
-        ]);
-        states.camera = cam.state as "granted" | "denied" | "prompt";
-        states.microphone = mic.state as "granted" | "denied" | "prompt";
-      }
-    } catch {
-      // Permissions API may not support camera/mic queries in all browsers
-    }
-    return states;
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setChecking(true);
-      const states = await checkBrowserPermissions();
-      if (!cancelled) {
-        setPermStates(states);
-        setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [checkBrowserPermissions]);
-
-  const handleRequestPermission = useCallback(async (id: string) => {
-    try {
-      if (id === "camera") {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        stream.getTracks().forEach((t) => {
-          t.stop();
-        });
-        setPermStates((prev) => ({ ...prev, camera: "granted" }));
-      } else if (id === "microphone") {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        stream.getTracks().forEach((t) => {
-          t.stop();
-        });
-        setPermStates((prev) => ({ ...prev, microphone: "granted" }));
-      }
-    } catch (err) {
-      console.error(`Failed to request browser ${id} permission:`, err);
-      setPermStates((prev) => ({ ...prev, [id]: "denied" }));
-    }
-  }, []);
-
-  if (checking) {
-    return (
-      <div className="text-center py-6 text-[var(--muted)] text-xs">
-        {t("permissionssection.LoadingPermissions")}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6" data-testid="web-permissions-info">
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Cloud className="w-4 h-4 text-[var(--accent)]" />
-          <div className="font-bold text-sm">
-            {t("permissionssection.BrowserPermissions") ||
-              "Browser Permissions"}
-          </div>
-        </div>
-        <div className="text-[11px] text-[var(--muted)] mb-3">
-          {t("permissionssection.WebStreamingDesc") ||
-            "Grant browser access to your camera, microphone, and screen to stream to your agent."}
-        </div>
-        <div className="border border-[var(--border)] bg-[var(--card)]">
-          {MEDIA_PERMISSIONS.map((def) => {
-            const status = permStates[def.id] ?? "unknown";
-            const isGranted = status === "granted";
-            return (
-              <div
-                key={def.id}
-                className="flex items-center gap-3 py-2.5 px-3 border-b border-[var(--border)] last:border-b-0"
-              >
-                <PermissionIcon icon={def.icon} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-[13px]">
-                      {def.name}
-                    </span>
-                    <StatusBadge
-                      label={
-                        isGranted
-                          ? "Granted"
-                          : status === "denied"
-                            ? "Denied"
-                            : "Not Set"
-                      }
-                      tone={
-                        isGranted
-                          ? "success"
-                          : status === "denied"
-                            ? "danger"
-                            : "warning"
-                      }
-                      withDot
-                      className="rounded-full font-semibold"
-                    />
-                  </div>
-                  <div className="text-[11px] text-[var(--muted)] mt-0.5 truncate">
-                    {def.description}
-                  </div>
-                </div>
-                {!isGranted && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-auto text-[11px] py-1 px-2.5"
-                    onClick={() => handleRequestPermission(def.id)}
-                  >
-                    {t("permissionssection.Grant") || "Grant"}
-                  </Button>
-                )}
-                {isGranted && <Check className="w-4 h-4 text-[var(--ok)]" />}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <StreamingPermissionsSettingsView
+      mode="web"
+      testId="web-permissions-info"
+      title={
+        t("permissionssection.BrowserPermissions") || "Browser Permissions"
+      }
+      description={
+        t("permissionssection.WebStreamingDesc") ||
+        "Grant browser access to your camera, microphone, and screen to stream to your agent."
+      }
+    />
   );
 }
 
@@ -903,164 +585,19 @@ function MobileOnboardingPermissions({
   onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
 }) {
   const { t } = useApp();
-  const [permStates, setPermStates] = useState<
-    Record<string, "granted" | "denied" | "prompt" | "unknown">
-  >({});
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setChecking(true);
-      const states: Record<
-        string,
-        "granted" | "denied" | "prompt" | "unknown"
-      > = {};
-      try {
-        const cap = (globalThis as Record<string, unknown>).Capacitor as
-          | { Plugins?: Record<string, unknown> }
-          | undefined;
-        if (cap?.Plugins) {
-          const camPlugin = cap.Plugins.MiladyCamera as
-            | {
-                checkPermissions?: () => Promise<{
-                  camera: string;
-                  microphone: string;
-                }>;
-              }
-            | undefined;
-          if (camPlugin?.checkPermissions) {
-            const r = await camPlugin.checkPermissions();
-            states.camera = r.camera as "granted" | "denied" | "prompt";
-            states.microphone = r.microphone as "granted" | "denied" | "prompt";
-          }
-        }
-      } catch (err) {
-        console.error("Failed to check mobile permissions:", err);
-      }
-      if (!cancelled) {
-        setPermStates(states);
-        setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleGrant = useCallback(async (id: string) => {
-    try {
-      const cap = (globalThis as Record<string, unknown>).Capacitor as
-        | { Plugins?: Record<string, unknown> }
-        | undefined;
-      if (!cap?.Plugins) return;
-      if (id === "camera" || id === "microphone") {
-        const plugin = cap.Plugins.MiladyCamera as
-          | {
-              requestPermissions?: () => Promise<{
-                camera: string;
-                microphone: string;
-              }>;
-            }
-          | undefined;
-        if (plugin?.requestPermissions) {
-          const r = await plugin.requestPermissions();
-          setPermStates((prev) => ({
-            ...prev,
-            camera: r.camera as "granted" | "denied" | "prompt",
-            microphone: r.microphone as "granted" | "denied" | "prompt",
-          }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to request mobile permission:", err);
-    }
-  }, []);
-
-  const allGranted =
-    permStates.camera === "granted" && permStates.microphone === "granted";
-
-  if (checking) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.CheckingPermissions")}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div data-testid="mobile-onboarding-permissions">
-      <div className="text-center mb-6">
-        <div className="text-xl font-bold mb-2">
-          {t("permissionssection.StreamingPermissions") ||
-            "Streaming Permissions"}
-        </div>
-        <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.MobileOnboardingDesc") ||
-            "Allow access so your device can stream to your cloud agent."}
-        </div>
-      </div>
-
-      <div className="space-y-3 mb-6">
-        {MEDIA_PERMISSIONS.map((def) => {
-          const status = permStates[def.id] ?? "unknown";
-          const isGranted = status === "granted";
-          return (
-            <div
-              key={def.id}
-              className={`flex items-center gap-4 p-4 border ${
-                isGranted
-                  ? "border-[var(--ok)] bg-[var(--ok)]/10"
-                  : "border-[var(--border)] bg-[var(--card)]"
-              }`}
-            >
-              <PermissionIcon icon={def.icon} />
-              <div className="flex-1">
-                <div className="font-semibold text-sm">{def.name}</div>
-                <div className="text-[11px] text-[var(--muted)]">
-                  {def.description}
-                </div>
-              </div>
-              {isGranted ? (
-                <Check className="w-4 h-4 text-[var(--ok)]" />
-              ) : (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-auto text-xs py-1.5 px-3"
-                  onClick={() => handleGrant(def.id)}
-                >
-                  {t("permissionssection.Grant") || "Grant"}
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex justify-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-auto text-xs py-2 px-6 opacity-70"
-          onClick={() => onContinue({ allowPermissionBypass: true })}
-        >
-          {t("permissionssection.SkipForNow")}
-        </Button>
-        {allGranted && (
-          <Button
-            variant="default"
-            size="sm"
-            className="h-auto text-xs py-2 px-6 bg-accent border-accent text-accent-foreground"
-            onClick={() => onContinue()}
-          >
-            {t("permissionssection.Continue")}
-          </Button>
-        )}
-      </div>
-    </div>
+    <StreamingPermissionsOnboardingView
+      mode="mobile"
+      onContinue={onContinue}
+      testId="mobile-onboarding-permissions"
+      title={
+        t("permissionssection.StreamingPermissions") || "Streaming Permissions"
+      }
+      description={
+        t("permissionssection.MobileOnboardingDesc") ||
+        "Allow access so your device can stream to your cloud agent."
+      }
+    />
   );
 }
 
@@ -1071,151 +608,19 @@ function WebOnboardingPermissions({
   onContinue: (options?: { allowPermissionBypass?: boolean }) => void;
 }) {
   const { t } = useApp();
-  const [permStates, setPermStates] = useState<
-    Record<string, "granted" | "denied" | "prompt" | "unknown">
-  >({});
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setChecking(true);
-      const states: Record<
-        string,
-        "granted" | "denied" | "prompt" | "unknown"
-      > = {};
-      try {
-        if (navigator.permissions) {
-          const [cam, mic] = await Promise.all([
-            navigator.permissions.query({ name: "camera" as PermissionName }),
-            navigator.permissions.query({
-              name: "microphone" as PermissionName,
-            }),
-          ]);
-          states.camera = cam.state as "granted" | "denied" | "prompt";
-          states.microphone = mic.state as "granted" | "denied" | "prompt";
-        }
-      } catch {
-        // Permissions API may not support camera/mic queries
-      }
-      if (!cancelled) {
-        setPermStates(states);
-        setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleGrant = useCallback(async (id: string) => {
-    try {
-      if (id === "camera") {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        stream.getTracks().forEach((t) => {
-          t.stop();
-        });
-        setPermStates((prev) => ({ ...prev, camera: "granted" }));
-      } else if (id === "microphone") {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        stream.getTracks().forEach((t) => {
-          t.stop();
-        });
-        setPermStates((prev) => ({ ...prev, microphone: "granted" }));
-      }
-    } catch (err) {
-      console.error(`Failed to request browser ${id} permission:`, err);
-      setPermStates((prev) => ({ ...prev, [id]: "denied" }));
-    }
-  }, []);
-
-  const allGranted =
-    permStates.camera === "granted" && permStates.microphone === "granted";
-
-  if (checking) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.CheckingPermissions")}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div data-testid="web-onboarding-permissions">
-      <div className="text-center mb-6">
-        <div className="text-xl font-bold mb-2">
-          {t("permissionssection.BrowserPermissions") || "Browser Permissions"}
-        </div>
-        <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.WebOnboardingDesc") ||
-            "Allow browser access so your camera, mic, and screen can stream to your agent."}
-        </div>
-      </div>
-
-      <div className="space-y-3 mb-6">
-        {MEDIA_PERMISSIONS.map((def) => {
-          const status = permStates[def.id] ?? "unknown";
-          const isGranted = status === "granted";
-          return (
-            <div
-              key={def.id}
-              className={`flex items-center gap-4 p-4 border ${
-                isGranted
-                  ? "border-[var(--ok)] bg-[var(--ok)]/10"
-                  : "border-[var(--border)] bg-[var(--card)]"
-              }`}
-            >
-              <PermissionIcon icon={def.icon} />
-              <div className="flex-1">
-                <div className="font-semibold text-sm">{def.name}</div>
-                <div className="text-[11px] text-[var(--muted)]">
-                  {def.description}
-                </div>
-              </div>
-              {isGranted ? (
-                <Check className="w-4 h-4 text-[var(--ok)]" />
-              ) : (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-auto text-xs py-1.5 px-3"
-                  onClick={() => handleGrant(def.id)}
-                >
-                  {t("permissionssection.Grant") || "Grant"}
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex justify-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-auto text-xs py-2 px-6 opacity-70"
-          onClick={() => onContinue({ allowPermissionBypass: true })}
-        >
-          {t("permissionssection.SkipForNow")}
-        </Button>
-        {allGranted && (
-          <Button
-            variant="default"
-            size="sm"
-            className="h-auto text-xs py-2 px-6 bg-accent border-accent text-accent-foreground"
-            onClick={() => onContinue()}
-          >
-            {t("permissionssection.Continue")}
-          </Button>
-        )}
-      </div>
-    </div>
+    <StreamingPermissionsOnboardingView
+      mode="web"
+      onContinue={onContinue}
+      testId="web-onboarding-permissions"
+      title={
+        t("permissionssection.BrowserPermissions") || "Browser Permissions"
+      }
+      description={
+        t("permissionssection.WebOnboardingDesc") ||
+        "Allow browser access so your camera, mic, and screen can stream to your agent."
+      }
+    />
   );
 }
 

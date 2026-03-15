@@ -26,6 +26,40 @@ export function TokensTable({
   inventoryChainFocus,
   handleUntrackToken,
 }: TokensTableProps) {
+  const renderChainErrors = () =>
+    visibleChainErrors.length > 0 ? (
+      <div className="mt-1 text-[11px] text-muted px-3 pb-2">
+        {visibleChainErrors.map((chain: EvmChainBalance) => {
+          const icon = chainIcon(chain.chain);
+          return (
+            <div key={chain.chain} className="py-0.5">
+              <span
+                className={`inline-block w-3 h-3 rounded-full text-center leading-3 text-[7px] font-bold font-mono text-white align-middle ${icon.cls}`}
+              >
+                {icon.code}
+              </span>{" "}
+              {chain.chain}:{" "}
+              {chain.error?.includes("not enabled") ? (
+                <>
+                  data source not enabled &mdash;{" "}
+                  <a
+                    href="https://dashboard.alchemy.com/"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-txt"
+                  >
+                    {t("wallet.enableIt")}
+                  </a>
+                </>
+              ) : (
+                chain.error
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
+
   if (walletLoading) {
     return (
       <div className="text-center py-10 text-muted italic text-xs">
@@ -36,9 +70,14 @@ export function TokensTable({
 
   if (visibleRows.length === 0) {
     return (
-      <div className="text-center py-8 text-muted italic text-xs">
-        {walletBalances ? t("wallet.noTokensFound") : t("wallet.noDataRefresh")}
-      </div>
+      <>
+        <div className="text-center py-8 text-muted italic text-xs">
+          {walletBalances
+            ? t("wallet.noTokensFound")
+            : t("wallet.noDataRefresh")}
+        </div>
+        {renderChainErrors()}
+      </>
     );
   }
 
@@ -140,39 +179,7 @@ export function TokensTable({
           })}
         </tbody>
       </table>
-
-      {visibleChainErrors.length > 0 && (
-        <div className="mt-1 text-[11px] text-muted px-3 pb-2">
-          {visibleChainErrors.map((chain: EvmChainBalance) => {
-            const icon = chainIcon(chain.chain);
-            return (
-              <div key={chain.chain} className="py-0.5">
-                <span
-                  className={`inline-block w-3 h-3 rounded-full text-center leading-3 text-[7px] font-bold font-mono text-white align-middle ${icon.cls}`}
-                >
-                  {icon.code}
-                </span>{" "}
-                {chain.chain}:{" "}
-                {chain.error?.includes("not enabled") ? (
-                  <>
-                    data source not enabled &mdash;{" "}
-                    <a
-                      href="https://dashboard.alchemy.com/"
-                      target="_blank"
-                      rel="noopener"
-                      className="text-txt"
-                    >
-                      {t("wallet.enableIt")}
-                    </a>
-                  </>
-                ) : (
-                  chain.error
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {renderChainErrors()}
     </>
   );
 }

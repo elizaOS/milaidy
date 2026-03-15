@@ -1,5 +1,6 @@
 import { logger } from "@elizaos/core";
 import type {
+  AppUiExtensionConfig,
   RegistryAppMeta,
   RegistryAppViewerMeta,
 } from "./registry-client-types.js";
@@ -28,6 +29,7 @@ interface LocalAppOverride {
   launchType?: string;
   launchUrl?: string | null;
   capabilities?: string[];
+  uiExtension?: AppUiExtensionConfig;
   viewer?: RegistryAppViewerMeta;
 }
 
@@ -43,6 +45,9 @@ const LOCAL_APP_OVERRIDES: Readonly<Record<string, LocalAppOverride>> = {
   "@elizaos/app-hyperscape": {
     launchType: "connect",
     launchUrl: "http://localhost:3333",
+    uiExtension: {
+      detailPanelId: "hyperscape-embedded-agents",
+    },
     viewer: {
       url: "http://localhost:3333",
       embedParams: {
@@ -155,6 +160,7 @@ export function mergeAppMeta(
     ...patch,
     capabilities:
       patch.capabilities.length > 0 ? patch.capabilities : base.capabilities,
+    uiExtension: patch.uiExtension ?? base.uiExtension,
     viewer: mergeViewer(base.viewer, patch.viewer),
   };
 }
@@ -175,6 +181,7 @@ export function resolveAppOverride(
     capabilities: override.capabilities ?? [],
     minPlayers: null,
     maxPlayers: null,
+    uiExtension: override.uiExtension,
     viewer: override.viewer,
   };
   return {
@@ -188,6 +195,7 @@ export function resolveAppOverride(
       override.capabilities !== undefined
         ? override.capabilities
         : base.capabilities,
+    uiExtension: override.uiExtension ?? base.uiExtension,
     viewer: mergeViewer(base.viewer, override.viewer),
   };
 }

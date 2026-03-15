@@ -2753,7 +2753,8 @@ function serveStaticUi(
 
   if (!uiIndexHtml) return false;
 
-  // When served behind a reverse proxy (e.g. Railway /proxy/PORT/), inject the
+  // When served behind a reverse proxy that rewrites the app under a path prefix,
+  // inject the
   // API base so the UI client sends requests to the correct path prefix.
   const html = injectApiBaseIntoHtml(
     uiIndexHtml,
@@ -7195,7 +7196,6 @@ async function handleRequest(
     // P1 §7 — explicit provider allowlist
     const VALID_PROVIDERS = new Set([
       "elizacloud",
-      "miladycloud",
       "pi-ai",
       "openai-codex",
       "openai-subscription",
@@ -7213,9 +7213,7 @@ async function handleRequest(
       return;
     }
 
-    // Normalize legacy alias — "miladycloud" → "elizacloud"
-    const normalizedProvider =
-      provider === "miladycloud" ? "elizacloud" : provider;
+    const normalizedProvider = provider;
 
     // P0 §3 — race guard: reject concurrent provider switch requests
     if (providerSwitchInProgress) {

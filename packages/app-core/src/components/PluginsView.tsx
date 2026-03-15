@@ -14,6 +14,7 @@ import {
   BrickWall,
   Briefcase,
   Calendar,
+  ChevronRight,
   Chrome,
   Circle,
   CircleDashed,
@@ -948,7 +949,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
   const searchPlaceholder = isSocialMode
     ? "Search..."
     : `Search ${label.toLowerCase()}...`;
-  const effectiveStatusFilter: StatusFilter = pluginStatusFilter;
+  const effectiveStatusFilter: StatusFilter =
+    isSocialMode && pluginStatusFilter === "disabled"
+      ? "all"
+      : pluginStatusFilter;
   const effectiveSearch = pluginSearch;
   const showToolbar = true;
   const allowCustomOrder = !isSocialMode;
@@ -1410,6 +1414,39 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     localStorage.removeItem("pluginOrder");
   }, []);
 
+  const renderResolvedIcon = useCallback(
+    (
+      plugin: PluginInfo,
+      options?: {
+        className?: string;
+        emojiClassName?: string;
+      },
+    ) => {
+      const icon = resolveIcon(plugin);
+      if (!icon) {
+        return <span className={options?.emojiClassName ?? "text-sm"}>🧩</span>;
+      }
+      if (typeof icon === "string") {
+        const imageSrc = iconImageSource(icon);
+        return imageSrc ? (
+          <img
+            src={imageSrc}
+            alt=""
+            className={options?.className ?? "w-5 h-5 rounded-sm object-contain"}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <span className={options?.emojiClassName ?? "text-sm"}>{icon}</span>
+        );
+      }
+      const IconComponent = icon;
+      return <IconComponent className={options?.className ?? "w-5 h-5"} />;
+    },
+    [],
+  );
+
   // ── Card renderers ────────────────────────────────────────────────
 
   const renderPluginCard = (p: PluginInfo) => {
@@ -1731,6 +1768,18 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia("(max-width: 600px)").matches
       : false;
+  const [connectorExpandedIds, setConnectorExpandedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [connectorSelectedId, setConnectorSelectedId] = useState<string | null>(
+    null,
+  );
+  const [desktopConnectorLayout, setDesktopConnectorLayout] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(min-width: 1024px)").matches
+      : false,
+  );
+  const connectorSectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Auto-select first visible plugin in game modal
   const gameVisiblePlugins = visiblePlugins.filter(
@@ -1749,7 +1798,539 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     ? getPluginResourceLinks(selectedPlugin)
     : [];
 
+  useEffect(() => {
+    if (!isSocialMode || !inModal) return;
+    if (pluginStatusFilter !== "disabled") return;
+    setState("pluginStatusFilter", "all");
+  }, [inModal, isSocialMode, pluginStatusFilter, setState]);
+
+  useEffect(() => {
+    if (!isSocialMode || !inModal) return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function")
+      return;
+
+    const media = window.matchMedia("(min-width: 1024px)");
+    const syncLayout = () => {
+      setDesktopConnectorLayout(media.matches);
+    };
+
+    syncLayout();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", syncLayout);
+      return () => media.removeEventListener("change", syncLayout);
+    }
+
+    media.addListener(syncLayout);
+    return () => media.removeListener(syncLayout);
+  }, [inModal, isSocialMode]);
+
+  useEffect(() => {
+    if (!isSocialMode || !inModal) return;
+    if (visiblePlugins.length === 0) {
+      setConnectorSelectedId(null);
+      setConnectorExpandedIds(new Set());
+      return;
+    }
+
+    setConnectorSelectedId((prev) => {
+      if (visiblePlugins.some((plugin) => plugin.id === prev)) {
+        return prev;
+      }
+      return desktopConnectorLayout ? (visiblePlugins[0]?.id ?? null) : null;
+    });
+  }, [desktopConnectorLayout, inModal, isSocialMode, visiblePlugins]);
+
+  useEffect(() => {
+    if (!isSocialMode || !inModal || !desktopConnectorLayout) return;
+    if (!connectorSelectedId) return;
+    setConnectorExpandedIds(new Set([connectorSelectedId]));
+  }, [connectorSelectedId, desktopConnectorLayout, inModal, isSocialMode]);
+
+  const scrollConnectorIntoView = useCallback((pluginId: string) => {
+    const element = connectorSectionRefs.current[pluginId];
+    if (element && typeof element.scrollIntoView === "function") {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const handleConnectorSelect = useCallback(
+    (pluginId: string) => {
+      setConnectorSelectedId(pluginId);
+      setConnectorExpandedIds((prev) => {
+        if (desktopConnectorLayout) {
+          return new Set([pluginId]);
+        }
+        const next = new Set(prev);
+        next.add(pluginId);
+        return next;
+      });
+      scrollConnectorIntoView(pluginId);
+    },
+    [desktopConnectorLayout, scrollConnectorIntoView],
+  );
+
+  const handleConnectorSectionToggle = useCallback(
+    (pluginId: string) => {
+      setConnectorSelectedId(pluginId);
+      setConnectorExpandedIds((prev) => {
+        if (desktopConnectorLayout) {
+          return new Set([pluginId]);
+        }
+        const next = new Set(prev);
+        if (next.has(pluginId)) next.delete(pluginId);
+        else next.add(pluginId);
+        return next;
+      });
+      if (desktopConnectorLayout) {
+        scrollConnectorIntoView(pluginId);
+      }
+    },
+    [desktopConnectorLayout, scrollConnectorIntoView],
+  );
+
   // ── Game-modal render ─────────────────────────────────────────────
+  if (inModal && isSocialMode) {
+    return (
+      <div
+        data-testid="plugins-view-social"
+        className="flex min-h-full min-w-0 w-full flex-col bg-bg lg:flex-row"
+      >
+        <aside
+          data-testid="connectors-settings-sidebar"
+          className="hidden lg:flex lg:w-[22rem] lg:shrink-0 lg:border-r lg:border-border/50 lg:bg-bg/35 lg:backdrop-blur-xl"
+        >
+          <div className="flex min-h-full flex-1 flex-col lg:sticky lg:top-0 lg:max-h-screen">
+            <div className="border-b border-border/40 px-5 py-5">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
+                Connectors
+              </div>
+              <div className="mt-2 text-sm text-muted">
+                {enabledCount} enabled of {categoryPlugins.length}
+              </div>
+            </div>
+            <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
+              {visiblePlugins.map((plugin) => {
+                const isSelected = connectorSelectedId === plugin.id;
+                const isExpanded = connectorExpandedIds.has(plugin.id);
+                const isToggleBusy = togglingPlugins.has(plugin.id);
+                const toggleDisabled =
+                  isToggleBusy || (hasPluginToggleInFlight && !isToggleBusy);
+
+                return (
+                  <div
+                    key={plugin.id}
+                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition-all ${
+                      isSelected
+                        ? "border-accent/40 bg-accent/10 text-txt shadow-[0_10px_30px_rgba(var(--accent),0.08)]"
+                        : "border-transparent bg-transparent text-muted hover:border-border/60 hover:bg-card/55 hover:text-txt"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => handleConnectorSelect(plugin.id)}
+                      aria-current={isSelected ? "page" : undefined}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${
+                          isSelected
+                            ? "border-accent/30 bg-accent/18 text-txt-strong"
+                            : "border-border/50 bg-bg-accent/80 text-muted"
+                        }`}
+                      >
+                        {renderResolvedIcon(plugin, {
+                          className: "w-4 h-4 rounded-sm object-contain",
+                          emojiClassName: "text-sm",
+                        })}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none">
+                        {plugin.name}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-[0.16em] transition-colors ${
+                        plugin.enabled
+                          ? "border-accent bg-accent text-accent-fg"
+                          : "border-border bg-transparent text-muted hover:border-accent/40 hover:text-txt"
+                      } ${
+                        toggleDisabled
+                          ? "cursor-not-allowed opacity-60"
+                          : "cursor-pointer"
+                      }`}
+                      onClick={() =>
+                        void handleTogglePlugin(plugin.id, !plugin.enabled)
+                      }
+                      disabled={toggleDisabled}
+                    >
+                      {isToggleBusy ? "..." : plugin.enabled ? "ON" : "OFF"}
+                    </button>
+                    <span
+                      className={`shrink-0 text-muted transition-transform ${
+                        isExpanded ? "rotate-90" : ""
+                      }`}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <div className="sticky top-0 z-20 border-b border-border/50 bg-bg/85 px-4 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-5xl">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  type="text"
+                  className="h-11 w-full rounded-xl border-border/60 bg-card/70 text-sm shadow-sm"
+                  placeholder="Search connectors..."
+                  value={pluginSearch}
+                  onChange={(e) => setState("pluginSearch", e.target.value)}
+                />
+                <div className="flex shrink-0 gap-1.5 rounded-xl border border-white/5 bg-black/10 p-1">
+                  {(["all", "enabled"] as const).map((status) => (
+                    <Button
+                      key={status}
+                      variant={
+                        effectiveStatusFilter === status ? "default" : "ghost"
+                      }
+                      size="sm"
+                      className={`h-8 px-3 text-[11px] font-bold tracking-wide transition-all ${
+                        effectiveStatusFilter === status
+                          ? "shadow-sm"
+                          : "text-muted hover:bg-white/5 hover:text-txt"
+                      }`}
+                      onClick={() =>
+                        setState("pluginStatusFilter", status as StatusFilter)
+                      }
+                    >
+                      {status === "all"
+                        ? `All (${categoryPlugins.length})`
+                        : `Enabled (${enabledCount})`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+            {hasPluginToggleInFlight && (
+              <div className="mb-4 rounded-2xl border border-accent bg-accent-subtle px-4 py-3 text-[11px] text-txt">
+                {t("pluginsview.ApplyingPluginChan")}
+              </div>
+            )}
+
+            {visiblePlugins.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-muted">
+                {effectiveSearch
+                  ? "No connectors match your search."
+                  : "No connectors match your filters."}
+              </div>
+            ) : (
+              <div
+                data-testid="connectors-settings-content"
+                className="space-y-4"
+              >
+                {visiblePlugins.map((plugin) => {
+                  const hasParams =
+                    (plugin.parameters?.length ?? 0) > 0 && plugin.id !== "__ui-showcase__";
+                  const isExpanded = connectorExpandedIds.has(plugin.id);
+                  const isSelected = connectorSelectedId === plugin.id;
+                  const setCount = hasParams
+                    ? plugin.parameters.filter((param) => param.isSet).length
+                    : 0;
+                  const totalCount = hasParams ? plugin.parameters.length : 0;
+                  const allParamsSet = !hasParams || setCount === totalCount;
+                  const isToggleBusy = togglingPlugins.has(plugin.id);
+                  const toggleDisabled =
+                    isToggleBusy || (hasPluginToggleInFlight && !isToggleBusy);
+                  const isSaving = pluginSaving.has(plugin.id);
+                  const saveSuccess = pluginSaveSuccess.has(plugin.id);
+                  const testResult = testResults.get(plugin.id);
+                  const pluginLinks = getPluginResourceLinks(plugin);
+
+                  return (
+                    <section
+                      key={plugin.id}
+                      ref={(element) => {
+                        connectorSectionRefs.current[plugin.id] = element;
+                      }}
+                      data-testid={`connector-section-${plugin.id}`}
+                      className={`overflow-hidden rounded-[1.4rem] border bg-card/90 shadow-sm transition-all ${
+                        isSelected
+                          ? "border-accent/35 shadow-[0_18px_40px_rgba(var(--accent),0.08)]"
+                          : "border-border/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+                        <button
+                          type="button"
+                          data-testid={`connector-header-${plugin.id}`}
+                          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                          onClick={() => handleConnectorSectionToggle(plugin.id)}
+                        >
+                          <span
+                            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+                              isSelected
+                                ? "border-accent/30 bg-accent/18 text-txt-strong"
+                                : "border-border/50 bg-bg-accent/80 text-muted"
+                            }`}
+                          >
+                            {renderResolvedIcon(plugin, {
+                              className: "w-4 h-4 rounded-sm object-contain",
+                              emojiClassName: "text-base",
+                            })}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex min-w-0 flex-wrap items-center gap-2">
+                              <span className="truncate text-sm font-semibold text-txt">
+                                {plugin.name}
+                              </span>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                  allParamsSet
+                                    ? "border-ok/30 bg-ok/10 text-ok"
+                                    : "border-warn/30 bg-warn/10 text-warn"
+                                }`}
+                              >
+                                {allParamsSet ? "Ready" : "Needs setup"}
+                              </span>
+                              {plugin.version && (
+                                <span className="text-[11px] font-mono text-muted/80">
+                                  v{plugin.version}
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-1 block text-sm text-muted">
+                              {plugin.description || "No description available"}
+                            </span>
+                            <span className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                              <span>
+                                {hasParams
+                                  ? `${setCount}/${totalCount} configured`
+                                  : "No configuration needed"}
+                              </span>
+                              {plugin.enabled && !plugin.isActive && (
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 ${
+                                    plugin.loadError
+                                      ? "border-danger/30 bg-danger/10 text-danger"
+                                      : "border-warn/30 bg-warn/10 text-warn"
+                                  }`}
+                                >
+                                  {plugin.loadError ? "Load failed" : "Not installed"}
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                        </button>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            className={`rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] transition-colors ${
+                              plugin.enabled
+                                ? "border-accent bg-accent text-accent-fg"
+                                : "border-border bg-transparent text-muted hover:border-accent/40 hover:text-txt"
+                            } ${
+                              toggleDisabled
+                                ? "cursor-not-allowed opacity-60"
+                                : "cursor-pointer"
+                            }`}
+                            onClick={() =>
+                              void handleTogglePlugin(plugin.id, !plugin.enabled)
+                            }
+                            disabled={toggleDisabled}
+                          >
+                            {isToggleBusy ? "..." : plugin.enabled ? "ON" : "OFF"}
+                          </button>
+                          <button
+                            type="button"
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 text-muted transition-colors hover:border-accent/40 hover:text-txt"
+                            onClick={() => handleConnectorSectionToggle(plugin.id)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? "Collapse" : "Expand"} ${plugin.name}`}
+                          >
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform ${
+                                isExpanded ? "rotate-90" : ""
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-border/40 bg-black/5 px-4 py-4 sm:px-5">
+                          {plugin.validationErrors &&
+                            plugin.validationErrors.length > 0 && (
+                              <div className="mb-4 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                                {plugin.validationErrors.map((error) => (
+                                  <div
+                                    key={`${plugin.id}:${error.field}:${error.message}`}
+                                  >
+                                    {error.field}: {error.message}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          {plugin.validationWarnings &&
+                            plugin.validationWarnings.length > 0 && (
+                              <div className="mb-4 rounded-2xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn">
+                                {plugin.validationWarnings.map((warning) => (
+                                  <div
+                                    key={`${plugin.id}:${warning.field}:${warning.message}`}
+                                  >
+                                    {warning.message}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          {pluginLinks.length > 0 && (
+                            <div className="mb-4 flex flex-wrap gap-2">
+                              {pluginLinks.map((link) => (
+                                <Button
+                                  key={`${plugin.id}:${link.key}`}
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-xl border-border/40 bg-card/40 px-3 text-[11px] font-semibold text-muted transition-all hover:border-accent hover:bg-accent/5 hover:text-txt"
+                                  onClick={() => {
+                                    void handleOpenPluginExternalUrl(link.url);
+                                  }}
+                                  title={`${link.label}: ${link.url}`}
+                                >
+                                  {link.label}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+
+                          {plugin.enabled &&
+                            !plugin.isActive &&
+                            plugin.npmName &&
+                            !plugin.loadError && (
+                              <div className="mb-4 rounded-2xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-txt">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>Install this connector to activate it in the runtime.</div>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="h-8 rounded-xl px-4 text-[11px] font-bold"
+                                    disabled={installingPlugins.has(plugin.id)}
+                                    onClick={() =>
+                                      handleInstallPlugin(
+                                        plugin.id,
+                                        plugin.npmName ?? "",
+                                      )
+                                    }
+                                  >
+                                    {installingPlugins.has(plugin.id)
+                                      ? installProgress.get(plugin.npmName ?? "")
+                                          ?.message || "Installing..."
+                                      : "Install Plugin"}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                          {hasParams ? (
+                            <div className="space-y-4">
+                              <PluginConfigForm
+                                plugin={plugin}
+                                pluginConfigs={pluginConfigs}
+                                onParamChange={handleParamChange}
+                              />
+                              {plugin.id === "whatsapp" && (
+                                <WhatsAppQrOverlay accountId="default" />
+                              )}
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-sm text-muted">
+                              No configuration needed.
+                            </div>
+                          )}
+
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            {plugin.isActive && (
+                              <Button
+                                variant={
+                                  testResult?.success
+                                    ? "default"
+                                    : testResult?.error
+                                      ? "destructive"
+                                      : "outline"
+                                }
+                                size="sm"
+                                className={`h-8 rounded-xl px-4 text-[11px] font-bold transition-all ${
+                                  testResult?.loading
+                                    ? "cursor-wait opacity-70"
+                                    : testResult?.success
+                                      ? "border-ok bg-ok text-ok-fg hover:bg-ok/90"
+                                      : testResult?.error
+                                        ? "border-danger bg-danger text-danger-fg hover:bg-danger/90"
+                                        : "border-border/40 bg-card/40 hover:border-accent/40"
+                                }`}
+                                disabled={testResult?.loading}
+                                onClick={() => void handleTestConnection(plugin.id)}
+                              >
+                                {testResult?.loading
+                                  ? "Testing..."
+                                  : testResult?.success
+                                    ? `OK (${testResult.durationMs}ms)`
+                                    : testResult?.error
+                                      ? `Failed: ${testResult.error}`
+                                      : "Test Connection"}
+                              </Button>
+                            )}
+                            {hasParams && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 rounded-xl px-4 text-[11px] font-semibold text-muted hover:text-txt"
+                                  onClick={() => handleConfigReset(plugin.id)}
+                                >
+                                  Reset
+                                </Button>
+                                <Button
+                                  variant={saveSuccess ? "default" : "secondary"}
+                                  size="sm"
+                                  className={`h-8 rounded-xl px-4 text-[11px] font-bold transition-all ${
+                                    saveSuccess
+                                      ? "bg-ok text-ok-fg hover:bg-ok/90"
+                                      : "bg-accent text-accent-fg hover:bg-accent/90"
+                                  }`}
+                                  onClick={() => void handleConfigSave(plugin.id)}
+                                  disabled={isSaving}
+                                >
+                                  {isSaving
+                                    ? "Saving..."
+                                    : saveSuccess
+                                      ? "Saved"
+                                      : "Save Settings"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (inModal) {
     const sectionTitle =
       mode === "social"
@@ -1999,6 +2580,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
 
   return (
     <div
+      data-testid={mode === "social" ? "plugins-view-social" : undefined}
       className={`relative min-h-0 ${showDesktopSubgroupSidebar ? "md:pl-[18rem]" : ""}`}
     >
       {showDesktopSubgroupSidebar && (

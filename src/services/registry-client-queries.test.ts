@@ -12,6 +12,7 @@ import {
   normalizePluginLookupAlias,
   scoreEntries,
   toAppEntry,
+  toAppInfo,
   toPluginListItem,
   toSearchResults,
 } from "./registry-client-queries.js";
@@ -189,6 +190,34 @@ describe("registry-client-queries", () => {
         (p) => (p.name.includes("notion") ? ["workspace-api"] : []),
       );
       expect(results.some((r) => r.p.name.includes("notion"))).toBe(true);
+    });
+  });
+
+  // ── toAppInfo ────────────────────────────────────────────────────
+  describe("toAppInfo", () => {
+    it("carries uiExtension metadata into the app entry", () => {
+      const appMeta: RegistryAppMeta = {
+        displayName: "Hyperscape",
+        category: "game",
+        launchType: "connect",
+        launchUrl: "http://localhost:3333",
+        icon: null,
+        capabilities: ["observe"],
+        minPlayers: null,
+        maxPlayers: null,
+        uiExtension: {
+          detailPanelId: "hyperscape-embedded-agents",
+        },
+      };
+      const result = toAppInfo(
+        makePlugin({ name: "@elizaos/app-hyperscape", appMeta }),
+        (value) => value ?? "allow-scripts",
+        "allow-scripts",
+      );
+
+      expect(result.uiExtension?.detailPanelId).toBe(
+        "hyperscape-embedded-agents",
+      );
     });
   });
 

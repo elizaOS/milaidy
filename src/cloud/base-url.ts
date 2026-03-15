@@ -3,7 +3,6 @@ const DEFAULT_CLOUD_SITE_URL = "https://www.elizacloud.ai";
 const LEGACY_CLOUD_HOST_ALIASES = new Set([
   "elizacloud.ai",
   "www.elizacloud.ai",
-  "cloud.milady.ai",
 ]);
 
 function trimApiPath(pathname: string): string {

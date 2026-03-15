@@ -59,6 +59,7 @@ const CACHE_TTL_MS = 3_600_000; // 1 hour
 // Public types
 // ---------------------------------------------------------------------------
 export type {
+  AppUiExtensionConfig,
   RegistryAppInfo,
   RegistryAppMeta,
   RegistryAppViewerMeta,

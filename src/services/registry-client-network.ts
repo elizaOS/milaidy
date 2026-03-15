@@ -59,6 +59,9 @@ export async function fetchFromNetwork(params: {
               capabilities: string[];
               minPlayers: number | null;
               maxPlayers: number | null;
+              uiExtension?: {
+                detailPanelId: string;
+              };
               viewer?: {
                 url: string;
                 embedParams?: Record<string, string>;
@@ -107,6 +110,7 @@ export async function fetchFromNetwork(params: {
             capabilities: e.app.capabilities || [],
             minPlayers: e.app.minPlayers ?? null,
             maxPlayers: e.app.maxPlayers ?? null,
+            uiExtension: e.app.uiExtension,
             viewer: e.app.viewer
               ? {
                   ...e.app.viewer,

@@ -131,6 +131,7 @@ export function toAppInfo(
     latestVersion: p.npm.v2Version || p.npm.v1Version || p.npm.v0Version,
     supports: p.supports,
     npm: p.npm,
+    uiExtension: meta?.uiExtension,
     viewer,
   };
 }

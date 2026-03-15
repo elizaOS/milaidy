@@ -295,4 +295,77 @@ describe("Header", () => {
     expect(setState).toHaveBeenCalledWith("cloudDashboardView", "billing");
     expect(setTab).toHaveBeenCalledWith("settings");
   });
+
+  it("keeps cloud credits in the mobile menu instead of the small header", async () => {
+    const setTab = vi.fn();
+    const setState = vi.fn();
+    const mockUseApp = {
+      t: (k: string) => k,
+      agentStatus: { state: "running", agentName: "Milady" },
+      elizaCloudEnabled: true,
+      elizaCloudConnected: true,
+      elizaCloudCredits: 12.34,
+      elizaCloudCreditsCritical: false,
+      elizaCloudCreditsLow: false,
+      elizaCloudTopUpUrl: "https://example.com/topup",
+      lifecycleBusy: false,
+      lifecycleAction: null,
+      handleRestart: vi.fn(),
+      handleStart: vi.fn(),
+      loadDropStatus: vi.fn().mockResolvedValue(undefined),
+      tab: "chat",
+      setTab,
+      setState,
+      plugins: [],
+      uiLanguage: "en",
+      setUiLanguage: vi.fn(),
+      uiTheme: "dark",
+      setUiTheme: vi.fn(),
+      uiShellMode: "native",
+      switchShellView: vi.fn(),
+    };
+
+    // @ts-expect-error - test uses a narrowed subset of the full app context type.
+    vi.spyOn(AppContext, "useApp").mockReturnValue(mockUseApp);
+
+    let testRenderer: ReactTestRenderer | null = null;
+    await act(async () => {
+      testRenderer = create(<Header />);
+    });
+    if (!testRenderer) {
+      throw new Error("Failed to render Header");
+    }
+
+    const root = (testRenderer as ReactTestRenderer).root;
+    const desktopCreditButton = root.findByProps({
+      "data-testid": "header-cloud-credits-desktop",
+    });
+    expect(String(desktopCreditButton.props.className)).toContain("hidden");
+    expect(String(desktopCreditButton.props.className)).toContain(
+      "md:inline-flex",
+    );
+
+    const menuButton = root.findByProps({
+      "aria-label": "Open navigation menu",
+    });
+
+    await act(async () => {
+      menuButton.props.onClick();
+    });
+
+    const mobileCreditButton = root.findByProps({
+      "data-testid": "header-cloud-credits-mobile",
+    });
+    expect(mobileCreditButton.props.title).toBe("header.CloudCreditsBalanc");
+
+    await act(async () => {
+      mobileCreditButton.props.onClick();
+    });
+
+    expect(setState).toHaveBeenCalledWith("cloudDashboardView", "billing");
+    expect(setTab).toHaveBeenCalledWith("settings");
+    expect(
+      root.findAll((node) => node.props["aria-label"] === "Navigation menu"),
+    ).toHaveLength(0);
+  });
 });

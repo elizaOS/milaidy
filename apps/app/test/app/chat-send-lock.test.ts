@@ -174,6 +174,8 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
 
 describe("chat send locking", () => {
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
     window.history.replaceState({}, "", "/chat");
     Object.assign(window, {
       setTimeout: globalThis.setTimeout,

@@ -85,6 +85,10 @@ function hasContractAddress(
   return typeof row.contractAddress === "string";
 }
 
+function hasVisibleBalance(row: TokenRow): boolean {
+  return Boolean(row.isTracked || row.balanceRaw > 0 || row.valueUsd > 0);
+}
+
 export function useInventoryData({
   walletBalances,
   walletAddresses,
@@ -289,8 +293,7 @@ export function useInventoryData({
         }
       }
     }
-
-    return rows;
+    return rows.filter(hasVisibleBalance);
   }, [
     walletBalances,
     trackedBscTokens,

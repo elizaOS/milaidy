@@ -18,6 +18,10 @@ export interface RegistryPluginViewerInfo {
   sandbox?: string;
 }
 
+export interface AppUiExtensionConfig {
+  detailPanelId: string;
+}
+
 export interface RegistryPluginAppMeta {
   displayName?: string;
   category?: string;
@@ -25,6 +29,7 @@ export interface RegistryPluginAppMeta {
   launchUrl?: string | null;
   icon?: string | null;
   capabilities?: string[];
+  uiExtension?: AppUiExtensionConfig;
   viewer?: RegistryPluginViewerInfo;
 }
 
@@ -41,6 +46,7 @@ export interface RegistryPluginInfo {
   launchType?: string;
   launchUrl?: string | null;
   viewer?: RegistryPluginViewerInfo;
+  uiExtension?: AppUiExtensionConfig;
   kind?: string;
   appMeta?: RegistryPluginAppMeta;
   npm: RegistryPluginNpmInfo;

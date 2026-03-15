@@ -84,6 +84,7 @@ import {
 } from "../bridge";
 import {
   expandSavedCustomCommand,
+  isRoutineCodingAgentMessage,
   loadSavedCustomCommands,
   normalizeSlashCommandName,
 } from "../chat";
@@ -282,6 +283,45 @@ function filterRenderableConversationMessages(
   return messages.filter((message) => shouldKeepConversationMessage(message));
 }
 
+const COMPANION_STALE_THREAD_MAX_AGE_MS = 30 * 60 * 1000;
+const COMPANION_STALE_THREAD_VISIBLE_MESSAGE_LIMIT = 2;
+
+function isPersistedGreetingMessage(message: ConversationMessage): boolean {
+  return (
+    message.role === "assistant" &&
+    message.source === "agent_greeting" &&
+    message.text.trim().length > 0
+  );
+}
+
+function shouldStartFreshCompanionConversation(
+  messages: ConversationMessage[],
+  now = Date.now(),
+): boolean {
+  const visibleMessages = messages
+    .filter((message) => shouldKeepConversationMessage(message))
+    .filter((message) => !isRoutineCodingAgentMessage(message))
+    .slice(-COMPANION_STALE_THREAD_VISIBLE_MESSAGE_LIMIT);
+
+  if (visibleMessages.length === 0) {
+    return false;
+  }
+
+  if (
+    visibleMessages.length === 1 &&
+    isPersistedGreetingMessage(visibleMessages[0])
+  ) {
+    return false;
+  }
+
+  return visibleMessages.every((message) => {
+    if (!Number.isFinite(message.timestamp)) {
+      return false;
+    }
+    return now - message.timestamp > COMPANION_STALE_THREAD_MAX_AGE_MS;
+  });
+}
+
 function isPrivateNetworkHost(host: string): boolean {
   if (
     host === "localhost" ||
@@ -456,6 +496,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationMessagesRef = useRef<ConversationMessage[]>([]);
   const conversationsRef = useRef<Conversation[]>([]);
+  const conversationHydrationEpochRef = useRef(0);
 
   useEffect(() => {
     autonomousEventsRef.current = autonomousEvents;
@@ -893,6 +934,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const greetingFiredRef = useRef(false);
   const greetingInFlightConversationRef = useRef<string | null>(null);
   const greetingEmoteTimerRef = useRef<number | null>(null);
+  const companionStaleConversationRefreshRef = useRef<string | null>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
   /** Synchronous lock so same-tick chat submits cannot double-send. */
   const chatSendBusyRef = useRef(false);
@@ -1426,6 +1468,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { messages } = await client.getConversationMessages(convId);
         const nextMessages = filterRenderableConversationMessages(messages);
         greetingFiredRef.current = nextMessages.length > 0;
+        conversationMessagesRef.current = nextMessages;
         setConversationMessages(nextMessages);
         return { ok: true };
       } catch (err) {
@@ -1445,6 +1488,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
         greetingFiredRef.current = false;
+        conversationMessagesRef.current = [];
         setConversationMessages([]);
         return {
           ok: false,
@@ -1771,14 +1815,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hydrateInitialConversationState = useCallback(async (): Promise<
     string | null
   > => {
+    const hydrationEpoch = ++conversationHydrationEpochRef.current;
+    const isCurrentHydration = () =>
+      conversationHydrationEpochRef.current === hydrationEpoch;
+
     try {
       const { conversations: c } = await client.listConversations();
+      if (!isCurrentHydration()) {
+        return null;
+      }
       setConversations(c);
       if (c.length > 0) {
         const savedConversationId = loadActiveConversationId();
         const restoredConversation =
           c.find((conversation) => conversation.id === savedConversationId) ??
           c[0];
+        if (!isCurrentHydration()) {
+          return null;
+        }
         setActiveConversationId(restoredConversation.id);
         activeConversationIdRef.current = restoredConversation.id;
         client.sendWsMessage({
@@ -1789,16 +1843,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const { messages } = await client.getConversationMessages(
             restoredConversation.id,
           );
+          if (!isCurrentHydration()) {
+            return null;
+          }
           const nextMessages = filterRenderableConversationMessages(messages);
           greetingFiredRef.current = nextMessages.length > 0;
+          conversationMessagesRef.current = nextMessages;
           setConversationMessages(nextMessages);
           return nextMessages.length === 0 ? restoredConversation.id : null;
         } catch (err) {
+          if (!isCurrentHydration()) {
+            return null;
+          }
           console.warn(
             "[milady][chat:init] failed to load restored conversation messages",
             err,
           );
           greetingFiredRef.current = false;
+          conversationMessagesRef.current = [];
           setConversationMessages([]);
           return restoredConversation.id;
         }
@@ -1811,6 +1873,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           lang: uiLanguage,
         },
       );
+      if (!isCurrentHydration()) {
+        return null;
+      }
       const nextCutoffTs = Date.now();
       setConversations([conversation]);
       setActiveConversationId(conversation.id);
@@ -1827,19 +1892,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (greeting?.persisted === true) {
           scheduleGreetingWaveForCompanion();
         }
-        setConversationMessages([
+        const nextMessages = [
           {
             id: `greeting-${Date.now()}`,
-            role: "assistant",
+            role: "assistant" as const,
             text: greetingText,
             timestamp: Date.now(),
-            source: "agent_greeting",
+            source: "agent_greeting" as const,
           },
-        ]);
+        ];
+        conversationMessagesRef.current = nextMessages;
+        setConversationMessages(nextMessages);
         return null;
       }
 
       greetingFiredRef.current = false;
+      conversationMessagesRef.current = [];
       setConversationMessages([]);
       return conversation.id;
     } catch (err) {
@@ -2057,6 +2125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleNewConversation = useCallback(
     async (title?: string) => {
+      conversationHydrationEpochRef.current += 1;
       const previousConversationId = activeConversationIdRef.current;
       const previousMessages = conversationMessagesRef.current;
       const previousCutoffTs = companionMessageCutoffTs;
@@ -2130,6 +2199,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       uiLanguage,
     ],
   );
+
+  useEffect(() => {
+    if (uiShellMode !== "companion" || tab !== "companion") {
+      companionStaleConversationRefreshRef.current = null;
+      return;
+    }
+
+    if (!activeConversationId) {
+      return;
+    }
+
+    if (!shouldStartFreshCompanionConversation(conversationMessages)) {
+      companionStaleConversationRefreshRef.current = null;
+      return;
+    }
+
+    if (companionStaleConversationRefreshRef.current === activeConversationId) {
+      return;
+    }
+
+    companionStaleConversationRefreshRef.current = activeConversationId;
+    void handleNewConversation();
+  }, [
+    activeConversationId,
+    conversationMessages,
+    handleNewConversation,
+    tab,
+    uiShellMode,
+  ]);
 
   const appendLocalCommandTurn = useCallback(
     (userText: string, assistantText: string) => {
@@ -2820,14 +2918,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      const messageIndex = conversationMessages.findIndex(
+      let currentMessages = conversationMessagesRef.current;
+      let messageIndex = currentMessages.findIndex(
         (message) => message.id === messageId && message.role === "user",
       );
+      if (messageIndex < 0) {
+        const loaded = await loadConversationMessages(convId);
+        if (!loaded.ok) {
+          return false;
+        }
+        currentMessages = conversationMessagesRef.current;
+        messageIndex = currentMessages.findIndex(
+          (message) => message.id === messageId && message.role === "user",
+        );
+      }
       if (messageIndex < 0) {
         return false;
       }
 
-      const targetMessage = conversationMessages[messageIndex];
+      const targetMessage = currentMessages[messageIndex];
       if (
         targetMessage.source === "local_command" ||
         targetMessage.id.startsWith("temp-")
@@ -2842,7 +2951,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setChatFirstTokenReceived(false);
       setChatInput("");
 
-      setConversationMessages(conversationMessages.slice(0, messageIndex));
+      const preservedMessages = currentMessages.slice(0, messageIndex);
+      conversationMessagesRef.current = preservedMessages;
+      setConversationMessages(preservedMessages);
 
       try {
         await client.truncateConversationMessages(convId, messageId, {
@@ -2860,12 +2971,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [
-      conversationMessages,
-      loadConversationMessages,
-      sendChatText,
-      setActionNotice,
-    ],
+    [loadConversationMessages, sendChatText, setActionNotice],
   );
 
   const handleChatClear = useCallback(async () => {
@@ -2910,7 +3016,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleSelectConversation = useCallback(
     async (id: string) => {
-      if (id === activeConversationId) return;
+      conversationHydrationEpochRef.current += 1;
+      if (
+        id === activeConversationId &&
+        conversationMessagesRef.current.length > 0
+      )
+        return;
       const previousActive = activeConversationId;
       setActiveConversationId(id);
       activeConversationIdRef.current = id;

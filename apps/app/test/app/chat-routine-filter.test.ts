@@ -1,5 +1,5 @@
+import { isRoutineCodingAgentMessage } from "@milady/app-core/chat";
 import { describe, expect, it } from "vitest";
-import { isRoutineCodingAgentMessage } from "../../src/components/ChatView";
 
 describe("isRoutineCodingAgentMessage", () => {
   const routine = (text: string) => ({

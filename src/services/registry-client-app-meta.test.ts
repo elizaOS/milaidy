@@ -200,6 +200,9 @@ describe("registry-client-app-meta", () => {
       const result = resolveAppOverride("@elizaos/app-hyperscape", undefined);
       expect(result).toBeDefined();
       expect(result?.launchType).toBe("connect");
+      expect(result?.uiExtension?.detailPanelId).toBe(
+        "hyperscape-embedded-agents",
+      );
       expect(result?.viewer?.postMessageAuth).toBe(true);
     });
 

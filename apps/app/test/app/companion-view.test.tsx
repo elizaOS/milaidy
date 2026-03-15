@@ -278,7 +278,7 @@ describe("CompanionView", () => {
     );
     const newChatButton = tree?.root.find(
       (node) =>
-        node.type === "button" && node.props["aria-label"] === "+ New Chat",
+        node.type === "button" && node.props["aria-label"] === "New Chat",
     );
 
     expect(controls).toBeDefined();

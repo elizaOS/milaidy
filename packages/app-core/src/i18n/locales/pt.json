@@ -125,7 +125,7 @@
   "wallet.txStatus.pending": "Pendente",
   "wallet.failedFetchQuote": "Falha ao buscar cotação.",
   "wallet.noDataRefresh": "Ainda não há dados. Clique em Atualizar.",
-  "wallet.noTokensFound": "Nenhum token encontrado.",
+  "wallet.noTokensFound": "Sem saldos.",
   "wallet.noNftsFound": "Nenhum NFT encontrado.",
   "wallet.noNftData": "Sem dados NFT.",
   "wallet.noImage": "Nenhuma imagem",

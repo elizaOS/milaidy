@@ -43,7 +43,15 @@ export function saveUiTheme(theme: UiTheme): void {
 export function applyUiTheme(theme: UiTheme): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  root.dataset.theme = theme;
+  if (!root) return;
+  if (typeof root.setAttribute === "function") {
+    root.setAttribute("data-theme", theme);
+  } else if ("dataset" in root && root.dataset) {
+    root.dataset.theme = theme;
+  } else {
+    return;
+  }
+  if (!root.classList) return;
   if (theme === "dark") {
     root.classList.add("dark");
   } else {

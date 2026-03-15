@@ -7,6 +7,7 @@ import {
   resolveAppOverride,
 } from "./registry-client-app-meta.js";
 import type {
+  AppUiExtensionConfig,
   RegistryAppMeta,
   RegistryAppViewerMeta,
   RegistryPluginInfo,
@@ -21,6 +22,7 @@ interface LocalPackageAppMeta {
   capabilities?: string[];
   minPlayers?: number | null;
   maxPlayers?: number | null;
+  uiExtension?: AppUiExtensionConfig;
   viewer?: RegistryAppViewerMeta;
 }
 
@@ -160,6 +162,7 @@ function toLocalAppMeta(
     capabilities: app.capabilities ?? [],
     minPlayers: app.minPlayers ?? null,
     maxPlayers: app.maxPlayers ?? null,
+    uiExtension: app.uiExtension,
     viewer: app.viewer,
   };
 }

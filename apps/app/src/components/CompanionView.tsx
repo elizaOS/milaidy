@@ -1,7 +1,7 @@
 import { useRenderGuard } from "@milady/app-core/hooks";
 import { useApp } from "@milady/app-core/state";
 import { Button } from "@milady/ui";
-import { Volume2, VolumeX } from "lucide-react";
+import { MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
 import { ChatModalView } from "./ChatModalView";
 import { CompanionHeader } from "./companion/CompanionHeader";
@@ -71,18 +71,19 @@ export const CompanionView = memo(function CompanionView() {
               ) : (
                 <Volume2 className="mr-1.5 h-3.5 w-3.5" />
               )}
-              {chatAgentVoiceMuted ? "Voice Off" : "Voice On"}
+              Voice
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              aria-label="+ New Chat"
-              title="+ New Chat"
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt"
+              aria-label="New Chat"
+              title="New Chat"
+              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:block"
               onClick={() => void handleNewConversation()}
             >
-              + New Chat
+              <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+              New Chat
             </Button>
           </div>
         </div>

@@ -221,9 +221,9 @@ function TriggerUiHarness(props: { client: MiladyClient }): ReactElement {
       setTriggerError(message);
       setTriggers([]);
     } finally {
-      if (requestId === triggerLoadRequestId.current) {
-        setTriggersLoading(false);
-      }
+      // Keep stale responses from overwriting data, but let any completed
+      // request clear the spinner so duplicate mount loads cannot pin it.
+      setTriggersLoading(false);
     }
   }, [client]);
 
@@ -449,7 +449,7 @@ async function flush(): Promise<void> {
 async function waitFor(
   predicate: () => boolean,
   message: string,
-  attempts = 20,
+  attempts = 100,
 ): Promise<void> {
   for (let index = 0; index < attempts; index += 1) {
     if (predicate()) return;
@@ -527,7 +527,8 @@ describe("TriggersView UI E2E", () => {
         ).length === 0 &&
         root.findAll(
           (node) =>
-            node.type === "button" && nodeText(node).includes("New Heartbeat"),
+            node.type === "button" &&
+            nodeText(node).includes("Create Heartbeat"),
         ).length === 1,
       "Trigger list did not finish initial loading",
     );

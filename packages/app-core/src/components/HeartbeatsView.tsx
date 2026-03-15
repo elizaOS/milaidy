@@ -244,63 +244,9 @@ export function HeartbeatsView() {
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="two-panel-layout w-full">
-      {/* ── Left panel: trigger list ── */}
-      <div className="two-panel-left">
-        <div className="mb-3 flex items-center justify-between px-1">
-          <h2 className="text-sm font-bold">{t("nav.heartbeats")}</h2>
-          <span className="text-xs text-muted">
-            {triggersLoading ? "Loading..." : `${triggers.length}`}
-          </span>
-        </div>
-
-        {triggers.length === 0 && !triggersLoading ? (
-          <div className="py-10 text-center">
-            <Clock3 className="mx-auto mb-2 h-8 w-8 text-muted opacity-40" />
-            <div className="text-xs text-muted">
-              {t("triggersview.NoTriggersConfigur")}
-            </div>
-            <div className="mt-1 text-[10px] text-muted">
-              {t("triggersview.CreateOneAboveTo")}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {triggers.map((trigger) => (
-              <button
-                key={trigger.id}
-                type="button"
-                onClick={() => selectTrigger(trigger)}
-                className={`two-panel-item flex w-full flex-col text-left ${editingId === trigger.id ? "is-selected" : ""}`}
-              >
-                <div className="flex items-center gap-2">
-                  <StatusDot status={trigger.enabled ? "active" : "paused"} />
-                  <span className="truncate text-xs font-medium">
-                    {trigger.displayName}
-                  </span>
-                </div>
-                <div className="mt-0.5 pl-5 text-[10px] text-muted">
-                  {scheduleLabel(trigger)}
-                  {trigger.runCount > 0 && (
-                    <> &middot; {trigger.runCount} run{trigger.runCount !== 1 ? "s" : ""}</>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <button
-          type="button"
-          className="mt-2 flex w-full items-center justify-center rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted hover:border-accent hover:text-txt"
-          onClick={clearForm}
-        >
-          + New Heartbeat
-        </button>
-      </div>
-
-      {/* ── Right panel: form ── */}
-      <div className="two-panel-right">
+    <div className="grid w-full gap-4 lg:grid-cols-3 lg:items-start">
+      {/* ── Left column: form ── */}
+      <div className="rounded-xl border border-border bg-card p-[18px] shadow-sm lg:col-span-1 lg:sticky lg:top-0 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto">
         {/* Header */}
         <div className="mb-4 flex items-start justify-between">
           <h2 className="text-base font-bold">
@@ -617,6 +563,53 @@ export function HeartbeatsView() {
             )}
           </div>
         )}
+      </div>
+
+      {/* ── Right column: trigger list ── */}
+      <div className="rounded-xl border border-border bg-card p-[14px] shadow-sm lg:col-span-2 lg:h-[calc(100vh-80px)] lg:overflow-y-auto">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h2 className="text-sm font-bold">{t("nav.heartbeats")}</h2>
+          <span className="text-xs text-muted">
+            {triggersLoading ? "Loading..." : `${triggers.length}`}
+          </span>
+        </div>
+
+        {triggers.length === 0 && !triggersLoading ? (
+          <div className="py-10 text-center">
+            <Clock3 className="mx-auto mb-2 h-8 w-8 text-muted opacity-40" />
+            <div className="text-xs text-muted">
+              {t("triggersview.NoTriggersConfigur")}
+            </div>
+            <div className="mt-1 text-[10px] text-muted">
+              {t("triggersview.CreateOneAboveTo")}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {triggers.map((trigger) => (
+              <button
+                key={trigger.id}
+                type="button"
+                onClick={() => selectTrigger(trigger)}
+                className={`two-panel-item flex w-full flex-col text-left ${editingId === trigger.id ? "is-selected" : ""}`}
+              >
+                <div className="flex items-center gap-2">
+                  <StatusDot status={trigger.enabled ? "active" : "paused"} />
+                  <span className="truncate text-xs font-medium">
+                    {trigger.displayName}
+                  </span>
+                </div>
+                <div className="mt-0.5 pl-5 text-[10px] text-muted">
+                  {scheduleLabel(trigger)}
+                  {trigger.runCount > 0 && (
+                    <> &middot; {trigger.runCount} run{trigger.runCount !== 1 ? "s" : ""}</>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
       </div>
     </div>
   );

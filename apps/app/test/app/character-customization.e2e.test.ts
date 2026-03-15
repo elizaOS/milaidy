@@ -1038,7 +1038,7 @@ describe("CharacterView UI", () => {
       (node) =>
         node.type === "button" &&
         node.children.some(
-          (child) => typeof child === "string" && child === "SAVE CHARACTER",
+          (child) => typeof child === "string" && child === "Save Character",
         ),
     );
 

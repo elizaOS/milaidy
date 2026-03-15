@@ -54,6 +54,7 @@ function createApp(
   name: string,
   displayName: string,
   description: string,
+  overrides: Partial<RegistryAppInfo> = {},
 ): RegistryAppInfo {
   return {
     name,
@@ -74,6 +75,7 @@ function createApp(
       v1Version: null,
       v2Version: "1.0.0",
     },
+    ...overrides,
   };
 }
 
@@ -146,6 +148,18 @@ async function flush(): Promise<void> {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+async function waitFor(
+  predicate: () => boolean,
+  message: string,
+  attempts = 20,
+): Promise<void> {
+  for (let index = 0; index < attempts; index += 1) {
+    if (predicate()) return;
+    await flush();
+  }
+  throw new Error(message);
 }
 
 describe("AppsView", () => {
@@ -254,7 +268,9 @@ describe("AppsView", () => {
       setState,
       setActionNotice,
     });
-    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
+    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena", {
+      uiExtension: { detailPanelId: "hyperscape-embedded-agents" },
+    });
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp.mockResolvedValue(
       createLaunchResult({
@@ -308,7 +324,9 @@ describe("AppsView", () => {
       setState,
       setActionNotice,
     });
-    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
+    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena", {
+      uiExtension: { detailPanelId: "hyperscape-embedded-agents" },
+    });
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.launchApp.mockResolvedValue(
       createLaunchResult({
@@ -578,7 +596,9 @@ describe("AppsView", () => {
       setState,
       setActionNotice,
     });
-    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena");
+    const app = createApp("@elizaos/app-hyperscape", "Hyperscape", "Arena", {
+      uiExtension: { detailPanelId: "hyperscape-embedded-agents" },
+    });
     mockClientFns.listApps.mockResolvedValue([app]);
     mockClientFns.listHyperscapeEmbeddedAgents.mockResolvedValue({
       success: true,
@@ -636,9 +656,24 @@ describe("AppsView", () => {
       findButtonByTitle(tree?.root, "Open Hyperscape").props.onClick();
     });
     await flush();
+    await waitFor(
+      () =>
+        tree?.root.findAll(
+          (node) =>
+            node.type === "button" &&
+            text(node).includes("Hyperscape Controls"),
+        ).length === 1,
+      "Hyperscape controls toggle did not render",
+    );
 
     await act(async () => {
-      findButtonByText(tree?.root, "Show Hyperscape Controls").props.onClick();
+      tree?.root
+        .findAll(
+          (node) =>
+            node.type === "button" &&
+            text(node).includes("Hyperscape Controls"),
+        )[0]
+        ?.props.onClick();
     });
     await flush();
 

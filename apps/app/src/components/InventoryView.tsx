@@ -10,7 +10,6 @@ import { useCallback, useState } from "react";
 import { TradePanel } from "./BscTradePanel";
 import { CHAIN_CONFIGS, resolveChainKey } from "./chainConfig";
 import {
-  BSC_GAS_READY_THRESHOLD,
   BSC_GAS_THRESHOLD,
   loadTrackedBscTokens,
   loadTrackedTokens,
@@ -100,7 +99,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
   const evmAddr = walletAddresses?.evmAddress ?? walletConfig?.evmAddress;
   const solAddr = walletAddresses?.solanaAddress ?? walletConfig?.solanaAddress;
-  const walletReady = Boolean(evmAddr || solAddr);
   const loadedEvmChainKeys = new Set(
     (walletBalances?.evm?.chains ?? [])
       .filter((chain) => !chain.error)
@@ -151,15 +149,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         cfg?.heliusKeySet ||
         cloudManagedAccess),
   );
-  const bscNativeBalanceNum = Number.parseFloat(
-    walletBalances?.evm?.chains.find(
-      (chain) => resolveChainKey(chain.chain) === "bsc",
-    )?.nativeBalance ?? "0",
-  );
-  const gasReady =
-    bscReady &&
-    Number.isFinite(bscNativeBalanceNum) &&
-    bscNativeBalanceNum >= BSC_GAS_READY_THRESHOLD;
   const tradeReady = bnbBalance >= BSC_GAS_THRESHOLD;
   const addresses = [
     evmAddr ? { label: "EVM", address: evmAddr } : null,
@@ -179,146 +168,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           retryTitle: `Retry fetching ${focusedChainLabel ?? "chain"} balances`,
         }
       : null;
-
-  function chainStatus(
-    label: string,
-    ready: boolean,
-    missingTitle: string,
-    chainError?: string | null,
-  ) {
-    return {
-      ready,
-      label: ready
-        ? `${label} Ready`
-        : chainError
-          ? `${label} Offline`
-          : `${label} Needs RPC`,
-      title: ready
-        ? `${label} balance access is available.`
-        : (chainError ?? missingTitle),
-    };
-  }
-
-  const statusItems = [
-    {
-      ready: walletReady,
-      label: walletReady
-        ? t("onboarding.connected")
-        : t("wallet.status.noWallet"),
-      title: walletReady
-        ? t("wallet.status.connectedTitle")
-        : t("wallet.status.noWalletTitle"),
-    },
-  ];
-
-  if (chainFocus === "all") {
-    if (evmAddr) {
-      statusItems.push(
-        chainStatus(
-          CHAIN_CONFIGS.ethereum.name,
-          ethereumReady,
-          "Connect Eliza Cloud or configure Alchemy / ETHEREUM_RPC_URL in Settings.",
-          evmChainErrors.get("ethereum"),
-        ),
-        chainStatus(
-          CHAIN_CONFIGS.base.name,
-          baseReady,
-          "Connect Eliza Cloud or configure Alchemy / BASE_RPC_URL in Settings.",
-          evmChainErrors.get("base"),
-        ),
-        chainStatus(
-          CHAIN_CONFIGS.bsc.name,
-          bscReady,
-          "Connect Eliza Cloud or configure ANKR_API_KEY or BSC RPC access in Settings.",
-          evmChainErrors.get("bsc"),
-        ),
-        chainStatus(
-          CHAIN_CONFIGS.avax.name,
-          avaxReady,
-          "Connect Eliza Cloud or configure Alchemy / AVALANCHE_RPC_URL in Settings.",
-          evmChainErrors.get("avax"),
-        ),
-      );
-    } else {
-      statusItems.push({
-        ready: false,
-        label: "No EVM Wallet",
-        title:
-          "Connect an EVM wallet to view Ethereum, Base, BSC, and Avalanche assets.",
-      });
-    }
-
-    statusItems.push(
-      solAddr
-        ? chainStatus(
-            CHAIN_CONFIGS.solana.name,
-            solanaReady,
-            "Connect Eliza Cloud or configure HELIUS_API_KEY / SOLANA_RPC_URL in Settings.",
-          )
-        : {
-            ready: false,
-            label: "No Solana Wallet",
-            title: "Connect a Solana wallet to view Solana assets.",
-          },
-    );
-  } else if (chainFocus === "solana") {
-    statusItems.push(
-      solAddr
-        ? chainStatus(
-            CHAIN_CONFIGS.solana.name,
-            solanaReady,
-            "Connect Eliza Cloud or configure HELIUS_API_KEY / SOLANA_RPC_URL in Settings.",
-          )
-        : {
-            ready: false,
-            label: "No Solana Wallet",
-            title: "Connect a Solana wallet to view Solana assets.",
-          },
-    );
-  } else {
-    const focusedReady =
-      chainFocus === "ethereum"
-        ? ethereumReady
-        : chainFocus === "base"
-          ? baseReady
-          : chainFocus === "bsc"
-            ? bscReady
-            : chainFocus === "avax"
-              ? avaxReady
-              : false;
-    const focusedError = evmChainErrors.get(chainFocus) ?? focusedChainError;
-
-    statusItems.push(
-      evmAddr
-        ? chainStatus(
-            focusedChainLabel ?? "EVM",
-            focusedReady,
-            `Connect Eliza Cloud or configure ${focusedChainLabel ?? "this chain"} access in Settings.`,
-            focusedError,
-          )
-        : {
-            ready: false,
-            label: "No EVM Wallet",
-            title: "Connect an EVM wallet to view this chain.",
-          },
-    );
-
-    if (chainFocus === "bsc" && evmAddr) {
-      statusItems.push({
-        ready: gasReady,
-        label: gasReady
-          ? t("wallet.status.tradeReady")
-          : t("wallet.status.tradeNotReady"),
-        title: gasReady
-          ? t("wallet.status.tradeReadyTitle")
-          : bscReady
-            ? t("wallet.status.tradeNeedGasTitle", {
-                threshold: BSC_GAS_READY_THRESHOLD,
-              })
-            : t("wallet.status.tradeFeedRequired"),
-      });
-    }
-  }
 
   const headerWarning =
     chainFocus === "bsc" && evmAddr && !bscReady
@@ -431,7 +280,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
         nativeBalance={chainFocus === "all" ? null : focusedNativeBalance}
         nativeSymbol={chainFocus === "all" ? null : focusedNativeSymbol}
         addresses={addresses}
-        statuses={statusItems}
         chainFocus={chainFocus}
         onChainChange={(chain) => setState("inventoryChainFocus", chain)}
         inlineError={inlineError}

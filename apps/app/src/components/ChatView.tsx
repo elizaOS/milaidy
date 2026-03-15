@@ -12,6 +12,7 @@ import {
   type ImageAttachment,
   type VoiceConfig,
 } from "@milady/app-core/api";
+import { isRoutineCodingAgentMessage } from "@milady/app-core/chat";
 import { VOICE_CONFIG_UPDATED_EVENT } from "@milady/app-core/events";
 import {
   useChatAvatarVoiceBridge,
@@ -49,23 +50,6 @@ const COMPANION_MESSAGE_LAYER_TOP = "calc(-100% + 1.5rem)";
 const COMPANION_MESSAGE_LAYER_BOTTOM = "4rem";
 const COMPANION_MESSAGE_LAYER_MASK =
   "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.28) 6%, rgba(0,0,0,0.82) 12%, black 17%, black 100%)";
-
-/**
- * Routine coding-agent status messages that belong in the activity box, not chat.
- * These messages are intentionally stored in the database (for audit/debugging)
- * but filtered from the visible chat UI — this is by design, not a bug.
- */
-const ROUTINE_CODING_AGENT_RE =
-  /^\[.+?\] (?:Approved:|Responded:|Sent keys:|Turn done, continuing:|Idle for \d+[smh])/;
-
-export function isRoutineCodingAgentMessage(msg: {
-  source?: string;
-  text: string;
-}): boolean {
-  return (
-    msg.source === "coding-agent" && ROUTINE_CODING_AGENT_RE.test(msg.text)
-  );
-}
 
 type ChatViewVariant = "default" | "game-modal";
 

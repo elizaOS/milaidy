@@ -1595,6 +1595,11 @@ export interface AppViewerConfig {
   sandbox?: string;
   authMessage?: AppViewerAuthMessage;
 }
+
+export interface AppUiExtensionConfig {
+  detailPanelId: string;
+}
+
 export interface RegistryAppInfo {
   name: string;
   displayName: string;
@@ -1614,6 +1619,7 @@ export interface RegistryAppInfo {
     v1Version: string | null;
     v2Version: string | null;
   };
+  uiExtension?: AppUiExtensionConfig;
   viewer?: AppViewerConfig;
 }
 export interface InstalledAppInfo {

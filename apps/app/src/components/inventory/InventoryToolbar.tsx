@@ -60,10 +60,6 @@ export function InventoryToolbar({
       {inventoryView === "tokens" && (
         <>
           <span className="flex-1" />
-
-          <span className="text-[10px] text-muted font-mono">
-            {t("wallet.sort")}:
-          </span>
           <Button
             variant={inventorySort === "value" ? "default" : "outline"}
             size="sm"

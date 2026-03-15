@@ -955,6 +955,9 @@ describe("registry-client", () => {
         (app) => app.name === "@elizaos/app-hyperscape",
       );
       expect(hyperscape?.launchUrl).toBe("http://localhost:3333");
+      expect(hyperscape?.uiExtension?.detailPanelId).toBe(
+        "hyperscape-embedded-agents",
+      );
       expect(hyperscape?.viewer?.url).toBe("http://localhost:3333");
       expect(hyperscape?.viewer?.postMessageAuth).toBe(true);
 

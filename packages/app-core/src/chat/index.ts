@@ -7,6 +7,9 @@
 
 import type { Tab } from "../navigation";
 
+const ROUTINE_CODING_AGENT_RE =
+  /^\[.+?\] (?:Approved:|Responded:|Sent keys:|Turn done, continuing:|Idle for \d+[smh])/;
+
 // ── Saved custom commands ────────────────────────────────────────────────
 
 export const CUSTOM_COMMANDS_STORAGE_KEY = "milady:custom-commands";
@@ -79,6 +82,16 @@ export function splitCommandArgs(raw: string): string[] {
     match = re.exec(raw);
   }
   return tokens;
+}
+
+export function isRoutineCodingAgentMessage(message: {
+  source?: string;
+  text: string;
+}): boolean {
+  return (
+    message.source === "coding-agent" &&
+    ROUTINE_CODING_AGENT_RE.test(message.text)
+  );
 }
 
 // ── Typed command registry ───────────────────────────────────────────────

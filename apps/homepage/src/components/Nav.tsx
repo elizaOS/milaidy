@@ -26,7 +26,7 @@ export function Nav() {
           rel="noreferrer"
           className="text-text-muted hover:text-brand transition-colors duration-300"
         >
-          Cloud
+          Eliza Cloud
         </a>
         <a
           href="#privacy"

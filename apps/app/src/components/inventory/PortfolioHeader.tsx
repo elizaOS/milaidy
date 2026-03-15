@@ -1,6 +1,6 @@
 /**
- * Portfolio left-panel: total USD value, chain selector, wallet addresses,
- * optional native balance, status dots, and scoped alerts.
+ * Portfolio header row: total USD value, chain selector, wallet addresses,
+ * optional native balance, and scoped alerts.
  */
 
 import { useApp } from "@milady/app-core/state";
@@ -8,17 +8,10 @@ import { Button } from "@milady/ui";
 import { CHAIN_CONFIGS, PRIMARY_CHAIN_KEYS } from "../chainConfig";
 import { CopyableAddress } from "./CopyableAddress";
 import { formatBalance } from "./constants";
-import { StatusDot } from "./StatusDot";
 
 export interface PortfolioAddressItem {
   label: string;
   address: string;
-}
-
-export interface PortfolioStatusItem {
-  ready: boolean;
-  label: string;
-  title?: string;
 }
 
 export interface PortfolioInlineError {
@@ -37,7 +30,6 @@ export interface PortfolioHeaderProps {
   nativeBalance: string | null;
   nativeSymbol: string | null;
   addresses: PortfolioAddressItem[];
-  statuses: PortfolioStatusItem[];
   chainFocus: string;
   onChainChange: (chain: string) => void;
   inlineError?: PortfolioInlineError | null;
@@ -51,7 +43,6 @@ export function PortfolioHeader({
   nativeBalance,
   nativeSymbol,
   addresses,
-  statuses,
   chainFocus,
   onChainChange,
   inlineError,
@@ -60,104 +51,80 @@ export function PortfolioHeader({
   goToRpcSettings,
 }: PortfolioHeaderProps) {
   const { t, copyToClipboard } = useApp();
-  const focusLabel =
-    chainFocus === "all"
-      ? "All Chains"
-      : `${CHAIN_CONFIGS[chainFocus as keyof typeof CHAIN_CONFIGS]?.name ?? chainFocus} Mainnet`;
 
   return (
-    <div className="two-panel-left">
-      {/* Portfolio value */}
-      <div className="two-panel-label">{t("wallet.portfolio")}</div>
-      <div
-        className="text-[22px] font-bold text-txt-strong"
-        data-testid="wallet-balance-value"
-      >
-        {totalUsd > 0
-          ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : "$0.00"}
-      </div>
-      {nativeBalance !== null && nativeSymbol && (
-        <div className="text-xs text-muted">
-          {formatBalance(nativeBalance)} {nativeSymbol}
-        </div>
-      )}
-      <div className="mt-1 text-xs text-muted">{focusLabel}</div>
-
-      {/* Chain selector */}
-      <div className="two-panel-label mt-4">CHAINS</div>
-      <button
-        type="button"
-        data-testid="wallet-focus-all"
-        className={`two-panel-item ${chainFocus === "all" ? "is-selected" : ""}`}
-        onClick={() => onChainChange("all")}
-      >
-        <span className="text-sm">{t("wallet.all")}</span>
-      </button>
-      {PRIMARY_CHAIN_KEYS.map((key) => {
-        const config = CHAIN_CONFIGS[key];
-        const status = statuses.find(
-          (s) => s.label.toLowerCase() === config.name.toLowerCase(),
-        );
-        return (
-          <button
-            type="button"
-            key={key}
-            data-testid={`wallet-focus-${key}`}
-            className={`two-panel-item flex items-center gap-2 ${chainFocus === key ? "is-selected" : ""}`}
-            onClick={() => onChainChange(key)}
+    <div className="two-panel-top">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
+          <div
+            className="text-[22px] font-bold text-txt-strong"
+            data-testid="wallet-balance-value"
           >
-            <span
-              className="inline-block rounded-full shrink-0"
-              style={{
-                width: 14,
-                height: 14,
-                backgroundColor: config.color,
-              }}
-            />
-            <span className="text-sm">{config.name}</span>
-            {status && (
-              <StatusDot ready={status.ready} label="" title={status.title} />
-            )}
-          </button>
-        );
-      })}
-
-      {/* Addresses */}
-      {addresses.length > 0 && (
-        <>
-          <div className="two-panel-label mt-4">ADDRESSES</div>
-          <div className="flex flex-col gap-1.5">
-            {addresses.map((item) => (
-              <div
-                key={`${item.label}-${item.address}`}
-                className="flex items-center gap-2"
-              >
-                <span className="text-[10px] uppercase tracking-wide text-muted">
-                  {item.label}
-                </span>
-                <CopyableAddress
-                  address={item.address}
-                  onCopy={copyToClipboard}
-                />
-              </div>
-            ))}
+            {totalUsd > 0
+              ? `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : "$0.00"}
           </div>
-        </>
-      )}
-
-      {statuses.length > 0 && (
-        <div className="mt-4 flex flex-col gap-1.5">
-          {statuses.map((status) => (
-            <StatusDot
-              key={`${status.label}-${status.ready ? "ready" : "off"}`}
-              ready={status.ready}
-              label={status.label}
-              title={status.title}
-            />
-          ))}
+          {nativeBalance !== null && nativeSymbol && (
+            <div className="mt-1 text-xs text-muted">
+              {formatBalance(nativeBalance)} {nativeSymbol}
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="flex flex-1 flex-col gap-3 lg:items-end">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="wallet-focus-all"
+              className={`two-panel-item ${chainFocus === "all" ? "is-selected" : ""}`}
+              onClick={() => onChainChange("all")}
+            >
+              <span className="text-sm">{t("wallet.all")}</span>
+            </button>
+            {PRIMARY_CHAIN_KEYS.map((key) => {
+              const config = CHAIN_CONFIGS[key];
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  data-testid={`wallet-focus-${key}`}
+                  className={`two-panel-item flex items-center gap-2 ${chainFocus === key ? "is-selected" : ""}`}
+                  onClick={() => onChainChange(key)}
+                >
+                  <span
+                    className="inline-block rounded-full shrink-0"
+                    style={{
+                      width: 14,
+                      height: 14,
+                      backgroundColor: config.color,
+                    }}
+                  />
+                  <span className="text-sm">{config.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {addresses.length > 0 && (
+            <div className="flex flex-wrap gap-3 lg:justify-end">
+              {addresses.map((item) => (
+                <div
+                  key={`${item.label}-${item.address}`}
+                  className="flex items-center gap-2"
+                >
+                  <span className="text-[10px] uppercase tracking-wide text-muted">
+                    {item.label}
+                  </span>
+                  <CopyableAddress
+                    address={item.address}
+                    onCopy={copyToClipboard}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Inline error */}
       {inlineError?.message && (

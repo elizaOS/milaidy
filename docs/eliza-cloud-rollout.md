@@ -1,4 +1,4 @@
-# Eliza Cloud Rollout Plan
+# Eliza Cloud Integration Plan
 
 This document defines the Eliza Cloud rollout as three user-facing hosting paths that all share one onboarding entry point.
 
@@ -34,21 +34,17 @@ This document defines the Eliza Cloud rollout as three user-facing hosting paths
 
 ### Eliza Cloud control plane
 
-- `elizacloud.ai` should point at the production `eliza-cloud-v2` deploy.
-- There is no separate Milady-specific cloud API service beyond that deploy.
+- `elizacloud.ai` is the canonical managed control plane.
+- There is no separate Milady-specific cloud API service.
 - Eliza Cloud is the control plane, OAuth handler, billing surface, and user store.
-- The deploy should use `NEXT_PUBLIC_APP_URL=https://elizacloud.ai`.
-- Managed launches should redirect into `app.milady.ai` with a one-time launch session that injects the selected backend connection and skips onboarding.
+- Managed launches redirect into `app.milady.ai` with a one-time launch session that injects the selected backend connection and skips onboarding.
 
-### Railway deployment
+### Browser transport
 
-- Deploy `eliza-cloud-v2` as a dedicated Railway service.
-- Use the root `railway.toml` to standardize:
-  - `builder = "RAILPACK"`
-  - `startCommand = "bun run start"`
-  - `healthcheckPath = "/login"`
-- Attach the custom domain `elizacloud.ai`.
-- Terminate TLS at Railway and keep the public app URL pinned to the custom domain.
+- `app.milady.ai` already exchanges managed launch sessions directly with Eliza Cloud.
+- The hosted Milady frontend should use Eliza Cloud APIs directly for browser-safe managed flows.
+- The local desktop/backend keeps same-origin `/api/cloud/*` passthrough routes so it can persist the user's Eliza Cloud API key into local config and runtime state.
+- If a Milady-owned origin is ever required for browser routing or enterprise policy, use the Cloudflare Worker proxy template in `deploy/cloudflare/eliza-cloud-proxy/` instead of standing up a separate application server.
 
 ## Operator checklist
 
@@ -71,18 +67,14 @@ This document defines the Eliza Cloud rollout as three user-facing hosting paths
 
 ### Eliza Cloud control plane
 
-- [x] Brand `eliza-cloud-v2` login metadata for Eliza Cloud.
-- [x] Brand the CLI confirmation page for Eliza Cloud.
-- [x] Add Railway config-as-code with a login healthcheck.
-- [ ] Finish branding the rest of the `eliza-cloud-v2` dashboard shell, metadata, and public pages.
-- [ ] Point all production cloud URLs and emails at `elizacloud.ai`.
-- [ ] Update OAuth redirect allowlists in the auth provider configs for `elizacloud.ai`.
+- [x] Point managed launch onboarding at `cloudProvider: "elizacloud"`.
+- [x] Keep Milady-managed launch sessions flowing through Eliza Cloud.
+- [x] Make the browser-facing Eliza Cloud auth/compat endpoints callable cross-origin when needed.
+- [x] Remove active `Milady Cloud` labels from the managed auth/runtime surfaces.
 - [ ] Verify post-login session redirects and popup flows end-to-end against the Milady app.
 
 ### Infrastructure and release
 
-- [ ] Create the Railway production project and attach `elizacloud.ai`.
-- [ ] Set production secrets in Railway for auth, database, billing, queueing, and any container-provisioning providers used by `eliza-cloud-v2`.
 - [ ] Run a production smoke test:
   - Local onboarding
   - Eliza Cloud provisioning
@@ -106,7 +98,7 @@ Recommended environment:
 ```bash
 MILADY_API_BIND=0.0.0.0
 MILADY_API_TOKEN=$(openssl rand -hex 32)
-MILADY_ALLOWED_ORIGINS=https://elizacloud.ai,https://milady.ai
+MILADY_ALLOWED_ORIGINS=https://app.milady.ai,https://milady.ai,https://elizacloud.ai,https://www.elizacloud.ai
 ```
 
 Optional Tailscale exposure:
@@ -121,14 +113,13 @@ For a public Tailscale-hosted URL:
 tailscale funnel --https=443 http://127.0.0.1:2138
 ```
 
-## Railway service recipe
+## Optional Cloudflare proxy
 
-Use this when deploying Eliza Cloud for Milady.
+Use this only if a Milady-owned browser origin is required for policy or routing reasons.
 
-1. Deploy `eliza-cloud-v2` to Railway from its repo root.
-2. Keep `NEXT_PUBLIC_APP_URL=https://elizacloud.ai`.
-3. Attach the custom domain in Railway and wait for the managed certificate.
-4. Point DNS for `elizacloud.ai` at the Railway-issued target.
-5. Validate `/login` and `/auth/cli-login?session=test-session` before opening the public rollout.
+1. Deploy the Worker template in `deploy/cloudflare/eliza-cloud-proxy/`.
+2. Point the Worker at `https://www.elizacloud.ai`.
+3. Route only browser-facing auth/compat/launch-session paths through the Worker.
+4. Keep Eliza Cloud as the only upstream control plane.
 
-The production enactment checklist now lives in `docs/eliza-cloud-deployment.md`.
+The concrete proxy setup now lives in `docs/eliza-cloud-deployment.md`.

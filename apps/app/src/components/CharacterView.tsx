@@ -178,12 +178,6 @@ function characterDraftMatchesPreset(
   return JSON.stringify(normalizedCurrent) === JSON.stringify(normalizedPreset);
 }
 
-function truncateCopy(value: string, max = 170) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= max) return normalized;
-  return `${normalized.slice(0, max - 1).trimEnd()}…`;
-}
-
 function resolveRosterEntries(
   styles: readonly StylePreset[],
 ): CharacterRosterEntry[] {
@@ -577,7 +571,7 @@ export function CharacterView({
   }, [onboardingOptions?.styles]);
 
   const characterRoster = resolveRosterEntries(rosterStyles);
-  const visibleCharacterRoster = characterRoster.slice(0, 4);
+  const visibleCharacterRoster = characterRoster;
   const currentCharacter = hasCharacterContent(characterDraft)
     ? characterDraft
     : characterData;
@@ -1039,9 +1033,8 @@ export function CharacterView({
   const customizationActionLabel = customOverridesEnabled
     ? t("characterview.backToCharacterSelect")
     : t("characterview.customize");
-  const characterRosterGridCls = sceneOverlay
-    ? "grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4"
-    : "grid grid-cols-4 gap-4";
+  const characterRosterGridCls =
+    "flex flex-wrap items-start justify-center gap-3";
   const rootCls =
     sceneOverlay && !inModal
       ? "relative z-10 flex min-h-full flex-col justify-end pb-4"
@@ -1152,86 +1145,42 @@ export function CharacterView({
           <div className="overflow-hidden" data-testid="character-roster-grid">
             <div className={characterRosterGridCls}>
               {visibleCharacterRoster.length > 0 ? (
-                visibleCharacterRoster.map((entry) => {
+                visibleCharacterRoster.map((entry: CharacterRosterEntry) => {
                   const isSelected = selectedCharacterId === entry.id;
-                  const rosterBio = truncateCopy(
-                    replaceCharacterToken(
-                      entry.preset.bio[0] ?? "",
-                      entry.name,
-                    ),
-                    120,
-                  );
-                  const rosterDirections = truncateCopy(
-                    replaceCharacterToken(entry.preset.system, entry.name),
-                    160,
-                  );
 
                   return (
                     <button
                       key={entry.id}
                       type="button"
-                      className={`flex min-w-0 w-full flex-col rounded-2xl border p-4 text-left transition-all ${
+                      className={`group relative min-w-0 w-[10.5rem] overflow-hidden rounded-2xl border-2 text-center transition-all ${
                         isSelected
-                          ? "border-accent bg-black/45 backdrop-blur-md shadow-[0_0_0_1px_rgba(var(--accent),0.25)]"
+                          ? "border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.35)]"
                           : sceneOverlay
-                            ? "border-white/10 bg-black/32 backdrop-blur-md hover:border-accent/30 hover:bg-black/40"
-                            : "border-border/40 bg-black/10 hover:border-accent/30 hover:bg-accent/5"
+                            ? "border-transparent bg-transparent hover:border-white/15"
+                            : "border-transparent bg-transparent hover:border-border/30"
                       }`}
                       onClick={() => handleSelectCharacter(entry)}
                       data-testid={`character-preset-${entry.id}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-base font-semibold text-txt">
-                            {entry.name}
-                          </div>
-                          <div className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">
-                            {entry.preset.hint}
-                          </div>
-                        </div>
+                      <div className="relative aspect-square w-full">
+                        <img
+                          src={getVrmPreviewUrl(entry.avatarIndex)}
+                          alt={entry.name}
+                          className="h-full w-full object-cover object-center"
+                        />
                         <span
-                          className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                          className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${
                             isSelected
-                              ? "border-accent/40 bg-accent/10 text-accent"
-                              : "border-white/10 bg-black/20 text-muted"
+                              ? "border-yellow-300/70 bg-black/70 text-yellow-200"
+                              : "border-white/10 bg-black/55 text-white/80 backdrop-blur-sm"
                           }`}
                         >
-                          {isSelected ? "selected" : entry.preset.catchphrase}
+                          {entry.preset.catchphrase}
                         </span>
-                      </div>
-
-                      <img
-                        src={getVrmPreviewUrl(entry.avatarIndex)}
-                        alt={entry.name}
-                        className="mt-4 h-44 w-full rounded-2xl object-cover"
-                      />
-
-                      <p className="mt-4 text-sm leading-relaxed text-muted">
-                        {rosterBio}
-                      </p>
-
-                      <div className="mt-4">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
-                          Directions
-                        </div>
-                        <p className="mt-2 text-xs leading-relaxed text-muted">
-                          {rosterDirections}
-                        </p>
-                      </div>
-
-                      <div className="mt-4">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
-                          Topics
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {entry.preset.topics.slice(0, 4).map((topic) => (
-                            <span
-                              key={topic}
-                              className="rounded-full border border-border/40 bg-bg/50 px-2 py-1 text-[11px] text-txt"
-                            >
-                              {topic}
-                            </span>
-                          ))}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent p-2">
+                          <div className="rounded-lg bg-black/55 px-2 py-1 text-sm font-semibold text-white backdrop-blur-sm">
+                            {entry.name}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -1909,70 +1858,85 @@ export function CharacterView({
       )}
 
       <div className={`${sectionCls} relative z-10`}>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {characterSaveSuccess && (
-            <span className="text-xs text-green-400 font-bold bg-green-400/10 px-3 py-1.5 rounded-lg border border-green-400/20">
-              {characterSaveSuccess}
-            </span>
-          )}
-          {combinedSaveError && (
-            <span className="text-xs text-danger bg-danger/10 px-3 py-1.5 rounded-lg border border-danger/20 font-medium">
-              {combinedSaveError}
-            </span>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-            onClick={() => {
-              setSelectedCharacterId(null);
-              setCustomOverridesEnabled(false);
-              void loadCharacter();
-            }}
-            disabled={characterLoading}
-          >
-            {characterLoading ? "loading..." : t("characterview.reload")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-            onClick={() => fileInputRef.current?.click()}
-            title={t("characterview.importCharacterJso")}
-          >
-            {t("characterview.import")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
-            onClick={handleExport}
-            title={t("characterview.exportAsCharacter")}
-          >
-            {t("characterview.export")}
-          </Button>
-          <Button
-            type="button"
-            variant={customOverridesEnabled ? "outline" : "default"}
-            size="sm"
-            className={`h-10 rounded-xl px-4 text-sm font-semibold ${
-              customOverridesEnabled
-                ? "border-border/40 bg-bg/40 text-txt"
-                : "shadow-[0_0_18px_rgba(var(--accent),0.18)]"
-            }`}
-            onClick={() => handleCustomOverridesChange(!customOverridesEnabled)}
-            data-testid="character-customize-toggle"
-          >
-            {customizationActionLabel}
-          </Button>
-          <Button
-            size="lg"
-            className="font-bold tracking-wider px-8 shadow-[0_0_15px_rgba(var(--accent),0.2)] hover:shadow-[0_0_20px_rgba(var(--accent),0.4)] transition-all text-[13px] rounded-xl"
-            disabled={characterSaving || voiceSaving}
-            onClick={() => void handleSaveAll()}
-          >
-            {characterSaving || voiceSaving ? "saving..." : "SAVE CHARACTER"}
-          </Button>
+        {(characterSaveSuccess || combinedSaveError) && (
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            {characterSaveSuccess && (
+              <span className="rounded-lg border border-green-400/20 bg-green-400/10 px-3 py-1.5 text-xs font-bold text-green-400">
+                {characterSaveSuccess}
+              </span>
+            )}
+            {combinedSaveError && (
+              <span className="rounded-lg border border-danger/20 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger">
+                {combinedSaveError}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
+              onClick={() => {
+                setSelectedCharacterId(null);
+                setCustomOverridesEnabled(false);
+                void loadCharacter();
+              }}
+              disabled={characterLoading}
+            >
+              {characterLoading ? "loading..." : t("characterview.reload")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
+              onClick={() => fileInputRef.current?.click()}
+              title={t("characterview.importCharacterJso")}
+            >
+              {t("characterview.import")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl border-border/50 bg-bg/50 px-4 text-sm font-medium shadow-inner backdrop-blur-sm transition-all hover:border-accent/40 hover:text-accent"
+              onClick={handleExport}
+              title={t("characterview.exportAsCharacter")}
+            >
+              {t("characterview.export")}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <Button
+              size="lg"
+              className="rounded-xl px-8 text-[13px] font-bold tracking-wider shadow-[0_0_15px_rgba(var(--accent),0.2)] transition-all hover:shadow-[0_0_20px_rgba(var(--accent),0.4)]"
+              disabled={characterSaving || voiceSaving}
+              onClick={() => void handleSaveAll()}
+            >
+              {characterSaving || voiceSaving ? "saving..." : "Save Character"}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center md:justify-end">
+            <Button
+              type="button"
+              variant={customOverridesEnabled ? "outline" : "default"}
+              size="sm"
+              className={`h-10 rounded-xl px-4 text-sm font-semibold ${
+                customOverridesEnabled
+                  ? "border-border/40 bg-bg/40 text-txt"
+                  : "shadow-[0_0_18px_rgba(var(--accent),0.18)]"
+              }`}
+              onClick={() =>
+                handleCustomOverridesChange(!customOverridesEnabled)
+              }
+              data-testid="character-customize-toggle"
+            >
+              {customizationActionLabel}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

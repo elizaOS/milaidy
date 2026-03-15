@@ -180,7 +180,7 @@ Recommended server environment:
 ```bash
 export MILADY_API_BIND=0.0.0.0
 export MILADY_API_TOKEN="$(openssl rand -hex 32)"
-export MILADY_ALLOWED_ORIGINS="https://elizacloud.ai,https://milady.ai"
+export MILADY_ALLOWED_ORIGINS="https://app.milady.ai,https://milady.ai,https://elizacloud.ai,https://www.elizacloud.ai"
 milady start --headless
 ```
 
@@ -212,22 +212,20 @@ Then use the Tailscale HTTPS URL as the backend address in onboarding and keep u
 
 ### Eliza Cloud
 
-`Milady` uses `Eliza Cloud` directly at `https://elizacloud.ai`. The managed control plane, auth surface, billing, and instance dashboard are all backed by the `../eliza-cloud-v2` app.
+`Milady` uses the existing `Eliza Cloud` deployment directly at `https://elizacloud.ai`. The managed control plane, auth surface, billing, and instance dashboard all live there; there is no separate Milady-hosted cloud control plane to deploy.
 
-There is no separate Milady cloud backend to deploy beyond Eliza Cloud itself. `elizacloud.ai` launches `app.milady.ai` with a one-time launch session so the frontend attaches directly to the selected managed backend.
+Managed browser flow:
 
-Railway deployment shape:
+1. Sign in on `https://elizacloud.ai/login?returnTo=%2Fdashboard%2Fmilady`
+2. Open or create a Milady instance in `https://elizacloud.ai/dashboard/milady`
+3. Eliza Cloud redirects to `https://app.milady.ai` with a one-time launch session
+4. `app.milady.ai` exchanges that launch session directly with Eliza Cloud and attaches to the selected managed backend
 
-1. Deploy `../eliza-cloud-v2` from repo root.
-2. Keep `NEXT_PUBLIC_APP_URL=https://elizacloud.ai`.
-3. Set `NEXT_PUBLIC_MILADY_APP_URL=https://app.milady.ai`.
-4. Set `ELIZA_CLOUD_AGENT_BASE_DOMAIN=containers.elizacloud.ai` for managed agent hostnames.
-5. Attach the custom domain `elizacloud.ai`.
-6. Verify `/login`, `/dashboard/milady`, and `/auth/cli-login` on the Railway deploy before rollout.
+The desktop/local app still exposes local `/api/cloud/*` passthrough routes for cloud login, billing, and compat management so it can persist the Eliza Cloud API key into the local config/runtime. That is local app plumbing, not a separate hosted Milady server.
 
-The detailed rollout plan and execution checklist live in [docs/eliza-cloud-rollout.md](docs/eliza-cloud-rollout.md).
+The integration plan lives in [docs/eliza-cloud-rollout.md](docs/eliza-cloud-rollout.md).
 
-The production deployment runbook lives in [docs/eliza-cloud-deployment.md](docs/eliza-cloud-deployment.md).
+The implementation and proxy runbook lives in [docs/eliza-cloud-deployment.md](docs/eliza-cloud-deployment.md).
 
 ---
 

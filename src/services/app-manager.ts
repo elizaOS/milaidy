@@ -505,6 +505,7 @@ export class AppManager {
         icon: meta.icon,
         category: meta.category,
         capabilities: meta.capabilities,
+        uiExtension: meta.uiExtension,
         viewer: meta.viewer,
       };
     });

@@ -5,6 +5,10 @@ export interface RegistryAppViewerMeta {
   sandbox?: string;
 }
 
+export interface AppUiExtensionConfig {
+  detailPanelId: string;
+}
+
 export interface RegistryAppMeta {
   displayName: string;
   category: string;
@@ -14,6 +18,7 @@ export interface RegistryAppMeta {
   capabilities: string[];
   minPlayers: number | null;
   maxPlayers: number | null;
+  uiExtension?: AppUiExtensionConfig;
   viewer?: RegistryAppViewerMeta;
 }
 
@@ -62,6 +67,7 @@ export interface RegistryAppInfo {
     v1Version: string | null;
     v2Version: string | null;
   };
+  uiExtension?: AppUiExtensionConfig;
   viewer?: {
     url: string;
     embedParams?: Record<string, string>;
