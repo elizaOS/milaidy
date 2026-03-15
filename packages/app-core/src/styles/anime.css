@@ -4828,6 +4828,281 @@
   transform-style: preserve-3d;
 }
 
+/* ── Inline (in-tab) overrides — flat, theme-aware ──────────────────── *
+ *
+ * Problem: `.plugins-game-detail-panel` locally overrides --txt, --text,
+ * --muted, --border with hardcoded white-on-dark values (line ~4913).
+ * We capture the GLOBAL theme values on the parent as --pgi-* before
+ * the detail panel clobbers them.
+ */
+
+.plugins-game-modal--inline {
+  /* Capture global theme values BEFORE child panels override them */
+  --pgi-text: var(--text);
+  --pgi-muted: var(--muted);
+  --pgi-border: var(--border);
+  --pgi-card: var(--card);
+  --pgi-surface: var(--surface);
+  --pgi-accent: var(--accent, #f0b232);
+
+  perspective: none;
+  transform-style: flat;
+  padding: 0;
+  gap: 16px;
+  grid-template-columns: 220px 1fr;
+  color: var(--text);
+}
+
+/* ── Both panels: flat, themed ───────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-list-panel,
+.plugins-game-modal--inline .plugins-game-detail-panel {
+  transform: none;
+  border-radius: 12px;
+  border: 1px solid var(--pgi-border);
+  background: var(--pgi-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Remove corner decorations */
+.plugins-game-modal--inline .plugins-game-list-panel::before,
+.plugins-game-modal--inline .plugins-game-list-panel::after,
+.plugins-game-modal--inline .plugins-game-detail-panel::before,
+.plugins-game-modal--inline .plugins-game-detail-panel::after {
+  display: none;
+}
+
+/* ── Right panel — reset the local color overrides ───────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-panel {
+  /* Override the hardcoded white locals from the base game CSS */
+  --text: var(--pgi-text);
+  --txt: var(--pgi-text);
+  --muted: var(--pgi-muted);
+  --border: var(--pgi-border);
+  --plugin-label: var(--pgi-text);
+  --plugin-help: var(--pgi-muted);
+  --plugin-label-size: 13px;
+  --plugin-help-size: 12px;
+  color: var(--pgi-text);
+  padding: 28px 32px 32px;
+  scrollbar-color: var(--pgi-border) transparent;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-panel::-webkit-scrollbar-thumb {
+  background: var(--pgi-border);
+}
+
+/* ── Detail header ───────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-head {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-head::after {
+  background: var(--pgi-border);
+}
+
+.plugins-game-modal--inline .plugins-game-detail-name {
+  color: var(--pgi-text);
+  text-shadow: none;
+}
+
+.plugins-game-modal--inline .plugins-game-version {
+  color: var(--pgi-muted);
+}
+
+.plugins-game-modal--inline .plugins-game-detail-description {
+  color: var(--pgi-text);
+  border-left-color: var(--pgi-accent);
+  background: color-mix(in srgb, var(--pgi-accent) 5%, var(--pgi-surface));
+  margin-bottom: 24px;
+}
+
+/* ── Left panel cards ────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-list-panel {
+  background: var(--pgi-card);
+  color: var(--pgi-text);
+}
+
+.plugins-game-modal--inline .plugins-game-card {
+  border-color: var(--pgi-border);
+  background: transparent;
+  color: var(--pgi-text);
+}
+
+.plugins-game-modal--inline .plugins-game-card::after {
+  display: none;
+}
+
+.plugins-game-modal--inline .plugins-game-card:hover {
+  background: var(--pgi-surface);
+}
+
+.plugins-game-modal--inline .plugins-game-card.is-selected {
+  background: color-mix(in srgb, var(--pgi-accent) 10%, var(--pgi-surface));
+  border-color: var(--pgi-accent);
+  box-shadow: none;
+}
+
+.plugins-game-modal--inline .plugins-game-card-name {
+  color: var(--pgi-text);
+}
+
+.plugins-game-modal--inline .plugins-game-card-icon-shell,
+.plugins-game-modal--inline .plugins-game-detail-icon-shell {
+  background: color-mix(in srgb, var(--pgi-accent) 8%, var(--pgi-surface));
+  border-color: var(--pgi-border);
+  box-shadow: none;
+}
+
+.plugins-game-modal--inline .plugins-game-section-title {
+  color: var(--pgi-text);
+}
+
+/* ── Badges ──────────────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-badge {
+  color: var(--pgi-muted);
+  border-color: var(--pgi-border);
+  background: transparent;
+}
+
+.plugins-game-modal--inline .plugins-game-badge.is-on {
+  color: var(--pgi-accent);
+  border-color: var(--pgi-accent);
+  background: color-mix(in srgb, var(--pgi-accent) 10%, transparent);
+}
+
+/* ── Toggle button ───────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-toggle {
+  border-color: var(--pgi-border);
+  color: var(--pgi-muted);
+  background: transparent;
+}
+
+.plugins-game-modal--inline .plugins-game-toggle.is-on {
+  background: var(--pgi-accent);
+  border-color: var(--pgi-accent);
+  color: var(--accent-foreground, #1a1f26);
+}
+
+/* ── Config form ─────────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-config {
+  border-top: 1px solid var(--pgi-border);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config [id^="field-"] {
+  border-left: none;
+  padding-left: 0;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config [class*="tracking-wider"],
+.plugins-game-modal--inline .plugins-game-detail-config label {
+  color: var(--pgi-text) !important;
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 1 !important;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config .line-clamp-2 {
+  color: var(--pgi-muted) !important;
+  opacity: 1 !important;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea) {
+  background: var(--pgi-surface) !important;
+  border: 1px solid var(--pgi-border) !important;
+  color: var(--pgi-text) !important;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  box-shadow: none !important;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea)::placeholder {
+  color: var(--pgi-muted) !important;
+  opacity: 0.6;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-config :is(input, select, textarea):focus {
+  border-color: var(--pgi-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pgi-accent) 20%, transparent) !important;
+}
+
+/* ── Action buttons ──────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-actions {
+  border-top: 1px solid var(--pgi-border);
+  padding-top: 20px;
+}
+
+.plugins-game-modal--inline .plugins-game-action-btn {
+  border-color: var(--pgi-border);
+  color: var(--pgi-text);
+  background: transparent;
+  border-radius: 8px;
+  text-shadow: none;
+}
+
+.plugins-game-modal--inline .plugins-game-action-btn:hover {
+  border-color: var(--pgi-accent);
+  background: color-mix(in srgb, var(--pgi-accent) 8%, transparent);
+}
+
+.plugins-game-modal--inline .plugins-game-save-btn,
+.plugins-game-modal--inline .plugins-game-save-btn:hover {
+  background: var(--pgi-accent);
+  border-color: var(--pgi-accent);
+  color: var(--accent-foreground, #1a1f26);
+}
+
+/* ── Tags & links ────────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-panel .text-muted {
+  color: var(--pgi-muted) !important;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-panel [class*="border-border"] {
+  border-color: var(--pgi-border) !important;
+}
+
+.plugins-game-modal--inline .plugins-game-detail-panel [class*="bg-black"] {
+  background: color-mix(in srgb, var(--pgi-text) 5%, transparent) !important;
+}
+
+.plugins-game-modal--inline .plugins-game-link-btn {
+  border-color: var(--pgi-border);
+  color: var(--pgi-muted);
+}
+
+.plugins-game-modal--inline .plugins-game-link-btn:hover {
+  border-color: var(--pgi-accent);
+  color: var(--pgi-text);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+
+.plugins-game-modal--inline .plugins-game-detail-empty {
+  color: var(--pgi-muted);
+}
+
+.plugins-game-modal--inline .plugins-game-detail-empty-text {
+  color: var(--pgi-muted);
+}
+
+/* ── End inline overrides ───────────────────────────────────────────── */
+
 .plugins-game-list-panel,
 .plugins-game-detail-panel {
   position: relative;

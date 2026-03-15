@@ -10,12 +10,10 @@ export function ConnectorsPageView({ inModal }: { inModal?: boolean } = {}) {
 
   return (
     <div className="flex flex-col h-full">
-      {!inModal && (
-        <h2 className="text-lg font-bold mb-3">
-          {t("connectorspageview.Social")}
-        </h2>
-      )}
-      <PluginsView mode="social" inModal={inModal} />
+      <h2 className="text-lg font-bold mb-3">
+        {t("connectorspageview.Social")}
+      </h2>
+      <PluginsView mode="social" inModal={inModal ?? true} />
     </div>
   );
 }

@@ -159,10 +159,10 @@ export function Header(_props: HeaderProps) {
                 <button
                   type="button"
                   key={group.label}
-                  className={`inline-flex items-center justify-center gap-1.5 shrink-0 px-3 lg:px-4 py-2 text-[12px] bg-transparent border border-transparent cursor-pointer transition-all duration-300 rounded-full ${
+                  className={`inline-flex items-center justify-center gap-1.5 shrink-0 px-3 lg:px-4 py-2 text-[12px] border border-transparent cursor-pointer transition-all duration-300 rounded-full ${
                     isActive
-                      ? "text-accent-fg dark:text-txt-strong font-bold bg-accent dark:bg-accent/15 shadow-[0_0_15px_rgba(var(--accent),0.28)] border-accent/50 dark:border-accent/40 ring-1 ring-inset ring-white/18 dark:ring-accent/25"
-                      : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
+                      ? "text-accent-fg font-bold bg-accent shadow-[0_0_15px_rgba(var(--accent),0.28)] border-accent/50 ring-1 ring-inset ring-white/18"
+                      : "bg-transparent text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
                   }`}
                   onClick={() => setTab(primaryTab)}
                   title={group.description}
@@ -208,7 +208,7 @@ export function Header(_props: HeaderProps) {
                       type="button"
                       className={`w-full flex items-center gap-3 px-3 py-3.5 border rounded-xl text-[14px] font-medium transition-all duration-300 cursor-pointer min-h-[48px] ${
                         isActive
-                          ? "border-accent/50 dark:border-accent/40 bg-accent dark:bg-accent/15 text-accent-fg dark:text-txt-strong shadow-[0_0_15px_rgba(var(--accent),0.24)] ring-1 ring-inset ring-white/18 dark:ring-accent/25"
+                          ? "border-accent/50 bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.24)] ring-1 ring-inset ring-white/18"
                           : "border-transparent bg-transparent text-txt hover:border-border/50 hover:bg-bg-hover"
                       }`}
                       style={{ animationDelay: `${index * 50}ms` }}

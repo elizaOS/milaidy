@@ -999,10 +999,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
         (effectiveStatusFilter === "disabled" && !p.enabled);
       const matchesSearch =
         !searchLower ||
-        p.name.toLowerCase().includes(searchLower) ||
+        (p.name ?? "").toLowerCase().includes(searchLower) ||
         (p.description ?? "").toLowerCase().includes(searchLower) ||
-        (p.tags ?? []).some((tag) => tag.toLowerCase().includes(searchLower)) ||
-        p.id.toLowerCase().includes(searchLower);
+        (p.tags ?? []).some((tag) => (tag ?? "").toLowerCase().includes(searchLower)) ||
+        (p.id ?? "").toLowerCase().includes(searchLower);
       return matchesStatus && matchesSearch;
     });
   }, [categoryPlugins, effectiveSearch, effectiveStatusFilter]);
@@ -1019,7 +1019,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           false;
         if (aNeedsConfig !== bNeedsConfig) return aNeedsConfig ? -1 : 1;
       }
-      return a.name.localeCompare(b.name);
+      return (a.name ?? "").localeCompare(b.name ?? "");
     };
     if (!allowCustomOrder || pluginOrder.length === 0) {
       return [...filtered].sort(defaultSort);
@@ -1661,7 +1661,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     const sectionTitle =
       mode === "social" ? "Social" : mode === "connectors" ? "Channels" : label;
     return (
-      <div className="plugins-game-modal">
+      <div className="plugins-game-modal plugins-game-modal--inline">
         <div
           className={`plugins-game-list-panel${
             gameNarrow && gameMobileDetail ? " is-hidden" : ""

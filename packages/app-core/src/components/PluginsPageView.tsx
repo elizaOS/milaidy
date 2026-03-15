@@ -5,5 +5,5 @@
 import { PluginsView } from "./PluginsView";
 
 export function PluginsPageView() {
-  return <PluginsView />;
+  return <PluginsView inModal />;
 }
