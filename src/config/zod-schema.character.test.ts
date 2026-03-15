@@ -9,9 +9,9 @@ import { describe, expect, it } from "vitest";
 import { CharacterSchema } from "./zod-schema";
 
 describe("CharacterSchema", () => {
-  it("accepts undefined (character is optional)", () => {
+  it("rejects undefined (PUT body must be an object)", () => {
     const result = CharacterSchema.safeParse(undefined);
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("accepts an empty object", () => {

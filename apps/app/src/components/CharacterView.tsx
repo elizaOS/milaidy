@@ -1366,7 +1366,7 @@ export function CharacterView({
                   </span>
                 )}
                 <a
-                  href={`https://etherscan.io/token/${registryStatus.walletAddress}`}
+                  href={`https://etherscan.io/address/${registryStatus.walletAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[11px] underline text-[var(--accent)]"
