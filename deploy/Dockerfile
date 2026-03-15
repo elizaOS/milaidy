@@ -1,7 +1,7 @@
 FROM node:22-bookworm
 
 # Install Bun (primary package manager and build tool)
-RUN curl -fsSL https://bun.sh/install | bash
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
 ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
