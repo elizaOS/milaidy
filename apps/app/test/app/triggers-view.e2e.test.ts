@@ -592,13 +592,18 @@ describe("TriggersView UI E2E", () => {
 
     const renamedTriggerDisplayName = "Trigger UI E2E Updated";
     await act(async () => {
-      await findButtonByText(root, "Edit").props.onClick();
+      await findButtonByText(root, [
+        "Edit",
+        "triggersview.Edit",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
         root.findAll(
           (node) =>
-            node.type === "button" && nodeText(node).includes("Save Changes"),
+            node.type === "button" &&
+            (nodeText(node).includes("Save Changes") ||
+              nodeText(node).includes("heartbeatsview.editHeartbeat")),
         ).length === 1,
       "Trigger editor did not enter edit mode",
     );
@@ -614,7 +619,10 @@ describe("TriggersView UI E2E", () => {
     });
 
     await act(async () => {
-      await findButtonByText(root, "Save Changes").props.onClick();
+      await findButtonByText(root, [
+        "Save Changes",
+        "heartbeatsview.editHeartbeat",
+      ]).props.onClick();
     });
     await waitFor(
       () =>
