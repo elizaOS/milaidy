@@ -180,18 +180,18 @@ function UploadZone({
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-accent hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+          className="h-8 px-3 text-[11px] font-semibold"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
         >
           {t("knowledgeview.ChooseFiles")}
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-txt hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+          className="h-8 px-3 text-[11px] font-semibold"
           onClick={() => folderInputRef.current?.click()}
           disabled={uploading}
         >
@@ -200,7 +200,7 @@ function UploadZone({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 px-3 text-[11px] font-semibold border-border/50 bg-bg/50 backdrop-blur-md text-txt hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+          className="h-8 px-3 text-[11px] font-semibold hover:text-txt"
           onClick={() => setShowUrlInput(!showUrlInput)}
           disabled={uploading}
         >
@@ -423,11 +423,7 @@ function DocumentDetailModal({
       setDoc(docRes.document);
       setFragments(fragRes.fragments);
       setEditTitle(String(docRes.document.filename || ""));
-      setEditContent(
-        typeof docRes.document.content === "string"
-          ? docRes.document.content
-          : ((docRes.document.content as { text?: string })?.text ?? ""),
-      );
+      setEditContent(docRes.document.content?.text ?? "");
       setLoading(false);
     }
 
@@ -642,12 +638,7 @@ function DocumentDetailModal({
                         className="h-7 px-2 text-[11px] text-muted hover:text-txt"
                         onClick={() => {
                           setEditingContent(false);
-                          setEditContent(
-                            typeof doc.content === "string"
-                              ? doc.content
-                              : ((doc.content as { text?: string })?.text ??
-                                  ""),
-                          );
+                          setEditContent(doc.content?.text ?? "");
                         }}
                       >
                         Cancel
@@ -669,15 +660,9 @@ function DocumentDetailModal({
                     title="Click to edit content"
                   >
                     <p className="text-[13px] text-txt/90 whitespace-pre-wrap leading-relaxed line-clamp-6">
-                      {typeof doc.content === "string"
-                        ? doc.content
-                        : ((doc.content as { text?: string })?.text ??
-                          "No content available")}
+                      {doc.content?.text ?? "No content available"}
                     </p>
-                    {((typeof doc.content === "string" &&
-                      doc.content.length > 500) ||
-                      ((doc.content as { text?: string })?.text?.length ?? 0) >
-                        500) && (
+                    {(doc.content?.text?.length ?? 0) > 500 && (
                       <span className="text-[11px] text-accent/70 mt-2 inline-block">
                         Click to view and edit full content...
                       </span>
@@ -699,7 +684,7 @@ function DocumentDetailModal({
                 {fragments.map((fragment, index) => (
                   <div
                     key={fragment.id}
-                    className="p-4 bg-card/60 border border-accent/30 shadow-sm rounded-xl hover:border-accent/50 transition-colors"
+                    className="p-4 bg-card/60 border border-white/5 shadow-sm rounded-xl hover:border-accent/30 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-[11px] font-bold tracking-widest uppercase text-muted">
@@ -717,7 +702,7 @@ function DocumentDetailModal({
                   </div>
                 ))}
                 {fragments.length === 0 && (
-                  <div className="text-center py-12 text-muted bg-black/10 rounded-xl border border-dashed border-accent/20">
+                  <div className="text-center py-12 text-muted bg-black/10 rounded-xl border border-dashed border-white/10">
                     {t("knowledgeview.NoFragmentsFound")}
                   </div>
                 )}
@@ -1207,13 +1192,13 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={searching}
-              className="h-9 bg-bg border-accent/50 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
+              className="h-9 bg-bg border-border text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-accent"
             />
             <Button
               type="submit"
-              variant="outline"
+              variant="default"
               size="sm"
-              className="h-9 px-4 shadow-sm border-border/50 bg-bg/50 backdrop-blur-md text-accent hover:border-accent hover:text-accent hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] rounded-xl"
+              className="h-9 px-4 shadow-sm"
               disabled={!searchQuery.trim() || searching}
             >
               {searching

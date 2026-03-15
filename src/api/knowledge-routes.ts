@@ -832,7 +832,9 @@ export async function handleKnowledgeRoutes(
       return true;
     }
 
-    // Load the existing document
+    // Load the existing document.
+    // NOTE: KnowledgeServiceLike exposes no getMemoryById — the O(n) scan
+    // mirrors the GET /api/knowledge/documents/:id route above.
     const documents = await knowledgeService.getMemories({
       tableName: "documents",
       roomId: agentId,
@@ -845,7 +847,9 @@ export async function handleKnowledgeRoutes(
       return true;
     }
 
-    const metadata = (document.metadata as Record<string, unknown>) ?? {};
+    const metadata = {
+      ...((document.metadata as Record<string, unknown>) ?? {}),
+    };
     const oldFilename = (metadata.filename as string) || "document";
     const contentType =
       (metadata.fileType as string) ||
@@ -857,7 +861,27 @@ export async function handleKnowledgeRoutes(
       metadata.title = body.filename;
     }
 
-    // Delete old document + fragments
+    const contentToStore =
+      body.content !== undefined
+        ? body.content
+        : ((document.content as { text?: string })?.text ?? "");
+
+    // Create the replacement document *before* deleting the old one so a
+    // failed addKnowledge call does not leave the user with zero data.
+    const newDocumentId = crypto.randomUUID() as UUID;
+    const result = await knowledgeService.addKnowledge({
+      agentId,
+      worldId: agentId,
+      roomId: agentId,
+      entityId: agentId,
+      clientDocumentId: newDocumentId,
+      contentType,
+      originalFilename: (metadata.filename as string) || oldFilename,
+      content: contentToStore,
+      metadata,
+    });
+
+    // New document succeeded — safe to clean up the old one.
     const oldFragmentIds = await listKnowledgeFragmentsForDocument(
       knowledgeService,
       agentId,
@@ -867,26 +891,6 @@ export async function handleKnowledgeRoutes(
       await knowledgeService.deleteMemory(fragmentId);
     }
     await knowledgeService.deleteMemory(documentId);
-
-    // Re-create with updated content/metadata
-    const contentToStore =
-      body.content !== undefined
-        ? body.content
-        : typeof document.content === "string"
-          ? document.content
-          : ((document.content as { text?: string })?.text ?? "");
-
-    const result = await knowledgeService.addKnowledge({
-      agentId,
-      worldId: agentId,
-      roomId: agentId,
-      entityId: agentId,
-      clientDocumentId: "" as UUID,
-      contentType,
-      originalFilename: (metadata.filename as string) || oldFilename,
-      content: contentToStore,
-      metadata,
-    });
 
     json(res, {
       ok: true,

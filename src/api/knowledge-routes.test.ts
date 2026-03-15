@@ -889,8 +889,20 @@ describe("knowledge routes", () => {
 
   // ── PATCH /api/knowledge/documents/:id ──────────────────────────────────
 
-  test("PATCH updates document filename and re-creates via addKnowledge", async () => {
+  test("PATCH updates document filename — creates new before deleting old", async () => {
     const documentId = uuid(5001);
+    const callOrder: string[] = [];
+    addKnowledgeMock.mockImplementation(async () => {
+      callOrder.push("addKnowledge");
+      return {
+        clientDocumentId: uuid(5002),
+        storedDocumentMemoryId: uuid(5003),
+        fragmentCount: 1,
+      };
+    });
+    deleteMemoryMock.mockImplementation(async () => {
+      callOrder.push("deleteMemory");
+    });
     getMemoriesMock.mockImplementation(async ({ tableName }) => {
       if (tableName === "documents") {
         return [
@@ -905,14 +917,7 @@ describe("knowledge routes", () => {
           }),
         ];
       }
-      // No fragments
       return [];
-    });
-
-    addKnowledgeMock.mockResolvedValueOnce({
-      clientDocumentId: uuid(5002),
-      storedDocumentMemoryId: uuid(5003),
-      fragmentCount: 1,
     });
 
     const result = await invoke({
@@ -926,18 +931,23 @@ describe("knowledge routes", () => {
       ok: true,
       filename: "new-name.md",
     });
-    // Should delete old document
+    // addKnowledge must run before any deleteMemory call
+    expect(callOrder[0]).toBe("addKnowledge");
     expect(deleteMemoryMock).toHaveBeenCalledWith(documentId);
-    // Should re-create with updated metadata
     expect(addKnowledgeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         originalFilename: "new-name.md",
         content: "original content",
+        clientDocumentId: expect.any(String),
       }),
     );
+    // clientDocumentId must not be empty
+    const passedId = addKnowledgeMock.mock.calls[0][0].clientDocumentId;
+    expect(passedId).toBeTruthy();
+    expect(passedId).not.toBe("");
   });
 
-  test("PATCH updates document content and re-fragments", async () => {
+  test("PATCH updates document content — deletes old fragments after success", async () => {
     const documentId = uuid(5100);
     const fragmentId = uuid(5101);
     getMemoriesMock.mockImplementation(async ({ tableName }) => {
@@ -954,7 +964,6 @@ describe("knowledge routes", () => {
           }),
         ];
       }
-      // One fragment for this document
       return [
         buildMemory({
           id: fragmentId,
@@ -977,10 +986,8 @@ describe("knowledge routes", () => {
 
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({ ok: true });
-    // Should delete old fragment + document
     expect(deleteMemoryMock).toHaveBeenCalledWith(fragmentId);
     expect(deleteMemoryMock).toHaveBeenCalledWith(documentId);
-    // Should re-create with new content
     expect(addKnowledgeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         originalFilename: "keep-name.txt",
@@ -1056,5 +1063,37 @@ describe("knowledge routes", () => {
       "filename or content",
     );
     expect(addKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  test("PATCH does not delete old document when addKnowledge throws", async () => {
+    const documentId = uuid(5500);
+    getMemoriesMock.mockImplementation(async ({ tableName }) => {
+      if (tableName === "documents") {
+        return [
+          buildMemory({
+            id: documentId,
+            metadata: { filename: "precious.md", fileType: "text/markdown" },
+            content: { text: "important data" },
+            createdAt: 400,
+          }),
+        ];
+      }
+      return [];
+    });
+
+    addKnowledgeMock.mockRejectedValueOnce(
+      new Error("embedding service unavailable"),
+    );
+
+    await expect(
+      invoke({
+        method: "PATCH",
+        pathname: `/api/knowledge/documents/${documentId}`,
+        body: { filename: "renamed.md" },
+      }),
+    ).rejects.toThrow("embedding service unavailable");
+
+    // Old document must NOT have been deleted
+    expect(deleteMemoryMock).not.toHaveBeenCalled();
   });
 });
