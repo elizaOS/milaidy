@@ -334,6 +334,7 @@ describe("AppContext autonomy replay", () => {
       enabled: false,
       connected: false,
     });
+    mockClient.getCodingAgentStatus.mockResolvedValue(null);
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],

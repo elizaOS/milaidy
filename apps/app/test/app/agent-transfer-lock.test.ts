@@ -176,6 +176,7 @@ describe("agent transfer locking", () => {
       enabled: false,
       connected: false,
     });
+    mockClient.getCodingAgentStatus.mockResolvedValue(null);
     mockClient.getWorkbenchOverview.mockResolvedValue({
       tasks: [],
       triggers: [],
