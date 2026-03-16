@@ -36,14 +36,15 @@
     "./styles/styles.css": "./src/styles/styles.css"
   },
   "peerDependencies": {
+    "@pixiv/three-vrm": "^3.4.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.182.0"
   },
   "dependencies": {
     "@capacitor/core": "8.0.2",
     "@capacitor/haptics": "8.0.0",
     "@capacitor/preferences": "^8.0.1",
-    "@pixiv/three-vrm": "^3.4.5",
     "@sparkjsdev/spark": "^0.1.10",
     "@milady/capacitor-camera": "workspace:*",
     "@milady/capacitor-canvas": "workspace:*",
@@ -54,7 +55,6 @@
     "@milady/capacitor-swabble": "workspace:*",
     "@milady/capacitor-talkmode": "workspace:*",
     "@milady/ui": "workspace:*",
-    "three": "^0.182.0",
     "lucide-react": "^0.575.0",
     "zod": "^4.3.6"
   },
