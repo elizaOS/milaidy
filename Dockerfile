@@ -1,4 +1,7 @@
-FROM node:22-bookworm
+# ==============================================================================
+# Stage 1: Builder — install all deps, resolve LFS assets, build
+# ==============================================================================
+FROM node:22-bookworm AS builder
 
 # Install Bun (primary package manager and build tool)
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
@@ -122,6 +125,48 @@ RUN set -e; \
 RUN bun install --ignore-scripts
 RUN node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs
 RUN bun run build
+
+# Re-install with production-only dependencies for the runtime image.
+RUN rm -rf node_modules && bun install --ignore-scripts --production
+
+# ==============================================================================
+# Stage 2: Runtime — lean production image without dev deps, source, or build tools
+# ==============================================================================
+FROM node:22-bookworm AS runtime
+
+# Install Bun (needed at runtime for bun-native modules)
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD="true"
+
+ARG MILADY_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
+      apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MILADY_DOCKER_APT_PACKAGES && \
+      apt-get clean && \
+      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+    fi
+
+# Copy production node_modules (no devDependencies)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy build outputs
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/app/dist ./apps/app/dist
+
+# Copy entrypoint and runtime scripts
+COPY --from=builder /app/milady.mjs ./milady.mjs
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/scripts ./scripts
+
+# Copy resolved VRM/animation assets (from LFS or fallback)
+COPY --from=builder /app/apps/app/public ./apps/app/public
+
+# Copy workspace package.json files so Node module resolution works
+COPY --from=builder /app/apps/app/package.json ./apps/app/package.json
+COPY --from=builder /app/apps/app/node_modules ./apps/app/node_modules
 
 ENV NODE_ENV=production
 ENV MILADY_API_BIND="0.0.0.0"

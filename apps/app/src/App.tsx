@@ -13,7 +13,6 @@ import {
   HeartbeatsView,
   PairingView,
   SaveCommandModal,
-  SettingsView,
   StartupFailureView,
   SystemWarningBanner,
 } from "@milady/app-core/components";
@@ -27,9 +26,14 @@ import type { Tab } from "@milady/app-core/navigation";
 import { APPS_ENABLED, COMPANION_ENABLED } from "@milady/app-core/navigation";
 import { isIOS, isNative } from "@milady/app-core/platform";
 import { useApp } from "@milady/app-core/state";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { AdvancedPageView } from "./components/AdvancedPageView";
-import { CharacterView } from "./components/CharacterView";
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { ChatView } from "./components/ChatView";
 import { CompanionShell } from "./components/CompanionShell";
 import { CompanionView } from "./components/CompanionView";
@@ -39,10 +43,21 @@ import { CustomActionsPanel } from "./components/CustomActionsPanel";
 import { SharedCompanionScene } from "./components/companion/CompanionSceneHost";
 import { Header } from "./components/Header";
 import { InventoryView } from "./components/InventoryView";
+import { ShellOverlays } from "./components/ShellOverlays";
+
+/* ---- Lazy: StreamView has its own render path, not in main tab rotation ---- */
+const StreamView = lazy(() =>
+  import("./components/StreamView").then((m) => ({
+    default: m.StreamView,
+  })),
+);
+
+import { SettingsView } from "@milady/app-core/components";
+/* ---- Static imports for all tab-routed views ---- */
+import { AdvancedPageView } from "./components/AdvancedPageView";
+import { CharacterView } from "./components/CharacterView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { OnboardingWizard } from "./components/OnboardingWizard";
-import { ShellOverlays } from "./components/ShellOverlays";
-import { StreamView } from "./components/StreamView";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -175,7 +190,11 @@ function ViewRouter({
     }
   })();
 
-  return <ErrorBoundary>{view}</ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={null}>{view}</Suspense>
+    </ErrorBoundary>
+  );
 }
 
 export function App() {
@@ -343,7 +362,9 @@ export function App() {
   if (isPopout) {
     return (
       <div className="flex flex-col h-screen w-screen font-body text-txt bg-bg overflow-hidden">
-        <StreamView />
+        <Suspense fallback={null}>
+          <StreamView />
+        </Suspense>
       </div>
     );
   }
@@ -368,7 +389,9 @@ export function App() {
     <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
       <Header />
       <main className="flex-1 min-h-0 overflow-hidden">
-        <StreamView />
+        <Suspense fallback={null}>
+          <StreamView />
+        </Suspense>
       </main>
     </div>
   ) : isChat ? (
