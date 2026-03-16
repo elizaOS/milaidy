@@ -80,6 +80,7 @@ const localPackHotspotPaths = [
 type RootPackageJson = {
   bundleDependencies?: string[];
   bundledDependencies?: string[];
+  dependencies?: Record<string, string>;
   files?: string[];
   scripts?: Record<string, string>;
 };
@@ -146,6 +147,18 @@ export function bundlesDependency(
     ...(pkg.bundledDependencies ?? []),
   ];
   return bundled.includes(dependencyName);
+}
+
+export function isExactVersionSpecifier(
+  versionSpecifier: string | undefined,
+): boolean {
+  if (typeof versionSpecifier !== "string") {
+    return false;
+  }
+
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+    versionSpecifier,
+  );
 }
 
 export function hasLifecycleScriptReferencingMissingFile(
@@ -222,6 +235,15 @@ function assertBundledAgentOrchestratorInstallFix() {
   if (!bundlesDependency(rootPackage, orchestratorPackageName)) {
     console.error(
       "release-check: package.json must bundle @elizaos/plugin-agent-orchestrator until the upstream tarball stops shipping a broken postinstall hook.",
+    );
+    process.exit(1);
+  }
+
+  const orchestratorVersion =
+    rootPackage.dependencies?.[orchestratorPackageName];
+  if (!isExactVersionSpecifier(orchestratorVersion)) {
+    console.error(
+      "release-check: package.json must pin @elizaos/plugin-agent-orchestrator to an exact version until the upstream tarball stops shipping a broken postinstall hook.",
     );
     process.exit(1);
   }

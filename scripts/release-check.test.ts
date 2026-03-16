@@ -4,6 +4,7 @@ import {
   bundlesDependency,
   findLocalPackHotspots,
   hasLifecycleScriptReferencingMissingFile,
+  isExactVersionSpecifier,
   isPackPathCoveredByFilesList,
   shouldSkipExactPackDryRun,
 } from "./release-check";
@@ -83,6 +84,19 @@ describe("release-check package guards", () => {
         "@elizaos/plugin-agent-orchestrator",
       ),
     ).toBe(true);
+  });
+
+  it("accepts only exact dependency versions for orchestrator release pins", () => {
+    expect(isExactVersionSpecifier("0.3.14")).toBe(true);
+    expect(isExactVersionSpecifier("2.0.0-alpha.1")).toBe(true);
+    expect(isExactVersionSpecifier("1.2.3+build.4")).toBe(true);
+
+    expect(isExactVersionSpecifier(undefined)).toBe(false);
+    expect(isExactVersionSpecifier("next")).toBe(false);
+    expect(isExactVersionSpecifier("latest")).toBe(false);
+    expect(isExactVersionSpecifier("^0.3.14")).toBe(false);
+    expect(isExactVersionSpecifier("~0.3.14")).toBe(false);
+    expect(isExactVersionSpecifier("workspace:*")).toBe(false);
   });
 
   it("flags lifecycle hooks that reference missing files", () => {
