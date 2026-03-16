@@ -33,7 +33,7 @@ vi.mock("ethers", async () => {
 const mockMarkAddressVerified = vi.fn();
 const mockIsAddressWhitelisted = vi.fn().mockReturnValue(false);
 
-vi.mock("./twitter-verify", () => ({
+vi.mock("../../packages/autonomous/src/api/twitter-verify.ts", () => ({
   markAddressVerified: (...args: unknown[]) => mockMarkAddressVerified(...args),
   isAddressWhitelisted: (...args: unknown[]) =>
     mockIsAddressWhitelisted(...args),
@@ -52,7 +52,10 @@ vi.mock("@elizaos/core", () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────
 
-import { verifyAndWhitelistHolder, verifyMiladyHolder } from "./nft-verify";
+import {
+  verifyAndWhitelistHolder,
+  verifyMiladyHolder,
+} from "../../packages/autonomous/src/api/nft-verify.ts";
 
 // ── Tests ────────────────────────────────────────────────────────────────
 

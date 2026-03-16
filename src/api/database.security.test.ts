@@ -7,12 +7,12 @@ import {
 const loadMiladyConfigMock = vi.fn();
 const saveMiladyConfigMock = vi.fn();
 
-vi.mock("../config/config", () => ({
+vi.mock("../../packages/autonomous/src/config/config.ts", () => ({
   loadMiladyConfig: () => loadMiladyConfigMock(),
   saveMiladyConfig: (cfg: unknown) => saveMiladyConfigMock(cfg),
 }));
 
-import { handleDatabaseRoute } from "./database";
+import { handleDatabaseRoute } from "../../packages/autonomous/src/api/database.ts";
 
 describe("database API security hardening", () => {
   const prevBind = process.env.MILADY_API_BIND;

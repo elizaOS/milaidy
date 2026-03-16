@@ -52,7 +52,7 @@ class ThrowingDropService {
 
 // ── Module mocks (hoisted by vitest) ────────────────────────────────────────
 
-vi.mock("./tx-service", () => ({
+vi.mock("../../packages/autonomous/src/api/tx-service.ts", () => ({
   TxService: class MockTxService {
     address = "0x1111111111111111111111111111111111111111";
     getContract() {
@@ -61,15 +61,15 @@ vi.mock("./tx-service", () => ({
   },
 }));
 
-vi.mock("./registry-service", () => ({
+vi.mock("../../packages/autonomous/src/api/registry-service.ts", () => ({
   RegistryService: ThrowingRegistryService,
 }));
 
-vi.mock("./drop-service", () => ({
+vi.mock("../../packages/autonomous/src/api/drop-service.ts", () => ({
   DropService: ThrowingDropService,
 }));
 
-vi.mock("../config/config", () => ({
+vi.mock("../../packages/autonomous/src/config/config.ts", () => ({
   loadMiladyConfig: () => ({
     registry: {
       registryAddress: "0x2222222222222222222222222222222222222222",
@@ -86,7 +86,7 @@ vi.mock("../config/config", () => ({
   configFileExists: () => true,
 }));
 
-vi.mock("../services/mcp-marketplace", () => ({
+vi.mock("../../packages/autonomous/src/services/mcp-marketplace.ts", () => ({
   searchMcpMarketplace: vi.fn().mockResolvedValue({ results: [] }),
   getMcpServerDetails: vi.fn().mockResolvedValue(null),
 }));
@@ -135,7 +135,9 @@ function req(
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-const { startApiServer } = await import("./server");
+const { startApiServer } = await import(
+  "../../packages/autonomous/src/api/server.ts"
+);
 
 describe("on-chain route error propagation (MW-02)", () => {
   let port: number;

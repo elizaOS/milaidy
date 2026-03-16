@@ -11,8 +11,8 @@ import {
   it,
   vi,
 } from "vitest";
-import { startApiServer } from "../src/api/server";
-import type { OAuthCredentials } from "../src/auth/types";
+import { startApiServer } from "@milady/autonomous/api/server";
+import type { OAuthCredentials } from "@milady/autonomous/auth/types";
 
 const getSubscriptionStatus = vi.fn(() => [{ id: "openai-codex" }]);
 const startAnthropicLogin = vi.fn();
@@ -21,7 +21,7 @@ const saveCredentials = vi.fn();
 const applySubscriptionCredentials = vi.fn(async () => undefined);
 const deleteCredentials = vi.fn();
 
-vi.mock("../src/auth/index", () => ({
+vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
   getSubscriptionStatus,
   startAnthropicLogin,
   startCodexLogin,

@@ -10,7 +10,14 @@ vi.mock("../diagnostics/integration-observability", () => ({
   createIntegrationTelemetrySpan: createSpanMock,
 }));
 
-import { getMcpServerDetails, searchMcpMarketplace } from "./mcp-marketplace";
+vi.mock("@milady/autonomous/diagnostics/integration-observability", () => ({
+  createIntegrationTelemetrySpan: createSpanMock,
+}));
+
+import {
+  getMcpServerDetails,
+  searchMcpMarketplace,
+} from "@milady/autonomous/services/mcp-marketplace";
 
 describe("mcp marketplace observability", () => {
   beforeEach(() => {

@@ -107,7 +107,7 @@ import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
 import { diagnoseNoAIProvider } from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { detectEmbeddingPreset } from "./embedding-presets";
-import { createMiladyPlugin } from "../../../../src/runtime/milady-plugin";
+import { createMiladyPlugin } from "./milady-plugin";
 import {
   installDatabaseTrajectoryLogger,
   shouldEnableTrajectoryLoggingByDefault,
@@ -3665,7 +3665,7 @@ export async function startEliza(
 
   // 2d-iii. OG tracking code initialization
   try {
-    const { initializeOGCode } = await import("../../../../src/api/og-tracker");
+    const { initializeOGCode } = await import("../api/og-tracker");
     initializeOGCode();
   } catch {
     // Silent — OG tracking is non-critical

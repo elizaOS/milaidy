@@ -1,4 +1,5 @@
 export * from "./config";
+export * from "./character-schema";
 export * from "./env-vars";
 export * from "./includes";
 export * from "./object-utils";

@@ -29,8 +29,7 @@ import {
 } from "@elizaos/core";
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
-import { getGlobalAwarenessRegistry } from "../../../../src/awareness/registry";
-import type { CloudManager } from "../../../../src/cloud/cloud-manager";
+import { getGlobalAwarenessRegistry } from "../awareness/registry";
 import {
   configFileExists,
   loadMiladyConfig,
@@ -44,18 +43,18 @@ import {
   isStreamingDestinationConfigured,
 } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
-import { EMOTE_BY_ID, EMOTE_CATALOG } from "../../../../src/emotes/catalog";
+import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
 import {
   type AgentEventPayloadLike,
   type AgentEventServiceLike,
   getAgentEventService,
-} from "../../../../src/runtime/agent-event-service";
+} from "../runtime/agent-event-service";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "../runtime/core-plugins";
 import {
   buildTestHandler,
   registerCustomActionLive,
-} from "../../../../src/runtime/custom-actions";
+} from "../runtime/custom-actions";
 import {
   classifyRegistryPluginRelease,
   getBundledRuntimePluginIds,
@@ -72,18 +71,18 @@ import {
   queryAuditFeed,
   subscribeAuditFeed,
 } from "../security/audit-log";
-import { AppManager } from "../../../../src/services/app-manager";
+import { AppManager } from "../services/app-manager";
 import {
   AgentExportError,
   estimateExportSize,
   exportAgent,
   importAgent,
-} from "../../../../src/services/agent-export";
+} from "../services/agent-export";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
   getMcpServerDetails,
   searchMcpMarketplace,
-} from "../../../../src/services/mcp-marketplace";
+} from "../services/mcp-marketplace";
 import {
   type CoreManagerLike,
   type InstallProgressLike,
@@ -101,7 +100,7 @@ import {
   listInstalledMarketplaceSkills,
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
-} from "../../../../src/services/skill-marketplace";
+} from "../services/skill-marketplace";
 import { streamManager } from "../services/stream-manager";
 import {
   executeTriggerTask,
@@ -114,13 +113,13 @@ import {
   TRIGGER_TASK_TAGS,
   taskToTriggerSummary,
   triggersFeatureEnabled,
-} from "../../../../src/triggers/runtime";
+} from "../triggers/runtime";
 import {
   buildTriggerConfig,
   buildTriggerMetadata,
   DISABLED_TRIGGER_INTERVAL_MS,
   normalizeTriggerDraft,
-} from "../../../../src/triggers/scheduling";
+} from "../triggers/scheduling";
 import { parseClampedInteger } from "../utils/number-parsing";
 import { sanitizeSpeechText } from "../utils/spoken-text";
 import { handleAgentAdminRoutes } from "./agent-admin-routes";
@@ -138,7 +137,7 @@ import {
   buildBscTradePreflight,
   buildBscTradeQuote,
   resolvePrimaryBscRpcUrl,
-} from "../../../../src/api/bsc-trade";
+} from "./bsc-trade";
 import { handleBugReportRoutes } from "./bug-report-routes";
 import { handleCharacterRoutes } from "./character-routes";
 import { handleCloudBillingRoute } from "./cloud-billing-routes";
@@ -157,9 +156,9 @@ import {
   isInsufficientCreditsError,
   isInsufficientCreditsMessage,
 } from "./credit-detection";
-import { handleDatabaseRoute } from "../../../../src/api/database";
+import { handleDatabaseRoute } from "./database";
 import { handleDiagnosticsRoutes } from "./diagnostics-routes";
-import { DropService } from "../../../../src/api/drop-service";
+import { DropService } from "./drop-service";
 import {
   readJsonBody as parseJsonBody,
   type ReadJsonBodyOptions,
@@ -176,10 +175,10 @@ import {
   sweepExpiredEntries,
 } from "./memory-bounds";
 import { handleMemoryRoutes } from "./memory-routes";
-import { buildWhitelistTree, generateProof } from "../../../../src/api/merkle-tree";
+import { buildWhitelistTree, generateProof } from "./merkle-tree";
 import { handleModelsRoutes } from "./models-routes";
 import { handleNfaRoutes } from "./nfa-routes";
-import { verifyAndWhitelistHolder } from "../../../../src/api/nft-verify";
+import { verifyAndWhitelistHolder } from "./nft-verify";
 import type { PTYService } from "./parse-action-block";
 import { handlePermissionRoutes } from "./permissions-routes";
 import {
@@ -191,7 +190,7 @@ import {
   clearSubscriptionProviderConfig,
 } from "./provider-switch-config";
 import { handleRegistryRoutes } from "./registry-routes";
-import { RegistryService } from "../../../../src/api/registry-service";
+import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
 import {
   applySignalQrOverride,
@@ -209,8 +208,8 @@ import {
   isAddressWhitelisted,
   markAddressVerified,
   verifyTweet,
-} from "../../../../src/api/twitter-verify";
-import { TxService } from "../../../../src/api/tx-service";
+} from "./twitter-verify";
+import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
 import { resolveWalletRpcReadiness } from "./wallet-rpc";
@@ -218,24 +217,24 @@ import {
   loadWalletTradingProfile,
   recordWalletTradeLedgerEntry,
   updateWalletTradeLedgerEntryStatus,
-} from "../../../../src/api/wallet-trading-profile";
+} from "./wallet-trading-profile";
 import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
-import { CharacterSchema } from "../../../../src/config/zod-schema";
+import { CharacterSchema } from "../config/character-schema";
 import {
   SignalPairingSession,
   sanitizeAccountId as sanitizeSignalAccountId,
   signalAuthExists,
   signalLogout,
-} from "../../../../src/services/signal-pairing";
+} from "../services/signal-pairing";
 import {
   sanitizeAccountId as sanitizeWhatsAppAccountId,
   WhatsAppPairingSession,
   whatsappAuthExists,
   whatsappLogout,
-} from "../../../../src/services/whatsapp-pairing";
+} from "../services/whatsapp-pairing";
 
 /**
  * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
@@ -474,7 +473,7 @@ interface ServerState {
   /** Tombstones for conversation IDs explicitly deleted by the user. */
   deletedConversationIds: Set<string>;
   /** Cloud manager for Eliza Cloud integration (null when cloud is disabled). */
-  cloudManager: CloudManager | null;
+  cloudManager: CloudRouteState["cloudManager"];
   sandboxManager: SandboxManager | null;
   /** App manager for launching and managing elizaOS apps. */
   appManager: AppManager;
@@ -525,12 +524,12 @@ interface ServerState {
   /** Active WhatsApp pairing sessions (QR code flow). */
   whatsappPairingSessions?: Map<
     string,
-    import("../../../../src/services/whatsapp-pairing").WhatsAppPairingSession
+    import("../services/whatsapp-pairing").WhatsAppPairingSession
   >;
   /** Active Signal pairing sessions (device linking flow). */
   signalPairingSessions?: Map<
     string,
-    import("../../../../src/services/signal-pairing").SignalPairingSession
+    import("../services/signal-pairing").SignalPairingSession
   >;
 }
 
@@ -9499,7 +9498,7 @@ async function handleRequest(
   if (method === "GET" && pathname === "/api/skills/catalog") {
     try {
       const { getCatalogSkills } = await import(
-        "../../../../src/services/skill-catalog-client"
+        "../services/skill-catalog-client"
       );
       const all = await getCatalogSkills();
       const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
@@ -9582,7 +9581,7 @@ async function handleRequest(
     }
     try {
       const { searchCatalogSkills } = await import(
-        "../../../../src/services/skill-catalog-client"
+        "../services/skill-catalog-client"
       );
       const limit = Math.min(
         100,
@@ -9609,7 +9608,7 @@ async function handleRequest(
     if (slug && slug !== "search") {
       try {
         const { getCatalogSkill } = await import(
-          "../../../../src/services/skill-catalog-client"
+          "../services/skill-catalog-client"
         );
         const skill = await getCatalogSkill(slug);
         if (!skill) {
@@ -9632,7 +9631,7 @@ async function handleRequest(
   if (method === "POST" && pathname === "/api/skills/catalog/refresh") {
     try {
       const { refreshCatalog } = await import(
-        "../../../../src/services/skill-catalog-client"
+        "../services/skill-catalog-client"
       );
       const skills = await refreshCatalog();
       json(res, { ok: true, count: skills.length });
@@ -10267,7 +10266,7 @@ async function handleRequest(
     } else if (fs.existsSync(path.join(mpDir, "SKILL.md"))) {
       try {
         const { uninstallMarketplaceSkill } = await import(
-          "../../../../src/services/skill-marketplace"
+          "../services/skill-marketplace"
         );
         await uninstallMarketplaceSkill(workspaceDir, skillId);
         deleted = true;
@@ -11025,14 +11024,14 @@ async function handleRequest(
 
   // ── GET /api/update/status ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/update/status") {
-    const { VERSION } = await import("../../../../src/runtime/version");
+    const { VERSION } = await import("../runtime/version");
     const {
       resolveChannel,
       checkForUpdate,
       fetchAllChannelVersions,
       CHANNEL_DIST_TAGS,
-    } = await import("../../../../src/services/update-checker");
-    const { detectInstallMethod } = await import("../../../../src/services/self-updater");
+    } = await import("../services/update-checker");
+    const { detectInstallMethod } = await import("../services/self-updater");
     const channel = resolveChannel(state.config.update);
 
     const [check, versions] = await Promise.all([
@@ -11601,7 +11600,7 @@ async function handleRequest(
 
   // ── GET /api/config/schema ───────────────────────────────────────────────
   if (method === "GET" && pathname === "/api/config/schema") {
-    const { buildConfigSchema } = await import("../../../../src/config/schema");
+    const { buildConfigSchema } = await import("../config/schema");
     const result = buildConfigSchema();
     json(res, result);
     return;
@@ -12254,7 +12253,7 @@ async function handleRequest(
 
       // Build approval tx for sell (if needed)
       let unsignedApprovalTx:
-        | import("../../../../src/contracts/wallet").BscUnsignedApprovalTx
+        | import("../contracts/wallet").BscUnsignedApprovalTx
         | undefined;
       let requiresApproval = false;
       if (quote.side === "sell" && walletAddress) {
@@ -16887,7 +16886,7 @@ export async function startApiServer(opts?: {
         ) {
           try {
             const { createCustomRtmpDestination } = await import(
-              "../../../../src/plugins/custom-rtmp/index.js"
+              "../plugins/custom-rtmp/index.js"
             );
             destinations.set(
               "custom-rtmp",

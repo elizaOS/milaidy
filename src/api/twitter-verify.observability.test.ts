@@ -6,11 +6,14 @@ const { createSpanMock, spanSuccessMock, spanFailureMock } = vi.hoisted(() => ({
   spanFailureMock: vi.fn(),
 }));
 
-vi.mock("../diagnostics/integration-observability", () => ({
-  createIntegrationTelemetrySpan: createSpanMock,
-}));
+vi.mock(
+  "../../packages/autonomous/src/diagnostics/integration-observability.ts",
+  () => ({
+    createIntegrationTelemetrySpan: createSpanMock,
+  }),
+);
 
-import { verifyTweet } from "./twitter-verify";
+import { verifyTweet } from "../../packages/autonomous/src/api/twitter-verify.ts";
 
 const VALID_TWEET_URL = "https://x.com/alice/status/123456789";
 const WALLET = "0xAbCdEf1234567890AbCdEf1234567890AbCdEf12";
