@@ -32,7 +32,7 @@ jobs:
             artifact_name: linux-x64
           - name: Windows x64
             os: windows
-            runner: blacksmith-4vcpu-windows-2025
+            runner: windows-2022
             artifact_name: windows-x64
           - name: macOS Apple Silicon
             os: macos

@@ -15,7 +15,7 @@ on:
 jobs:
   validate:
     name: Validate Packaging Configs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
 
   build-pypi:
     name: Build & Test PyPI Package
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -121,7 +121,7 @@ jobs:
 
   build-pypi-matrix:
     name: PyPI on Python ${{ matrix.python }}
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
