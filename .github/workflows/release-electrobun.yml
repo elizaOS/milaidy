@@ -104,8 +104,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-electrobun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-electrobun-${{ runner.os }}-
+          key: bun-electrobun-${{ matrix.platform.artifact-name }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-${{ matrix.platform.artifact-name }}-
 
       - name: Install root dependencies
         run: bun install --frozen-lockfile --ignore-scripts
@@ -177,8 +177,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-electrobun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-electrobun-${{ runner.os }}-
+          key: bun-electrobun-${{ matrix.platform.artifact-name }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-${{ matrix.platform.artifact-name }}-
 
       - name: Install root dependencies
         # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node
@@ -193,16 +193,27 @@ jobs:
             bun install --frozen-lockfile --ignore-scripts
           fi
 
+      - name: Cache avatar assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/app/public/vrms
+            apps/app/public/animations
+          key: avatars-${{ hashFiles('scripts/ensure-avatars.mjs') }}
+
       - name: Ensure avatar assets
         run: node scripts/ensure-avatars.mjs
 
-      - name: Cache Whisper models
+      - name: Cache Whisper models and binaries
         if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
         uses: actions/cache@v4
         with:
-          path: ~/.cache/milady/whisper
-          key: whisper-model-${{ matrix.platform.artifact-name }}-${{ hashFiles('apps/app/electrobun/scripts/build-whisper.sh', 'apps/app/electrobun/scripts/build-whisper-universal.sh') }}
-          restore-keys: whisper-model-${{ matrix.platform.artifact-name }}-
+          path: |
+            ~/.cache/milady/whisper
+            node_modules/whisper-node/lib/whisper.cpp/main
+            node_modules/whisper-node/lib/whisper.cpp/build
+          key: whisper-${{ matrix.platform.artifact-name }}-${{ hashFiles('apps/app/electrobun/scripts/build-whisper.sh', 'apps/app/electrobun/scripts/build-whisper-universal.sh') }}
+          restore-keys: whisper-${{ matrix.platform.artifact-name }}-
 
       - name: Align version with release tag
         run: node scripts/align-electrobun-version.mjs
@@ -596,6 +607,13 @@ jobs:
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
         run: bash apps/app/electrobun/scripts/stage-macos-release-artifacts.sh
+
+      - name: Cache Windows embedding model
+        if: matrix.platform.os == 'windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.eliza/models
+          key: embedding-model-nomic-embed-text-v1.5-Q4_K_S
 
       - name: Seed Windows embedding model cache
         if: matrix.platform.os == 'windows'
