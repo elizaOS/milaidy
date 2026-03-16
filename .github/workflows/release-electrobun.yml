@@ -376,8 +376,9 @@ jobs:
         shell: pwsh
         run: |
           $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
-          $cacheDir     = Join-Path $electrobunDir ".cache"
-          $binDir       = Join-Path $electrobunDir "bin"
+          $resolvedElectrobunDir = (Resolve-Path -LiteralPath $electrobunDir).ProviderPath
+          $cacheDir     = Join-Path $resolvedElectrobunDir ".cache"
+          $binDir       = Join-Path $resolvedElectrobunDir "bin"
           $cliBinary    = Join-Path $cacheDir "electrobun.exe"
           $binBinary    = Join-Path $binDir "electrobun.exe"
 
@@ -386,7 +387,7 @@ jobs:
             exit 0
           }
 
-          $version      = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $version      = (Get-Content (Join-Path $resolvedElectrobunDir "package.json") | ConvertFrom-Json).version
           $assetName    = "electrobun-cli-win-x64.tar.gz"
           $releaseApiUrl = "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version"
           $headers = @{

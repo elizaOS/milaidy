@@ -129,6 +129,12 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
+    expect(workflow).toContain(
+      "$resolvedElectrobunDir = (Resolve-Path -LiteralPath $electrobunDir).ProviderPath",
+    );
+    expect(workflow).toContain(
+      '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
+    );
   });
 
   it("stages the desktop bundle before restoring local electrobun caches", () => {

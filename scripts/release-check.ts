@@ -63,6 +63,8 @@ const requiredWorkflowSnippets = [
   "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
   "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
   "electrobun CLI checksum mismatch",
+  "$resolvedElectrobunDir = (Resolve-Path -LiteralPath $electrobunDir).ProviderPath",
+  '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
   "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
