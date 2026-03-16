@@ -9,5 +9,5 @@ if (!version) {
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 pkg.version = version;
-writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 console.log(`Set package version to ${version}`);

@@ -111,7 +111,7 @@ function buildCapabilities(plugins: string[]): string[] {
   };
 
   const extras = plugins.flatMap((p) => {
-    // Normalise e.g. "@milady/plugin-twitch-streaming" → "plugin-twitch-streaming"
+    // Normalise e.g. "@elizaos/plugin-twitch-streaming" → "plugin-twitch-streaming"
     const short = p.replace(/^@[^/]+\//, "");
     return pluginCapabilities[short] ?? [];
   });

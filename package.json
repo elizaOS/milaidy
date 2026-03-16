@@ -233,7 +233,10 @@
     "@elizaos/core": "next",
     "@elizaos/prompts": "next",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.8"
+    "pty-manager": "1.9.8",
+    "@milady/plugin-retake": "npm:@elizaos/plugin-retake@2.0.0-alpha.1",
+    "@milady/plugin-twitch-streaming": "npm:@elizaos/plugin-twitch-streaming@2.0.0-alpha.1",
+    "@milady/plugin-youtube-streaming": "npm:@elizaos/plugin-youtube-streaming@2.0.0-alpha.1"
   },
   "patchedDependencies": {
     "electrobun@1.15.1": "patches/electrobun@1.15.1.patch"

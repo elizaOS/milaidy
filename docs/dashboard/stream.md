@@ -14,8 +14,8 @@ To start streaming, select a destination from the status bar and click the strea
 
 | Destination | Plugin | Notes |
 |-------------|--------|-------|
-| **Twitch** | `@milady/plugin-twitch-streaming` | Standard Twitch RTMP ingest |
-| **YouTube** | `@milady/plugin-youtube-streaming` | Supports custom RTMP URL |
+| **Twitch** | `@elizaos/plugin-twitch-streaming` | Standard Twitch RTMP ingest |
+| **YouTube** | `@elizaos/plugin-youtube-streaming` | Supports custom RTMP URL |
 | **Custom RTMP** | Any RTMP-compatible plugin | Any platform using standard RTMP protocol |
 
 Each destination provides RTMP URL and stream key credentials, optional lifecycle hooks (`onStreamStart`, `onStreamStop`), and per-destination default overlay layouts.
