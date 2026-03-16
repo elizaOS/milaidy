@@ -143,6 +143,7 @@
         "@noble/curves": "^2.0.1",
         "@pixiv/three-vrm": "^3.4.5",
         "@sparkjsdev/spark": "^0.1.10",
+        "lucide-react": "^0.575.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "three": "^0.182.0",
