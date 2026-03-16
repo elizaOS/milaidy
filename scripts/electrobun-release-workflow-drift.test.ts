@@ -69,8 +69,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
-    expect(workflow).toContain("arch -x86_64 bunx tsdown");
-    expect(workflow).toContain("arch -x86_64 bunx vite build");
+    // tsdown and vite are now built once in validate-release and shared as artifacts
     expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
       `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
@@ -143,11 +142,9 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "restore-keys: whisper-$" + "{{ matrix.platform.artifact-name }}-",
     );
+    // Vite build is now shared via artifact from validate-release
     expect(workflow).toContain(
-      "# vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install",
-    );
-    expect(workflow).not.toContain(
-      "name: Build renderer (vite)\n        # vite output is arch-neutral JS/CSS/HTML, but bun install here may pull",
+      "# dist/ and apps/app/dist/ are downloaded from the shared build artifact",
     );
   });
 
